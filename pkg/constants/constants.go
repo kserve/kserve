@@ -18,10 +18,11 @@ package constants
 
 import (
 	"fmt"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"os"
 	"regexp"
 	"strings"
+
+	"knative.dev/serving/pkg/apis/autoscaling"
 
 	"knative.dev/pkg/network"
 
@@ -42,6 +43,11 @@ var (
 	InferenceServiceAPIName       = "inferenceservices"
 	InferenceServicePodLabelKey   = KFServingAPIGroupName + "/" + InferenceServiceName
 	InferenceServiceConfigMapName = "inferenceservice-config"
+)
+
+// TrainedModel Constants
+var (
+	TrainedModelAllocated = KFServingAPIGroupName + "/" + "trainedmodel-allocated"
 )
 
 // InferenceService MultiModel Constants
@@ -107,7 +113,9 @@ const (
 
 // InferenceService Environment Variables
 const (
-	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
+	CustomSpecStorageUriEnvVarKey       = "STORAGE_URI"
+	CustomSpecProtocolEnvVarKey         = "PROTOCOL"
+	CustomSpecMultiModelServerEnvVarKey = "MULTI_MODEL_SERVER"
 )
 
 type InferenceServiceComponent string
@@ -118,13 +126,13 @@ type InferenceServiceProtocol string
 
 // Knative constants
 const (
-	KnativeLocalGateway   = "knative-serving/cluster-local-gateway"
+	KnativeLocalGateway   = "knative-serving/knative-local-gateway"
 	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
 	VisibilityLabel       = "serving.knative.dev/visibility"
 )
 
 var (
-	LocalGatewayHost = "cluster-local-gateway.istio-system.svc." + network.GetClusterDomainName()
+	LocalGatewayHost = "knative-local-gateway.istio-system.svc." + network.GetClusterDomainName()
 )
 
 // InferenceService Component enums

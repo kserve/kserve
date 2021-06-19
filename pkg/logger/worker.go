@@ -34,6 +34,7 @@ const (
 	//TODO: ideally request id would have its own header but make do with ce-id for now
 	InferenceServiceAttr = "inferenceservicename"
 	NamespaceAttr        = "namespace"
+	ComponentAttr        = "component"
 	//endpoint would be either default or canary
 	EndpointAttr = "endpoint"
 
@@ -104,10 +105,13 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 
 	event.SetExtension(InferenceServiceAttr, logReq.InferenceService)
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
+	event.SetExtension(ComponentAttr, logReq.Component)
 	event.SetExtension(EndpointAttr, logReq.Endpoint)
 
 	event.SetSource(logReq.SourceUri.String())
-	event.SetDataContentType(logReq.ContentType)
+	if logReq.ContentType != "" {
+		event.SetDataContentType(logReq.ContentType)
+	}
 	if err := event.SetData(*logReq.Bytes); err != nil {
 		return fmt.Errorf("while setting cloudevents data: %s", err)
 	}

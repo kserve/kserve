@@ -1,6 +1,6 @@
 import kfserving
 from torchvision import models, transforms
-from typing import List, Dict
+from typing import Dict
 import torch
 from PIL import Image
 import base64

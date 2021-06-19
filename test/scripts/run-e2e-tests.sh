@@ -23,41 +23,18 @@ set -o pipefail
 CLUSTER_NAME="${CLUSTER_NAME}"
 AWS_REGION="${AWS_REGION}"
 
-ISTIO_VERSION="1.3.1"
-KNATIVE_VERSION="v0.17.0"
-KUBECTL_VERSION="v1.17.11"
-CERT_MANAGER_VERSION="v0.12.0"
-# Check and wait for istio/knative/kfserving pod started normally.
-waiting_pod_running(){
-    namespace=$1
-    TIMEOUT=180
-    PODNUM=$(kubectl get deployments -n ${namespace} | grep -v NAME | wc -l)
-    until kubectl get pods -n ${namespace} | grep -E "Running" | [[ $(wc -l) -eq $PODNUM ]]; do
-        echo Pod Status $(kubectl get pods -n ${namespace} | grep -E "Running" | wc -l)/$PODNUM
-
-        sleep 10
-        TIMEOUT=$(( TIMEOUT - 10 ))
-        if [[ $TIMEOUT -eq 0 ]];then
-            echo "Timeout to waiting for pod start."
-            kubectl get pods -n ${namespace}
-            exit 1
-        fi
-    done
-}
+ISTIO_VERSION="1.8.2"
+KNATIVE_VERSION="v0.22.0"
+KUBECTL_VERSION="v1.20.2"
+CERT_MANAGER_VERSION="v1.2.0"
 
 echo "Upgrading kubectl ..."
-# The kubectl need to be upgraded to 1.14.0 to avoid dismatch issue.
-wget -q -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+wget -q -O /usr/local/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
 chmod a+x /usr/local/bin/kubectl
 
 echo "Configuring kubectl ..."
 pip3 install awscli --upgrade --user
 aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
-
-# Install and Initialize Helm
-wget https://get.helm.sh/helm-v3.0.2-linux-amd64.tar.gz
-tar xvf helm-v3.0.2-linux-amd64.tar.gz
-mv linux-amd64/helm /usr/local/bin/
 
 echo "Install istio ..."
 mkdir istio_tmp
@@ -65,76 +42,72 @@ pushd istio_tmp >/dev/null
   curl -L https://git.io/getLatestIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
   cd istio-${ISTIO_VERSION}
   export PATH=$PWD/bin:$PATH
-  kubectl create namespace istio-system
-  #install istio lean
-  helm template --namespace=istio-system \
-  --set prometheus.enabled=false \
-  --set mixer.enabled=false \
-  --set mixer.policy.enabled=false \
-  --set mixer.telemetry.enabled=false \
-  `# Pilot doesn't need a sidecar.` \
-  --set pilot.sidecar=false \
-  --set pilot.resources.requests.memory=128Mi \
-  `# Disable galley (and things requiring galley).` \
-  --set galley.enabled=false \
-  --set global.useMCP=false \
-  `# Disable security / policy.` \
-  --set security.enabled=false \
-  --set global.disablePolicyChecks=true \
-  `# Disable sidecar injection.` \
-  --set sidecarInjectorWebhook.enabled=false \
-  --set global.proxy.autoInject=disabled \
-  --set global.omitSidecarInjectorConfigMap=true \
-  --set gateways.istio-ingressgateway.autoscaleMin=1 \
-  --set gateways.istio-ingressgateway.autoscaleMax=2 \
-  `# Set pilot trace sampling to 100%` \
-  --set pilot.traceSampling=100 \
-  --set global.mtls.auto=false \
-  install/kubernetes/helm/istio \
-  > ./istio-lean.yaml
+  istioctl operator init
+  cat << EOF > ./istio-minimal-operator.yaml
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    global:
+      proxy:
+        autoInject: disabled
+      useMCP: false
+      # The third-party-jwt is not enabled on all k8s.
+      # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
+      jwtPolicy: first-party-jwt
 
-  kubectl apply -f istio-lean.yaml
+  meshConfig:
+    accessLogFile: /dev/stdout
 
-  #use cluster local gateway
-  helm template --namespace=istio-system \
-  --set gateways.custom-gateway.autoscaleMin=1 \
-  --set gateways.custom-gateway.autoscaleMax=1 \
-  --set gateways.custom-gateway.cpu.targetAverageUtilization=60 \
-  --set gateways.custom-gateway.labels.app='cluster-local-gateway' \
-  --set gateways.custom-gateway.labels.istio='cluster-local-gateway' \
-  --set gateways.custom-gateway.type='ClusterIP' \
-  --set gateways.istio-ingressgateway.enabled=false \
-  --set gateways.istio-egressgateway.enabled=false \
-  --set gateways.istio-ilbgateway.enabled=false \
-  install/kubernetes/helm/istio \
-  -f install/kubernetes/helm/istio/example-values/values-istio-gateways.yaml \
-  | sed -e "s/custom-gateway/cluster-local-gateway/g" -e "s/customgateway/clusterlocalgateway/g" \
-  > ./istio-local-gateway.yaml
+  addonComponents:
+    pilot:
+      enabled: true
 
-  kubectl apply -f istio-local-gateway.yaml
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+EOF
+  istioctl manifest install -y -f ./istio-minimal-operator.yaml
+
 popd
 
 echo "Waiting for istio started ..."
-waiting_pod_running "istio-system"
+kubectl wait --for=condition=Ready pods --all --timeout=180s -n istio-system
 
 echo "Installing knative serving ..."
-kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
-kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+kubectl apply -f https://github.com/knative/operator/releases/download/${KNATIVE_VERSION}/operator.yaml
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+ name: knative-serving
+ labels:
+   istio-injection: enabled
+---
+apiVersion: operator.knative.dev/v1alpha1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: knative-serving
+EOF
 
 echo "Waiting for knative started ..."
-waiting_pod_running "knative-serving"
+kubectl wait --for=condition=Ready knativeservings -n knative-serving knative-serving --timeout=180s
+kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,istio-webhook,networking-istio)'
+
 # skip nvcr.io for tag resolution due to auth issue
 kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
 # give longer revision timeout
 kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}}' -n knative-serving
+
 echo "Installing cert manager ..."
 kubectl create namespace cert-manager
 sleep 2
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
 
 echo "Waiting for cert manager started ..."
-kubectl wait --for=condition=ready pod -l app=cert-manager -n cert-manager
+kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --timeout=180s -n cert-manager
 
 echo "Install KFServing ..."
 export GOPATH="$HOME/go"
@@ -150,7 +123,7 @@ sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/manager_image_patch
 make deploy-ci
 
 echo "Waiting for KFServing started ..."
-kubectl wait --for=condition=ready pod -l control-plane=kfserving-controller-manager -n kfserving-system
+kubectl wait --for=condition=Ready pods --all --timeout=180s -n kfserving-system
 
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test
@@ -170,5 +143,5 @@ popd
 
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
-  pytest -n 3 --ignore=credentials/test_set_creds.py
+  pytest -n 4 --ignore=credentials/test_set_creds.py
 popd

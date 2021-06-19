@@ -17,6 +17,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o agent ./cmd/agent
 # Copy the inference-agent into a thin image
 FROM gcr.io/distroless/static:latest
 COPY third_party/ third_party/
-WORKDIR /
-COPY --from=builder /go/src/github.com/kubeflow/kfserving/agent .
-ENTRYPOINT ["/agent"]
+WORKDIR /ko-app
+COPY --from=builder /go/src/github.com/kubeflow/kfserving/agent /ko-app/
+ENTRYPOINT ["/ko-app/agent"]

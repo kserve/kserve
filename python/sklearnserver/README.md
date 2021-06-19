@@ -35,7 +35,7 @@ usage: __main__.py [-h] [--http_port HTTP_PORT] [--grpc_port GRPC_PORT]
 __main__.py: error: the following arguments are required: --model_dir
 ```
 
-You can now point to your `joblib` or `pkl` model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage. If both joblib and pickle formats are presented, joblib model will get loaded. Please follow [this sample](https://github.com/kubeflow/kfserving/tree/master/docs/samples/sklearn) to test your server by generating your own model.
+You can now point to your `joblib` or `pkl` model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage. If both joblib and pickle formats are presented, joblib model will get loaded. Please follow [this sample](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1alpha2/sklearn) to test your server by generating your own model.
 
 ## Development
 

@@ -51,6 +51,8 @@ It decreases the average resource overhead per model so model deployment becomes
 And the number of models which can be deployed in a cluster will no longer be limited 
 by the maximum pods limitation and the maximum IP address limitation.
 
+The [benchmark test results](./samples/multimodelserving/benchmark/BENCHMARK.md) are able to support the statements above.
+
 ## How Multi-Model serving address those limitations
 We designed a new CustomResource called "TrainedModel" which represents a machine learning model. 
 It can be loaded into a designated InferenceService.
@@ -63,7 +65,15 @@ The common user flow with Multi-Model serving is:
 
 ### Design
 ![Multi-model Diagram](./diagrams/mms-design.png)
+At high level trained model controller reconciles the `TrainedModel` CR and writes the model configurations mounted by
+the `InferenceService` model agent container. Model agent runs alongside with the model server container to download and send request to
+the model server for loading/unloading the models. Models can be sharded into different `InferenceServices` meaning each pod hosts the same
+ set of models or different pod in heterogeneous way that each pod can host a different set of models.
 For a more in depth details checkout this [document](https://docs.google.com/document/d/11qETyR--oOIquQke-DCaLsZY75vT1hRu21PesSUDy7o).
+
+Model Agent is a critical component which can download and deploy models at scale, here is a detailed diagram how models are
+delivered to the model server from remote model storage in parallel with go routines.
+![ModelAgent](./diagrams/model_agent.png)
 
 ### Integration with model servers
 Multi-model serving will work with any model server that implements KFServing 

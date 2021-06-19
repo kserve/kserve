@@ -32,8 +32,7 @@ def test_model():
              'silent': 1,
              'nthread': 4,
              'num_class': 10,
-             'objective': 'multi:softmax'
-            }
+             'objective': 'multi:softmax'}
     xgb_model = xgb.train(params=param, dtrain=dtrain)
     model_file = os.path.join(model_dir, BST_FILE)
     xgb_model.save_model(model_file)

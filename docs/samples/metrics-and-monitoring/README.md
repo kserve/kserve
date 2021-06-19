@@ -67,7 +67,7 @@ You should see a response similar to the following.
 ![Request count](requestlatency.png)
 
 ## Metrics-driven experiments and progressive delivery
-See [iter8-kfserving](https://github.com/iter8-tools/iter8-kfserving).
+See [Iter8 extensions for kfserving](https://iter8.tools).
 
 ## Removal
 Remove Prometheus and Prometheus Operator as follows.

@@ -1,0 +1,51 @@
+<lib-details-list-item *ngIf="ext.minReplicas" key="Minimum replicas">
+  {{ ext.minReplicas }}
+</lib-details-list-item>
+
+<lib-details-list-item *ngIf="ext.maxReplicas" key="Maximum replicas">
+  {{ ext.maxReplicas }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  key="Container Concurrency"
+  *ngIf="ext.containerConcurrency"
+>
+  {{ ext.containerConcurrency }}
+</lib-details-list-item>
+
+<lib-details-list-item key="Timeout" *ngIf="ext.timeout">
+  {{ ext.timeout }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  key="Canary Traffic Percent"
+  *ngIf="ext.canaryTrafficPercent"
+>
+  {{ ext.canaryTrafficPercent }} %
+</lib-details-list-item>
+
+<lib-details-list-item *ngIf="ext.logger?.url" key="Logging url">
+  {{ ext.logger?.url }}
+</lib-details-list-item>
+
+<lib-details-list-item *ngIf="ext.logger?.url" key="Payloads to log">
+  {{ ext.logger?.mode }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="ext.batcher?.maxBatchSize"
+  key="Maximum batch size"
+>
+  {{ ext.batcher?.maxBatchSize }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="ext.batcher?.maxLatency"
+  key="Maximum batch latency"
+>
+  {{ ext.batcher?.maxBatchSize }}
+</lib-details-list-item>
+
+<lib-details-list-item *ngIf="ext.batcher?.timeout" key="Timeout of batcher">
+  {{ ext.batcher?.timeout }}
+</lib-details-list-item>

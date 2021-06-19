@@ -14,42 +14,40 @@
 
 import numpy as np
 import os
-import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
 from kfserving import constants
-from kfserving import V1alpha2EndpointSpec
-from kfserving import V1alpha2PredictorSpec
-from kfserving import V1alpha2PyTorchSpec
-from kfserving import V1alpha2InferenceServiceSpec
-from kfserving import V1alpha2InferenceService
+from kfserving import V1beta1PredictorSpec
+from kfserving import V1beta1TorchServeSpec
+from kfserving import V1beta1InferenceServiceSpec
+from kfserving import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
-api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_pytorch():
     service_name = 'isvc-pytorch'
-    default_endpoint_spec = V1alpha2EndpointSpec(
-        predictor=V1alpha2PredictorSpec(
-            min_replicas=1,
-            parallelism=1,
-            pytorch=V1alpha2PyTorchSpec(
-                storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
-                model_class_name="Net",
-                resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '2Gi'},
-                    limits={'cpu': '100m', 'memory': '2Gi'}))))
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        pytorch=V1beta1TorchServeSpec(
+            storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
+            model_class_name="Net",
+            resources=V1ResourceRequirements(
+                requests={'cpu': '100m', 'memory': '2Gi'},
+                limits={'cpu': '100m', 'memory': '2Gi'}
+            )
+        )
+    )
 
-    isvc = V1alpha2InferenceService(api_version=api_version,
-                                    kind=constants.KFSERVING_KIND,
-                                    metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
-                                    spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
+                                   kind=constants.KFSERVING_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                       name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
 
     KFServing.create(isvc)
     try:

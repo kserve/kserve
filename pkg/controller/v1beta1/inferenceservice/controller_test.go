@@ -87,8 +87,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			"ingress": `{
                "ingressGateway": "knative-serving/knative-ingress-gateway",
                "ingressService": "test-destination",
-               "localGateway": "knative-serving/cluster-local-gateway",
-               "localGatewayService": "cluster-local-gateway.istio-system.svc.cluster.local"
+               "localGateway": "knative-serving/knative-local-gateway",
+               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
             }`,
 		}
 	)
@@ -105,7 +105,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
-
 			serviceName := "foo"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -254,18 +253,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Route: []*istiov1alpha3.HTTPRouteDestination{
 								{
-									Headers: &istiov1alpha3.Headers{
-										Request: &istiov1alpha3.Headers_HeaderOperations{
-											Set: map[string]string{
-												"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace),
-											},
-										},
-									},
 									Destination: &istiov1alpha3.Destination{
-										Host: network.GetServiceHostname("cluster-local-gateway", "istio-system"),
+										Host: network.GetServiceHostname("knative-local-gateway", "istio-system"),
 										Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 									},
 									Weight: 100,
+								},
+							},
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.Headers_HeaderOperations{
+									Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace),
+									},
 								},
 							},
 						},
@@ -273,6 +272,35 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(virtualService.Spec).To(gomega.Equal(expectedVirtualService.Spec))
+
+			//get inference service
+			time.Sleep(10 * time.Second)
+			actualIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, expectedRequest.NamespacedName, actualIsvc)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+			//update inference service with annotations and labels
+			annotations := map[string]string{"testAnnotation": "test"}
+			labels := map[string]string{"testLabel": "test"}
+			updatedIsvc := actualIsvc.DeepCopy()
+			updatedIsvc.Annotations = annotations
+			updatedIsvc.Labels = labels
+
+			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(gomega.HaveOccurred())
+			time.Sleep(10 * time.Second)
+			updatedVirtualService := &v1alpha3.VirtualService{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, updatedVirtualService)
+			}, timeout, interval).Should(gomega.Succeed())
+
+			Expect(updatedVirtualService.Spec).To(gomega.Equal(expectedVirtualService.Spec))
+			Expect(updatedVirtualService.Annotations).To(gomega.Equal(annotations))
+			Expect(updatedVirtualService.Labels).To(gomega.Equal(labels))
 		})
 	})
 

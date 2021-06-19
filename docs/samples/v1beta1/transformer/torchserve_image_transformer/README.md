@@ -96,7 +96,7 @@ and the downloaded artifacts are stored under `/mnt/models`.
 
 Apply the CRD
 ```
-kubectl apply -f image_transformer.yaml
+kubectl apply -f transformer.yaml
 ```
 
 Expected Output

@@ -72,7 +72,7 @@ mc admin service restart myminio
 
 ## Upload the mnist model to Minio
 ```
-gsutil cp gs://kfserving-examples/models/mnist .
+gsutil cp -r gs://kfserving-examples/models/tensorflow/mnist .
 mc cp -r mnist myminio/
 ```
 

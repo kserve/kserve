@@ -31,14 +31,12 @@ from ..common.utils import explain_art
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 logging.basicConfig(level=logging.INFO)
-kfserving_version = 'v1beta1'
-api_version = constants.KFSERVING_GROUP + '/' + kfserving_version
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_tabular_explainer():
     service_name = 'art-explainer'
-    isvc = V1beta1InferenceService(api_version=api_version,
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
                                    kind=constants.KFSERVING_KIND,
                                    metadata=client.V1ObjectMeta(
                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
@@ -48,32 +46,35 @@ def test_tabular_explainer():
                                                name="predictor",
                                                # Update the image below to the aipipeline org.
                                                image='aipipeline/art-server:mnist-predictor',
-                                               command=["python", "-m", "sklearnserver", "--model_name", "art-explainer", "--model_dir", "file://sklearnserver/sklearnserver/example_model"])]
-                                            ),
+                                               command=["python", "-m", "sklearnserver", "--model_name",
+                                                        "art-explainer", "--model_dir",
+                                                        "file://sklearnserver/sklearnserver/example_model"])]
+                                       ),
                                        explainer=V1beta1ExplainerSpec(
                                            min_replicas=1,
                                            art=V1beta1ARTExplainerSpec(
                                                type='SquareAttack',
                                                name='explainer',
-                                               config={"nb_classes": "10"}))
-                                        )
-                                    )
+                                               config={"nb_classes": "10"})))
+                                   )
 
     KFServing.create(isvc)
     try:
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=720)
     except RuntimeError as e:
         logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                     KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
+                                                                         KFSERVING_TEST_NAMESPACE, "services",
+                                                                         service_name + "-predictor-default"))
         pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
-                                                      label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
+                                                      label_selector='serving.kubeflow.org/inferenceservice={}'.
+                                                      format(service_name))
         for pod in pods.items:
             logging.info(pod)
         raise e
 
     res = predict(service_name, './data/mnist_input_bw_flat.json')
-    assert(res["predictions"] == [3])
+    assert (res["predictions"] == [3])
 
     adv_prediction = explain_art(service_name, './data/mnist_input_bw.json')
-    assert(adv_prediction != 3)
-    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE, version=kfserving_version)
+    assert (adv_prediction != 3)
+    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

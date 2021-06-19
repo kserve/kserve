@@ -13,22 +13,26 @@
 # limitations under the License.
 
 import glob
+import gzip
 import logging
-import tempfile
 import mimetypes
 import os
 import re
 import json
 import shutil
 import tarfile
+import tempfile
 import zipfile
-import gzip
 from urllib.parse import urlparse
-import requests 
+
+from botocore.client import Config
+from botocore import UNSIGNED
+import boto3
+import requests
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
-from minio import Minio
+
 from kfserving.kfmodel_repository import MODEL_MOUNT_DIRS
 
 _GCS_PREFIX = "gs://"
@@ -39,7 +43,8 @@ _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 
-class Storage(object): # pylint: disable=too-few-public-methods
+
+class Storage(object):  # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local", uri)
@@ -79,26 +84,45 @@ class Storage(object): # pylint: disable=too-few-public-methods
         return out_dir
 
     @staticmethod
+    def get_S3_config():
+        # anon environment variable defined in s3_secret.go
+        anon = ("True" == os.getenv("awsAnonymousCredential", "false").capitalize())
+        if anon:
+            return Config(signature_version=UNSIGNED)
+        else:
+            return None
+
+    @staticmethod
     def _download_s3(uri, temp_dir: str):
-        client = Storage._create_minio_client()
-        bucket_args = uri.replace(_S3_PREFIX, "", 1).split("/", 1)
-        bucket_name = bucket_args[0]
-        bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
-        objects = client.list_objects(bucket_name, prefix=bucket_path, recursive=True)
-        count = 0
-        for obj in objects:
-            # Replace any prefix from the object key with temp_dir
-            subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
-            # fget_object handles directory creation if does not exist
-            if not obj.is_dir:
-                if subdir_object_key == "":
-                    subdir_object_key = obj.object_name
-                client.fget_object(bucket_name, obj.object_name,
-                                   os.path.join(temp_dir, subdir_object_key))
-            count = count + 1
-        if count == 0:
-            raise RuntimeError("Failed to fetch model. \
-The path or model %s does not exist." % (uri))
+        # Boto3 looks at various configuration locations until it finds configuration values.
+        # lookup order:
+        # 1. Config object passed in as the config parameter when creating S3 resource
+        #    if awsAnonymousCredential env var true, passed in via config
+        # 2. Environment variables
+        # 3. ~/.aws/config file
+        s3 = boto3.resource('s3',
+                            endpoint_url=os.getenv("AWS_ENDPOINT_URL", "http://s3.amazonaws.com"),
+                            config=Storage.get_S3_config())
+        parsed = urlparse(uri, scheme='s3')
+        bucket_name = parsed.netloc
+        bucket_path = parsed.path.lstrip('/')
+
+        bucket = s3.Bucket(bucket_name)
+        for obj in bucket.objects.filter(Prefix=bucket_path):
+            # Skip where boto3 lists the directory as an object
+            if obj.key.endswith("/"):
+                continue
+            # In the case where bucket_path points to a single object, set the target key to bucket_path
+            # Otherwise, remove the bucket_path prefix, strip any extra slashes, then prepend the target_dir
+            target_key = (
+                obj.key
+                if bucket_path == obj.key
+                else obj.key.replace(bucket_path, "", 1).lstrip("/")
+            )
+            target = f"{temp_dir}/{target_key}"
+            if not os.path.exists(os.path.dirname(target)):
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+            bucket.download_file(obj.key, target)
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
@@ -131,10 +155,10 @@ The path or model %s does not exist." % (uri))
             count = count + 1
         if count == 0:
             raise RuntimeError("Failed to fetch model. \
-The path or model %s does not exist." % (uri))
+The path or model %s does not exist." % uri)
 
     @staticmethod
-    def _download_blob(uri, out_dir: str): # pylint: disable=too-many-locals
+    def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
         match = re.search(_BLOB_RE, uri)
         account_name = match.group(1)
         storage_url = match.group(2)
@@ -147,7 +171,7 @@ The path or model %s does not exist." % (uri))
         try:
             block_blob_service = BlockBlobService(account_name=account_name)
             blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
-        except Exception: # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             token = Storage._get_azure_storage_token()
             if token is None:
                 logging.warning("Azure credentials not found, retrying anonymous access")
@@ -228,7 +252,7 @@ The path or model %s does not exist." % (uri))
     def _download_from_uri(uri, out_dir=None):
         url = urlparse(uri)
         filename = os.path.basename(url.path)
-        mimetype, encoding = mimetypes.guess_type(uri)
+        mimetype, encoding = mimetypes.guess_type(url.path)
         local_path = os.path.join(out_dir, filename)
 
         if filename == '':
@@ -244,12 +268,18 @@ The path or model %s does not exist." % (uri))
         with requests.get(uri, stream=True, headers=headers) as response:
             if response.status_code != 200:
                 raise RuntimeError("URI: %s returned a %s response code." % (uri, response.status_code))
-            if mimetype == 'application/zip' and not response.headers.get('Content-Type', '').startswith('application/zip'):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % (uri))
-            if mimetype == 'application/x-tar' and not response.headers.get('Content-Type', '').startswith('application/x-tar'):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/x-tar\'" % (uri))
-            if (mimetype != 'application/zip' and mimetype != 'application/x-tar') and not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'" % (uri))
+            if mimetype == 'application/zip' and not response.headers.get('Content-Type', '')\
+                    .startswith('application/zip'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % uri)
+            tar_content_types = ('application/x-tar', 'application/x-gtar', 'application/x-gzip', 'application/gzip')
+            if mimetype == 'application/x-tar' and not response.headers.get('Content-Type', '')\
+                    .startswith(tar_content_types):
+                raise RuntimeError("URI: %s did not respond with any of following \'Content-Type\': " % uri +
+                                   ", ".join(tar_content_types))
+            if (mimetype != 'application/zip' and mimetype != 'application/x-tar') and \
+                    not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'"
+                                   % uri)
 
             if encoding == 'gzip':
                 stream = gzip.GzipFile(fileobj=response.raw)
@@ -258,7 +288,7 @@ The path or model %s does not exist." % (uri))
                 stream = response.raw
             with open(local_path, 'wb') as out:
                 shutil.copyfileobj(stream, out)
-        
+
         if mimetype in ["application/x-tar", "application/zip"]:
             if mimetype == "application/x-tar":
                 archive = tarfile.open(local_path, 'r', encoding='utf-8')
@@ -269,14 +299,3 @@ The path or model %s does not exist." % (uri))
             os.remove(local_path)
 
         return out_dir
-
-    @staticmethod
-    def _create_minio_client():
-        # Adding prefixing "http" in urlparse is necessary for it to be the netloc
-        url = urlparse(os.getenv("AWS_ENDPOINT_URL", "http://s3.amazonaws.com"))
-        use_ssl = url.scheme == 'https' if url.scheme else bool(os.getenv("S3_USE_HTTPS", "true"))
-        return Minio(url.netloc,
-                     access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
-                     secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", ""),
-                     region=os.getenv("AWS_REGION", ""),
-                     secure=use_ssl)

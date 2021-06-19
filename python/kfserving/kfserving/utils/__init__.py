@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kfserving.utils.numpy_encoder import NumpyEncoder
+from kfserving.utils.numpy_encoder import NumpyEncoder  # noqa # pylint: disable=unused-import

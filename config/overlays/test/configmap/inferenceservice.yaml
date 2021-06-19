@@ -11,22 +11,34 @@ data:
             "defaultImageVersion": "1.14.0",
             "defaultGpuImageVersion": "1.14.0-gpu",
             "defaultTimeout": "60",
+            "supportedFrameworks": [
+             "tensorflow"
+            ],
             "multiModelServer": false
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
             "defaultImageVersion": "v1.0.0",
+            "supportedFrameworks": [
+              "onnx"
+            ],
             "multiModelServer": false
         },
         "sklearn": {
           "v1": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver",
             "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "sklearn"
+            ],
             "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
             "defaultImageVersion": "0.2.1",
+            "supportedFrameworks": [
+              "sklearn"
+            ],
             "multiModelServer": true
           }
         },
@@ -34,11 +46,17 @@ data:
           "v1": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver",
             "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "xgboost"
+            ],
             "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
             "defaultImageVersion": "0.2.1",
+            "supportedFrameworks": [
+              "xgboost"
+            ],
             "multiModelServer": true
           }
         },
@@ -53,8 +71,8 @@ data:
             "multiModelServer": false
           },
           "v2" : {
-            "image": "kfserving/torchserve-kfs",
-            "defaultImageVersion": "0.3.0",
+            "image": "pytorch/torchserve-kfs",
+            "defaultImageVersion": "0.4.0",
             "defaultGpuImageVersion": "0.3.0-gpu",
             "supportedFrameworks": [
               "pytorch"
@@ -65,16 +83,29 @@ data:
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
             "defaultImageVersion": "20.08-py3",
+            "supportedFrameworks": [
+              "tensorrt",
+              "tensorflow",
+              "onnx",
+              "pytorch",
+              "caffe2"
+            ],
             "multiModelServer": true
         },
         "pmml": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver",
             "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "pmml"
+            ],
             "multiModelServer": false
         },
         "lightgbm": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver",
             "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "lightgbm"
+            ],
             "multiModelServer": true
         }
     }
@@ -118,8 +149,8 @@ data:
     {
         "ingressGateway" : "knative-ingress-gateway.knative-serving",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
-        "localGateway": "cluster-local-gateway.knative-serving",
-        "localGatewayService" : "cluster-local-gateway.istio-system.svc.cluster.local"
+        "localGateway": "knative-local-gateway.knative-serving",
+        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local"
     }
   logger: |-
     {

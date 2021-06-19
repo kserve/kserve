@@ -1,0 +1,50 @@
+<lib-loading-spinner *ngIf="!logsRequestCompleted"></lib-loading-spinner>
+
+<!--if no logs are present at all then show a warning message-->
+<ng-container *ngIf="logsRequestCompleted && !logsNotEmpty">
+  <lib-panel class="lib-panel">
+    No logs were found for this InferenceService.
+  </lib-panel>
+</ng-container>
+
+<!--logs loaded successfully from the backend-->
+<ng-container *ngIf="logsRequestCompleted && logsNotEmpty">
+  <ng-container *ngIf="loadErrorMsg">
+    <lib-panel>
+      {{ loadErrorMsg }}
+    </lib-panel>
+  </ng-container>
+
+  <div
+    *ngFor="let podLogs of currLogs?.predictor; trackBy: logsTrackFn"
+    class="margin-bottom"
+  >
+    <app-logs-viewer
+      heading="Predictor:"
+      [subHeading]="podLogs.podName"
+      [logs]="podLogs.logs"
+    ></app-logs-viewer>
+  </div>
+
+  <div
+    *ngFor="let podLogs of currLogs?.transformer; trackBy: logsTrackFn"
+    class="margin-bottom"
+  >
+    <app-logs-viewer
+      heading="Transformer:"
+      [subHeading]="podLogs.podName"
+      [logs]="podLogs.logs"
+    ></app-logs-viewer>
+  </div>
+
+  <div
+    *ngFor="let podLogs of currLogs?.explainer; trackBy: logsTrackFn"
+    class="margin-bottom"
+  >
+    <app-logs-viewer
+      heading="Explainer:"
+      [subHeading]="podLogs.podName"
+      [logs]="podLogs.logs"
+    ></app-logs-viewer>
+  </div>
+</ng-container>

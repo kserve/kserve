@@ -38,12 +38,13 @@ type LoggerHandler struct {
 	logMode          v1beta1.LoggerType
 	inferenceService string
 	namespace        string
+	component        string
 	endpoint         string
 	next             http.Handler
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
-	inferenceService string, namespace string, endpoint string, next http.Handler) http.Handler {
+	inferenceService string, namespace string, endpoint string, component string, next http.Handler) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
 		log:              logf.Log.WithName("Logger"),
@@ -52,6 +53,7 @@ func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 		logMode:          logMode,
 		inferenceService: inferenceService,
 		namespace:        namespace,
+		component:        component,
 		endpoint:         endpoint,
 		next:             next,
 	}
@@ -82,19 +84,20 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Get or Create an ID
 	id := getOrCreateID(r)
-
+	contentType := r.Header.Get("Content-Type")
 	// log Request
 	if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogRequest {
 		if err := QueueLogRequest(LogRequest{
 			Url:              eh.logUrl,
 			Bytes:            &body,
-			ContentType:      "application/json", // Always JSON at present
+			ContentType:      contentType,
 			ReqType:          InferenceRequest,
 			Id:               id,
 			SourceUri:        eh.sourceUri,
 			InferenceService: eh.inferenceService,
 			Namespace:        eh.namespace,
 			Endpoint:         eh.endpoint,
+			Component:        eh.component,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
@@ -105,19 +108,24 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rr := httptest.NewRecorder()
 	eh.next.ServeHTTP(rr, r)
 	responseBody := rr.Body.Bytes()
+	contentType = rr.Header().Get("Content-Type")
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
 	// log response if OK
 	if rr.Code == http.StatusOK {
 		if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogResponse {
 			if err := QueueLogRequest(LogRequest{
 				Url:              eh.logUrl,
 				Bytes:            &responseBody,
-				ContentType:      "application/json", // Always JSON at present
+				ContentType:      contentType,
 				ReqType:          InferenceResponse,
 				Id:               id,
 				SourceUri:        eh.sourceUri,
 				InferenceService: eh.inferenceService,
 				Namespace:        eh.namespace,
 				Endpoint:         eh.endpoint,
+				Component:        eh.component,
 			}); err != nil {
 				eh.log.Error(err, "Failed to log response")
 			}
@@ -126,6 +134,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		eh.log.Info("Failed to proxy request", "status code", rr.Code)
 	}
 
+	w.WriteHeader(rr.Code)
 	_, err = w.Write(rr.Body.Bytes())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -19,13 +19,11 @@ from kubernetes import client
 
 from kfserving import KFServingClient
 from kfserving import constants
-from kfserving import V1alpha2EndpointSpec
-from kfserving import V1alpha2PredictorSpec
-from kfserving import V1alpha2InferenceServiceSpec
-from kfserving import V1alpha2ExplainerSpec
-from kfserving import V1alpha2AIXExplainerSpec
-from kfserving import V1alpha2InferenceService
-from kfserving import V1alpha2CustomSpec
+from kfserving import V1beta1PredictorSpec
+from kfserving import V1beta1InferenceServiceSpec
+from kfserving import V1beta1ExplainerSpec
+from kfserving import V1beta1AIXExplainerSpec
+from kfserving import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 
@@ -36,36 +34,36 @@ from ..common.utils import KFSERVING_TEST_NAMESPACE
 import numpy as np
 
 logging.basicConfig(level=logging.INFO)
-api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_tabular_explainer():
     service_name = 'aix-explainer'
-    default_endpoint_spec = V1alpha2EndpointSpec(
-        predictor=V1alpha2PredictorSpec(
-            custom=V1alpha2CustomSpec(
-                container=V1Container(
+    predictor = V1beta1PredictorSpec(
+        containers=[V1Container(
                     name="predictor",
                     image='aipipeline/rf-predictor:0.4.0',
                     command=["python", "-m", "rfserver", "--model_name", "aix-explainer"],
                     resources=V1ResourceRequirements(
                         requests={'cpu': '500m', 'memory': '1Gi'},
-                        limits={'cpu': '500m', 'memory': '1Gi'})
-                ))),
-        explainer=V1alpha2ExplainerSpec(
-            min_replicas=1,
-            aix=V1alpha2AIXExplainerSpec(
-                type='LimeImages',
-                resources=V1ResourceRequirements(
-                    requests={'cpu': '500m', 'memory': '1Gi'},
-                    limits={'cpu': '500m', 'memory': '1Gi'}))))
+                        limits={'cpu': '500m', 'memory': '1Gi'}))]
+    )
+    explainer = V1beta1ExplainerSpec(
+        min_replicas=1,
+        aix=V1beta1AIXExplainerSpec(
+            name='explainer',
+            type='LimeImages',
+            resources=V1ResourceRequirements(
+                requests={'cpu': '500m', 'memory': '1Gi'},
+                limits={'cpu': '500m', 'memory': '1Gi'})
+        )
+    )
 
-    isvc = V1alpha2InferenceService(api_version=api_version,
-                                    kind=constants.KFSERVING_KIND,
-                                    metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
-                                    spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
+                                   kind=constants.KFSERVING_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                       name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor, explainer=explainer))
 
     KFServing.create(isvc)
     try:
@@ -74,7 +72,8 @@ def test_tabular_explainer():
         logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
                      KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
         pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
-                                                      label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
+                                                      label_selector='serving.kubeflow.org/inferenceservice={}'
+                                                      .format(service_name))
         for pod in pods.items:
             logging.info(pod)
         raise e

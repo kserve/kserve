@@ -1,0 +1,69 @@
+<div class="lib-content-wrapper">
+  <lib-title-actions-toolbar
+    title="Model server details"
+    [buttons]="buttonsConfig"
+    [backButton]="true"
+    (back)="navigateBack()"
+    class="margin-bottom"
+  >
+  </lib-title-actions-toolbar>
+
+  <!--scrollable page content-->
+  <div class="page-padding lib-flex-grow lib-overflow-auto">
+    <lib-loading-spinner *ngIf="!serverInfoLoaded"></lib-loading-spinner>
+
+    <ng-container *ngIf="serverInfoLoaded">
+      <div class="page-padding margin-bottom">
+        <div class="flex page-placement center">
+          <mat-icon
+            class="small-padding-right"
+            [class.warning]="statusIcon === 'warning'"
+            [class.check_circle]="statusIcon === 'check_circle'"
+          >
+            {{ statusIcon }}
+          </mat-icon>
+
+          <div class="title">{{ serverName }}</div>
+        </div>
+      </div>
+
+      <!--tabs-->
+      <mat-tab-group
+        class="page-placement"
+        dynamicHeight
+        animationDuration="0ms"
+      >
+        <mat-tab label="OVERVIEW">
+          <app-overview
+            *ngIf="serverInfoLoaded"
+            [svc]="inferenceService"
+            [namespace]="namespace"
+            [ownedObjects]="ownedObjects"
+          ></app-overview>
+        </mat-tab>
+        <mat-tab label="DETAILS">
+          <app-details
+            *ngIf="serverInfoLoaded"
+            [svc]="inferenceService"
+            [namespace]="namespace"
+          ></app-details>
+        </mat-tab>
+        <mat-tab *ngIf="grafanaFound" label="METRICS">
+          <app-metrics
+            *ngIf="serverInfoLoaded"
+            [status]="inferenceService?.status"
+            [namespace]="namespace"
+          ></app-metrics>
+        </mat-tab>
+        <mat-tab label="LOGS">
+          <ng-template matTabContent>
+            <app-logs [svc]="inferenceService"></app-logs>
+          </ng-template>
+        </mat-tab>
+        <mat-tab label="YAML">
+          <app-yamls [svc]="inferenceService"></app-yamls>
+        </mat-tab>
+      </mat-tab-group>
+    </ng-container>
+  </div>
+</div>

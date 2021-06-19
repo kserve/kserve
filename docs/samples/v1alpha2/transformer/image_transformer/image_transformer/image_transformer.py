@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import kfserving
-from typing import List, Dict
+from typing import Dict
 from PIL import Image
 import torchvision.transforms as transforms
 import logging

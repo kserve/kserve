@@ -1,3 +1,19 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1alpha1
 
 import (
@@ -54,7 +70,7 @@ func TestValidateCreate(t *testing.T) {
 		"alphanumeric model name": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
-				name: "abc-123",
+				name: "Abc-123",
 			},
 			matcher: gomega.MatchError(nil),
 		},
@@ -63,21 +79,21 @@ func TestValidateCreate(t *testing.T) {
 			update: map[string]string{
 				name: "4abc-3",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "4abc-3", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name starts with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "-abc-3",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "-abc-3", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name ends with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc-3-",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc-3-", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name includes dot": {
 			tm: makeTestTrainModel(),
@@ -96,9 +112,9 @@ func TestValidateCreate(t *testing.T) {
 		"invalid storageURI prefix": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
-				storageURI: "https://kfserving/sklearn/iris",
+				storageURI: "foo://kfserving/sklearn/iris",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "https://kfserving/sklearn/iris")),
+			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "foo://kfserving/sklearn/iris")),
 		},
 	}
 
@@ -134,7 +150,7 @@ func TestValidateUpdate(t *testing.T) {
 		"alphanumeric model name": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
-				name: "abc-123",
+				name: "Abc-123",
 			},
 			matcher: gomega.MatchError(nil),
 		},
@@ -143,21 +159,21 @@ func TestValidateUpdate(t *testing.T) {
 			update: map[string]string{
 				name: "4abc-3",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "4abc-3", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name starts with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "-abc-3",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "-abc-3", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name ends with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc-3-",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc-3-", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name includes dot": {
 			tm: makeTestTrainModel(),
@@ -190,9 +206,9 @@ func TestValidateUpdate(t *testing.T) {
 		"invalid storageURI prefix": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
-				storageURI: "https://kfserving/sklearn/iris",
+				storageURI: "foo://kfserving/sklearn/iris",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "https://kfserving/sklearn/iris")),
+			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "foo://kfserving/sklearn/iris")),
 		},
 		"framework": {
 			tm: makeTestTrainModel(),

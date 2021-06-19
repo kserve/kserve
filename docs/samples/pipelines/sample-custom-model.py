@@ -12,32 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import kfp.compiler as compiler
 import kfp.dsl as dsl
 from kfp import components
-import json
 
+kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/master/'
+                                                  'components/kubeflow/kfserving/component.yaml')
 
-kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/master/components/kubeflow/kfserving/component.yaml')
 
 @dsl.pipeline(
-  name='kfserving pipeline',
-  description='A pipeline for kfserving.'
+    name='KFServing pipeline',
+    description='A pipeline for KFServing.'
 )
 def kfservingPipeline(
-    action='create',
-    model_name='max-image-segmenter',
-    namespace='kubeflow',
-    framework='custom',
-    default_custom_model_spec='{"name": "image-segmenter", "image": "codait/max-image-segmenter:latest", "port": "5000"}'
+        action='apply',
+        model_name='max-image-segmenter',
+        namespace='anonymous',
+        custom_model_spec='{"name": "image-segmenter", "image": "codait/max-image-segmenter:latest", "port": "5000"}'
 ):
-
-    kfserving = kfserving_op(action=action,
-                             model_name=model_name,
-                             namespace=namespace,
-                             framework=framework,
-                             default_custom_model_spec=default_custom_model_spec)
+    kfserving_op(action=action,
+                 model_name=model_name,
+                 namespace=namespace,
+                 custom_model_spec=custom_model_spec)
 
 
 if __name__ == '__main__':
-    import kfp.compiler as compiler
     compiler.Compiler().compile(kfservingPipeline, __file__ + '.tar.gz')

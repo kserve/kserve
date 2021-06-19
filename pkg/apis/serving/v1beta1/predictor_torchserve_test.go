@@ -41,8 +41,8 @@ func TestTorchServeValidation(t *testing.T) {
 					MultiModelServer:    false,
 				},
 				V2: &PredictorConfig{
-					ContainerImage:      "kfserving/torchserve-kfs",
-					DefaultImageVersion: "0.3.0",
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.0",
 					MultiModelServer:    false,
 				},
 			},
@@ -56,7 +56,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.3.0"),
+						RuntimeVersion: proto.String("0.4.0"),
 					},
 				},
 			},
@@ -66,7 +66,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.3.0-gpu"),
+						RuntimeVersion: proto.String("0.4.0-gpu"),
 					},
 				},
 			},
@@ -76,7 +76,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.3.0"),
+						RuntimeVersion: proto.String("0.4.0"),
 						Container: v1.Container{
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
@@ -159,8 +159,8 @@ func TestTorchServeDefaulter(t *testing.T) {
 					MultiModelServer:    false,
 				},
 				V2: &PredictorConfig{
-					ContainerImage:      "kfserving/torchserve-kfs",
-					DefaultImageVersion: "0.3.0",
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.0",
 					MultiModelServer:    false,
 				},
 			},
@@ -233,7 +233,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						ProtocolVersion: &protocolV1,
-						RuntimeVersion:  proto.String("0.3.0"),
+						RuntimeVersion:  proto.String("0.4.0"),
 					},
 				},
 			},
@@ -241,7 +241,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 				PyTorch: &TorchServeSpec{
 					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("0.3.0"),
+						RuntimeVersion:  proto.String("0.4.0"),
 						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -466,8 +466,8 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 					MultiModelServer:    false,
 				},
 				V2: &PredictorConfig{
-					ContainerImage:      "kfserving/torchserve-kfs",
-					DefaultImageVersion: "0.3.0",
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.0",
 					MultiModelServer:    false,
 				},
 			},
@@ -488,7 +488,7 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 						PyTorch: &TorchServeSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:      proto.String("gs://someUri"),
-								RuntimeVersion:  proto.String("0.3.0"),
+								RuntimeVersion:  proto.String("0.4.0"),
 								ProtocolVersion: &protocolV1,
 								Container: v1.Container{
 									Resources: requestedResource,
@@ -499,7 +499,7 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "kfserving/torchserve-kfs:0.3.0",
+				Image:     "pytorch/torchserve-kfs:0.4.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
@@ -569,8 +569,8 @@ func TestTorchServeIsMMS(t *testing.T) {
 						MultiModelServer:    mmsCase,
 					},
 					V2: &PredictorConfig{
-						ContainerImage:      "kfserving/torchserve-kfs",
-						DefaultImageVersion: "0.3.0",
+						ContainerImage:      "pytorch/torchserve-kfs",
+						DefaultImageVersion: "0.4.0",
 						MultiModelServer:    mmsCase,
 					},
 				},
@@ -630,5 +630,99 @@ func TestTorchServeIsMMS(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestTorchServeIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pytorch := "pytorch"
+	unsupportedFramework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			PyTorch: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "pytorchserver",
+					DefaultImageVersion: "latest",
+					SupportedFrameworks: []string{pytorch},
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.0",
+					SupportedFrameworks: []string{pytorch},
+				},
+			},
+		},
+	}
+
+	protocolV1 := constants.ProtocolV1
+	protocolV2 := constants.ProtocolV2
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec      PredictorSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFrameworkV1": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV1,
+					},
+				},
+			},
+			framework: pytorch,
+			expected:  true,
+		},
+		"SupportedFrameworkV2": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			framework: pytorch,
+			expected:  true,
+		},
+		"UnsupportedFrameworkV1": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV1,
+					},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+		"UnsupportedFrameworkV2": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.PyTorch.Default(&config)
+			res := scenario.spec.PyTorch.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
 	}
 }

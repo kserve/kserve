@@ -17,7 +17,7 @@ Installation of standalone KFServing on OpenShift can be done in multiple ways d
 
 ## Quick install
 
-**Note**: These instructions were tested on OpenShift 4.5.24, with KFServing v0.5.0-rc2, Istio 1.6.2, and Knative 0.18.0
+**Note**: These instructions were tested on OpenShift 4.5.24, with KFServing v0.5.1, Istio 1.6.2, and Knative 0.18.0
 which are in the [`quick_install.sh`](../hack/quick_install.sh) script. Additionally, this has been tested on Kubeflow 1.2 recommended versions
 for Istio and Knative, i.e. Istio 1.3.1 and Knative 0.14.3.
 
@@ -40,14 +40,27 @@ oc adm policy add-scc-to-group anyuid system:serviceaccounts:istio-system
 From the root of the `kfserving` directory, execute the following:
 
 ```bash
-# Ensure we install KFServing v0.4.1
-sed -i.bak 's/KFSERVING_VERSION=.*/KFSERVING_VERSION=v0.5.0-rc2/' ./hack/quick_install.sh
+# Ensure we install KFServing v0.5.1
+sed -i.bak 's/KFSERVING_VERSION=.*/KFSERVING_VERSION=v0.5.1' ./hack/quick_install.sh
 ./hack/quick_install.sh
 ```
 
 This [script](../hack/quick_install.sh) will install Istio, Knative, Cert Manager, and then the latest version of KFServing that has been verified and tested on OpenShift.
 
-### 4. Verify KFServing installation
+
+### 4. Verify Istio and Knative installations
+
+Check that all `istio-system` and `knative-serving` pods are running.
+
+```bash
+oc get po -n istio-system
+oc get po -n knative-serving
+```
+
+If you see pods with status `CreateContainerError`, this likely indicates a permission issue.
+See the [troubleshooting guide below](#knative-pods-have-createcontainererror-status).
+
+### 5. Verify KFServing installation
 
 Check that the KFserving controller is running:
 
@@ -58,7 +71,7 @@ NAME                             READY   STATUS    RESTARTS   AGE
 kfserving-controller-manager-0   2/2     Running   0          2m28s
 ```
 
-### 5. Expose OpenShift route
+### 6. Expose OpenShift route
 
 After installation is verified, expose an OpenShift route for the ingress gateway.
 
@@ -101,6 +114,16 @@ oc apply --filename https://github.com/knative/serving/releases/download/${KNATI
 oc apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
 oc apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
 ```
+
+After the install has completed, validate that the pods are running:
+
+```bash
+oc get po -n knative-serving
+```
+
+If you see pods with status `CreateContainerError`, this likely indicates a permission issue.
+See the [troubleshooting guide below](#knative-pods-have-createcontainererror-status).
+
 
 ### 4. Create cluster local gateway
 
@@ -150,8 +173,8 @@ EOF
 ### 5. Install cert-manager
 
 ```bash
-kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml
-kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
+oc apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml
+oc wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
 ```
 
 ### 6. Install KFserving
@@ -233,8 +256,7 @@ Create an inference service. From the root of the `kfserving` directory, run:
 
 ```bash
 oc create ns kfserving-test
-API_VERSION=v1beta1
-oc apply -f docs/samples/${API_VERSION}/sklearn/sklearn.yaml -n kfserving-test
+oc apply -f docs/samples/v1beta1/sklearn/v1/sklearn.yaml -n kfserving-test
 ```
 
 Give it a minute, then check the InferenceService status:
@@ -246,32 +268,46 @@ NAME           URL                                              READY   PREV   L
 sklearn-iris   http://sklearn-iris.kfserving-test.example.com   True           100                              sklearn-iris-predictor-default-z5lqk   53s                             3m37s
 ```
 
-Once the InferenceService is ready, try curling it for a prediction:
+Once the InferenceService is ready, get your ingress IP and port.
 
+## Determine the ingress IP and ports
+
+First, check your istio-ingressgateway service.
+
+```bash
+oc get svc istio-ingressgateway -n istio-system
+```
+
+The output should look similar to:
+
+```bash
+NAME                   TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)                                                                      AGE
+istio-ingressgateway   LoadBalancer   172.21.179.3   169.62.77.21   15021:30892/TCP,80:31729/TCP,443:31950/TCP,15012:30426/TCP,15443:32199/TCP   4d
+```
+
+If `EXTERNAL-IP` is set, these can be used:
+
+```bash
+export INGRESS_HOST=$(oc -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export INGRESS_PORT=$(oc -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+```
+
+If not, you can use the istio-ingressgateway route along with the node port:
 ```bash
 export INGRESS_HOST=$(oc get route istio-ingressgateway -n istio-system -ojsonpath='{.spec.host}')
 export INGRESS_PORT=$(oc -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
+```
+
+Now you try curling the InferenceService using the `Host` header:
+```bash
 export SERVICE_HOSTNAME=$(oc get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/sklearn-iris/infer -d @./docs/samples/v1beta1/sklearn/iris-input.json
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d '{"instances": [[6.8,  2.8,  4.8,  1.4],[6.0,  3.4,  4.5,  1.6]]}'
 ```
 
 You should see an output like:
 
 ```
-{
-  "model_name":"sklearn-iris",
-  "model_version":"v1",
-  "id":"f7db5014-4a5a-4374-b45e-ffa2df4d5a6d",
-  "parameters":null,
-  "outputs":[{
-      "name":"predict",
-      "shape":[2],
-      "datatype":"FP32",
-      "parameters":null,
-      "data":[1, 2]
-    }
-  ]
-}
+{"predictions": [1, 1]}
 ```
 
 # Change Knative domain configuration
@@ -329,5 +365,40 @@ After you save and exit, the routes for your InferenceServices will start using 
 You can curl the endpoints without the `Host` header. For example:
 
 ```bash
-curl -v http://sklearn-iris.kfserving-test.pv-cluster-442dbba0442be6c8c50f31ed96b00601-0000.sjc03.containers.appdomain.cloud:${INGRESS_PORT}/v2/models/sklearn-iris/infer -d @./docs/samples/v1beta1/sklearn/iris-input.json
+curl -v http://sklearn-iris.kfserving-test.pv-cluster-442dbba0442be6c8c50f31ed96b00601-0000.sjc03.containers.appdomain.cloud:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d '{"instances": [[6.8,  2.8,  4.8,  1.4],[6.0,  3.4,  4.5,  1.6]]}'
 ```
+
+# Troubleshooting
+
+## Knative pods have CreateContainerError status
+
+Some or all pods in the `knative-serving` namespace might have a `CreateContainerError` status:
+
+```bash
+NAME                                READY   STATUS                 RESTARTS   AGE
+activator-6c87fcbbb6-dmdpt          0/1     CreateContainerError   0          12m
+autoscaler-847b9f89dc-746rp         0/1     CreateContainerError   0          12m
+controller-55f67c9ddb-gnssq         0/1     CreateContainerError   0          12m
+...
+```
+
+Describing the pods shows:
+
+```
+starting container process caused: chdir to cwd (\"/home/nonroot\") set in config.json failed: permission denied"`.
+```
+
+This may be caused by a regression that is outlined in this issue: https://bugzilla.redhat.com/show_bug.cgi?id=1934177.
+Here, it is mentioned that the image Knative is based off of (gcr.io/distroless/static:nonroot) is currently not working out of the box on OpenShift.
+A patch was recently added to address this (for the `runc` component), but it is unclear when this will be available as a patch release for OpenShift.
+
+The quickest workaround is to run the commands below:
+
+```bash
+oc adm policy add-scc-to-group anyuid system:serviceaccounts:knative-serving
+oc adm policy add-scc-to-group anyuid system:serviceaccounts:kfserving-test
+```
+
+Running the above will allow the Knative containers to start in the `knative-serving` namespace
+as well as the Knative `queue-proxy` sidecar container that is needed when deploying an InferenceService
+in the `kfserving-test` namespace.

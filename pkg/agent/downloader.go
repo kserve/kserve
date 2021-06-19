@@ -20,24 +20,25 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+
+	"github.com/kubeflow/kfserving/pkg/agent/storage"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type Downloader struct {
 	ModelDir  string
+	mu        sync.Mutex
 	Providers map[storage.Protocol]storage.Provider
 	Logger    *zap.SugaredLogger
 }
-
-var SupportedProtocols = []storage.Protocol{storage.S3, storage.GCS}
 
 func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSpec) error {
 	if modelSpec != nil {
@@ -79,7 +80,9 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	if err != nil {
 		return errors.Wrapf(err, "unsupported protocol")
 	}
+	d.mu.Lock()
 	provider, err := storage.GetProvider(d.Providers, protocol)
+	d.mu.Unlock()
 	if err != nil {
 		return errors.Wrapf(err, "unable to create or get provider for protocol %s", protocol)
 	}
@@ -105,7 +108,7 @@ func extractProtocol(storageURI string) (storage.Protocol, error) {
 		return "", fmt.Errorf("there is no protocol specificed for the storageUri")
 	}
 
-	for _, prefix := range SupportedProtocols {
+	for _, prefix := range storage.SupportedProtocols {
 		if strings.HasPrefix(storageURI, string(prefix)) {
 			return prefix, nil
 		}

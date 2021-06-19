@@ -163,13 +163,6 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 
 func createHTTPRouteDestination(targetHost, namespace string, gatewayService string) *istiov1alpha3.HTTPRouteDestination {
 	httpRouteDestination := &istiov1alpha3.HTTPRouteDestination{
-		Headers: &istiov1alpha3.Headers{
-			Request: &istiov1alpha3.Headers_HeaderOperations{
-				Set: map[string]string{
-					"Host": network.GetServiceHostname(targetHost, namespace),
-				},
-			},
-		},
 		Destination: &istiov1alpha3.Destination{
 			Host: gatewayService,
 			Port: &istiov1alpha3.PortSelector{
@@ -269,6 +262,13 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 			Route: []*istiov1alpha3.HTTPRouteDestination{
 				createHTTPRouteDestination(constants.DefaultExplainerServiceName(isvc.Name), isvc.Namespace, config.LocalGatewayServiceName),
 			},
+			Headers: &istiov1alpha3.Headers{
+				Request: &istiov1alpha3.Headers_HeaderOperations{
+					Set: map[string]string{
+						"Host": network.GetServiceHostname(constants.DefaultExplainerServiceName(isvc.Name), isvc.Namespace),
+					},
+				},
+			},
 		}
 		httpRoutes = append(httpRoutes, &explainerRouter)
 	}
@@ -278,6 +278,13 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
 		Route: []*istiov1alpha3.HTTPRouteDestination{
 			createHTTPRouteDestination(backend, isvc.Namespace, config.LocalGatewayServiceName),
+		},
+		Headers: &istiov1alpha3.Headers{
+			Request: &istiov1alpha3.Headers_HeaderOperations{
+				Set: map[string]string{
+					"Host": network.GetServiceHostname(backend, isvc.Namespace),
+				},
+			},
 		},
 	})
 	hosts := []string{
@@ -339,8 +346,10 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			err = ir.client.Create(context.TODO(), desiredIngress)
 		}
 	} else {
-		if !equality.Semantic.DeepEqual(desiredIngress.Spec, existing.Spec) {
+		if !routeSemanticEquals(desiredIngress, existing) {
 			existing.Spec = desiredIngress.Spec
+			existing.Annotations = desiredIngress.Annotations
+			existing.Labels = desiredIngress.Labels
 			log.Info("Update Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
 			err = ir.client.Update(context.TODO(), existing)
 		}
@@ -378,4 +387,10 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	} else {
 		return errors.Wrapf(err, "fails to parse service url")
 	}
+}
+
+func routeSemanticEquals(desired, existing *v1alpha3.VirtualService) bool {
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
 }

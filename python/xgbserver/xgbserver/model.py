@@ -14,6 +14,7 @@
 
 import kfserving
 import xgboost as xgb
+import numpy as np
 from xgboost import XGBModel
 import os
 from typing import Dict
@@ -28,7 +29,7 @@ class XGBoostModel(kfserving.KFModel):
         self.name = name
         self.model_dir = model_dir
         self.nthread = nthread
-        if not booster is None:
+        if booster is not None:
             self._booster = booster
             self.ready = True
 
@@ -43,7 +44,7 @@ class XGBoostModel(kfserving.KFModel):
     def predict(self, request: Dict) -> Dict:
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
-            dmatrix = xgb.DMatrix(request["instances"], nthread=self.nthread)
+            dmatrix = xgb.DMatrix(np.array(request["instances"]), nthread=self.nthread)
             result: xgb.DMatrix = self._booster.predict(dmatrix)
             return {"predictions": result.tolist()}
         except Exception as e:

@@ -1,0 +1,20 @@
+<div class="lib-content-wrapper">
+  <lib-title-actions-toolbar
+    title="New Model Server"
+    [buttons]="[]"
+    [backButton]="true"
+    (back)="navigateBack()"
+    class="margin-bottom"
+  >
+  </lib-title-actions-toolbar>
+
+  <div ace-editor mode="yaml" theme="xcode" [(text)]="yaml"></div>
+
+  <lib-submit-bar
+    [allowYAMLEditing]="false"
+    [isApplying]="applying"
+    [createDisabled]="!yaml"
+    (create)="submit()"
+    (cancel)="navigateBack()"
+  ></lib-submit-bar>
+</div>

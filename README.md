@@ -27,15 +27,17 @@ Kubernetes 1.16+ is the minimum recommended version for KFServing.
 
 Knative Serving and Istio should be available on Kubernetes Cluster, KFServing currently depends on Istio Ingress Gateway to route requests to inference services.
 
-- [Istio](https://knative.dev/docs/install/installing-istio): v1.3.1+
+- [Istio](https://knative.dev/docs/install/installing-istio): v1.9.0+
 
 If you want to get up running Knative quickly or you do not need service mesh, we recommend installing Istio without service mesh(sidecar injection).
-- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.14.3+
+- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.17.4+
 
 `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway).
 
+If you are looking to use [PodSpec fields](https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#podspec-v1-core) such as `nodeSelector`, `affinity` or `tolerations` which are now supported in the KFServing v1beta1 API spec, this requires Knative v0.17.0+, and you need to turn on the corresponding [feature flags](https://knative.dev/docs/serving/feature-flags/) in your Knative configuration.
+
 Since Knative v0.19.0 `cluster local gateway` deployment has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237),
-if you are on Knative version later than v0.19.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
+if you are on Knative version later than v0.19.0 and KFServing version older than v0.6.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
 [inference service config](./config/configmap/inferenceservice.yaml).
 
 - [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v0.12.0+
@@ -52,19 +54,13 @@ generation [script](./hack/self-signed-ca.sh).
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 
 ```
-TAG=v0.5.0
+TAG=v0.5.1
 ```
 
-Install KFServing CRD
+Install KFServing CRD and Controller
 
 Due to [a performance issue applying deeply nested CRDs](https://github.com/kubernetes/kubernetes/issues/91615), please ensure that your `kubectl` version
 fits into one of the following categories to ensure that you have the fix: `>=1.16.14,<1.17.0` or `>=1.17.11,<1.18.0` or `>=1.18.8`.
-```shell
-kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving_crds.yaml
-```
-
-Install KFServing Controller
-
 ```shell
 kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving.yaml
 ```
@@ -112,7 +108,7 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 ### Setup Ingress Gateway
 If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
 - [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
-  -  In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
+  -  In addition you need to update [KFServing configmap](config/configmap/inferenceservice.yaml) to use the custom ingress gateway.
 - [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
 - [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
 
@@ -246,7 +242,8 @@ Error Set:
 </details>
 
 ### Setup Monitoring
-- [Tracing](https://knative.dev/docs/serving/accessing-traces/)
+- [Prometheus based monitoring for KFServing](https://github.com/kubeflow/kfserving/blob/master/docs/samples/metrics-and-monitoring/README.md#install-prometheus)
+- [Metrics driven automated rollouts using Iter8](https://iter8.tools)
 - [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
 ### Use KFServing SDK
@@ -269,7 +266,6 @@ Error Set:
 
 [KFServing v1beta1 API Docs](./docs/apis/v1beta1/README.md)
 
-[Supported PodTemplate Fields](https://knative.dev/docs/serving/feature-flags/)
 
 ### KFServing Debugging Guide :star:
 [Debug KFServing InferenceService](./docs/KFSERVING_DEBUG_GUIDE.md)

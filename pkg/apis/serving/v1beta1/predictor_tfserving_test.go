@@ -466,3 +466,59 @@ func TestTensorflowIsMMS(t *testing.T) {
 		}
 	}
 }
+
+func TestTensorflowIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tensorflow := "tensorflow"
+	unsupportedFramework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			Tensorflow: PredictorConfig{
+				ContainerImage:         "tfserving",
+				DefaultImageVersion:    "1.14.0",
+				DefaultGpuImageVersion: "1.14.0-gpu",
+				DefaultTimeout:         60,
+				SupportedFrameworks:    []string{tensorflow},
+			},
+		},
+	}
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec      PredictorSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFramework": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: tensorflow,
+			expected:  true,
+		},
+		"UnsupportedFramework": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.Tensorflow.Default(&config)
+			res := scenario.spec.Tensorflow.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

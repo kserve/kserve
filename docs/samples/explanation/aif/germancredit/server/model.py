@@ -1,5 +1,5 @@
 import kfserving
-from typing import List, Dict
+from typing import Dict
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression

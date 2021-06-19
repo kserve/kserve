@@ -1,12 +1,8 @@
-from aif360.metrics import BinaryLabelDatasetMetric
 import sys
-from subprocess import PIPE, run
 import requests
 import json
-import yaml
 import time
 
-import enum
 
 if len(sys.argv) < 3:
     raise Exception("No endpoint specified. ")
@@ -38,7 +34,7 @@ res_json = res.json()
 # If this is an explanation request
 if "metrics" in res_json:
     for metric in res_json["metrics"]:
-        print(metric,": ", res_json["metrics"][metric])
+        print(metric, ": ", res_json["metrics"][metric])
 # Else if it is a prediction request
 else:
     print(res_json)

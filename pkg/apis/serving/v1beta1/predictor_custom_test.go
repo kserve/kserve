@@ -111,6 +111,69 @@ func TestCustomPredictorValidation(t *testing.T) {
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
+		"ValidProtocolV1": {
+			spec: PredictorSpec{
+				ComponentExtensionSpec: ComponentExtensionSpec{
+					MinReplicas:          GetIntReference(3),
+					ContainerConcurrency: proto.Int64(-1),
+				},
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "PROTOCOL",
+									Value: "v1",
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidProtocolV2": {
+			spec: PredictorSpec{
+				ComponentExtensionSpec: ComponentExtensionSpec{
+					MinReplicas:          GetIntReference(3),
+					ContainerConcurrency: proto.Int64(-1),
+				},
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "PROTOCOL",
+									Value: "v2",
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"InvalidValidProtocol": {
+			spec: PredictorSpec{
+				ComponentExtensionSpec: ComponentExtensionSpec{
+					MinReplicas:          GetIntReference(3),
+					ContainerConcurrency: proto.Int64(-1),
+				},
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "PROTOCOL",
+									Value: "unknown",
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
 	}
 
 	for name, scenario := range scenarios {
@@ -309,6 +372,52 @@ func TestCustomPredictorIsMMS(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
 			res := customPredictor.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestCustomPredictorIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	framework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{},
+	}
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected bool
+	}{
+		"DefaultResources": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+			res := customPredictor.IsFrameworkSupported(framework, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %t, want %t", res, scenario.expected)
 			}

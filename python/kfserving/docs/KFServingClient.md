@@ -113,7 +113,7 @@ from kfserving import V1alpha2InferenceService
 default_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensorflow=V1alpha2TensorflowSpec(
     storage_uri='gs://kfserving-samples/models/tensorflow/flowers')))
 
-isvc = V1alpha2InferenceService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
+isvc = V1alpha2InferenceService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_V1ALPHA2_VERSION,
                           kind=constants.KFSERVING_KIND,
                           metadata=client.V1ObjectMeta(name='flower-sample', namespace='kubeflow'),
                           spec=V1alpha2InferenceServiceSpec(default=default_model_spec))
@@ -203,7 +203,7 @@ default_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensor
 canary_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensorflow=V1alpha2TensorflowSpec(
     storage_uri='gs://kfserving-samples/models/tensorflow/flowers')))
 
-isvc = V1alpha2InferenceService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
+isvc = V1alpha2InferenceService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_V1ALPHA2_VERSION,
                           kind=constants.KFSERVING_KIND,
                           metadata=client.V1ObjectMeta(name='flower-sample', namespace='kubeflow'),
                           spec=V1alpha2InferenceServiceSpec(default=default_model_spec,

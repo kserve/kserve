@@ -695,3 +695,93 @@ func TestSKLearnIsMMS(t *testing.T) {
 		}
 	}
 }
+
+func TestSKLearnIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	sklearn := "sklearn"
+	unsupportedFramework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			SKlearn: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "sklearnserver",
+					DefaultImageVersion: "latest",
+					SupportedFrameworks: []string{sklearn},
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "mlserver",
+					DefaultImageVersion: "0.1.2",
+					SupportedFrameworks: []string{sklearn},
+				},
+			},
+		},
+	}
+
+	protocolV1 := constants.ProtocolV1
+	protocolV2 := constants.ProtocolV2
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec      PredictorSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFrameworkV1": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV1,
+					},
+				},
+			},
+			framework: sklearn,
+			expected:  true,
+		},
+		"SupportedFrameworkV2": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			framework: sklearn,
+			expected:  true,
+		},
+		"UnsupportedFrameworkV1": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV1,
+					},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+		"UnsupportedFrameworkV2": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.SKLearn.Default(&config)
+			res := scenario.spec.SKLearn.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

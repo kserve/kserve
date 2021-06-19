@@ -31,6 +31,7 @@ RELEASES=(
     "v0.5.0-rc2"
     "v0.5.0"
     "v0.5.1"
+    "v0.6.0-rc0"
 )
 
 TAG=$1
@@ -42,6 +43,8 @@ fi
 
 INSTALL_DIR=./install/$TAG
 INSTALL_PATH=$INSTALL_DIR/kfserving.yaml
+KUBEFLOW_INSTALL_PATH=$INSTALL_DIR/kfserving_kubeflow.yaml
 
 mkdir -p $INSTALL_DIR
-kustomize build config/default | sed s/:latest/$TAG/ > $INSTALL_PATH
+kustomize build config/default | sed s/:latest/:$TAG/ > $INSTALL_PATH
+kustomize build config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH

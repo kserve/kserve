@@ -12,17 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
 import os
-import pytest
 from kubernetes import client
 from kfserving import (
     constants,
     KFServingClient,
-    V1alpha2EndpointSpec,
-    V1alpha2PredictorSpec,
-    V1alpha2InferenceServiceSpec,
-    V1alpha2InferenceService,
     V1beta1InferenceService,
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
@@ -33,11 +27,8 @@ from kubernetes.client import V1ResourceRequirements
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
-api_version = f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_VERSION}"
-api_v1beta1_version = (
-    f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_V1BETA1_VERSION}"
-)
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+
 
 def test_torchserve_kfserving():
     service_name = "mnist"
@@ -54,7 +45,7 @@ def test_torchserve_kfserving():
     )
 
     isvc = V1beta1InferenceService(
-        api_version=api_v1beta1_version,
+        api_version=constants.KFSERVING_V1BETA1,
         kind=constants.KFSERVING_KIND,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KFSERVING_TEST_NAMESPACE
@@ -66,6 +57,5 @@ def test_torchserve_kfserving():
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/torchserve_input.json")
-    assert(res.get("predictions")[0]==2)
-    
+    assert(res.get("predictions")[0] == 2)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

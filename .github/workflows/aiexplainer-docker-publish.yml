@@ -1,4 +1,4 @@
-name: AIXExapliner Docker Publisher
+name: AIXExplainer Docker Publisher
 
 on:
   push:

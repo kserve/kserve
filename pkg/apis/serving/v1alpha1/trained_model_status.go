@@ -36,16 +36,24 @@ type TrainedModelStatus struct {
 }
 
 // ConditionType represents a Service condition value
-// TODO: Add conditions for framework supported and memory availability
 const (
 	// InferenceServiceReady is set when inference service reported readiness
 	InferenceServiceReady apis.ConditionType = "InferenceServiceReady"
+	// FrameworkSupported is set when predictor reports framework check
+	FrameworkSupported apis.ConditionType = "FrameworkSupported"
+	// MemoryResourceAvailable is set when inference service reported resources availability
+	MemoryResourceAvailable apis.ConditionType = "MemoryResourceAvailable"
+	// IsMMSPredictor is set when inference service predictor is set to multi-model serving
+	IsMMSPredictor apis.ConditionType = "IsMMSPredictor"
 )
 
 // TrainedModel Ready condition is depending on inference service readiness condition
 // TODO: Similar to above, add the constants here
 var conditionSet = apis.NewLivingConditionSet(
 	InferenceServiceReady,
+	FrameworkSupported,
+	MemoryResourceAvailable,
+	IsMMSPredictor,
 )
 
 var _ apis.ConditionsAccessor = (*TrainedModelStatus)(nil)

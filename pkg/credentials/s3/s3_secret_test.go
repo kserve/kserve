@@ -126,6 +126,54 @@ func TestS3Secret(t *testing.T) {
 			},
 		},
 
+		"S3SecretEnvsWithAnonymousCredentials": {
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-secret",
+					Annotations: map[string]string{
+						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+						InferenceServiceS3UseAnonymousCredential:   "true",
+					},
+				},
+			},
+			expected: []v1.EnvVar{
+				{
+					Name: AWSAccessKeyId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSAccessKeyIdName,
+						},
+					},
+				},
+				{
+					Name: AWSSecretAccessKey,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSSecretAccessKeyName,
+						},
+					},
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "https://s3.aws.com",
+				},
+				{
+					Name:  AWSAnonymousCredential,
+					Value: "true",
+				},
+			},
+		},
+
 		"S3Config": {
 			config: S3Config{
 				S3AccessKeyIDName:     "test-keyId",

@@ -33,7 +33,7 @@ if __name__ == "__main__":
     model = SKLearnModel(args.model_name, args.model_dir)
     try:
         model.load()
-    except Exception as e:
+    except Exception:
         ex_type, ex_value, _ = sys.exc_info()
         logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
                       f"exception type {ex_type}, exception msg: {ex_value}")

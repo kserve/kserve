@@ -1,0 +1,18 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  labels:
+    kustomize.component: kfserving-models-web-app
+    app.kubernetes.io/component: kfserving-models-web-app
+  name: kfserving-models-web-app
+spec:
+  action: ALLOW
+  selector:
+    matchLabels:
+      kustomize.component: kfserving-models-web-app
+      app.kubernetes.io/component: kfserving-models-web-app
+  rules:
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account

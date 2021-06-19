@@ -25,11 +25,11 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name='kfserving',
-    version='0.5.1',
+    version='0.6.0rc0',
     author="Kubeflow Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net',
     license="Apache License Version 2.0",
-    url="https://github.com/kubeflow/kfserving/python/kfserving",
+    url="https://github.com/kubeflow/kfserving/tree/master/python/kfserving",
     description="KFServing Python SDK",
     long_description="Python SDK for KFServing Server and Client.",
     python_requires='>=3.6',
@@ -63,4 +63,3 @@ setuptools.setup(
     tests_require=TESTS_REQUIRES,
     extras_require={'test': TESTS_REQUIRES}
 )
-

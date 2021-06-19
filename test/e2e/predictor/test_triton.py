@@ -13,42 +13,33 @@
 # limitations under the License.
 
 import os
-import numpy as np
-import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
 from kfserving import constants
-from kfserving import V1alpha2EndpointSpec
-from kfserving import V1alpha2PredictorSpec
-from kfserving import V1alpha2TransformerSpec
-from kfserving import V1alpha2TritonSpec
-from kfserving import V1alpha2CustomSpec
-from kfserving import V1alpha2InferenceServiceSpec
-from kfserving import V1alpha2InferenceService
-from kubernetes.client import V1ResourceRequirements
-from kubernetes.client import V1Container
-from kubernetes.client import V1EnvVar
-from ..common.utils import predict
+from kfserving import V1beta1PredictorSpec
+from kfserving import V1beta1TritonSpec
+from kfserving import V1beta1InferenceServiceSpec
+from kfserving import V1beta1InferenceService
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
-api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_triton():
     service_name = 'isvc-triton'
-    default_endpoint_spec = V1alpha2EndpointSpec(
-        predictor=V1alpha2PredictorSpec(
-            min_replicas=1,
-            triton=V1alpha2TritonSpec(
-                storage_uri='gs://kfserving-samples/models/tensorrt')))
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        triton=V1beta1TritonSpec(
+            storage_uri='gs://kfserving-samples/models/tensorrt'
+        )
+    )
 
-    isvc = V1alpha2InferenceService(api_version=api_version,
-                                    kind=constants.KFSERVING_KIND,
-                                    metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
-                                    spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
+                                   kind=constants.KFSERVING_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                       name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
 
     KFServing.create(isvc)
     try:
@@ -56,11 +47,11 @@ def test_triton():
     except RuntimeError as e:
         print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
                                                                   "services", service_name + "-predictor-default"))
-        deployments = KFServing.app_api.list_namespaced_deployment(KFSERVING_TEST_NAMESPACE,
-                                                                   label_selector='serving.kubeflow.org/inferenceservice={}'.
-                                                                   format(service_name))
+        deployments = KFServing.app_api. \
+            list_namespaced_deployment(KFSERVING_TEST_NAMESPACE, label_selector='serving.kubeflow.org/'
+                                                                                'inferenceservice={}'.
+                                       format(service_name))
         for deployment in deployments.items:
             print(deployment)
         raise e
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
-

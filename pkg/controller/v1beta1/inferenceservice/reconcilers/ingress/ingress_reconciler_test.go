@@ -114,11 +114,11 @@ func TestCreateVirtualService(t *testing.T) {
 							{
 								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
-								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
-								},
 							},
+						},
+						Headers: &istiov1alpha3.Headers{
+							Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+								"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
 						},
 					},
 				},
@@ -171,11 +171,11 @@ func TestCreateVirtualService(t *testing.T) {
 							{
 								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
-								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
-								},
 							},
+						},
+						Headers: &istiov1alpha3.Headers{
+							Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+								"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
 						},
 					},
 				},
@@ -256,12 +256,12 @@ func TestCreateVirtualService(t *testing.T) {
 								{
 									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
-									Headers: &istiov1alpha3.Headers{
-										Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-											"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
-										}},
-									},
 								},
+							},
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+								}},
 							},
 						},
 					},
@@ -321,12 +321,12 @@ func TestCreateVirtualService(t *testing.T) {
 								{
 									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
-									Headers: &istiov1alpha3.Headers{
-										Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-											"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
-										}},
-									},
 								},
+							},
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+								}},
 							},
 						},
 					},
@@ -433,11 +433,11 @@ func TestCreateVirtualService(t *testing.T) {
 								{
 									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
-									Headers: &istiov1alpha3.Headers{
-										Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-											"Host": network.GetServiceHostname(constants.DefaultExplainerServiceName(serviceName), namespace)},
-										},
-									},
+								},
+							},
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.DefaultExplainerServiceName(serviceName), namespace)},
 								},
 							},
 						},
@@ -447,11 +447,11 @@ func TestCreateVirtualService(t *testing.T) {
 								{
 									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
-									Headers: &istiov1alpha3.Headers{
-										Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-											"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)},
-										},
-									},
+								},
+							},
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)},
 								},
 							},
 						},
@@ -487,7 +487,7 @@ func TestCreateVirtualService(t *testing.T) {
 				IngressGateway:          constants.KnativeIngressGateway,
 				IngressServiceName:      "someIngressServiceName",
 				LocalGateway:            constants.KnativeLocalGateway,
-				LocalGatewayServiceName: "cluster-local-gateway.istio-system.svc.cluster.local",
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
 			}
 
 			actualService := createIngress(testIsvc, ingressConfig)

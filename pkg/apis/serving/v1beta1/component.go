@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -37,6 +38,9 @@ const (
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
 	InvalidLoggerType                   = "Invalid logger type"
 	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	MaxWorkersShouldBeLessThanMaxError  = "Workers cannot be greater than %d"
+	InvalidWorkerArgument               = "Invalid workers argument"
+	InvalidProtocol                     = "Invalid protocol %s. Must be one of [%s]"
 )
 
 // Constants
@@ -209,4 +213,27 @@ func ExactlyOneErrorFor(component Component) error {
 		strings.Join(implementationTypes, ", "),
 		componentType.Name(),
 	)
+}
+
+// ValidateMaxArgumentWorkers will to validate illegal workers count.
+func ValidateMaxArgumentWorkers(slice []string, maxWorkers int64) error {
+	for _, v := range slice {
+
+		if strings.HasPrefix(v, "--workers") {
+			ret := strings.SplitN(v, "=", 2)
+
+			if len(ret) == 2 {
+				workers, err := strconv.ParseInt(ret[1], 10, 64)
+				if err != nil {
+					return fmt.Errorf(InvalidWorkerArgument)
+				}
+				if workers > maxWorkers {
+					return fmt.Errorf(MaxWorkersShouldBeLessThanMaxError, maxWorkers)
+				}
+			} else {
+				return fmt.Errorf(InvalidWorkerArgument)
+			}
+		}
+	}
+	return nil
 }

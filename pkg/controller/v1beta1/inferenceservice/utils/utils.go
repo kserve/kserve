@@ -18,9 +18,27 @@ package utils
 
 import (
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
 	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
+}
+
+// Container
+func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
+	if isvc.Spec.Predictor.GetExtensions() == nil || len(isvc.Spec.Predictor.GetImplementations()) == 0 {
+		return false
+	}
+
+	container := isvc.Spec.Predictor.GetImplementation().GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), isvcConfig)
+
+	if constants.InferenceServiceContainerName == container.Name {
+		predictorMemoryLimit := container.Resources.Limits.Memory()
+		return predictorMemoryLimit.Cmp(totalReqMemory) >= 0
+	}
+
+	return false
 }

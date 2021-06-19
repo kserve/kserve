@@ -22,7 +22,7 @@ tests_require = [
 
 setup(
     name='alibiexplainer',
-    version='0.5.0',
+    version='0.5.1',
     author_email='cc@seldon.io',
     license='../../LICENSE.txt',
     url='https://github.com/kubeflow/kfserving/python/kfserving/alibiexplainer',
@@ -32,6 +32,7 @@ setup(
     python_requires='>=3.6',
     packages=find_packages("alibiexplainer"),
     install_requires=[
+        "tensorflow==2.3.2",
         "kfserving>=0.5.1",
         "pandas>=0.24.2",
         "nest_asyncio>=1.4.0",

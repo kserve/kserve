@@ -31,7 +31,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": false
+            "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -49,7 +49,7 @@ data:
             "supportedFrameworks": [
               "xgboost"
             ],
-            "multiModelServer": false
+            "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -71,9 +71,9 @@ data:
             "multiModelServer": false
           },
           "v2" : {
-            "image": "kfserving/torchserve-kfs",
-            "defaultImageVersion": "0.3.0",
-            "defaultGpuImageVersion": "0.3.0-gpu",
+            "image": "pytorch/torchserve-kfs",
+            "defaultImageVersion": "0.4.0",
+            "defaultGpuImageVersion": "0.4.0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -90,7 +90,7 @@ data:
               "pytorch",
               "caffe2"
             ],
-            "multiModelServer": false
+            "multiModelServer": true
         },
         "pmml": {
             "image": "kfserving/pmmlserver",
@@ -115,7 +115,7 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "gcr.io/kfserving/alibi-explainer",
+            "image" : "kfserving/alibi-explainer",
             "defaultImageVersion": "latest"
         },
         "aix": {
@@ -147,10 +147,10 @@ data:
     }
   ingress: |-
     {
-        "ingressGateway" : $(ingressGateway)
+        "ingressGateway" : "$(ingressGateway)",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
-        "localGateway" : "cluster-local-gateway.knative-serving",
-        "localGatewayService" : "cluster-local-gateway.istio-system.svc.cluster.local"
+        "localGateway" : "knative-local-gateway.knative-serving",
+        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local"
     }
   logger: |-
     {

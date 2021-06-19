@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def set_gcs_credentials(namespace, credentials_file, service_account):
-    '''
+    """
     Set GCS Credentails (secret and service account) with credentials file.
     Args:
         namespace(str): The kubernetes namespace.
@@ -32,7 +32,7 @@ def set_gcs_credentials(namespace, credentials_file, service_account):
         service_account(str): The name of service account. If the service_account
                               is specified, will attach created secret with the service account,
                               otherwise will create new one and attach with created secret.
-    '''
+    """
 
     with open(expanduser(credentials_file)) as f:
         gcs_creds_content = f.read()
@@ -53,9 +53,11 @@ def set_gcs_credentials(namespace, credentials_file, service_account):
                         secret_name=secret_name)
 
 
-def set_s3_credentials(namespace, credentials_file, service_account, s3_profile='default',  # pylint: disable=too-many-locals,too-many-arguments
-                       s3_endpoint=None, s3_region=None, s3_use_https=None, s3_verify_ssl=None):  # pylint: disable=unused-argument
-    '''
+def set_s3_credentials(namespace, credentials_file, service_account,
+                       s3_profile='default',  # pylint: disable=too-many-locals,too-many-arguments
+                       s3_endpoint=None, s3_region=None, s3_use_https=None,
+                       s3_verify_ssl=None):  # pylint: disable=unused-argument
+    """
     Set S3 Credentails (secret and service account).
     Args:
         namespace(str): The kubernetes namespace.
@@ -68,7 +70,7 @@ def set_s3_credentials(namespace, credentials_file, service_account, s3_profile=
         s3_region(str): S3 settings variable AWS_REGION.
         s3_use_https(str): S3 settings variable S3_USE_HTTPS.
         s3_verify_ssl(str): S3 settings variable S3_VERIFY_SSL.
-    '''
+    """
 
     config = configparser.ConfigParser()
     config.read([expanduser(credentials_file)])
@@ -112,8 +114,9 @@ def set_s3_credentials(namespace, credentials_file, service_account, s3_profile=
                         service_account=service_account,
                         secret_name=secret_name)
 
+
 def set_azure_credentials(namespace, credentials_file, service_account):
-    '''
+    """
     Set Azure Credentails (secret and service account) with credentials file.
     Args:
         namespace(str): The kubernetes namespace.
@@ -121,7 +124,7 @@ def set_azure_credentials(namespace, credentials_file, service_account):
         service_account(str): The name of service account. If the service_account
                               is specified, will attach created secret with the service account,
                               otherwise will create new one and attach with created secret.
-    '''
+    """
 
     with open(expanduser(credentials_file)) as azure_creds_file:
         azure_creds = json.load(azure_creds_file)
@@ -164,7 +167,9 @@ def create_secret(namespace, annotations=None, data=None, string_data=None):
 
 
 def set_service_account(namespace, service_account, secret_name):
-    '''Set service account, create if service_account does not exist, otherwise patch it.'''
+    """
+    Set service account, create if service_account does not exist, otherwise patch it.
+    """
     if check_sa_exists(namespace=namespace, service_account=service_account):
         patch_service_account(secret_name=secret_name,
                               namespace=namespace,
@@ -176,7 +181,9 @@ def set_service_account(namespace, service_account, secret_name):
 
 
 def check_sa_exists(namespace, service_account):
-    '''Check if the specified service account existing.'''
+    """
+    Check if the specified service account existing.
+    """
     sa_list = client.CoreV1Api().list_namespaced_service_account(namespace=namespace)
 
     sa_name_list = [sa.metadata.name for sa in sa_list.items]
@@ -188,7 +195,9 @@ def check_sa_exists(namespace, service_account):
 
 
 def create_service_account(secret_name, namespace, sa_name):
-    'Create namespaced service account, and return the service account name'
+    """
+    Create namespaced service account, and return the service account name
+    """
     try:
         client.CoreV1Api().create_namespaced_service_account(
             namespace,
@@ -207,7 +216,9 @@ def create_service_account(secret_name, namespace, sa_name):
 
 
 def patch_service_account(secret_name, namespace, sa_name):
-    'Patch namespaced service account to attach with created secret.'
+    """
+    Patch namespaced service account to attach with created secret.
+    """
     try:
         client.CoreV1Api().patch_namespaced_service_account(
             sa_name,
@@ -224,7 +235,9 @@ def patch_service_account(secret_name, namespace, sa_name):
 
 
 def get_creds_name_from_config_map(creds):
-    '''Get the credentials name from inferenceservice config map.'''
+    """
+    Get the credentials name from inferenceservice config map.
+    """
     try:
         isvc_config_map = client.CoreV1Api().read_namespaced_config_map(
             constants.INFERENCESERVICE_CONFIG_MAP_NAME,

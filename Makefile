@@ -80,7 +80,7 @@ deploy-dev-alibi: docker-push-alibi
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
-	./hack/misc_patch_dev.sh storageInitializer ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-ci: manifests

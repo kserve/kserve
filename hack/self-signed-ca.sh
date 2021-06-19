@@ -94,7 +94,7 @@ openssl genrsa -out ${tmpdir}/server.key 2048
 openssl req -new -key ${tmpdir}/server.key -subj "/CN=${service}.${namespace}.svc" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf
 
 # Self sign
-openssl x509 -req -days 365 -in ${tmpdir}/server.csr -CA ${tmpdir}/ca.crt -CAkey ${tmpdir}/ca.key -CAcreateserial -out ${tmpdir}/server.crt -extfile ${tmpdir}/csr.conf
+openssl x509 -extensions v3_req -req -days 365 -in ${tmpdir}/server.csr -CA ${tmpdir}/ca.crt -CAkey ${tmpdir}/ca.key -CAcreateserial -out ${tmpdir}/server.crt -extfile ${tmpdir}/csr.conf
 # create the secret with server cert/key
 kubectl create secret generic ${secret} \
         --from-file=tls.key=${tmpdir}/server.key \
@@ -116,16 +116,43 @@ caBundle=$(cat ${tmpdir}/ca.crt | openssl enc -a -A)
 echo "Encoded CA:"
 echo -e "${caBundle} \n"
 
-# Patch CA Certificate to webhooks
-mutatingPatchString='[{"op": "replace", "path": "/webhooks/0/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}, {"op": "replace", "path": "/webhooks/1/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
+# check if jq is installed
+if [ ! -x "$(command -v jq)" ]; then
+    echo "jq not found"
+    exit 1
+fi
+# Patch CA Certificate to mutatingWebhook
+mutatingWebhookCount=$(kubectl get mutatingwebhookconfiguration ${webhookConfigName} -ojson | jq -r '.webhooks' | jq length)
+# build patchstring based on webhook counts
+mutatingPatchString='['
+for i in $(seq 0 $(($mutatingWebhookCount-1)))
+do
+    mutatingPatchString=$mutatingPatchString'{"op": "replace", "path": "/webhooks/'$i'/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}, '
+done
+# strip ', '
+mutatingPatchString=${mutatingPatchString%, }']'
 mutatingPatchString=$(echo ${mutatingPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
-validatingPatchString='[{"op": "replace", "path": "/webhooks/0/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
-validatingPatchString=$(echo ${validatingPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
 
 echo "patching ca bundle for mutating webhook configuration..."
 kubectl patch mutatingwebhookconfiguration ${webhookConfigName} \
     --type='json' -p="${mutatingPatchString}"
 
+# Patch CA Certificate to validatingWebhook
+validatingWebhookCount=$(kubectl get validatingwebhookconfiguration ${webhookConfigName} -ojson | jq -r '.webhooks' | jq length)
+validatingPatchString='['
+for i in $(seq 0 $(($validatingWebhookCount-1)))
+do
+    validatingPatchString=$validatingPatchString'{"op": "replace", "path": "/webhooks/'$i'/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}, '
+done
+validatingPatchString=${validatingPatchString%, }']'
+validatingPatchString=$(echo ${validatingPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
+
 echo "patching ca bundle for validating webhook configuration..."
 kubectl patch validatingwebhookconfiguration ${webhookConfigName} \
     --type='json' -p="${validatingPatchString}"
+
+echo "patching ca bundler for conversion webhook configuration.."
+conversionPatchString='[{"op": "replace", "path": "/spec/conversion/webhook/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
+conversionPatchString=$(echo ${conversionPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
+kubectl patch CustomResourceDefinition inferenceservices.serving.kubeflow.org \
+    --type='json' -p="${conversionPatchString}"

@@ -44,6 +44,6 @@ The following should be viewed as Best Practices unless you know better ones (pl
 
 ## Get involved
 
-* [Slack](https://kubeflow.slack.com/join/shared_invite/zt-cpr020z4-PfcAue_2nw67~iIDy7maAQ)
+* [Slack](https://kubeflow.slack.com/join/shared_invite/zt-n73pfj05-l206djXlXk5qdQKs4o1Zkg#/)
 * [Twitter](http://twitter.com/kubeflow)
 * [Mailing List](https://groups.google.com/forum/#!forum/kubeflow-discuss)
