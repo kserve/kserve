@@ -50,5 +50,5 @@ jobs:
         pip install -e ./pytorchserver
         pip install -e ./pmmlserver
         pip install -e ./lgbserver
-        pip install -e ./catboost
+        pip install -e ./catboostserver
         pytest
