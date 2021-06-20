@@ -208,9 +208,14 @@ make deploy-dev-storageInitializer
 - **Note**: These commands also publishes to `KO_DOCKER_REPO` with the image of version 'latest', and change the configmap of your cluster to point to the new built images. It's just for development and testing purpose so you need to do it one by one. In configmap, for predictors it will just keep the one in development, for exlainer and storage initializer will just change the item impacted and set all others images including the `kfserving-controller-manager` and `logger` to be default. 
 
 ### Smoke test after deployment
+
+Run the following command to smoke test the deployment,
+where `<version>` is your version of kfserving, such as `v1beta`:
+
 ```bash
-kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
+kubectl apply -f docs/samples/<version>/tensorflow/tensorflow.yaml
 ```
+
 You should see model serving deployment running under default or your specified namespace.
 
 ```console
@@ -222,7 +227,12 @@ $ kubectl get pods -n default -l serving.kubeflow.org/inferenceservice=flowers-s
 NAME                                                READY   STATUS    RESTARTS   AGE
 flowers-sample-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
 ```
-NOTE: KFServing scales pods to 0 in the absence of traffic. If you don't see any pods, try sending out a query via curl using instructions in the tensorflow sample: https://github.com/kubeflow/kfserving/tree/master/docs/samples/tensorflow
+
+NOTE: KFServing scales pods to 0 in the absence of traffic.
+If you don't see any pods, try sending out a query via curl using instructions in the
+tensorflow sample
+([`v1alpha2` docs](https://github.com/kubeflow/kfserving/blob/master/docs/samples/v1alpha2/tensorflow/README.md),
+[`v1beta1` docs](https://github.com/kubeflow/kfserving/blob/master/docs/samples/v1beta1/tensorflow/README.md)).
 
 
 ## Iterating
