@@ -210,7 +210,7 @@ make deploy-dev-storageInitializer
 ### Smoke test after deployment
 
 Run the following command to smoke test the deployment,
-where `<version>` is your version of kfserving, such as `v1beta`:
+where `<version>` is your version of kfserving, such as `v1beta1`:
 
 ```bash
 kubectl apply -f docs/samples/<version>/tensorflow/tensorflow.yaml
