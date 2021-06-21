@@ -120,7 +120,7 @@ func (s *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == nil {
 		s.RuntimeVersion = proto.String(config.Explainers.AlibiExplainer.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&s.Resources)
+	setResourceRequirementDefaults(&s.Resources, config)
 }
 
 // Validate the spec

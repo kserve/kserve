@@ -62,7 +62,7 @@ func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 		x.RuntimeVersion = &defaultVersion
 	}
 
-	setResourceRequirementDefaults(&x.Resources)
+	setResourceRequirementDefaults(&x.Resources, config)
 
 }
 

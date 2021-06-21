@@ -55,7 +55,7 @@ func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 	if t.RuntimeVersion == nil {
 		t.RuntimeVersion = proto.String(config.Predictors.Triton.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&t.Resources)
+	setResourceRequirementDefaults(&t.Resources, config)
 }
 
 // GetContainers transforms the resource into a container spec

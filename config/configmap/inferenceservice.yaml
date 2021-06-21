@@ -177,3 +177,8 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1"
     }
+  defaults: |-
+    {
+        "cpu": "1",
+        "memory": "2Gi"
+    }

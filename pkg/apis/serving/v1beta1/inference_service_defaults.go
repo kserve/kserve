@@ -20,7 +20,6 @@ import (
 	"reflect"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -28,10 +27,6 @@ import (
 )
 
 var (
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
 	// logger for the mutating webhook.
 	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
 )
@@ -39,11 +34,11 @@ var (
 // +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kfserving-webhook-server.defaulter
 var _ webhook.Defaulter = &InferenceService{}
 
-func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
+func setResourceRequirementDefaults(requirements *v1.ResourceRequirements, config *InferenceServicesConfig) {
 	if requirements.Requests == nil {
 		requirements.Requests = v1.ResourceList{}
 	}
-	for k, v := range defaultResource {
+	for k, v := range config.Defaults {
 		if _, ok := requirements.Requests[k]; !ok {
 			requirements.Requests[k] = v
 		}
@@ -52,7 +47,7 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	if requirements.Limits == nil {
 		requirements.Limits = v1.ResourceList{}
 	}
-	for k, v := range defaultResource {
+	for k, v := range config.Defaults {
 		if _, ok := requirements.Limits[k]; !ok {
 			requirements.Limits[k] = v
 		}

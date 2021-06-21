@@ -62,7 +62,7 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 		k.ProtocolVersion = &defaultProtocol
 	}
 
-	setResourceRequirementDefaults(&k.Resources)
+	setResourceRequirementDefaults(&k.Resources, config)
 }
 
 // GetContainer transforms the resource into a container spec
