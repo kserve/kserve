@@ -70,7 +70,7 @@ recommend adding them to your `.bashrc`):
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
    work properly.
 1. `KO_DOCKER_REPO`: The docker repository to which developer images should be
-   pushed (e.g. `docker.io/<username>/[project]`).
+   pushed (e.g. `docker.io/<username>`).
 
 - **Note**: Set up a docker repository for pushing images. You can use any container image registry by adjusting 
 the authentication methods and repository paths mentioned in the sections below.
