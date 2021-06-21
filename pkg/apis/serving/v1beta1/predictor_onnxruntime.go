@@ -64,7 +64,7 @@ func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
 	if o.RuntimeVersion == nil {
 		o.RuntimeVersion = proto.String(config.Predictors.ONNX.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&o.Resources)
+	setResourceRequirementDefaults(&o.Resources, config)
 }
 
 // GetContainers transforms the resource into a container spec

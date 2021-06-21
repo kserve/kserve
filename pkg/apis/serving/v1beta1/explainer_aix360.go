@@ -103,7 +103,7 @@ func (s *AIXExplainerSpec) Default(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == nil {
 		s.RuntimeVersion = proto.String(config.Explainers.AIXExplainer.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&s.Resources)
+	setResourceRequirementDefaults(&s.Resources, config)
 }
 
 // Validate the spec
