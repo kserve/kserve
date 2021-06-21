@@ -77,7 +77,7 @@ func (t *TFServingSpec) Default(config *InferenceServicesConfig) {
 			t.RuntimeVersion = proto.String(config.Predictors.Tensorflow.DefaultImageVersion)
 		}
 	}
-	setResourceRequirementDefaults(&t.Resources)
+	setResourceRequirementDefaults(&t.Resources, config)
 }
 
 func (t *TFServingSpec) GetStorageUri() *string {

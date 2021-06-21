@@ -43,7 +43,7 @@ func (p *PaddleServerSpec) Default(config *InferenceServicesConfig) {
 	if p.RuntimeVersion == nil {
 		p.RuntimeVersion = proto.String(config.Predictors.Paddle.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&p.Resources)
+	setResourceRequirementDefaults(&p.Resources, config)
 }
 
 // GetContainers transforms the resource into a container spec

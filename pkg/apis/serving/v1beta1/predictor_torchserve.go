@@ -107,7 +107,7 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 		}
 	}
 
-	setResourceRequirementDefaults(&t.Resources)
+	setResourceRequirementDefaults(&t.Resources, config)
 }
 
 // GetContainers transforms the resource into a container spec

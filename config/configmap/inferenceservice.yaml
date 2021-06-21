@@ -189,3 +189,14 @@ data:
     {
       "defaultDeploymentMode": "Serverless"
     }
+  defaults: |-
+    {
+        "request": {
+            "cpu": "1",
+            "memory": "2Gi"
+        },
+        "limit": {
+            "cpu": "1",
+            "memory": "2Gi"
+        }
+    }

@@ -22,6 +22,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -31,6 +32,7 @@ const (
 	PredictorConfigKeyName   = "predictors"
 	TransformerConfigKeyName = "transformers"
 	ExplainerConfigKeyName   = "explainers"
+	DefaultsConfigKeyName    = "defaults"
 )
 
 const (
@@ -101,6 +103,11 @@ type TransformersConfig struct {
 	Feast TransformerConfig `json:"feast,omitempty"`
 }
 
+type IsvcDefaultConfig struct {
+	Request map[v1.ResourceName]resource.Quantity `json:"request,omitempty"`
+	Limit   map[v1.ResourceName]resource.Quantity `json:"limit,omitempty"`
+}
+
 // +kubebuilder:object:generate=false
 type InferenceServicesConfig struct {
 	// Transformer configurations
@@ -109,6 +116,8 @@ type InferenceServicesConfig struct {
 	Predictors PredictorsConfig `json:"predictors"`
 	// Explainer configurations
 	Explainers ExplainersConfig `json:"explainers"`
+	// Default configurations
+	Defaults IsvcDefaultConfig `json:"defaults,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -131,11 +140,17 @@ func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, er
 	if err != nil {
 		return nil, err
 	}
-	icfg := &InferenceServicesConfig{}
+	icfg := &InferenceServicesConfig{
+		Defaults: IsvcDefaultConfig{
+			Request: make(map[v1.ResourceName]resource.Quantity),
+			Limit:   make(map[v1.ResourceName]resource.Quantity),
+		},
+	}
 	for _, err := range []error{
 		getComponentConfig(PredictorConfigKeyName, configMap, &icfg.Predictors),
 		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
 		getComponentConfig(TransformerConfigKeyName, configMap, &icfg.Transformers),
+		getComponentConfig(DefaultsConfigKeyName, configMap, &icfg.Defaults),
 	} {
 		if err != nil {
 			return nil, err

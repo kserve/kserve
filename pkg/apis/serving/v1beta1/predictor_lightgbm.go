@@ -50,7 +50,7 @@ func (x *LightGBMSpec) Default(config *InferenceServicesConfig) {
 	if x.RuntimeVersion == nil {
 		x.RuntimeVersion = proto.String(config.Predictors.LightGBM.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&x.Resources)
+	setResourceRequirementDefaults(&x.Resources, config)
 
 }
 

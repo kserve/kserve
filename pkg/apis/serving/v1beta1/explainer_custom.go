@@ -48,7 +48,7 @@ func (c *CustomExplainer) Default(config *InferenceServicesConfig) {
 		c.Containers = append(c.Containers, v1.Container{})
 	}
 	c.Containers[0].Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&c.Containers[0].Resources)
+	setResourceRequirementDefaults(&c.Containers[0].Resources, config)
 }
 
 func (c *CustomExplainer) GetStorageUri() *string {

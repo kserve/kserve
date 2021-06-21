@@ -50,7 +50,7 @@ func (p *PMMLSpec) Default(config *InferenceServicesConfig) {
 	if p.RuntimeVersion == nil {
 		p.RuntimeVersion = proto.String(config.Predictors.PMML.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&p.Resources)
+	setResourceRequirementDefaults(&p.Resources, config)
 }
 
 // GetContainer transforms the resource into a container spec
