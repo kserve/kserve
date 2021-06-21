@@ -14,6 +14,8 @@ limitations under the License.
 package components
 
 import (
+	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -23,6 +25,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -64,9 +68,16 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
 	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)
-
+	existing := &knservingv1.Service{}
+	transformerName := constants.TransformerServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name)
+	err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+	if err == nil {
+		transformerName = constants.DefaultTransformerServiceName(isvc.Name)
+		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+	}
 	objectMeta := metav1.ObjectMeta{
-		Name:      constants.DefaultTransformerServiceName(isvc.Name),
+		Name:      transformerName,
 		Namespace: isvc.Namespace,
 		Labels: utils.Union(isvc.Labels, map[string]string{
 			constants.InferenceServicePodLabelKey: isvc.Name,
@@ -75,14 +86,16 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		Annotations: annotations,
 	}
 	if len(isvc.Spec.Transformer.PodSpec.Containers) == 0 {
-		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
+		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig,
+			fmt.Sprintf("%s.%s", predictorName, isvc.Namespace))
 		isvc.Spec.Transformer.PodSpec = v1beta1.PodSpec{
 			Containers: []corev1.Container{
 				*container,
 			},
 		}
 	} else {
-		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
+		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig,
+			predictorName)
 		isvc.Spec.Transformer.PodSpec.Containers[0] = *container
 	}
 

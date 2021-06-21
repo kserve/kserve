@@ -66,7 +66,8 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainer transforms the resource into a container spec
-func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string) *v1.Container {
 	if k.ProtocolVersion == nil || *k.ProtocolVersion == constants.ProtocolV1 {
 		return k.getContainerV1(metadata, extensions, config)
 	}

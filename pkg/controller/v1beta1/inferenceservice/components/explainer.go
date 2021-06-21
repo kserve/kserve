@@ -14,6 +14,7 @@ limitations under the License.
 package components
 
 import (
+	"context"
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -23,6 +24,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -63,8 +66,16 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
+	existing := &knservingv1.Service{}
+	explainerName := constants.ExplainerServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name)
+	err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+	if err == nil {
+		explainerName = constants.DefaultExplainerServiceName(isvc.Name)
+		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+	}
 	objectMeta := metav1.ObjectMeta{
-		Name:      constants.DefaultExplainerServiceName(isvc.Name),
+		Name:      explainerName,
 		Namespace: isvc.Namespace,
 		Labels: utils.Union(isvc.Labels, map[string]string{
 			constants.InferenceServicePodLabelKey: isvc.Name,
@@ -73,7 +84,8 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		Annotations: annotations,
 	}
 	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
-		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), p.inferenceServiceConfig)
+		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), p.inferenceServiceConfig,
+			predictorName)
 		isvc.Spec.Explainer.PodSpec = v1beta1.PodSpec{
 			Containers: []v1.Container{
 				*container,

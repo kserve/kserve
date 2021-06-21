@@ -56,7 +56,8 @@ func (x *LightGBMSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainer transforms the resource into a container spec
-func (x *LightGBMSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (x *LightGBMSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string) *v1.Container {
 	cpuLimit := x.Resources.Limits.Cpu()
 	cpuLimit.RoundUp(0)
 	arguments := []string{

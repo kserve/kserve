@@ -112,7 +112,8 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string) *v1.Container {
 	if t.ProtocolVersion == nil || *t.ProtocolVersion == constants.ProtocolV1 {
 		if t.ModelClassName != "" {
 			return t.GetContainerV1(metadata, extensions, config)

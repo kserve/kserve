@@ -36,6 +36,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/network"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,8 +73,13 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 		} else if transformerStatus.URL == nil {
 			return ""
 		} else {
-			return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Transformer)), "",
-				1)
+			if strings.Contains(transformerStatus.URL.Host, "-default") {
+				return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Transformer)), "",
+					1)
+			} else {
+				return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Transformer)), "",
+					1)
+			}
 		}
 	}
 
@@ -82,8 +88,13 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	} else if predictorStatus.URL == nil {
 		return ""
 	} else {
-		return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Predictor)), "",
-			1)
+		if strings.Contains(predictorStatus.URL.Host, "-default") {
+			return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Predictor)), "",
+				1)
+		} else {
+			return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Predictor)), "",
+				1)
+		}
 	}
 }
 
@@ -98,7 +109,12 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 		} else if transformerStatus.URL == nil {
 			return ""
 		} else {
-			return strings.Replace(transformerStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
+			if strings.Contains(transformerStatus.URL.Host, "-default") {
+				return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Transformer)), "",
+					1)
+			} else {
+				return strings.Replace(transformerStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
+			}
 		}
 	}
 
@@ -107,7 +123,12 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 	} else if predictorStatus.URL == nil {
 		return ""
 	} else {
-		return strings.Replace(predictorStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
+		if strings.Contains(predictorStatus.URL.Host, "-default") {
+			return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Predictor)), "",
+				1)
+		} else {
+			return strings.Replace(predictorStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
+		}
 	}
 }
 
@@ -161,7 +182,7 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 	return nil
 }
 
-func createHTTPRouteDestination(targetHost, namespace string, gatewayService string) *istiov1alpha3.HTTPRouteDestination {
+func createHTTPRouteDestination(gatewayService string) *istiov1alpha3.HTTPRouteDestination {
 	httpRouteDestination := &istiov1alpha3.HTTPRouteDestination{
 		Destination: &istiov1alpha3.Destination{
 			Host: gatewayService,
@@ -209,7 +230,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 	return matchRequests
 }
 
-func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) *v1alpha3.VirtualService {
+func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig) *v1alpha3.VirtualService {
 	serviceHost := getServiceHost(isvc)
 	if serviceHost == "" {
 		return nil
@@ -223,10 +244,16 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 		})
 		return nil
 	}
-	backend := constants.DefaultPredictorServiceName(isvc.Name)
+	backend := constants.PredictorServiceName(isvc.Name)
+	if useDefault {
+		backend = constants.DefaultPredictorServiceName(isvc.Name)
+	}
 
 	if isvc.Spec.Transformer != nil {
-		backend = constants.DefaultTransformerServiceName(isvc.Name)
+		backend = constants.TransformerServiceName(isvc.Name)
+		if useDefault {
+			backend = constants.DefaultTransformerServiceName(isvc.Name)
+		}
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:   v1beta1.IngressReady,
@@ -247,6 +274,10 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 	}
 	httpRoutes := []*istiov1alpha3.HTTPRoute{}
 	// Build explain route
+	expBackend := constants.ExplainerServiceName(isvc.Name)
+	if useDefault {
+		expBackend = constants.DefaultExplainerServiceName(isvc.Name)
+	}
 	if isvc.Spec.Explainer != nil {
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
@@ -260,12 +291,12 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 			Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
 				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
 			Route: []*istiov1alpha3.HTTPRouteDestination{
-				createHTTPRouteDestination(constants.DefaultExplainerServiceName(isvc.Name), isvc.Namespace, config.LocalGatewayServiceName),
+				createHTTPRouteDestination(config.LocalGatewayServiceName),
 			},
 			Headers: &istiov1alpha3.Headers{
 				Request: &istiov1alpha3.Headers_HeaderOperations{
 					Set: map[string]string{
-						"Host": network.GetServiceHostname(constants.DefaultExplainerServiceName(isvc.Name), isvc.Namespace),
+						"Host": network.GetServiceHostname(expBackend, isvc.Namespace),
 					},
 				},
 			},
@@ -277,7 +308,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 		Match: createHTTPMatchRequest("", serviceHost,
 			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
 		Route: []*istiov1alpha3.HTTPRouteDestination{
-			createHTTPRouteDestination(backend, isvc.Namespace, config.LocalGatewayServiceName),
+			createHTTPRouteDestination(config.LocalGatewayServiceName),
 		},
 		Headers: &istiov1alpha3.Headers{
 			Request: &istiov1alpha3.Headers_HeaderOperations{
@@ -323,8 +354,14 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	if serviceHost == "" || serviceUrl == "" {
 		return nil
 	}
+	defaultNameExisting := &knservingv1.Service{}
+	useDefault := false
+	err := ir.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, defaultNameExisting)
+	if err == nil {
+		useDefault = true
+	}
 	//Create ingress
-	desiredIngress := createIngress(isvc, ir.ingressConfig)
+	desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig)
 	if desiredIngress == nil {
 		return nil
 	}
@@ -339,7 +376,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	existing := &v1alpha3.VirtualService{}
-	err := ir.client.Get(context.TODO(), types.NamespacedName{Name: desiredIngress.Name, Namespace: desiredIngress.Namespace}, existing)
+	err = ir.client.Get(context.TODO(), types.NamespacedName{Name: desiredIngress.Name, Namespace: desiredIngress.Namespace}, existing)
 	if err != nil {
 		if apierr.IsNotFound(err) {
 			log.Info("Creating Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)

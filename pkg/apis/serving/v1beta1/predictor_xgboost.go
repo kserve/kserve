@@ -67,7 +67,8 @@ func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainer transforms the resource into a container spec
-func (x *XGBoostSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string) *v1.Container {
 	if x.ProtocolVersion == nil || *x.ProtocolVersion == constants.ProtocolV1 {
 		return x.getContainerV1(metadata, extensions, config)
 	}
