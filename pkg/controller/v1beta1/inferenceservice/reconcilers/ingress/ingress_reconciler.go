@@ -113,7 +113,7 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 				return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Transformer)), "",
 					1)
 			} else {
-				return strings.Replace(transformerStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
+				return strings.Replace(transformerStatus.URL.String(), fmt.Sprintf("-%s", string(constants.Transformer)), "", 1)
 			}
 		}
 	}
@@ -127,7 +127,7 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 			return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Predictor)), "",
 				1)
 		} else {
-			return strings.Replace(predictorStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
+			return strings.Replace(predictorStatus.URL.String(), fmt.Sprintf("-%s", string(constants.Predictor)), "", 1)
 		}
 	}
 }
