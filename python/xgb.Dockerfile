@@ -6,6 +6,6 @@ COPY . .
 COPY third_party third_party
 
 # pip 20.x breaks xgboost wheels https://github.com/dmlc/xgboost/issues/5221
-RUN pip install pip==19.3.1 && pip install -e ./kfserving
-RUN pip install -e ./xgbserver
+RUN pip install --no-cache-dir pip==19.3.1 && pip install --no-cache-dir -e ./kfserving
+RUN pip install --no-cache-dir -e ./xgbserver
 ENTRYPOINT ["python", "-m", "xgbserver"]

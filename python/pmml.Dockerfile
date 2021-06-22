@@ -24,8 +24,8 @@ RUN conda install -y python=$PYTHON_VERSION
 COPY pmmlserver pmmlserver
 COPY kfserving kfserving
 
-RUN pip install --upgrade pip && pip3 install -e ./kfserving
-RUN pip install -e ./pmmlserver
+RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kfserving
+RUN pip install --no-cache-dir -e ./pmmlserver
 COPY third_party third_party
 
 ENTRYPOINT ["python3", "-m", "pmmlserver"]
