@@ -228,7 +228,7 @@ NAME                                                READY   STATUS    RESTARTS  
 flowers-sample-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
 ```
 
-NOTE: KFServing scales pods to 0 in the absence of traffic.
+NOTE: KFServing scales pods to 0 in the absence of traffic when `minReplicas` is set to `0`.
 If you don't see any pods, try sending out a query via curl using instructions in the
 tensorflow sample
 ([`v1alpha2` docs](https://github.com/kubeflow/kfserving/blob/master/docs/samples/v1alpha2/tensorflow/README.md),
