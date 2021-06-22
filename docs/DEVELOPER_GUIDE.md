@@ -209,7 +209,7 @@ make deploy-dev-storageInitializer
 
 ### Smoke test after deployment
 ```bash
-kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
+kubectl apply -f docs/samples/v1beta1/tensorflow/tensorflow.yaml
 ```
 You should see model serving deployment running under default or your specified namespace.
 
@@ -264,9 +264,9 @@ Reissued from statefulset/default: create Pod default-0 in StatefulSet default f
 Or while you are deploying the models
 
 ```shell
-kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
-Error from server (InternalError): error when creating "docs/samples/tensorflow/tensorflow.yaml": 
-Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter": 
+kubectl apply -f docs/samples/v1beta1/tensorflow/tensorflow.yaml
+Error from server (InternalError): error when creating "docs/samples/v1beta1/tensorflow/tensorflow.yaml":
+Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter":
 Post https://kfserving-webhook-server-service.kfserving-system.svc:443/mutate-inferenceservices?timeout=30s:
 
 context deadline exceeded
