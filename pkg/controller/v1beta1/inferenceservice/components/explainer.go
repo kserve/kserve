@@ -92,7 +92,8 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 			},
 		}
 	} else {
-		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), p.inferenceServiceConfig)
+		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), p.inferenceServiceConfig,
+			predictorName)
 		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
 	}
 	if hasInferenceLogging {

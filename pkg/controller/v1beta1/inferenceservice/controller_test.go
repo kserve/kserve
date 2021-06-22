@@ -15,7 +15,6 @@ package inferenceservice
 
 import (
 	"context"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -381,7 +380,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			transformerService := &knservingv1.Service{}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), transformerServiceKey, transformerService) }, timeout).
 				Should(gomega.Succeed())
-			fmt.Printf("%v", transformerService)
 			expectedTransformerService := &knservingv1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.TransformerServiceName(instance.Name),

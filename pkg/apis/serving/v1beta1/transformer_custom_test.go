@@ -408,7 +408,8 @@ func TestCreateTransformerContainer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			transformer := scenario.isvc.Spec.Transformer.GetImplementation()
 			transformer.Default(&config)
-			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Transformer.ComponentExtensionSpec, &config)
+			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Transformer.ComponentExtensionSpec,
+				&config, constants.DefaultPredictorServiceName("someName"))
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}

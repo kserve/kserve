@@ -15,7 +15,6 @@ package components
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -87,7 +86,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	if len(isvc.Spec.Transformer.PodSpec.Containers) == 0 {
 		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig,
-			fmt.Sprintf("%s.%s", predictorName, isvc.Namespace))
+			predictorName)
 		isvc.Spec.Transformer.PodSpec = v1beta1.PodSpec{
 			Containers: []corev1.Container{
 				*container,
