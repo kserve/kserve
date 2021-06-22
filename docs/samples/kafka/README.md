@@ -5,7 +5,7 @@
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Install Minio with following Minio deploy step.
 4. Use existing Kafka cluster or install Kafka on your cluster with [Confluent helm chart](https://www.confluent.io/blog/getting-started-apache-kafka-kubernetes/).
-5. Install [Kafka Event Source](https://github.com/knative/eventing-contrib/tree/master/kafka/source).
+5. Install [Kafka Event Source](https://github.com/knative-sandbox/eventing-kafka/tree/main/pkg/source).
 6. Kubernetes 1.15+
 7. KFServing 0.3+
 
