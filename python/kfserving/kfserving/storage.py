@@ -292,12 +292,81 @@ The path or model %s does not exist." % (uri))
                 shutil.copyfileobj(stream, out)
 
         if mimetype in ["application/x-tar", "application/zip"]:
-            if mimetype == "application/x-tar":
-                archive = tarfile.open(local_path, 'r', encoding='utf-8')
-            else:
-                archive = zipfile.ZipFile(local_path, 'r')
-            archive.extractall(out_dir)
-            archive.close()
-            os.remove(local_path)
+            Storage._extract(local_path, out_dir, mimetype)
 
         return out_dir
+
+    @staticmethod
+    def _extract(filepath: str, out_dir: str, mimetype=None):
+        """[extract file to outdir base on mimetype]
+
+        if compressed directory structure is as follows:
+
+        models/
+        models/test1.pth
+        models/test2.pth
+
+        the extracted file structure will be:
+
+        test1.pth
+        test2.pth
+
+        the prefix `models/` will be striped
+
+        Args:
+            filepath (str): [tar file path]
+            out_dir (str): [output directory]
+            mimetype ([type], optional): [mimetype of file]. Defaults to None.
+        """
+        if mimetype is None:
+            mimetype, _ = mimetypes.guess_type(filepath)
+        if mimetype == "application/x-tar":
+            Storage._extract_tarfile(filepath, out_dir)
+        elif mimetype == "application/zip":
+            Storage._extract_zipfile(filepath, out_dir)
+        else:
+            raise RuntimeError("unsupported mimetype: %s " % mimetype)
+        os.remove(filepath)
+
+    @staticmethod
+    def _extract_tarfile(filepath: str, out_dir: str):
+        """[extract tar file to out_dir, strip base directory if necessary]
+
+        Args:
+            filepath (str): [tar file path]
+            out_dir (str): [output directory]
+        """
+        with tarfile.open(filepath, 'r', encoding='utf-8') as archive:
+            members = archive.getmembers()
+            members.sort(key = lambda m: len(m.name))
+            # assume first member is directory name
+            # if all files starts with directory name, set need_strip to true
+            need_strip = len(members) > 1 and \
+                         all(m.name.startswith(members[0].name) for m in members[1:])
+            if need_strip:
+                for member in members[1:]:
+                    # exclude directory name
+                    member.path = member.path[len(members[0].name):].lstrip("/")
+                members = members[1:]
+            archive.extractall(out_dir, members=members)
+
+    @staticmethod
+    def _extract_zipfile(filepath: str, out_dir: str):
+        """[extract zip file to out_dir, strip base directory if necessary]
+
+        Args:
+            filepath (str): [tar file path]
+            out_dir (str): [output directory]
+        """
+        with zipfile.ZipFile(filepath) as archive:
+            members = archive.infolist()
+            members.sort(key = lambda m: len(m.filename))
+            # assume first member is directory name
+            # if all files starts with directory name, set need_strip to true
+            need_strip = len(members) > 1 and \
+                         all(m.filename.startswith(members[0].filename) for m in members[1:])
+            if need_strip:
+                for member in members[1:]:
+                    member.filename = member.filename[len(members[0].filename):].lstrip("/")
+                members = members[1:]
+            archive.extractall(out_dir, members=members)

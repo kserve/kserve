@@ -37,6 +37,21 @@ FILE_ZIP_RAW = binascii.unhexlify('504b030414000800080035b6705200000000000000000
                                   '0000000a481000000006d6f64656c2e70746855540d000786c5506086c5506086c5506075780b000104f'
                                   '50100000414000000504b0506000000000100010057000000590000000000')
 
+# *.tar.gz contains a single empty file model.pth
+FILE_TAR_GZ_RAW_IN_DIR = binascii.unhexlify('1f8b0800000000000003edd14d0ac2400c86e11c654ea099ce64721e41a10b4bfda9f7b7ad'
+                                            '08c585ba9945e9fb2c12480626f075fdf174de4b553a72b3a947375df63789594b4edaa49c'
+                                            'c6b9bbb904ab7bd6cbe33e1c6e21487bfdfeeed77ea5ba39ffb9ee2e435be58f29e092f3ff'
+                                            'f9c768a591a055aef9b0f1fc01000000000000000000000000acd71328c4bb3700280000')
+
+# *.zip contains a single empty file model.pth inside directory model
+FILE_ZIP_RAW_IN_DIR = binascii.unhexlify('504b03040a00000000008a74d65200000000000000000000000006001c006d6f64656c2f55540'
+                                         '90003e384d1600f87d16075780b000104e803000004e8030000504b03040a00000000008a74d6'
+                                         '520000000000000000000000000f0000006d6f64656c2f6d6f64656c2e707468504b01021e030'
+                                         'a00000000008a74d652000000000000000000000000060018000000000000001000ed41000000'
+                                         '006d6f64656c2f5554050003e384d16075780b000104e803000004e8030000504b01023f000a0'
+                                         '0000000008a74d6520000000000000000000000000f0024000000000000008000000040000000'
+                                         '6d6f64656c2f6d6f64656c2e7074680a0020000000000001001800a09deae83067d701408ed81'
+                                         '93167d701a09deae83067d701504b05060000000002000200ad0000006d0000000000')
 
 def test_storage_local_path():
     abs_path = 'file:///'
@@ -175,3 +190,61 @@ def test_no_permission_buckets(mock_connection, mock_boto3):
 
     with pytest.raises(botocore.exceptions.ClientError):
         kfserving.Storage.download(bad_s3_path)
+
+def test_extract_tar(tmp_path):
+    outdir = tmp_path / "outdir"
+    outdir.mkdir()
+    fpath = tmp_path / "test.tar.gz"
+    fpath.write_bytes(FILE_TAR_GZ_RAW)
+    kfserving.Storage._extract_tarfile(str(fpath.absolute()), outdir)
+    assert os.path.exists(os.path.join(outdir, 'model.pth'))
+
+def test_extract_zip(tmp_path):
+    outdir = tmp_path / "outdir"
+    outdir.mkdir()
+    fpath = tmp_path / "test.zip"
+    fpath.write_bytes(FILE_ZIP_RAW)
+    kfserving.Storage._extract_zipfile(str(fpath.absolute()), outdir)
+    assert os.path.exists(os.path.join(outdir, 'model.pth'))
+
+def test_extract_tar_with_basedir(tmp_path):
+    outdir = tmp_path / "outdir"
+    outdir.mkdir()
+    fpath = tmp_path / "model.tar.gz"
+    fpath.write_bytes(FILE_TAR_GZ_RAW_IN_DIR)
+    kfserving.Storage._extract_tarfile(str(fpath.absolute()), outdir)
+    assert os.path.exists(os.path.join(outdir, 'model.pth'))
+
+def test_extract_zip_with_basedir(tmp_path):
+    outdir = tmp_path / "outdir"
+    outdir.mkdir()
+    fpath = tmp_path / "model.zip"
+    fpath.write_bytes(FILE_ZIP_RAW_IN_DIR)
+    kfserving.Storage._extract_zipfile(str(fpath.absolute()), outdir)
+    assert os.path.exists(os.path.join(outdir, 'model.pth'))
+
+test_params = [
+    (FILE_TAR_GZ_RAW, "test1.tar.gz", "application/x-tar", None),
+    (FILE_TAR_GZ_RAW, "test1.tar.gz", None, None),
+    (FILE_ZIP_RAW, "test2.zip", "application/zip", None),
+    (FILE_ZIP_RAW, "test2.zip", None, None),
+    (FILE_TAR_GZ_RAW_IN_DIR, "model1.tar.gz", "application/x-tar", None),
+    (FILE_TAR_GZ_RAW_IN_DIR, "model1.tar.gz", None, None),
+    (FILE_ZIP_RAW_IN_DIR, "model2.zip", "application/zip", None),
+    (FILE_ZIP_RAW_IN_DIR, "model2.zip", None, None),
+    (FILE_TAR_GZ_RAW, "test.txt", "text/html", RuntimeError),
+    (FILE_TAR_GZ_RAW, "test.txt", None, RuntimeError)
+]
+
+@pytest.mark.parametrize("raw_data,filename, mimetype, expected_error", test_params)
+def test_extract(tmp_path, raw_data, filename, mimetype, expected_error):
+    outdir = tmp_path / "outdir"
+    outdir.mkdir()
+    fpath = tmp_path / filename
+    fpath.write_bytes(raw_data)
+    if expected_error:
+        with pytest.raises(expected_error):
+            kfserving.Storage._extract(str(fpath.absolute()), outdir, mimetype=mimetype)
+    else:
+        kfserving.Storage._extract(str(fpath.absolute()), outdir, mimetype=mimetype)
+        assert os.path.exists(os.path.join(outdir, 'model.pth'))
