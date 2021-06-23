@@ -128,6 +128,36 @@ kubectl wait --for=condition=Ready pods --all --timeout=180s -n kfserving-system
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test
 
+echo "Enabling istio injection in kfserving-ci-test namespace ..."
+kubectl label namespace kfserving-ci-e2e-test istio-injection=enabled
+
+echo "Creating istio AuthorizationPolicy in kfserving-ci-test namespace ..."
+cat <<EOF | kubectl apply -f -
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ns-owner-access-istio
+  namespace: kfserving-ci-e2e-test
+spec:
+  rules:
+  - when:
+    - key: source.namespace
+      values:
+      - kfserving-ci-e2e-test
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/knative-serving/sa/controller
+    to:
+    - operation:
+        paths:
+        - /healthz
+        - /metrics
+        - /ready
+        - /wait-for-drain
+        - /v1/models/*
+EOF
+
 echo "Istio, Knative and KFServing have been installed and started."
 
 echo "Installing KFServing Python SDK ..."
