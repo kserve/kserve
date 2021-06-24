@@ -43,32 +43,20 @@ pushd istio_tmp >/dev/null
   cd istio-${ISTIO_VERSION}
   export PATH=$PWD/bin:$PATH
   istioctl operator init
-  cat << EOF > ./istio-minimal-operator.yaml
+  echo "==========Waiting for istio-operator started ...=========="
+  kubectl wait --for=condition=Ready pods --all --timeout=180s -n istio-operator
+
+  cat <<EOF | kubectl apply -f -
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: istio
 spec:
-  values:
-    global:
-      proxy:
-        autoInject: enabled
-      useMCP: false
-      # The third-party-jwt is not enabled on all k8s.
-      # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
-      jwtPolicy: first-party-jwt
-
+  profile: default
   meshConfig:
     accessLogFile: /dev/stdout
-
-  addonComponents:
-    pilot:
-      enabled: true
-
-  components:
-    ingressGateways:
-      - name: istio-ingressgateway
-        enabled: true
 EOF
-  istioctl manifest install -y -f ./istio-minimal-operator.yaml
 
 popd
 
