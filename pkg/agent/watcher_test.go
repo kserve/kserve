@@ -679,28 +679,29 @@ var _ = Describe("Watcher", func() {
 					logger.Printf("Setting up %s Server", protocol)
 					logger.Printf("Sync model config using temp dir %v\n", modelDir)
 					watcher := NewWatcher("/tmp/configs", modelDir, sugar)
-					modelConfigs := modelconfig.ModelConfigs{
-						{
-							Name: "model1",
-							Spec: v1alpha1.ModelSpec{
-								StorageURI: "http://example.com/test.tar",
-								Framework:  "sklearn",
-							},
-						},
-						{
-							Name: "model2",
-							Spec: v1alpha1.ModelSpec{
-								StorageURI: "https://example.com/test.zip",
-								Framework:  "sklearn",
-							},
-						},
-					}
 
 					// Create HTTPS client
 					ts := scenario.server
 					defer ts.Close()
 					cl := storage.HTTPSProvider{
 						Client: ts.Client(),
+					}
+
+					modelConfigs := modelconfig.ModelConfigs{
+						{
+							Name: "model1",
+							Spec: v1alpha1.ModelSpec{
+								StorageURI: ts.URL + "/test.tar",
+								Framework:  "sklearn",
+							},
+						},
+						{
+							Name: "model2",
+							Spec: v1alpha1.ModelSpec{
+								StorageURI: ts.URL + "/test.zip",
+								Framework:  "sklearn",
+							},
+						},
 					}
 
 					watcher.parseConfig(modelConfigs, false)
