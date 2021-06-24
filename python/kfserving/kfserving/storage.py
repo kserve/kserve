@@ -343,11 +343,11 @@ The path or model %s does not exist." % (uri))
         """
         with tarfile.open(filepath, 'r', encoding='utf-8') as archive:
             members = archive.getmembers()
-            members.sort(key = lambda m: len(m.name))
+            members.sort(key=lambda m: len(m.name))
             # assume first member is directory name
             # if all files starts with directory name, set need_strip to true
             need_strip = len(members) > 1 and \
-                         all(m.name.startswith(members[0].name) for m in members[1:])
+                all(m.name.startswith(members[0].name) for m in members[1:])
             if need_strip:
                 for member in members[1:]:
                     # exclude directory name
@@ -365,11 +365,11 @@ The path or model %s does not exist." % (uri))
         """
         with zipfile.ZipFile(filepath) as archive:
             members = archive.infolist()
-            members.sort(key = lambda m: len(m.filename))
+            members.sort(key=lambda m: len(m.filename))
             # assume first member is directory name
             # if all files starts with directory name, set need_strip to true
             need_strip = len(members) > 1 and \
-                         all(m.filename.startswith(members[0].filename) for m in members[1:])
+                all(m.filename.startswith(members[0].filename) for m in members[1:])
             if need_strip:
                 for member in members[1:]:
                     member.filename = member.filename[len(members[0].filename):].lstrip("/")

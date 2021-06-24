@@ -53,6 +53,7 @@ FILE_ZIP_RAW_IN_DIR = binascii.unhexlify('504b03040a00000000008a74d6520000000000
                                          '6d6f64656c2f6d6f64656c2e7074680a0020000000000001001800a09deae83067d701408ed81'
                                          '93167d701a09deae83067d701504b05060000000002000200ad0000006d0000000000')
 
+
 def test_storage_local_path():
     abs_path = 'file:///'
     relative_path = 'file://.'
@@ -191,6 +192,7 @@ def test_no_permission_buckets(mock_connection, mock_boto3):
     with pytest.raises(botocore.exceptions.ClientError):
         kfserving.Storage.download(bad_s3_path)
 
+
 def test_extract_tar(tmp_path):
     outdir = tmp_path / "outdir"
     outdir.mkdir()
@@ -198,6 +200,7 @@ def test_extract_tar(tmp_path):
     fpath.write_bytes(FILE_TAR_GZ_RAW)
     kfserving.Storage._extract_tarfile(str(fpath.absolute()), outdir)
     assert os.path.exists(os.path.join(outdir, 'model.pth'))
+
 
 def test_extract_zip(tmp_path):
     outdir = tmp_path / "outdir"
@@ -207,6 +210,7 @@ def test_extract_zip(tmp_path):
     kfserving.Storage._extract_zipfile(str(fpath.absolute()), outdir)
     assert os.path.exists(os.path.join(outdir, 'model.pth'))
 
+
 def test_extract_tar_with_basedir(tmp_path):
     outdir = tmp_path / "outdir"
     outdir.mkdir()
@@ -214,6 +218,7 @@ def test_extract_tar_with_basedir(tmp_path):
     fpath.write_bytes(FILE_TAR_GZ_RAW_IN_DIR)
     kfserving.Storage._extract_tarfile(str(fpath.absolute()), outdir)
     assert os.path.exists(os.path.join(outdir, 'model.pth'))
+
 
 def test_extract_zip_with_basedir(tmp_path):
     outdir = tmp_path / "outdir"
@@ -223,6 +228,7 @@ def test_extract_zip_with_basedir(tmp_path):
     kfserving.Storage._extract_zipfile(str(fpath.absolute()), outdir)
     assert os.path.exists(os.path.join(outdir, 'model.pth'))
 
+
 test_params = [
     (FILE_TAR_GZ_RAW, "test1.tar.gz", "application/x-tar", None),
     (FILE_ZIP_RAW, "test2.zip", "application/zip", None),
@@ -230,6 +236,7 @@ test_params = [
     (FILE_ZIP_RAW_IN_DIR, "model2.zip", "application/zip", None),
     (b"", "test.txt", "text/html", RuntimeError),
 ]
+
 
 @pytest.mark.parametrize("raw_data,filename, mimetype, expected_error", test_params)
 def test_extract(tmp_path, raw_data, filename, mimetype, expected_error):
