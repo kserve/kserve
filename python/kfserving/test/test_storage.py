@@ -225,15 +225,10 @@ def test_extract_zip_with_basedir(tmp_path):
 
 test_params = [
     (FILE_TAR_GZ_RAW, "test1.tar.gz", "application/x-tar", None),
-    (FILE_TAR_GZ_RAW, "test1.tar.gz", None, None),
     (FILE_ZIP_RAW, "test2.zip", "application/zip", None),
-    (FILE_ZIP_RAW, "test2.zip", None, None),
     (FILE_TAR_GZ_RAW_IN_DIR, "model1.tar.gz", "application/x-tar", None),
-    (FILE_TAR_GZ_RAW_IN_DIR, "model1.tar.gz", None, None),
     (FILE_ZIP_RAW_IN_DIR, "model2.zip", "application/zip", None),
-    (FILE_ZIP_RAW_IN_DIR, "model2.zip", None, None),
-    (FILE_TAR_GZ_RAW, "test.txt", "text/html", RuntimeError),
-    (FILE_TAR_GZ_RAW, "test.txt", None, RuntimeError)
+    (b"", "test.txt", "text/html", RuntimeError),
 ]
 
 @pytest.mark.parametrize("raw_data,filename, mimetype, expected_error", test_params)

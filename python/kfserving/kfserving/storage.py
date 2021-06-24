@@ -108,6 +108,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         bucket_path = parsed.path.lstrip('/')
 
         bucket = s3.Bucket(bucket_name)
+        count = 0
         for obj in bucket.objects.filter(Prefix=bucket_path):
             # Skip where boto3 lists the directory as an object
             if obj.key.endswith("/"):
@@ -123,6 +124,12 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             if not os.path.exists(os.path.dirname(target)):
                 os.makedirs(os.path.dirname(target), exist_ok=True)
             bucket.download_file(obj.key, target)
+            count += 1
+        if count == 1:
+            mimetype, _ = mimetypes.guess_type(target)
+            if mimetype in ["application/x-tar", "application/zip"]:
+                Storage._extract(target, temp_dir, mimetype=mimetype)
+
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
@@ -297,7 +304,7 @@ The path or model %s does not exist." % (uri))
         return out_dir
 
     @staticmethod
-    def _extract(filepath: str, out_dir: str, mimetype=None):
+    def _extract(filepath: str, out_dir: str, mimetype: str):
         """[extract file to outdir base on mimetype]
 
         if compressed directory structure is as follows:
@@ -318,8 +325,6 @@ The path or model %s does not exist." % (uri))
             out_dir (str): [output directory]
             mimetype ([type], optional): [mimetype of file]. Defaults to None.
         """
-        if mimetype is None:
-            mimetype, _ = mimetypes.guess_type(filepath)
         if mimetype == "application/x-tar":
             Storage._extract_tarfile(filepath, out_dir)
         elif mimetype == "application/zip":
