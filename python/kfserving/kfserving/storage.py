@@ -130,7 +130,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             if mimetype in ["application/x-tar", "application/zip"]:
                 Storage._extract(target, temp_dir, mimetype=mimetype)
 
-
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
         try:
