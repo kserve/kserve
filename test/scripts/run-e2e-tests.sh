@@ -90,6 +90,22 @@ metadata:
   namespace: knative-serving
 EOF
 
+echo "==========Installing Istio Allow AuthorizationPolicy for knative-serving namespace ...=========="
+cat <<EOF | kubectl apply -f -
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-knative-serving
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: v0.22.0
+    networking.knative.dev/ingress-provider: istio
+spec:
+  action: ALLOW
+  rules:
+  - {}
+EOF
+
 echo "==========Waiting for knative started ...=========="
 kubectl wait --for=condition=Ready knativeservings -n knative-serving knative-serving --timeout=180s
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,istio-webhook,networking-istio)'
