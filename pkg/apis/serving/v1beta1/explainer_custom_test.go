@@ -32,6 +32,16 @@ func TestCustomExplainerValidation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 	scenarios := map[string]struct {
 		spec    ExplainerSpec
@@ -131,8 +141,18 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
-	defaultResource = v1.ResourceList{
+	defaultResource := v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
@@ -206,6 +226,16 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Transformers: TransformersConfig{},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
@@ -346,10 +376,16 @@ func TestCustomExplainerIsMMS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{},
-	}
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 	mmsCase := false
 	scenarios := map[string]struct {

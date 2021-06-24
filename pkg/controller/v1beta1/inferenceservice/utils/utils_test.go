@@ -110,6 +110,16 @@ func TestIsMMSPredictor(t *testing.T) {
 					},
 				},
 			},
+			Defaults: IsvcDefaultConfig{
+				Request: map[v1.ResourceName]resource.Quantity{
+					"cpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("2Gi"),
+				},
+				Limit: map[v1.ResourceName]resource.Quantity{
+					"cpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("2Gi"),
+				},
+			},
 		}
 
 		scenarios := map[string]struct {
@@ -675,6 +685,16 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 					ContainerImage:      "mlserver",
 					DefaultImageVersion: "v0.1.2",
 				},
+			},
+		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
 			},
 		},
 	}

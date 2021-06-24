@@ -36,6 +36,16 @@ func TestAIXExplainer(t *testing.T) {
 				DefaultImageVersion: "latest",
 			},
 		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 
 	scenarios := map[string]struct {
@@ -81,6 +91,16 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 			AIXExplainer: ExplainerConfig{
 				ContainerImage:      "aipipeline/aixexplainer",
 				DefaultImageVersion: "latest",
+			},
+		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
 			},
 		},
 	}
@@ -143,6 +163,16 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 				DefaultImageVersion: "latest",
 			},
 		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 	ComponentExtensionSpec := ComponentExtensionSpec{
 		MaxReplicas: 2,
@@ -200,6 +230,16 @@ func TestAIXExplainerIsMMS(t *testing.T) {
 			AIXExplainer: ExplainerConfig{
 				ContainerImage:      "aipipeline/aixexplainer",
 				DefaultImageVersion: "latest",
+			},
+		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
 			},
 		},
 	}

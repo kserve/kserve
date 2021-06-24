@@ -128,8 +128,18 @@ func TestTransformerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Transformers: TransformersConfig{},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
-	defaultResource = v1.ResourceList{
+	defaultResource := v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
@@ -203,6 +213,16 @@ func TestCreateTransformerContainer(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Transformers: TransformersConfig{},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
@@ -419,10 +439,16 @@ func TestTransformerIsMMS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Transformers: TransformersConfig{},
-	}
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 
 	// MMS for transformer is false

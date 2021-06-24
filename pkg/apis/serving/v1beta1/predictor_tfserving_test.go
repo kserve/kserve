@@ -40,6 +40,16 @@ func TestTensorflowValidation(t *testing.T) {
 				MultiModelServer:       false,
 			},
 		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 	scenarios := map[string]struct {
 		spec    PredictorSpec
@@ -153,8 +163,18 @@ func TestTensorflowDefaulter(t *testing.T) {
 				MultiModelServer:       false,
 			},
 		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
-	defaultResource = v1.ResourceList{
+	defaultResource := v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
@@ -270,6 +290,16 @@ func TestCreateTFServingContainer(t *testing.T) {
 				DefaultImageVersion: "1.14.0",
 				DefaultTimeout:      60,
 				MultiModelServer:    false,
+			},
+		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
 			},
 		},
 	}
@@ -407,10 +437,16 @@ func TestTensorflowIsMMS(t *testing.T) {
 					MultiModelServer:       mmsCase,
 				},
 			},
-		}
-		defaultResource = v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse("1"),
-			v1.ResourceMemory: resource.MustParse("2Gi"),
+			Defaults: IsvcDefaultConfig{
+				Request: map[v1.ResourceName]resource.Quantity{
+					"cpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("2Gi"),
+				},
+				Limit: map[v1.ResourceName]resource.Quantity{
+					"cpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("2Gi"),
+				},
+			},
 		}
 		defaultGpuResource := v1.ResourceList{
 			v1.ResourceCPU:                  resource.MustParse("1"),
@@ -480,12 +516,18 @@ func TestTensorflowIsFrameworkSupported(t *testing.T) {
 				SupportedFrameworks:    []string{tensorflow},
 			},
 		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
 	scenarios := map[string]struct {
 		spec      PredictorSpec
 		framework string

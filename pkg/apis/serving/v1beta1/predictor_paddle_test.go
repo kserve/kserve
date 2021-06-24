@@ -114,6 +114,21 @@ func TestPaddleDefaulter(t *testing.T) {
 				MultiModelServer:    false,
 			},
 		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
+	}
+
+	defaultResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 
 	scenarios := map[string]struct {
@@ -161,6 +176,16 @@ func TestCreatePaddleContainer(t *testing.T) {
 				ContainerImage:      "paddleserver",
 				DefaultImageVersion: "latest",
 				MultiModelServer:    false,
+			},
+		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
 			},
 		},
 	}
@@ -332,10 +357,16 @@ func TestPaddleIsMMS(t *testing.T) {
 					MultiModelServer:    mmsCase,
 				},
 			},
-		}
-		defaultResource = v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse("1"),
-			v1.ResourceMemory: resource.MustParse("2Gi"),
+			Defaults: IsvcDefaultConfig{
+				Request: map[v1.ResourceName]resource.Quantity{
+					"cpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("2Gi"),
+				},
+				Limit: map[v1.ResourceName]resource.Quantity{
+					"cpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("2Gi"),
+				},
+			},
 		}
 
 		scenarios := map[string]struct {
@@ -376,12 +407,18 @@ func TestPaddleIsFrameworkSupported(t *testing.T) {
 				SupportedFrameworks: []string{paddle},
 			},
 		},
+		Defaults: IsvcDefaultConfig{
+			Request: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+			Limit: map[v1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("1"),
+				"memory": resource.MustParse("2Gi"),
+			},
+		},
 	}
 
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
 	scenarios := map[string]struct {
 		spec      PredictorSpec
 		framework string
