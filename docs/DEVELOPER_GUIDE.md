@@ -70,7 +70,7 @@ recommend adding them to your `.bashrc`):
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
    work properly.
 1. `KO_DOCKER_REPO`: The docker repository to which developer images should be
-   pushed (e.g. `docker.io/<username>/[project]`).
+   pushed (e.g. `docker.io/<username>`).
 
 - **Note**: Set up a docker repository for pushing images. You can use any container image registry by adjusting 
 the authentication methods and repository paths mentioned in the sections below.
@@ -210,10 +210,10 @@ make deploy-dev-storageInitializer
 ### Smoke test after deployment
 
 Run the following command to smoke test the deployment,
-where `<version>` is your version of kfserving, such as `v1beta1`:
+e.g. for the `v1beta1` version of kfserving:
 
 ```bash
-kubectl apply -f docs/samples/<version>/tensorflow/tensorflow.yaml
+kubectl apply -f docs/samples/v1beta1/tensorflow/tensorflow.yaml
 ```
 
 You should see model serving deployment running under default or your specified namespace.
@@ -274,9 +274,9 @@ Reissued from statefulset/default: create Pod default-0 in StatefulSet default f
 Or while you are deploying the models
 
 ```shell
-kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
-Error from server (InternalError): error when creating "docs/samples/tensorflow/tensorflow.yaml": 
-Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter": 
+kubectl apply -f docs/samples/v1beta1/tensorflow/tensorflow.yaml
+Error from server (InternalError): error when creating "docs/samples/v1beta1/tensorflow/tensorflow.yaml":
+Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter":
 Post https://kfserving-webhook-server-service.kfserving-system.svc:443/mutate-inferenceservices?timeout=30s:
 
 context deadline exceeded
