@@ -104,3 +104,4 @@ from kfserving.models.v1beta1_transformers_config import V1beta1TransformersConf
 from kfserving.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kfserving.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
 from kfserving.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
+from kfserving.models.v1beta1_paddle_server_spec import V1beta1PaddleServerSpec

@@ -80,6 +80,14 @@ data:
             "multiModelServer": false
           }
         },
+        "paddle": {
+            "image": "ruminateer/paddleserver",
+            "defaultImageVersion": "v0.1.0",
+            "supportedFrameworks": [
+              "paddle"
+            ],
+            "multiModelServer": false
+        },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
             "defaultImageVersion": "20.08-py3",

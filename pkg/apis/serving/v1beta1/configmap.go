@@ -85,6 +85,7 @@ type PredictorsConfig struct {
 	ONNX       PredictorConfig    `json:"onnx,omitempty"`
 	PMML       PredictorConfig    `json:"pmml,omitempty"`
 	LightGBM   PredictorConfig    `json:"lightgbm,omitempty"`
+	Paddle     PredictorConfig    `json:"paddle,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

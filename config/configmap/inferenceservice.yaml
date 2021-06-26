@@ -107,6 +107,14 @@ data:
               "lightgbm"
             ],
             "multiModelServer": false
+        },
+        "paddle": {
+            "image": "kfserving/paddleserver",
+            "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "paddle"
+            ],
+            "multiModelServer": false
         }
     }
   transformers: |-
