@@ -45,7 +45,7 @@ class KFModelRepository:
         if isinstance(model, KFModel):
             return False if model is None else model.ready
         else:
-            # TODO find out how to get the remote model status
+            # For Ray Serve, the models are guaranteed to be ready after the deploy call.
             return True
 
     def update(self, model: KFModel):

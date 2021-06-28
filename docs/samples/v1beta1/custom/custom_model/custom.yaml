@@ -1,0 +1,10 @@
+apiVersion: serving.kubeflow.org/v1beta1
+kind: InferenceService
+metadata:
+  name: custom-model
+spec:
+  predictor:
+    containers:
+      - name: kfserving-container
+        container:
+          image: {username}/custom-model:v1

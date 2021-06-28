@@ -21,6 +21,7 @@ from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from http import HTTPStatus
 from enum import Enum
+from ray.serve.utils import ServeRequest
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -49,7 +50,8 @@ class KFModel:
         self._http_client_instance = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
-        request = self.preprocess(body)
+        request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
+            else self.preprocess(body)
         request = self.validate(request)
         if model_type == ModelType.EXPLAINER:
             response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
@@ -88,7 +90,7 @@ class KFModel:
         self.ready = True
         return self.ready
 
-    def preprocess(self, request: Dict) -> Dict:
+    async def preprocess(self, request: Optional[Dict, CloudEvent, ServeRequest]) -> Dict:
         """
         The preprocess handler can be overridden for data or feature transformation,
         the default implementation decodes to Dict if it is cloudevent JSON otherwise pass the data field
@@ -111,7 +113,8 @@ class KFModel:
                                 status_code=HTTPStatus.BAD_REQUEST,
                                 reason="Unrecognized request format: %s" % e
                             )
-
+        elif isinstance(request, ServeRequest):
+            return await request.body()
         elif isinstance(request, dict):
 
             if "time" in request \

@@ -7,20 +7,16 @@ import base64
 import io
 
 
-class KFServingSampleModel(kfserving.KFModel):
+class AlexNetModel(kfserving.KFModel):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
-        self.ready = False
+        self.load()
 
     def load(self):
-        f = open('imagenet_classes.txt')
-        self.classes = [line.strip() for line in f.readlines()]
-
         model = models.alexnet(pretrained=True)
         model.eval()
         self.model = model
-
         self.ready = True
 
     def predict(self, request: Dict) -> Dict:
@@ -48,16 +44,12 @@ class KFServingSampleModel(kfserving.KFModel):
 
         scores = torch.nn.functional.softmax(output, dim=1)[0]
 
-        _, top_5 = torch.topk(output, 5)
+        values, top_5 = torch.topk(output, 5)
 
-        results = {}
-        for idx in top_5[0]:
-            results[self.classes[idx]] = scores[idx].item()
-
-        return {"predictions": results}
+        return {"predictions": values.tolist()}
 
 
 if __name__ == "__main__":
-    model = KFServingSampleModel("kfserving-custom-model")
+    model = AlexNetModel("custom-model")
     model.load()
     kfserving.KFServer(workers=1).start([model])

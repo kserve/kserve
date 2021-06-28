@@ -8,25 +8,21 @@ import io
 from ray import serve
 
 
-@serve.deployment(name="kfserving-custom-model", config={"num_replicas": 2})
-class KFServingSampleModel(kfserving.KFModel):
+# the model handle name should match the model endpoint name
+@serve.deployment(name="custom-model", config={"num_replicas": 2})
+class AlexNetModel(kfserving.KFModel):
     def __init__(self):
-        self.name = "kfserving-custom-model"
+        self.name = "custom-model"
         super().__init__(self.name)
         self.load()
 
     def load(self):
-        f = open('imagenet_classes.txt')
-        self.classes = [line.strip() for line in f.readlines()]
-
         model = models.alexnet(pretrained=True)
         model.eval()
         self.model = model
-
         self.ready = True
 
     async def predict(self, request: Dict) -> Dict:
-        request = await request.body()
         inputs = request["instances"]
 
         # Input follows the Tensorflow V1 HTTP API for binary values
@@ -51,14 +47,10 @@ class KFServingSampleModel(kfserving.KFModel):
 
         scores = torch.nn.functional.softmax(output, dim=1)[0]
 
-        _, top_5 = torch.topk(output, 5)
+        values, top_5 = torch.topk(output, 5)
 
-        results = {}
-        for idx in top_5[0]:
-            results[self.classes[idx]] = scores[idx].item()
-
-        return {"predictions": results}
+        return {"predictions": values.tolist()}
 
 
 if __name__ == "__main__":
-    kfserving.KFServer(workers=1).start({"kfserving-custom-model": KFServingSampleModel})
+    kfserving.KFServer(workers=1).start({"custom-model": AlexNetModel})
