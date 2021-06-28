@@ -173,7 +173,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 	securityContext := userContainer.SecurityContext.DeepCopy()
 	// Add an init container to run provisioning logic to the PodSpec
-	initContainer := &v1.Container{
+	storageInitializerContainer := &v1.Container{
 		Name:  StorageInitializerContainerName,
 		Image: storageInitializerImage,
 		Args: []string{
@@ -216,14 +216,14 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
 		pod.Namespace,
 		pod.Spec.ServiceAccountName,
-		initContainer,
+		storageInitializerContainer,
 		&pod.Spec.Volumes,
 	); err != nil {
 		return err
 	}
 
-	// Add init container to the spec
-	pod.Spec.InitContainers = append(pod.Spec.InitContainers, *initContainer)
+	// Add Storage Initializer container as a sidecar
+	pod.Spec.Containers = append(pod.Spec.Containers, *storageInitializerContainer)
 
 	return nil
 }
