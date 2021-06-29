@@ -1,8 +1,8 @@
 set -e
 
 export ISTIO_VERSION=1.9.0
-export KNATIVE_VERSION=v0.18.0
-export KFSERVING_VERSION=v0.5.1
+export KNATIVE_VERSION=v0.22.0
+export KFSERVING_VERSION=v0.6.0-rc0
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}
 
@@ -29,28 +29,17 @@ spec:
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
       jwtPolicy: first-party-jwt
 
+  meshConfig:
+    accessLogFile: /dev/stdout
+
+  addonComponents:
+    pilot:
+      enabled: true
+
   components:
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
-      - name: cluster-local-gateway
-        enabled: true
-        label:
-          istio: cluster-local-gateway
-          app: cluster-local-gateway
-        k8s:
-          service:
-            type: ClusterIP
-            ports:
-            - port: 15021
-              targetPort: 15021
-              name: status-port
-            - port: 80
-              name: http2
-              targetPort: 8080
-            - port: 443
-              name: https
-              targetPort: 8443
 EOF
 
 bin/istioctl manifest apply -f istio-minimal-operator.yaml -y

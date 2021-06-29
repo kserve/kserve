@@ -155,9 +155,9 @@ data:
     }
   ingress: |-
     {
-        "ingressGateway" : "knative-ingress-gateway.knative-serving",
+        "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
-        "localGateway": "knative-local-gateway.knative-serving",
+        "localGateway": "knative-serving/knative-local-gateway",
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local"
     }
   logger: |-
