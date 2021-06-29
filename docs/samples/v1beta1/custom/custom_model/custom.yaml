@@ -6,5 +6,8 @@ spec:
   predictor:
     containers:
       - name: kfserving-container
-        container:
-          image: {username}/custom-model:v1
+        image: {username}/custom-model:v1
+        command:
+          - python
+          - -m
+          - custom_model

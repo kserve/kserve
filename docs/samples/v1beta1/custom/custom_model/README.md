@@ -28,6 +28,10 @@ docker push ${DOCKER_USER}/custom_model
 ```
 
 ## Parallel Inference
+By default the model is loaded and inference is ran in the same process as tornado http server, if you are hosting multiple models
+the inference can only be run for one model at a time which limits the concurrency when you share the container for the models.
+KFServing integrates [RayServe](https://docs.ray.io/en/master/serve/index.html) which provides a programmable API to deploy models
+as separate python workers so the inference can be ran in parallel.  
 
 ## Deploy and Invoke Inference
 ### Create the InferenceService
@@ -90,7 +94,7 @@ Expected Output:
 < x-envoy-upstream-service-time: 213
 <
 * Connection #0 to host 169.47.250.204 left intact
-{"predictions": {"Labrador retriever": 0.4158518612384796, "golden retriever": 0.1659165322780609, "Saluki, gazelle hound": 0.16286855936050415, "whippet": 0.028539149090647697, "Ibizan hound, Ibizan Podenco": 0.023924754932522774}}* Closing connection 0
+{"predictions": [[14.861762046813965, 13.942917823791504, 13.9243803024292, 12.182711601257324, 12.00634765625]]}
 ```
 
 ### Delete the InferenceService
