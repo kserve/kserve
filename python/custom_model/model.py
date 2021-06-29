@@ -42,7 +42,7 @@ class AlexNetModel(kfserving.KFModel):
 
         output = self.model(input_batch)
 
-        scores = torch.nn.functional.softmax(output, dim=1)[0]
+        torch.nn.functional.softmax(output, dim=1)[0]
 
         values, top_5 = torch.topk(output, 5)
 
