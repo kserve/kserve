@@ -7,7 +7,3 @@ spec:
     containers:
       - name: kfserving-container
         image: {username}/custom-model:v1
-        command:
-          - python
-          - -m
-          - custom_model

@@ -98,13 +98,22 @@ class KFServer:
     def start(self, models: Union[List[KFModel], Dict[str, ServeDeployment]], nest_asyncio: bool = False):
         if isinstance(models, list):
             for model in models:
-                self.register_model(model)
+                if isinstance(model, KFModel):
+                    self.register_model(model)
+                else:
+                    raise RuntimeError("Model type should be KFModel")
+        elif isinstance(models, dict):
+            types = [type(v) for v in models.values()]
+            if types and types[0] == ServeDeployment:
+                serve.start(detached=True, http_host='0.0.0.0', http_port=9071)
+                for key in models:
+                    models[key].deploy()
+                    handle = models[key].get_handle()
+                    self.register_model_handle(key, handle)
+            else:
+                raise RuntimeError("Model type should be RayServe Deployment")
         else:
-            serve.start(detached=True, http_host='0.0.0.0', http_port=9071)
-            for key in models:
-                models[key].deploy()
-                handle = models[key].get_handle()
-                self.register_model_handle(key, handle)
+            raise RuntimeError("Unknown model collection types")
 
         if self.max_asyncio_workers is None:
             # formula as suggest in https://bugs.python.org/issue35279

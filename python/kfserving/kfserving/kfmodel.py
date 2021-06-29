@@ -90,7 +90,7 @@ class KFModel:
         self.ready = True
         return self.ready
 
-    async def preprocess(self, request: Optional[Dict, CloudEvent, ServeRequest]) -> Dict:
+    async def preprocess(self, request: Dict) -> Dict:
         """
         The preprocess handler can be overridden for data or feature transformation,
         the default implementation decodes to Dict if it is cloudevent JSON otherwise pass the data field

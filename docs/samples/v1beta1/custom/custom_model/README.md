@@ -1,6 +1,6 @@
 # Deploy Custom Python Model with KFServer API
-If out of the box model server does not fit your need, you can build your own model server using KFServer API and use the
-following source to serving workflow to deploy your models to KFServing.
+When out of the box model server does not fit your need, you can build your own model server using KFServer API and use the
+following source to serving workflow to deploy your custom models to KFServing.
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
@@ -15,24 +15,72 @@ is an additional `load` handler which is used for writing custom code to load yo
 remote model storage, a general good practice is to call the `load` handler in the model server class `__init__` function, so your model
 is loaded on startup and ready to serve when user is making the prediction calls.
 
+```python
+import kfserving
+from typing import Dict
+
+class AlexNetModel(kfserving.KFModel):
+    def __init__(self, name: str):
+       super().__init__(name)
+       self.name = name
+       self.load()
+
+    def load(self):
+        pass
+
+    def predict(self, request: Dict) -> Dict:
+        pass
+
+if __name__ == "__main__":
+    model = AlexNetModel("custom-model")
+    kfserving.KFServer().start([model])
+```
+
 ## Build the custom image with Buildpacks
 [Buildpacks](https://buildpacks.io/) allows you to transform your inference code into images that can be deployed on KFServing without
-needing to define the `Dockerfile`. Buildpacks automatically determines the python application and then the dependencies from the
-`requirements.txt` file, it looks at the `Procfile` to determine how to start the model server. You can also choose to use [kpack](https://github.com/pivotal/kpack)
-to allow you run the image build on the cloud and continuously build/deploy new versions from your source git repository.
+needing to define the `Dockerfile`. Buildpacks automatically determines the python application and then install the dependencies from the
+`requirements.txt` file, it looks at the `Procfile` to determine how to start the model server. Here we are showing how to build the serving
+image manually with `pack`, you can also choose to use [kpack](https://github.com/pivotal/kpack)
+to run the image build on the cloud and continuously build/deploy new versions from your source git repository.
 
 ### Use pack to build and push the custom model server image
 ```bash
-pack build --builder=heroku/buildpacks:20 ${DOCKER_USER}/custom_model
-docker push ${DOCKER_USER}/custom_model
+pack build --builder=heroku/buildpacks:20 ${DOCKER_USER}/custom_model:v1
+docker push ${DOCKER_USER}/custom_model:v1
 ```
 
 ## Parallel Inference
 By default the model is loaded and inference is ran in the same process as tornado http server, if you are hosting multiple models
 the inference can only be run for one model at a time which limits the concurrency when you share the container for the models.
 KFServing integrates [RayServe](https://docs.ray.io/en/master/serve/index.html) which provides a programmable API to deploy models
-as separate python workers so the inference can be ran in parallel.  
+as separate python workers so the inference can be ran in parallel.
 
+```python
+import kfserving
+from typing import Dict
+from ray import serve
+
+@serve.deployment(name="custom-model", config={"num_replicas": 2})
+class AlexNetModel(kfserving.KFModel):
+    def __init__(self):
+       self.name = "custom-model"
+       super().__init__(self.name)
+       self.load()
+
+    def load(self):
+        pass
+
+    def predict(self, request: Dict) -> Dict:
+        pass
+
+if __name__ == "__main__":
+    kfserving.KFServer().start({"custom-model": AlexNetModel})
+```
+
+Modify the `Procfile` to `web: python -m model_remote` and then run the above `pack` command, it builds the serving image which launches
+each model as separate python worker and tornado webserver routes to the model workers by name. 
+
+![parallel_inference](./parallel_inference.png)
 ## Deploy and Invoke Inference
 ### Create the InferenceService
 
@@ -60,7 +108,7 @@ class with replicas and in this case each model server is created as a python wo
 - `--max_asyncio_workers`: Max number of workers to spawn for python async io loop, by default it is `min(32,cpu.limit + 4)`
 
 ### Run a prediction
-The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=custom-model
