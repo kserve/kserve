@@ -45,8 +45,8 @@ to run the image build on the cloud and continuously build/deploy new versions f
 
 ### Use pack to build and push the custom model server image
 ```bash
-pack build --builder=heroku/buildpacks:20 ${DOCKER_USER}/custom_model:v1
-docker push ${DOCKER_USER}/custom_model:v1
+pack build --builder=heroku/buildpacks:20 ${DOCKER_USER}/custom-model:v1
+docker push ${DOCKER_USER}/custom-model:v1
 ```
 
 ## Parallel Inference
@@ -86,7 +86,7 @@ each model as separate python worker and tornado webserver routes to the model w
 ## Deploy Locally and Test
 Launch the docker image built from last step with `buildpack`.
 ```bash
-docker run -ePORT=8080 -p8080:8080 ${DOCKER_USER}/custom_model:v1
+docker run -ePORT=8080 -p8080:8080 ${DOCKER_USER}/custom-model:v1
 ```
 
 Send a test inference request locally
