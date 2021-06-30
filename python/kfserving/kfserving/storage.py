@@ -25,6 +25,8 @@ import tempfile
 import zipfile
 from urllib.parse import urlparse
 
+from botocore.client import Config
+from botocore import UNSIGNED
 import boto3
 import requests
 from azure.storage.blob import BlockBlobService
@@ -82,8 +84,25 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         return out_dir
 
     @staticmethod
+    def get_S3_config():
+        # anon environment variable defined in s3_secret.go
+        anon = ("True" == os.getenv("awsAnonymousCredential", "false").capitalize())
+        if anon:
+            return Config(signature_version=UNSIGNED)
+        else:
+            return None
+
+    @staticmethod
     def _download_s3(uri, temp_dir: str):
-        s3 = boto3.resource('s3', endpoint_url=os.getenv("AWS_ENDPOINT_URL", "http://s3.amazonaws.com"))
+        # Boto3 looks at various configuration locations until it finds configuration values.
+        # lookup order:
+        # 1. Config object passed in as the config parameter when creating S3 resource
+        #    if awsAnonymousCredential env var true, passed in via config
+        # 2. Environment variables
+        # 3. ~/.aws/config file
+        s3 = boto3.resource('s3',
+                            endpoint_url=os.getenv("AWS_ENDPOINT_URL", "http://s3.amazonaws.com"),
+                            config=Storage.get_S3_config())
         parsed = urlparse(uri, scheme='s3')
         bucket_name = parsed.netloc
         bucket_path = parsed.path.lstrip('/')
@@ -249,12 +268,16 @@ The path or model %s does not exist." % (uri))
         with requests.get(uri, stream=True, headers=headers) as response:
             if response.status_code != 200:
                 raise RuntimeError("URI: %s returned a %s response code." % (uri, response.status_code))
+            zip_content_types = ('application/x-zip-compressed', 'application/zip', 'application/zip-compressed')
             if mimetype == 'application/zip' and not response.headers.get('Content-Type', '')\
-                    .startswith('application/zip'):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % uri)
+                    .startswith(zip_content_types):
+                raise RuntimeError("URI: %s did not respond with any of following \'Content-Type\': " % uri +
+                                   ", ".join(zip_content_types))
+            tar_content_types = ('application/x-tar', 'application/x-gtar', 'application/x-gzip', 'application/gzip')
             if mimetype == 'application/x-tar' and not response.headers.get('Content-Type', '')\
-                    .startswith('application/x-tar'):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/x-tar\'" % uri)
+                    .startswith(tar_content_types):
+                raise RuntimeError("URI: %s did not respond with any of following \'Content-Type\': " % uri +
+                                   ", ".join(tar_content_types))
             if (mimetype != 'application/zip' and mimetype != 'application/x-tar') and \
                     not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'"

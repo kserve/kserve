@@ -1,6 +1,6 @@
 # V1beta1XGBoostSpec
 
-SKLearnSpec defines arguments for configuring SKLearn model serving.
+XGBoostSpec defines arguments for configuring XGBoost model serving.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

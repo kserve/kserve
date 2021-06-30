@@ -8,6 +8,7 @@ XGB_IMG ?= xgbserver
 LGB_IMG ?= lgbserver
 PYTORCH_IMG ?= pytorchserver
 PMML_IMG ?= pmmlserver
+PADDLE_IMG ?= paddleserver
 ALIBI_IMG ?= alibi-explainer
 STORAGE_INIT_IMG ?= storage-initializer
 CRD_OPTIONS ?= "crd:maxDescLen=0"
@@ -75,12 +76,16 @@ deploy-dev-pmml : docker-push-pmml
 	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${PMML_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
+deploy-dev-paddle: docker-push-paddle
+	./hack/model_server_patch_dev.sh paddle ${KO_DOCKER_REPO}/${PADDLE_IMG}
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+
 deploy-dev-alibi: docker-push-alibi
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
-	./hack/misc_patch_dev.sh storageInitializer ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-ci: manifests
@@ -199,6 +204,12 @@ docker-build-pmml:
 
 docker-push-pmml: docker-build-pmml
 	docker push ${KO_DOCKER_REPO}/${PMML_IMG}
+
+docker-build-paddle:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
+
+docker-push-paddle: docker-build-paddle
+	docker push ${KO_DOCKER_REPO}/${PADDLE_IMG}
 
 docker-build-alibi:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .

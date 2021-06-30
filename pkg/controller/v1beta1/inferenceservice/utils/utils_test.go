@@ -81,8 +81,8 @@ func TestIsMMSPredictor(t *testing.T) {
 						MultiModelServer:    mmsCase,
 					},
 					V2: &PredictorConfig{
-						ContainerImage:      "kfserving/torchserve-kfs",
-						DefaultImageVersion: "0.3.0",
+						ContainerImage:      "pytorch/torchserve-kfs",
+						DefaultImageVersion: "0.4.0",
 						MultiModelServer:    mmsCase,
 					},
 				},
@@ -653,8 +653,8 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 					DefaultImageVersion: "latest",
 				},
 				V2: &PredictorConfig{
-					ContainerImage:      "kfserving/torchserve-kfs",
-					DefaultImageVersion: "0.3.0",
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.0",
 				},
 			},
 			Tensorflow: PredictorConfig{

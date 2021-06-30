@@ -22,6 +22,9 @@ import tornado.ioloop
 import tornado.web
 import tornado.httpserver
 import tornado.log
+import asyncio
+from tornado import concurrent
+from .utils import utils
 
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
@@ -40,6 +43,8 @@ parser.add_argument('--max_buffer_size', default=DEFAULT_MAX_BUFFER_SIZE, type=i
                     help='The max buffer size for tornado.')
 parser.add_argument('--workers', default=1, type=int,
                     help='The number of works to fork')
+parser.add_argument('--max_asyncio_workers', default=None, type=int,
+                    help='Max number of asyncio workers to spawn')
 args, _ = parser.parse_known_args()
 
 tornado.log.enable_pretty_logging()
@@ -50,12 +55,14 @@ class KFServer:
                  grpc_port: int = args.grpc_port,
                  max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers,
+                 max_asyncio_workers: int = args.max_asyncio_workers,
                  registered_models: KFModelRepository = KFModelRepository()):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.max_buffer_size = max_buffer_size
         self.workers = workers
+        self.max_asyncio_workers = max_asyncio_workers
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
 
     def create_application(self):
@@ -87,6 +94,14 @@ class KFServer:
         ])
 
     def start(self, models: List[KFModel], nest_asyncio: bool = False):
+        if self.max_asyncio_workers is None:
+            # formula as suggest in https://bugs.python.org/issue35279
+            self.max_asyncio_workers = min(32, utils.cpu_count()+4)
+
+        logging.info(f"Setting asyncio max_workers as {self.max_asyncio_workers}")
+        asyncio.get_event_loop().set_default_executor(
+            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
+
         for model in models:
             self.register_model(model)
 

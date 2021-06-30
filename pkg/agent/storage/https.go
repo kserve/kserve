@@ -99,7 +99,8 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 		if err := extractZipFiles(resp.Body, fileDirectory); err != nil {
 			return err
 		}
-	} else if strings.Contains(contentType, "application/x-tar") || strings.Contains(contentType, "application/gzip") {
+	} else if strings.Contains(contentType, "application/x-tar") || strings.Contains(contentType, "application/x-gtar") ||
+		strings.Contains(contentType, "application/x-gzip") || strings.Contains(contentType, "application/gzip") {
 		if err := extractTarFiles(resp.Body, fileDirectory); err != nil {
 			return err
 		}

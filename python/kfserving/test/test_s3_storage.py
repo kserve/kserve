@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest.mock as mock
 
+from botocore.client import Config
+from botocore import UNSIGNED
 import kfserving
 
 
@@ -104,3 +107,37 @@ def test_full_name_key(mock_storage):
                                                [object_key])
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
+
+
+AWS_TEST_CREDENTIALS = {"AWS_ACCESS_KEY_ID": "testing",
+                        "AWS_SECRET_ACCESS_KEY": "testing",
+                        "AWS_SECURITY_TOKEN": "testing",
+                        "AWS_SESSION_TOKEN": "testing"}
+
+
+def test_get_S3_config():
+
+    ANON_CONFIG = Config(signature_version=UNSIGNED)
+    DEFAULT_CONFIG = None
+
+    with mock.patch.dict(os.environ, {}):
+        config1 = kfserving.Storage.get_S3_config()
+    assert config1 == DEFAULT_CONFIG
+
+    with mock.patch.dict(os.environ, {"awsAnonymousCredential": "False"}):
+        config2 = kfserving.Storage.get_S3_config()
+    assert config2 == DEFAULT_CONFIG
+
+    with mock.patch.dict(os.environ, AWS_TEST_CREDENTIALS):
+        config3 = kfserving.Storage.get_S3_config()
+    assert config3 == DEFAULT_CONFIG
+
+    with mock.patch.dict(os.environ, {"awsAnonymousCredential": "True"}):
+        config4 = kfserving.Storage.get_S3_config()
+    assert config4.signature_version == ANON_CONFIG.signature_version
+
+    # assuming Python 3.5 or greater for joining dictionaries
+    credentials_and_anon = {**AWS_TEST_CREDENTIALS, "awsAnonymousCredential": "True"}
+    with mock.patch.dict(os.environ, credentials_and_anon):
+        config5 = kfserving.Storage.get_S3_config()
+    assert config5.signature_version == ANON_CONFIG.signature_version

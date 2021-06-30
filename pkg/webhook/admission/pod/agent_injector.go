@@ -35,6 +35,7 @@ const (
 	LoggerArgumentInferenceService = "--inference-service"
 	LoggerArgumentNamespace        = "--namespace"
 	LoggerArgumentEndpoint         = "--endpoint"
+	LoggerArgumentComponent        = "--component"
 )
 
 type AgentConfig struct {
@@ -174,6 +175,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		inferenceServiceName, _ := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
 		namespace := pod.ObjectMeta.Namespace
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
+		component := pod.ObjectMeta.Labels[constants.KServiceComponentLabel]
 
 		loggerArgs := []string{
 			LoggerArgumentLogUrl,
@@ -188,6 +190,8 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			namespace,
 			LoggerArgumentEndpoint,
 			endpoint,
+			LoggerArgumentComponent,
+			component,
 		}
 		args = append(args, loggerArgs...)
 	}
