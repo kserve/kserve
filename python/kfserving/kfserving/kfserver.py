@@ -103,8 +103,7 @@ class KFServer:
                 else:
                     raise RuntimeError("Model type should be KFModel")
         elif isinstance(models, dict):
-            types = [type(v) for v in models.values()]
-            if types and types[0] == ServeDeployment:
+            if all([issubclass(v, ServeDeployment) for v in models.values()]):
                 serve.start(detached=True, http_host='0.0.0.0', http_port=9071)
                 for key in models:
                     models[key].deploy()

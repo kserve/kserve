@@ -81,7 +81,22 @@ Modify the `Procfile` to `web: python -m model_remote` and then run the above `p
 each model as separate python worker and tornado webserver routes to the model workers by name. 
 
 ![parallel_inference](./parallel_inference.png)
-## Deploy and Invoke Inference
+
+
+## Deploy Locally and Test
+Launch the docker image built from last step with `buildpack`.
+```bash
+docker run -ePORT=8080 -p8080:8080 ${DOCKER_USER}/custom_model:v1
+```
+
+Send a test inference request locally
+```bash
+curl localhost:8080/v1/models/custom-model:predict -d @./input.json
+
+{"predictions": [[14.861763000488281, 13.94291877746582, 13.924378395080566, 12.182709693908691, 12.00634765625]]}
+```
+
+## Deploy to KFServing
 ### Create the InferenceService
 
 In the `custom.yaml` file edit the container image and replace {username} with your Docker Hub username.
