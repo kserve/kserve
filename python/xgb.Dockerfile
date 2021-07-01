@@ -2,7 +2,8 @@ FROM python:3.7-slim
 
 RUN apt-get update && apt-get install libgomp1
 
-COPY . . 
+COPY xgbserver xgbserver
+COPY kfserving kfserving
 COPY third_party third_party
 
 # pip 20.x breaks xgboost wheels https://github.com/dmlc/xgboost/issues/5221

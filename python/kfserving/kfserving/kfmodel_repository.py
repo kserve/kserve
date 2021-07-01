@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional
+from typing import List, Optional, Union
 from kfserving import KFModel
+from ray.serve.api import RayServeHandle
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -31,18 +32,27 @@ class KFModelRepository:
     def set_models_dir(self, models_dir):  # used for unit tests
         self.models_dir = models_dir
 
-    def get_model(self, name: str) -> Optional[KFModel]:
+    def get_model(self, name: str) -> Optional[Union[KFModel, RayServeHandle]]:
         return self.models.get(name, None)
 
-    def get_models(self) -> List[KFModel]:
+    def get_models(self) -> List[Union[KFModel, RayServeHandle]]:
         return list(self.models.values())
 
     def is_model_ready(self, name: str):
         model = self.get_model(name)
-        return False if model is None else model.ready
+        if not model:
+            return False
+        if isinstance(model, KFModel):
+            return False if model is None else model.ready
+        else:
+            # For Ray Serve, the models are guaranteed to be ready after the deploy call.
+            return True
 
     def update(self, model: KFModel):
         self.models[model.name] = model
+
+    def update_handle(self, name: str, model_handle: RayServeHandle):
+        self.models[name] = model_handle
 
     def load(self, name: str) -> bool:
         pass
