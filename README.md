@@ -23,38 +23,29 @@ To learn more about KFServing, how to deploy it as part of Kubeflow, how to use 
 
 ### Prerequisites
 
-Kubernetes 1.16+ is the minimum recommended version for KFServing.
-
-Knative Serving and Istio should be available on Kubernetes Cluster, KFServing currently depends on Istio Ingress Gateway to route requests to inference services.
+Kubernetes 1.17 is the minimally recommended version, Knative Serving and Istio should be available on Kubernetes Cluster.
 
 - [Istio](https://knative.dev/docs/install/installing-istio): v1.9.0+
+   * KFServing currently only depends on `Istio Ingress Gateway` to route requests to inference services externally or internally.
+     If you do not need `Service Mesh`, we recommend turning off Istio sidecar injection.
 
-If you want to get up running Knative quickly or you do not need service mesh, we recommend installing Istio without service mesh(sidecar injection).
-- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.17.4+
+- [Knative Serving](https://knative.dev/docs/install): v0.19.0+
+   * If you are running `Service Mesh` mode with `Authorization` please follow knative doc to [setup the authorization policies](https://knative.dev/docs/serving/istio-authorization).
+   * If you are looking to use [PodSpec fields](https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#podspec-v1-core) such as `nodeSelector`, `affinity` or `tolerations` which are now supported in the KFServing v1beta1 API spec,
+   you need to turn on the corresponding [feature flags](https://knative.dev/docs/serving/feature-flags/) in your Knative configuration.
 
-`cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway).
-
-If you are looking to use [PodSpec fields](https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#podspec-v1-core) such as `nodeSelector`, `affinity` or `tolerations` which are now supported in the KFServing v1beta1 API spec, this requires Knative v0.17.0+, and you need to turn on the corresponding [feature flags](https://knative.dev/docs/serving/feature-flags/) in your Knative configuration.
-
-Since Knative v0.19.0 `cluster local gateway` deployment has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237),
-if you are on Knative version later than v0.19.0 and KFServing version older than v0.6.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
-[inference service config](./config/configmap/inferenceservice.yaml).
-
-- [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v0.12.0+
-
-Cert manager is needed to provision KFServing webhook certs for production grade installation, alternatively you can run our self signed certs
+- [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v1.3.0+
+   * Cert manager is needed to provision KFServing webhook certs for production grade installation, alternatively you can run our self signed certs
 generation [script](./hack/self-signed-ca.sh).
 
 
 ### Install KFServing
-<details>
-  <summary>Expand to see the installation options!</summary>
 
 #### Standalone KFServing Installation
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 
 ```
-TAG=v0.5.1
+TAG=v0.6.0
 ```
 
 Install KFServing CRD and Controller
@@ -70,16 +61,11 @@ kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kf
 To install standalone KFServing on [OpenShift Container Platform](https://www.openshift.com/products/container-platform), please follow the [instructions here](docs/OPENSHIFT_GUIDE.md).
 
 #### KFServing with Kubeflow Installation
-KFServing is installed by default as part of Kubeflow installation using [Kubeflow manifests](https://github.com/kubeflow/manifests/tree/master/kfserving) and KFServing controller is deployed in `kubeflow` namespace.
-Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default.
-If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow.org/docs/components/multi-tenancy/getting-started/#manual-profile-creation) to create  user namespaces, labels are automatically added to enable KFServing to deploy models.
-If you are creating namespaces manually using Kubernetes apis directly, you will need to add label `serving.kubeflow.org/inferenceservice: enabled` to allow deploying KFServing `InferenceService` in the given namespaces, and do ensure you do not deploy
-`InferenceService` in `kubeflow` namespace which is labelled as `control-plane`.
+KFServing is installed by default as part of Kubeflow installation and KFServing controller is deployed in `kubeflow` namespace.
 
-As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
-```bash
-kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
-```
+:warning:
+
+Do ensure that you do not deploy `InferenceService` in `kubeflow` namespace which is labelled as `control-plane` and it is system namespace.
 
 #### Quick Install (On your local machine)
 
@@ -96,14 +82,13 @@ kind create cluster
 ```
 alternatively you can use [Minikube](https://kubernetes.io/docs/setup/learning-environment/minikube)
 ```bash
-minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
+minikube start --cpus 4 --memory 8192
 ```
 
 2) Install Istio lean version, Knative Serving, KFServing all in one.(this takes 30s)
 ```bash
 ./hack/quick_install.sh
 ```
-</details>
 
 ### Setup Ingress Gateway
 If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
