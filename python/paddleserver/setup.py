@@ -16,7 +16,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='paddleserver',
-    version='0.5.0',
+    version='0.6.0',
     author_email='zhangzhengyuan0604@gmail.com',
     license='https://github.com/kubeflow/kfserving/LICENSE',
     description='Model Server implementation for Paddle. \
@@ -25,7 +25,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("paddleserver"),
     install_requires=[
-        "kfserving>=0.5.1",
+        "kfserving>=0.6.0",
         "paddlepaddle>=2.0.2"
     ],
     extras_require={'test': ['opencv-python']}

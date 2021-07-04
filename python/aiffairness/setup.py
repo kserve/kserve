@@ -22,7 +22,7 @@ tests_require = [
 
 setup(
     name='aifserver',
-    version='0.1.1',
+    version='0.6.0',
     author_email='Andrew.Butler@ibm.com',
     license='https://github.com/kubeflow/kfserving/LICENSE',
     url='https://github.com/kubeflow/kfserving/python/aifserver',
@@ -32,7 +32,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("aifserver"),
     install_requires=[
-        "kfserving>=0.5.1",
+        "kfserving>=0.6.0",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
         "aif360 >= 0.2.3",

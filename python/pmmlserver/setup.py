@@ -22,7 +22,7 @@ tests_require = [
 ]
 setup(
     name='pmmlserver',
-    version='0.5.1',
+    version='0.6.0',
     author_email='anyisalin@gmail.com',
     license='https://github.com/kubeflow/kfserving/LICENSE',
     url='https://github.com/kubeflow/kfserving/python/pmmlserver',
@@ -32,7 +32,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("pmmlserver"),
     install_requires=[
-        "kfserving>=0.5.1",
+        "kfserving>=0.6.0",
         "jpmml-evaluator==0.5.1",
     ],
     tests_require=tests_require,

@@ -21,7 +21,7 @@ tests_require = [
 ]
 setup(
     name='artserver',
-    version='0.2.1',
+    version='0.6.0',
     author_email='Andrew.Butler@ibm.com',
     license='https://github.com/kubeflow/kfserving/LICENSE',
     url='https://github.com/kubeflow/kfserving/python/artserver',
@@ -32,7 +32,7 @@ setup(
     python_requires='>3.7',
     packages=find_packages("artserver"),
     install_requires=[
-        "kfserving>=0.5.1",
+        "kfserving>=0.6.0",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
         "adversarial-robustness-toolbox[keras] == 1.4.1",
