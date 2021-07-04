@@ -63,9 +63,7 @@ To install standalone KFServing on [OpenShift Container Platform](https://www.op
 #### KFServing with Kubeflow Installation
 KFServing is installed by default as part of Kubeflow installation and KFServing controller is deployed in `kubeflow` namespace.
 
-:warning:
-
-Do ensure that you do not deploy `InferenceService` in `kubeflow` namespace which is labelled as `control-plane` and it is system namespace.
+:warning: Do ensure that you do not deploy `InferenceService` in `kubeflow` namespace which is labelled as `control-plane` and is system namespace.
 
 #### Quick Install (On your local machine)
 
