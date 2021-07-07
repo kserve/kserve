@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import os
-import time
-import requests
 from kubernetes import client
 from kfserving import (
     constants,
@@ -22,11 +20,12 @@ from kfserving import (
     V1beta1InferenceService,
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
+    V1beta1SKLearnSpec,
 )
-from kubernetes.client import V1Container, V1ContainerPort
+from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import get_cluster_ip
 from ..common.utils import KFSERVING_TEST_NAMESPACE
+from ..common.utils import predict
 
 api_version = constants.KFSERVING_V1BETA1
 
@@ -35,43 +34,34 @@ KFServing = KFServingClient(
 
 
 def test_raw_deployment_kfserving():
-    containers = [V1Container(image='iamlovingit/hello:v2', name='hello',
-                              ports=[V1ContainerPort(container_port=8080, protocol="TCP")])]
-    service_name = "rawtest"
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        containers=containers,
-    )
-
+    service_name = "raw-sklearn"
     annotations = dict()
     annotations['serving.kubeflow.org/raw'] = 'true'
     annotations['kubernetes.io/ingress.class'] = 'istio'
 
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://kfserving-samples/models/sklearn/iris",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
     isvc = V1beta1InferenceService(
-        api_version=api_version,
+        api_version=constants.KFSERVING_V1BETA1,
         kind=constants.KFSERVING_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KFSERVING_TEST_NAMESPACE, annotations=annotations,
+            name=service_name, namespace=KFSERVING_TEST_NAMESPACE,
+            annotations=annotations,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
-    time.sleep(30)
-
-    isvc = KFServing.get(
-        service_name,
-        namespace=KFSERVING_TEST_NAMESPACE,
-    )
-
-    cluster_ip = get_cluster_ip()
-
-    host = isvc["status"]["url"]
-    host = host[host.rfind('/')+1:]
-    url = 'http://{}/hello'.format(cluster_ip)
-    headers = {"Host": host}
-    res = requests.get(url, headers=headers)
-    assert(res.status_code == 200)
-
+    res = predict(service_name, "./data/iris_input.json")
+    assert res["predictions"] == [1, 1]
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

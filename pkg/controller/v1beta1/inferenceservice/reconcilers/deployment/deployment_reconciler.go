@@ -98,11 +98,11 @@ func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (const
 	}, existingDeployment)
 	if err != nil {
 		if apierr.IsNotFound(err) {
-			return constants.CheckResultCreate, existingDeployment, nil
+			return constants.CheckResultCreate, nil, nil
 		}
-		return constants.CheckResultUnknown, existingDeployment, err
+		return constants.CheckResultUnknown, nil, err
 	}
-	//existed, check equivalent
+	//existed, check equivalence
 	if semanticDeploymentEquals(r.Deployment, existingDeployment) {
 		return constants.CheckResultExisted, existingDeployment, nil
 	}
@@ -174,12 +174,19 @@ func (r *DeploymentReconciler) Reconcile() (*appsv1.Deployment, error) {
 	log.Info("deployment reconcile", "checkResult", checkResult, "err", err)
 	if checkResult == constants.CheckResultCreate {
 		err = r.client.Create(context.TODO(), r.Deployment)
+		if err != nil {
+			return nil, err
+		} else {
+			return r.Deployment, nil
+		}
 	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
 		err = r.client.Update(context.TODO(), r.Deployment)
+		if err != nil {
+			return nil, err
+		} else {
+			return r.Deployment, nil
+		}
+	} else {
+		return deployment, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	return deployment, nil
 }

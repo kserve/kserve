@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//NativeReconciler is the struct of Native K8S Object
+//RawReconciler reconciles the Native K8S Resources
 type RawReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
@@ -35,13 +35,12 @@ type RawReconciler struct {
 	componentExt *v1beta1.ComponentExtensionSpec
 }
 
-// NewNativeReconciler creates native service struct.
+// NewRawReconciler creates raw kubernetes resource reconciler.
 func NewRawReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec,
-	componentType v1beta1.ComponentType) *RawReconciler {
+	podSpec *corev1.PodSpec) *RawReconciler {
 	return &RawReconciler{
 		client:       client,
 		scheme:       scheme,

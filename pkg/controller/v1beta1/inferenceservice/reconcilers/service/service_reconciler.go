@@ -48,13 +48,12 @@ func NewServiceReconciler(client client.Client,
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		Service:      createService(componentMeta, componentExt, podSpec),
+		Service:      createService(componentMeta, podSpec),
 		componentExt: componentExt,
 	}
 }
 
 func createService(componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec) *corev1.Service {
 	var port int
 	if podSpec.Containers != nil && podSpec.Containers[0].Ports != nil {
@@ -85,25 +84,25 @@ func createService(componentMeta metav1.ObjectMeta,
 }
 
 //checkServiceExist checks if the service exists?
-func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.CheckResultType, error) {
+func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.CheckResultType, *corev1.Service, error) {
 	//get service
-	exsitingService := &corev1.Service{}
+	existingService := &corev1.Service{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Namespace: r.Service.Namespace,
 		Name:      r.Service.Name,
-	}, exsitingService)
+	}, existingService)
 	if err != nil {
 		if apierr.IsNotFound(err) {
-			return constants.CheckResultCreate, nil
+			return constants.CheckResultCreate, nil, nil
 		}
-		return constants.CheckResultUnknown, err
+		return constants.CheckResultUnknown, nil, err
 	}
 
 	//existed, check equivalent
-	if semanticServiceEquals(r.Service, exsitingService) {
-		return constants.CheckResultExisted, nil
+	if semanticServiceEquals(r.Service, existingService) {
+		return constants.CheckResultExisted, existingService, nil
 	}
-	return constants.CheckResultUpdate, nil
+	return constants.CheckResultUpdate, existingService, nil
 }
 
 func semanticServiceEquals(desired, existing *corev1.Service) bool {
@@ -114,7 +113,7 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 //Reconcile ...
 func (r *ServiceReconciler) Reconcile() (*corev1.Service, error) {
 	//reconcile Service
-	checkResult, err := r.checkServiceExist(r.client)
+	checkResult, existingService, err := r.checkServiceExist(r.client)
 	log.Info("service reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
 		return nil, err
@@ -122,12 +121,19 @@ func (r *ServiceReconciler) Reconcile() (*corev1.Service, error) {
 
 	if checkResult == constants.CheckResultCreate {
 		err = r.client.Create(context.TODO(), r.Service)
+		if err != nil {
+			return nil, err
+		} else {
+			return r.Service, nil
+		}
 	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
 		err = r.client.Update(context.TODO(), r.Service)
+		if err != nil {
+			return nil, err
+		} else {
+			return r.Service, nil
+		}
+	} else {
+		return existingService, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	return r.Service, nil
 }

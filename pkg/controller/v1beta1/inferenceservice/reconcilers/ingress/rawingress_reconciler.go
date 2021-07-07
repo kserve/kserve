@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-//RawIngressReconciler is the struct of Raw K8S Object
+//RawIngressReconciler reconciles the kubernetes ingress
 type RawIngressReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
@@ -46,7 +46,7 @@ func NewRawIngressReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	ingressConfig *v1beta1api.IngressConfig,
 	isvc *v1beta1api.InferenceService) (*RawIngressReconciler, error) {
-	ingress, err := createRawIngress(client, scheme, isvc, ingressConfig)
+	ingress, err := createRawIngress(scheme, isvc, ingressConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -54,22 +54,19 @@ func NewRawIngressReconciler(client client.Client,
 		client:        client,
 		scheme:        scheme,
 		Ingress:       ingress,
-		URL:           createRawURL(client, isvc, ingressConfig),
+		URL:           createRawURL(isvc, ingressConfig),
 		IngressConfig: ingressConfig,
 	}, nil
 }
-func createRawURL(client client.Client,
-	isvc *v1beta1api.InferenceService,
+func createRawURL(isvc *v1beta1api.InferenceService,
 	ingressConfig *v1beta1api.IngressConfig) *knapis.URL {
 	url := &knapis.URL{}
 	url.Scheme = "http"
 	url.Host = isvc.Name + "-" + isvc.Namespace + "." + ingressConfig.IngressDomain
 	return url
 }
-func generateRule(podSpec *corev1.PodSpec,
-	ingressHost string,
-	componentName string) netv1.IngressRule {
-	pathType := netv1.PathType(netv1.PathTypeImplementationSpecific)
+func generateRule(ingressHost string, componentName string) netv1.IngressRule {
+	pathType := netv1.PathTypeImplementationSpecific
 	rule := netv1.IngressRule{
 		Host: ingressHost,
 		IngressRuleValue: netv1.IngressRuleValue{
@@ -129,37 +126,30 @@ func GenerateIngressHost(ingressConfig *v1beta1api.IngressConfig,
 		ingressConfig.IngressDomain = "example.com"
 	}
 	metadata := generateMetadata(isvc, constants.InferenceServiceComponent(componentType))
-	if topLevelFlag {
+	if !topLevelFlag {
 		return metadata.Name + "-" + metadata.Namespace + "." + ingressConfig.IngressDomain
 	} else {
 		return isvc.Name + "-" + isvc.Namespace + "." + ingressConfig.IngressDomain
 	}
 }
 
-func createRawIngress(client client.Client,
-	scheme *runtime.Scheme,
-	isvc *v1beta1api.InferenceService,
+func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 	ingressConfig *v1beta1api.IngressConfig) (*netv1.Ingress, error) {
-	topLevelFlag := false
 	var rules []netv1.IngressRule
+	topLevelFlag := true
 	if isvc.Spec.Transformer != nil {
 		host := GenerateIngressHost(ingressConfig, isvc, string(constants.Transformer), topLevelFlag)
-		//set topLevelFlag as true
-		topLevelFlag = true
-		podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
-		rules = append(rules, generateRule(&podSpec, host, constants.DefaultTransformerServiceName(isvc.Name)))
+		topLevelFlag = false
+		rules = append(rules, generateRule(host, constants.DefaultTransformerServiceName(isvc.Name)))
 	}
 	if isvc.Spec.Explainer != nil {
 		host := GenerateIngressHost(ingressConfig, isvc, string(constants.Explainer), topLevelFlag)
-		//set topLevelFlag as true
-		topLevelFlag = true
-		podSpec := corev1.PodSpec(isvc.Spec.Explainer.PodSpec)
-		rules = append(rules, generateRule(&podSpec, host, constants.DefaultExplainerServiceName(isvc.Name)))
+		topLevelFlag = false
+		rules = append(rules, generateRule(host, constants.DefaultExplainerServiceName(isvc.Name)))
 	}
 	//add predictor rule
 	host := GenerateIngressHost(ingressConfig, isvc, string(constants.Predictor), topLevelFlag)
-	podSpec := corev1.PodSpec(isvc.Spec.Predictor.PodSpec)
-	rules = append(rules, generateRule(&podSpec, host, constants.DefaultPredictorServiceName(isvc.Name)))
+	rules = append(rules, generateRule(host, constants.DefaultPredictorServiceName(isvc.Name)))
 
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -180,11 +170,11 @@ func createRawIngress(client client.Client,
 //checkRawIngressExist checks if the ingress exists?
 func (r *RawIngressReconciler) checkRawIngressExist(client client.Client) (constants.CheckResultType, error) {
 	//get ingress
-	exsitingIngress := &netv1.Ingress{}
+	existingIngress := &netv1.Ingress{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Namespace: r.Ingress.Namespace,
 		Name:      r.Ingress.Name,
-	}, exsitingIngress)
+	}, existingIngress)
 	if err != nil {
 		if apierr.IsNotFound(err) {
 			return constants.CheckResultCreate, nil
@@ -193,7 +183,7 @@ func (r *RawIngressReconciler) checkRawIngressExist(client client.Client) (const
 	}
 
 	//existed, check equivalent
-	if semanticIngressEquals(r.Ingress, exsitingIngress) {
+	if semanticIngressEquals(r.Ingress, existingIngress) {
 		return constants.CheckResultExisted, nil
 	}
 	return constants.CheckResultUpdate, nil
@@ -213,7 +203,7 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1api.InferenceService) erro
 	log.Info("ingress reconcile", "checkResult", checkResult, "err", err)
 	if checkResult == constants.CheckResultCreate {
 		err = r.client.Create(context.TODO(), r.Ingress)
-	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
+	} else if checkResult == constants.CheckResultUpdate {
 		err = r.client.Update(context.TODO(), r.Ingress)
 	}
 	if err != nil {
