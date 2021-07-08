@@ -32,7 +32,7 @@ import (
 
 var log = logf.Log.WithName("DeploymentReconciler")
 
-//DeploymentReconciler is the struct of Raw K8S Object
+//DeploymentReconciler reconciles the raw kubernetes deployment resource
 type DeploymentReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
@@ -80,7 +80,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podMetadata,
-				Spec:       corev1.PodSpec(*podSpec),
+				Spec:       *podSpec,
 			},
 		},
 	}
@@ -179,7 +179,7 @@ func (r *DeploymentReconciler) Reconcile() (*appsv1.Deployment, error) {
 		} else {
 			return r.Deployment, nil
 		}
-	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
+	} else if checkResult == constants.CheckResultUpdate {
 		err = r.client.Update(context.TODO(), r.Deployment)
 		if err != nil {
 			return nil, err

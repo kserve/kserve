@@ -194,8 +194,7 @@ const (
 
 // InferenceService container name
 const (
-	InferenceServiceContainerName       = "kfserving-container"
-	InferenceServiceCustomContainerName = "kfserving-custom-container"
+	InferenceServiceContainerName = "kfserving-container"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer

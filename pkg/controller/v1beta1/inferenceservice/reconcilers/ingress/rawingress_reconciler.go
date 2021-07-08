@@ -15,6 +15,7 @@ package ingress
 
 import (
 	"context"
+	"knative.dev/pkg/network"
 
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -37,27 +38,19 @@ import (
 type RawIngressReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
-	Ingress       *netv1.Ingress
-	URL           *knapis.URL
-	IngressConfig *v1beta1api.IngressConfig
+	ingressConfig *v1beta1api.IngressConfig
 }
 
 func NewRawIngressReconciler(client client.Client,
 	scheme *runtime.Scheme,
-	ingressConfig *v1beta1api.IngressConfig,
-	isvc *v1beta1api.InferenceService) (*RawIngressReconciler, error) {
-	ingress, err := createRawIngress(scheme, isvc, ingressConfig)
-	if err != nil {
-		return nil, err
-	}
+	ingressConfig *v1beta1api.IngressConfig) (*RawIngressReconciler, error) {
 	return &RawIngressReconciler{
 		client:        client,
 		scheme:        scheme,
-		Ingress:       ingress,
-		URL:           createRawURL(isvc, ingressConfig),
-		IngressConfig: ingressConfig,
+		ingressConfig: ingressConfig,
 	}, nil
 }
+
 func createRawURL(isvc *v1beta1api.InferenceService,
 	ingressConfig *v1beta1api.IngressConfig) *knapis.URL {
 	url := &knapis.URL{}
@@ -65,14 +58,16 @@ func createRawURL(isvc *v1beta1api.InferenceService,
 	url.Host = isvc.Name + "-" + isvc.Namespace + "." + ingressConfig.IngressDomain
 	return url
 }
-func generateRule(ingressHost string, componentName string) netv1.IngressRule {
-	pathType := netv1.PathTypeImplementationSpecific
+
+func generateRule(ingressHost string, componentName string, path string) netv1.IngressRule {
+	pathType := netv1.PathTypePrefix
 	rule := netv1.IngressRule{
 		Host: ingressHost,
 		IngressRuleValue: netv1.IngressRuleValue{
 			HTTP: &netv1.HTTPIngressRuleValue{
 				Paths: []netv1.HTTPIngressPath{
 					{
+						Path:     path,
 						PathType: &pathType,
 						Backend: netv1.IngressBackend{
 							Service: &netv1.IngressServiceBackend{
@@ -135,21 +130,46 @@ func GenerateIngressHost(ingressConfig *v1beta1api.IngressConfig,
 
 func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 	ingressConfig *v1beta1api.IngressConfig) (*netv1.Ingress, error) {
-	var rules []netv1.IngressRule
-	topLevelFlag := true
-	if isvc.Spec.Transformer != nil {
-		host := GenerateIngressHost(ingressConfig, isvc, string(constants.Transformer), topLevelFlag)
-		topLevelFlag = false
-		rules = append(rules, generateRule(host, constants.DefaultTransformerServiceName(isvc.Name)))
+	if !isvc.Status.IsConditionReady(v1beta1api.PredictorReady) {
+		isvc.Status.SetCondition(v1beta1api.IngressReady, &apis.Condition{
+			Type:   v1beta1api.IngressReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Predictor ingress not created",
+		})
+		return nil, nil
 	}
-	if isvc.Spec.Explainer != nil {
-		host := GenerateIngressHost(ingressConfig, isvc, string(constants.Explainer), topLevelFlag)
-		topLevelFlag = false
-		rules = append(rules, generateRule(host, constants.DefaultExplainerServiceName(isvc.Name)))
+	var rules []netv1.IngressRule
+	if isvc.Spec.Transformer != nil {
+		if !isvc.Status.IsConditionReady(v1beta1api.TransformerReady) {
+			isvc.Status.SetCondition(v1beta1api.IngressReady, &apis.Condition{
+				Type:   v1beta1api.IngressReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Transformer ingress not created",
+			})
+			return nil, nil
+		}
+		host := GenerateIngressHost(ingressConfig, isvc, string(constants.Transformer), true)
+		transformerHost := GenerateIngressHost(ingressConfig, isvc, string(constants.Transformer), false)
+		if isvc.Spec.Explainer != nil {
+			explainerHost := GenerateIngressHost(ingressConfig, isvc, string(constants.Explainer), false)
+			rules = append(rules, generateRule(explainerHost, constants.DefaultExplainerServiceName(isvc.Name), "/"))
+		}
+		// :predict routes to the transformer when there are both predictor and transformer
+		rules = append(rules, generateRule(host, constants.DefaultTransformerServiceName(isvc.Name), "/"))
+		rules = append(rules, generateRule(transformerHost, constants.DefaultTransformerServiceName(isvc.Name), "/"))
+	} else if isvc.Spec.Explainer != nil {
+		host := GenerateIngressHost(ingressConfig, isvc, string(constants.Explainer), true)
+		explainerHost := GenerateIngressHost(ingressConfig, isvc, string(constants.Explainer), false)
+		// :predict routes to the predictor when there is only predictor and explainer
+		rules = append(rules, generateRule(host, constants.DefaultPredictorServiceName(isvc.Name), "/"))
+		rules = append(rules, generateRule(explainerHost, constants.DefaultExplainerServiceName(isvc.Name), "/"))
+	} else {
+		host := GenerateIngressHost(ingressConfig, isvc, string(constants.Predictor), true)
+		rules = append(rules, generateRule(host, constants.DefaultPredictorServiceName(isvc.Name), "/"))
 	}
 	//add predictor rule
-	host := GenerateIngressHost(ingressConfig, isvc, string(constants.Predictor), topLevelFlag)
-	rules = append(rules, generateRule(host, constants.DefaultPredictorServiceName(isvc.Name)))
+	predictorHost := GenerateIngressHost(ingressConfig, isvc, string(constants.Predictor), false)
+	rules = append(rules, generateRule(predictorHost, constants.DefaultPredictorServiceName(isvc.Name), "/"))
 
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -167,51 +187,47 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 	return ingress, nil
 }
 
-//checkRawIngressExist checks if the ingress exists?
-func (r *RawIngressReconciler) checkRawIngressExist(client client.Client) (constants.CheckResultType, error) {
-	//get ingress
-	existingIngress := &netv1.Ingress{}
-	err := client.Get(context.TODO(), types.NamespacedName{
-		Namespace: r.Ingress.Namespace,
-		Name:      r.Ingress.Name,
-	}, existingIngress)
-	if err != nil {
-		if apierr.IsNotFound(err) {
-			return constants.CheckResultCreate, nil
-		}
-		return constants.CheckResultUnknown, err
-	}
-
-	//existed, check equivalent
-	if semanticIngressEquals(r.Ingress, existingIngress) {
-		return constants.CheckResultExisted, nil
-	}
-	return constants.CheckResultUpdate, nil
-}
-
 func semanticIngressEquals(desired, existing *netv1.Ingress) bool {
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
 }
 
-//Reconcile ...
 func (r *RawIngressReconciler) Reconcile(isvc *v1beta1api.InferenceService) error {
+	ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig)
+	if ingress == nil {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	//reconcile ingress
-	checkResult, err := r.checkRawIngressExist(r.client)
+	existingIngress := &netv1.Ingress{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: isvc.Namespace,
+		Name:      isvc.Name,
+	}, existingIngress)
+	if err != nil {
+		if apierr.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), ingress)
+			log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
+		} else {
+			return err
+		}
+	} else {
+		if !semanticIngressEquals(ingress, existingIngress) {
+			err = r.client.Update(context.TODO(), ingress)
+			log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
+		}
+	}
 	if err != nil {
 		return err
 	}
-	log.Info("ingress reconcile", "checkResult", checkResult, "err", err)
-	if checkResult == constants.CheckResultCreate {
-		err = r.client.Create(context.TODO(), r.Ingress)
-	} else if checkResult == constants.CheckResultUpdate {
-		err = r.client.Update(context.TODO(), r.Ingress)
-	}
-	if err != nil {
-		return err
-	}
-	isvc.Status.URL = r.URL
+	isvc.Status.URL = createRawURL(isvc, r.ingressConfig)
 	isvc.Status.Address = &duckv1.Addressable{
-		URL: r.URL,
+		URL: &apis.URL{
+			Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
+			Scheme: "http",
+			Path:   "",
+		},
 	}
 	isvc.Status.SetCondition(v1beta1api.IngressReady, &apis.Condition{
 		Type:   v1beta1api.IngressReady,
