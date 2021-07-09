@@ -37,7 +37,7 @@ def predict(service_name, input_json, protocol_version="v1",
         version=version,
     )
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
-    time.sleep(30)
+    time.sleep(10)
     cluster_ip = get_cluster_ip()
     host = urlparse(isvc["status"]["url"]).netloc
     headers = {"Host": host}

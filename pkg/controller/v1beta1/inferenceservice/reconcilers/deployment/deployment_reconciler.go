@@ -141,6 +141,32 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 		if container.ImagePullPolicy == "" {
 			container.ImagePullPolicy = corev1.PullIfNotPresent
 		}
+		// generate default readiness probe for model server container
+		if container.Name == constants.InferenceServiceContainerName {
+			if container.ReadinessProbe == nil {
+				if len(container.Ports) == 0 {
+					container.ReadinessProbe = &corev1.Probe{
+						Handler: corev1.Handler{
+							TCPSocket: &corev1.TCPSocketAction{
+								Port: intstr.IntOrString{
+									IntVal: 8080,
+								},
+							},
+						},
+					}
+				} else {
+					container.ReadinessProbe = &corev1.Probe{
+						Handler: corev1.Handler{
+							TCPSocket: &corev1.TCPSocketAction{
+								Port: intstr.IntOrString{
+									IntVal: container.Ports[0].ContainerPort,
+								},
+							},
+						},
+					}
+				}
+			}
+		}
 	}
 }
 
