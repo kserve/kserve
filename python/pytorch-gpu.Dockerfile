@@ -52,7 +52,7 @@ COPY --from=build /opt/conda/. $CONDA_DIR
 COPY pytorchserver pytorchserver
 COPY kfserving kfserving
 
-RUN pip install --upgrade pip && pip install -e ./kfserving
-RUN pip install -e ./pytorchserver
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kfserving
+RUN pip install --no-cache-dir -e ./pytorchserver
 ENTRYPOINT ["python", "-m", "pytorchserver"]
 
