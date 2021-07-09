@@ -67,8 +67,8 @@ func IncludesArg(slice []string, arg string) bool {
 }
 
 func AppendVolumeIfNotExists(slice []v1.Volume, volume v1.Volume) []v1.Volume {
-	for _, ele := range slice {
-		if ele.Name == volume.Name {
+	for i := range slice {
+		if slice[i].Name == volume.Name {
 			return slice
 		}
 	}
