@@ -25,8 +25,8 @@ import tempfile
 import zipfile
 from urllib.parse import urlparse
 import requests
-from pathlib import Path
 from azure.storage.blob import BlobServiceClient
+import pathlib
 
 from botocore.client import Config
 from botocore import UNSIGNED
@@ -142,22 +142,18 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         blobs = bucket.list_blobs(prefix=prefix)
         count = 0
         for blob in blobs:
-            # Replace any prefix from the object key with temp_dir
-            subdir_object_key = blob.name.replace(bucket_path, "", 1).strip("/")
-
-            # Create necessary subdirectory to store the object locally
-            if "/" in subdir_object_key:
-                local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
-                if not os.path.isdir(local_object_dir):
-                    os.makedirs(local_object_dir, exist_ok=True)
-            if subdir_object_key.strip() != "":
-                dest_path = os.path.join(temp_dir, subdir_object_key)
-                logging.info("Downloading: %s", dest_path)
-                blob.download_to_filename(dest_path)
+            if blob.name.endswith("/"):
+                continue
+            localdir = blob.name.split('/')[0:-1]
+            localdir = pathlib.Path(temp_dir, '/'.join(localdir))
+            localfil = pathlib.Path(temp_dir, blob.name)
+            localdir.mkdir(parents=True, exist_ok=True)
+            blob.download_to_filename(localfil)
             count = count + 1
         if count == 0:
             raise RuntimeError("Failed to fetch model. \
-The path or model %s does not exist." % uri)
+            The path or model %s does not exist." % (uri))
+
 
     @staticmethod
     def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
@@ -180,7 +176,7 @@ The path or model %s does not exist." % uri)
         blobs = container_client.list_blobs(prefix=prefix)
         for blob in blobs:
             dest_path = os.path.join(out_dir, blob.name)
-            Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
+            pathlib.Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
             logging.info("Downloading: %s to %s", blob.name, dest_path)
             downloader = container_client.download_blob(blob.name)
             with open(dest_path, "wb+") as f:
