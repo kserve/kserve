@@ -158,6 +158,14 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 		rules = append(rules, generateRule(host, constants.DefaultTransformerServiceName(isvc.Name), "/"))
 		rules = append(rules, generateRule(transformerHost, constants.DefaultTransformerServiceName(isvc.Name), "/"))
 	} else if isvc.Spec.Explainer != nil {
+		if !isvc.Status.IsConditionReady(v1beta1api.ExplainerReady) {
+			isvc.Status.SetCondition(v1beta1api.IngressReady, &apis.Condition{
+				Type:   v1beta1api.IngressReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Explainer ingress not created",
+			})
+			return nil, nil
+		}
 		host := GenerateIngressHost(ingressConfig, isvc, string(constants.Explainer), true)
 		explainerHost := GenerateIngressHost(ingressConfig, isvc, string(constants.Explainer), false)
 		// :predict routes to the predictor when there is only predictor and explainer

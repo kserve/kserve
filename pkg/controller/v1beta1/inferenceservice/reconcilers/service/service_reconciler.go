@@ -48,12 +48,12 @@ func NewServiceReconciler(client client.Client,
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		Service:      createService(componentMeta, podSpec),
+		Service:      createService(componentMeta, componentExt, podSpec),
 		componentExt: componentExt,
 	}
 }
 
-func createService(componentMeta metav1.ObjectMeta,
+func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec) *corev1.Service {
 	var port int
 	if podSpec.Containers != nil && podSpec.Containers[0].Ports != nil {
@@ -79,6 +79,13 @@ func createService(componentMeta metav1.ObjectMeta,
 				},
 			},
 		},
+	}
+	//Redirect the traffic to agent when logger and batcher is injected
+	if componentExt.Logger != nil || componentExt.Batcher != nil {
+		service.Spec.Ports[0].TargetPort = intstr.IntOrString{
+			Type:   intstr.String,
+			StrVal: constants.InferenceServiceDefaultAgentPort,
+		}
 	}
 	return service
 }

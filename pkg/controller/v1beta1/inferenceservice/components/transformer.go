@@ -93,7 +93,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 	// Here we allow switch between knative and vanilla deployment
 	if value, ok := annotations[constants.RawDeploymentAnnotationKey]; ok && value == "true" {
-		r := raw.NewRawReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
+		r := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
 			&podSpec)
 		//set Deployment Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, p.scheme); err != nil {

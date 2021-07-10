@@ -17,19 +17,23 @@ limitations under the License.
 package knative
 
 import (
-	"os"
-	"testing"
-
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	"os"
+	"testing"
 )
 
 var cfg *rest.Config
 
 func TestMain(m *testing.M) {
 	t := pkgtest.SetupEnvTest()
-	var err error
+	err := v1alpha2.AddToScheme(scheme.Scheme)
+	if err != nil {
+		klog.Fatal(err)
+	}
 	if cfg, err = t.Start(); err != nil {
 		klog.Fatal(err)
 	}

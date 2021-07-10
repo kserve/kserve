@@ -25,29 +25,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//RawReconciler reconciles the Native K8S Resources
-type RawReconciler struct {
-	client       client.Client
-	scheme       *runtime.Scheme
-	Deployment   *deployment.DeploymentReconciler
-	Service      *service.ServiceReconciler
-	URL          *knapis.URL
-	componentExt *v1beta1.ComponentExtensionSpec
+//RawKubeReconciler reconciles the Native K8S Resources
+type RawKubeReconciler struct {
+	client     client.Client
+	scheme     *runtime.Scheme
+	Deployment *deployment.DeploymentReconciler
+	Service    *service.ServiceReconciler
+	URL        *knapis.URL
 }
 
-// NewRawReconciler creates raw kubernetes resource reconciler.
-func NewRawReconciler(client client.Client,
+// RawKubeReconciler creates raw kubernetes resource reconciler.
+func NewRawKubeReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) *RawReconciler {
-	return &RawReconciler{
-		client:       client,
-		scheme:       scheme,
-		Deployment:   deployment.NewDeploymentReconciler(client, scheme, componentMeta, componentExt, podSpec),
-		Service:      service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec),
-		URL:          createRawURL(client, componentMeta),
-		componentExt: componentExt,
+	podSpec *corev1.PodSpec) *RawKubeReconciler {
+	return &RawKubeReconciler{
+		client:     client,
+		scheme:     scheme,
+		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, componentExt, podSpec),
+		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec),
+		URL:        createRawURL(client, componentMeta),
 	}
 }
 
@@ -69,17 +67,17 @@ func createRawURL(client client.Client, metadata metav1.ObjectMeta) *knapis.URL 
 }
 
 //Reconcile ...
-func (r *RawReconciler) Reconcile() (*appsv1.Deployment, error) {
+func (r *RawKubeReconciler) Reconcile() (*appsv1.Deployment, error) {
 	//reconcile Deployment
 	deployment, err := r.Deployment.Reconcile()
 	if err != nil {
 		return nil, err
 	}
-
+	//reconcile Service
 	_, err = r.Service.Reconcile()
 	if err != nil {
 		return nil, err
 	}
-
+	//@TODO reconcile HPA
 	return deployment, nil
 }

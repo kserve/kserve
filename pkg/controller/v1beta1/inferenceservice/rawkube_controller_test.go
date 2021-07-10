@@ -16,6 +16,8 @@ package inferenceservice
 import (
 	"context"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	. "github.com/onsi/ginkgo"
@@ -23,10 +25,14 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 )
@@ -81,7 +87,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
                "ingressGateway": "knative-serving/knative-ingress-gateway",
                "ingressService": "test-destination",
                "localGateway": "knative-serving/knative-local-gateway",
-               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
+               "ingressDomain": "example.com"
             }`,
 		}
 	)
@@ -240,6 +247,149 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(actualDeployment.Spec).To(gomega.Equal(expectedDeployment.Spec))
+
+			//check service
+			actualService := &v1.Service{}
+			predictorServiceKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+				Should(Succeed())
+
+			expectedService := &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorServiceKey.Name,
+					Namespace: predictorServiceKey.Namespace,
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:       "raw-foo-predictor-default",
+							Protocol:   "TCP",
+							Port:       80,
+							TargetPort: intstr.IntOrString{Type: 0, IntVal: 8080, StrVal: ""},
+						},
+					},
+					Type:            "ClusterIP",
+					SessionAffinity: "None",
+					Selector: map[string]string{
+						"app": "isvc.raw-foo-predictor-default",
+					},
+				},
+			}
+			actualService.Spec.ClusterIP = ""
+			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+
+			//check isvc status
+			updatedDeployment := actualDeployment.DeepCopy()
+			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+				{
+					Type:   appsv1.DeploymentAvailable,
+					Status: v1.ConditionTrue,
+				},
+			}
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(gomega.HaveOccurred())
+
+			//check ingress
+			pathType := netv1.PathTypePrefix
+			actualIngress := &netv1.Ingress{}
+			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
+				Should(Succeed())
+			expectedIngress := netv1.Ingress{
+				Spec: netv1.IngressSpec{
+					Rules: []netv1.IngressRule{
+						{
+							Host: "raw-foo-default.example.com",
+							IngressRuleValue: netv1.IngressRuleValue{
+								HTTP: &netv1.HTTPIngressRuleValue{
+									Paths: []netv1.HTTPIngressPath{
+										{
+											Path:     "/",
+											PathType: &pathType,
+											Backend: netv1.IngressBackend{
+												Service: &netv1.IngressServiceBackend{
+													Name: "raw-foo-predictor-default",
+													Port: netv1.ServiceBackendPort{
+														Number: 80,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Host: "raw-foo-predictor-default-default.example.com",
+							IngressRuleValue: netv1.IngressRuleValue{
+								HTTP: &netv1.HTTPIngressRuleValue{
+									Paths: []netv1.HTTPIngressPath{
+										{
+											Path:     "/",
+											PathType: &pathType,
+											Backend: netv1.IngressBackend{
+												Service: &netv1.IngressServiceBackend{
+													Name: "raw-foo-predictor-default",
+													Port: netv1.ServiceBackendPort{
+														Number: 80,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(actualIngress.Spec).To(gomega.Equal(expectedIngress.Spec))
+			// verify if InferenceService status is updated
+			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.IngressReady,
+							Status: "True",
+						},
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: "True",
+						},
+						{
+							Type:   apis.ConditionReady,
+							Status: "True",
+						},
+					},
+				},
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "raw-foo-default.example.com",
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "raw-foo-predictor-default-default.example.com",
+						},
+					},
+				},
+			}
+			Eventually(func() string {
+				isvc := &v1beta1.InferenceService{}
+				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
+					return err.Error()
+				}
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+			}, timeout).Should(gomega.BeEmpty())
 		})
 	})
 })
