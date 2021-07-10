@@ -17,6 +17,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
@@ -51,8 +52,8 @@ func NewExplainer(client client.Client, scheme *runtime.Scheme, inferenceService
 }
 
 // Reconcile observes the explainer and attempts to drive the status towards the desired state.
-func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
-	p.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
+func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
+	e.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
 	explainer := isvc.Spec.Explainer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -73,14 +74,14 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		Annotations: annotations,
 	}
 	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
-		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), p.inferenceServiceConfig)
+		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig)
 		isvc.Spec.Explainer.PodSpec = v1beta1.PodSpec{
 			Containers: []v1.Container{
 				*container,
 			},
 		}
 	} else {
-		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), p.inferenceServiceConfig)
+		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig)
 		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
 	}
 	if hasInferenceLogging {
@@ -88,16 +89,37 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)
-	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
-		&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent])
 
-	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set owner reference for explainer")
+	// Here we allow switch between knative and vanilla deployment
+	if value, ok := annotations[constants.RawDeploymentAnnotationKey]; ok && value == "true" {
+		r := raw.NewRawReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
+			&podSpec)
+		//set Deployment Controller
+		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, e.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set deployment owner reference for explainer")
+		}
+		//set Service Controller
+		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, e.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set service owner reference for explainer")
+		}
+
+		deployment, err := r.Reconcile()
+		if err != nil {
+			return errors.Wrapf(err, "fails to reconcile explainer")
+		}
+		isvc.Status.PropagateRawStatus(v1beta1.ExplainerComponent, deployment, r.URL)
+	} else {
+		r := knative.NewKsvcReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
+			&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent])
+
+		if err := controllerutil.SetControllerReference(isvc, r.Service, e.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set owner reference for explainer")
+		}
+		status, err := r.Reconcile()
+		if err != nil {
+			return errors.Wrapf(err, "fails to reconcile explainer")
+		}
+		isvc.Status.PropagateStatus(v1beta1.ExplainerComponent, status)
 	}
-	status, err := r.Reconcile()
-	if err != nil {
-		return errors.Wrapf(err, "fails to reconcile explainer")
-	}
-	isvc.Status.PropagateStatus(v1beta1.ExplainerComponent, status)
 	return nil
 }

@@ -114,10 +114,9 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 		deployment, err := r.Reconcile()
 		if err != nil {
-			return errors.Wrapf(err, "fails to reoncile predictor")
+			return errors.Wrapf(err, "fails to reconcile predictor")
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deployment, r.URL)
-
 	} else {
 		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 			&podSpec, isvc.Status.Components[v1beta1.PredictorComponent])
