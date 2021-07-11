@@ -296,6 +296,8 @@ class KFServingClient(object):
         """
         kfsvc_status = self.get(name, namespace=namespace,
                                 version=version)
+        if 'status' not in kfsvc_status:
+            return False
         status = 'Unknown'
         for condition in kfsvc_status['status'].get('conditions', {}):
             if condition.get('type', '') == 'Ready':

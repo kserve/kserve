@@ -130,7 +130,7 @@ manifests: controller-gen
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required'
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required'
-
+	kustomize build config/crd > test/crds/serving.kubeflow.org_inferenceservices.yaml
 
 # Run go fmt against code
 fmt:
@@ -229,10 +229,11 @@ ifeq (, $(shell which kubebuilder))
 	set -e ;\
         os=$$(go env GOOS) ; \
         arch=$$(go env GOARCH) ;\
-        curl -L "https://go.kubebuilder.io/dl/2.3.1/$${os}/$${arch}" | tar -xz -C /tmp/ ;\
-        sudo mkdir -p /usr/local/kubebuilder/bin/ ;\
-	sudo mv /tmp/kubebuilder_2.3.1_$${os}_$${arch}/bin/* /usr/local/kubebuilder/bin/ ;\
-	echo "Add /usr/local/kubebuilder/bin/ to your PATH!!" ;\
+	curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/$${os}/$${arch} ;\
+	chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin ;\
+	sudo mkdir -p /usr/local/kubebuilder ;\
+	curl -sSLo envtest-bins.tar.gz "https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-1.19.2-$${os}-$${arch}.tar.gz" ;\
+	sudo tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz ;\
 	}
 endif
 

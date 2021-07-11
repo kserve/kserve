@@ -3,6 +3,7 @@ set -e
 export ISTIO_VERSION=1.9.0
 export KNATIVE_VERSION=v0.22.0
 export KFSERVING_VERSION=v0.6.0
+export CERT_MANAGER_VERSION=v1.3.0
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}
 
@@ -50,7 +51,7 @@ kubectl apply --filename https://github.com/knative/serving/releases/download/${
 kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
 
 # Install Cert Manager
-kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml
+kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
 kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
 cd ..
 # Install KFServing

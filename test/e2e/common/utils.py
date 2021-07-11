@@ -29,7 +29,8 @@ KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
 def predict(service_name, input_json, protocol_version="v1",
             version=constants.KFSERVING_V1BETA1_VERSION, model_name=None):
-    kfs_client = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kfs_client = KFServingClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
         service_name,
         namespace=KFSERVING_TEST_NAMESPACE,
@@ -50,6 +51,8 @@ def predict(service_name, input_json, protocol_version="v1",
 
     with open(input_json) as json_file:
         data = json.load(json_file)
+        logging.info("Sending Header = %s", headers)
+        logging.info("Sending url = %s", url)
         logging.info("Sending request data: %s", json.dumps(data))
         response = requests.post(url, json.dumps(data), headers=headers)
         logging.info(
@@ -72,7 +75,8 @@ def explain_art(service_name, input_json):
 
 
 def explain_response(service_name, input_json):
-    kfs_client = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kfs_client = KFServingClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
         service_name,
         namespace=KFSERVING_TEST_NAMESPACE,

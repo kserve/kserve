@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"testing"
 	"time"
 
@@ -59,6 +60,8 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
+	err = v1alpha2.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
