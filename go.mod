@@ -34,6 +34,7 @@ require (
 	istio.io/client-go v0.0.0-20201005161859-d8818315d678
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
 	k8s.io/api v0.19.2
+	k8s.io/apiextensions-apiserver v0.19.2
 	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/klog v1.0.0
