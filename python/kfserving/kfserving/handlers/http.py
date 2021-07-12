@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 import tornado.web
 import json
 import pytz
@@ -21,7 +20,10 @@ from cloudevents.http import CloudEvent, from_http, is_binary, is_structured, to
 from cloudevents.sdk.converters.util import has_binary_headers
 from http import HTTPStatus
 from kfserving.kfmodel_repository import KFModelRepository
+from kfserving.kfmodel import ModelType
 from datetime import datetime
+
+from ray.serve.api import RayServeHandle
 
 
 class HTTPHandler(tornado.web.RequestHandler):
@@ -35,19 +37,9 @@ class HTTPHandler(tornado.web.RequestHandler):
                 status_code=HTTPStatus.NOT_FOUND,
                 reason="Model with name %s does not exist." % name
             )
-        if not model.ready:
+        if not self.models.is_model_ready(name):
             model.load()
         return model
-
-    def validate(self, request):
-        if(isinstance(request, dict)):
-            if ("instances" in request and not isinstance(request["instances"], list)) or \
-               ("inputs" in request and not isinstance(request["inputs"], list)):
-                raise tornado.web.HTTPError(
-                    status_code=HTTPStatus.BAD_REQUEST,
-                    reason="Expected \"instances\" or \"inputs\" to be a list"
-                )
-        return request
 
 
 class PredictHandler(HTTPHandler):
@@ -73,14 +65,14 @@ class PredictHandler(HTTPHandler):
                     status_code=HTTPStatus.BAD_REQUEST,
                     reason="Unrecognized request format: %s" % e
                 )
-
+        # call model locally or remote model workers
         model = self.get_model(name)
-        request = model.preprocess(body)
-        request = self.validate(request)
-        response = (await model.predict(request)) if inspect.iscoroutinefunction(model.predict) \
-            else model.predict(request)
-        response = model.postprocess(response)
-
+        if not isinstance(model, RayServeHandle):
+            response = await model(body)
+        else:
+            model_handle = model
+            response = await model_handle.remote(body)
+        # process response from the model
         if has_binary_headers(self.request.headers):
             event = CloudEvent(body._attributes, response)
             if is_binary(self.request.headers):
@@ -100,7 +92,6 @@ class PredictHandler(HTTPHandler):
 
 class ExplainHandler(HTTPHandler):
     async def post(self, name: str):
-        model = self.get_model(name)
         try:
             body = json.loads(self.request.body)
         except json.decoder.JSONDecodeError as e:
@@ -108,9 +99,11 @@ class ExplainHandler(HTTPHandler):
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Unrecognized request format: %s" % e
             )
-        request = model.preprocess(body)
-        request = self.validate(request)
-        response = (await model.explain(request)) if inspect.iscoroutinefunction(model.explain) \
-            else model.explain(request)
-        response = model.postprocess(response)
+        # call model locally or remote model workers
+        model = self.get_model(name)
+        if not isinstance(model, RayServeHandle):
+            response = await model(body, model_type=ModelType.EXPLAINER)
+        else:
+            model_handle = model
+            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
         self.write(response)

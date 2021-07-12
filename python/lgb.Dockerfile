@@ -6,9 +6,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 COPY third_party third_party
 COPY kfserving kfserving
-RUN pip install --upgrade pip && pip install -e ./kfserving
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kfserving
 
 COPY lgbserver lgbserver
-RUN pip install -e ./lgbserver
+RUN pip install --no-cache-dir -e ./lgbserver
 
 ENTRYPOINT ["python", "-m", "lgbserver"]

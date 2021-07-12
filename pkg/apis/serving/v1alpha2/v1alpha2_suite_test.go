@@ -18,11 +18,10 @@ package v1alpha2
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"testing"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
+	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
+	"os"
+	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +29,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 var cfg *rest.Config
@@ -51,17 +49,13 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
-			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml")},
-	}
-	err := SchemeBuilder.AddToScheme(scheme.Scheme)
-
+	testEnv := pkgtest.SetupEnvTest()
+	var err error
+	cfg, err = testEnv.Start()
 	if err != nil {
 		klog.Fatal(err)
 	}
-
-	if cfg, err = t.Start(); err != nil {
+	if err := SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		klog.Fatal(err)
 	}
 
@@ -132,12 +126,12 @@ func TestMain(m *testing.M) {
 		klog.Fatal(err)
 	}
 
-	if err = c.Create(context.TODO(), configMap); err != nil {
+	if err := c.Create(context.TODO(), configMap); err != nil {
 		klog.Fatal(err)
 	}
 	defer c.Delete(context.TODO(), configMap)
 
 	code := m.Run()
-	t.Stop()
+	testEnv.Stop()
 	os.Exit(code)
 }

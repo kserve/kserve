@@ -136,7 +136,7 @@ class DummyKFModelRepository(KFModelRepository):
             return False
 
 
-class TestTFHttpServer():
+class TestTFHttpServer:
 
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use

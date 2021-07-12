@@ -85,6 +85,7 @@ type PredictorsConfig struct {
 	ONNX       PredictorConfig    `json:"onnx,omitempty"`
 	PMML       PredictorConfig    `json:"pmml,omitempty"`
 	LightGBM   PredictorConfig    `json:"lightgbm,omitempty"`
+	Paddle     PredictorConfig    `json:"paddle,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -116,6 +117,7 @@ type IngressConfig struct {
 	IngressServiceName      string `json:"ingressService,omitempty"`
 	LocalGateway            string `json:"localGateway,omitempty"`
 	LocalGatewayServiceName string `json:"localGatewayService,omitempty"`
+	IngressDomain           string `json:"ingressDomain,omitempty"`
 }
 
 func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {
@@ -151,7 +153,7 @@ func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 		}
 
 		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
-			return nil, fmt.Errorf("Invalid ingress config, ingressGateway and ingressService are required.")
+			return nil, fmt.Errorf("Invalid ingress config, ingressGateway, ingressService are required.")
 		}
 	}
 	return ingressConfig, nil

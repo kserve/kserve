@@ -18,8 +18,8 @@ package trainedmodel
 
 import (
 	"context"
+	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
 	"k8s.io/client-go/tools/record"
-	"path/filepath"
 	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -63,12 +63,7 @@ var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
-			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml"),
-			filepath.Join("..", "..", "..", "..", "test", "crds")},
-	}
-
+	testEnv = pkgtest.SetupEnvTest()
 	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())

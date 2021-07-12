@@ -17,7 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	"k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -146,6 +147,45 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 // IsConditionReady returns the readiness for a given condition
 func (ss *InferenceServiceStatus) IsConditionReady(t apis.ConditionType) bool {
 	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == v1.ConditionTrue
+}
+
+func (ss *InferenceServiceStatus) PropagateRawStatus(
+	component ComponentType,
+	deployment *appsv1.Deployment,
+	url *apis.URL) {
+	if len(ss.Components) == 0 {
+		ss.Components = make(map[ComponentType]ComponentStatusSpec)
+	}
+	statusSpec, ok := ss.Components[component]
+	if !ok {
+		ss.Components[component] = ComponentStatusSpec{}
+	}
+
+	statusSpec.LatestCreatedRevision = deployment.GetObjectMeta().GetAnnotations()["deployment.kubernetes.io/revision"]
+	condition := getDeploymentCondition(deployment, appsv1.DeploymentAvailable)
+	if condition != nil && condition.Status == v1.ConditionTrue {
+		statusSpec.URL = url
+	}
+	readyCondition := conditionsMap[component]
+	ss.SetCondition(readyCondition, condition)
+	ss.Components[component] = statusSpec
+}
+
+func getDeploymentCondition(deployment *appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *apis.Condition {
+	condition := apis.Condition{}
+	for _, con := range deployment.Status.Conditions {
+		if con.Type == conditionType {
+			condition.Type = apis.ConditionType(conditionType)
+			condition.Status = con.Status
+			condition.Message = con.Message
+			condition.LastTransitionTime = apis.VolatileTime{
+				Inner: con.LastTransitionTime,
+			}
+			condition.Reason = con.Reason
+			break
+		}
+	}
+	return &condition
 }
 
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
