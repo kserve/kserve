@@ -47,3 +47,8 @@ Save the YAMLs and apply them to your cluster:
 ```bash
 kubectl apply -f azcreds.yaml
 ```
+
+Note: To use your model binary you must reference the folder where it's located with an ending ```/``` to denote it`s a folder.
+```bash
+https://accountname.blob.core.windows.net/container/models/iris/v1.1/
+```

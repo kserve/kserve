@@ -24,12 +24,13 @@ import tarfile
 import tempfile
 import zipfile
 from urllib.parse import urlparse
+import requests
+from pathlib import Path
+from azure.storage.blob import BlobServiceClient
 
 from botocore.client import Config
 from botocore import UNSIGNED
 import boto3
-import requests
-from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
 
@@ -38,6 +39,7 @@ from kfserving.kfmodel_repository import MODEL_MOUNT_DIRS
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
+_ACCOUNT_RE = "https://(.+?).blob.core.windows.net"
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
@@ -160,6 +162,7 @@ The path or model %s does not exist." % uri)
     @staticmethod
     def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
         match = re.search(_BLOB_RE, uri)
+        account_url = re.search(_ACCOUNT_RE, uri).group(0)
         account_name = match.group(1)
         storage_url = match.group(2)
         container_name, prefix = storage_url.split("/", 1)
@@ -168,16 +171,13 @@ The path or model %s does not exist." % uri)
                      account_name,
                      container_name,
                      prefix)
-        try:
-            block_blob_service = BlockBlobService(account_name=account_name)
-            blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
-        except Exception:  # pylint: disable=broad-except
-            token = Storage._get_azure_storage_token()
-            if token is None:
-                logging.warning("Azure credentials not found, retrying anonymous access")
-            block_blob_service = BlockBlobService(account_name=account_name, token_credential=token)
-            blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
+        token = Storage._get_azure_storage_token()
+        if token is None:
+            logging.warning("Azure credentials not found, retrying anonymous access")
+        blob_service_client = BlobServiceClient(account_url, credential=token)
+        container_client = blob_service_client.get_container_client(container_name)
         count = 0
+        blobs = container_client.list_blobs(prefix=prefix)
         for blob in blobs:
             dest_path = os.path.join(out_dir, blob.name)
             if "/" in blob.name:
@@ -192,7 +192,10 @@ The path or model %s does not exist." % uri)
                     os.makedirs(dir_path)
 
             logging.info("Downloading: %s to %s", blob.name, dest_path)
-            block_blob_service.get_blob_to_path(container_name, blob.name, dest_path)
+            Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
+            downloader = container_client.download_blob(blob.name)
+            with open(dest_path, "wb+") as f:
+                f.write(downloader.readall())
             count = count + 1
         if count == 0:
             raise RuntimeError("Failed to fetch model. \
@@ -209,22 +212,12 @@ The path or model %s does not exist." % (uri))
             return None
 
         # note the SP must have "Storage Blob Data Owner" perms for this to work
-        import adal
-        from azure.storage.common import TokenCredential
+        from azure.identity import ClientSecretCredential
+        token_credential = ClientSecretCredential(tenant_id,
+                                                  client_id, client_secret)
 
-        authority_url = "https://login.microsoftonline.com/" + tenant_id
-
-        context = adal.AuthenticationContext(authority_url)
-
-        token = context.acquire_token_with_client_credentials(
-            "https://storage.azure.com/",
-            client_id,
-            client_secret)
-
-        token_credential = TokenCredential(token["accessToken"])
-
-        logging.info("Retrieved SP token credential for client_id: %s", client_id)
-
+        logging.info("Retrieved SP token credential for client_id: %s",
+                     client_id)
         return token_credential
 
     @staticmethod
