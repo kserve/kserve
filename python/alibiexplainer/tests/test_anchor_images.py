@@ -25,7 +25,7 @@ CIFAR10_EXPLAINER_URI = "gs://seldon-models/tfserving/cifar10/explainer-py36-0.5
 EXPLAINER_FILENAME = "explainer.dill"
 
 
-def test_cifar10_images(): # pylint: disable-msg=too-many-locals
+def test_cifar10_images():  # pylint: disable-msg=too-many-locals
     os.environ.clear()
     alibi_model = os.path.join(
         kfserving.Storage.download(CIFAR10_EXPLAINER_URI), EXPLAINER_FILENAME
@@ -42,7 +42,7 @@ def test_cifar10_images(): # pylint: disable-msg=too-many-locals
         idx = 12
         test_example = X_test[idx: idx + 1]
         anchor_images = AnchorImages(
-            lambda x: model.predict(x), alibi_model) # pylint: disable-msg=unnecessary-lambda
+            lambda x: model.predict(x), alibi_model)  # pylint: disable-msg=unnecessary-lambda
         np.random.seed(0)
         explanation = anchor_images.explain(test_example)
         exp_json = json.loads(explanation.to_json())
