@@ -44,7 +44,7 @@ setup(
         "dill>=0.3.0",
         "grpcio>=1.22.0",
         "xgboost==1.0.2",
-        "shap==0.36.0",
+        "shap==0.39.0",
         "numpy<1.19.0",
         'spacy[lookups]>=2.0.0, <4.0.0'
     ],
