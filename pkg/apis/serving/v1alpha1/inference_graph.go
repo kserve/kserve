@@ -5,6 +5,7 @@ import (
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"net/url"
 )
 
 // InferenceGraph is the Schema for the InferenceGraph API for multiple models
@@ -31,17 +32,19 @@ type InferenceGraphSpec struct {
 
 type InferenceRouterType string
 
-// Split router randomly routes to the named service according to the weight
-type Splitter InferenceRouterType
+const(
+    // Split router randomly routes the requests to the named service according to the weight
+    Splitter InferenceRouterType = "Splitter"
 
-// Ensemble router routes the request to multiple models and then merge the responses
-type Ensemble InferenceRouterType
+    // Ensemble router routes the requests to multiple models and then merge the responses
+    Ensemble InferenceRouterType = "Ensemble"
 
-// ABNTest routes the request to two or more models with specified routing rule
-type ABNTest InferenceRouterType
+    // ABNTest routes the request to two or more models with specified routing rule
+    ABNTest InferenceRouterType = "ABNTest"
+)
 
 // +k8s:openapi-gen=true
-// InferenceRouter defines the router at each InferenceGraph node and where it routes to as next step
+// InferenceRouter defines the router for each InferenceGraph node and where it routes to as next step
 //
 // ```yaml
 // kind: InferenceGraph
@@ -164,16 +167,20 @@ type InferenceRouter struct{
 
 	// nextRoutes defines where to route to as next step
 	// +optional
-	nextRoutes []RouteTo   `json:"nextRoutes,omitempty"`
+	NextRoutes []RouteTo   `json:"nextRoutes,omitempty"`
 }
 
 // +k8s:openapi-gen=true
 type InferenceRoute struct {
 	// named reference for InferenceService
-	// +required
+	// +optional
 	Service string `json:"service"`
 
-	// the weight for split of the traffic, only used for InferenceRouterSplit
+	// InferenceService URL, mutually exclusive with Service
+	// +optional
+	ServiceUrl *url.URL `json:"serviceUrl"`
+
+	// the weight for split of the traffic, only used for Split Router
 	// when weight is specified all the routing targets should be sum to 100
 	// +optional
 	Weight *int64 `json:"weight,omitempty"`
@@ -189,7 +196,7 @@ type RouteTo struct {
 	// next named router node
 	// +required
 	NodeName string `json:"nodeName"`
-	// when the condition validates the request is then sent to the next router
+	// when the condition validates the request data is then sent to the next router
 	// e.g
 	// allOf
 	//  - required: ["class"]
@@ -200,6 +207,7 @@ type RouteTo struct {
 	Condition v1.JSONSchemaDefinitions `json:"condition,omitempty"`
 	// request data sent to the next route specified with jsonpath of the request or response json data
 	// from the current step
+	// e.g
 	// $request
 	// $response.predictions
 	// +required
