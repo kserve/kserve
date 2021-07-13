@@ -43,6 +43,7 @@ def get_call_args(call_args_list):
         arg_list.append(args)
     return arg_list
 
+
 # pylint: disable=protected-access
 @pytest.fixture(scope='session', autouse=True)
 def test_cleanup():
