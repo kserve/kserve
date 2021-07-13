@@ -2,6 +2,7 @@
 dev_install:
 	pip install -e .[test]
 
+# Requires sklearnserver to be installed
 test: type_check lint
 	pytest -W ignore
 

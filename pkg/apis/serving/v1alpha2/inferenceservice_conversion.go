@@ -170,10 +170,12 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 				},
 				Alibi: &v1beta1.AlibiExplainerSpec{
 					Type:           v1beta1.AlibiExplainerType(src.Spec.Default.Explainer.Alibi.Type),
-					StorageURI:     src.Spec.Default.Explainer.Alibi.StorageURI,
-					RuntimeVersion: proto.String(src.Spec.Default.Explainer.Alibi.RuntimeVersion),
-					Container: v1.Container{
-						Resources: src.Spec.Default.Explainer.Alibi.Resources,
+					ExplainerExtensionSpec: v1beta1.ExplainerExtensionSpec{
+						StorageURI:     src.Spec.Default.Explainer.Alibi.StorageURI,
+						RuntimeVersion: proto.String(src.Spec.Default.Explainer.Alibi.RuntimeVersion),
+						Container: v1.Container{
+							Resources: src.Spec.Default.Explainer.Alibi.Resources,
+						},
 					},
 				},
 			}

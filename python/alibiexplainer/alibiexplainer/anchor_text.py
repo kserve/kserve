@@ -45,7 +45,9 @@ class AnchorText(ExplainerWrapper):
 
     def explain(self, inputs: List) -> Explanation:
         if self.anchors_text is None:
-            self.anchors_text = alibi.explainers.AnchorText(self.nlp, self.predict_fn)
+            self.anchors_text = alibi.explainers.AnchorText(predictor=self.predict_fn,
+                                                            sampling_strategy='unknown',
+                                                            nlp=self.nlp)
 
         # We assume the input has batch dimension but Alibi explainers presently assume no batch
         input_words = inputs[0]
