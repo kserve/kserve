@@ -89,7 +89,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !utils.ContainsString(isvc.ObjectMeta.Finalizers, finalizerName) {
+		if !utils.Includes(isvc.ObjectMeta.Finalizers, finalizerName) {
 			isvc.ObjectMeta.Finalizers = append(isvc.ObjectMeta.Finalizers, finalizerName)
 			if err := r.Update(context.Background(), isvc); err != nil {
 				return ctrl.Result{}, err
@@ -97,7 +97,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	} else {
 		// The object is being deleted
-		if utils.ContainsString(isvc.ObjectMeta.Finalizers, finalizerName) {
+		if utils.Includes(isvc.ObjectMeta.Finalizers, finalizerName) {
 			// our finalizer is present, so lets handle any external dependency
 			if err := r.deleteExternalResources(isvc); err != nil {
 				// if fail to delete the external dependency here, return with error
