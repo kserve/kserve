@@ -169,7 +169,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 					ContainerConcurrency: proto.Int64(int64(src.Spec.Default.Explainer.Parallelism)),
 				},
 				Alibi: &v1beta1.AlibiExplainerSpec{
-					Type:           v1beta1.AlibiExplainerType(src.Spec.Default.Explainer.Alibi.Type),
+					Type: v1beta1.AlibiExplainerType(src.Spec.Default.Explainer.Alibi.Type),
 					ExplainerExtensionSpec: v1beta1.ExplainerExtensionSpec{
 						StorageURI:     src.Spec.Default.Explainer.Alibi.StorageURI,
 						RuntimeVersion: proto.String(src.Spec.Default.Explainer.Alibi.RuntimeVersion),

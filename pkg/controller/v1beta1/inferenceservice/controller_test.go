@@ -551,12 +551,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MaxReplicas: 3,
 						},
 						Alibi: &v1beta1.AlibiExplainerSpec{
-							Type:           v1beta1.AlibiAnchorsTabularExplainer,
-							StorageURI:     "s3://test/mnist/explainer",
-							RuntimeVersion: proto.String("0.4.0"),
-							Container: v1.Container{
-								Name:      "kfserving-contaienr",
-								Resources: defaultResource,
+							Type: v1beta1.AlibiAnchorsTabularExplainer,
+							ExplainerExtensionSpec: v1beta1.ExplainerExtensionSpec{
+								StorageURI:     "s3://test/mnist/explainer",
+								RuntimeVersion: proto.String("0.4.0"),
+								Container: v1.Container{
+									Name:      "kfserving-contaienr",
+									Resources: defaultResource,
+								},
 							},
 						},
 					},
