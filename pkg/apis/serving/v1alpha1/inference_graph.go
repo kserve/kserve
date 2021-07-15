@@ -27,20 +27,20 @@ type InferenceGraph struct {
 type InferenceGraphSpec struct {
 	// Map of InferenceGraph router nodes
 	// Each node defines the routes for the current node and next routes
-    Nodes map[string]InferenceRouter `json:"nodes"`
+	Nodes map[string]InferenceRouter `json:"nodes"`
 }
 
 type InferenceRouterType string
 
-const(
-    // Split router randomly routes the requests to the named service according to the weight
-    Splitter InferenceRouterType = "Splitter"
+const (
+	// Split router randomly routes the requests to the named service according to the weight
+	Splitter InferenceRouterType = "Splitter"
 
-    // Ensemble router routes the requests to multiple models and then merge the responses
-    Ensemble InferenceRouterType = "Ensemble"
+	// Ensemble router routes the requests to multiple models and then merge the responses
+	Ensemble InferenceRouterType = "Ensemble"
 
-    // ABNTest routes the request to two or more models with specified routing rule
-    ABNTest InferenceRouterType = "ABNTest"
+	// ABNTest routes the request to two or more models with specified routing rule
+	ABNTest InferenceRouterType = "ABNTest"
 )
 
 // +k8s:openapi-gen=true
@@ -150,7 +150,7 @@ const(
 //       routes:
 //       - service: stock-model
 // ```
-type InferenceRouter struct{
+type InferenceRouter struct {
 	// RouterType
 	//
 	// - `Splitter:` randomly routes to the named service according to the weight, the default router type
@@ -163,11 +163,11 @@ type InferenceRouter struct{
 
 	// Routes defines destinations for the current router node
 	// +optional
-    Routes []InferenceRoute `json:"routes,omitempty"`
+	Routes []InferenceRoute `json:"routes,omitempty"`
 
 	// nextRoutes defines where to route to as next step
 	// +optional
-	NextRoutes []RouteTo   `json:"nextRoutes,omitempty"`
+	NextRoutes []RouteTo `json:"nextRoutes,omitempty"`
 }
 
 // +k8s:openapi-gen=true

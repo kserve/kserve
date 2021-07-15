@@ -25,7 +25,7 @@ func TestSimpleModelChainer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse model url")
 	}
-    defer model1.Close()
+	defer model1.Close()
 	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		_, err := ioutil.ReadAll(req.Body)
 		if err != nil {
@@ -43,7 +43,7 @@ func TestSimpleModelChainer(t *testing.T) {
 
 	graphSpec := v1alpha1.InferenceGraphSpec{
 		Nodes: map[string]v1alpha1.InferenceRouter{
-            "root": {
+			"root": {
 				RouterType: v1alpha1.Splitter,
 				Routes: []v1alpha1.InferenceRoute{
 					{
@@ -53,7 +53,7 @@ func TestSimpleModelChainer(t *testing.T) {
 				NextRoutes: []v1alpha1.RouteTo{
 					{
 						NodeName: "model2",
-						Data: "$response",
+						Data:     "$response",
 					},
 				},
 			},
@@ -66,13 +66,12 @@ func TestSimpleModelChainer(t *testing.T) {
 				},
 			},
 		},
-
 	}
 	input := map[string]interface{}{
-       "instances": []string{
-       	  "test",
-       	  "test2",
-	   },
+		"instances": []string{
+			"test",
+			"test2",
+		},
 	}
 	jsonBytes, _ := json.Marshal(input)
 	result := make(chan string)

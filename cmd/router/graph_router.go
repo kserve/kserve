@@ -16,7 +16,7 @@ func callService(serviceUrl *url.URL, input []byte, res chan<- string) error {
 		log.Fatalf("An error has occured %v", err)
 		return err
 	}
-    defer resp.Body.Close()
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalf("error while reading the response %v", err)
@@ -26,7 +26,7 @@ func callService(serviceUrl *url.URL, input []byte, res chan<- string) error {
 	return nil
 }
 
-func routeStep(nodeName string, currentStep kfserving.InferenceRouter, graph kfserving.InferenceGraphSpec, input []byte, res chan<- string){
+func routeStep(nodeName string, currentStep kfserving.InferenceRouter, graph kfserving.InferenceGraphSpec, input []byte, res chan<- string) {
 	log.Printf("current step %v", nodeName)
 	result := make(chan string)
 	//For splitter and ABNTest call virtual service
@@ -56,7 +56,6 @@ func routeStep(nodeName string, currentStep kfserving.InferenceRouter, graph kfs
 	}
 	log.Printf("finishing for %v", nodeName)
 }
-
 
 func main() {
 
