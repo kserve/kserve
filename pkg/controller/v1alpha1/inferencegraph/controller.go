@@ -118,7 +118,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 	// Create service if does not exist
-	desired := createKnativeService(graph.ObjectMeta, routerConfig)
+	desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
 	existing := &knservingv1.Service{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
@@ -177,7 +177,11 @@ func semanticEquals(desiredService, service *knservingv1.Service) bool {
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }
 
-func createKnativeService(componentMeta metav1.ObjectMeta, config *RouterConfig) *knservingv1.Service {
+func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.InferenceGraph, config *RouterConfig) *knservingv1.Service {
+	bytes, err := json.Marshal(graph.Spec)
+	if err != nil {
+		return nil
+	}
 	annotations := componentMeta.GetAnnotations()
 
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
@@ -206,6 +210,10 @@ func createKnativeService(componentMeta metav1.ObjectMeta, config *RouterConfig)
 							Containers: []v1.Container{
 								{
 									Image: config.Image,
+									Args: []string{
+										"--graph-json",
+										string(bytes),
+									},
 								},
 							},
 						},

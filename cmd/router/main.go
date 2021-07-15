@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	flag "github.com/spf13/pflag"
 	"io/ioutil"
-	"knative.dev/pkg/apis"
 	"log"
 	"net/http"
+	"os"
 )
 
-func callService(serviceUrl *apis.URL, input []byte, res chan<- string) error {
-	resp, err := http.Post(serviceUrl.String(), "application/json", bytes.NewBuffer(input))
+func callService(serviceUrl string, input []byte, res chan<- []byte) error {
+	resp, err := http.Post(serviceUrl, "application/json", bytes.NewBuffer(input))
 	if err != nil {
 		log.Fatalf("An error has occured %v", err)
 		return err
@@ -22,33 +23,33 @@ func callService(serviceUrl *apis.URL, input []byte, res chan<- string) error {
 		log.Fatalf("error while reading the response %v", err)
 		return err
 	}
-	res <- string(body)
+	res <- body
 	return nil
 }
 
-func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1alpha1.InferenceGraphSpec, input []byte, res chan<- string) error {
+func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1alpha1.InferenceGraphSpec, input []byte, res chan<- []byte) error {
 	log.Printf("current step %v", nodeName)
 	response := map[string]interface{}{}
 	//For splitter and ABNTest call virtual service
 	if currentStep.RouterType == v1alpha1.Splitter {
 	} else if currentStep.RouterType == v1alpha1.Ensemble {
-		ensembleRes := map[string]chan string{}
+		ensembleRes := map[string]chan []byte{}
 		for i := range currentStep.Routes {
-			res := make(chan string)
-			ensembleRes[currentStep.Routes[i].ServiceUrl.Host] = res
+			res := make(chan []byte)
+			ensembleRes[currentStep.Routes[i].ServiceUrl] = res
 			go callService(currentStep.Routes[i].ServiceUrl, input, res)
 		}
 
 		for name, result := range ensembleRes {
-			responseStr := <-result
-			log.Printf("getting response back %v", responseStr)
-			response[name] = responseStr
+			responseBytes := <-result
+			log.Printf("getting response back %v", responseBytes)
+			response[name] = responseBytes
 		}
 	} else {
-		result := make(chan string)
+		result := make(chan []byte)
 		go callService(currentStep.Routes[0].ServiceUrl, input, result)
 		res := <-result
-		response[currentStep.Routes[0].ServiceUrl.Host] = res
+		response[currentStep.Routes[0].ServiceUrl] = res
 	}
 	jsonRes, err := json.Marshal(response)
 	if err != nil {
@@ -56,13 +57,13 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 	}
 	if len(currentStep.NextRoutes) == 0 {
 		log.Printf("no next routes")
-		res <- string(jsonRes)
+		res <- jsonRes
 		return nil
 	}
 	// process outgoing edges
-	jobs := map[string]chan string{}
+	jobs := map[string]chan []byte{}
 	for _, routeTo := range currentStep.NextRoutes {
-		job := make(chan string)
+		job := make(chan []byte)
 		jobs[routeTo.NodeName] = job
 		if router, ok := graph.Nodes[routeTo.NodeName]; ok {
 			go routeStep(routeTo.NodeName, router, graph, jsonRes, job)
@@ -79,12 +80,39 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 	if err != nil {
 		return err
 	}
-	res <- string(jsonRes)
+	res <- jsonResNext
 	log.Printf("returning response %v", string(jsonResNext))
 
 	return nil
 }
 
-func main() {
+var inferenceGraph *v1alpha1.InferenceGraphSpec
 
+func graphHandler(w http.ResponseWriter, req *http.Request) {
+	inputBytes, _ := ioutil.ReadAll(req.Body)
+	res := make(chan []byte)
+	rootNodes := []string{}
+	for name, _ := range inferenceGraph.Nodes {
+		rootNodes = append(rootNodes, name)
+	}
+	go routeStep(rootNodes[0], inferenceGraph.Nodes[rootNodes[0]], *inferenceGraph, inputBytes, res)
+	response := <-res
+	w.Write(response)
+}
+
+var (
+	jsonGraph = flag.String("graph-json", "", "serialized json graph def")
+)
+
+func main() {
+	flag.Parse()
+	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
+	if err != nil {
+		log.Fatalf("failed to unmarshall inference graph json %v", err)
+		os.Exit(1)
+	}
+
+	http.HandleFunc("/", graphHandler)
+
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

@@ -2,7 +2,6 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
@@ -33,6 +32,7 @@ type InferenceRouterType string
 const (
 	// Default type only route to one destination
 	Single InferenceRouterType = "Single"
+
 	// Split router randomly routes the requests to the named service according to the weight
 	Splitter InferenceRouterType = "Splitter"
 
@@ -178,7 +178,7 @@ type InferenceRoute struct {
 
 	// InferenceService URL, mutually exclusive with Service
 	// +optional
-	ServiceUrl *apis.URL `json:"serviceUrl"`
+	ServiceUrl string `json:"serviceUrl"`
 
 	// the weight for split of the traffic, only used for Split Router
 	// when weight is specified all the routing targets should be sum to 100

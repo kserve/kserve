@@ -62,7 +62,7 @@ spec:
                         service:
                           type: string
                         serviceUrl:
-                          type: Any
+                          type: string
                         weight:
                           format: int64
                           type: integer

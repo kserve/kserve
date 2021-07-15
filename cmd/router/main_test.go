@@ -47,7 +47,7 @@ func TestSimpleModelChainer(t *testing.T) {
 				RouterType: v1alpha1.Single,
 				Routes: []v1alpha1.InferenceRoute{
 					{
-						ServiceUrl: model1Url,
+						ServiceUrl: model1Url.String(),
 					},
 				},
 				NextRoutes: []v1alpha1.RouteTo{
@@ -61,7 +61,7 @@ func TestSimpleModelChainer(t *testing.T) {
 				RouterType: v1alpha1.Single,
 				Routes: []v1alpha1.InferenceRoute{
 					{
-						ServiceUrl: model2Url,
+						ServiceUrl: model2Url.String(),
 					},
 				},
 			},
@@ -74,7 +74,7 @@ func TestSimpleModelChainer(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(input)
-	result := make(chan string)
+	result := make(chan []byte)
 	go routeStep("root", graphSpec.Nodes["root"], graphSpec, jsonBytes, result)
 	res := <-result
 	print(res)
@@ -117,10 +117,10 @@ func TestSimpleModelEnsemble(t *testing.T) {
 				RouterType: v1alpha1.Ensemble,
 				Routes: []v1alpha1.InferenceRoute{
 					{
-						ServiceUrl: model1Url,
+						ServiceUrl: model1Url.String(),
 					},
 					{
-						ServiceUrl: model2Url,
+						ServiceUrl: model2Url.String(),
 					},
 				},
 			},
@@ -133,8 +133,10 @@ func TestSimpleModelEnsemble(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(input)
-	result := make(chan string)
+	result := make(chan []byte)
 	go routeStep("root", graphSpec.Nodes["root"], graphSpec, jsonBytes, result)
 	res := <-result
-	print(res)
+	var response map[string]interface{}
+	err = json.Unmarshal(res, response)
+	print(response)
 }
