@@ -190,3 +190,11 @@ data:
     {
       "defaultDeploymentMode": "Serverless"
     }
+  router: |-
+    {
+        "image" : "kserve/router:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }

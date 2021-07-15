@@ -23,6 +23,9 @@ EOF
 AGENT_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_agent| grep 'image:' | awk '{print $2}')
 if [ -z ${AGENT_IMG} ]; then exit; fi
 
+ROUTER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_router| grep 'image:' | awk '{print $2}')
+if [ -z ${ROUTER_IMG} ]; then exit; fi
+
 cat > config/overlays/${OVERLAY}/configmap/inferenceservice_patch.yaml << EOF
 apiVersion: v1
 kind: ConfigMap
@@ -49,6 +52,14 @@ data:
   agent: |-
     {
         "image" : "${AGENT_IMG}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "500Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "100m"
+    }
+  router: |-
+    {
+        "image" : "${ROUTER_IMG}",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",

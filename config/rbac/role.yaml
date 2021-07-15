@@ -172,6 +172,26 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - inferencegraphs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - inferencegraphs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
   - inferenceservices
   - inferenceservices/finalizers
   verbs:

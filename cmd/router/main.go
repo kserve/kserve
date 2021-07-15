@@ -1,9 +1,9 @@
-package router
+package main
 
 import (
 	"bytes"
 	"encoding/json"
-	v1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"io/ioutil"
 	"knative.dev/pkg/apis"
 	"log"
@@ -47,7 +47,7 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 	} else {
 		result := make(chan string)
 		go callService(currentStep.Routes[0].ServiceUrl, input, result)
-		res := <- result
+		res := <-result
 		response[currentStep.Routes[0].ServiceUrl.Host] = res
 	}
 	jsonRes, err := json.Marshal(response)

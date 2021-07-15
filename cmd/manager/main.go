@@ -151,6 +151,19 @@ func main() {
 	}
 
 	//Setup TrainedModel controller
+	inferenceGraphEventBroadcaster := record.NewBroadcaster()
+	setupLog.Info("Setting up InferenceGraph controller")
+	inferenceGraphEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&graphcontroller.InferenceGraphReconciler{
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("v1alpha1Controllers").WithName("InferenceGraph"),
+		Scheme:   mgr.GetScheme(),
+		Recorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), v1.EventSource{Component: "GraphController"}),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "InferenceGraph")
+		os.Exit(1)
+	}
+	//Setup TrainedModel controller
 	trainedModelEventBroadcaster := record.NewBroadcaster()
 	setupLog.Info("Setting up v1beta1 TrainedModel controller")
 	trainedModelEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})

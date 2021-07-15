@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	istio_networking "istio.io/api/networking/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -188,7 +187,7 @@ type InferenceRoute struct {
 
 	// routing based on the headers
 	// +optional
-	Headers map[string]istio_networking.StringMatch `json:"headers,omitempty"`
+	//Headers map[string]istio_networking.StringMatch `json:"headers,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -218,4 +217,14 @@ type RouteTo struct {
 type InferenceGraphStatus struct {
 	// Conditions for InferenceGraph
 	duckv1.Status `json:",inline"`
+}
+
+// InferenceGraphList contains a list of InferenceGraph
+// +k8s:openapi-gen=true
+// +kubebuilder:object:root=true
+type InferenceGraphList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	// +listType=set
+	Items []InferenceGraph `json:"items"`
 }

@@ -59,10 +59,6 @@ spec:
                   routes:
                     items:
                       properties:
-                        headers:
-                          additionalProperties:
-                            type: Any
-                          type: object
                         service:
                           type: string
                         serviceUrl:
