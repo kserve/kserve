@@ -106,6 +106,7 @@ var (
 
 func main() {
 	flag.Parse()
+	inferenceGraph = &v1alpha1.InferenceGraphSpec{}
 	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
 	if err != nil {
 		log.Fatalf("failed to unmarshall inference graph json %v", err)
