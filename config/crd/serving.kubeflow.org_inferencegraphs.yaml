@@ -1,0 +1,123 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200528125929-5c0c6ae3b64b
+  creationTimestamp: null
+  name: inferencegraphs.serving.kubeflow.org
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.url
+    name: URL
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    name: Ready
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: serving.kubeflow.org
+  names:
+    kind: InferenceGraph
+    listKind: InferenceGraphList
+    plural: inferencegraphs
+    shortNames:
+    - ir
+    singular: inferencegraph
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            nodes:
+              additionalProperties:
+                properties:
+                  nextRoutes:
+                    items:
+                      properties:
+                        data:
+                          type: string
+                        nodeName:
+                          type: string
+                      required:
+                      - nodeName
+                      type: object
+                    type: array
+                  routerType:
+                    type: string
+                  routes:
+                    items:
+                      properties:
+                        headers:
+                          additionalProperties:
+                            type: Any
+                          type: object
+                        service:
+                          type: string
+                        serviceUrl:
+                          type: Any
+                        weight:
+                          format: int64
+                          type: integer
+                      type: object
+                    type: array
+                required:
+                - routerType
+                type: object
+              type: object
+          required:
+          - nodes
+          type: object
+        status:
+          properties:
+            annotations:
+              additionalProperties:
+                type: string
+              type: object
+            conditions:
+              items:
+                properties:
+                  lastTransitionTime:
+                    type: Any
+                  message:
+                    type: string
+                  reason:
+                    type: string
+                  severity:
+                    type: string
+                  status:
+                    type: string
+                  type:
+                    type: string
+                required:
+                - status
+                - type
+                type: object
+              type: array
+            observedGeneration:
+              format: int64
+              type: integer
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

@@ -2,10 +2,9 @@ package v1alpha1
 
 import (
 	istio_networking "istio.io/api/networking/v1alpha3"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"net/url"
 )
 
 // InferenceGraph is the Schema for the InferenceGraph API for multiple models
@@ -33,6 +32,8 @@ type InferenceGraphSpec struct {
 type InferenceRouterType string
 
 const (
+	// Default type only route to one destination
+	Single InferenceRouterType = "Single"
 	// Split router randomly routes the requests to the named service according to the weight
 	Splitter InferenceRouterType = "Splitter"
 
@@ -178,7 +179,7 @@ type InferenceRoute struct {
 
 	// InferenceService URL, mutually exclusive with Service
 	// +optional
-	ServiceUrl *url.URL `json:"serviceUrl"`
+	ServiceUrl *apis.URL `json:"serviceUrl"`
 
 	// the weight for split of the traffic, only used for Split Router
 	// when weight is specified all the routing targets should be sum to 100
@@ -204,7 +205,7 @@ type RouteTo struct {
 	//      class:
 	//        pattern: "1"
 	// +optional
-	Condition v1.JSONSchemaDefinitions `json:"condition,omitempty"`
+	// Condition v1.JSONSchemaDefinitions `json:"condition,omitempty"`
 	// request data sent to the next route specified with jsonpath of the request or response json data
 	// from the current step
 	// e.g
