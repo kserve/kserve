@@ -11,7 +11,6 @@ import (
 )
 
 func callService(serviceUrl *url.URL, input []byte, res chan<- string) error {
-	log.Printf("calling url %v", serviceUrl)
 	resp, err := http.Post(serviceUrl.String(), "application/json", bytes.NewBuffer(input))
 	if err != nil {
 		log.Fatalf("An error has occured %v", err)
@@ -27,8 +26,8 @@ func callService(serviceUrl *url.URL, input []byte, res chan<- string) error {
 	return nil
 }
 
-func routeStep(currentStep kfserving.InferenceRouter, graph kfserving.InferenceGraphSpec, input []byte, res chan<- string){
-	log.Printf("calling for %v", currentStep.NextRoutes)
+func routeStep(nodeName string, currentStep kfserving.InferenceRouter, graph kfserving.InferenceGraphSpec, input []byte, res chan<- string){
+	log.Printf("current step %v", nodeName)
 	result := make(chan string)
 	//For splitter and ABNTest call virtual service
 	go callService(currentStep.Routes[0].ServiceUrl, input, result)
@@ -38,7 +37,7 @@ func routeStep(currentStep kfserving.InferenceRouter, graph kfserving.InferenceG
 		job := make(chan string)
 		jobs[routeTo.NodeName] = job
 		if router, ok := graph.Nodes[routeTo.NodeName]; ok {
-			go routeStep(router, graph, []byte(response), job)
+			go routeStep(routeTo.NodeName, router, graph, []byte(response), job)
 		}
 	}
 	combined := map[string]interface{}{}
@@ -47,18 +46,15 @@ func routeStep(currentStep kfserving.InferenceRouter, graph kfserving.InferenceG
 		log.Printf("getting response back %v", responseStr)
 		combined[name] = responseStr
 	}
-	log.Printf("finishing jobs for %v", currentStep.NextRoutes)
 	if len(jobs) == 0 {
 		log.Printf("no next routes")
 		res <- response
-		log.Printf("returning response")
 	} else {
-		log.Printf("writing response to chan")
 		jsonRes, _ := json.Marshal(combined)
 		res <- string(jsonRes)
 		log.Printf("returning response %v", string(jsonRes))
 	}
-	log.Printf("finishing for %v", currentStep.NextRoutes)
+	log.Printf("finishing for %v", nodeName)
 }
 
 

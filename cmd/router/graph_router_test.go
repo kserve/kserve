@@ -13,11 +13,10 @@ import (
 func TestSimpleModelChainer(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := ioutil.ReadAll(req.Body)
+		_, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
-		println(string(b))
 		response := map[string]interface{}{"predictions": "1"}
 		responseBytes, err := json.Marshal(response)
 		_, err = rw.Write(responseBytes)
@@ -28,11 +27,10 @@ func TestSimpleModelChainer(t *testing.T) {
 	}
     defer model1.Close()
 	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := ioutil.ReadAll(req.Body)
+		_, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
-		println(string(b))
 		response := map[string]interface{}{"predictions": "2"}
 		responseBytes, err := json.Marshal(response)
 		_, err = rw.Write(responseBytes)
@@ -78,8 +76,7 @@ func TestSimpleModelChainer(t *testing.T) {
 	}
 	jsonBytes, _ := json.Marshal(input)
 	result := make(chan string)
-	go routeStep(graphSpec.Nodes["root"], graphSpec, jsonBytes, result)
-	print("finishing2")
+	go routeStep("root", graphSpec.Nodes["root"], graphSpec, jsonBytes, result)
 	res := <-result
 	print(res)
 }
