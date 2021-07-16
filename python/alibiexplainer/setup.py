@@ -32,7 +32,7 @@ setup(
     python_requires='>=3.6',
     packages=find_packages("alibiexplainer"),
     install_requires=[
-        "tensorflow==2.3.2",
+        "tensorflow==2.4.2",
         "kfserving>=0.6.0",
         "pandas>=0.24.2",
         "nest_asyncio>=1.4.0",
