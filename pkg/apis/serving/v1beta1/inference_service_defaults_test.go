@@ -72,7 +72,9 @@ func TestInferenceServiceDefaults(t *testing.T) {
 			},
 			Explainer: &ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					StorageURI: "gs://testbucket/testmodel",
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						StorageURI: "gs://testbucket/testmodel",
+					},
 				},
 			},
 		},

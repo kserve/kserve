@@ -46,8 +46,10 @@ func TestAlibiValidation(t *testing.T) {
 		"AcceptGoodRuntimeVersion": {
 			spec: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					Type:           "AnchorTabular",
-					RuntimeVersion: proto.String("latest"),
+					Type: "AnchorTabular",
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						RuntimeVersion: proto.String("latest"),
+					},
 				},
 			},
 			matcher: gomega.BeNil(),
@@ -55,8 +57,10 @@ func TestAlibiValidation(t *testing.T) {
 		"ValidStorageUri": {
 			spec: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					Type:       "AnchorTabular",
-					StorageURI: "s3://modelzoo",
+					Type: "AnchorTabular",
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						StorageURI: "s3://modelzoo",
+					},
 				},
 			},
 			matcher: gomega.BeNil(),
@@ -64,7 +68,9 @@ func TestAlibiValidation(t *testing.T) {
 		"InvalidStorageUri": {
 			spec: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					StorageURI: "hdfs://modelzoo",
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						StorageURI: "hdfs://modelzoo",
+					},
 				},
 			},
 			matcher: gomega.Not(gomega.BeNil()),
@@ -76,7 +82,9 @@ func TestAlibiValidation(t *testing.T) {
 					MaxReplicas: 2,
 				},
 				Alibi: &AlibiExplainerSpec{
-					StorageURI: "hdfs://modelzoo",
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						StorageURI: "hdfs://modelzoo",
+					},
 				},
 			},
 			matcher: gomega.Not(gomega.BeNil()),
@@ -88,7 +96,9 @@ func TestAlibiValidation(t *testing.T) {
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				Alibi: &AlibiExplainerSpec{
-					StorageURI: "hdfs://modelzoo",
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						StorageURI: "hdfs://modelzoo",
+					},
 				},
 			},
 			matcher: gomega.Not(gomega.BeNil()),
@@ -130,12 +140,14 @@ func TestAlibiDefaulter(t *testing.T) {
 			},
 			expected: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					RuntimeVersion: proto.String("v0.4.0"),
-					Container: v1.Container{
-						Name: constants.InferenceServiceContainerName,
-						Resources: v1.ResourceRequirements{
-							Requests: defaultResource,
-							Limits:   defaultResource,
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						RuntimeVersion: proto.String("v0.4.0"),
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
 						},
 					},
 				},
@@ -144,17 +156,21 @@ func TestAlibiDefaulter(t *testing.T) {
 		"DefaultResources": {
 			spec: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					RuntimeVersion: proto.String("v0.3.0"),
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						RuntimeVersion: proto.String("v0.3.0"),
+					},
 				},
 			},
 			expected: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					RuntimeVersion: proto.String("v0.3.0"),
-					Container: v1.Container{
-						Name: constants.InferenceServiceContainerName,
-						Resources: v1.ResourceRequirements{
-							Requests: defaultResource,
-							Limits:   defaultResource,
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						RuntimeVersion: proto.String("v0.3.0"),
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
 						},
 					},
 				},
@@ -221,10 +237,12 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					},
 					Explainer: &ExplainerSpec{
 						Alibi: &AlibiExplainerSpec{
-							Type:       AlibiAnchorsTabularExplainer,
-							StorageURI: "s3://explainer",
-							Container: v1.Container{
-								Resources: requestedResource,
+							Type: AlibiAnchorsTabularExplainer,
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								StorageURI: "s3://explainer",
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
 							},
 						},
 					},
@@ -266,12 +284,14 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					},
 					Explainer: &ExplainerSpec{
 						Alibi: &AlibiExplainerSpec{
-							Type:           AlibiAnchorsTabularExplainer,
-							StorageURI:     "s3://explainer",
-							RuntimeVersion: proto.String("v0.4.0"),
-							Container: v1.Container{
-								Image:     "explainer:0.1.0",
-								Resources: requestedResource,
+							Type: AlibiAnchorsTabularExplainer,
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								StorageURI:     "s3://explainer",
+								RuntimeVersion: proto.String("v0.4.0"),
+								Container: v1.Container{
+									Image:     "explainer:0.1.0",
+									Resources: requestedResource,
+								},
 							},
 						},
 					},
@@ -319,12 +339,14 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 							ContainerConcurrency: proto.Int64(2),
 						},
 						Alibi: &AlibiExplainerSpec{
-							Type:           AlibiAnchorsTabularExplainer,
-							StorageURI:     "s3://explainer",
-							RuntimeVersion: proto.String("v0.4.0"),
-							Container: v1.Container{
-								Image:     "explainer:0.1.0",
-								Resources: requestedResource,
+							Type: AlibiAnchorsTabularExplainer,
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								StorageURI:     "s3://explainer",
+								RuntimeVersion: proto.String("v0.4.0"),
+								Container: v1.Container{
+									Image:     "explainer:0.1.0",
+									Resources: requestedResource,
+								},
 							},
 						},
 					},
@@ -382,8 +404,10 @@ func TestAlibiIsMMS(t *testing.T) {
 		"AcceptGoodRuntimeVersion": {
 			spec: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					Type:           "AnchorTabular",
-					RuntimeVersion: proto.String("latest"),
+					Type: "AnchorTabular",
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						RuntimeVersion: proto.String("latest"),
+					},
 				},
 			},
 			expected: mssCase,
@@ -391,8 +415,10 @@ func TestAlibiIsMMS(t *testing.T) {
 		"ValidStorageUri": {
 			spec: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					Type:       "AnchorTabular",
-					StorageURI: "s3://modelzoo",
+					Type: "AnchorTabular",
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						StorageURI: "s3://modelzoo",
+					},
 				},
 			},
 			expected: mssCase,
