@@ -83,7 +83,7 @@ shap==0.35.0
 six==1.14.0
 sqlparse==0.3.1
 tensorboard==1.14.0
-tensorflow==1.15.4
+tensorflow==2.4.2
 tensorflow-estimator==1.14.0
 termcolor==1.1.0
 terminado==0.8.3
