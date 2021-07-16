@@ -50,24 +50,16 @@ type AlibiExplainerSpec struct {
 	// - "Counterfactuals"; <br />
 	// - "Contrastive"; <br />
 	Type AlibiExplainerType `json:"type"`
-	// The location of a trained explanation model
-	// +optional
-	StorageURI string `json:"storageUri,omitempty"`
-	// Alibi docker image version, defaults to latest Alibi Version
-	// +optional
-	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
-	// Inline custom parameter settings for explainer
-	// +optional
-	Config map[string]string `json:"config,omitempty"`
-	// Container enables overrides for the predictor.
-	// Each framework will have different defaults that are populated in the underlying container spec.
-	// +optional
-	v1.Container `json:",inline"`
+	// Contains fields shared across all explainers
+	ExplainerExtensionSpec `json:",inline"`
 }
 
 var _ ComponentImplementation = &AlibiExplainerSpec{}
 
 func (s *AlibiExplainerSpec) GetStorageUri() *string {
+	if s.StorageURI == "" {
+		return nil
+	}
 	return &s.StorageURI
 }
 

@@ -50,7 +50,7 @@ def test_tabular_explainer():
         alibi=V1beta1AlibiExplainerSpec(
             name='kfserving-container',
             type='AnchorTabular',
-            storage_uri='gs://seldon-models/sklearn/income/explainer-py36-0.5.2',
+            storage_uri='gs://seldon-models/sklearn/income/explainer-py37-0.6.0',
             resources=V1ResourceRequirements(
                 requests={'cpu': '100m', 'memory': '1Gi'},
                 limits={'cpu': '100m', 'memory': '1Gi'}

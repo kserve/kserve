@@ -1,27 +1,26 @@
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "moviesentiment"
 spec:
-  default:
-    predictor:
-      minReplicas: 1
-      sklearn:
-        storageUri: "gs://seldon-models/sklearn/moviesentiment"
-        resources:
-          requests:
-            cpu: 0.1
-            memory: 1Gi                        
-          limits:
-            cpu: 1
-            memory: 1Gi                        
-    explainer:
-      minReplicas: 1
-      alibi:
-        type: AnchorText
-        resources:
-          requests:
-            cpu: 0.1
-            memory: 6Gi            
-          limits:
-            memory: 6Gi
+  predictor:
+    minReplicas: 1
+    sklearn:
+      storageUri: "gs://seldon-models/sklearn/moviesentiment"
+      resources:
+        requests:
+          cpu: 0.1
+          memory: 1Gi                        
+        limits:
+          cpu: 1
+          memory: 1Gi                        
+  explainer:
+    minReplicas: 1
+    alibi:
+      type: AnchorText
+      resources:
+        requests:
+          cpu: 0.1
+          memory: 6Gi            
+        limits:
+          memory: 6Gi
