@@ -15,7 +15,7 @@
 import kfserving
 import joblib
 import numpy as np
-import os
+import pathlib
 from typing import Dict
 
 MODEL_BASENAME = "model"
@@ -30,14 +30,16 @@ class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
         self.ready = False
 
     def load(self) -> bool:
-        model_path = kfserving.Storage.download(self.model_dir)
-        paths = [os.path.join(model_path, MODEL_BASENAME + model_extension)
-                 for model_extension in MODEL_EXTENSIONS]
-        for path in paths:
-            if os.path.exists(path):
-                self._model = joblib.load(path)
-                self.ready = True
-                break
+        model_path = pathlib.Path(kfserving.Storage.download(self.model_dir))
+        paths = [model_path / (MODEL_BASENAME + model_extension) for model_extension in MODEL_EXTENSIONS]
+        existing_paths = [path for path in paths if path.exists()]
+        if len(existing_paths) == 0:
+            raise RuntimeError('Missing Model File.')
+        elif len(existing_paths) > 1:
+            raise RuntimeError('More than one model file is detected, '
+                               f'Only one is allowed within model_dir: {existing_paths}')
+        self._model = joblib.load(existing_paths[0])
+        self.ready = True
         return self.ready
 
     def predict(self, request: Dict) -> Dict:
