@@ -1,0 +1,2 @@
+kfserving
+torchvision

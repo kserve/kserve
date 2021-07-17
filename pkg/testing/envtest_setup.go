@@ -18,13 +18,12 @@ package testing
 
 import (
 	"context"
+	"github.com/gogo/protobuf/proto"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	netv1 "k8s.io/api/networking/v1"
 	"path/filepath"
 	"sync"
 
-	"github.com/gogo/protobuf/proto"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -40,27 +39,23 @@ func SetupEnvTest() *envtest.Environment {
 		// The relative paths must be provided for each level of test nesting
 		// This code should be illegal
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
 			filepath.Join("..", "..", "..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml"),
 			filepath.Join("..", "..", "..", "..", "..", "..", "test", "crds"),
-			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
 			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml"),
 			filepath.Join("..", "..", "..", "..", "test", "crds"),
 		},
 		UseExistingCluster: proto.Bool(false),
 	}
 
-	err := v1alpha2.SchemeBuilder.AddToScheme(scheme.Scheme)
-
-	if err != nil {
-		log.Error(err, "Failed to add kfserving scheme")
+	if err := netv1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+		log.Error(err, "Failed to add networking v1 scheme")
 	}
 
-	if err = knservingv1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+	if err := knservingv1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to add knative serving scheme")
 	}
 
-	if err = v1alpha3.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+	if err := v1alpha3.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to add istio scheme")
 	}
 	return t

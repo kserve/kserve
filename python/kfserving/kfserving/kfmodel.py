@@ -14,17 +14,24 @@
 
 from typing import Dict
 import sys
-
+import inspect
 import json
 import tornado.web
 from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from http import HTTPStatus
+from enum import Enum
+from ray.serve.utils import ServeRequest
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
+
+
+class ModelType(Enum):
+    EXPLAINER = 1
+    PREDICTOR = 2
 
 
 # KFModel is intended to be subclassed by various components within KFServing.
@@ -42,11 +49,37 @@ class KFModel:
         self.timeout = 600
         self._http_client_instance = None
 
+    async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
+        request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
+            else self.preprocess(body)
+        request = self.validate(request)
+        if model_type == ModelType.EXPLAINER:
+            response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
+                else self.explain(request)
+        elif model_type == ModelType.PREDICTOR:
+            response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
+                else self.predict(request)
+        else:
+            raise NotImplementedError
+        response = self.postprocess(response)
+        return response
+
     @property
     def _http_client(self):
         if self._http_client_instance is None:
             self._http_client_instance = AsyncHTTPClient(max_clients=sys.maxsize)
         return self._http_client_instance
+
+    @staticmethod
+    def validate(request):
+        if isinstance(request, dict):
+            if ("instances" in request and not isinstance(request["instances"], list)) or \
+               ("inputs" in request and not isinstance(request["inputs"], list)):
+                raise tornado.web.HTTPError(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    reason="Expected \"instances\" or \"inputs\" to be a list"
+                )
+        return request
 
     def load(self) -> bool:
         """
@@ -57,7 +90,7 @@ class KFModel:
         self.ready = True
         return self.ready
 
-    def preprocess(self, request: Dict) -> Dict:
+    async def preprocess(self, request: Dict) -> Dict:
         """
         The preprocess handler can be overridden for data or feature transformation,
         the default implementation decodes to Dict if it is cloudevent JSON otherwise pass the data field
@@ -80,7 +113,8 @@ class KFModel:
                                 status_code=HTTPStatus.BAD_REQUEST,
                                 reason="Unrecognized request format: %s" % e
                             )
-
+        elif isinstance(request, ServeRequest):
+            return await request.body()
         elif isinstance(request, dict):
 
             if "time" in request \

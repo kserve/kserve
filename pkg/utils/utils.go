@@ -67,8 +67,8 @@ func IncludesArg(slice []string, arg string) bool {
 }
 
 func AppendVolumeIfNotExists(slice []v1.Volume, volume v1.Volume) []v1.Volume {
-	for _, ele := range slice {
-		if ele.Name == volume.Name {
+	for i := range slice {
+		if slice[i].Name == volume.Name {
 			return slice
 		}
 	}
@@ -90,16 +90,7 @@ func FirstNonNilError(objects []error) error {
 	return nil
 }
 
-// Helper functions to check and remove string from a slice of strings.
-func ContainsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
-
+// Helper functions to remove string from a slice of strings.
 func RemoveString(slice []string, s string) (result []string) {
 	for _, item := range slice {
 		if item == s {

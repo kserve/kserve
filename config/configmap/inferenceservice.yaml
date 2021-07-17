@@ -71,9 +71,9 @@ data:
             "multiModelServer": false
           },
           "v2" : {
-            "image": "kfserving/torchserve-kfs",
-            "defaultImageVersion": "0.3.0",
-            "defaultGpuImageVersion": "0.3.0-gpu",
+            "image": "pytorch/torchserve-kfs",
+            "defaultImageVersion": "0.4.0",
+            "defaultGpuImageVersion": "0.4.0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -105,6 +105,14 @@ data:
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "lightgbm"
+            ],
+            "multiModelServer": false
+        },
+        "paddle": {
+            "image": "kfserving/paddleserver",
+            "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "paddle"
             ],
             "multiModelServer": false
         }
@@ -149,8 +157,9 @@ data:
     {
         "ingressGateway" : "$(ingressGateway)",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
-        "localGateway" : "knative-local-gateway.knative-serving",
-        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local"
+        "localGateway" : "knative-serving/knative-local-gateway",
+        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+        "ingressDomain"  : "example.com"
     }
   logger: |-
     {

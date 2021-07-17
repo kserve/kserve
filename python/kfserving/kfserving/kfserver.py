@@ -17,15 +17,20 @@ import logging
 import json
 import inspect
 import sys
-from typing import List, Optional
+from typing import List, Optional, Dict, Union
 import tornado.ioloop
 import tornado.web
 import tornado.httpserver
 import tornado.log
+import asyncio
+from tornado import concurrent
+from .utils import utils
 
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
 from kfserving.kfmodel_repository import KFModelRepository
+from ray.serve.api import RayServeHandle, ServeDeployment
+from ray import serve
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -40,6 +45,8 @@ parser.add_argument('--max_buffer_size', default=DEFAULT_MAX_BUFFER_SIZE, type=i
                     help='The max buffer size for tornado.')
 parser.add_argument('--workers', default=1, type=int,
                     help='The number of works to fork')
+parser.add_argument('--max_asyncio_workers', default=None, type=int,
+                    help='Max number of asyncio workers to spawn')
 args, _ = parser.parse_known_args()
 
 tornado.log.enable_pretty_logging()
@@ -50,12 +57,14 @@ class KFServer:
                  grpc_port: int = args.grpc_port,
                  max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers,
+                 max_asyncio_workers: int = args.max_asyncio_workers,
                  registered_models: KFModelRepository = KFModelRepository()):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.max_buffer_size = max_buffer_size
         self.workers = workers
+        self.max_asyncio_workers = max_asyncio_workers
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
 
     def create_application(self):
@@ -86,9 +95,32 @@ class KFServer:
              UnloadHandler, dict(models=self.registered_models)),
         ])
 
-    def start(self, models: List[KFModel], nest_asyncio: bool = False):
-        for model in models:
-            self.register_model(model)
+    def start(self, models: Union[List[KFModel], Dict[str, ServeDeployment]], nest_asyncio: bool = False):
+        if isinstance(models, list):
+            for model in models:
+                if isinstance(model, KFModel):
+                    self.register_model(model)
+                else:
+                    raise RuntimeError("Model type should be KFModel")
+        elif isinstance(models, dict):
+            if all([issubclass(v, ServeDeployment) for v in models.values()]):
+                serve.start(detached=True, http_host='0.0.0.0', http_port=9071)
+                for key in models:
+                    models[key].deploy()
+                    handle = models[key].get_handle()
+                    self.register_model_handle(key, handle)
+            else:
+                raise RuntimeError("Model type should be RayServe Deployment")
+        else:
+            raise RuntimeError("Unknown model collection types")
+
+        if self.max_asyncio_workers is None:
+            # formula as suggest in https://bugs.python.org/issue35279
+            self.max_asyncio_workers = min(32, utils.cpu_count()+4)
+
+        logging.info(f"Setting asyncio max_workers as {self.max_asyncio_workers}")
+        asyncio.get_event_loop().set_default_executor(
+            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
 
         self._http_server = tornado.httpserver.HTTPServer(
             self.create_application(), max_buffer_size=self.max_buffer_size)
@@ -106,6 +138,10 @@ class KFServer:
             nest_asyncio.apply()
 
         tornado.ioloop.IOLoop.current().start()
+
+    def register_model_handle(self, name: str, model_handle: RayServeHandle):
+        self.registered_models.update_handle(name, model_handle)
+        logging.info("Registering model handle: %s", name)
 
     def register_model(self, model: KFModel):
         if not model.name:
@@ -132,7 +168,7 @@ class HealthHandler(tornado.web.RequestHandler):
                 reason="Model with name %s does not exist." % name
             )
 
-        if not model.ready:
+        if not self.models.is_model_ready(name):
             raise tornado.web.HTTPError(
                 status_code=503,
                 reason="Model with name %s is not ready." % name
@@ -158,7 +194,10 @@ class LoadHandler(tornado.web.RequestHandler):
 
     async def post(self, name: str):
         try:
-            (await self.models.load(name)) if inspect.iscoroutinefunction(self.models.load) else self.models.load(name)
+            if inspect.iscoroutinefunction(self.models.load):
+                await self.models.load(name)
+            else:
+                self.models.load(name)
         except Exception:
             ex_type, ex_value, ex_traceback = sys.exc_info()
             raise tornado.web.HTTPError(

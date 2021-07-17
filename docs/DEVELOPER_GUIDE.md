@@ -70,7 +70,7 @@ recommend adding them to your `.bashrc`):
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
    work properly.
 1. `KO_DOCKER_REPO`: The docker repository to which developer images should be
-   pushed (e.g. `docker.io/<username>/[project]`).
+   pushed (e.g. `docker.io/<username>`).
 
 - **Note**: Set up a docker repository for pushing images. You can use any container image registry by adjusting 
 the authentication methods and repository paths mentioned in the sections below.
@@ -208,9 +208,14 @@ make deploy-dev-storageInitializer
 - **Note**: These commands also publishes to `KO_DOCKER_REPO` with the image of version 'latest', and change the configmap of your cluster to point to the new built images. It's just for development and testing purpose so you need to do it one by one. In configmap, for predictors it will just keep the one in development, for exlainer and storage initializer will just change the item impacted and set all others images including the `kfserving-controller-manager` and `logger` to be default. 
 
 ### Smoke test after deployment
+
+Run the following command to smoke test the deployment,
+e.g. for the `v1beta1` version of kfserving:
+
 ```bash
-kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
+kubectl apply -f docs/samples/v1beta1/tensorflow/tensorflow.yaml
 ```
+
 You should see model serving deployment running under default or your specified namespace.
 
 ```console
@@ -222,7 +227,13 @@ $ kubectl get pods -n default -l serving.kubeflow.org/inferenceservice=flowers-s
 NAME                                                READY   STATUS    RESTARTS   AGE
 flowers-sample-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
 ```
-NOTE: KFServing scales pods to 0 in the absence of traffic. If you don't see any pods, try sending out a query via curl using instructions in the tensorflow sample: https://github.com/kubeflow/kfserving/tree/master/docs/samples/tensorflow
+
+NOTE: KFServing scales pods to 0 in the absence of traffic when `minReplicas` is set to `0`.
+If you don't see any pods, try sending out a query via curl using instructions in the
+tensorflow sample
+([`v1alpha2` docs](https://github.com/kubeflow/kfserving/blob/master/docs/samples/v1alpha2/tensorflow/README.md),
+[`v1beta1` docs](https://github.com/kubeflow/kfserving/blob/master/docs/samples/v1beta1/tensorflow/README.md)).
+
 
 
 ## Iterating
@@ -264,9 +275,9 @@ Reissued from statefulset/default: create Pod default-0 in StatefulSet default f
 Or while you are deploying the models
 
 ```shell
-kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
-Error from server (InternalError): error when creating "docs/samples/tensorflow/tensorflow.yaml": 
-Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter": 
+kubectl apply -f docs/samples/v1beta1/tensorflow/tensorflow.yaml
+Error from server (InternalError): error when creating "docs/samples/v1beta1/tensorflow/tensorflow.yaml":
+Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter":
 Post https://kfserving-webhook-server-service.kfserving-system.svc:443/mutate-inferenceservices?timeout=30s:
 
 context deadline exceeded

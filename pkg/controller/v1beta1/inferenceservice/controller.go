@@ -16,8 +16,6 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
-	"reflect"
-
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
@@ -29,6 +27,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -38,12 +37,15 @@ import (
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices;inferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/finalizers,verbs=get;list;watch;create;update;patch;delete
@@ -87,7 +89,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !utils.ContainsString(isvc.ObjectMeta.Finalizers, finalizerName) {
+		if !utils.Includes(isvc.ObjectMeta.Finalizers, finalizerName) {
 			isvc.ObjectMeta.Finalizers = append(isvc.ObjectMeta.Finalizers, finalizerName)
 			if err := r.Update(context.Background(), isvc); err != nil {
 				return ctrl.Result{}, err
@@ -95,7 +97,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	} else {
 		// The object is being deleted
-		if utils.ContainsString(isvc.ObjectMeta.Finalizers, finalizerName) {
+		if utils.Includes(isvc.ObjectMeta.Finalizers, finalizerName) {
 			// our finalizer is present, so lets handle any external dependency
 			if err := r.deleteExternalResources(isvc); err != nil {
 				// if fail to delete the external dependency here, return with error
@@ -113,6 +115,11 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
+
+	//get annotations from isvc
+	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
 
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
@@ -140,10 +147,21 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
-	reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
-	r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
-	if err := reconciler.Reconcile(isvc); err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+	//check raw deployment
+	if value, ok := annotations[constants.RawDeploymentAnnotationKey]; ok && value == "true" {
+		reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+		}
+		if err := reconciler.Reconcile(isvc); err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+		}
+	} else {
+		reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
+		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
+		if err := reconciler.Reconcile(isvc); err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+		}
 	}
 
 	// Reconcile modelConfig
@@ -202,6 +220,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1beta1api.InferenceService{}).
 		Owns(&knservingv1.Service{}).
 		Owns(&v1alpha3.VirtualService{}).
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }
 

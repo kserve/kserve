@@ -108,7 +108,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !utils.ContainsString(tm.GetFinalizers(), tmFinalizerName) {
+		if !utils.Includes(tm.GetFinalizers(), tmFinalizerName) {
 			tm.SetFinalizers(append(tm.GetFinalizers(), tmFinalizerName))
 			if err := r.Update(context.Background(), tm); err != nil {
 				return ctrl.Result{}, err
@@ -116,7 +116,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	} else {
 		// The object is being deleted
-		if utils.ContainsString(tm.GetFinalizers(), tmFinalizerName) {
+		if utils.Includes(tm.GetFinalizers(), tmFinalizerName) {
 			//reconcile configmap to remove the model
 			if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
 				return reconcile.Result{}, err

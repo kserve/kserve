@@ -71,14 +71,22 @@ data:
             "multiModelServer": false
           },
           "v2" : {
-            "image": "kfserving/torchserve-kfs",
-            "defaultImageVersion": "0.3.0",
+            "image": "pytorch/torchserve-kfs",
+            "defaultImageVersion": "0.4.0",
             "defaultGpuImageVersion": "0.3.0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
             "multiModelServer": false
           }
+        },
+        "paddle": {
+            "image": "ruminateer/paddleserver",
+            "defaultImageVersion": "v0.1.0",
+            "supportedFrameworks": [
+              "paddle"
+            ],
+            "multiModelServer": false
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
@@ -147,9 +155,9 @@ data:
     }
   ingress: |-
     {
-        "ingressGateway" : "knative-ingress-gateway.knative-serving",
+        "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
-        "localGateway": "knative-local-gateway.knative-serving",
+        "localGateway": "knative-serving/knative-local-gateway",
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local"
     }
   logger: |-

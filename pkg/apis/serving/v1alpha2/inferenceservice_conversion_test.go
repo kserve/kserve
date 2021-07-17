@@ -336,18 +336,20 @@ func TestInferenceServiceConversion(t *testing.T) {
 							ContainerConcurrency: proto.Int64(1),
 						},
 						Alibi: &v1beta1.AlibiExplainerSpec{
-							Type:           v1beta1.AlibiAnchorsTabularExplainer,
-							StorageURI:     "s3://test/mnist/explainer",
-							RuntimeVersion: proto.String("0.4.0"),
-							Container: v1.Container{
-								Resources: v1.ResourceRequirements{
-									Requests: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse("1"),
-										v1.ResourceMemory: resource.MustParse("2Gi"),
-									},
-									Limits: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse("1"),
-										v1.ResourceMemory: resource.MustParse("2Gi"),
+							Type: v1beta1.AlibiAnchorsTabularExplainer,
+							ExplainerExtensionSpec: v1beta1.ExplainerExtensionSpec{
+								StorageURI:     "s3://test/mnist/explainer",
+								RuntimeVersion: proto.String("0.4.0"),
+								Container: v1.Container{
+									Resources: v1.ResourceRequirements{
+										Requests: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+										Limits: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
 									},
 								},
 							},

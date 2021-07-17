@@ -15,6 +15,7 @@ package inferenceservice
 
 import (
 	"context"
+	netv1 "k8s.io/api/networking/v1"
 	"testing"
 
 	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
@@ -67,6 +68,8 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).NotTo(HaveOccurred())
 	err = knservingv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
+	err = netv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).ToNot(HaveOccurred())
@@ -86,14 +89,15 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 	err = (&InferenceServiceReconciler{
-		Client:   k8sManager.GetClient(),
-		Scheme:   scheme.Scheme,
+		Client:   k8sClient,
+		Scheme:   k8sClient.Scheme(),
 		Log:      ctrl.Log.WithName("V1beta1InferenceServiceController"),
 		Recorder: k8sManager.GetEventRecorderFor("V1beta1InferenceServiceController"),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
-	defer GinkgoRecover()
+
 	go func() {
+		defer GinkgoRecover()
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())
 	}()

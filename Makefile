@@ -8,6 +8,7 @@ XGB_IMG ?= xgbserver
 LGB_IMG ?= lgbserver
 PYTORCH_IMG ?= pytorchserver
 PMML_IMG ?= pmmlserver
+PADDLE_IMG ?= paddleserver
 ALIBI_IMG ?= alibi-explainer
 STORAGE_INIT_IMG ?= storage-initializer
 CRD_OPTIONS ?= "crd:maxDescLen=0"
@@ -75,12 +76,16 @@ deploy-dev-pmml : docker-push-pmml
 	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${PMML_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
+deploy-dev-paddle: docker-push-paddle
+	./hack/model_server_patch_dev.sh paddle ${KO_DOCKER_REPO}/${PADDLE_IMG}
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+
 deploy-dev-alibi: docker-push-alibi
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
-	./hack/misc_patch_dev.sh storageInitializer ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-ci: manifests
@@ -125,7 +130,7 @@ manifests: controller-gen
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required'
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required'
-
+	kustomize build config/crd > test/crds/serving.kubeflow.org_inferenceservices.yaml
 
 # Run go fmt against code
 fmt:
@@ -200,6 +205,12 @@ docker-build-pmml:
 docker-push-pmml: docker-build-pmml
 	docker push ${KO_DOCKER_REPO}/${PMML_IMG}
 
+docker-build-paddle:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
+
+docker-push-paddle: docker-build-paddle
+	docker push ${KO_DOCKER_REPO}/${PADDLE_IMG}
+
 docker-build-alibi:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
 
@@ -218,10 +229,11 @@ ifeq (, $(shell which kubebuilder))
 	set -e ;\
         os=$$(go env GOOS) ; \
         arch=$$(go env GOARCH) ;\
-        curl -L "https://go.kubebuilder.io/dl/2.3.1/$${os}/$${arch}" | tar -xz -C /tmp/ ;\
-        sudo mkdir -p /usr/local/kubebuilder/bin/ ;\
-	sudo mv /tmp/kubebuilder_2.3.1_$${os}_$${arch}/bin/* /usr/local/kubebuilder/bin/ ;\
-	echo "Add /usr/local/kubebuilder/bin/ to your PATH!!" ;\
+	curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/$${os}/$${arch} ;\
+	chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin ;\
+	sudo mkdir -p /usr/local/kubebuilder ;\
+	curl -sSLo envtest-bins.tar.gz "https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-1.19.2-$${os}-$${arch}.tar.gz" ;\
+	sudo tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz ;\
 	}
 endif
 

@@ -23,7 +23,7 @@ tests_require = [
 
 setup(
     name='lgbserver',
-    version='0.1.0',
+    version='0.6.0',
     author_email='linyiming@ainnovation.com',
     license='../../LICENSE.txt',
     url='https://github.com/kubeflow/kfserving/python/kfserving/lgbserver',
@@ -33,7 +33,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("lgbserver"),
     install_requires=[
-        "kfserving>=0.5.1",
+        "kfserving>=0.6.0",
         "lightgbm == 2.3.1",
         "pandas == 0.25.3",
         "argparse >= 1.4.0",

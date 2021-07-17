@@ -1,6 +1,4 @@
-alibi==0.5.5
-numpy>=1.8.2
+alibi==0.6.0
 scikit-learn == 0.20.3
-joblib>=0.13.0
-dill>=0.2.7.1
+dill>=0.3.0
 plotly>=4.2.1

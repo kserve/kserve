@@ -16,3 +16,6 @@ cloudevents>=1.2.0
 avro>=1.10.1
 boto3>=1.17.32
 botocore>=1.20.32
+psutil>=5.0
+ray[serve]==1.3.0
+grpcio>=1.34.1
