@@ -180,19 +180,8 @@ The path or model %s does not exist." % uri)
         blobs = container_client.list_blobs(prefix=prefix)
         for blob in blobs:
             dest_path = os.path.join(out_dir, blob.name)
-            if "/" in blob.name:
-                head, tail = os.path.split(blob.name)
-                if prefix is not None:
-                    head = head[len(prefix):]
-                if head.startswith('/'):
-                    head = head[1:]
-                dir_path = os.path.join(out_dir, head)
-                dest_path = os.path.join(dir_path, tail)
-                if not os.path.isdir(dir_path):
-                    os.makedirs(dir_path)
-
-            logging.info("Downloading: %s to %s", blob.name, dest_path)
             Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
+            logging.info("Downloading: %s to %s", blob.name, dest_path)
             downloader = container_client.download_blob(blob.name)
             with open(dest_path, "wb+") as f:
                 f.write(downloader.readall())
