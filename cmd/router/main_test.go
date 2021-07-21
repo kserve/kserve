@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"io/ioutil"
 	"knative.dev/pkg/apis"
@@ -77,7 +78,9 @@ func TestSimpleModelChainer(t *testing.T) {
 	result := make(chan []byte)
 	go routeStep("root", graphSpec.Nodes["root"], graphSpec, jsonBytes, result)
 	res := <-result
-	print(res)
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	fmt.Printf("%v", response)
 }
 
 func TestSimpleModelEnsemble(t *testing.T) {
@@ -137,6 +140,6 @@ func TestSimpleModelEnsemble(t *testing.T) {
 	go routeStep("root", graphSpec.Nodes["root"], graphSpec, jsonBytes, result)
 	res := <-result
 	var response map[string]interface{}
-	err = json.Unmarshal(res, response)
-	print(response)
+	err = json.Unmarshal(res, &response)
+	fmt.Printf("final response:%v", response)
 }

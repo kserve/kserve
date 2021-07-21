@@ -42,14 +42,19 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 
 		for name, result := range ensembleRes {
 			responseBytes := <-result
-			log.Printf("getting response back %v", responseBytes)
-			response[name] = responseBytes
+
+			var res map[string]interface{}
+			json.Unmarshal(responseBytes, &res)
+			log.Printf("getting response back %v", res)
+			response[name] = res
 		}
 	} else {
 		result := make(chan []byte)
 		go callService(currentStep.Routes[0].ServiceUrl, input, result)
-		res := <-result
-		response[currentStep.Routes[0].ServiceUrl] = res
+		responseBytes := <-result
+		var res map[string]interface{}
+		json.Unmarshal(responseBytes, &res)
+		response = res
 	}
 	jsonRes, err := json.Marshal(response)
 	if err != nil {
@@ -71,9 +76,12 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 	}
 	responseForNextRoutes := map[string]interface{}{}
 	for name, result := range jobs {
-		responseStr := <-result
-		log.Printf("getting response back for %s: %v", name, responseStr)
-		responseForNextRoutes[name] = responseStr
+		responseBytes := <-result
+		var res map[string]interface{}
+		json.Unmarshal(responseBytes, &res)
+		log.Printf("getting response back for %s: %v", name, res)
+
+		responseForNextRoutes[name] = res
 	}
 
 	jsonResNext, err := json.Marshal(responseForNextRoutes)
