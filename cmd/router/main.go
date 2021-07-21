@@ -71,7 +71,11 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 		job := make(chan []byte)
 		jobs[routeTo.NodeName] = job
 		if router, ok := graph.Nodes[routeTo.NodeName]; ok {
-			go routeStep(routeTo.NodeName, router, graph, jsonRes, job)
+			if routeTo.Data == "$request" {
+				go routeStep(routeTo.NodeName, router, graph, input, job)
+			} else {
+				go routeStep(routeTo.NodeName, router, graph, jsonRes, job)
+			}
 		}
 	}
 	responseForNextRoutes := map[string]interface{}{}
