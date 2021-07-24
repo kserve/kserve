@@ -44,7 +44,8 @@ const (
 )
 
 // +k8s:openapi-gen=true
-// InferenceRouter defines the router for each InferenceGraph node and where it routes to as next step
+// InferenceRouter defines the router for each InferenceGraph node with one or multiple models
+// and where it routes to as next step
 //
 // ```yaml
 // kind: InferenceGraph
@@ -80,6 +81,13 @@ const (
 //             exact: 2
 // ```
 //
+// Scoring a case using a model ensemble consists of scoring it using each model separately,
+// then combining the results into a single scoring result using one of the pre-defined combination methods.
+//
+// Tree Ensemble constitutes a case where simple algorithms for combining results of either classification or regression trees are well known.
+// Multiple classification trees, for example, are commonly combined using a "majority-vote" method.
+// Multiple regression trees are often combined using various averaging techniques.
+// e.g tagging models with segment identifiers and weights to be used for their combination in these ways.
 // ```yaml
 // kind: InferenceGraph
 // metadata:
@@ -99,6 +107,7 @@ const (
 //       - service: xgboost-model
 // ```
 //
+// Scoring a case using a sequence, or chain, of models allows the output of one model to be passed in as input to subsequent models.
 // ```yaml
 // kind: InferenceGraph
 // metadata:
