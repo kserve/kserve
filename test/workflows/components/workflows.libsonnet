@@ -42,7 +42,7 @@
       // Source directory where all repos should be checked out
       local srcRootDir = testDir + "/src";
       // The directory containing the kubeflow/kfserving repo
-      local srcDir = srcRootDir + "/kubeflow/kfserving";
+      local srcDir = srcRootDir + "/kserve/kserve";
       local pylintSrcDir = srcDir + "/python";
       local kanikoExecutorImage = "gcr.io/kaniko-project/executor:v1.0.0";
       local testWorkerImage = "public.ecr.aws/j1r0q0g6/kubeflow-testing:latest";
