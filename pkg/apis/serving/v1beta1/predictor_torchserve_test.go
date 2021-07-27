@@ -42,7 +42,7 @@ func TestTorchServeValidation(t *testing.T) {
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "pytorch/torchserve-kfs",
-					DefaultImageVersion: "0.4.0",
+					DefaultImageVersion: "0.4.1",
 					MultiModelServer:    false,
 				},
 			},
@@ -56,7 +56,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.4.0"),
+						RuntimeVersion: proto.String("0.4.1"),
 					},
 				},
 			},
@@ -66,7 +66,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.4.0-gpu"),
+						RuntimeVersion: proto.String("0.4.1-gpu"),
 					},
 				},
 			},
@@ -76,7 +76,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.4.0"),
+						RuntimeVersion: proto.String("0.4.1"),
 						Container: v1.Container{
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
@@ -160,7 +160,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "pytorch/torchserve-kfs",
-					DefaultImageVersion: "0.4.0",
+					DefaultImageVersion: "0.4.1",
 					MultiModelServer:    false,
 				},
 			},
@@ -233,7 +233,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						ProtocolVersion: &protocolV1,
-						RuntimeVersion:  proto.String("0.4.0"),
+						RuntimeVersion:  proto.String("0.4.1"),
 					},
 				},
 			},
@@ -241,7 +241,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 				PyTorch: &TorchServeSpec{
 					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("0.4.0"),
+						RuntimeVersion:  proto.String("0.4.1"),
 						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -467,7 +467,7 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "pytorch/torchserve-kfs",
-					DefaultImageVersion: "0.4.0",
+					DefaultImageVersion: "0.4.1",
 					MultiModelServer:    false,
 				},
 			},
@@ -488,7 +488,7 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 						PyTorch: &TorchServeSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:      proto.String("gs://someUri"),
-								RuntimeVersion:  proto.String("0.4.0"),
+								RuntimeVersion:  proto.String("0.4.1"),
 								ProtocolVersion: &protocolV1,
 								Container: v1.Container{
 									Resources: requestedResource,
@@ -499,7 +499,7 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "pytorch/torchserve-kfs:0.4.0",
+				Image:     "pytorch/torchserve-kfs:0.4.1",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
@@ -570,7 +570,7 @@ func TestTorchServeIsMMS(t *testing.T) {
 					},
 					V2: &PredictorConfig{
 						ContainerImage:      "pytorch/torchserve-kfs",
-						DefaultImageVersion: "0.4.0",
+						DefaultImageVersion: "0.4.1",
 						MultiModelServer:    mmsCase,
 					},
 				},
@@ -647,7 +647,7 @@ func TestTorchServeIsFrameworkSupported(t *testing.T) {
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "pytorch/torchserve-kfs",
-					DefaultImageVersion: "0.4.0",
+					DefaultImageVersion: "0.4.1",
 					SupportedFrameworks: []string{pytorch},
 				},
 			},
