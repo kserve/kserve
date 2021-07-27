@@ -41,7 +41,7 @@
       local goDir = testDir + "/go";
       // Source directory where all repos should be checked out
       local srcRootDir = testDir + "/src";
-      // The directory containing the kubeflow/kfserving repo
+      // The directory containing the kserve/kserve repo
       local srcDir = srcRootDir + "/kserve/kserve";
       local pylintSrcDir = srcDir + "/python";
       local kanikoExecutorImage = "gcr.io/kaniko-project/executor:v1.0.0";
