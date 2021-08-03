@@ -205,24 +205,21 @@ func (isvc *InferenceService) assignXGBoostRuntime() {
 
 func (isvc *InferenceService) assignPyTorchRuntime() {
 	// skips if the storage uri is not specified or protocol version is not v1.
-	if isvc.Spec.Predictor.PyTorch.StorageURI == nil ||
-		(isvc.Spec.Predictor.PyTorch.ProtocolVersion != nil &&
-			constants.ProtocolV1 != *isvc.Spec.Predictor.PyTorch.ProtocolVersion) {
+	if isvc.Spec.Predictor.PyTorch.StorageURI == nil {
 		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime based on gpu config
-	var runtime string
-	if isvc.Spec.Predictor.PyTorch.ModelClassName != "" {
-		runtime = constants.PyTorchServer
-		if isvc.ObjectMeta.Labels == nil {
-			isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: isvc.Spec.Predictor.PyTorch.ModelClassName}
-		} else {
-			isvc.ObjectMeta.Labels[constants.ModelClassLabel] = isvc.Spec.Predictor.PyTorch.ModelClassName
+	if isvc.Spec.Predictor.PyTorch.ProtocolVersion != nil &&
+		constants.ProtocolV2 == *isvc.Spec.Predictor.PyTorch.ProtocolVersion {
+		isvc.Spec.Predictor.PyTorch.Env = []v1.EnvVar{
+			{
+				Name:  "TS_SERVICE_ENVELOPE",
+				Value: V2ServiceEnvelope,
+			},
 		}
-	} else {
-		runtime = constants.TorchServe
 	}
+	runtime := constants.TorchServe
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPyTorch},
 		PredictorExtensionSpec: isvc.Spec.Predictor.PyTorch.PredictorExtensionSpec,

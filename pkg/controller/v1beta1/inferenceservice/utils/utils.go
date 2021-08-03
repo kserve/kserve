@@ -35,12 +35,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
+// IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
 	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
 }
 
-// Container
 func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
 	if isvc.Spec.Predictor.GetExtensions() == nil || len(isvc.Spec.Predictor.GetImplementations()) == 0 {
 		return false
@@ -73,7 +72,7 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
 }
 
-// Merge the predictor Container struct with the runtime Container struct, allowing users
+// MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
 func MergeRuntimeContainers(runtimeContainer *v1alpha1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
 	// Default container configuration from the runtime.
@@ -123,7 +122,7 @@ func MergeRuntimeContainers(runtimeContainer *v1alpha1.Container, predictorConta
 
 }
 
-// Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
+// MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
 // to override runtime PodSpec settings from the predictor spec.
 func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
 
@@ -147,7 +146,7 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 
 }
 
-// Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
+// GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
 // If a resource of the specified name is not found, then ClusterServingRuntimes will be checked.
 func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error) {
 
@@ -169,7 +168,7 @@ func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alph
 	return nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name)
 }
 
-// Replace placeholders in runtime container by values from inferenceservice metadata
+// ReplacePlaceholders Replace placeholders in runtime container by values from inferenceservice metadata
 func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error {
 	data, _ := json.Marshal(container)
 	tmpl, err := template.New("container-tmpl").Parse(string(data))
@@ -184,7 +183,7 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 	return json.Unmarshal(buf.Bytes(), container)
 }
 
-// Update image tag if GPU is enabled or runtime version is provided
+// UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
 func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
 	image := container.Image
 	if runtimeVersion != nil && len(strings.Split(image, ":")) > 0 {
@@ -195,10 +194,8 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig 
 		imageName := strings.Split(image, ":")[0]
 		if imageName == isvcConfig.Predictors.Tensorflow.ContainerImage {
 			container.Image = imageName + ":" + isvcConfig.Predictors.Tensorflow.DefaultGpuImageVersion
-		} else if imageName == isvcConfig.Predictors.PyTorch.V1.ContainerImage {
-			container.Image = imageName + ":" + isvcConfig.Predictors.PyTorch.V1.DefaultGpuImageVersion
-		} else if imageName == isvcConfig.Predictors.PyTorch.V2.ContainerImage {
-			container.Image = imageName + ":" + isvcConfig.Predictors.PyTorch.V2.DefaultGpuImageVersion
+		} else if imageName == isvcConfig.Predictors.PyTorch.ContainerImage {
+			container.Image = imageName + ":" + isvcConfig.Predictors.PyTorch.DefaultGpuImageVersion
 		}
 	}
 }

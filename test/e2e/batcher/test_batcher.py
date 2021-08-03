@@ -38,11 +38,10 @@ def test_batcher():
         ),
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
-            model_class_name='Net',
+            storage_uri='gs://kfserving-examples/models/torchserve/image_classifier',
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '2Gi'},
-                limits={'cpu': '100m', 'memory': '2Gi'}
+                requests={'cpu': '1', 'memory': '4Gi'},
+                limits={'cpu': '1', 'memory': '4Gi'}
             )
         )
     )
@@ -69,7 +68,7 @@ def test_batcher():
         raise e
     with futures.ThreadPoolExecutor(max_workers=4) as executor:
         future_res = [
-            executor.submit(lambda: predict(service_name, './data/cifar_input.json')) for _ in range(4)
+            executor.submit(lambda: predict(service_name, './data/torchserve_batch_input.json')) for _ in range(4)
         ]
     results = [
         f.result()["batchId"] for f in future_res

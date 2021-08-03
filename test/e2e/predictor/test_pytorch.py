@@ -13,6 +13,7 @@
 
 import numpy as np
 import os
+import pytest
 from kubernetes import client
 
 from kserve import KServeClient
@@ -28,6 +29,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
+@pytest.mark.skip()
 def test_pytorch():
     service_name = 'isvc-pytorch'
     predictor = V1beta1PredictorSpec(
