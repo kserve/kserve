@@ -112,9 +112,6 @@ kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --time
 echo "Install KFServing ..."
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
-mkdir -p ${GOPATH}/src/github.com/kubeflow
-cp -rf ../kfserving ${GOPATH}/src/github.com/kubeflow
-cd ${GOPATH}/src/github.com/kubeflow/kfserving
 
 wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64
 chmod +x $GOPATH/bin/yq
