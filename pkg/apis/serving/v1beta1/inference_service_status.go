@@ -209,8 +209,10 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 			} else {
 				// This is to handle case when the latest ready revision is rolled out with 100% and then rolled back
 				// so here we need to rollback the LatestRolledoutRevision to PreviousRolledoutRevision
-				if traffic.Percent != nil && *traffic.Percent < 100 {
-					statusSpec.LatestRolledoutRevision = statusSpec.PreviousRolledoutRevision
+				if serviceStatus.LatestReadyRevisionName == serviceStatus.LatestCreatedRevisionName {
+					if traffic.Percent != nil && *traffic.Percent < 100 {
+						statusSpec.LatestRolledoutRevision = statusSpec.PreviousRolledoutRevision
+					}
 				}
 			}
 		}

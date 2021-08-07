@@ -96,14 +96,16 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 				LatestRevision: proto.Bool(true),
 				Percent:        proto.Int64(*componentExtension.CanaryTrafficPercent),
 			})
-		remainingTraffic := 100 - *componentExtension.CanaryTrafficPercent
-		trafficTargets = append(trafficTargets,
-			knservingv1.TrafficTarget{
-				Tag:            "prev",
-				RevisionName:   lastRolledoutRevision,
-				LatestRevision: proto.Bool(false),
-				Percent:        proto.Int64(remainingTraffic),
-			})
+		if *componentExtension.CanaryTrafficPercent < 100 {
+			remainingTraffic := 100 - *componentExtension.CanaryTrafficPercent
+			trafficTargets = append(trafficTargets,
+				knservingv1.TrafficTarget{
+					Tag:            "prev",
+					RevisionName:   lastRolledoutRevision,
+					LatestRevision: proto.Bool(false),
+					Percent:        proto.Int64(remainingTraffic),
+				})
+		}
 	} else {
 		//blue green rollout
 		trafficTargets = append(trafficTargets,
