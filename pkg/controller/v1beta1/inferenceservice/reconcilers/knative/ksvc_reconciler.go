@@ -91,20 +91,26 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	trafficTargets := []knservingv1.TrafficTarget{}
 	// Split traffic when canary traffic percent is specified
 	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" {
-		trafficTargets = append(trafficTargets,
-			knservingv1.TrafficTarget{
-				LatestRevision: proto.Bool(true),
-				Percent:        proto.Int64(*componentExtension.CanaryTrafficPercent),
-			})
+		latestTarget := knservingv1.TrafficTarget{
+			LatestRevision: proto.Bool(true),
+			Percent:        proto.Int64(*componentExtension.CanaryTrafficPercent),
+		}
+		if value, ok := annotations[constants.EnableRoutingTagAnnotationKey]; ok && value == "true" {
+			latestTarget.Tag = "latest"
+		}
+		trafficTargets = append(trafficTargets, latestTarget)
+
 		if *componentExtension.CanaryTrafficPercent < 100 {
 			remainingTraffic := 100 - *componentExtension.CanaryTrafficPercent
-			trafficTargets = append(trafficTargets,
-				knservingv1.TrafficTarget{
-					Tag:            "prev",
-					RevisionName:   lastRolledoutRevision,
-					LatestRevision: proto.Bool(false),
-					Percent:        proto.Int64(remainingTraffic),
-				})
+			canaryTarget := knservingv1.TrafficTarget{
+				RevisionName:   lastRolledoutRevision,
+				LatestRevision: proto.Bool(false),
+				Percent:        proto.Int64(remainingTraffic),
+			}
+			if value, ok := annotations[constants.EnableRoutingTagAnnotationKey]; ok && value == "true" {
+				canaryTarget.Tag = "prev"
+			}
+			trafficTargets = append(trafficTargets, canaryTarget)
 		}
 	} else {
 		//blue green rollout
