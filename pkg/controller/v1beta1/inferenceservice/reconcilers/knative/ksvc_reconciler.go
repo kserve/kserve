@@ -114,11 +114,14 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		}
 	} else {
 		//blue green rollout
-		trafficTargets = append(trafficTargets,
-			knservingv1.TrafficTarget{
-				LatestRevision: proto.Bool(true),
-				Percent:        proto.Int64(100),
-			})
+		latestTarget := knservingv1.TrafficTarget{
+			LatestRevision: proto.Bool(true),
+			Percent:        proto.Int64(100),
+		}
+		if value, ok := annotations[constants.EnableRoutingTagAnnotationKey]; ok && value == "true" {
+			latestTarget.Tag = "latest"
+		}
+		trafficTargets = append(trafficTargets, latestTarget)
 	}
 	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
