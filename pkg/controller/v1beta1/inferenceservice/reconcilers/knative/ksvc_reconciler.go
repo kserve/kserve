@@ -85,16 +85,13 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	// This is to handle case when the latest ready revision is rolled out with 100% and then rolled back
 	// so here we need to get the revision that is previously rolled out with 100%
 	if componentStatus.LatestRolledoutRevision == componentStatus.LatestReadyRevision &&
-		componentStatus.LatestReadyRevision == componentStatus.LatestCreatedRevision &&
 		componentExtension.CanaryTrafficPercent != nil && *componentExtension.CanaryTrafficPercent < 100 {
 		lastRolledoutRevision = componentStatus.PreviousRolledoutRevision
 	}
 	trafficTargets := []knservingv1.TrafficTarget{}
 	// Split traffic when canary traffic percent is specified and latest ready revision is not equal to the
 	// last rolled out revision
-	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" &&
-		componentStatus.LatestReadyRevision != lastRolledoutRevision {
-		//canary rollout
+	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" {
 		trafficTargets = append(trafficTargets,
 			knservingv1.TrafficTarget{
 				LatestRevision: proto.Bool(true),
