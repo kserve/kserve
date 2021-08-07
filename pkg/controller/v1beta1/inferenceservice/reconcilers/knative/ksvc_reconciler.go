@@ -106,9 +106,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 				RevisionName:   lastRolledoutRevision,
 				LatestRevision: proto.Bool(false),
 				Percent:        proto.Int64(remainingTraffic),
-			}
-			if value, ok := annotations[constants.EnableRoutingTagAnnotationKey]; ok && value == "true" {
-				canaryTarget.Tag = "prev"
+				Tag:            "prev",
 			}
 			trafficTargets = append(trafficTargets, canaryTarget)
 		}
