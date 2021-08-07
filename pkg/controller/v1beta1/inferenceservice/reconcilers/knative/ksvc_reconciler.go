@@ -89,8 +89,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		lastRolledoutRevision = componentStatus.PreviousRolledoutRevision
 	}
 	trafficTargets := []knservingv1.TrafficTarget{}
-	// Split traffic when canary traffic percent is specified and latest ready revision is not equal to the
-	// last rolled out revision
+	// Split traffic when canary traffic percent is specified
 	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" {
 		trafficTargets = append(trafficTargets,
 			knservingv1.TrafficTarget{
