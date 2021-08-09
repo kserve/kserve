@@ -36,7 +36,7 @@ KFServing = KFServingClient(
 def test_raw_deployment_kfserving():
     service_name = "raw-sklearn"
     annotations = dict()
-    annotations['serving.kubeflow.org/raw'] = 'true'
+    annotations['serving.kubeflow.org/deploymentMode'] = 'RawDeployment'
     annotations['kubernetes.io/ingress.class'] = 'istio'
 
     predictor = V1beta1PredictorSpec(

@@ -60,7 +60,7 @@ def test_transformer():
     )
 
     annotations = dict()
-    annotations['serving.kubeflow.org/raw'] = 'true'
+    annotations['serving.kubeflow.org/deploymentMode'] = 'RawDeployment'
     annotations['kubernetes.io/ingress.class'] = 'istio'
     isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
                                    kind=constants.KFSERVING_KIND,

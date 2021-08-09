@@ -186,3 +186,7 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1"
     }
+  deploy: |-
+    {
+      "defaultDeploymentMode": "Serverless"
+    }

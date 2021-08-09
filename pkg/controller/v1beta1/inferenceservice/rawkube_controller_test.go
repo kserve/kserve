@@ -15,6 +15,8 @@ package inferenceservice
 
 import (
 	"context"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -34,7 +36,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -90,6 +91,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
                "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
                "ingressDomain": "example.com"
             }`,
+			"deploy": `{
+				"defaultDeploymentMode": "Serverless"
+			}`,
 		}
 	)
 	Context("When creating inference service with raw kube predictor", func() {
@@ -115,7 +119,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kubeflow.org/raw": "true",
+						"serving.kubeflow.org/deploymentMode": "RawDeployment",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -180,7 +184,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
-								"serving.kubeflow.org/raw":                                 "true",
+								"serving.kubeflow.org/deploymentMode":                      "RawDeployment",
 							},
 						},
 						Spec: v1.PodSpec{

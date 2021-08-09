@@ -19,6 +19,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	modelconfig "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	raw "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
+	isvcutils "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
@@ -99,8 +100,13 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		return err
 	}
 
+	deployConfig, err := v1beta1.NewDeployConfig(p.client)
+	if err != nil {
+		return err
+	}
+
 	// Here we allow switch between knative and vanilla deployment
-	if value, ok := annotations[constants.RawDeploymentAnnotationKey]; ok && value == "true" {
+	if isvcutils.GetDeploymentMode(annotations, deployConfig) == "RawDeployment" {
 		r := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 			&podSpec)
 		//set Deployment Controller

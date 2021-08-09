@@ -42,3 +42,19 @@ func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory
 
 	return false
 }
+
+/*
+GetDeploymentMode returns the current deployment mode, supports Serverless and RawDeployment
+case 1: no serving.kubeflow.org/deploymentMode annotation
+        return config.deploy.defaultDeploymentMode
+case 2: serving.kubeflow.org/deploymentMode is set
+        if the mode is "RawDeployment" or "Serverless", return it.
+		else return config.deploy.defaultDeploymentMode
+*/
+func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.DeployConfig) string {
+	deploymentMode, ok := annotations[constants.DeploymentMode]
+	if ok && (deploymentMode == "RawDeployment" || deploymentMode == "Serverless") {
+		return deploymentMode
+	}
+	return deployConfig.DefaultDeploymentMode
+}

@@ -86,6 +86,7 @@ var (
 	AgentModelConfigVolumeNameAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/configVolumeName"
 	AgentModelConfigMountPathAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/configMountPath"
 	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
+	DeploymentMode                                   = KFServingAPIGroupName + "/deploymentMode"
 )
 
 // Controller Constants
