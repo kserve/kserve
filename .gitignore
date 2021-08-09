@@ -59,3 +59,6 @@ python/kfserving/tox.ini
 
 # Ignore files for MacOS
 **/.DS_Store
+
+# Downloaded by hack install
+hack/istio-*
