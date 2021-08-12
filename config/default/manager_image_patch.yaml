@@ -8,5 +8,5 @@ spec:
     spec:
       containers:
       # Change the value of image field below to your controller image URL
-      - image: gcr.io/kfserving/kfserving-controller:latest
+      - image: gcr.io/kfserving/kfserving-controller:v0.6.0
         name: manager
