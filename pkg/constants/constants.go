@@ -67,6 +67,8 @@ const (
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
+	RawDeploymentAnnotationKey                  = KFServingAPIGroupName + "/raw"
+	EnableRoutingTagAnnotationKey               = KFServingAPIGroupName + "/enable-tag-routing"
 )
 
 // InferenceService Internal Annotations
@@ -84,7 +86,6 @@ var (
 	AgentModelConfigVolumeNameAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/configVolumeName"
 	AgentModelConfigMountPathAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/configMountPath"
 	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
-	RawDeploymentAnnotationKey                       = KFServingAPIGroupName + "/raw"
 )
 
 // Controller Constants
