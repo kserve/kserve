@@ -59,3 +59,33 @@ def test_torchserve_kfserving():
     res = predict(service_name, "./data/torchserve_input.json")
     assert(res.get("predictions")[0] == 2)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
+
+def test_torchserve_v2_kfserving():
+    service_name = "mnist"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        pytorch=V1beta1TorchServeSpec(
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
+            protocol_version="v2",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "1", "memory": "4Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KFSERVING_V1BETA1,
+        kind=constants.KFSERVING_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KFSERVING_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    KFServing.create(isvc)
+    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+
+    res = predict(service_name, "./data/torchserve_input_v2.json")
+    assert(res.get("outputs")[0]["data"] == [1])
+    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
