@@ -27,11 +27,9 @@ import (
 )
 
 const (
-	DefaultPyTorchModelClassName     = "PyTorchModel"
 	PyTorchServingGPUSuffix          = "-gpu"
 	InvalidPyTorchRuntimeIncludesGPU = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. "
 	InvalidPyTorchRuntimeExcludesGPU = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. "
-	InvalidInferenceProtocolVersion  = "PyTorch ProtocolVersion v2 is not supported"
 )
 
 // TorchServeSpec defines arguments for configuring PyTorch model serving.
