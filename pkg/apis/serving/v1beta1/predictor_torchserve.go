@@ -31,6 +31,8 @@ const (
 	PyTorchServingGPUSuffix          = "-gpu"
 	InvalidPyTorchRuntimeIncludesGPU = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. "
 	InvalidPyTorchRuntimeExcludesGPU = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. "
+	V1ServiceEnvelope                = "kfserving"
+	V2ServiceEnvelope                = "kfservingv2"
 )
 
 // TorchServeSpec defines arguments for configuring PyTorch model serving.
@@ -85,9 +87,9 @@ func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Co
 	var tsServiceEnvelope = ""
 
 	if t.ProtocolVersion == nil || *t.ProtocolVersion == constants.ProtocolV1 {
-		tsServiceEnvelope = "kfserving"
+		tsServiceEnvelope = V1ServiceEnvelope
 	} else {
-		tsServiceEnvelope = "kfservingv2"
+		tsServiceEnvelope = V2ServiceEnvelope
 	}
 
 	t.Container.Env = append(

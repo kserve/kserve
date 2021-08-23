@@ -60,6 +60,7 @@ def test_torchserve_kfserving():
     assert(res.get("predictions")[0] == 2)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
 
+
 def test_torchserve_v2_kfserving():
     service_name = "mnist"
     predictor = V1beta1PredictorSpec(
