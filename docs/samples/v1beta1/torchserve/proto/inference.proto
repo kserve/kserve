@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package org.pytorch.serve.grpc.inference;
+
+import "google/protobuf/empty.proto";
+
+option java_multiple_files = true;
+
+message PredictionsRequest {
+    // Name of model.
+    string model_name = 1; //required
+
+    // Version of model to run prediction on.
+    string model_version = 2; //optional
+
+    // input data for model prediction
+    map<string, bytes> input = 3; //required
+}
+
+message PredictionResponse {
+    // TorchServe health
+    bytes prediction = 1;
+}
+
+message TorchServeHealthResponse {
+    // TorchServe health
+    string health = 1;
+}
+
+service InferenceAPIsService {
+    rpc Ping(google.protobuf.Empty) returns (TorchServeHealthResponse) {}
+
+    // Predictions entry point to get inference using default model version.
+    rpc Predictions(PredictionsRequest) returns (PredictionResponse) {}
+}
