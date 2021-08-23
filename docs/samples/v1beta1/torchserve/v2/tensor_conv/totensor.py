@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """
-The script takes text or image file as input and generates json input with 
+The script takes text or image file as input and generates json input with
 tensor inputs for kfserving v2 protocol.
 """
 import json
