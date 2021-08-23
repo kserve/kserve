@@ -47,10 +47,20 @@ via local socket.
 ## TorchServe with KFS envelope inference endpoints
 The KFServing/TorchServe integration supports KFServing v1 and v2 protocols.
 
+V1 Protocol
+
 | API  | Verb | Path | Payload |
 | ------------- | ------------- | ------------- | ------------- |
 | Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
 | Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   ||
+
+V2 Protocol
+
+| API  | Verb | Path | Payload |
+| ------------- | ------------- | ------------- | ------------- |
+| Predict  | POST  | /v2/models/<model_name>/infer  | Request: {"id" : $string #optional,"parameters" : $parameters #optional,"inputs" : [ $request_input, ... ],"outputs" : [ $request_output, ... ] #optional}  Response:{"model_name" : $string,"model_version" : $string #optional,"id" : $string,"parameters" : $parameters #optional,"outputs" : [ $response_output, ... ]}
+| Explain  | POST  | /v2/models/<model_name>/explain  | Request: {"id" : $string #optional,"parameters" : $parameters #optional,"inputs" : [ $request_input, ... ],"outputs" : [ $request_output, ... ] #optional}  Response:{"model_name" : $string,"model_version" : $string #optional,"id" : $string,"parameters" : $parameters #optional,"outputs" : [ $response_output, ... ]} ||
+
 
 [Sample requests for text and image classification](https://github.com/pytorch/serve/tree/master/kubernetes/kfserving/kf_request_json)
 
@@ -68,3 +78,15 @@ Canary rollout is a deployment strategy when you release a new version of model 
 
 ## Monitoring
 [Expose metrics and setup grafana dashboards](metrics/README.md)
+
+## gRPC
+
+Run gRPC Inference
+
+```bash
+python -m grpc_tools.protoc --proto_path=proto/ --python_out=. --grpc_python_out=. proto/inference.proto proto/management.proto
+```
+
+```bash
+python torchserve_gprc_client.py infer <model_name> <input json>
+```
