@@ -36,7 +36,7 @@ def infer(stub, model_name, model_input):
     try:
         prediction = response.prediction.decode('utf-8')
         print(prediction)
-    except grpc.RpcError as e:
+    except grpc.RpcError:
         exit(1)
 
 
@@ -45,7 +45,7 @@ def ping(stub):
     try:
         health = response
         print("Ping Response:", health)
-    except grpc.RpcError as e:
+    except grpc.RpcError:
         exit(1)
 
 
@@ -67,8 +67,7 @@ def register(stub, model_name, mar_set_str):
         'model_name': model_name
     }
     try:
-        response = stub.RegisterModel(
-            management_pb2.RegisterModelRequest(**params))
+        stub.RegisterModel(management_pb2.RegisterModelRequest(**params))
         print(f"Model {model_name} registered successfully")
     except grpc.RpcError as e:
         print(f"Failed to register model {model_name}.")
@@ -78,7 +77,7 @@ def register(stub, model_name, mar_set_str):
 
 def unregister(stub, model_name):
     try:
-        response = stub.UnregisterModel(
+        stub.UnregisterModel(
             management_pb2.UnregisterModelRequest(model_name=model_name))
         print(f"Model {model_name} unregistered successfully")
     except grpc.RpcError as e:
