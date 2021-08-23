@@ -11,9 +11,11 @@ CONFIG_PATH=$BASE_PATH/config
 touch $CONFIG_PATH/config.properties
 
 cat <<EOF > "$CONFIG_PATH"/config.properties
-inference_address=http://0.0.0.0:8080
-management_address=http://0.0.0.0:8081
+inference_address=http://0.0.0.0:8085
+management_address=http://0.0.0.0:8085
 number_of_netty_threads=4
+enable_envvars_config=true
+install_py_dep_per_model=true
 job_queue_size=100
 model_store="$MODEL_STORE"
 model_snapshot=
