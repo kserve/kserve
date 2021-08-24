@@ -29,7 +29,7 @@ from .utils import utils
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
 from kfserving.kfmodel_repository import KFModelRepository
-from ray.serve.api import RayServeHandle, ServeDeployment
+from ray.serve.api import Deployment, RayServeHandle
 from ray import serve
 
 DEFAULT_HTTP_PORT = 8080
@@ -95,7 +95,7 @@ class KFServer:
              UnloadHandler, dict(models=self.registered_models)),
         ])
 
-    def start(self, models: Union[List[KFModel], Dict[str, ServeDeployment]], nest_asyncio: bool = False):
+    def start(self, models: Union[List[KFModel], Dict[str, Deployment]], nest_asyncio: bool = False):
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, KFModel):
@@ -103,7 +103,7 @@ class KFServer:
                 else:
                     raise RuntimeError("Model type should be KFModel")
         elif isinstance(models, dict):
-            if all([issubclass(v, ServeDeployment) for v in models.values()]):
+            if all([issubclass(v, Deployment) for v in models.values()]):
                 serve.start(detached=True, http_host='0.0.0.0', http_port=9071)
                 for key in models:
                     models[key].deploy()

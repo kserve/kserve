@@ -67,6 +67,8 @@ const (
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
+	RawDeploymentAnnotationKey                  = KFServingAPIGroupName + "/raw"
+	EnableRoutingTagAnnotationKey               = KFServingAPIGroupName + "/enable-tag-routing"
 )
 
 // InferenceService Internal Annotations

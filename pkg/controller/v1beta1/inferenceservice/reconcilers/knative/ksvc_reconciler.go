@@ -85,36 +85,41 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	// This is to handle case when the latest ready revision is rolled out with 100% and then rolled back
 	// so here we need to get the revision that is previously rolled out with 100%
 	if componentStatus.LatestRolledoutRevision == componentStatus.LatestReadyRevision &&
-		componentStatus.LatestReadyRevision == componentStatus.LatestCreatedRevision &&
 		componentExtension.CanaryTrafficPercent != nil && *componentExtension.CanaryTrafficPercent < 100 {
 		lastRolledoutRevision = componentStatus.PreviousRolledoutRevision
 	}
 	trafficTargets := []knservingv1.TrafficTarget{}
-	// Split traffic when canary traffic percent is specified and latest ready revision is not equal to the
-	// last rolled out revision
-	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" &&
-		componentStatus.LatestReadyRevision != lastRolledoutRevision {
-		//canary rollout
-		trafficTargets = append(trafficTargets,
-			knservingv1.TrafficTarget{
-				LatestRevision: proto.Bool(true),
-				Percent:        proto.Int64(*componentExtension.CanaryTrafficPercent),
-			})
-		remainingTraffic := 100 - *componentExtension.CanaryTrafficPercent
-		trafficTargets = append(trafficTargets,
-			knservingv1.TrafficTarget{
-				Tag:            "prev",
+	// Split traffic when canary traffic percent is specified
+	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" {
+		latestTarget := knservingv1.TrafficTarget{
+			LatestRevision: proto.Bool(true),
+			Percent:        proto.Int64(*componentExtension.CanaryTrafficPercent),
+		}
+		if value, ok := annotations[constants.EnableRoutingTagAnnotationKey]; ok && value == "true" {
+			latestTarget.Tag = "latest"
+		}
+		trafficTargets = append(trafficTargets, latestTarget)
+
+		if *componentExtension.CanaryTrafficPercent < 100 {
+			remainingTraffic := 100 - *componentExtension.CanaryTrafficPercent
+			canaryTarget := knservingv1.TrafficTarget{
 				RevisionName:   lastRolledoutRevision,
 				LatestRevision: proto.Bool(false),
 				Percent:        proto.Int64(remainingTraffic),
-			})
+				Tag:            "prev",
+			}
+			trafficTargets = append(trafficTargets, canaryTarget)
+		}
 	} else {
 		//blue green rollout
-		trafficTargets = append(trafficTargets,
-			knservingv1.TrafficTarget{
-				LatestRevision: proto.Bool(true),
-				Percent:        proto.Int64(100),
-			})
+		latestTarget := knservingv1.TrafficTarget{
+			LatestRevision: proto.Bool(true),
+			Percent:        proto.Int64(100),
+		}
+		if value, ok := annotations[constants.EnableRoutingTagAnnotationKey]; ok && value == "true" {
+			latestTarget.Tag = "latest"
+		}
+		trafficTargets = append(trafficTargets, latestTarget)
 	}
 	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)

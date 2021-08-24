@@ -183,7 +183,9 @@ func TestBadReplicaValues(t *testing.T) {
 
 	isvc.Spec.Explainer = &ExplainerSpec{
 		Alibi: &AlibiExplainerSpec{
-			StorageURI: "gs://testbucket/testmodel",
+			ExplainerExtensionSpec: ExplainerExtensionSpec{
+				StorageURI: "gs://testbucket/testmodel",
+			},
 		},
 	}
 	isvc.Spec.Explainer.MinReplicas = GetIntReference(-1)
@@ -231,7 +233,9 @@ func TestGoodExplainer(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Explainer = &ExplainerSpec{
 		Alibi: &AlibiExplainerSpec{
-			StorageURI: "gs://testbucket/testmodel",
+			ExplainerExtensionSpec: ExplainerExtensionSpec{
+				StorageURI: "gs://testbucket/testmodel",
+			},
 		},
 	}
 	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())

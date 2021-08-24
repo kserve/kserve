@@ -30,9 +30,8 @@ kubectl apply -f default.yaml
 After rolling out the first model, 100% traffic goes to the initial model with service revision 1.
 
 ```
-kubectl get isvc my-model
-NAME       URL                                   READY   DEFAULT   CANARY   PREVIOUSROLLEDOUT   LATESTREADY                        AGE
-my-model   http://my-model.default.example.com   True              100                          my-model-predictor-default-2vp5n   12h                               2m39s                             70s
+NAME       URL                                   READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                AGE
+my-model   http://my-model.default.example.com   True           100                              my-model-predictor-default-00001   46s                               2m39s                             70s
 ```
 
 ### Update the InferenceService with the canary model
@@ -54,20 +53,20 @@ Now you update the `storageUri` for the new model and apply the CR:
 kubectl apply -f canary.yaml 
 ```
 
-After rolling out the canary model, traffic is split between the latest ready revision and the previously rolled out revision 1.
+After rolling out the canary model, traffic is split between the latest ready revision 2 and the previously rolled out revision 1.
 
 ```
-kubectl get isvc my-model 
+kubectl get isvc my-model
 NAME       URL                                   READY   PREV   LATEST   PREVROLLEDOUTREVISION              LATESTREADYREVISION                AGE
-my-model   http://my-model.default.example.com   True    90     10       my-model-predictor-default-2vp5n   my-model-predictor-default-jdn59   12h
+my-model   http://my-model.default.example.com   True    90     10       my-model-predictor-default-00001   my-model-predictor-default-00002   9m19s
 ```
 
-You should see two sets of pods running for the two models for both first and second generation revision:
+Check the running pods, you should now see port two pods running for the old and new model and 10% traffic is sending to the canary model.
 ```
 kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
 NAME                                                           READY   STATUS    RESTARTS   AGE
-my-model-predictor-default-2vp5n-deployment-8569645df4-tq8jc   2/2     Running   0          14m
-my-model-predictor-default-jdn59-deployment-58bd86ff68-qkkgb   2/2     Running   0          12m
+my-model-predictor-default-00001-deployment-68978dd4d4-f6dcg   2/2     Running   0          2m57s
+my-model-predictor-default-00002-deployment-5c867f557c-nlsrf   2/2     Running   0          63s
 ```
 
 #### Run a prediction
@@ -114,7 +113,7 @@ Expected Output:
 * Connection #0 to host 169.47.250.204 left intact
 ```
 
-Send more requests to the `InferenceService` you will notice 20% of time the traffic goes to the new revision.
+Send more requests to the `InferenceService` you will notice 10% of time the traffic goes to the new revision.
 
 ### Promoting canary
 If the canary model runs well you can promote it by removing the `canaryTrafficPercent` field.
@@ -138,15 +137,15 @@ Now all traffic goes to the revision 2 for the new model.
 ```
 kubectl get isvc my-model
 NAME       URL                                   READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                AGE
-my-model   http://my-model.default.example.com   True           100                              my-model-predictor-default-jdn59   12h
+my-model   http://my-model.default.example.com   True           100                              my-model-predictor-default-00002   17m
 ```
 
 The pods for revision generation 1 automatically scales down to 0 as it is no longer getting the traffic.
 ```bash
 kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
 NAME                                                           READY   STATUS        RESTARTS   AGE
-my-model-predictor-default-2vp5n-deployment-8569645df4-tq8jc   1/2     Terminating   0          15m
-my-model-predictor-default-jdn59-deployment-58bd86ff68-qkkgb   2/2     Running       0          13m
+my-model-predictor-default-00001-deployment-68978dd4d4-f6dcg   1/2     Terminating   0          17m
+my-model-predictor-default-00002-deployment-5c867f557c-nlsrf   2/2     Running       0          15m
 ```
 
 ## Rollback and pin the model
@@ -172,13 +171,68 @@ Check the traffic split, now 100% traffic goes to the previous good model for re
 ```
 kubectl get isvc my-model
 NAME       URL                                   READY   PREV   LATEST   PREVROLLEDOUTREVISION              LATESTREADYREVISION                AGE
-my-model   http://my-model.default.example.com   True    100    0        my-model-predictor-default-2vp5n   my-model-predictor-default-jdn59   12h
+my-model   http://my-model.default.example.com   True    100    0        my-model-predictor-default-00001   my-model-predictor-default-00002   18m
 ```
 
-The pods for previous revision 1 now scales back
+The pods for previous revision 1 now scales back as now it is getting full traffic while the new model scales down.
 ```
 kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
 NAME                                                           READY   STATUS            RESTARTS   AGE
-my-model-predictor-default-2vp5n-deployment-8569645df4-g2qzd   0/2     PodInitializing   0          11s
-my-model-predictor-default-jdn59-deployment-58bd86ff68-qkkgb   2/2     Running           0          17m
+my-model-predictor-default-00001-deployment-68978dd4d4-mcrks   1/2     Running       0          35s
+my-model-predictor-default-00002-deployment-5c867f557c-nlsrf   2/2     Running       0          16m
+```
+
+## Tag based routing
+You can enable tag based routing by adding the annotation `serving.kubeflow.org/enable-tag-routing`, so traffic can be explicitly routed to the canary model or
+the old model with tag based URL.
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "my-model"
+  annotations:
+    serving.kubeflow.org/enable-tag-routing: "true"
+spec:
+  predictor:
+    canaryTrafficPercent: 10
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+```
+
+Check the InferenceService status to get the canary and previous model URL.
+```base
+kubectl get isvc my-model -ojsonpath="{.status.components.predictor}"  | jq
+{
+  "address": {
+    "url": "http://my-model-predictor-default.default.svc.cluster.local"
+  },
+  "latestCreatedRevision": "my-model-predictor-default-00003",
+  "latestReadyRevision": "my-model-predictor-default-00003",
+  "latestRolledoutRevision": "my-model-predictor-default-00001",
+  "previousRolledoutRevision": "my-model-predictor-default-00001",
+  "traffic": [
+    {
+      "latestRevision": true,
+      "percent": 10,
+      "revisionName": "my-model-predictor-default-00003",
+      "tag": "latest",
+      "url": "http://latest-my-model-predictor-default.default.example.com"
+    },
+    {
+      "latestRevision": false,
+      "percent": 90,
+      "revisionName": "my-model-predictor-default-00001",
+      "tag": "prev",
+      "url": "http://prev-my-model-predictor-default.default.example.com"
+    }
+  ],
+  "url": "http://my-model-predictor-default.default.example.com"
+}
+```
+
+You can now send the request explicitly to the new model or the previous model by using the tag URL
+```bash
+curl -v -H "Host: latest-my-model-predictor-default.default.example.com" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+or
+curl -v -H "Host: prev-my-model-predictor-default.default.example.com" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
