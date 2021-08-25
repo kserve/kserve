@@ -21,6 +21,11 @@ import (
 	"k8s.io/api/core/v1"
 )
 
+/*
+For a quick reference about AWS ENV variables:
+AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
+Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables
+*/
 const (
 	AWSAccessKeyId         = "AWS_ACCESS_KEY_ID"
 	AWSSecretAccessKey     = "AWS_SECRET_ACCESS_KEY"
@@ -33,6 +38,7 @@ const (
 	S3VerifySSL            = "S3_VERIFY_SSL"
 	S3UseVirtualBucket     = "S3_USER_VIRTUAL_BUCKET"
 	AWSAnonymousCredential = "awsAnonymousCredential"
+	AWSCABundle            = "AWS_CA_BUNDLE"
 )
 
 type S3Config struct {
@@ -49,6 +55,7 @@ var (
 	InferenceServiceS3SecretHttpsAnnotation      = constants.KFServingAPIGroupName + "/" + "s3-usehttps"
 	InferenceServiceS3UseVirtualBucketAnnotation = constants.KFServingAPIGroupName + "/" + "s3-usevirtualbucket"
 	InferenceServiceS3UseAnonymousCredential     = constants.KFServingAPIGroupName + "/" + "s3-useanoncredential"
+	InferenceServiceS3CABundleAnnotation         = constants.KFServingAPIGroupName + "/" + "s3-cabundle"
 )
 
 func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
@@ -151,6 +158,13 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 		envs = append(envs, v1.EnvVar{
 			Name:  S3UseVirtualBucket,
 			Value: useVirtualBucket,
+		})
+	}
+
+	if customCABundle, ok := secret.Annotations[InferenceServiceS3CABundleAnnotation]; ok {
+		envs = append(envs, v1.EnvVar{
+			Name:  AWSCABundle,
+			Value: customCABundle,
 		})
 	}
 	return envs
