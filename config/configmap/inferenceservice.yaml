@@ -64,7 +64,7 @@ data:
           "v1" : {
             "image": "kfserving/pytorchserver",
             "defaultImageVersion": "v0.6.1",
-            "defaultGpuImageVersion": "v0.5.1-gpu",
+            "defaultGpuImageVersion": "v0.6.1-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
