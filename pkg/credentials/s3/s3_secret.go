@@ -27,7 +27,7 @@ const (
 	AWSAccessKeyIdName     = "awsAccessKeyID"
 	AWSSecretAccessKeyName = "awsSecretAccessKey"
 	AWSEndpointUrl         = "AWS_ENDPOINT_URL"
-	AWSRegion              = "AWS_REGION"
+	AWSRegion              = "AWS_DEFAULT_REGION"
 	S3Endpoint             = "S3_ENDPOINT"
 	S3UseHttps             = "S3_USE_HTTPS"
 	S3VerifySSL            = "S3_VERIFY_SSL"

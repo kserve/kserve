@@ -67,7 +67,7 @@ def set_s3_credentials(namespace, credentials_file, service_account,
                               is specified, will attach created secret with the service account,
                               otherwise will create new one and attach with created secret.
         s3_endpoint(str): S3 settings variable S3_ENDPOINT.
-        s3_region(str): S3 settings variable AWS_REGION.
+        s3_region(str): S3 settings variable AWS_DEFAULT_REGION.
         s3_use_https(str): S3 settings variable S3_USE_HTTPS.
         s3_verify_ssl(str): S3 settings variable S3_VERIFY_SSL.
     """
