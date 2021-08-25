@@ -16797,7 +16797,7 @@ spec:
       - envFrom:
         - configMapRef:
             name: kfserving-models-web-app-config-9kkt28dhgb
-        image: kfserving/models-web-app:v0.6.0
+        image: kfserving/models-web-app:v0.6.1
         imagePullPolicy: Always
         name: kfserving-models-web-app
         ports:
@@ -16836,7 +16836,7 @@ spec:
               fieldPath: metadata.namespace
         - name: SECRET_NAME
           value: kfserving-webhook-server-cert
-        image: gcr.io/kfserving/kfserving-controller:v0.6.0
+        image: gcr.io/kfserving/kfserving-controller:v0.6.1
         imagePullPolicy: Always
         name: manager
         ports:
