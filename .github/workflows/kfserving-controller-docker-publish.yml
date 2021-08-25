@@ -1,4 +1,4 @@
-name: Kserve controller Docker Publisher
+name: kfserving controller Docker Publisher
 
 on:
   push:
