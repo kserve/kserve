@@ -16685,7 +16685,7 @@ data:
         },
         "sklearn": {
           "v1": {
-            "image": "gcr.io/kfserving/sklearnserver",
+            "image": "kfserving/sklearnserver",
             "defaultImageVersion": "v0.6.1",
             "supportedFrameworks": [
               "sklearn"
@@ -16703,7 +16703,7 @@ data:
         },
         "xgboost": {
           "v1": {
-            "image": "gcr.io/kfserving/xgbserver",
+            "image": "kfserving/xgbserver",
             "defaultImageVersion": "v0.6.1",
             "supportedFrameworks": [
               "xgboost"
@@ -16721,9 +16721,9 @@ data:
         },
         "pytorch": {
           "v1" : {
-            "image": "gcr.io/kfserving/pytorchserver",
+            "image": "kfserving/pytorchserver",
             "defaultImageVersion": "v0.6.1",
-            "defaultGpuImageVersion": "v0.5.1-gpu",
+            "defaultGpuImageVersion": "v0.6.1-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -16778,7 +16778,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:v0.6.1",
+        "image" : "kfserving/storage-initializer:v0.6.1",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -16991,7 +16991,7 @@ spec:
               fieldPath: metadata.namespace
         - name: SECRET_NAME
           value: kfserving-webhook-server-cert
-        image: gcr.io/kfserving/kfserving-controller:v0.6.1
+        image: kfserving/kfserving-controller:v0.6.1
         imagePullPolicy: Always
         name: manager
         ports:
