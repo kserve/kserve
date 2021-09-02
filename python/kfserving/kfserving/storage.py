@@ -154,7 +154,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             raise RuntimeError("Failed to fetch model. \
             The path or model %s does not exist." % (uri))
 
-
     @staticmethod
     def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
         match = re.search(_BLOB_RE, uri)
