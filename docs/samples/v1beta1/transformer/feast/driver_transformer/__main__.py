@@ -32,7 +32,7 @@ parser.add_argument(
 parser.add_argument(
     "--feast_serving_url",
     type=str,
-    help="The url of the Feast Serving Service.", required=True)
+    help="The url of the Feast feature server.", required=True)
 parser.add_argument(
     "--entity_ids",
     type=str, nargs="+",

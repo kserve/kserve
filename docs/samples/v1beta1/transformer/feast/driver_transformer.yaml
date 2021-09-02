@@ -17,9 +17,9 @@ spec:
       - --entity_ids
       - driver_id
       - --feature_refs
-      - driver_statistics:acc_rate 
-      - driver_statistics:avg_daily_trips 
-      - driver_statistics:conv_rate
+      - driver_hourly_stats:acc_rate
+      - driver_hourly_stats:avg_daily_trips
+      - driver_hourly_stats:conv_rate
   predictor:
     sklearn:
       storageUri: "gs://pv-kfserving/driver"
