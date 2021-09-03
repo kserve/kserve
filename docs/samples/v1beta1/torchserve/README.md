@@ -81,11 +81,25 @@ Canary rollout is a deployment strategy when you release a new version of model 
 
 ## gRPC
 
-Run gRPC Inference
+#### Clone Torchserve Repo
+
+```
+git clone https://github.com/pytorch/serve
+```
+
+#### Install gRPC python dependencies
+
+```
+pip install -U grpcio protobuf grpcio-tools
+```
+
+#### Generate python gRPC client stub using the proto files
 
 ```bash
-python -m grpc_tools.protoc --proto_path=proto/ --python_out=. --grpc_python_out=. proto/inference.proto proto/management.proto
+python -m grpc_tools.protoc --proto_path=serve/frontend/server/src/main/resources/proto/ --python_out=. --grpc_python_out=. serve/frontend/server/src/main/resources/proto/inference.proto serve/frontend/server/src/main/resources/proto/management.proto
 ```
+
+#### Run gRPC Inference
 
 ```bash
 python torchserve_gprc_client.py infer <model_name> <input json>
