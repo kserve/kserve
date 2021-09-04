@@ -16,13 +16,13 @@ import argparse
 import logging
 import sys
 
-import kfserving
+import kserve
 from sklearnserver import SKLearnModel, SKLearnModelRepository
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 
-parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model binary')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -38,4 +38,4 @@ if __name__ == "__main__":
         logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
                       f"exception type {exc_info[0]}, exception msg: {exc_info[1]}")
         model.ready = False
-    kfserving.KFServer(registered_models=SKLearnModelRepository(args.model_dir)).start([model] if model.ready else [])
+    kserve.KFServer(registered_models=SKLearnModelRepository(args.model_dir)).start([model] if model.ready else [])

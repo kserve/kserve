@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/spec"
-	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	kserve "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/common"
 )
@@ -37,7 +37,7 @@ func main() {
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
 	}
-	oAPIDefs := kfserving.GetOpenAPIDefinitions(func(name string) spec.Ref {
+	oAPIDefs := kserve.GetOpenAPIDefinitions(func(name string) spec.Ref {
 		return spec.MustCreateRef("#/definitions/" + common.EscapeJsonPointer(swaggify(name)))
 	})
 	defs := spec.Definitions{}
@@ -51,8 +51,8 @@ func main() {
 			Paths:       &spec.Paths{Paths: map[string]spec.PathItem{}},
 			Info: &spec.Info{
 				InfoProps: spec.InfoProps{
-					Title:       "KFServing",
-					Description: "Python SDK for KFServing",
+					Title:       "KServe",
+					Description: "Python SDK for KServe",
 					Version:     version,
 				},
 			},
@@ -66,7 +66,7 @@ func main() {
 }
 
 func swaggify(name string) string {
-	name = strings.Replace(name, "github.com/kubeflow/kfserving/pkg/apis/serving/", "", -1)
+	name = strings.Replace(name, "github.com/kserve/kserve/pkg/apis/serving/", "", -1)
 	name = strings.Replace(name, "./pkg/apis/serving/", "", -1)
 	name = strings.Replace(name, "knative.dev/pkg/apis/duck/v1.", "knative/", -1)
 	name = strings.Replace(name, "knative.dev/pkg/apis.", "knative/", -1)

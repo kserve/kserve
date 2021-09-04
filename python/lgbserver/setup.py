@@ -23,17 +23,17 @@ tests_require = [
 
 setup(
     name='lgbserver',
-    version='0.6.0',
+    version='0.7.0rc0',
     author_email='linyiming@ainnovation.com',
     license='../../LICENSE.txt',
-    url='https://github.com/kubeflow/kfserving/python/kfserving/lgbserver',
+    url='https://github.com/kserve/kserve/python/lgbserver',
     description='Model Server implementation for LightGBM. \
-                 Not intended for use outside KFServing Frameworks Images',
+                 Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
     python_requires='>3.4',
     packages=find_packages("lgbserver"),
     install_requires=[
-        "kfserving>=0.6.0",
+        "kserve>=0.7.0rc0",
         "lightgbm == 2.3.1",
         "pandas == 0.25.3",
         "argparse >= 1.4.0",

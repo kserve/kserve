@@ -17,8 +17,8 @@ limitations under the License.
 package s3
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"k8s.io/api/core/v1"
+	"github.com/kserve/kserve/pkg/constants"
+	v1 "k8s.io/api/core/v1"
 )
 
 /*
@@ -49,13 +49,13 @@ type S3Config struct {
 }
 
 var (
-	InferenceServiceS3SecretEndpointAnnotation   = constants.KFServingAPIGroupName + "/" + "s3-endpoint"
-	InferenceServiceS3SecretRegionAnnotation     = constants.KFServingAPIGroupName + "/" + "s3-region"
-	InferenceServiceS3SecretSSLAnnotation        = constants.KFServingAPIGroupName + "/" + "s3-verifyssl"
-	InferenceServiceS3SecretHttpsAnnotation      = constants.KFServingAPIGroupName + "/" + "s3-usehttps"
-	InferenceServiceS3UseVirtualBucketAnnotation = constants.KFServingAPIGroupName + "/" + "s3-usevirtualbucket"
-	InferenceServiceS3UseAnonymousCredential     = constants.KFServingAPIGroupName + "/" + "s3-useanoncredential"
-	InferenceServiceS3CABundleAnnotation         = constants.KFServingAPIGroupName + "/" + "s3-cabundle"
+	InferenceServiceS3SecretEndpointAnnotation   = constants.KServeAPIGroupName + "/" + "s3-endpoint"
+	InferenceServiceS3SecretRegionAnnotation     = constants.KServeAPIGroupName + "/" + "s3-region"
+	InferenceServiceS3SecretSSLAnnotation        = constants.KServeAPIGroupName + "/" + "s3-verifyssl"
+	InferenceServiceS3SecretHttpsAnnotation      = constants.KServeAPIGroupName + "/" + "s3-usehttps"
+	InferenceServiceS3UseVirtualBucketAnnotation = constants.KServeAPIGroupName + "/" + "s3-usevirtualbucket"
+	InferenceServiceS3UseAnonymousCredential     = constants.KServeAPIGroupName + "/" + "s3-useanoncredential"
+	InferenceServiceS3CABundleAnnotation         = constants.KServeAPIGroupName + "/" + "s3-cabundle"
 )
 
 func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {

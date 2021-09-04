@@ -22,19 +22,17 @@ tests_require = [
 
 setup(
     name='aifserver',
-    version='0.6.0',
+    version='0.7.0rc0',
     author_email='Andrew.Butler@ibm.com',
-    license='https://github.com/kubeflow/kfserving/LICENSE',
-    url='https://github.com/kubeflow/kfserving/python/aifserver',
+    license='https://github.com/kserve/kserve/LICENSE',
+    url='https://github.com/kserve/kserve/python/aifserver',
     description='Model Server implementation for AI fairness. \
-                 Not intended for use outside KFServing Frameworks Images',
+                 Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
     python_requires='>3.4',
     packages=find_packages("aifserver"),
     install_requires=[
-        "kfserving>=0.6.0",
-        "argparse >= 1.4.0",
-        "numpy >= 1.8.2",
+        "kserve>=0.7.0rc0",
         "aif360 >= 0.2.3",
         "nest_asyncio>=1.4.0",
         "requests[security]>=2.24.0"

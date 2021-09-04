@@ -7,8 +7,8 @@ tensor and not an actual tensor).
 */
 import (
 	"github.com/getkin/kin-openapi/openapi3"
-	fw "github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
-	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
+	fw "github.com/kserve/kserve/tools/tf2openapi/generated/framework"
+	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
 )
 
 const B64KeySuffix string = "_bytes"

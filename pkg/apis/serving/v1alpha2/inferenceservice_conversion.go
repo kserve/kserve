@@ -18,8 +18,8 @@ package v1alpha2
 
 import (
 	"github.com/gogo/protobuf/proto"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"

@@ -4,7 +4,7 @@ apiVersion: cert-manager.io/v1alpha2
 kind: Issuer
 metadata:
   name: selfsigned-issuer
-  namespace: kfserving-system
+  namespace: kserve
 spec:
   selfSigned: {}
 ---
@@ -12,13 +12,13 @@ apiVersion: cert-manager.io/v1alpha2
 kind: Certificate
 metadata:
   name: serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
-  namespace: kfserving-system
+  namespace: kserve
 spec:
   # $(SERVICE_NAME) and $(SERVICE_NAMESPACE) will be substituted by kustomize
-  commonName: $(webhookServiceName).$(kfservingNamespace).svc
+  commonName: $(webhookServiceName).$(kserveNamespace).svc
   dnsNames:
-    - $(webhookServiceName).$(kfservingNamespace).svc
+    - $(webhookServiceName).$(kserveNamespace).svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
-  secretName: kfserving-webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize
+  secretName: kserve-webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize

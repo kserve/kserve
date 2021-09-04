@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: kfserving-models-web-app
-  namespace: kfserving-system
+  name: kserve-models-web-app
+  namespace: kserve
 spec:
   ports:
   - name: http
@@ -10,5 +10,5 @@ spec:
     protocol: TCP
     targetPort: 5000
   selector:
-    app.kubernetes.io/component: kfserving-models-web-app
+    app.kubernetes.io/component: kserve-models-web-app
   type: ClusterIP

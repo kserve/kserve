@@ -25,7 +25,7 @@ setup(
     version='0.2.0',
     author_email='chhuang@us.ibm.com',
     license='../../LICENSE.txt',
-    url='https://github.com/kubeflow/kfserving/docs/samples/v1beta1/fesat/driver_transformer',
+    url='https://github.com/kserve/kserve/docs/samples/v1beta1/transformer/feast/driver_transformer',
     description='Driver transformer',
     long_description=open('README.md').read(),
     python_requires='>=3.6',

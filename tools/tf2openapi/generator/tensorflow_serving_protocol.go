@@ -2,8 +2,9 @@ package generator
 
 import (
 	"fmt"
+
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
+	"github.com/kserve/kserve/tools/tf2openapi/types"
 )
 
 const (
@@ -13,8 +14,6 @@ const (
 	responseRefTemplate = "#/components/responses/%s"
 	pathTemplate        = "/v1/models/%s/versions/%s:predict"
 )
-
-
 
 func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagger, error) {
 	requestSchema, responseSchema, err := model.Schema(g.metaGraphTags, g.sigDefKey)

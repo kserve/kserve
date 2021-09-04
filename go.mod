@@ -1,4 +1,4 @@
-module github.com/kubeflow/kfserving
+module github.com/kserve/kserve
 
 go 1.13
 

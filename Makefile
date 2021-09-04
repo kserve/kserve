@@ -1,7 +1,7 @@
 HAS_LINT := $(shell command -v golint;)
 
 # Image URL to use all building/pushing image targets
-IMG ?= kfserving-controller:latest
+IMG ?= kserve-controller:latest
 AGENT_IMG ?= agent:latest
 SKLEARN_IMG ?= sklearnserver
 XGB_IMG ?= xgbserver
@@ -12,13 +12,13 @@ PADDLE_IMG ?= paddleserver
 ALIBI_IMG ?= alibi-explainer
 STORAGE_INIT_IMG ?= storage-initializer
 CRD_OPTIONS ?= "crd:maxDescLen=0"
-KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
+KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 
 # CPU/Memory limits for controller-manager
-KFSERVING_CONTROLLER_CPU_LIMIT ?= 100m
-KFSERVING_CONTROLLER_MEMORY_LIMIT ?= 300Mi
-$(shell perl -pi -e 's/cpu:.*/cpu: $(KFSERVING_CONTROLLER_CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
-$(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
+KSERVE_CONTROLLER_CPU_LIMIT ?= 100m
+KSERVE_CONTROLLER_MEMORY_LIMIT ?= 300Mi
+$(shell perl -pi -e 's/cpu:.*/cpu: $(KSERVE_CONTROLLER_CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
+$(shell perl -pi -e 's/memory:.*/memory: $(KSERVE_CONTROLLER_MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
 
 all: test manager agent
 
@@ -40,21 +40,21 @@ run: generate fmt vet lint
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
-	# Remove the certmanager certificate if KFSERVING_ENABLE_SELF_SIGNED_CA is not false
-	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
+	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
+	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 	kustomize build config/default | kubectl apply --validate=false -f -
-	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev: manifests
 	./hack/image_patch_dev.sh development
-	# Remove the certmanager certificate if KFSERVING_ENABLE_SELF_SIGNED_CA is not false
-	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
+	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
+	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 	kustomize build config/overlays/development | kubectl apply --validate=false -f -
-	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev-sklearn: docker-push-sklearn
 	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${SKLEARN_IMG}
@@ -93,44 +93,44 @@ deploy-ci: manifests
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kubeflow.org
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
+	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 undeploy-dev:
 	kustomize build config/overlays/development | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kubeflow.org
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
+	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd
-	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
+	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
-
+	
 	#TODO Remove this until new controller-tools is released
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
-	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
-	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
+	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kserve.io_inferenceservices.yaml
+	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_inferenceservices.yaml
+	perl -pi -e 's/Any/string/g' config/crd/serving.kserve.io_inferenceservices.yaml
+	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kserve.io_trainedmodels.yaml
+	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_trainedmodels.yaml
+	perl -pi -e 's/Any/string/g' config/crd/serving.kserve.io_trainedmodels.yaml
 	#remove the required property on framework as name field needs to be optional
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required'
+	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required'
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers'
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.initContainers'
+	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers'
+	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.initContainers'
 	#knative does not allow setting port on liveness or readiness probe
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required'
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required'
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required'
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required'
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required'
-	kustomize build config/crd > test/crds/serving.kubeflow.org_inferenceservices.yaml
+	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required'
+	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required'
+	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required'
+	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
+	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required'
+	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required'
+	kustomize build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
 
 # Run go fmt against code
 fmt:
@@ -254,4 +254,4 @@ endif
 
 apidocs:
 	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
-	docker run -it --rm -v $(CURDIR)/pkg/apis:/go/src/github.com/kubeflow/kfserving/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen
+	docker run -it --rm -v $(CURDIR)/pkg/apis:/go/src/github.com/kserve/kserve/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen

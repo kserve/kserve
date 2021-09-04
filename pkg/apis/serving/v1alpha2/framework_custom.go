@@ -17,7 +17,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	knserving "knative.dev/serving/pkg/apis/serving"

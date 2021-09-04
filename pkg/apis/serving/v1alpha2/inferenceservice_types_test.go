@@ -19,7 +19,7 @@ package v1alpha2
 import (
 	"testing"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/constants"
 
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -89,12 +89,12 @@ func TestInferenceService(t *testing.T) {
 		Traffic:       20,
 		CanaryTraffic: 80,
 		Default: &map[constants.InferenceServiceComponent]StatusConfigurationSpec{
-			constants.Predictor: StatusConfigurationSpec{
+			constants.Predictor: {
 				Name: "v1",
 			},
 		},
 		Canary: &map[constants.InferenceServiceComponent]StatusConfigurationSpec{
-			constants.Predictor: StatusConfigurationSpec{
+			constants.Predictor: {
 				Name: "v2",
 			},
 		},

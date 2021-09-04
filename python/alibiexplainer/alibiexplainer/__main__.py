@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import dill
-import kfserving
+import kserve
 import logging
 import os
 import sys
@@ -21,7 +21,7 @@ from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 from alibiexplainer.parser import parse_args
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 EXPLAINER_FILENAME = "explainer.dill"
 
@@ -33,7 +33,7 @@ def main():
     alibi_model = None
     if args.storage_uri is not None:
         alibi_model = os.path.join(
-            kfserving.Storage.download(args.storage_uri), EXPLAINER_FILENAME
+            kserve.Storage.download(args.storage_uri), EXPLAINER_FILENAME
         )
         with open(alibi_model, "rb") as f:
             logging.info("Loading Alibi model")
@@ -47,7 +47,7 @@ def main():
         alibi_model,
     )
     explainer.load()
-    kfserving.KFServer().start(models=[explainer], nest_asyncio=True)
+    kserve.KFServer().start(models=[explainer], nest_asyncio=True)
 
 
 if __name__ == "__main__":

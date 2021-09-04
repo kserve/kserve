@@ -17,12 +17,13 @@ limitations under the License.
 package credentials
 
 import (
-	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
+	"os"
+	"testing"
+
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 )
 
 var cfg *rest.Config

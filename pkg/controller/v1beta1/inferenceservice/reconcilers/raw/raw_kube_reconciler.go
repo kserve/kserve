@@ -14,9 +14,9 @@ limitations under the License.
 package raw
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	deployment "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
-	service "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
+	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

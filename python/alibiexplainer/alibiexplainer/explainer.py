@@ -17,14 +17,14 @@ import asyncio
 from enum import Enum
 from typing import List, Any, Mapping, Union, Dict
 
-import kfserving
+import kserve
 import numpy as np
 from alibiexplainer.anchor_images import AnchorImages
 from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
 class ExplainerMethod(Enum):
@@ -36,7 +36,7 @@ class ExplainerMethod(Enum):
         return self.value
 
 
-class AlibiExplainer(kfserving.KFModel):
+class AlibiExplainer(kserve.KFModel):
     def __init__(  # pylint:disable=too-many-arguments
         self,
         name: str,

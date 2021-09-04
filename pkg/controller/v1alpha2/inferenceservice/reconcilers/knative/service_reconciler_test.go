@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/constants"
-	testutils "github.com/kubeflow/kfserving/pkg/testing"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
+	testutils "github.com/kserve/kserve/pkg/testing"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,16 +120,16 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": "mnist",
 									constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 									constants.KServiceModelLabel:     "mnist",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
 								},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/minScale":                            "1",
-									"autoscaling.knative.dev/target":                              "1",
-									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/minScale":                         "1",
+									"autoscaling.knative.dev/target":                           "1",
+									"internal.serving.kserve.io/storage-initializer-sourceuri": "gs://testuri",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -177,16 +177,16 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": "mnist",
 									constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
 									constants.KServiceModelLabel:     "mnist",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
 								},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/minScale":                            "1",
-									"autoscaling.knative.dev/target":                              "1",
-									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri2",
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/minScale":                         "1",
+									"autoscaling.knative.dev/target":                           "1",
+									"internal.serving.kserve.io/storage-initializer-sourceuri": "gs://testuri2",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -252,16 +252,16 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": "mnist",
 									constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 									constants.KServiceModelLabel:     "mnist",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
 								},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/minScale":                            "1",
-									"autoscaling.knative.dev/target":                              "1",
-									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/minScale":                         "1",
+									"autoscaling.knative.dev/target":                           "1",
+									"internal.serving.kserve.io/storage-initializer-sourceuri": "gs://testuri",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{

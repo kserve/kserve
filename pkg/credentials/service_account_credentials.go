@@ -20,12 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/credentials/https"
 
-	"github.com/kubeflow/kfserving/pkg/credentials/azure"
-	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
-	"github.com/kubeflow/kfserving/pkg/credentials/s3"
-	"github.com/kubeflow/kfserving/pkg/utils"
+	"github.com/kserve/kserve/pkg/credentials/https"
+
+	"github.com/kserve/kserve/pkg/credentials/azure"
+	"github.com/kserve/kserve/pkg/credentials/gcs"
+	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"

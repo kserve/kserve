@@ -17,13 +17,14 @@ limitations under the License.
 package pod
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/credentials"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"knative.dev/pkg/kmp"
 	"testing"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/credentials"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/pkg/kmp"
+
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -79,10 +80,10 @@ func TestAgentInjector(t *testing.T) {
 						constants.AgentModelConfigMountPathAnnotationKey:  "/mnt/configs",
 					},
 					Labels: map[string]string{
-						"serving.kubeflow.org/inferenceservice": "sklearn",
-						constants.KServiceModelLabel:            "sklearn",
-						constants.KServiceEndpointLabel:         "default",
-						constants.KServiceComponentLabel:        "predictor",
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:         "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -191,10 +192,10 @@ func TestAgentInjector(t *testing.T) {
 						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
 					},
 					Labels: map[string]string{
-						"serving.kubeflow.org/inferenceservice": "sklearn",
-						constants.KServiceModelLabel:            "sklearn",
-						constants.KServiceEndpointLabel:         "default",
-						constants.KServiceComponentLabel:        "predictor",
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:         "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
 				Spec: v1.PodSpec{

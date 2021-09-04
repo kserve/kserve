@@ -21,7 +21,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +49,7 @@ func TestInferenceServiceConversion(t *testing.T) {
 							},
 							Custom: &CustomSpec{
 								Container: v1.Container{
-									Name:  "kfserving-container",
+									Name:  constants.InferenceServiceContainerName,
 									Image: "custom-predictor:v1",
 									Resources: v1.ResourceRequirements{
 										Requests: v1.ResourceList{
@@ -81,7 +82,7 @@ func TestInferenceServiceConversion(t *testing.T) {
 						PodSpec: v1beta1.PodSpec{
 							Containers: []v1.Container{
 								{
-									Name:  "kfserving-container",
+									Name:  constants.InferenceServiceContainerName,
 									Image: "custom-predictor:v1",
 									Resources: v1.ResourceRequirements{
 										Requests: v1.ResourceList{
@@ -115,7 +116,7 @@ func TestInferenceServiceConversion(t *testing.T) {
 							},
 							Custom: &CustomSpec{
 								Container: v1.Container{
-									Name:  "kfserving-container",
+									Name:  constants.InferenceServiceContainerName,
 									Image: "custom-predictor:v1",
 									Resources: v1.ResourceRequirements{
 										Requests: v1.ResourceList{
@@ -151,7 +152,7 @@ func TestInferenceServiceConversion(t *testing.T) {
 						PodSpec: v1beta1.PodSpec{
 							Containers: []v1.Container{
 								{
-									Name:  "kfserving-container",
+									Name:  constants.InferenceServiceContainerName,
 									Image: "custom-predictor:v1",
 									Resources: v1.ResourceRequirements{
 										Requests: v1.ResourceList{
@@ -201,7 +202,7 @@ func TestInferenceServiceConversion(t *testing.T) {
 							},
 							Custom: &CustomSpec{
 								Container: v1.Container{
-									Name:  "kfserving-container",
+									Name:  constants.InferenceServiceContainerName,
 									Image: "transformer:v1",
 									Resources: v1.ResourceRequirements{
 										Requests: v1.ResourceList{
@@ -247,7 +248,7 @@ func TestInferenceServiceConversion(t *testing.T) {
 						PodSpec: v1beta1.PodSpec{
 							Containers: []v1.Container{
 								{
-									Name:  "kfserving-container",
+									Name:  constants.InferenceServiceContainerName,
 									Image: "transformer:v1",
 									Resources: v1.ResourceRequirements{
 										Requests: v1.ResourceList{

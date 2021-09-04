@@ -14,8 +14,8 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"k8s.io/api/core/v1"
+	"github.com/kserve/kserve/pkg/constants"
+	v1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )

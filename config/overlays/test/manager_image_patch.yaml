@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: kfserving-controller-manager
-  namespace: kfserving-system
+  name: kserve-controller-manager
+  namespace: kserve
 spec:
   template:
     spec:
       containers:
         - name: manager
           command:
-          image: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/kfserving-controller:latest
+          image: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/kserve-controller:latest

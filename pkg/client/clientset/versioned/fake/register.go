@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	servingv1beta1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

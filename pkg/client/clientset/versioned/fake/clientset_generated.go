@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/kubeflow/kfserving/pkg/client/clientset/versioned"
-	servingv1beta1 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1beta1"
-	fakeservingv1beta1 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1beta1/fake"
+	clientset "github.com/kserve/kserve/pkg/client/clientset/versioned"
+	servingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1"
+	fakeservingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

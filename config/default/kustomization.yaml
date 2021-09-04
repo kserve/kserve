@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 # Adds namespace to all resources.
-namespace: kfserving-system
+namespace: kserve
 
 # Labels to add to all resources and selectors.
 #commonLabels:
@@ -39,16 +39,16 @@ generatorOptions:
 
 # To make namespace for standalone installation kustomizable,
 # variabalize ingress gateway, webhook service name and
-# kfserving namespace in webhook configurations
+# kserve namespace in webhook configurations
 configMapGenerator:
-  - name: kfserving-config
+  - name: kserve-config
     envs:
     - params.env
 vars:
 - name: ingressGateway
   objref:
     kind: ConfigMap
-    name: kfserving-config
+    name: kserve-config
     apiVersion: v1
   fieldref:
     fieldpath: data.ingressGateway
@@ -58,8 +58,8 @@ vars:
   objref:
     apiVersion: v1
     kind: Service
-    name: kfserving-webhook-server-service
-- name: kfservingNamespace
+    name: kserve-webhook-server-service
+- name: kserveNamespace
   objref:
     kind: Certificate
     group: cert-manager.io

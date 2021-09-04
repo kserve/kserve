@@ -15,9 +15,10 @@ package v1alpha2
 
 import (
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/constants"
-	v1 "k8s.io/api/core/v1"
 	"strconv"
+
+	"github.com/kserve/kserve/pkg/constants"
+	v1 "k8s.io/api/core/v1"
 )
 
 var _ Predictor = (*PMMLSpec)(nil)

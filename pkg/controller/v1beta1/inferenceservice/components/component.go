@@ -14,12 +14,13 @@ limitations under the License.
 package components
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
-	v1beta1utils "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
-	v1 "k8s.io/api/core/v1"
 	"strconv"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
+	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	v1 "k8s.io/api/core/v1"
 )
 
 // Component can be reconciled to create underlying resources for an InferenceService

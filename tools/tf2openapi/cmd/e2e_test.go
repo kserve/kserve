@@ -13,7 +13,7 @@ import (
 	"github.com/onsi/gomega"
 	gomegaTypes "github.com/onsi/gomega/types"
 
-	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
+	"github.com/kserve/kserve/tools/tf2openapi/types"
 )
 
 // Functional E2E example
@@ -25,9 +25,9 @@ func TestFunctionalDifferentFlags(t *testing.T) {
 		cmdArgs      []string
 		expectedSpec []byte
 	}{
-		"Flowers" : {
-			cmdArgs: []string{"--model_base_path", wd + "/testdata/TestFlowers.pb"},
-			expectedSpec:readFile("TestFlowers.golden.json", t),
+		"Flowers": {
+			cmdArgs:      []string{"--model_base_path", wd + "/testdata/TestFlowers.pb"},
+			expectedSpec: readFile("TestFlowers.golden.json", t),
 		},
 		// estimator model src: https://github.com/GoogleCloudPlatform/cloudml-samples/tree/master/census
 		"Census": {

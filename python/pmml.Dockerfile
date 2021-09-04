@@ -22,9 +22,9 @@ RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda$CONDA_PYTHON_VERS
 RUN conda install -y python=$PYTHON_VERSION
 
 COPY pmmlserver pmmlserver
-COPY kfserving kfserving
+COPY kserve kserve
 
-RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kfserving
+RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kserve
 RUN pip install --no-cache-dir -e ./pmmlserver
 COPY third_party third_party
 

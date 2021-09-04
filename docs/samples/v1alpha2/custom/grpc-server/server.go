@@ -5,16 +5,16 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/kubeflow/kfserving/docs/samples/v1alpha2/custom/grpc-server/proto"
-	"google.golang.org/grpc"
+	pb "github.com/kserve/kserve/docs/samples/v1alpha2/custom/grpc-server/proto"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 const (
 	PORT = ":8080"
 )
 
-type server struct {}
+type server struct{}
 
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 	log.Println("request: ", in.Name)
@@ -33,7 +33,7 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterKFServingGRPCServer(s, &server{})
+	pb.RegisterKServeGRPCServer(s, &server{})
 	log.Println("server startup...")
 	s.Serve(lis)
 }

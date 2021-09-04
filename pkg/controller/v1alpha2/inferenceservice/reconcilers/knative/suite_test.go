@@ -17,13 +17,14 @@ limitations under the License.
 package knative
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
+	"os"
+	"testing"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-	"os"
-	"testing"
 )
 
 var cfg *rest.Config

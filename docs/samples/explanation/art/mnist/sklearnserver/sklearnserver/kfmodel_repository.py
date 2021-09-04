@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import List, Optional
-from kfserving import KFModel
+from kserve import KFModel
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 

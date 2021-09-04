@@ -17,8 +17,8 @@ limitations under the License.
 package memory
 
 import (
-	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 //TODO MemoryStrategy will be implemented in another PR
