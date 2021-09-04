@@ -18,12 +18,13 @@ package service
 
 import (
 	"context"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"testing"
 	"time"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
-	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+
+	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -82,7 +83,7 @@ var _ = BeforeSuite(func(done Done) {
 	//Create namespace
 	kfservingNamespaceObj := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.KFServingNamespace,
+			Name: constants.KServeNamespace,
 		},
 	}
 	Expect(k8sClient.Create(context.Background(), kfservingNamespaceObj)).Should(Succeed())

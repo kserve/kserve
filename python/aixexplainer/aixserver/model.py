@@ -15,13 +15,13 @@ from typing import Dict
 
 import asyncio
 import logging
-import kfserving
+import kserve
 import numpy as np
 from aix360.algorithms.lime import LimeImageExplainer
 from lime.wrappers.scikit_image import SegmentationAlgorithm
 
 
-class AIXModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
+class AIXModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, predictor_host: str, segm_alg: str, num_samples: str,
                  top_labels: str, min_weight: str, positive_only: str, explainer_type: str):
         super().__init__(name)

@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 from typing import List, Union
 import numpy as np
 
 
 class Predictor:  # pylint:disable=too-few-public-methods
-    def __init__(self, clf: kfserving.KFModel):
+    def __init__(self, clf: kserve.KFModel):
         self.clf = clf
 
     def predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:

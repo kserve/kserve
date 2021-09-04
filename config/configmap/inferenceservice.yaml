@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: inferenceservice-config
-  namespace: kfserving-system
+  namespace: kserve
 data:
   predictors: |-
     {
@@ -26,7 +26,7 @@ data:
         },
         "sklearn": {
           "v1": {
-            "image": "gcr.io/kfserving/sklearnserver",
+            "image": "kserve/sklearnserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "sklearn"
@@ -44,7 +44,7 @@ data:
         },
         "xgboost": {
           "v1": {
-            "image": "gcr.io/kfserving/xgbserver",
+            "image": "kserve/xgbserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "xgboost"
@@ -62,7 +62,7 @@ data:
         },
         "pytorch": {
           "v1" : {
-            "image": "gcr.io/kfserving/pytorchserver",
+            "image": "kserve/pytorchserver",
             "defaultImageVersion": "latest",
             "defaultGpuImageVersion": "latest-gpu",
             "supportedFrameworks": [
@@ -137,7 +137,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:latest",
+        "image" : "kserve/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",

@@ -23,17 +23,17 @@ tests_require = [
 
 setup(
     name='xgbserver',
-    version='0.6.0',
+    version='0.7.0rc0',
     author_email='ellisbigelow@google.com',
     license='../../LICENSE.txt',
-    url='https://github.com/kubeflow/kfserving/python/kfserving/xgbserver',
+    url='https://github.com/kserve/kserve/python/xgbserver',
     description='Model Server implementation for XGBoost. \
-                 Not intended for use outside KFServing Frameworks Images',
+                 Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
     python_requires='>3.4',
     packages=find_packages("xgbserver"),
     install_requires=[
-        "kfserving>=0.6.0",
+        "kserve>=0.7.0rc0",
         "xgboost == 0.82",
         "scikit-learn == 0.20.3",
     ],

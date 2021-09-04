@@ -13,12 +13,12 @@
 # limitations under the License.
 
 import argparse
-import kfserving
+import kserve
 import logging
 import os
 from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 DEFAULT_EXPLAINER_NAME = "explainer"
 ENV_STORAGE_URI = "STORAGE_URI"
@@ -144,7 +144,7 @@ def addCommonParserArgs(parser):
 
 
 def parse_args(sys_args):
-    parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
+    parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
     parser.add_argument(
         "--model_name",
         default=DEFAULT_EXPLAINER_NAME,

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: inferenceservice-config
-  namespace: kfserving-system
+  namespace: kserve
 data:
   predictors: |-
     {
@@ -62,9 +62,9 @@ data:
         },
         "pytorch": {
           "v1" : {
-            "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "v0.5.0-rc0",
-            "defaultGpuImageVersion": "v0.5.0-rc0-gpu",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/pytorchserver",
+            "defaultImageVersion": "latest",
+            "defaultGpuImageVersion": "latest-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],

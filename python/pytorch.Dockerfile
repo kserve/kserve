@@ -25,9 +25,9 @@ WORKDIR /workspace
 RUN chmod -R a+w /workspace
 
 COPY pytorchserver pytorchserver
-COPY kfserving kfserving
+COPY kserve kserve
 COPY third_party third_party
 
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kfserving
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
 RUN pip install --no-cache-dir -e ./pytorchserver
 ENTRYPOINT ["python", "-m", "pytorchserver"]

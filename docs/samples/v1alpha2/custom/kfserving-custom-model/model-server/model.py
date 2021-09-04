@@ -1,4 +1,4 @@
-import kfserving
+import kserve
 from torchvision import models, transforms
 from typing import Dict
 import torch
@@ -7,7 +7,7 @@ import base64
 import io
 
 
-class KFServingSampleModel(kfserving.KFModel):
+class KServeSampleModel(kserve.KFModel):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -58,6 +58,6 @@ class KFServingSampleModel(kfserving.KFModel):
 
 
 if __name__ == "__main__":
-    model = KFServingSampleModel("kfserving-custom-model")
+    model = KServeSampleModel("kfserving-custom-model")
     model.load()
-    kfserving.KFServer(workers=1).start([model])
+    kserve.KFServer(workers=1).start([model])

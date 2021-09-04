@@ -17,10 +17,11 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
-	v1 "k8s.io/api/core/v1"
 	"sort"
 	"strconv"
+
+	"github.com/kserve/kserve/pkg/constants"
+	v1 "k8s.io/api/core/v1"
 )
 
 func (s *AlibiExplainerSpec) GetStorageUri() string {

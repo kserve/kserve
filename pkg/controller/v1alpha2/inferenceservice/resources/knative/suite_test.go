@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"

@@ -21,9 +21,9 @@ limitations under the License.
 package apis
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 

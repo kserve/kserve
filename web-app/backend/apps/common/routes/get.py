@@ -49,7 +49,7 @@ def get_inference_service_logs(svc):
             resp[component] = []
 
         for pod in pods:
-            logs = api.get_pod_logs(namespace, pod, "kfserving-container",
+            logs = api.get_pod_logs(namespace, pod, "kserve-container",
                                     auth=False)
             resp[component].append({"podName": pod,
                                     "logs": logs.split("\n")})

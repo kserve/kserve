@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -122,7 +122,7 @@ type IngressConfig struct {
 
 func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {
 	configMap := &v1.ConfigMap{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, er
 
 func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 	configMap := &v1.ConfigMap{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 	if err != nil {
 		return nil, err
 	}

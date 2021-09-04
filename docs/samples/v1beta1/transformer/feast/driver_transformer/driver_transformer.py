@@ -14,14 +14,14 @@
 
 from typing import List, Dict
 import logging
-import kfserving
+import kserve
 
 from feast import Client
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
-class DriverTransformer(kfserving.KFModel):
+class DriverTransformer(kserve.KFModel):
     """ A class object for the data handling activities of driver ranking
     Task and returns a KFServing compatible response.
 

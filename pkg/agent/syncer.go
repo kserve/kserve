@@ -19,13 +19,14 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type FileError error

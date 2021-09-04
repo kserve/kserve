@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 from typing import Dict
 from PIL import Image
 import torchvision.transforms as transforms
@@ -21,7 +21,7 @@ import io
 import numpy as np
 import base64
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 transform = transforms.Compose(
         [transforms.ToTensor(),
@@ -38,7 +38,7 @@ def image_transform(instance):
     return res.tolist()
 
 
-class ImageTransformer(kfserving.KFModel):
+class ImageTransformer(kserve.KFModel):
     def __init__(self, name: str, predictor_host: str):
         super().__init__(name)
         self.predictor_host = predictor_host

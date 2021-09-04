@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 from typing import Dict
 import numpy as np
 from . import tokenization
@@ -20,7 +20,7 @@ from . import data_processing
 from tensorrtserver.api import InferContext, ProtocolType
 
 
-class BertTransformer(kfserving.KFModel):
+class BertTransformer(kserve.KFModel):
     def __init__(self, name: str, predictor_host: str):
         super().__init__(name)
         self.short_paragraph_text = "The Apollo program was the third United States human spaceflight program. " \

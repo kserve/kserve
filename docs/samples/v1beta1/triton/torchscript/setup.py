@@ -25,7 +25,7 @@ setup(
     version='0.1.0',
     author_email='dsun20@bloomberg.net',
     license='../../LICENSE.txt',
-    url='https://github.com/kubeflow/kfserving/docs/samples/pytorch/torchscript/image_transformer_v2',
+    url='https://github.com/kserve/kserve/docs/samples/v1beta1/pytorch/torchscript/image_transformer_v2',
     description='ImageTransformerV2',
     long_description=open('README.md').read(),
     python_requires='>=3.6',

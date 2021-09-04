@@ -25,7 +25,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"

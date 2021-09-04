@@ -15,9 +15,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/onsi/gomega"
 
-	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
-	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
+	"github.com/kserve/kserve/tools/tf2openapi/generated/framework"
+	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
+	"github.com/kserve/kserve/tools/tf2openapi/types"
 )
 
 func TestGeneratorBuilderSpecifiedFields(t *testing.T) {
@@ -143,7 +143,6 @@ func TestGenerateOpenAPISpecGenerationErr(t *testing.T) {
 	expectedErr := fmt.Sprintf(SpecGenerationError, types.UnsupportedAPISchemaError)
 	g.Expect(specErr).To(gomega.MatchError(expectedErr))
 }
-
 
 func TestGenerateOpenAPIForRowFmtMultipleTensors(t *testing.T) {
 	// model src: gs://kfserving-samples/models/tensorflow/flowers

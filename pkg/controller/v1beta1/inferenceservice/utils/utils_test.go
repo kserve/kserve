@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	. "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -577,7 +577,7 @@ func TestIsMMSPredictor(t *testing.T) {
 						Predictor: PredictorSpec{
 							PodSpec: PodSpec{
 								Containers: []v1.Container{
-									{Name: "kfserving-container",
+									{Name: constants.InferenceServiceContainerName,
 										Image: "some-image",
 										Env:   []v1.EnvVar{{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(mmsCase)}},
 									},
@@ -597,7 +597,7 @@ func TestIsMMSPredictor(t *testing.T) {
 						Predictor: PredictorSpec{
 							PodSpec: PodSpec{
 								Containers: []v1.Container{
-									{Name: "kfserving-container",
+									{Name: constants.InferenceServiceContainerName,
 										Image: "some-image",
 										Env:   []v1.EnvVar{{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(mmsCase)}, {Name: constants.CustomSpecStorageUriEnvVarKey, Value: "gs://some-uri"}},
 									},

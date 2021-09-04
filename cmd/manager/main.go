@@ -20,13 +20,13 @@ import (
 	"flag"
 	"os"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel"
-	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
-	v1beta1controller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice"
-	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
+	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
@@ -81,21 +81,21 @@ func main() {
 
 	log.Info("Registering Components.")
 
-	log.Info("Setting up KFServing v1alpha1 scheme")
+	log.Info("Setting up KServe v1alpha1 scheme")
 	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add KFServing v1alpha1 to scheme")
+		log.Error(err, "unable to add KServe v1alpha1 to scheme")
 		os.Exit(1)
 	}
 
-	log.Info("Setting up KFServing v1alpha2 scheme")
+	log.Info("Setting up KServe v1alpha2 scheme")
 	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add KFServing v1alpha2 to scheme")
+		log.Error(err, "unable to add KServe v1alpha2 to scheme")
 		os.Exit(1)
 	}
 
-	log.Info("Setting up KFServing v1beta1 scheme")
+	log.Info("Setting up KServe v1beta1 scheme")
 	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add KFServing v1beta1 to scheme")
+		log.Error(err, "unable to add KServe v1beta1 to scheme")
 		os.Exit(1)
 	}
 

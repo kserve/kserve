@@ -1,8 +1,8 @@
 {
   "swagger": "2.0",
   "info": {
-    "description": "Python SDK for KFServing",
-    "title": "KFServing",
+    "description": "Python SDK for KServe",
+    "title": "KServe",
     "version": "v0.1"
   },
   "paths": {},
@@ -488,7 +488,7 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Alibi docker image version, defaults to latest Alibi Version",
+          "description": "Defaults to latest Explainer Version",
           "type": "string"
         },
         "securityContext": {
@@ -1818,6 +1818,9 @@
     "v1beta1.IngressConfig": {
       "type": "object",
       "properties": {
+        "ingressDomain": {
+          "type": "string"
+        },
         "ingressGateway": {
           "type": "string"
         },

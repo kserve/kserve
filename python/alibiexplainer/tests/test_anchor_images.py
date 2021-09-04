@@ -17,7 +17,7 @@ import os
 import tensorflow as tf
 import json
 import numpy as np
-import kfserving
+import kserve
 import dill
 
 
@@ -28,7 +28,7 @@ EXPLAINER_FILENAME = "explainer.dill"
 def test_cifar10_images():  # pylint: disable-msg=too-many-locals
     os.environ.clear()
     alibi_model = os.path.join(
-        kfserving.Storage.download(CIFAR10_EXPLAINER_URI), EXPLAINER_FILENAME
+        kserve.Storage.download(CIFAR10_EXPLAINER_URI), EXPLAINER_FILENAME
     )
     with open(alibi_model, "rb") as f:
         alibi_model = dill.load(f)

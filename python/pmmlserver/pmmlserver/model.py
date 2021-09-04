@@ -14,7 +14,7 @@
 
 import os
 
-import kfserving
+import kserve
 from jpmml_evaluator import make_evaluator
 from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
 from typing import Dict
@@ -24,7 +24,7 @@ MODEL_BASENAME = "model"
 MODEL_EXTENSIONS = ['.pmml']
 
 
-class PmmlModel(kfserving.KFModel):
+class PmmlModel(kserve.KFModel):
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
@@ -36,7 +36,7 @@ class PmmlModel(kfserving.KFModel):
         self._backend = None
 
     def load(self) -> bool:
-        model_path = kfserving.Storage.download(self.model_dir)
+        model_path = kserve.Storage.download(self.model_dir)
         paths = [os.path.join(model_path, MODEL_BASENAME + model_extension)
                  for model_extension in MODEL_EXTENSIONS]
         for path in paths:

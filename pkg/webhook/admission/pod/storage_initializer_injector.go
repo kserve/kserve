@@ -16,11 +16,12 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"strings"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/credentials"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/credentials"
 
 	v1 "k8s.io/api/core/v1"
 )
@@ -28,11 +29,11 @@ import (
 const (
 	StorageInitializerContainerName         = "storage-initializer"
 	StorageInitializerConfigMapKeyName      = "storageInitializer"
-	StorageInitializerVolumeName            = "kfserving-provision-location"
-	StorageInitializerContainerImage        = "gcr.io/kfserving/storage-initializer"
+	StorageInitializerVolumeName            = "kserve-provision-location"
+	StorageInitializerContainerImage        = "kserve/storage-initializer"
 	StorageInitializerContainerImageVersion = "latest"
 	PvcURIPrefix                            = "pvc://"
-	PvcSourceMountName                      = "kfserving-pvc-source"
+	PvcSourceMountName                      = "kserve-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
 )
 
@@ -95,7 +96,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	// Find the kfserving-container (this is the model inference server)
+	// Find the kserve-container (this is the model inference server)
 	var userContainer *v1.Container
 	for idx, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, constants.InferenceServiceContainerName) == 0 {
@@ -112,7 +113,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	storageInitializerMounts := []v1.VolumeMount{}
 
 	// For PVC source URIs we need to mount the source to be able to access it
-	// See design and discussion here: https://github.com/kubeflow/kfserving/issues/148
+	// See design and discussion here: https://github.com/kserve/kserve/issues/148
 	if strings.HasPrefix(srcURI, PvcURIPrefix) {
 		pvcName, pvcPath, err := parsePvcURI(srcURI)
 		if err != nil {
@@ -145,7 +146,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		srcURI = PvcSourceMountPath + "/" + pvcPath
 	}
 
-	// Create a volume that is shared between the storage-initializer and kfserving-container
+	// Create a volume that is shared between the storage-initializer and kserve-container
 	sharedVolume := v1.Volume{
 		Name: StorageInitializerVolumeName,
 		VolumeSource: v1.VolumeSource{
@@ -191,7 +192,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		SecurityContext: securityContext,
 	}
 
-	// Add a mount the shared volume on the kfserving-container, update the PodSpec
+	// Add a mount the shared volume on the kserve-container, update the PodSpec
 	sharedVolumeReadMount := v1.VolumeMount{
 		Name:      StorageInitializerVolumeName,
 		MountPath: constants.DefaultModelLocalMountPath,

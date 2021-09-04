@@ -161,10 +161,10 @@ var file_helloworld_proto_goTypes = []interface{}{
 	(*HelloReply)(nil),   // 1: HelloReply
 }
 var file_helloworld_proto_depIdxs = []int32{
-	0, // 0: KFServingGRPC.SayHello:input_type -> HelloRequest
-	0, // 1: KFServingGRPC.SendSomething:input_type -> HelloRequest
-	1, // 2: KFServingGRPC.SayHello:output_type -> HelloReply
-	1, // 3: KFServingGRPC.SendSomething:output_type -> HelloReply
+	0, // 0: KServeGRPC.SayHello:input_type -> HelloRequest
+	0, // 1: KServeGRPC.SendSomething:input_type -> HelloRequest
+	1, // 2: KServeGRPC.SayHello:output_type -> HelloReply
+	1, // 3: KServeGRPC.SendSomething:output_type -> HelloReply
 	2, // [2:4] is the sub-list for method output_type
 	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -231,110 +231,110 @@ var _ grpc.ClientConnInterface
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion6
 
-// KFServingGRPCClient is the client API for KFServingGRPC service.
+// KServeGRPCClient is the client API for KServeGRPC service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type KFServingGRPCClient interface {
+type KServeGRPCClient interface {
 	// Sends a request
 	SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
 	SendSomething(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
 }
 
-type kFServingGRPCClient struct {
+type kServeGRPCClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewKFServingGRPCClient(cc grpc.ClientConnInterface) KFServingGRPCClient {
-	return &kFServingGRPCClient{cc}
+func NewKServeGRPCClient(cc grpc.ClientConnInterface) KServeGRPCClient {
+	return &kServeGRPCClient{cc}
 }
 
-func (c *kFServingGRPCClient) SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error) {
+func (c *kServeGRPCClient) SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error) {
 	out := new(HelloReply)
-	err := c.cc.Invoke(ctx, "/KFServingGRPC/SayHello", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/KServeGRPC/SayHello", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *kFServingGRPCClient) SendSomething(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error) {
+func (c *kServeGRPCClient) SendSomething(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error) {
 	out := new(HelloReply)
-	err := c.cc.Invoke(ctx, "/KFServingGRPC/SendSomething", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/KServeGRPC/SendSomething", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// KFServingGRPCServer is the server API for KFServingGRPC service.
-type KFServingGRPCServer interface {
+// KServeGRPCServer is the server API for KServeGRPC service.
+type KServeGRPCServer interface {
 	// Sends a request
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
 	SendSomething(context.Context, *HelloRequest) (*HelloReply, error)
 }
 
-// UnimplementedKFServingGRPCServer can be embedded to have forward compatible implementations.
-type UnimplementedKFServingGRPCServer struct {
+// UnimplementedKServeGRPCServer can be embedded to have forward compatible implementations.
+type UnimplementedKServeGRPCServer struct {
 }
 
-func (*UnimplementedKFServingGRPCServer) SayHello(context.Context, *HelloRequest) (*HelloReply, error) {
+func (*UnimplementedKServeGRPCServer) SayHello(context.Context, *HelloRequest) (*HelloReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SayHello not implemented")
 }
-func (*UnimplementedKFServingGRPCServer) SendSomething(context.Context, *HelloRequest) (*HelloReply, error) {
+func (*UnimplementedKServeGRPCServer) SendSomething(context.Context, *HelloRequest) (*HelloReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendSomething not implemented")
 }
 
-func RegisterKFServingGRPCServer(s *grpc.Server, srv KFServingGRPCServer) {
-	s.RegisterService(&_KFServingGRPC_serviceDesc, srv)
+func RegisterKServeGRPCServer(s *grpc.Server, srv KServeGRPCServer) {
+	s.RegisterService(&_KServeGRPC_serviceDesc, srv)
 }
 
-func _KFServingGRPC_SayHello_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _KServeGRPC_SayHello_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HelloRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KFServingGRPCServer).SayHello(ctx, in)
+		return srv.(KServeGRPCServer).SayHello(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/KFServingGRPC/SayHello",
+		FullMethod: "/KServeGRPC/SayHello",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KFServingGRPCServer).SayHello(ctx, req.(*HelloRequest))
+		return srv.(KServeGRPCServer).SayHello(ctx, req.(*HelloRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _KFServingGRPC_SendSomething_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _KServeGRPC_SendSomething_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HelloRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KFServingGRPCServer).SendSomething(ctx, in)
+		return srv.(KServeGRPCServer).SendSomething(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/KFServingGRPC/SendSomething",
+		FullMethod: "/KServeGRPC/SendSomething",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KFServingGRPCServer).SendSomething(ctx, req.(*HelloRequest))
+		return srv.(KServeGRPCServer).SendSomething(ctx, req.(*HelloRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _KFServingGRPC_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "KFServingGRPC",
-	HandlerType: (*KFServingGRPCServer)(nil),
+var _KServeGRPC_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "KServeGRPC",
+	HandlerType: (*KServeGRPCServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "SayHello",
-			Handler:    _KFServingGRPC_SayHello_Handler,
+			Handler:    _KServeGRPC_SayHello_Handler,
 		},
 		{
 			MethodName: "SendSomething",
-			Handler:    _KFServingGRPC_SendSomething_Handler,
+			Handler:    _KServeGRPC_SendSomething_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -9,8 +9,8 @@ cat > config/overlays/${OVERLAY}/manager_image_patch.yaml << EOF
 apiVersion: apps/v1
 kind: StatefulSet 
 metadata:
-  name: kfserving-controller-manager
-  namespace: kfserving-system
+  name: kserve-controller-manager
+  namespace: kserve
 spec:
   template:
     spec:
@@ -28,7 +28,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: inferenceservice-config
-  namespace: kfserving-system
+  namespace: kserve
 data:
   logger: |-
     {

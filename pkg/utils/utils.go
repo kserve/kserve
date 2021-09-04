@@ -17,9 +17,10 @@ limitations under the License.
 package utils
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
-	v1 "k8s.io/api/core/v1"
 	"strings"
+
+	"github.com/kserve/kserve/pkg/constants"
+	v1 "k8s.io/api/core/v1"
 )
 
 /* NOTE TO AUTHORS:

@@ -24,7 +24,7 @@ import tornado.httpserver
 import tornado.log
 
 from .http import PredictHandler, ExplainHandler
-from kfserving import KFModel
+from kserve import KFModel
 from .kfmodel_repository import KFModelRepository
 
 DEFAULT_HTTP_PORT = 8080

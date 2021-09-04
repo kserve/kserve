@@ -19,7 +19,7 @@ package v1beta1
 import (
 	"reflect"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 )
 

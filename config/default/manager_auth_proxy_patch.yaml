@@ -3,8 +3,8 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: kfserving-controller-manager
-  namespace: kfserving-system
+  name: kserve-controller-manager
+  namespace: kserve
 spec:
   template:
     spec:

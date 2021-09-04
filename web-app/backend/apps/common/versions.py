@@ -22,6 +22,6 @@ def inference_service_gvk():
     except RuntimeError:
         version = "v1alpha2"
 
-    return {"group": "serving.kubeflow.org",
+    return {"group": "serving.kserve.io",
             "version": version,
             "kind": "inferenceservices"}

@@ -1,4 +1,4 @@
-apiVersion: serving.kubeflow.org/v1alpha2
+apiVersion: serving.kserve.io/v1alpha2
 kind: InferenceService
 metadata:
   name: {name}

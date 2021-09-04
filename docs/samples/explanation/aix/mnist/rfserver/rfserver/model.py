@@ -16,7 +16,7 @@ import logging
 from typing import Dict
 import pickle
 
-import kfserving
+import kserve
 import numpy as np
 
 
@@ -34,7 +34,7 @@ class PipeStep(object):
         return self._step_func(X)
 
 
-class RFModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
+class RFModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name

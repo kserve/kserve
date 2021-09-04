@@ -65,7 +65,7 @@
       // py scripts to use.
       local k8sPy = srcDir;
       local kubeflowPy = srcRootDir + "/kubeflow/testing/py";
-      local kfservingPy = srcDir  + "/python/kfserving";
+      local kservePy = srcDir  + "/python/kserve";
 
       local project = params.project;
       // GKE cluster to use
@@ -105,7 +105,7 @@
               {
                 // Add the source directories to the python path.
                 name: "PYTHONPATH",
-                value: k8sPy + ":" + kubeflowPy + ":" + kfservingPy,
+                value: k8sPy + ":" + kubeflowPy + ":" + kservePy,
               },
               {
                 // Set the GOPATH
@@ -225,8 +225,8 @@
                 ],
                 [
                   {
-                    name: "build-kfserving-manager",
-                    template: "build-kfserving",
+                    name: "build-kserve-manager",
+                    template: "build-kserve",
                   },
                   {
                     name: "build-alibi-explainer",
@@ -345,12 +345,12 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("e2e-tests-post-process",testWorkerImage, [
               "test/scripts/post-e2e-tests.sh",
              ]),  // run debug and clean up steps after running e2e test
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", kanikoExecutorImage, [
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kserve", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/Dockerfile",
               "--context=dir://" + srcDir,
-              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/kfserving-controller:$(PULL_BASE_SHA)",
-            ]),  // build-kfserving
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/kserve-controller:$(PULL_BASE_SHA)",
+            ]),  // build-kserve
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/alibiexplainer.Dockerfile",

@@ -25,7 +25,7 @@ setup(
     version='0.1.0',
     author_email='dsun20@bloomberg.net',
     license='../../LICENSE.txt',
-    url='https://github.com/kubeflow/kfserving/docs/samples/transformer/torchserve_image_transformer',
+    url='https://github.com/kserve/kserve/docs/samples/v1beta1/transformer/torchserve_image_transformer',
     description='Transformer',
     long_description=open('README.md').read(),
     python_requires='>=3.6',

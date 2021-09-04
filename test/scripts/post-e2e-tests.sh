@@ -25,4 +25,4 @@ pip3 install awscli --upgrade --user
 aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
 
 # Print controller logs
-kubectl logs kfserving-controller-manager-0 -n kfserving-system manager
+kubectl logs kserve-controller-manager-0 -n kserve manager

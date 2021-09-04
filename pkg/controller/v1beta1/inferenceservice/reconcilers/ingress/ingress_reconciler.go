@@ -19,10 +19,11 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
-	isvcutils "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
-	utils "github.com/kubeflow/kfserving/pkg/utils"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	utils "github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -38,9 +39,10 @@ import (
 	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"strings"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"strings"
 )
 
 var (

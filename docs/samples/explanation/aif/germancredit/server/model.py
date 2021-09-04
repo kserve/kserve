@@ -1,4 +1,4 @@
-import kfserving
+import kserve
 from typing import Dict
 
 from sklearn.preprocessing import StandardScaler
@@ -6,7 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from aif360.algorithms.preprocessing.optim_preproc_helpers.data_preproc_functions import load_preproc_data_german
 
 
-class KFServingSampleModel(kfserving.KFModel):
+class KServeSampleModel(kserve.KFModel):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -37,6 +37,6 @@ class KFServingSampleModel(kfserving.KFModel):
 
 
 if __name__ == "__main__":
-    model = KFServingSampleModel("german-credit")
+    model = KServeSampleModel("german-credit")
     model.load()
-    kfserving.KFServer(workers=1).start([model])
+    kserve.KFServer(workers=1).start([model])

@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/kubeflow/kfserving/pkg/agent"
-	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/batcher"
-	kfslogger "github.com/kubeflow/kfserving/pkg/logger"
+	"github.com/kserve/kserve/pkg/agent"
+	"github.com/kserve/kserve/pkg/agent/storage"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/batcher"
+	kfslogger "github.com/kserve/kserve/pkg/logger"
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -54,7 +54,7 @@ var (
 	// probing flags
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
 	// This creates an abstract socket instead of an actual file.
-	unixSocketPath = "@/kfserving/agent.sock"
+	unixSocketPath = "@/kserve/agent.sock"
 )
 
 type config struct {

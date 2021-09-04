@@ -19,10 +19,11 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"strings"
+
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"strings"
 )
 
 const (

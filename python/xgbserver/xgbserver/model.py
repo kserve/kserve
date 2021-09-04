@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 import xgboost as xgb
 import numpy as np
 from xgboost import XGBModel
@@ -22,7 +22,7 @@ from typing import Dict
 BOOSTER_FILE = "model.bst"
 
 
-class XGBoostModel(kfserving.KFModel):
+class XGBoostModel(kserve.KFModel):
     def __init__(self, name: str, model_dir: str, nthread: int,
                  booster: XGBModel = None):
         super().__init__(name)
@@ -35,7 +35,7 @@ class XGBoostModel(kfserving.KFModel):
 
     def load(self) -> bool:
         model_file = os.path.join(
-            kfserving.Storage.download(self.model_dir), BOOSTER_FILE)
+            kserve.Storage.download(self.model_dir), BOOSTER_FILE)
         self._booster = xgb.Booster(params={"nthread": self.nthread},
                                     model_file=model_file)
         self.ready = True

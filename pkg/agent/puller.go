@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/agent/storage"
+	v1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"go.uber.org/zap"
 )
 

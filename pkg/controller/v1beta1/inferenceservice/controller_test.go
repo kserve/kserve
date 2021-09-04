@@ -15,11 +15,13 @@ package inferenceservice
 
 import (
 	"context"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
@@ -35,7 +37,6 @@ import (
 	"knative.dev/pkg/network"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -99,7 +100,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -361,7 +362,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -390,7 +391,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
 									constants.KServiceComponentLabel: constants.Transformer.String(),
 								},
 								Annotations: map[string]string{
@@ -576,7 +577,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -605,14 +606,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
 									constants.KServiceComponentLabel: constants.Explainer.String(),
 								},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/maxScale":                            "3",
-									"autoscaling.knative.dev/minScale":                            "1",
-									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "s3://test/mnist/explainer",
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/maxScale":                         "3",
+									"autoscaling.knative.dev/minScale":                         "1",
+									"internal.serving.kserve.io/storage-initializer-sourceuri": "s3://test/mnist/explainer",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -621,7 +622,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
-											Name:  "kfserving-container",
+											Name:  constants.InferenceServiceContainerName,
 											Image: "kfserving/alibi-explainer:0.4.0",
 											Args: []string{
 												"--model_name",
@@ -743,7 +744,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -949,7 +950,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		var configMap = &v1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      constants.InferenceServiceConfigMapName,
-				Namespace: constants.KFServingNamespace,
+				Namespace: constants.KServeNamespace,
 			},
 			Data: configs,
 		}

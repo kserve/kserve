@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 from typing import Dict
 import logging
 import boto3
 import cv2
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 session = boto3.Session()
 client = session.client('s3', endpoint_url='http://minio-service:9000', aws_access_key_id='minio',
@@ -32,7 +32,7 @@ def image_transform(image):
     return g.tolist()
 
 
-class ImageTransformer(kfserving.KFModel):
+class ImageTransformer(kserve.KFModel):
     def __init__(self, name: str, predictor_host: str):
         super().__init__(name)
         self.predictor_host = predictor_host

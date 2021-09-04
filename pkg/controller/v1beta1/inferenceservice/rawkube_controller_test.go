@@ -15,11 +15,13 @@ package inferenceservice
 
 import (
 	"context"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
@@ -34,7 +36,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -99,7 +100,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -115,7 +116,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kubeflow.org/raw": "true",
+						"serving.kserve.io/raw": "true",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -180,7 +181,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
-								"serving.kubeflow.org/raw":                                 "true",
+								"serving.kserve.io/raw": "true",
 							},
 						},
 						Spec: v1.PodSpec{

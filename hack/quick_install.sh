@@ -2,7 +2,7 @@ set -e
 
 export ISTIO_VERSION=1.9.0
 export KNATIVE_VERSION=v0.22.0
-export KFSERVING_VERSION=v0.6.0
+export KSERVE_VERSION=v0.7.0-rc0
 export CERT_MANAGER_VERSION=v1.3.0
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}
@@ -55,7 +55,10 @@ kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/relea
 kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
 cd ..
 # Install KFServing
+KSERVE_CONFIG=kfserving.yaml
+if [ ${KSERVE_VERSION:3:1} -gt 6 ]; then KSERVE_CONFIG=kserve.yaml; fi
+
 # Retry inorder to handle that it may take a minute or so for the TLS assets required for the webhook to function to be provisioned
-for i in 1 2 3 4 5 ; do kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml && break || sleep 15; done
+for i in 1 2 3 4 5 ; do kubectl apply -f install/${KSERVE_VERSION}/${KSERVE_CONFIG} && break || sleep 15; done
 # Clean up
 rm -rf istio-${ISTIO_VERSION}

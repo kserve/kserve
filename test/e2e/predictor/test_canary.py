@@ -15,19 +15,19 @@
 import os
 from kubernetes import client
 
-from kfserving import KFServingClient
-from kfserving import constants
-from kfserving import V1beta1PredictorSpec
-from kfserving import V1beta1TFServingSpec
-from kfserving import V1beta1InferenceServiceSpec
-from kfserving import V1beta1InferenceService
+from kserve import KServeClient
+from kserve import constants
+from kserve import V1beta1PredictorSpec
+from kserve import V1beta1TFServingSpec
+from kserve import V1beta1InferenceServiceSpec
+from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import KFSERVING_TEST_NAMESPACE
+from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 # Setting config_file is required since SDK is running in a different cluster than KFServing
-KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_canary_rollout():
@@ -41,14 +41,14 @@ def test_canary_rollout():
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))))
 
-    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
-                                   kind=constants.KFSERVING_KIND,
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE),
                                    spec=default_endpoint_spec)
 
-    KFServing.create(isvc)
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     # define canary endpoint spec, and then rollout 10% traffic to the canary version
     canary_endpoint_spec = V1beta1InferenceServiceSpec(
@@ -59,19 +59,19 @@ def test_canary_rollout():
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))))
-    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
-                                   kind=constants.KFSERVING_KIND,
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE),
                                    spec=canary_endpoint_spec)
 
-    KFServing.patch(service_name, isvc, namespace=KFSERVING_TEST_NAMESPACE)
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    kserve_client.patch(service_name, isvc, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    canary_isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    canary_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
     for traffic in canary_isvc['status']['components']['predictor']['traffic']:
         if traffic['latestRevision']:
             assert(traffic['percent'] == 10)
 
     # Delete the InferenceService
-    KFServing.delete(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
