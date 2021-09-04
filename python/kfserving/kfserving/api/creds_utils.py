@@ -56,7 +56,7 @@ def set_gcs_credentials(namespace, credentials_file, service_account):
 def set_s3_credentials(namespace, credentials_file, service_account,
                        s3_profile='default',  # pylint: disable=too-many-locals,too-many-arguments
                        s3_endpoint=None, s3_region=None, s3_use_https=None,
-                       s3_verify_ssl=None):  # pylint: disable=unused-argument
+                       s3_verify_ssl=None, s3_cabundle=None):  # pylint: disable=unused-argument
     """
     Set S3 Credentails (secret and service account).
     Args:
@@ -67,9 +67,10 @@ def set_s3_credentials(namespace, credentials_file, service_account,
                               is specified, will attach created secret with the service account,
                               otherwise will create new one and attach with created secret.
         s3_endpoint(str): S3 settings variable S3_ENDPOINT.
-        s3_region(str): S3 settings variable AWS_REGION.
+        s3_region(str): S3 settings variable AWS_DEFAULT_REGION.
         s3_use_https(str): S3 settings variable S3_USE_HTTPS.
         s3_verify_ssl(str): S3 settings variable S3_VERIFY_SSL.
+        s3_cabundle(str): S3 settings variable AWS_CA_BUNDLE.
     """
 
     config = configparser.ConfigParser()
@@ -99,6 +100,7 @@ def set_s3_credentials(namespace, credentials_file, service_account,
         's3_region': constants.KFSERVING_GROUP + "/s3-region",
         's3_use_https': constants.KFSERVING_GROUP + "/s3-usehttps",
         's3_verify_ssl': constants.KFSERVING_GROUP + "/s3-verifyssl",
+        's3_cabundle': constants.KFSERVING_GROUP + "/s3-cabundle",
     }
 
     s3_annotations = {}
