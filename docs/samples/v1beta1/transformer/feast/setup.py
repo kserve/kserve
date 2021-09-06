@@ -22,7 +22,7 @@ tests_require = [
 
 setup(
     name='driver_transformer',
-    version='0.1.0',
+    version='0.2.0',
     author_email='chhuang@us.ibm.com',
     license='../../LICENSE.txt',
     url='https://github.com/kubeflow/kfserving/docs/samples/v1beta1/fesat/driver_transformer',
@@ -31,10 +31,9 @@ setup(
     python_requires='>=3.6',
     packages=find_packages("driver_transformer"),
     install_requires=[
-        "kfserving>=0.5.1",
+        "kfserving>=0.6.0",
         "requests>=2.22.0",
-        "numpy>=1.16.3",
-        "feast==0.9.0"
+        "numpy>=1.16.3"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
