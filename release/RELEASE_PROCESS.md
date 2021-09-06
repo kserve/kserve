@@ -1,33 +1,37 @@
 # Release Process
-KFServing's automated release processes run in Google Cloud Build under the project `kfserving`. For additional permissions to this project, please contact ellisbigelow@google.com.
+## Create an issue for release tracking
 
-Builds are available at https://console.cloud.google.com/cloud-build/builds?project=kfserving.
-To view builds, you must be a member of kubeflow-discuss@googlegroups.com.
+- Create an issue in [kserve/kserve](https://github.com/kserve/kserve)
+- Label the issue with `priority p0`
+- Label the issue with `kind process`
+- Announce the release in the release channel
 
-## Latest Release
-This release process relies on Google Cloud build Triggers. This build triggers are configured manually to execute builds for the following:
+## Releasing KServe components
+A release branch should be substantially _feature complete_ with respect to the intended release.
+Code that is committed to `master` may be merged or cherry-picked on to a release branch, but code that is directly committed to the release branch should be solely applicable to that release (and should not be committed back to master).
+In general, unless you're committing code that only applies to the release stream (for example, temporary hotfixes, backported security fixes, or image hashes), you should commit to `master` and then merge or cherry-pick to the release branch.
 
-1. github.com/kubeflow/kfserving/Dockerfile -> `gcr.io/kfserving/kfserving-controller:latest`
-2. github.com/kubeflow/kfserving/python/sklearn.Dockerfile -> `gcr.io/kfserving/sklearnserver:latest`
-3. github.com/kubeflow/kfserving/python/xgboost.Dockerfile -> `gcr.io/kfserving/xgbserver:latest`
+### List of Components
 
-## Versioned Releases
-This release process relies on Github release tags and Google Cloud Build Triggers. The built triggers are configured manually to execute builds for 
-the following:
+- [KServe](https://github.com/kserve/kserve)
+- [ModelMesh](https://github.com/kserve/modelmesh-serving)
+- [Website](https://github.com/kserve/website)
 
-1. github.com/kubeflow/kfserving/Dockerfile -> `gcr.io/kfserving/kfserving-controller:$TAG`
+## Create a release branch
+If you aren't already working on a release branch (of the form `release-${MAJOR}`, where `release-${MAJOR}` is a major-minor version number), then create one.
+Release branches serve several purposes:
 
-Versioning for frameworks must be decoupled from KFServing Version. All framework images will be rebuilt regularly. Newer versions of KFServing may cease to include the latest changes of the KFServer for old versions of Frameworks.
+1.  They allow a release wrangler or other developers to focus on a release without interrupting development on `master`,
+1.  they allow developers to track the development of a release before a release candidate is declared,
+1.  they simplify back porting critical bug fixes to a patch level release for a particular release stream (e.g., producing a `v0.6.1` from `release-0.6`), when appropriate.
 
-# Releaser Guide
-Sample PR: https://github.com/kubeflow/kfserving/pull/700
-
+## Publish the release
 It's generally a good idea to search the repo for control-f for strings of the old version number and replace them with the new, keeping in mind conflicts with other library version numbers.
 
-1. Update configmap to point to $VERSION for all images (e.g. https://github.com/kubeflow/kfserving/pull/700/files#diff-c8dbe0c491a054c35d4254b9dfc6a6dd).
-2. Update python libraries to $VERSION.
-3. Generate install manifest `./hack/generate-install.sh $VERSION`
+1. Update configmap to point to $VERSION for all images in the release branch.
+2. Update kserve and dependent python libraries to $VERSION in `setup.py`.
+3. Generate install manifest `./hack/generate-install.sh $VERSION`.
 4. Submit your PR and wait for it to merge.
-5. Regenerate the SDK and refresh in Pypi: https://github.com/kubeflow/kfserving/blob/f471d0bd6e95e8556fa09fbb5bb8b22352592798/hack/python-sdk/README.md
-6. Once everything has settled, tag and push the release with `git tag $VERSION` and `git push upstream --tags`.
-
+5. Once everything has settled, tag and push the release with `git tag $VERSION` and `git push upstream $VERSION`.
+6. KServe python sdk and images are published from github actions.
+7. Upload kserve install manifests to github release artifacts.

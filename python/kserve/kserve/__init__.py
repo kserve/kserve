@@ -20,7 +20,7 @@ from kserve.constants import constants
 from kserve.utils import utils
 from kserve.handlers import http
 
-# import client apis into kfserving package
+# import client apis into kserve package
 from kserve.api.kf_serving_client import KServeClient
 from kserve.constants import constants
 
@@ -33,13 +33,13 @@ from kserve.exceptions import ApiValueError
 from kserve.exceptions import ApiKeyError
 from kserve.exceptions import ApiException
 
-# import v1alpha1 models into kfserving packages
+# import v1alpha1 models into kserve packages
 from kserve.models.v1alpha1_model_spec import V1alpha1ModelSpec
 from kserve.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kserve.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kserve.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
 
-# import v1alpha2 models into kfserving package
+# import v1alpha2 models into kserve package
 from kserve.models.knative_addressable import KnativeAddressable
 from kserve.models.knative_condition import KnativeCondition
 from kserve.models.knative_url import KnativeURL

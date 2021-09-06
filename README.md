@@ -129,7 +129,7 @@ export INGRESS_PORT=8080
 ```shell
 kubectl get po -n kserve
 NAME                             READY   STATUS    RESTARTS   AGE
-kfserving-controller-manager-0   2/2     Running   2          13m
+kserve-controller-manager-0   2/2     Running   2          13m
 ```
 
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips for issues with installation.

@@ -93,7 +93,7 @@ data:
             "multiModelServer": true
         },
         "pmml": {
-            "image": "kfserving/pmmlserver",
+            "image": "kserve/pmmlserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "pmml"
@@ -101,7 +101,7 @@ data:
             "multiModelServer": false
         },
         "lightgbm": {
-            "image": "kfserving/lgbserver",
+            "image": "kserve/lgbserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "lightgbm"
@@ -109,7 +109,7 @@ data:
             "multiModelServer": false
         },
         "paddle": {
-            "image": "kfserving/paddleserver",
+            "image": "kserve/paddleserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "paddle"
@@ -123,15 +123,15 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "kfserving/alibi-explainer",
+            "image" : "kserve/alibi-explainer",
             "defaultImageVersion": "latest"
         },
         "aix": {
-            "image" : "kfserving/aix-explainer",
+            "image" : "kserve/aix-explainer",
             "defaultImageVersion": "latest"
         },
         "art": {
-            "image" : "kfserving/art-explainer",
+            "image" : "kserve/art-explainer",
             "defaultImageVersion": "latest"
         }
     }
@@ -163,7 +163,7 @@ data:
     }
   logger: |-
     {
-        "image" : "kfserving/agent:latest",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -172,7 +172,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kfserving/agent:latest",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -180,7 +180,7 @@ data:
     }
   agent: |-
     {
-        "image" : "kfserving/agent:latest",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
