@@ -16521,7 +16521,7 @@ apiVersion: v1
 data:
   agent: |-
     {
-        "image" : "kfserving/agent:v0.7.0-rc0",
+        "image" : "kserve/agent:v0.7.0-rc0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -16529,7 +16529,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kfserving/agent:v0.7.0-rc0",
+        "image" : "kserve/agent:v0.7.0-rc0",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -16548,15 +16548,15 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "kfserving/alibi-explainer",
+            "image" : "kserve/alibi-explainer",
             "defaultImageVersion": "latest"
         },
         "aix": {
-            "image" : "kfserving/aix-explainer",
+            "image" : "kserve/aix-explainer",
             "defaultImageVersion": "latest"
         },
         "art": {
-            "image" : "kfserving/art-explainer",
+            "image" : "kserve/art-explainer",
             "defaultImageVersion": "latest"
         }
     }
@@ -16570,7 +16570,7 @@ data:
     }
   logger: |-
     {
-        "image" : "kfserving/agent:v0.7.0-rc0",
+        "image" : "kserve/agent:v0.7.0-rc0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -16666,7 +16666,7 @@ data:
             "multiModelServer": true
         },
         "pmml": {
-            "image": "kfserving/pmmlserver",
+            "image": "kserve/pmmlserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "pmml"
@@ -16674,7 +16674,7 @@ data:
             "multiModelServer": false
         },
         "lightgbm": {
-            "image": "kfserving/lgbserver",
+            "image": "kserve/lgbserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "lightgbm"
@@ -16682,7 +16682,7 @@ data:
             "multiModelServer": false
         },
         "paddle": {
-            "image": "kfserving/paddleserver",
+            "image": "kserve/paddleserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "paddle"
@@ -16692,7 +16692,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:v0.7.0-rc0",
+        "image" : "kserve/storage-initializer:v0.7.0-rc0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -16822,7 +16822,7 @@ spec:
       - envFrom:
         - configMapRef:
             name: kserve-models-web-app-config-9kkt28dhgb
-        image: andyarok/models-web-app:v0.7.0-rc0
+        image: kserve/models-web-app:v0.7.0-rc0
         imagePullPolicy: Always
         name: kserve-models-web-app
         ports:
