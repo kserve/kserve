@@ -65,7 +65,7 @@ kubectl apply -f xgboost.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/xgboost-iris created
+$ inferenceservice.serving.kserve.io/xgboost-iris created
 ```
 
 ## Run a prediction
@@ -116,7 +116,7 @@ To use your XGBServer image:
 ```
 - Specify the `runtimeVersion` on `InferenceService` spec
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kserve.io/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "xgboost-iris"

@@ -23,7 +23,7 @@ in a custom inference  service.
    
    
   ```yaml
- apiVersion: serving.kubeflow.org/v1alpha2
+ apiVersion: serving.kserve.io/v1alpha2
 kind: InferenceService
 metadata:
   labels:

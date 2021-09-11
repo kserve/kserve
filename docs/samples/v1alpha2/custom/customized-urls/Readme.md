@@ -38,7 +38,7 @@ if __name__ == "__main__":
 * Config the `InferenceService` yaml
 
 ```yaml
-apiVersion: serving.kubeflow.org/v1alpha2
+apiVersion: serving.kserve.io/v1alpha2
   kind: InferenceService
   metadata:
     name: customized-urls-sample

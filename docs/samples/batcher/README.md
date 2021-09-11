@@ -12,7 +12,7 @@ the request is then sent to the model server container for inference.
 * Currently we only implemented batching with KFServing v1 HTTP protocol, gRPC is not supported yet.
 * When the number of instances (For example, the number of pictures) reaches the `maxBatchSize` or the latency meets the `maxLatency`, a batch prediction will be triggered.
 ```
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kserve.io/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "pytorch-cifar10"

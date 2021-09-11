@@ -34,7 +34,7 @@ Apply the tensorflow example CR with scaling target set to 1. Annotation `autosc
 enforced limit, if there is sudden burst of the requests, this value can be exceeded.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample"
@@ -52,7 +52,7 @@ kubectl apply -f autoscale.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/flowers-sample configured
+$ inferenceservice.serving.kserve.io/flowers-sample configured
 ```
 
 ### Load InferenceService with concurrent requests
@@ -145,7 +145,7 @@ kubectl apply -f autoscale.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/flowers-sample configured
+$ inferenceservice.serving.kserve.io/flowers-sample configured
 ```
 
 ### Load InferenceService with target QPS
@@ -228,7 +228,7 @@ is pretty easy and effective!
 ### Create the InferenceService with GPU resource
 Apply the tensorflow gpu example CR
 ```
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample-gpu"
@@ -309,7 +309,7 @@ at any given time, it is a hard limit and if the concurrency reaches the hard li
 enough capacity is free to execute the requests.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample"
@@ -329,7 +329,7 @@ KFServing by default sets `minReplicas` to 1, if you want to enable scaling down
 set `minReplicas` to 0 so that the pods automatically scale down to zero when no traffic is received.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample"

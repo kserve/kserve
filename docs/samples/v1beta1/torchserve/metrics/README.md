@@ -28,7 +28,7 @@ istioctl dashboard prometheus
 Enable prometheus scraping by adding annotations to deployment yaml. Here our torchserve's metrics port is 8082.
 
 ```yaml
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: "torch-metrics"
@@ -52,7 +52,7 @@ kubectl apply -f metrics.yaml
 Expected Output
 
 ```bash
-$inferenceservice.serving.kubeflow.org/torch-metrics created
+$inferenceservice.serving.kserve.io/torch-metrics created
 ```
 
 ## Run a prediction

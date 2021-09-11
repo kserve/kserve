@@ -24,7 +24,7 @@ kubectl apply -f message-dumper.yaml -n kfserving-test
 We can now create a torchserve predictor with a logger which points at the message dumper. The yaml is shown below.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "torchserve-logger"

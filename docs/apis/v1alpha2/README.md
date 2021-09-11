@@ -1,20 +1,20 @@
 <p>Packages:</p>
 <ul>
 <li>
-<a href="#serving.kubeflow.org%2fv1alpha2">serving.kubeflow.org/v1alpha2</a>
+<a href="#serving.kserve.io%2fv1alpha2">serving.kserve.io/v1alpha2</a>
 </li>
 </ul>
-<h2 id="serving.kubeflow.org/v1alpha2">serving.kubeflow.org/v1alpha2</h2>
+<h2 id="serving.kserve.io/v1alpha2">serving.kserve.io/v1alpha2</h2>
 <p>
 <p>Package v1alpha2 contains API Schema definitions for the serving v1alpha2 API group</p>
 </p>
 Resource Types:
 <ul></ul>
-<h3 id="serving.kubeflow.org/v1alpha2.AIXExplainerSpec">AIXExplainerSpec
+<h3 id="serving.kserve.io/v1alpha2.AIXExplainerSpec">AIXExplainerSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.ExplainerSpec">ExplainerSpec</a>)
 </p>
 <p>
 <p>AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server</p>
@@ -31,7 +31,7 @@ Resource Types:
 <td>
 <code>type</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerType">
+<a href="#serving.kserve.io/v1alpha2.AIXExplainerType">
 AIXExplainerType
 </a>
 </em>
@@ -88,11 +88,11 @@ map[string]string
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.AIXExplainerType">AIXExplainerType
+<h3 id="serving.kserve.io/v1alpha2.AIXExplainerType">AIXExplainerType
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerSpec">AIXExplainerSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.AIXExplainerSpec">AIXExplainerSpec</a>)
 </p>
 <p>
 </p>
@@ -107,11 +107,11 @@ map[string]string
 <td></td>
 </tr></tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec
+<h3 id="serving.kserve.io/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.ExplainerSpec">ExplainerSpec</a>)
 </p>
 <p>
 <p>AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server</p>
@@ -128,7 +128,7 @@ map[string]string
 <td>
 <code>type</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.AlibiExplainerType">
+<a href="#serving.kserve.io/v1alpha2.AlibiExplainerType">
 AlibiExplainerType
 </a>
 </em>
@@ -185,11 +185,11 @@ map[string]string
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.AlibiExplainerType">AlibiExplainerType
+<h3 id="serving.kserve.io/v1alpha2.AlibiExplainerType">AlibiExplainerType
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec</a>)
 </p>
 <p>
 </p>
@@ -212,11 +212,11 @@ map[string]string
 <td></td>
 </tr></tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.Batcher">Batcher
+<h3 id="serving.kserve.io/v1alpha2.Batcher">Batcher
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.DeploymentSpec">DeploymentSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.DeploymentSpec">DeploymentSpec</a>)
 </p>
 <p>
 <p>Batcher provides optional payload batcher for all endpoints</p>
@@ -272,13 +272,13 @@ int
 <p>
 <p>EndpointStatusMap defines the observed state of InferenceService endpoints</p>
 </p>
-<h3 id="serving.kubeflow.org/v1alpha2.CustomSpec">CustomSpec
+<h3 id="serving.kserve.io/v1alpha2.CustomSpec">CustomSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec</a>, 
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>, 
-<a href="#serving.kubeflow.org/v1alpha2.TransformerSpec">TransformerSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.ExplainerSpec">ExplainerSpec</a>, 
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>, 
+<a href="#serving.kserve.io/v1alpha2.TransformerSpec">TransformerSpec</a>)
 </p>
 <p>
 <p>CustomSpec provides a hook for arbitrary container configuration.</p>
@@ -305,13 +305,13 @@ Kubernetes core/v1.Container
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.DeploymentSpec">DeploymentSpec
+<h3 id="serving.kserve.io/v1alpha2.DeploymentSpec">DeploymentSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec</a>, 
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>, 
-<a href="#serving.kubeflow.org/v1alpha2.TransformerSpec">TransformerSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.ExplainerSpec">ExplainerSpec</a>, 
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>, 
+<a href="#serving.kserve.io/v1alpha2.TransformerSpec">TransformerSpec</a>)
 </p>
 <p>
 <p>DeploymentSpec defines the configuration for a given InferenceService service component</p>
@@ -376,7 +376,7 @@ concurrency(<a href="https://knative.dev/docs/serving/autoscaling/concurrency">h
 <td>
 <code>logger</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.Logger">
+<a href="#serving.kserve.io/v1alpha2.Logger">
 Logger
 </a>
 </em>
@@ -390,7 +390,7 @@ Logger
 <td>
 <code>batcher</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.Batcher">
+<a href="#serving.kserve.io/v1alpha2.Batcher">
 Batcher
 </a>
 </em>
@@ -402,11 +402,11 @@ Batcher
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.EndpointSpec">EndpointSpec
+<h3 id="serving.kserve.io/v1alpha2.EndpointSpec">EndpointSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceSpec">InferenceServiceSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.InferenceServiceSpec">InferenceServiceSpec</a>)
 </p>
 <p>
 </p>
@@ -422,7 +422,7 @@ Batcher
 <td>
 <code>predictor</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">
 PredictorSpec
 </a>
 </em>
@@ -435,7 +435,7 @@ PredictorSpec
 <td>
 <code>explainer</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainerSpec">
+<a href="#serving.kserve.io/v1alpha2.ExplainerSpec">
 ExplainerSpec
 </a>
 </em>
@@ -450,7 +450,7 @@ explainer service calls to predictor or transformer if it is specified.</p>
 <td>
 <code>transformer</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.TransformerSpec">
+<a href="#serving.kserve.io/v1alpha2.TransformerSpec">
 TransformerSpec
 </a>
 </em>
@@ -463,15 +463,15 @@ transformer service calls to predictor service.</p>
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.Explainer">Explainer
+<h3 id="serving.kserve.io/v1alpha2.Explainer">Explainer
 </h3>
 <p>
 </p>
-<h3 id="serving.kubeflow.org/v1alpha2.ExplainerConfig">ExplainerConfig
+<h3 id="serving.kserve.io/v1alpha2.ExplainerConfig">ExplainerConfig
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainersConfig">ExplainersConfig</a>)
+<a href="#serving.kserve.io/v1alpha2.ExplainersConfig">ExplainersConfig</a>)
 </p>
 <p>
 </p>
@@ -505,11 +505,11 @@ string
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec
+<h3 id="serving.kserve.io/v1alpha2.ExplainerSpec">ExplainerSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">EndpointSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.EndpointSpec">EndpointSpec</a>)
 </p>
 <p>
 <p>ExplainerSpec defines the arguments for a model explanation server,
@@ -527,7 +527,7 @@ The following fields follow a &ldquo;1-of&rdquo; semantic. Users must specify ex
 <td>
 <code>alibi</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">
+<a href="#serving.kserve.io/v1alpha2.AlibiExplainerSpec">
 AlibiExplainerSpec
 </a>
 </em>
@@ -540,7 +540,7 @@ AlibiExplainerSpec
 <td>
 <code>aix</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerSpec">
+<a href="#serving.kserve.io/v1alpha2.AIXExplainerSpec">
 AIXExplainerSpec
 </a>
 </em>
@@ -553,7 +553,7 @@ AIXExplainerSpec
 <td>
 <code>custom</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.CustomSpec">
+<a href="#serving.kserve.io/v1alpha2.CustomSpec">
 CustomSpec
 </a>
 </em>
@@ -566,7 +566,7 @@ CustomSpec
 <td>
 <code>DeploymentSpec</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.DeploymentSpec">
+<a href="#serving.kserve.io/v1alpha2.DeploymentSpec">
 DeploymentSpec
 </a>
 </em>
@@ -579,11 +579,11 @@ DeploymentSpec
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.ExplainersConfig">ExplainersConfig
+<h3 id="serving.kserve.io/v1alpha2.ExplainersConfig">ExplainersConfig
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServicesConfig">InferenceServicesConfig</a>)
+<a href="#serving.kserve.io/v1alpha2.InferenceServicesConfig">InferenceServicesConfig</a>)
 </p>
 <p>
 </p>
@@ -599,7 +599,7 @@ DeploymentSpec
 <td>
 <code>alibi</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainerConfig">
+<a href="#serving.kserve.io/v1alpha2.ExplainerConfig">
 ExplainerConfig
 </a>
 </em>
@@ -611,7 +611,7 @@ ExplainerConfig
 <td>
 <code>aix</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainerConfig">
+<a href="#serving.kserve.io/v1alpha2.ExplainerConfig">
 ExplainerConfig
 </a>
 </em>
@@ -621,7 +621,7 @@ ExplainerConfig
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.InferenceService">InferenceService
+<h3 id="serving.kserve.io/v1alpha2.InferenceService">InferenceService
 </h3>
 <p>
 <p>InferenceService is the Schema for the services API</p>
@@ -652,7 +652,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceSpec">
+<a href="#serving.kserve.io/v1alpha2.InferenceServiceSpec">
 InferenceServiceSpec
 </a>
 </em>
@@ -665,7 +665,7 @@ InferenceServiceSpec
 <td>
 <code>default</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">
+<a href="#serving.kserve.io/v1alpha2.EndpointSpec">
 EndpointSpec
 </a>
 </em>
@@ -678,7 +678,7 @@ EndpointSpec
 <td>
 <code>canary</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">
+<a href="#serving.kserve.io/v1alpha2.EndpointSpec">
 EndpointSpec
 </a>
 </em>
@@ -707,7 +707,7 @@ int
 <td>
 <code>status</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">
+<a href="#serving.kserve.io/v1alpha2.InferenceServiceStatus">
 InferenceServiceStatus
 </a>
 </em>
@@ -717,11 +717,11 @@ InferenceServiceStatus
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceSpec">InferenceServiceSpec
+<h3 id="serving.kserve.io/v1alpha2.InferenceServiceSpec">InferenceServiceSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceService">InferenceService</a>)
+<a href="#serving.kserve.io/v1alpha2.InferenceService">InferenceService</a>)
 </p>
 <p>
 <p>InferenceServiceSpec defines the desired state of InferenceService</p>
@@ -738,7 +738,7 @@ InferenceServiceStatus
 <td>
 <code>default</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">
+<a href="#serving.kserve.io/v1alpha2.EndpointSpec">
 EndpointSpec
 </a>
 </em>
@@ -751,7 +751,7 @@ EndpointSpec
 <td>
 <code>canary</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">
+<a href="#serving.kserve.io/v1alpha2.EndpointSpec">
 EndpointSpec
 </a>
 </em>
@@ -775,7 +775,7 @@ int
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceState">InferenceServiceState
+<h3 id="serving.kserve.io/v1alpha2.InferenceServiceState">InferenceServiceState
 (<code>string</code> alias)</p></h3>
 <p>
 <p>InferenceState describes the Readiness of the InferenceService</p>
@@ -793,11 +793,11 @@ int
 <td></td>
 </tr></tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus
+<h3 id="serving.kserve.io/v1alpha2.InferenceServiceStatus">InferenceServiceStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceService">InferenceService</a>)
+<a href="#serving.kserve.io/v1alpha2.InferenceService">InferenceService</a>)
 </p>
 <p>
 <p>InferenceServiceStatus defines the observed state of InferenceService</p>
@@ -860,7 +860,7 @@ int
 <td>
 <code>default</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec">
+<a href="#serving.kserve.io/v1alpha2.map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec">
 map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec
 </a>
 </em>
@@ -873,7 +873,7 @@ map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github
 <td>
 <code>canary</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec">
+<a href="#serving.kserve.io/v1alpha2.map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec">
 map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec
 </a>
 </em>
@@ -895,7 +895,7 @@ knative.dev/pkg/apis/duck/v1beta1.Addressable
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.InferenceServicesConfig">InferenceServicesConfig
+<h3 id="serving.kserve.io/v1alpha2.InferenceServicesConfig">InferenceServicesConfig
 </h3>
 <p>
 </p>
@@ -911,7 +911,7 @@ knative.dev/pkg/apis/duck/v1beta1.Addressable
 <td>
 <code>transformers</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.TransformersConfig">
+<a href="#serving.kserve.io/v1alpha2.TransformersConfig">
 TransformersConfig
 </a>
 </em>
@@ -923,7 +923,7 @@ TransformersConfig
 <td>
 <code>predictors</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">
+<a href="#serving.kserve.io/v1alpha2.PredictorsConfig">
 PredictorsConfig
 </a>
 </em>
@@ -935,7 +935,7 @@ PredictorsConfig
 <td>
 <code>explainers</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainersConfig">
+<a href="#serving.kserve.io/v1alpha2.ExplainersConfig">
 ExplainersConfig
 </a>
 </em>
@@ -945,11 +945,11 @@ ExplainersConfig
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.LightGBMSpec">LightGBMSpec
+<h3 id="serving.kserve.io/v1alpha2.LightGBMSpec">LightGBMSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>)
 </p>
 <p>
 <p>LightGBMSpec defines arguments for configuring LightGBM model serving.</p>
@@ -1010,11 +1010,11 @@ Kubernetes core/v1.ResourceRequirements
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.Logger">Logger
+<h3 id="serving.kserve.io/v1alpha2.Logger">Logger
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.DeploymentSpec">DeploymentSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.DeploymentSpec">DeploymentSpec</a>)
 </p>
 <p>
 <p>Logger provides optional payload logging for all endpoints</p>
@@ -1043,7 +1043,7 @@ string
 <td>
 <code>mode</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.LoggerMode">
+<a href="#serving.kserve.io/v1alpha2.LoggerMode">
 LoggerMode
 </a>
 </em>
@@ -1054,11 +1054,11 @@ LoggerMode
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.LoggerMode">LoggerMode
+<h3 id="serving.kserve.io/v1alpha2.LoggerMode">LoggerMode
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.Logger">Logger</a>)
+<a href="#serving.kserve.io/v1alpha2.Logger">Logger</a>)
 </p>
 <p>
 </p>
@@ -1077,11 +1077,11 @@ LoggerMode
 <td></td>
 </tr></tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.ONNXSpec">ONNXSpec
+<h3 id="serving.kserve.io/v1alpha2.ONNXSpec">ONNXSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>)
 </p>
 <p>
 <p>ONNXSpec defines arguments for configuring ONNX model serving.</p>
@@ -1131,11 +1131,11 @@ Kubernetes core/v1.ResourceRequirements
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.PMMLSpec">PMMLSpec
+<h3 id="serving.kserve.io/v1alpha2.PMMLSpec">PMMLSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>)
 </p>
 <p>
 <p>PMMLSpec defines arguments for configuring PMML model serving.</p>
@@ -1185,16 +1185,16 @@ Kubernetes core/v1.ResourceRequirements
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.Predictor">Predictor
+<h3 id="serving.kserve.io/v1alpha2.Predictor">Predictor
 </h3>
 <p>
 </p>
-<h3 id="serving.kubeflow.org/v1alpha2.PredictorConfig">PredictorConfig
+<h3 id="serving.kserve.io/v1alpha2.PredictorConfig">PredictorConfig
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">PredictorProtocols</a>, 
-<a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorProtocols">PredictorProtocols</a>, 
+<a href="#serving.kserve.io/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
 </p>
 <p>
 </p>
@@ -1249,11 +1249,11 @@ int64
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.PredictorProtocols">PredictorProtocols
+<h3 id="serving.kserve.io/v1alpha2.PredictorProtocols">PredictorProtocols
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
 </p>
 <p>
 </p>
@@ -1269,7 +1269,7 @@ int64
 <td>
 <code>v1</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+<a href="#serving.kserve.io/v1alpha2.PredictorConfig">
 PredictorConfig
 </a>
 </em>
@@ -1281,7 +1281,7 @@ PredictorConfig
 <td>
 <code>v2</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+<a href="#serving.kserve.io/v1alpha2.PredictorConfig">
 PredictorConfig
 </a>
 </em>
@@ -1291,11 +1291,11 @@ PredictorConfig
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec
+<h3 id="serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">EndpointSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.EndpointSpec">EndpointSpec</a>)
 </p>
 <p>
 <p>PredictorSpec defines the configuration for a predictor,
@@ -1313,7 +1313,7 @@ The following fields follow a &ldquo;1-of&rdquo; semantic. Users must specify ex
 <td>
 <code>custom</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.CustomSpec">
+<a href="#serving.kserve.io/v1alpha2.CustomSpec">
 CustomSpec
 </a>
 </em>
@@ -1326,7 +1326,7 @@ CustomSpec
 <td>
 <code>tensorflow</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.TensorflowSpec">
+<a href="#serving.kserve.io/v1alpha2.TensorflowSpec">
 TensorflowSpec
 </a>
 </em>
@@ -1339,7 +1339,7 @@ TensorflowSpec
 <td>
 <code>triton</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.TritonSpec">
+<a href="#serving.kserve.io/v1alpha2.TritonSpec">
 TritonSpec
 </a>
 </em>
@@ -1352,7 +1352,7 @@ TritonSpec
 <td>
 <code>xgboost</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.XGBoostSpec">
+<a href="#serving.kserve.io/v1alpha2.XGBoostSpec">
 XGBoostSpec
 </a>
 </em>
@@ -1365,7 +1365,7 @@ XGBoostSpec
 <td>
 <code>lightgbm</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.LightGBMSpec">
+<a href="#serving.kserve.io/v1alpha2.LightGBMSpec">
 LightGBMSpec
 </a>
 </em>
@@ -1378,7 +1378,7 @@ LightGBMSpec
 <td>
 <code>sklearn</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.SKLearnSpec">
+<a href="#serving.kserve.io/v1alpha2.SKLearnSpec">
 SKLearnSpec
 </a>
 </em>
@@ -1391,7 +1391,7 @@ SKLearnSpec
 <td>
 <code>onnx</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.ONNXSpec">
+<a href="#serving.kserve.io/v1alpha2.ONNXSpec">
 ONNXSpec
 </a>
 </em>
@@ -1404,7 +1404,7 @@ ONNXSpec
 <td>
 <code>pytorch</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PyTorchSpec">
+<a href="#serving.kserve.io/v1alpha2.PyTorchSpec">
 PyTorchSpec
 </a>
 </em>
@@ -1417,7 +1417,7 @@ PyTorchSpec
 <td>
 <code>pmml</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PMMLSpec">
+<a href="#serving.kserve.io/v1alpha2.PMMLSpec">
 PMMLSpec
 </a>
 </em>
@@ -1430,7 +1430,7 @@ PMMLSpec
 <td>
 <code>DeploymentSpec</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.DeploymentSpec">
+<a href="#serving.kserve.io/v1alpha2.DeploymentSpec">
 DeploymentSpec
 </a>
 </em>
@@ -1443,11 +1443,11 @@ DeploymentSpec
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig
+<h3 id="serving.kserve.io/v1alpha2.PredictorsConfig">PredictorsConfig
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServicesConfig">InferenceServicesConfig</a>)
+<a href="#serving.kserve.io/v1alpha2.InferenceServicesConfig">InferenceServicesConfig</a>)
 </p>
 <p>
 </p>
@@ -1463,7 +1463,7 @@ DeploymentSpec
 <td>
 <code>tensorflow</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+<a href="#serving.kserve.io/v1alpha2.PredictorConfig">
 PredictorConfig
 </a>
 </em>
@@ -1475,7 +1475,7 @@ PredictorConfig
 <td>
 <code>triton</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+<a href="#serving.kserve.io/v1alpha2.PredictorConfig">
 PredictorConfig
 </a>
 </em>
@@ -1487,7 +1487,7 @@ PredictorConfig
 <td>
 <code>xgboost</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">
+<a href="#serving.kserve.io/v1alpha2.PredictorProtocols">
 PredictorProtocols
 </a>
 </em>
@@ -1499,7 +1499,7 @@ PredictorProtocols
 <td>
 <code>lightgbm</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+<a href="#serving.kserve.io/v1alpha2.PredictorConfig">
 PredictorConfig
 </a>
 </em>
@@ -1511,7 +1511,7 @@ PredictorConfig
 <td>
 <code>sklearn</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">
+<a href="#serving.kserve.io/v1alpha2.PredictorProtocols">
 PredictorProtocols
 </a>
 </em>
@@ -1523,7 +1523,7 @@ PredictorProtocols
 <td>
 <code>pytorch</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+<a href="#serving.kserve.io/v1alpha2.PredictorConfig">
 PredictorConfig
 </a>
 </em>
@@ -1535,7 +1535,7 @@ PredictorConfig
 <td>
 <code>onnx</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+<a href="#serving.kserve.io/v1alpha2.PredictorConfig">
 PredictorConfig
 </a>
 </em>
@@ -1547,7 +1547,7 @@ PredictorConfig
 <td>
 <code>pmml</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+<a href="#serving.kserve.io/v1alpha2.PredictorConfig">
 PredictorConfig
 </a>
 </em>
@@ -1557,11 +1557,11 @@ PredictorConfig
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.PyTorchSpec">PyTorchSpec
+<h3 id="serving.kserve.io/v1alpha2.PyTorchSpec">PyTorchSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>)
 </p>
 <p>
 <p>PyTorchSpec defines arguments for configuring PyTorch model serving.</p>
@@ -1622,11 +1622,11 @@ Kubernetes core/v1.ResourceRequirements
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.SKLearnSpec">SKLearnSpec
+<h3 id="serving.kserve.io/v1alpha2.SKLearnSpec">SKLearnSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>)
 </p>
 <p>
 <p>SKLearnSpec defines arguments for configuring SKLearn model serving.</p>
@@ -1676,7 +1676,7 @@ Kubernetes core/v1.ResourceRequirements
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.StatusConfigurationSpec">StatusConfigurationSpec
+<h3 id="serving.kserve.io/v1alpha2.StatusConfigurationSpec">StatusConfigurationSpec
 </h3>
 <p>
 <p>StatusConfigurationSpec describes the state of the configuration receiving traffic.</p>
@@ -1713,11 +1713,11 @@ string
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.TensorflowSpec">TensorflowSpec
+<h3 id="serving.kserve.io/v1alpha2.TensorflowSpec">TensorflowSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>)
 </p>
 <p>
 <p>TensorflowSpec defines arguments for configuring Tensorflow model serving.</p>
@@ -1767,16 +1767,16 @@ Kubernetes core/v1.ResourceRequirements
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.Transformer">Transformer
+<h3 id="serving.kserve.io/v1alpha2.Transformer">Transformer
 </h3>
 <p>
 <p>Transformer interface is implemented by all Transformers</p>
 </p>
-<h3 id="serving.kubeflow.org/v1alpha2.TransformerConfig">TransformerConfig
+<h3 id="serving.kserve.io/v1alpha2.TransformerConfig">TransformerConfig
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.TransformersConfig">TransformersConfig</a>)
+<a href="#serving.kserve.io/v1alpha2.TransformersConfig">TransformersConfig</a>)
 </p>
 <p>
 </p>
@@ -1810,11 +1810,11 @@ string
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.TransformerSpec">TransformerSpec
+<h3 id="serving.kserve.io/v1alpha2.TransformerSpec">TransformerSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">EndpointSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.EndpointSpec">EndpointSpec</a>)
 </p>
 <p>
 <p>TransformerSpec defines transformer service for pre/post processing</p>
@@ -1831,7 +1831,7 @@ string
 <td>
 <code>custom</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.CustomSpec">
+<a href="#serving.kserve.io/v1alpha2.CustomSpec">
 CustomSpec
 </a>
 </em>
@@ -1844,7 +1844,7 @@ CustomSpec
 <td>
 <code>DeploymentSpec</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.DeploymentSpec">
+<a href="#serving.kserve.io/v1alpha2.DeploymentSpec">
 DeploymentSpec
 </a>
 </em>
@@ -1857,11 +1857,11 @@ DeploymentSpec
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.TransformersConfig">TransformersConfig
+<h3 id="serving.kserve.io/v1alpha2.TransformersConfig">TransformersConfig
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServicesConfig">InferenceServicesConfig</a>)
+<a href="#serving.kserve.io/v1alpha2.InferenceServicesConfig">InferenceServicesConfig</a>)
 </p>
 <p>
 </p>
@@ -1877,7 +1877,7 @@ DeploymentSpec
 <td>
 <code>feast</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.TransformerConfig">
+<a href="#serving.kserve.io/v1alpha2.TransformerConfig">
 TransformerConfig
 </a>
 </em>
@@ -1887,11 +1887,11 @@ TransformerConfig
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.TritonSpec">TritonSpec
+<h3 id="serving.kserve.io/v1alpha2.TritonSpec">TritonSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>)
 </p>
 <p>
 <p>TritonSpec defines arguments for configuring Triton Inference Server.</p>
@@ -1941,7 +1941,7 @@ Kubernetes core/v1.ResourceRequirements
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.VirtualServiceStatus">VirtualServiceStatus
+<h3 id="serving.kserve.io/v1alpha2.VirtualServiceStatus">VirtualServiceStatus
 </h3>
 <p>
 <p>VirtualServiceStatus captures the status of the virtual service</p>
@@ -2008,11 +2008,11 @@ knative.dev/pkg/apis/duck/v1beta1.Status
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.XGBoostSpec">XGBoostSpec
+<h3 id="serving.kserve.io/v1alpha2.XGBoostSpec">XGBoostSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+<a href="#serving.kserve.io/v1alpha2.PredictorSpec">PredictorSpec</a>)
 </p>
 <p>
 <p>XGBoostSpec defines arguments for configuring XGBoost model serving.</p>
