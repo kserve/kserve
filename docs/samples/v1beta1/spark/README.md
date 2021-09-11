@@ -46,7 +46,7 @@ gsutil cp ./DecisionTreeIris.pmml gs://$BUCKET_NAME/sparkpmml/model.pmml
 ## Create the InferenceService with PMMLServer
 Create the `InferenceService` with `pmml` predictor and specify the `storageUri` with bucket location you uploaded to
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "spark-pmml"
@@ -63,13 +63,13 @@ kubectl apply -f spark_pmml.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/spark-pmml created
+$ inferenceservice.serving.kserve.io/spark-pmml created
 ```
 
 Wait the `InferenceService` to be ready
 ```bash
 kubectl wait --for=condition=Ready inferenceservice spark-pmml
-inferenceservice.serving.kubeflow.org/spark-pmml condition met
+inferenceservice.serving.kserve.io/spark-pmml condition met
 ```
 
 ### Run a prediction

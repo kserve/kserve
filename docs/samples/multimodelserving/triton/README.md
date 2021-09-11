@@ -26,7 +26,7 @@ KFServing `Multi Model Serving` design decouples the trained model artifact from
 and then deploy multiple `TrainedModel` CRs onto the designated `InferenceService`.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "triton-mms"
@@ -68,7 +68,7 @@ On `TrainedModel` CR you specify the following fields:
 
 ### Deploy Cifar10 TorchScript Model
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kserve.io/v1alpha1"
 kind: "TrainedModel"
 metadata:
   name: "cifar10"
@@ -153,7 +153,7 @@ Next let's deploy another model to the same `InferenceService`.
 
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kserve.io/v1alpha1"
 kind: "TrainedModel"
 metadata:
   name: "simple-string"

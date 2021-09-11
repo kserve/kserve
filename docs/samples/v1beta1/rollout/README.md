@@ -13,7 +13,7 @@ and KFServing automatically splits the traffic between the revision that is curr
 
 ### Create the InferenceService with the initial model
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "my-model"
@@ -36,7 +36,7 @@ my-model   http://my-model.default.example.com   True           100             
 
 ### Update the InferenceService with the canary model
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "my-model"
@@ -63,7 +63,7 @@ my-model   http://my-model.default.example.com   True    90     10       my-mode
 
 Check the running pods, you should now see port two pods running for the old and new model and 10% traffic is sending to the canary model.
 ```
-kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
+kubectl get pods -l serving.kserve.io/inferenceservice=my-model
 NAME                                                           READY   STATUS    RESTARTS   AGE
 my-model-predictor-default-00001-deployment-68978dd4d4-f6dcg   2/2     Running   0          2m57s
 my-model-predictor-default-00002-deployment-5c867f557c-nlsrf   2/2     Running   0          63s
@@ -118,7 +118,7 @@ Send more requests to the `InferenceService` you will notice 10% of time the tra
 ### Promoting canary
 If the canary model runs well you can promote it by removing the `canaryTrafficPercent` field.
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "my-model"
@@ -142,7 +142,7 @@ my-model   http://my-model.default.example.com   True           100             
 
 The pods for revision generation 1 automatically scales down to 0 as it is no longer getting the traffic.
 ```bash
-kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
+kubectl get pods -l serving.kserve.io/inferenceservice=my-model
 NAME                                                           READY   STATUS        RESTARTS   AGE
 my-model-predictor-default-00001-deployment-68978dd4d4-f6dcg   1/2     Terminating   0          17m
 my-model-predictor-default-00002-deployment-5c867f557c-nlsrf   2/2     Running       0          15m
@@ -151,7 +151,7 @@ my-model-predictor-default-00002-deployment-5c867f557c-nlsrf   2/2     Running  
 ## Rollback and pin the model
 The model can also be pinned to the previous good model and make the current model receive no traffic. 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "my-model"
@@ -176,22 +176,22 @@ my-model   http://my-model.default.example.com   True    100    0        my-mode
 
 The pods for previous revision 1 now scales back as now it is getting full traffic while the new model scales down.
 ```
-kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
+kubectl get pods -l serving.kserve.io/inferenceservice=my-model
 NAME                                                           READY   STATUS            RESTARTS   AGE
 my-model-predictor-default-00001-deployment-68978dd4d4-mcrks   1/2     Running       0          35s
 my-model-predictor-default-00002-deployment-5c867f557c-nlsrf   2/2     Running       0          16m
 ```
 
 ## Tag based routing
-You can enable tag based routing by adding the annotation `serving.kubeflow.org/enable-tag-routing`, so traffic can be explicitly routed to the canary model or
+You can enable tag based routing by adding the annotation `serving.kserve.io/enable-tag-routing`, so traffic can be explicitly routed to the canary model or
 the old model with tag based URL.
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "my-model"
   annotations:
-    serving.kubeflow.org/enable-tag-routing: "true"
+    serving.kserve.io/enable-tag-routing: "true"
 spec:
   predictor:
     canaryTrafficPercent: 10

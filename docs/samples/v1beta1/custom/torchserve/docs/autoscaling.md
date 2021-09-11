@@ -6,7 +6,7 @@ For example, specify a “concurrency target” of “5”, the autoscaler will 
 By default the pod scale with concurrency metrics
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: torchserve-custom
@@ -30,7 +30,7 @@ kubectl apply -f autoscale.yaml
 Expected Output
 
 ```bash
-$inferenceservice.serving.kubeflow.org/torchserve-custom created
+$inferenceservice.serving.kserve.io/torchserve-custom created
 ```
 
 ## Run a prediction

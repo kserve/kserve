@@ -82,7 +82,7 @@ kubectl create -f trigger.yaml
 We can now create an sklearn predictor with a logger:
 
 ```
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: sklearn-iris

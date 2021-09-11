@@ -75,7 +75,7 @@ The model repository contains a mnist model but you can store more than one mode
 or maintain a map from model name to transformer classes so KFServing knows to use the transformer for the corresponding model.  
 
 ```yaml
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: torchserve-transformer
@@ -103,7 +103,7 @@ kubectl apply -f transformer.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/torchserve-transformer created
+$ inferenceservice.serving.kserve.io/torchserve-transformer created
 ```
 
 ## Run a prediction

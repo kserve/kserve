@@ -18,7 +18,7 @@ To determine the maximum amount of models that can be deployed
         - 6 total worker nodes
     - ETCD size of 65 MiB
 - Inference Service:
-    - apiVersion: `serving.kubeflow.org/v1beta1`
+    - apiVersion: `serving.kserve.io/v1beta1`
     - concurrency: 1
     - minReplicas: 1
     - Triton model server
@@ -50,7 +50,7 @@ To compare the latency between traditional model serving and multi-model serving
     - knative: v0.17.0
     - istio: v1.7.x
 - Inference Service:
-    - apiVersion: `serving.kubeflow.org/v1beta1`
+    - apiVersion: `serving.kserve.io/v1beta1`
     - concurrency: 1
     - minReplicas: 1
     - Triton model server

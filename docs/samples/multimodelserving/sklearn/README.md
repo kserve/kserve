@@ -19,7 +19,7 @@ Firstly, you should have kfserving installed. Check [this](https://github.com/ku
 The content below is in the file `inferenceservice.yaml`.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "sklearn-iris-example"
@@ -45,7 +45,7 @@ sklearn-iris-example   http://sklearn-iris-example.default.example.com   True   
 
 Next, the other file the trained models `trainedmodels.yaml` is shown below.
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kserve.io/v1alpha1"
 kind: "TrainedModel"
 metadata:
   name: "model1-sklearn"
@@ -56,7 +56,7 @@ spec:
     framework: "sklearn"
     memory: "256Mi"
 ---
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kserve.io/v1alpha1"
 kind: "TrainedModel"
 metadata:
   name: "model2-sklearn"
@@ -95,7 +95,7 @@ metadata:
    name: modelconfig-sklearn-iris-example-0
    namespace: default
    ownerReferences:
-      - apiVersion: serving.kubeflow.org/v1beta1
+      - apiVersion: serving.kserve.io/v1beta1
         blockOwnerDeletion: true
         controller: true
         kind: InferenceService

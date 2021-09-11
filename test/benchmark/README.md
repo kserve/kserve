@@ -45,7 +45,7 @@ kubectl create -f ./sk_benchmark.yaml
 #### CC=8 With queue proxy and activator on the request path
 Create an `InferenceService` with `ContainerCurrency`(cc) set to 8 which is equal to the number of cores on the node.
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kserve.io/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "sklearn-iris"
@@ -67,7 +67,7 @@ spec:
 #### Raw Kubernetes Service(Without queue proxy and activator on the request path)
 - Update the SKLearn Iris `InferenceService` with following yaml to use HPA
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kserve.io/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "sklearn-iris"
@@ -152,7 +152,7 @@ kubectl create -f ./tf_benchmark.yaml
 - Create `InferenceService` with default `ContainerConcurrency` set to 0 which is unlimited concurrency, activator in this case just pass
 through and you would still expect requests queued on user container in case of request overload.
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kserve.io/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample"
@@ -185,7 +185,7 @@ kubectl apply -f ./tf_flowers.yaml
 not get queued on user pods and activator chooses to route the requests to the pods which have capacity.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kserve.io/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample"
@@ -217,7 +217,7 @@ will observe better tail latency at p95 and p99 thanks to Knative activator [sma
 
 #### Raw Kubernetes Service(Without queue proxy and activator)
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kserve.io/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample-hpa"

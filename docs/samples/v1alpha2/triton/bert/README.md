@@ -86,7 +86,7 @@ Or you can use the prebuild image `gcr.io/kubeflow-ci/kfserving/bert-transformer
 ## Create the InferenceService
 Add above custom KFServing Transformer image and Triton Predictor to the `InferenceService` spec
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kserve.io/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "bert-large"
@@ -131,7 +131,7 @@ kubectl apply -f bert.yaml
 
 Expected Output
 ```
-inferenceservice.serving.kubeflow.org/bert-large created
+inferenceservice.serving.kserve.io/bert-large created
 ```
 ## Check the InferenceService
 ```
@@ -141,7 +141,7 @@ bert-large   http://bert-large.default.example.com/v1/models/bert-large   True  
 ```
 you will see both transformer and predictor services are created and in ready state
 ```
-kubectl get revision -l serving.kubeflow.org/inferenceservice=bert-large
+kubectl get revision -l serving.kserve.io/inferenceservice=bert-large
 NAME                                   CONFIG NAME                      K8S SERVICE NAME                       GENERATION   READY   REASON
 bert-large-predictor-default-2gh6p     bert-large-predictor-default     bert-large-predictor-default-2gh6p     1            True    
 bert-large-transformer-default-pcztn   bert-large-transformer-default   bert-large-transformer-default-pcztn   1            True 
