@@ -26,6 +26,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -148,8 +149,14 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
+
+	deployConfig, err := v1beta1api.NewDeployConfig(r.Client)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
+	}
+
 	//check raw deployment
-	if value, ok := annotations[constants.RawDeploymentAnnotationKey]; ok && value == "true" {
+	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
 		reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
@@ -216,13 +223,21 @@ func inferenceServiceReadiness(status v1beta1api.InferenceServiceStatus) bool {
 		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 }
 
-func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1api.InferenceService{}).
-		Owns(&knservingv1.Service{}).
-		Owns(&v1alpha3.VirtualService{}).
-		Owns(&appsv1.Deployment{}).
-		Complete(r)
+func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig) error {
+	if deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&v1beta1api.InferenceService{}).
+			Owns(&appsv1.Deployment{}).
+			Complete(r)
+	} else {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&v1beta1api.InferenceService{}).
+			Owns(&knservingv1.Service{}).
+			Owns(&v1alpha3.VirtualService{}).
+			Owns(&appsv1.Deployment{}).
+			Complete(r)
+	}
+
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.InferenceService) error {

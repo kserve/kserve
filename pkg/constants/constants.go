@@ -67,7 +67,7 @@ const (
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
-	RawDeploymentAnnotationKey                  = KServeAPIGroupName + "/raw"
+	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
 	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
 )
 
@@ -230,6 +230,13 @@ const (
 	CheckResultUpdate  CheckResultType = 1
 	CheckResultExisted CheckResultType = 2
 	CheckResultUnknown CheckResultType = 3
+)
+
+type DeploymentModeType string
+
+const (
+	Serverless    DeploymentModeType = "Serverless"
+	RawDeployment DeploymentModeType = "RawDeployment"
 )
 
 // GetRawServiceLabel generate native service label

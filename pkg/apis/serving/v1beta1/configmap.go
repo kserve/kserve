@@ -36,6 +36,7 @@ const (
 
 const (
 	IngressConfigKeyName = "ingress"
+	DeployConfigName     = "deploy"
 )
 
 // +kubebuilder:object:generate=false
@@ -120,6 +121,11 @@ type IngressConfig struct {
 	IngressDomain           string `json:"ingressDomain,omitempty"`
 }
 
+// +kubebuilder:object:generate=false
+type DeployConfig struct {
+	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
+}
+
 func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {
 	configMap := &v1.ConfigMap{}
 	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
@@ -167,4 +173,28 @@ func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig int
 		}
 	}
 	return nil
+}
+
+func NewDeployConfig(cli client.Client) (*DeployConfig, error) {
+	configMap := &v1.ConfigMap{}
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
+	if err != nil {
+		return nil, err
+	}
+	deployConfig := &DeployConfig{}
+	if deploy, ok := configMap.Data[DeployConfigName]; ok {
+		err := json.Unmarshal([]byte(deploy), &deployConfig)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parse deploy config json: %v", err)
+		}
+
+		if deployConfig.DefaultDeploymentMode == "" {
+			return nil, fmt.Errorf("Invalid deploy config, defaultDeploymentMode is required.")
+		}
+
+		if deployConfig.DefaultDeploymentMode != string(constants.Serverless) && deployConfig.DefaultDeploymentMode != string(constants.RawDeployment) {
+			return nil, fmt.Errorf("Invalid deployment mode. Supported modes are Serverless and RawDeployment")
+		}
+	}
+	return deployConfig, nil
 }

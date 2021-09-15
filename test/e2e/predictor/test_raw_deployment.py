@@ -36,7 +36,7 @@ kserve_client = KServeClient(
 def test_raw_deployment_kserve():
     service_name = "raw-sklearn"
     annotations = dict()
-    annotations['serving.kserve.io/raw'] = 'true'
+    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
     annotations['kubernetes.io/ingress.class'] = 'istio'
 
     predictor = V1beta1PredictorSpec(

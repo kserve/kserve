@@ -89,12 +89,14 @@ var _ = BeforeSuite(func(done Done) {
 		MetricsBindAddress: "0",
 	})
 	Expect(err).ToNot(HaveOccurred())
+
+	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 	err = (&InferenceServiceReconciler{
 		Client:   k8sClient,
 		Scheme:   k8sClient.Scheme(),
 		Log:      ctrl.Log.WithName("V1beta1InferenceServiceController"),
 		Recorder: k8sManager.GetEventRecorderFor("V1beta1InferenceServiceController"),
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(k8sManager, deployConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
