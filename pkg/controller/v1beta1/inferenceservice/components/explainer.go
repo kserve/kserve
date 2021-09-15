@@ -18,6 +18,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
@@ -89,9 +90,13 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)
+	deployConfig, err := v1beta1.NewDeployConfig(e.client)
+	if err != nil {
+		return err
+	}
 
 	// Here we allow switch between knative and vanilla deployment
-	if value, ok := annotations[constants.RawDeploymentAnnotationKey]; ok && value == "true" {
+	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
 		r := raw.NewRawKubeReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
 			&podSpec)
 		//set Deployment Controller
