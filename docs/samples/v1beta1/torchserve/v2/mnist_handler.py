@@ -1,7 +1,6 @@
 from torchvision import transforms
 from ts.torch_handler.image_classifier import ImageClassifier
 
-
 class MNISTDigitClassifier(ImageClassifier):
     """
     MNISTDigitClassifier handler class. This handler extends class ImageClassifier from image_classifier.py, a
