@@ -6750,8 +6750,6 @@ spec:
                               format: int32
                               type: integer
                           type: object
-                        modelClassName:
-                          type: string
                         name:
                           type: string
                         ports:
