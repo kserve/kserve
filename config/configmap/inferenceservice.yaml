@@ -61,10 +61,9 @@ data:
           }
         },
         "pytorch": {
-          # TODO: Change image to pytorch/torchserve-kfs
           "image": "jagadeeshj/torchserve-kfsv2",
-          "defaultImageVersion": "0.4.1,
-          "defaultGpuImageVersion": "0.4.1-gpu",
+          "defaultImageVersion": "1.0",
+          "defaultGpuImageVersion": "1.0-gpu",
           "supportedFrameworks": [
             "pytorch"
           ],
