@@ -13,7 +13,6 @@
 # limitations under the License.
 # pylint: disable=no-self-use,too-many-arguments,unused-argument,not-callable
 """Bert Custom Handler."""
-import json
 import logging
 import os
 from captum.attr import IntegratedGradients
@@ -29,14 +28,14 @@ from wrapper import AGNewsmodelWrapper
 logger = logging.getLogger(__name__)
 
 
-class NewsClassifierHandler(BaseHandler):  # pylint: disable=too-many-instance-attributes
+class NewsClassifierHandler(BaseHandler):
     """NewsClassifierHandler class.
 
     This handler takes a review / sentence and returns the label as
     either world / sports / business /sci-tech.
     """
 
-    def __init__(self):  # pylint: disable=super-init-not-called
+    def __init__(self):
         self.model = None
         self.mapping = None
         self.device = None
@@ -44,7 +43,7 @@ class NewsClassifierHandler(BaseHandler):  # pylint: disable=too-many-instance-a
         self.class_mapping_file = None
         self.vocab_file = None
 
-    def initialize(self, ctx):  # pylint: disable=arguments-differ
+    def initialize(self, ctx):
         """First try to load torchscript else load eager mode state_dict based
         model.
 
@@ -53,11 +52,9 @@ class NewsClassifierHandler(BaseHandler):  # pylint: disable=too-many-instance-a
         """
 
         properties = ctx.system_properties
-        self.device = torch.device(  # pylint: disable=no-member
-            "cuda:" + str(properties.get("gpu_id"))
-            if torch.cuda.is_available()
-            else "cpu"
-        )
+        self.device = torch.device("cuda:" +
+                                   str(properties.get("gpu_id")) if torch.cuda.
+                                   is_available() else "cpu")
         model_dir = properties.get("model_dir")
 
         # Read model serialize/pt file
@@ -97,20 +94,13 @@ class NewsClassifierHandler(BaseHandler):  # pylint: disable=too-many-instance-a
         if text is None:
             text = data[0].get("body")
 
-        self.text = text  # pylint: disable=attribute-defined-outside-init
-        self.tokenizer = (  # pylint: disable=attribute-defined-outside-init
-            BertTokenizer(
-                self.vocab_file
-            )
-        )
-        self.input_ids = torch.tensor(  # pylint: disable=attribute-defined-outside-init,not-callable
-            [
-                self.tokenizer.encode(self.text, add_special_tokens=True)
-            ]
-        )  # pylint: disable=attribute-defined-outside-init
+        self.text = text
+        self.tokenizer = (BertTokenizer(self.vocab_file))
+        self.input_ids = torch.tensor(
+            [self.tokenizer.encode(self.text, add_special_tokens=True)])
         return self.input_ids
 
-    def inference(self, input_ids):  # pylint: disable=arguments-differ,unused-argument
+    def inference(self, input_ids):
         """Predict the class  for a review / sentence whether
         it is belong to world / sports / business /sci-tech.
         Args:
@@ -120,15 +110,11 @@ class NewsClassifierHandler(BaseHandler):  # pylint: disable=too-many-instance-a
              output - predicted output
         """
         inputs = self.input_ids.to(self.device)
-        self.outputs = self.model.forward(  # pylint: disable=attribute-defined-outside-init
-            inputs
-        )
-        self.out = np.argmax(  # pylint: disable=attribute-defined-outside-init
-            self.outputs.cpu().detach()
-        )  # pylint: disable=attribute-defined-outside-init
+        self.outputs = self.model.forward(inputs)
+        self.out = np.argmax(self.outputs.cpu().detach())
         return self.out
 
-    def postprocess(self, inference_output):  # pylint: disable=arguments-differ
+    def postprocess(self, inference_output):
         """Does postprocess after inference to be returned to user.
 
         Args:
@@ -166,8 +152,7 @@ class NewsClassifierHandler(BaseHandler):  # pylint: disable=too-many-instance-a
                 attributions.sum(),
                 tokens,
                 delta,
-            )
-        )
+            ))
 
     def score_func(self, out):
         """Defining score function."""
@@ -187,7 +172,7 @@ class NewsClassifierHandler(BaseHandler):  # pylint: disable=too-many-instance-a
         attributions = attributions / torch.norm(attributions)
         return attributions
 
-    def explain_handle(self, model_wraper, text, target=1):  # pylint: disable=too-many-locals,unused-argument,arguments-differ
+    def explain_handle(self, model_wraper, text, target=1):
         """Captum explanations handler.
 
         Args:
@@ -200,24 +185,23 @@ class NewsClassifierHandler(BaseHandler):  # pylint: disable=too-many-instance-a
         tokenizer = BertTokenizer(self.vocab_file)
         model_wrapper.eval()
         model_wrapper.zero_grad()
-        input_ids = torch.tensor([
-            tokenizer.encode(self.text, add_special_tokens=True)
-        ])
+        input_ids = torch.tensor(
+            [tokenizer.encode(self.text, add_special_tokens=True)])
         input_ids = input_ids.to(self.device)
         input_embedding_test = model_wrapper.model.bert_model.embeddings(
-            input_ids
-        )
+            input_ids)
         preds = model_wrapper(input_embedding_test)
         out = np.argmax(preds.cpu().detach(), axis=1)
         out = out.item()
         ig_1 = IntegratedGradients(model_wrapper)
-        attributions, delta = ig_1.attribute(  # pylint: disable=no-member
+        attributions, delta = ig_1.attribute(
             input_embedding_test,
             n_steps=500,
             return_convergence_delta=True,
             target=1,
         )
-        tokens = tokenizer.convert_ids_to_tokens(input_ids[0].cpu().numpy().tolist())
+        tokens = tokenizer.convert_ids_to_tokens(
+            input_ids[0].cpu().numpy().tolist())
         feature_imp_dict = {}
         feature_imp_dict["words"] = tokens
         attributions_sum = self.summarize_attributions(attributions)
