@@ -30,7 +30,7 @@ setup(
     python_requires='>=3.6',
     packages=find_packages("driver_transformer"),
     install_requires=[
-        "kfserving>=0.6.0",
+        "kserve",
         "requests>=2.22.0",
         "numpy>=1.16.3"
     ],
