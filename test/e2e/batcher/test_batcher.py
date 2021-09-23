@@ -38,8 +38,7 @@ def test_batcher():
         ),
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
-            model_class_name='Net',
+            storage_uri='gs://kfserving-examples/models/torchserve/image_classifier',
             resources=V1ResourceRequirements(
                 requests={'cpu': '100m', 'memory': '2Gi'},
                 limits={'cpu': '100m', 'memory': '2Gi'}
