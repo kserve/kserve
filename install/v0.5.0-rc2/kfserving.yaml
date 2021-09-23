@@ -1358,8 +1358,6 @@ spec:
                         type: object
                       pytorch:
                         properties:
-                          modelClassName:
-                            type: string
                           resources:
                             properties:
                               limits:
@@ -3364,8 +3362,6 @@ spec:
                         type: object
                       pytorch:
                         properties:
-                          modelClassName:
-                            type: string
                           resources:
                             properties:
                               limits:
