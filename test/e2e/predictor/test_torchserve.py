@@ -60,7 +60,7 @@ def test_torchserve_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-def test_torchserve_v2_kfserving():
+def test_torchserve_v2_kserve():
     service_name = "mnist"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -75,8 +75,8 @@ def test_torchserve_v2_kfserving():
     )
 
     isvc = V1beta1InferenceService(
-        api_version=constants.KFSERVING_V1BETA1,
-        kind=constants.KFSERVING_KIND,
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
