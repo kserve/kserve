@@ -1,6 +1,6 @@
 {
-    "packageName" : "kfserving",
-    "projectName" : "kfserving",
+    "packageName" : "kserve",
+    "projectName" : "kserve",
     "packageVersion": "0.1",
     "importMappings": {
         "V1Container": "from kubernetes.client import V1Container",

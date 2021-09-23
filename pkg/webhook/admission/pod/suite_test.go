@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +19,7 @@ import (
 	"os"
 	"testing"
 
-	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"

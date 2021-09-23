@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 import argparse
 
 from .model import RFModel
 
 DEFAULT_MODEL_NAME = "rfserver"
 
-parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
                     help='The name that the model is served under.')
 args, _ = parser.parse_known_args()
@@ -27,4 +26,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = RFModel(args.model_name)
     model.load()
-    kfserving.KFServer().start([model])
+    kserve.KFServer().start([model])

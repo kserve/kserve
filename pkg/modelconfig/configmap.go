@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,9 +19,9 @@ import (
 	"fmt"
 
 	jsoniter "github.com/json-iterator/go"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"

@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +12,7 @@
 # limitations under the License.
 
 import argparse
-import kfserving
+import kserve
 import json
 
 from .model import AIFModel
@@ -21,7 +20,7 @@ from .model import AIFModel
 DEFAULT_MODEL_NAME = "aifserver"
 
 
-parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
 
 parser.add_argument('--model_name',
                     default=DEFAULT_MODEL_NAME,
@@ -71,4 +70,4 @@ if __name__ == "__main__":
         unprivileged_groups=args.unprivileged_groups
     )
     model.load()
-    kfserving.KFServer().start([model], nest_asyncio=True)
+    kserve.KFServer().start([model], nest_asyncio=True)

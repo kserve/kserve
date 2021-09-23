@@ -1,6 +1,0 @@
-apiVersion: serving.kubeflow.org/v1alpha2
-kind: InferenceService
-metadata:
-  name: {name}
-  namespace: {namespace}
-spec:

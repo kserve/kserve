@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"

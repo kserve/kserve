@@ -1,4 +1,3 @@
-# Copyright 2021 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +15,10 @@ from typing import Dict
 import os
 import numpy as np
 from paddle import inference
-import kfserving
+import kserve
 
 
-class PaddleModel(kfserving.KFModel):
+class PaddleModel(kserve.KFModel):
 
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
@@ -42,7 +41,7 @@ class PaddleModel(kfserving.KFModel):
                 raise Exception("More than one {} model file".format(ext))
             return os.path.join(model_path, file_list[0])
 
-        model_path = kfserving.Storage.download(self.model_dir)
+        model_path = kserve.Storage.download(self.model_dir)
         config = inference.Config(get_model_files('.pdmodel'), get_model_files('.pdiparams'))
         # TODO: add GPU support
         config.disable_gpu()

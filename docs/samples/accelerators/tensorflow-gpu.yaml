@@ -1,9 +1,9 @@
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kserve.io/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "tensorflow-gpu"
   annotations:
-    "serving.kubeflow.org/gke-accelerator": "nvidia-tesla-t4"
+    "serving.kserve.io/gke-accelerator": "nvidia-tesla-t4"
 spec:
   default:
     predictor:

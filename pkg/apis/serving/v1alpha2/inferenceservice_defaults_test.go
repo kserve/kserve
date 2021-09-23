@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +18,7 @@ package v1alpha2
 import (
 	"testing"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/constants"
 
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -99,7 +98,7 @@ func TestPyTorchDefaults(t *testing.T) {
 		},
 	}
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
-	isvc.Spec.Canary.Predictor.PyTorch.RuntimeVersion = constants.KFServingDefaultVersion
+	isvc.Spec.Canary.Predictor.PyTorch.RuntimeVersion = constants.KServeDefaultVersion
 	isvc.Spec.Canary.Predictor.PyTorch.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
 	isvc.applyDefaultsEndpoint(isvc.Spec.Canary, c)
 	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
@@ -108,7 +107,7 @@ func TestPyTorchDefaults(t *testing.T) {
 	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
-	g.Expect(isvc.Spec.Canary.Predictor.PyTorch.RuntimeVersion).To(gomega.Equal(constants.KFServingDefaultVersion))
+	g.Expect(isvc.Spec.Canary.Predictor.PyTorch.RuntimeVersion).To(gomega.Equal(constants.KServeDefaultVersion))
 	g.Expect(isvc.Spec.Canary.Predictor.PyTorch.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.PyTorch.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
@@ -129,7 +128,7 @@ func TestSKLearnDefaults(t *testing.T) {
 		},
 	}
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
-	isvc.Spec.Canary.Predictor.SKLearn.RuntimeVersion = constants.KFServingDefaultVersion
+	isvc.Spec.Canary.Predictor.SKLearn.RuntimeVersion = constants.KServeDefaultVersion
 	isvc.Spec.Canary.Predictor.SKLearn.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
 	isvc.applyDefaultsEndpoint(isvc.Spec.Canary, c)
 	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
@@ -139,7 +138,7 @@ func TestSKLearnDefaults(t *testing.T) {
 	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
-	g.Expect(isvc.Spec.Canary.Predictor.SKLearn.RuntimeVersion).To(gomega.Equal(constants.KFServingDefaultVersion))
+	g.Expect(isvc.Spec.Canary.Predictor.SKLearn.RuntimeVersion).To(gomega.Equal(constants.KServeDefaultVersion))
 	g.Expect(isvc.Spec.Canary.Predictor.SKLearn.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.SKLearn.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
@@ -160,7 +159,7 @@ func TestXGBoostDefaults(t *testing.T) {
 		},
 	}
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
-	isvc.Spec.Canary.Predictor.XGBoost.RuntimeVersion = constants.KFServingDefaultVersion
+	isvc.Spec.Canary.Predictor.XGBoost.RuntimeVersion = constants.KServeDefaultVersion
 	isvc.Spec.Canary.Predictor.XGBoost.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
 	isvc.applyDefaultsEndpoint(isvc.Spec.Canary, c)
 	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
@@ -173,7 +172,7 @@ func TestXGBoostDefaults(t *testing.T) {
 
 	defaultCpu := defaultResource[v1.ResourceCPU]
 	g.Expect(isvc.Spec.Default.Predictor.XGBoost.NThread).To(gomega.Equal(int(defaultCpu.Value())))
-	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.RuntimeVersion).To(gomega.Equal(constants.KFServingDefaultVersion))
+	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.RuntimeVersion).To(gomega.Equal(constants.KServeDefaultVersion))
 	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
@@ -194,7 +193,7 @@ func TestLightGBMDefaults(t *testing.T) {
 		},
 	}
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
-	isvc.Spec.Canary.Predictor.LightGBM.RuntimeVersion = constants.KFServingDefaultVersion
+	isvc.Spec.Canary.Predictor.LightGBM.RuntimeVersion = constants.KServeDefaultVersion
 	isvc.Spec.Canary.Predictor.LightGBM.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
 	isvc.applyDefaultsEndpoint(isvc.Spec.Canary, c)
 	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
@@ -207,7 +206,7 @@ func TestLightGBMDefaults(t *testing.T) {
 
 	defaultCpu := defaultResource[v1.ResourceCPU]
 	g.Expect(isvc.Spec.Default.Predictor.LightGBM.NThread).To(gomega.Equal(int(defaultCpu.Value())))
-	g.Expect(isvc.Spec.Canary.Predictor.LightGBM.RuntimeVersion).To(gomega.Equal(constants.KFServingDefaultVersion))
+	g.Expect(isvc.Spec.Canary.Predictor.LightGBM.RuntimeVersion).To(gomega.Equal(constants.KServeDefaultVersion))
 	g.Expect(isvc.Spec.Canary.Predictor.LightGBM.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.LightGBM.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }

@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,8 +25,8 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/network"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"

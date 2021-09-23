@@ -4,9 +4,9 @@ resources:
 - deployment.yaml
 - istio.yaml
 commonLabels:
-  kustomize.component: kfserving-models-web-app
-  app.kubernetes.io/component: kfserving-models-web-app
+  kustomize.component: kserve-models-web-app
+  app.kubernetes.io/component: kserve-models-web-app
 configMapGenerator:
-  - name: kfserving-models-web-app-config
+  - name: kserve-models-web-app-config
     literals:
     - APP_DISABLE_AUTH="True"

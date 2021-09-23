@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,8 +18,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/client/clientset/versioned/scheme"
+	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 

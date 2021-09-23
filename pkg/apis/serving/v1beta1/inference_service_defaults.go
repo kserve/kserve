@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,7 +35,7 @@ var (
 	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
 )
 
-// +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kfserving-webhook-server.defaulter
+// +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kserve-webhook-server.defaulter
 var _ webhook.Defaulter = &InferenceService{}
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {

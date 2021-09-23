@@ -1,4 +1,3 @@
-# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,19 +14,19 @@
 import os
 from kubernetes import client
 
-from kfserving import KFServingClient
-from kfserving import constants
-from kfserving import V1beta1PredictorSpec
-from kfserving import V1beta1Batcher
-from kfserving import V1beta1TorchServeSpec
-from kfserving import V1beta1InferenceServiceSpec
-from kfserving import V1beta1InferenceService
+from kserve import KServeClient
+from kserve import constants
+from kserve import V1beta1PredictorSpec
+from kserve import V1beta1Batcher
+from kserve import V1beta1TorchServeSpec
+from kserve import V1beta1InferenceServiceSpec
+from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 from ..common.utils import predict
-from ..common.utils import KFSERVING_TEST_NAMESPACE
+from ..common.utils import KSERVE_TEST_NAMESPACE
 from concurrent import futures
 
-KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_batcher():
@@ -48,22 +47,23 @@ def test_batcher():
         )
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
-                                   kind=constants.KFSERVING_KIND,
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(
                                        name=service_name,
-                                       namespace=KFSERVING_TEST_NAMESPACE
+                                       namespace=KSERVE_TEST_NAMESPACE
                                    ),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor))
-    KFServing.create(isvc)
+    kserve_client.create(isvc)
     try:
-        KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     except RuntimeError as e:
-        print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
-                                                                  "services", service_name + "-predictor-default"))
-        pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
-                                                      label_selector='serving.kubeflow.org/inferenceservice={}'.
-                                                      format(service_name))
+        print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
+                                                                      KSERVE_TEST_NAMESPACE,
+                                                                      "services", service_name + "-predictor-default"))
+        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
+                                                          label_selector='serving.kserve.io/inferenceservice={}'.
+                                                          format(service_name))
         for pod in pods.items:
             print(pod)
         raise e
@@ -75,4 +75,4 @@ def test_batcher():
         f.result()["batchId"] for f in future_res
     ]
     assert (all(x == results[0] for x in results))
-    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

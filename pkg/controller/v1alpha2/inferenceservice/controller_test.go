@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,10 +17,11 @@ package service
 
 import (
 	"fmt"
-	"k8s.io/client-go/util/retry"
 	"reflect"
 	"sort"
 	"time"
+
+	"k8s.io/client-go/util/retry"
 
 	"knative.dev/pkg/network"
 
@@ -29,14 +29,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kubeflow/kfserving/pkg/constants"
-	testutils "github.com/kubeflow/kfserving/pkg/testing"
+	"github.com/kserve/kserve/pkg/constants"
+	testutils "github.com/kserve/kserve/pkg/testing"
 	v1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	g "github.com/onsi/gomega"
@@ -139,19 +138,19 @@ var _ = Describe("test inference service controller", func() {
 				Namespace: serviceKey.Namespace}
 			var virtualServiceName = types.NamespacedName{Name: serviceKey.Name, Namespace: serviceKey.Namespace}
 
-			var instance = &kfserving.InferenceService{
+			var instance = &v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 				},
-				Spec: kfserving.InferenceServiceSpec{
-					Default: kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+				Spec: v1alpha2.InferenceServiceSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
@@ -164,7 +163,7 @@ var _ = Describe("test inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -189,7 +188,7 @@ var _ = Describe("test inference service controller", func() {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
 									constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 									constants.KServiceModelLabel:     defaultInstance.Name,
 									constants.KServiceComponentLabel: constants.Predictor.String(),
@@ -211,10 +210,10 @@ var _ = Describe("test inference service controller", func() {
 											Image: TensorflowServingImageName + ":" +
 												defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
 											Name:    constants.InferenceServiceContainerName,
-											Command: []string{kfserving.TensorflowEntrypointCommand},
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
 											Args: []string{
-												"--port=" + kfserving.TensorflowServingGRPCPort,
-												"--rest_api_port=" + kfserving.TensorflowServingRestPort,
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=" + defaultInstance.Name,
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 												"--rest_api_timeout_in_ms=60000",
@@ -316,11 +315,11 @@ var _ = Describe("test inference service controller", func() {
 			g.Expect(virtualService.Spec).To(gomega.Equal(expectedVirtualService.Spec))
 
 			// verify if InferenceService status is updated
-			expectedKfsvcStatus := kfserving.InferenceServiceStatus{
+			expectedKfsvcStatus := v1alpha2.InferenceServiceStatus{
 				Status: duckv1beta1.Status{
 					Conditions: duckv1beta1.Conditions{
 						{
-							Type:   kfserving.DefaultPredictorReady,
+							Type:   v1alpha2.DefaultPredictorReady,
 							Status: "True",
 						},
 						{
@@ -328,7 +327,7 @@ var _ = Describe("test inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:   kfserving.RoutesReady,
+							Type:   v1alpha2.RoutesReady,
 							Status: "True",
 						},
 					},
@@ -344,15 +343,15 @@ var _ = Describe("test inference service controller", func() {
 				Traffic:       100,
 				CanaryTraffic: 0,
 				Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name:     "revision-v1",
 						Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 					},
 				},
 				Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{},
 			}
-			g.Eventually(func() *kfserving.InferenceServiceStatus {
-				isvc := &kfserving.InferenceService{}
+			g.Eventually(func() *v1alpha2.InferenceServiceStatus {
+				isvc := &v1alpha2.InferenceService{}
 				err := k8sClient.Get(context.TODO(), serviceKey, isvc)
 				if err != nil {
 					return nil
@@ -361,7 +360,7 @@ var _ = Describe("test inference service controller", func() {
 			}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
 			// We are testing for a Ready event
 			expectedReadyEvents := []SimpleEvent{
-				{Count: 1, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
+				{Count: 1, Type: v1.EventTypeNormal, Reason: string(v1alpha2.InferenceServiceReadyState)},
 			}
 			g.Eventually(func() error {
 				events := getEvents()
@@ -378,39 +377,39 @@ var _ = Describe("test inference service controller", func() {
 			var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "bar", Namespace: "default"}}
 			var canaryServiceKey = expectedCanaryRequest.NamespacedName
 			domain := "example.com"
-			var canary = &kfserving.InferenceService{
+			var canary = &v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      canaryServiceKey.Name,
 					Namespace: canaryServiceKey.Namespace,
 				},
-				Spec: kfserving.InferenceServiceSpec{
-					Default: kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+				Spec: v1alpha2.InferenceServiceSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
 					},
-					CanaryTrafficPercent: kfserving.GetIntReference(20),
-					Canary: &kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+					CanaryTrafficPercent: v1alpha2.GetIntReference(20),
+					Canary: &v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
 					},
 				},
-				Status: kfserving.InferenceServiceStatus{
+				Status: v1alpha2.InferenceServiceStatus{
 					URL: canaryServiceKey.Name + "." + domain,
 					Address: &duckv1beta1.Addressable{
 						URL: &apis.URL{
@@ -420,7 +419,7 @@ var _ = Describe("test inference service controller", func() {
 						},
 					},
 					Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-						constants.Predictor: kfserving.StatusConfigurationSpec{
+						constants.Predictor: {
 							Name: "revision-v1",
 						},
 					},
@@ -436,7 +435,7 @@ var _ = Describe("test inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -464,7 +463,7 @@ var _ = Describe("test inference service controller", func() {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "bar",
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": "bar",
 									constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
 									constants.KServiceModelLabel:     "bar",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
@@ -486,10 +485,10 @@ var _ = Describe("test inference service controller", func() {
 											Image: TensorflowServingImageName + ":" +
 												canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
 											Name:    constants.InferenceServiceContainerName,
-											Command: []string{kfserving.TensorflowEntrypointCommand},
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
 											Args: []string{
-												"--port=" + kfserving.TensorflowServingGRPCPort,
-												"--rest_api_port=" + kfserving.TensorflowServingRestPort,
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=" + canary.Name,
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 												"--rest_api_timeout_in_ms=60000",
@@ -545,16 +544,16 @@ var _ = Describe("test inference service controller", func() {
 			g.Expect(k8sClient.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
 
 			// verify if InferenceService status is updated first then virtual service
-			expectedKfsvcStatus := kfserving.InferenceServiceStatus{
+			expectedKfsvcStatus := v1alpha2.InferenceServiceStatus{
 				Status: duckv1beta1.Status{
 					Conditions: duckv1beta1.Conditions{
 						{
-							Type:     kfserving.CanaryPredictorReady,
+							Type:     v1alpha2.CanaryPredictorReady,
 							Severity: "Info",
 							Status:   "True",
 						},
 						{
-							Type:   kfserving.DefaultPredictorReady,
+							Type:   v1alpha2.DefaultPredictorReady,
 							Status: "True",
 						},
 						{
@@ -562,7 +561,7 @@ var _ = Describe("test inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:   kfserving.RoutesReady,
+							Type:   v1alpha2.RoutesReady,
 							Status: "True",
 						},
 					},
@@ -579,14 +578,14 @@ var _ = Describe("test inference service controller", func() {
 				Traffic:       80,
 				CanaryTraffic: 20,
 				Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name: "revision-v1",
 						Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace,
 							domain),
 					},
 				},
 				Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name: "revision-v2",
 						Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace,
 							domain),
@@ -594,7 +593,7 @@ var _ = Describe("test inference service controller", func() {
 				},
 			}
 			g.Eventually(func() string {
-				isvc := &kfserving.InferenceService{}
+				isvc := &v1alpha2.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), canaryServiceKey, isvc); err != nil {
 					return err.Error()
 				}
@@ -689,42 +688,42 @@ var _ = Describe("test inference service controller", func() {
 			var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
 			var canaryServiceKey = expectedCanaryRequest.NamespacedName
 
-			var canary = &kfserving.InferenceService{
+			var canary = &v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      canaryServiceKey.Name,
 					Namespace: canaryServiceKey.Namespace,
 				},
-				Spec: kfserving.InferenceServiceSpec{
-					Default: kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+				Spec: v1alpha2.InferenceServiceSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
 					},
-					CanaryTrafficPercent: kfserving.GetIntReference(20),
-					Canary: &kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+					CanaryTrafficPercent: v1alpha2.GetIntReference(20),
+					Canary: &v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
 					},
 				},
-				Status: kfserving.InferenceServiceStatus{
+				Status: v1alpha2.InferenceServiceStatus{
 					URL: canaryServiceKey.Name + ".svc.cluster.local",
 					Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-						constants.Predictor: kfserving.StatusConfigurationSpec{
+						constants.Predictor: {
 							Name: "revision-v1",
 						},
 					},
@@ -735,7 +734,7 @@ var _ = Describe("test inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -785,16 +784,16 @@ var _ = Describe("test inference service controller", func() {
 			g.Expect(k8sClient.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
 
 			// Verify if InferenceService status is updated
-			expectedKfsvcStatus := kfserving.InferenceServiceStatus{
+			expectedKfsvcStatus := v1alpha2.InferenceServiceStatus{
 				Status: duckv1beta1.Status{
 					Conditions: duckv1beta1.Conditions{
 						{
-							Type:     kfserving.CanaryPredictorReady,
+							Type:     v1alpha2.CanaryPredictorReady,
 							Severity: "Info",
 							Status:   "True",
 						},
 						{
-							Type:   kfserving.DefaultPredictorReady,
+							Type:   v1alpha2.DefaultPredictorReady,
 							Status: "True",
 						},
 						{
@@ -802,7 +801,7 @@ var _ = Describe("test inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:   kfserving.RoutesReady,
+							Type:   v1alpha2.RoutesReady,
 							Status: "True",
 						},
 					},
@@ -818,20 +817,20 @@ var _ = Describe("test inference service controller", func() {
 				Traffic:       80,
 				CanaryTraffic: 20,
 				Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name:     "revision-v1",
 						Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain),
 					},
 				},
 				Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name:     "revision-v2",
 						Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceName), namespace, domain),
 					},
 				},
 			}
 
-			canaryUpdate := &kfserving.InferenceService{}
+			canaryUpdate := &v1alpha2.InferenceService{}
 			g.Eventually(func() string {
 				if err := k8sClient.Get(context.TODO(), canaryServiceKey, canaryUpdate); err != nil {
 					return err.Error()
@@ -849,14 +848,14 @@ var _ = Describe("test inference service controller", func() {
 			// Update instance to remove Canary Spec
 			// Canary service should be removed during reconcile
 			canaryUpdate.Spec.Canary = nil
-			canaryUpdate.Spec.CanaryTrafficPercent = kfserving.GetIntReference(0)
+			canaryUpdate.Spec.CanaryTrafficPercent = v1alpha2.GetIntReference(0)
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				return k8sClient.Update(context.TODO(), canaryUpdate)
 			})
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			// Need to wait for update propagate back to controller before checking
-			canaryDelete := &kfserving.InferenceService{}
+			canaryDelete := &v1alpha2.InferenceService{}
 			g.Eventually(func() bool {
 				if err := k8sClient.Get(context.TODO(), canaryServiceKey, canaryDelete); err != nil {
 					return false
@@ -874,11 +873,11 @@ var _ = Describe("test inference service controller", func() {
 				return errors.IsNotFound(err)
 			}, timeout).Should(gomega.BeTrue())
 
-			expectedKfsvcStatus = kfserving.InferenceServiceStatus{
+			expectedKfsvcStatus = v1alpha2.InferenceServiceStatus{
 				Status: duckv1beta1.Status{
 					Conditions: duckv1beta1.Conditions{
 						{
-							Type:   kfserving.DefaultPredictorReady,
+							Type:   v1alpha2.DefaultPredictorReady,
 							Status: "True",
 						},
 						{
@@ -886,7 +885,7 @@ var _ = Describe("test inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:   kfserving.RoutesReady,
+							Type:   v1alpha2.RoutesReady,
 							Status: "True",
 						},
 					},
@@ -901,15 +900,15 @@ var _ = Describe("test inference service controller", func() {
 				},
 				Traffic: 100,
 				Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name:     "revision-v1",
 						Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain),
 					},
 				},
 				Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{},
 			}
-			g.Eventually(func() *kfserving.InferenceServiceStatus {
-				isvc := &kfserving.InferenceService{}
+			g.Eventually(func() *v1alpha2.InferenceServiceStatus {
+				isvc := &v1alpha2.InferenceService{}
 				err := k8sClient.Get(context.TODO(), canaryServiceKey, isvc)
 				if err != nil {
 					return nil
@@ -943,53 +942,53 @@ var _ = Describe("test inference service controller", func() {
 			var canaryTransformer = types.NamespacedName{Name: constants.CanaryTransformerServiceName(serviceName),
 				Namespace: namespace}
 			var virtualServiceName = types.NamespacedName{Name: serviceName, Namespace: namespace}
-			var transformer = &kfserving.InferenceService{
+			var transformer = &v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceName,
 					Namespace: namespace,
 				},
-				Spec: kfserving.InferenceServiceSpec{
-					Default: kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+				Spec: v1alpha2.InferenceServiceSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
-						Transformer: &kfserving.TransformerSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+						Transformer: &v1alpha2.TransformerSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Custom: &kfserving.CustomSpec{
+							Custom: &v1alpha2.CustomSpec{
 								Container: v1.Container{
 									Image: "transformer:v1",
 								},
 							},
 						},
 					},
-					CanaryTrafficPercent: kfserving.GetIntReference(20),
-					Canary: &kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+					CanaryTrafficPercent: v1alpha2.GetIntReference(20),
+					Canary: &v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
-						Transformer: &kfserving.TransformerSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+						Transformer: &v1alpha2.TransformerSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Custom: &kfserving.CustomSpec{
+							Custom: &v1alpha2.CustomSpec{
 								Container: v1.Container{
 									Image: "transformer:v2",
 								},
@@ -997,10 +996,10 @@ var _ = Describe("test inference service controller", func() {
 						},
 					},
 				},
-				Status: kfserving.InferenceServiceStatus{
+				Status: v1alpha2.InferenceServiceStatus{
 					URL: serviceName + ".svc.cluster.local",
 					Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-						constants.Predictor: kfserving.StatusConfigurationSpec{
+						constants.Predictor: {
 							Name: "revision-v1",
 						},
 					},
@@ -1011,7 +1010,7 @@ var _ = Describe("test inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -1047,7 +1046,7 @@ var _ = Describe("test inference service controller", func() {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
 									constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
 									constants.KServiceModelLabel:     instance.Name,
 									constants.KServiceComponentLabel: constants.Transformer.String(),
@@ -1145,25 +1144,25 @@ var _ = Describe("test inference service controller", func() {
 			}
 
 			// verify if InferenceService status is updated
-			expectedKfsvcStatus := kfserving.InferenceServiceStatus{
+			expectedKfsvcStatus := v1alpha2.InferenceServiceStatus{
 				Status: duckv1beta1.Status{
 					Conditions: duckv1beta1.Conditions{
 						{
-							Type:     kfserving.CanaryPredictorReady,
+							Type:     v1alpha2.CanaryPredictorReady,
 							Severity: "Info",
 							Status:   "True",
 						},
 						{
-							Type:     kfserving.CanaryTransformerReady,
+							Type:     v1alpha2.CanaryTransformerReady,
 							Severity: "Info",
 							Status:   "True",
 						},
 						{
-							Type:   kfserving.DefaultPredictorReady,
+							Type:   v1alpha2.DefaultPredictorReady,
 							Status: "True",
 						},
 						{
-							Type:     kfserving.DefaultTransformerReady,
+							Type:     v1alpha2.DefaultTransformerReady,
 							Severity: "Info",
 							Status:   "True",
 						},
@@ -1172,7 +1171,7 @@ var _ = Describe("test inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:   kfserving.RoutesReady,
+							Type:   v1alpha2.RoutesReady,
 							Status: "True",
 						},
 					},
@@ -1188,28 +1187,28 @@ var _ = Describe("test inference service controller", func() {
 					},
 				},
 				Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name:     "revision-v1",
 						Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 					},
-					constants.Transformer: kfserving.StatusConfigurationSpec{
+					constants.Transformer: {
 						Name:     "t-revision-v1",
 						Hostname: constants.InferenceServiceHostName(constants.DefaultTransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 					},
 				},
 				Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name:     "revision-v2",
 						Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 					},
-					constants.Transformer: kfserving.StatusConfigurationSpec{
+					constants.Transformer: {
 						Name:     "t-revision-v2",
 						Hostname: constants.InferenceServiceHostName(constants.CanaryTransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 					},
 				},
 			}
 			g.Eventually(func() string {
-				isvc := &kfserving.InferenceService{}
+				isvc := &v1alpha2.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
@@ -1308,53 +1307,53 @@ var _ = Describe("test inference service controller", func() {
 				Namespace: namespace}
 			var canaryTransformer = types.NamespacedName{Name: constants.CanaryTransformerServiceName(serviceName),
 				Namespace: namespace}
-			var transformer = &kfserving.InferenceService{
+			var transformer = &v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceName,
 					Namespace: namespace,
 				},
-				Spec: kfserving.InferenceServiceSpec{
-					Default: kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+				Spec: v1alpha2.InferenceServiceSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
-						Transformer: &kfserving.TransformerSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+						Transformer: &v1alpha2.TransformerSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Custom: &kfserving.CustomSpec{
+							Custom: &v1alpha2.CustomSpec{
 								Container: v1.Container{
 									Image: "transformer:v1",
 								},
 							},
 						},
 					},
-					CanaryTrafficPercent: kfserving.GetIntReference(20),
-					Canary: &kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+					CanaryTrafficPercent: v1alpha2.GetIntReference(20),
+					Canary: &v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
-						Transformer: &kfserving.TransformerSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+						Transformer: &v1alpha2.TransformerSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Custom: &kfserving.CustomSpec{
+							Custom: &v1alpha2.CustomSpec{
 								Container: v1.Container{
 									Image: "transformer:v2",
 								},
@@ -1362,10 +1361,10 @@ var _ = Describe("test inference service controller", func() {
 						},
 					},
 				},
-				Status: kfserving.InferenceServiceStatus{
+				Status: v1alpha2.InferenceServiceStatus{
 					URL: serviceName + ".svc.cluster.local",
 					Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-						constants.Predictor: kfserving.StatusConfigurationSpec{
+						constants.Predictor: {
 							Name: "revision-v1",
 						},
 					},
@@ -1376,7 +1375,7 @@ var _ = Describe("test inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -1407,7 +1406,7 @@ var _ = Describe("test inference service controller", func() {
 			// Update instance to remove transformer endpoint
 			// transformer services should be removed during reconcile
 			g.Eventually(func() error {
-				updateInstance := &kfserving.InferenceService{}
+				updateInstance := &v1alpha2.InferenceService{}
 				g.Eventually(func() error { return k8sClient.Get(context.TODO(), serviceKey, updateInstance) }, timeout).
 					Should(gomega.Succeed())
 				updateInstance.Spec.Canary.Transformer = nil
@@ -1438,7 +1437,7 @@ var _ = Describe("test inference service controller", func() {
 				Should(gomega.Succeed())
 
 			g.Eventually(func() bool {
-				isvc := &kfserving.InferenceService{}
+				isvc := &v1alpha2.InferenceService{}
 				err := k8sClient.Get(context.TODO(), serviceKey, isvc)
 				if err != nil || isvc.Status.Default == nil {
 					return false
@@ -1449,10 +1448,10 @@ var _ = Describe("test inference service controller", func() {
 				if _, ok := (*isvc.Status.Canary)[constants.Transformer]; ok {
 					return false
 				}
-				if defaultTransformerReady := isvc.Status.GetCondition(kfserving.DefaultTransformerReady); defaultTransformerReady != nil {
+				if defaultTransformerReady := isvc.Status.GetCondition(v1alpha2.DefaultTransformerReady); defaultTransformerReady != nil {
 					return false
 				}
-				if canaryTransformerReady := isvc.Status.GetCondition(kfserving.CanaryTransformerReady); canaryTransformerReady != nil {
+				if canaryTransformerReady := isvc.Status.GetCondition(v1alpha2.CanaryTransformerReady); canaryTransformerReady != nil {
 					return false
 				}
 				return true
@@ -1476,25 +1475,25 @@ var _ = Describe("test inference service controller", func() {
 			var canaryExplainer = types.NamespacedName{Name: constants.CanaryExplainerServiceName(serviceName),
 				Namespace: namespace}
 			var virtualServiceName = types.NamespacedName{Name: serviceName, Namespace: namespace}
-			var explainer = &kfserving.InferenceService{
+			var explainer = &v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceName,
 					Namespace: namespace,
 				},
-				Spec: kfserving.InferenceServiceSpec{
-					Default: kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+				Spec: v1alpha2.InferenceServiceSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
-						Explainer: &kfserving.ExplainerSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+						Explainer: &v1alpha2.ExplainerSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
@@ -1504,20 +1503,20 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: kfserving.GetIntReference(20),
-					Canary: &kfserving.EndpointSpec{
-						Predictor: kfserving.PredictorSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+					CanaryTrafficPercent: v1alpha2.GetIntReference(20),
+					Canary: &v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
-							Tensorflow: &kfserving.TensorflowSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
 								StorageURI:     "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
-						Explainer: &kfserving.ExplainerSpec{
-							DeploymentSpec: kfserving.DeploymentSpec{
+						Explainer: &v1alpha2.ExplainerSpec{
+							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
@@ -1528,10 +1527,10 @@ var _ = Describe("test inference service controller", func() {
 						},
 					},
 				},
-				Status: kfserving.InferenceServiceStatus{
+				Status: v1alpha2.InferenceServiceStatus{
 					URL: serviceName + ".svc.cluster.local",
 					Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-						constants.Predictor: kfserving.StatusConfigurationSpec{
+						constants.Predictor: {
 							Name: "revision-v1",
 						},
 					},
@@ -1542,7 +1541,7 @@ var _ = Describe("test inference service controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -1578,7 +1577,7 @@ var _ = Describe("test inference service controller", func() {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
 									constants.KServiceModelLabel:     instance.Name,
 									constants.KServiceComponentLabel: constants.Explainer.String(),
 								},
@@ -1677,26 +1676,26 @@ var _ = Describe("test inference service controller", func() {
 			}
 
 			// verify if InferenceService status is updated
-			expectedKfsvcStatus := kfserving.InferenceServiceStatus{
+			expectedKfsvcStatus := v1alpha2.InferenceServiceStatus{
 				Status: duckv1beta1.Status{
 					Conditions: duckv1beta1.Conditions{
 						{
-							Type:     kfserving.CanaryExplainerReady,
+							Type:     v1alpha2.CanaryExplainerReady,
 							Severity: "Info",
 							Status:   "True",
 						},
 						{
-							Type:     kfserving.CanaryPredictorReady,
+							Type:     v1alpha2.CanaryPredictorReady,
 							Status:   "True",
 							Severity: "Info",
 						},
 						{
-							Type:     kfserving.DefaultExplainerReady,
+							Type:     v1alpha2.DefaultExplainerReady,
 							Severity: "Info",
 							Status:   "True",
 						},
 						{
-							Type:     kfserving.DefaultPredictorReady,
+							Type:     v1alpha2.DefaultPredictorReady,
 							Status:   "True",
 							Severity: "",
 						},
@@ -1706,7 +1705,7 @@ var _ = Describe("test inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:   kfserving.RoutesReady,
+							Type:   v1alpha2.RoutesReady,
 							Status: "True",
 						},
 					},
@@ -1722,28 +1721,28 @@ var _ = Describe("test inference service controller", func() {
 					},
 				},
 				Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name:     "revision-v1",
 						Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 					},
-					constants.Explainer: kfserving.StatusConfigurationSpec{
+					constants.Explainer: {
 						Name:     "e-revision-v1",
 						Hostname: constants.InferenceServiceHostName(constants.DefaultExplainerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 					},
 				},
 				Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-					constants.Predictor: kfserving.StatusConfigurationSpec{
+					constants.Predictor: {
 						Name:     "revision-v2",
 						Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 					},
-					constants.Explainer: kfserving.StatusConfigurationSpec{
+					constants.Explainer: {
 						Name:     "e-revision-v2",
 						Hostname: constants.InferenceServiceHostName(constants.CanaryExplainerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 					},
 				},
 			}
 			g.Eventually(func() string {
-				isvc := &kfserving.InferenceService{}
+				isvc := &v1alpha2.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}

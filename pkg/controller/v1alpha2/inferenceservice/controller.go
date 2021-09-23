@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,8 +19,8 @@ limitations under the License.
 // +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices;inferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices;inferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations;validatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
@@ -37,22 +36,21 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/kubeflow/kfserving/pkg/controller/v1alpha2/inferenceservice/reconcilers/istio"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/inferenceservice/reconcilers/istio"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/v1alpha2/inferenceservice/reconcilers/knative"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/inferenceservice/reconcilers/knative"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -86,7 +84,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // and what is in the Service.Spec
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the InferenceService instance
-	isvc := &kfserving.InferenceService{}
+	isvc := &v1alpha2.InferenceService{}
 	if err := r.Get(ctx, request.NamespacedName, isvc); err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -97,9 +95,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, request reco
 	}
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	configMap := &v1.ConfigMap{}
-	err := r.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err := r.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 	if err != nil {
-		r.Log.Error(err, "Failed to find ConfigMap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KFServingNamespace)
+		r.Log.Error(err, "Failed to find ConfigMap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
@@ -129,8 +127,8 @@ func InferenceServiceReadiness(status v1alpha2.InferenceServiceStatus) bool {
 		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 }
 
-func (r *InferenceServiceReconciler) updateStatus(desiredService *kfserving.InferenceService) error {
-	existing := &kfserving.InferenceService{}
+func (r *InferenceServiceReconciler) updateStatus(desiredService *v1alpha2.InferenceService) error {
+	existing := &v1alpha2.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(context.TODO(), namespacedName, existing); err != nil {
 		return err

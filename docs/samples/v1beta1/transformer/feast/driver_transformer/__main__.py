@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +12,15 @@
 # limitations under the License.
 
 import argparse
-import kfserving
+import kserve
 from .driver_transformer import DriverTransformer
 
 import logging
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 DEFAULT_MODEL_NAME = "sklearn-driver-transformer"
 
-parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
 parser.add_argument(
     "--predictor_host",
     help="The URL for the model predict function", required=True
@@ -54,5 +53,5 @@ if __name__ == "__main__":
         feast_serving_url=args.feast_serving_url,
         entity_ids=args.entity_ids,
         feature_refs=args.feature_refs)
-    kfserver = kfserving.KFServer()
+    kfserver = kserve.KFServer()
     kfserver.start(models=[transformer])

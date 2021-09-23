@@ -1,1 +1,1 @@
-image: ko://github.com/kubeflow/kfserving/cmd/batcher
+image: ko://github.com/kserve/kserve/cmd/batcher

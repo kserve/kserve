@@ -2,11 +2,12 @@ package types
 
 import (
 	"fmt"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
-	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"github.com/onsi/gomega"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/kserve/kserve/tools/tf2openapi/generated/framework"
+	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
+	"github.com/onsi/gomega"
 )
 
 /* Expected values */

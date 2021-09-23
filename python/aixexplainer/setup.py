@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,17 +20,17 @@ tests_require = [
 ]
 setup(
     name='aixserver',
-    version='0.6.0',
+    version='0.7.0rc0',
     author_email='Andrew.Butler@ibm.com',
-    license='https://github.com/kubeflow/kfserving/LICENSE',
-    url='https://github.com/kubeflow/kfserving/python/aixserver',
+    license='https://github.com/kserve/kserve/LICENSE',
+    url='https://github.com/kserve/kserve/python/aixserver',
     description='Model Server implementation for AI eXplainability with LIME. \
-                 Not intended for use outside KFServing Frameworks Images',
+                 Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
     python_requires='>3.4',
     packages=find_packages("aixserver"),
     install_requires=[
-        "kfserving>=0.6.0",
+        "kserve>=0.7.0rc0",
         "argparse >= 1.4.0",
         "aix360 >= 0.1.0",
         "lime >= 0.1.1.37",

@@ -1,7 +1,7 @@
 FROM python:3.7-slim
 
-COPY ./kfserving ./kfserving
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir ./kfserving
+COPY ./kserve ./kserve
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir ./kserve
 
 COPY ./storage-initializer /storage-initializer
 COPY third_party third_party

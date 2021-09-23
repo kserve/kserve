@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +22,8 @@ setup(
     name='rfserver',
     version='0.2.1',
     author_email='Andrew.Butler@ibm.com',
-    license='https://github.com/kubeflow/kfserving/LICENSE',
-    url='https://github.com/kubeflow/kfserving/python/rfserver',
+    license='https://github.com/kserve/kserve/LICENSE',
+    url='https://github.com/kserve/kserve/python/rfserver',
     description='Model Server implementation for AI eXplainability using LIME. \
                  Not intended for use outside KFServing Frameworks Images',
     long_description=open('README.md').read(),

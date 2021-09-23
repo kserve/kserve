@@ -1,5 +1,4 @@
 /*
-Copyright 2021 kubeflow.org.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -17,8 +16,8 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"

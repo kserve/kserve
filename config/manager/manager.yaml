@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: kfserving-controller-manager
-  namespace: kfserving-system
+  name: kserve-controller-manager
+  namespace: kserve
   labels:
-    control-plane: kfserving-controller-manager
+    control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
 spec:
   selector:
     matchLabels:
-      control-plane: kfserving-controller-manager
+      control-plane: kserve-controller-manager
       controller-tools.k8s.io: "1.0"
   serviceName: controller-manager-service
   template:
     metadata:
       labels:
-        control-plane: kfserving-controller-manager
+        control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
     spec:
       containers:
       - command:
         - /manager
-        image: ko://github.com/kubeflow/kfserving/cmd/manager
+        image: ko://github.com/kserve/kserve/cmd/manager
         imagePullPolicy: Always
         name: manager
         env:
@@ -30,7 +30,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: SECRET_NAME
-            value: kfserving-webhook-server-cert
+            value: kserve-webhook-server-cert
         resources:
           limits:
             cpu: 100m
@@ -51,10 +51,10 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: kfserving-webhook-server-cert
+          secretName: kserve-webhook-server-cert
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: kfserving-webhook-server-secret
-  namespace: kfserving-system
+  name: kserve-webhook-server-secret
+  namespace: kserve

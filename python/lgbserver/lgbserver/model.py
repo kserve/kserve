@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 import lightgbm as lgb
 from lightgbm import Booster
 import os
@@ -22,7 +21,7 @@ import pandas as pd
 BOOSTER_FILE = "model.bst"
 
 
-class LightGBMModel(kfserving.KFModel):
+class LightGBMModel(kserve.KFModel):
     def __init__(self, name: str, model_dir: str, nthread: int,
                  booster: Booster = None):
         super().__init__(name)
@@ -35,7 +34,7 @@ class LightGBMModel(kfserving.KFModel):
 
     def load(self) -> bool:
         model_file = os.path.join(
-            kfserving.Storage.download(self.model_dir), BOOSTER_FILE)
+            kserve.Storage.download(self.model_dir), BOOSTER_FILE)
         self._booster = lgb.Booster(params={"nthread": self.nthread},
                                     model_file=model_file)
         self.ready = True

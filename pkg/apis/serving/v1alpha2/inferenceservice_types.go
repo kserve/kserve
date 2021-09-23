@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -14,7 +13,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"

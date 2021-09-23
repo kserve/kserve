@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The script is used to deploy knative and kfserving, and run e2e tests.
+# The script is used to deploy knative and kserve, and run e2e tests.
 
 set -o errexit
 set -o nounset
@@ -112,9 +112,6 @@ kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --time
 echo "Install KFServing ..."
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
-mkdir -p ${GOPATH}/src/github.com/kubeflow
-cp -rf ../kfserving ${GOPATH}/src/github.com/kubeflow
-cd ${GOPATH}/src/github.com/kubeflow/kfserving
 
 wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64
 chmod +x $GOPATH/bin/yq
@@ -123,10 +120,11 @@ sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/manager_image_patch
 make deploy-ci
 
 echo "Waiting for KFServing started ..."
-kubectl wait --for=condition=Ready pods --all --timeout=180s -n kfserving-system
+kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
+kubectl get events -A
 
-echo "Creating a namespace kfserving-ci-test ..."
-kubectl create namespace kfserving-ci-e2e-test
+echo "Creating a namespace kserve-ci-test ..."
+kubectl create namespace kserve-ci-e2e-test
 
 echo "Istio, Knative and KFServing have been installed and started."
 
@@ -136,7 +134,7 @@ pip3 install pytest==6.0.2 pytest-xdist pytest-rerunfailures
 pip3 install --upgrade pytest-tornasync
 pip3 install urllib3==1.24.2
 pip3 install --upgrade setuptools
-pushd python/kfserving >/dev/null
+pushd python/kserve >/dev/null
     pip3 install -r requirements.txt
     python3 setup.py install --force --user
 popd
@@ -145,3 +143,6 @@ echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
   pytest -n 4 --ignore=credentials/test_set_creds.py
 popd
+
+kubectl get events -n kserve-ci-e2e-test
+kubectl get events -n kserve

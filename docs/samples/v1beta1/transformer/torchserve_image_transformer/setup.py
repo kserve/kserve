@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,19 +24,14 @@ setup(
     version='0.1.0',
     author_email='dsun20@bloomberg.net',
     license='../../LICENSE.txt',
-    url='https://github.com/kubeflow/kfserving/docs/samples/transformer/torchserve_image_transformer',
+    url='https://github.com/kserve/kserve/docs/samples/v1beta1/transformer/torchserve_image_transformer',
     description='Transformer',
     long_description=open('README.md').read(),
     python_requires='>=3.6',
     packages=find_packages("image_transformer"),
     install_requires=[
-        "kfserving>=0.5.1",
-        "argparse>=1.4.0",
-        "requests>=2.22.0",
+        "kserve",
         "joblib>=0.13.2",
-        "pandas>=0.24.2",
-        "numpy>=1.16.3",
-        "kubernetes >= 9.0.0",
         "torchvision>=0.4.0",
         "pillow==6.2.0"
     ],

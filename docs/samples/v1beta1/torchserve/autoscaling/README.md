@@ -23,7 +23,7 @@ You can configure InferenceService with annotation `autoscaling.knative.dev/targ
 a strictly enforced bound, particularly if there is a sudden burst of requests, this value can be exceeded.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "torchserve"
@@ -41,7 +41,7 @@ You can also configure InferenceService with field `containerConcurrency` for a 
 If concurrency reaches the hard limit, surplus requests will be buffered and must wait until enough capacity is free to execute the requests.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "torchserve"
@@ -61,7 +61,7 @@ kubectl apply -f torchserve.yaml
 Expected Output
 
 ```bash
-$inferenceservice.serving.kubeflow.org/torchserve created
+$inferenceservice.serving.kserve.io/torchserve created
 ```
 
 ## Run inference with concurrent requests

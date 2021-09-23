@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,9 +20,9 @@ limitations under the License.
 package apis
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 

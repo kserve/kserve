@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,8 +18,8 @@ limitations under the License.
 package serving
 
 import (
-	internalinterfaces "github.com/kubeflow/kfserving/pkg/client/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kubeflow/kfserving/pkg/client/informers/externalversions/serving/v1beta1"
+	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
+	v1beta1 "github.com/kserve/kserve/pkg/client/informers/externalversions/serving/v1beta1"
 )
 
 // Interface provides access to each of this group's versions.

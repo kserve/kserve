@@ -116,7 +116,7 @@ kubectl apply -f torchscript.yaml
 ```
 
 ```yaml
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: torchscript-cifar10
@@ -137,7 +137,7 @@ We want one thread per worker instead of many threads per worker to avoid conten
 
 Expected Output and check the readiness of the `InferenceService`
 ```
-$ inferenceservice.serving.kubeflow.org/torchscript-cifar10 created
+$ inferenceservice.serving.kserve.io/torchscript-cifar10 created
 ```
 
 ```bash
@@ -185,7 +185,7 @@ expected output
 Create the inference service yaml and expose the gRPC port, currently only one port is allowed to expose either HTTP or gRPC port and by default HTTP port is exposed.
 
 ```yaml
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: torchscript-cifar10
@@ -290,7 +290,7 @@ docker build -t $DOCKER_USER/image-transformer-v2:latest -f transformer.Dockerfi
 ### Create the InferenceService with Transformer
 Please use the [YAML file](./torch_transformer.yaml) to create the InferenceService, which adds the image transformer component with the docker image built from above.
 ```yaml
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: torch-transfomer
@@ -323,7 +323,7 @@ kubectl apply -f torch_transformer.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/torch-transfomer created
+$ inferenceservice.serving.kserve.io/torch-transfomer created
 ```
 
 ### Run a prediction from curl

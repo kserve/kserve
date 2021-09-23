@@ -1,11 +1,11 @@
 import logging
 
 
-from kfserving.kfmodel_repository import KFModelRepository
-import kfserving
+from kserve.kfmodel_repository import KFModelRepository
+import kserve
 
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
 class TransformerModelRepository(KFModelRepository):

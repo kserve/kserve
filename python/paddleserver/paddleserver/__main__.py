@@ -1,4 +1,3 @@
-# Copyright 2021 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +13,11 @@
 
 import argparse
 from paddleserver import PaddleModel
-import kfserving
+import kserve
 
 DEFAULT_MODEL_NAME = "model"
 
-parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -28,4 +27,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = PaddleModel(args.model_name, args.model_dir)
     model.load()
-    kfserving.KFServer().start([model])
+    kserve.KFServer().start([model])

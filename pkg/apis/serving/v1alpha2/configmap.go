@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -96,7 +95,7 @@ type InferenceServicesConfig struct {
 
 func GetInferenceServicesConfig(client client.Client) (*InferenceServicesConfig, error) {
 	configMap := &v1.ConfigMap{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 	if err != nil {
 		return nil, err
 	}

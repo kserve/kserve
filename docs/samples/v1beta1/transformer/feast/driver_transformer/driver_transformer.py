@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +13,19 @@
 
 from typing import List, Dict
 import logging
-import kfserving
+import kserve
 import http.client
 import json
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
-class DriverTransformer(kfserving.KFModel):
+class DriverTransformer(kserve.KFModel):
     """ A class object for the data handling activities of driver ranking
-    Task and returns a KFServing compatible response.
+    Task and returns a KServe compatible response.
 
     Args:
-        kfserving (class object): The KFModel class from the KFServing
+        kserve (class object): The KFModel class from the KServe
         modeule is passed here.
     """
     def __init__(self, name: str,
@@ -82,7 +81,7 @@ class DriverTransformer(kfserving.KFModel):
         """Build the predict request for all entitys and return it as a dict.
 
         Args:
-            inputs (Dict): entity ids from KFServing http request
+            inputs (Dict): entity ids from http request
             features (Dict): entity features extracted from the feature store
 
         Returns:
@@ -103,7 +102,7 @@ class DriverTransformer(kfserving.KFModel):
         """Pre-process activity of the driver input data.
 
         Args:
-            inputs (Dict): KFServing http request
+            inputs (Dict): http request
 
         Returns:
             Dict: Returns the request input after ingesting online features

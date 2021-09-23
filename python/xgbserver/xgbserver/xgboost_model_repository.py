@@ -1,4 +1,3 @@
-# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +12,7 @@
 # limitations under the License.
 
 import os
-from kfserving.kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
+from kserve.kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
 from xgbserver import XGBoostModel
 
 

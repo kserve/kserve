@@ -1,2 +1,2 @@
-kfserving
+kserve
 torchvision

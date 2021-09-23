@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,25 +28,25 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// KFServing Constants
+// KServe Constants
 var (
-	KFServingName           = "kfserving"
-	KFServingAPIGroupName   = "serving.kubeflow.org"
-	KFServingNamespace      = getEnvOrDefault("POD_NAMESPACE", "kfserving-system")
-	KFServingDefaultVersion = "v0.5.0"
+	KServeName           = "kserve"
+	KServeAPIGroupName   = "serving.kserve.io"
+	KServeNamespace      = getEnvOrDefault("POD_NAMESPACE", "kserve")
+	KServeDefaultVersion = "v0.5.0"
 )
 
 // InferenceService Constants
 var (
 	InferenceServiceName          = "inferenceservice"
 	InferenceServiceAPIName       = "inferenceservices"
-	InferenceServicePodLabelKey   = KFServingAPIGroupName + "/" + InferenceServiceName
+	InferenceServicePodLabelKey   = KServeAPIGroupName + "/" + InferenceServiceName
 	InferenceServiceConfigMapName = "inferenceservice-config"
 )
 
 // TrainedModel Constants
 var (
-	TrainedModelAllocated = KFServingAPIGroupName + "/" + "trainedmodel-allocated"
+	TrainedModelAllocated = KServeAPIGroupName + "/" + "trainedmodel-allocated"
 )
 
 // InferenceService MultiModel Constants
@@ -66,14 +65,14 @@ const (
 
 // InferenceService Annotations
 var (
-	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
-	RawDeploymentAnnotationKey                  = KFServingAPIGroupName + "/raw"
-	EnableRoutingTagAnnotationKey               = KFServingAPIGroupName + "/enable-tag-routing"
+	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
+	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
+	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
 )
 
 // InferenceService Internal Annotations
 var (
-	InferenceServiceInternalAnnotationsPrefix        = "internal." + KFServingAPIGroupName
+	InferenceServiceInternalAnnotationsPrefix        = "internal." + KServeAPIGroupName
 	StorageInitializerSourceUriInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
 	LoggerInternalAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/logger"
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
@@ -90,7 +89,7 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName             = KFServingName + "-controller-manager"
+	ControllerLabelName             = KServeName + "-controller-manager"
 	DefaultPredictorTimeout   int64 = 60
 	DefaultTransformerTimeout int64 = 120
 	DefaultExplainerTimeout   int64 = 300
@@ -101,11 +100,11 @@ var (
 
 // Webhook Constants
 var (
-	EnableKFServingMutatingWebhook         = "enabled"
+	EnableKServeMutatingWebhook            = "enabled"
 	EnableWebhookNamespaceSelectorEnvName  = "ENABLE_WEBHOOK_NAMESPACE_SELECTOR"
 	EnableWebhookNamespaceSelectorEnvValue = "enabled"
 	IsEnableWebhookNamespaceSelector       = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
-	PodMutatorWebhookName                  = KFServingName + "-pod-mutator-webhook"
+	PodMutatorWebhookName                  = KServeName + "-pod-mutator-webhook"
 )
 
 // GPU Constants
@@ -174,7 +173,7 @@ const (
 // Labels for TrainedModel
 const (
 	ParentInferenceServiceLabel = "inferenceservice"
-	InferenceServiceLabel       = "serving.kubeflow.org/inferenceservice"
+	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
 )
 
 // InferenceService default/canary constants
@@ -195,7 +194,7 @@ const (
 
 // InferenceService container name
 const (
-	InferenceServiceContainerName = "kfserving-container"
+	InferenceServiceContainerName = "kserve-container"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
@@ -230,6 +229,13 @@ const (
 	CheckResultUpdate  CheckResultType = 1
 	CheckResultExisted CheckResultType = 2
 	CheckResultUnknown CheckResultType = 3
+)
+
+type DeploymentModeType string
+
+const (
+	Serverless    DeploymentModeType = "Serverless"
+	RawDeployment DeploymentModeType = "RawDeployment"
 )
 
 // GetRawServiceLabel generate native service label

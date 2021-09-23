@@ -135,7 +135,7 @@ InferenceService in KFServing. Replace `{docker_username}` with your Docker Hub 
 and save it to `bentoml.yaml` file:
 
 ```yaml
-apiVersion: serving.kubeflow.org/v1alpha2
+apiVersion: serving.kserve.io/v1alpha2
 kind: InferenceService
 metadata:
   labels:

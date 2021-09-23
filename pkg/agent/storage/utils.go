@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,23 +16,24 @@ limitations under the License.
 package storage
 
 import (
-	gstorage "cloud.google.com/go/storage"
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	gstorage "cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
-	gcscredential "github.com/kubeflow/kfserving/pkg/credentials/gcs"
-	s3credential "github.com/kubeflow/kfserving/pkg/credentials/s3"
+	gcscredential "github.com/kserve/kserve/pkg/credentials/gcs"
+	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
 	"google.golang.org/api/option"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 func FileExists(filename string) bool {

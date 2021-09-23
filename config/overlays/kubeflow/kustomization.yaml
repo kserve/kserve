@@ -6,8 +6,8 @@ namespace: kubeflow
 
 # Labels to add to all resources and selectors.
 commonLabels:
-  app: kfserving
-  app.kubernetes.io/name: kfserving
+  app: kserve
+  app.kubernetes.io/name: kserve
 
 bases:
 - ../../default
@@ -24,8 +24,8 @@ patchesJson6902:
     group: networking.istio.io
     version: v1beta1
     kind: VirtualService
-    name: kfserving-models-web-app
-    namespace: kfserving-system
+    name: kserve-models-web-app
+    namespace: kserve
   path: patches/web-app-vsvc.yaml
 
 generatorOptions:
@@ -33,13 +33,13 @@ generatorOptions:
 
 # To make namespace for standalone installation kustomizable,
 # variabalize ingress gateway, webhook service name and
-# kfserving namespace in webhook configurations
+# kserve namespace in webhook configurations
 configMapGenerator:
-  - name: kfserving-config
+  - name: kserve-config
     behavior: replace
     envs:
     - params.env
-  - name: kfserving-models-web-app-config
+  - name: kserve-models-web-app-config
     behavior: replace
     literals:
     - USERID_HEADER=kubeflow-userid

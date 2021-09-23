@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,18 +21,18 @@ tests_require = [
 
 setup(
     name='alibiexplainer',
-    version='0.6.0',
+    version='0.7.0rc0',
     author_email='cc@seldon.io',
     license='../../LICENSE.txt',
-    url='https://github.com/kubeflow/kfserving/python/kfserving/alibiexplainer',
+    url='https://github.com/kserve/kserve/python/alibiexplainer',
     description='Model Explaination Server. \
-                 Not intended for use outside KFServing Frameworks Images',
+                 Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
     python_requires='>=3.6',
     packages=find_packages("alibiexplainer"),
     install_requires=[
         "tensorflow==2.3.2",
-        "kfserving>=0.6.0",
+        "kserve>=0.7.0rc0",
         "pandas>=0.24.2",
         "nest_asyncio>=1.4.0",
         "alibi==0.6.0",

@@ -1,4 +1,3 @@
-# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +12,7 @@
 # limitations under the License.
 
 from alibiexplainer.anchor_tabular import AnchorTabular
-import kfserving
+import kserve
 import os
 import dill
 from sklearnserver.model import SKLearnModel
@@ -30,7 +29,7 @@ EXPLAINER_FILENAME = "explainer.dill"
 def test_anchor_tabular():
     os.environ.clear()
     alibi_model = os.path.join(
-        kfserving.Storage.download(ADULT_EXPLAINER_URI), EXPLAINER_FILENAME
+        kserve.Storage.download(ADULT_EXPLAINER_URI), EXPLAINER_FILENAME
     )
     with open(alibi_model, "rb") as f:
         skmodel = SKLearnModel("adult", ADULT_MODEL_URI)

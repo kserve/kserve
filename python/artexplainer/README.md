@@ -3,7 +3,7 @@
 ## Build your own ART Model Explainer Docker Image
 
 
-First build your docker image by changing directory to kfserving/python and replacing `dockeruser` with your docker username in the snippet below.
+First build your docker image by changing directory to kserve/python and replacing `dockeruser` with your docker username in the snippet below.
 
 
 `docker build -t dockeruser/artserver:latest -f artexplainer.Dockerfile .`
