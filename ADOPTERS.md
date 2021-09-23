@@ -19,4 +19,4 @@ This page contains a list of organizations who are using KFServing either in pro
 | [Seldon](https://www.seldon.io/) | [Clive Cox](https://github.com/cliveseldon) |
 | [Patterson Consulting](https://www.pattersonconsultingtn.com/) | [Josh Patterson](https://github.com/jpatanooga) |
 | [Samsung SDS](https://www.samsungsds.com/) | [Hanbae Seo](https://github.com/jazzsir) |
-
+| [Wikimedia Foundation](https://www.wikimedia.org/) | [Chris Albon](https://github.com/chrisalbon) |
