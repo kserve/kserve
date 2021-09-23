@@ -407,6 +407,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -982,6 +983,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -1787,6 +1789,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -2437,6 +2440,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -3012,6 +3016,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -3817,6 +3822,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -4750,6 +4756,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -5293,6 +5300,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -5836,6 +5844,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -6395,6 +6404,7 @@ spec:
                                   type: string
                                 protocol:
                                   type: string
+                                  default: TCP
                               required:
                                 - containerPort
                               type: object
@@ -8131,6 +8141,7 @@ spec:
                                   type: string
                                 protocol:
                                   type: string
+                                  default: TCP
                               required:
                                 - containerPort
                               type: object
@@ -8719,6 +8730,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -9279,6 +9291,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -9826,6 +9839,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -10365,6 +10379,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -10913,6 +10928,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -11537,6 +11553,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -12078,6 +12095,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -12682,6 +12700,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -13893,6 +13912,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -14720,6 +14740,7 @@ spec:
                                   type: string
                                 protocol:
                                   type: string
+                                  default: TCP
                               required:
                                 - containerPort
                               type: object
