@@ -68,6 +68,9 @@ var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
 	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
 	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
+	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
+	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
+	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
 )
 
 // InferenceService Internal Annotations
@@ -96,6 +99,39 @@ var (
 	DefaultReadinessTimeout   int32 = 600
 	DefaultScalingTarget            = "1"
 	DefaultMinReplicas        int   = 1
+)
+
+type AutoscalerClassType string
+type AutoscalerMetricsType string
+
+// Autoscaler Default Class
+var (
+	DefaultAutoscalerClass = AutoscalerClassHPA
+)
+
+// Autoscaler Class
+var (
+	AutoscalerClassHPA AutoscalerClassType = "hpa"
+)
+
+// Autoscaler Metrics
+var (
+	AutoScalerMetricsCPU AutoscalerMetricsType = "cpu"
+)
+
+// Autoscaler Class Allowed List
+var AutoscalerAllowedClassList = []AutoscalerClassType{
+	AutoscalerClassHPA,
+}
+
+// Autoscaler Metrics Allowed List
+var AutoscalerAllowedMetricsList = []AutoscalerMetricsType{
+	AutoScalerMetricsCPU,
+}
+
+// Autoscaler Default Metrics Value
+var (
+	DefaultCPUUtilization int32 = 80
 )
 
 // Webhook Constants

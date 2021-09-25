@@ -92,8 +92,8 @@ func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (const
 	//get deployment
 	existingDeployment := &appsv1.Deployment{}
 	err := client.Get(context.TODO(), types.NamespacedName{
-		Namespace: r.Deployment.Namespace,
-		Name:      r.Deployment.Name,
+		Namespace: r.Deployment.ObjectMeta.Namespace,
+		Name:      r.Deployment.ObjectMeta.Name,
 	}, existingDeployment)
 	if err != nil {
 		if apierr.IsNotFound(err) {
@@ -152,6 +152,10 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 								},
 							},
 						},
+						TimeoutSeconds:   1,
+						PeriodSeconds:    10,
+						SuccessThreshold: 1,
+						FailureThreshold: 3,
 					}
 				} else {
 					container.ReadinessProbe = &corev1.Probe{
@@ -162,6 +166,10 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 								},
 							},
 						},
+						TimeoutSeconds:   1,
+						PeriodSeconds:    10,
+						SuccessThreshold: 1,
+						FailureThreshold: 3,
 					}
 				}
 			}

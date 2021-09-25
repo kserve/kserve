@@ -96,8 +96,11 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	// Here we allow switch between knative and vanilla deployment
 	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
-		r := raw.NewRawKubeReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
+		r, err := raw.NewRawKubeReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
 			&podSpec)
+		if err != nil {
+			return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
+		}
 		//set Deployment Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, e.scheme); err != nil {
 			return errors.Wrapf(err, "fails to set deployment owner reference for explainer")
@@ -105,6 +108,12 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		//set Service Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, e.scheme); err != nil {
 			return errors.Wrapf(err, "fails to set service owner reference for explainer")
+		}
+		//set autoscaler Controller
+		if r.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
+			if err := controllerutil.SetControllerReference(isvc, r.Scaler.Autoscaler.HPA.HPA, e.scheme); err != nil {
+				return errors.Wrapf(err, "fails to set HPA owner reference for explainer")
+			}
 		}
 
 		deployment, err := r.Reconcile()
