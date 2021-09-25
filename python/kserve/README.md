@@ -62,16 +62,7 @@ KServe's python client interacts with KServe control plane APIs for executing op
 
 ### Documentation for Client API
 
-Class | Method |  Description
------------- | ------------- | -------------
-[KFServingClient](docs/KFServingClient.md) | [set_credentials](docs/KFServingClient.md#set_credentials) | Set Credentials|
-[KFServingClient](docs/KFServingClient.md) | [create](docs/KFServingClient.md#create) | Create InferenceService|
-[KFServingClient](docs/KFServingClient.md) | [get](docs/KFServingClient.md#get)    | Get or watch the specified InferenceService or all InferenceServices in the namespace |
-[KFServingClient](docs/KFServingClient.md) | [patch](docs/KFServingClient.md#patch)  | Patch the specified InferenceService|
-[KFServingClient](docs/KFServingClient.md) | [replace](docs/KFServingClient.md#replace) | Replace the specified InferenceService|
-[KFServingClient](docs/KFServingClient.md) | [delete](docs/KFServingClient.md#delete) | Delete the specified InferenceService |
-[KFServingClient](docs/KFServingClient.md) | [wait_isvc_ready](docs/KFServingClient.md#wait_isvc_ready) | Wait for the InferenceService to be ready |
-[KFServingClient](docs/KFServingClient.md) | [is_isvc_ready](docs/KFServingClient.md#is_isvc_ready) | Check if the InferenceService is ready |
+Please review [KServe Client API](https://github.com/kserve/website/blob/main/docs/sdk_docs/docs/KServeClient.md) docs.
 
 ## Documentation For Models
 
