@@ -1,4 +1,4 @@
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "sklearn-iap"
@@ -8,7 +8,6 @@ metadata:
   annotations:
     sidecar.istio.io/inject: "false"
 spec:
-  default:
-    predictor:
-      sklearn:
-        storageUri: "gs://kfserving-samples/models/sklearn/iris"
+  predictor:
+    sklearn:
+      storageUri: "gs://kfserving-samples/models/sklearn/iris"

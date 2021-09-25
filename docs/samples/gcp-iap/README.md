@@ -13,7 +13,7 @@ The following prerequisites will be met if you follow [Full Kubeflow on Google C
 Once IAP is enabled and configured, your k8s cluster should have a GCP external http loadbalancer protected by IAP.
 
 ### Overview
-This example shows how the [sklearn iris sample](https://github.com/kserve/kserve/tree/master/docs/samples/v1alpha2/sklearn) can be adapted to support GCP IAP.  We will use a pre-trained model that is hosted on a public gcs bucket.  The model predicts a binary classificaton of iris specie using 4 numerical features.
+This example shows how the [sklearn iris sample](https://github.com/kserve/kserve/tree/master/docs/samples/v1beta1/sklearn) can be adapted to support GCP IAP.  We will use a pre-trained model that is hosted on a public gcs bucket.  The model predicts a binary classificaton of iris specie using 4 numerical features.
 
 In this example we will:
  1. **Enable GCP IAP**
