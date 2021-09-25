@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Note: Need to merge /python/kfserving/README.md and some documents manually after the script execution.
+# Note: Need to merge /python/kserve/README.md and some documents manually after the script execution.
 
 set -o errexit
 set -o nounset
