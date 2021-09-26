@@ -9,7 +9,7 @@
 Create an `InferenceService` yaml which specifies the framework `tensorflow` and `storageUri` that is pointed to a saved tensorflow model,
 by default it exposes a HTTP/REST endpoint.
 ```yaml
-apiVersion: "serving.kserve.io/v1beta1"
+apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flower-sample"
