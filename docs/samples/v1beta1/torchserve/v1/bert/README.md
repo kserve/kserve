@@ -1,6 +1,6 @@
 # TorchServe example with Huggingface bert model
 In this example we will show how to serve [Huggingface Transformers with TorchServe](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Transformers)
-on KFServing.
+on KServe.
 
 ## Model archive file creation
 
