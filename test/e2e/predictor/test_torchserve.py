@@ -61,7 +61,7 @@ def test_torchserve_kserve():
 
 
 def test_torchserve_v2_kserve():
-    service_name = "mnist"
+    service_name = "mnist-v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
@@ -86,6 +86,6 @@ def test_torchserve_v2_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/torchserve_input_v2.json")
+    res = predict(service_name, "./data/torchserve_input_v2.json", model_name="mnist")
     assert(res.get("outputs")[0]["data"] == [1])
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
