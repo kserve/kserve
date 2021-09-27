@@ -109,6 +109,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         bucket_name = parsed.netloc
         bucket_path = parsed.path.lstrip('/')
 
+        count = 0
         bucket = s3.Bucket(bucket_name)
         for obj in bucket.objects.filter(Prefix=bucket_path):
             # Skip where boto3 lists the directory as an object
@@ -125,6 +126,13 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             if not os.path.exists(os.path.dirname(target)):
                 os.makedirs(os.path.dirname(target), exist_ok=True)
             bucket.download_file(obj.key, target)
+            count = count + 1
+
+        # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
+        if count == 1:
+            mimetype, _ = mimetypes.guess_type(target)
+            if mimetype in ["application/x-tar", "application/zip"]:
+                Storage._unpack_archive_file(target, mimetype, temp_dir)
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
@@ -158,6 +166,12 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if count == 0:
             raise RuntimeError("Failed to fetch model. \
 The path or model %s does not exist." % uri)
+
+        # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
+        if count == 1:
+            mimetype, _ = mimetypes.guess_type(blob.name)
+            if mimetype in ["application/x-tar", "application/zip"]:
+                Storage._unpack_archive_file(dest_path, mimetype, temp_dir)
 
     @staticmethod
     def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
@@ -203,6 +217,12 @@ The path or model %s does not exist." % uri)
             raise RuntimeError("Failed to fetch model. \
 The path or model %s does not exist." % (uri))
 
+        # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
+        if count == 1:
+            mimetype, _ = mimetypes.guess_type(dest_path)
+            if mimetype in ["application/x-tar", "application/zip"]:
+                Storage._unpack_archive_file(dest_path, mimetype, out_dir)
+
     @staticmethod
     def _get_azure_storage_token():
         tenant_id = os.getenv("AZ_TENANT_ID", "")
@@ -236,11 +256,20 @@ The path or model %s does not exist." % (uri))
         if os.path.isdir(local_path):
             local_path = os.path.join(local_path, "*")
 
+        count = 0
         for src in glob.glob(local_path):
             _, tail = os.path.split(src)
             dest_path = os.path.join(out_dir, tail)
             logging.info("Linking: %s to %s", src, dest_path)
             os.symlink(src, dest_path)
+            count = count + 1
+
+        # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
+        if count == 1:
+            mimetype, _ = mimetypes.guess_type(dest_path)
+            if mimetype in ["application/x-tar", "application/zip"]:
+                Storage._unpack_archive_file(dest_path, mimetype, out_dir)
+
         return out_dir
 
     @staticmethod
@@ -287,12 +316,24 @@ The path or model %s does not exist." % (uri))
                 shutil.copyfileobj(stream, out)
 
         if mimetype in ["application/x-tar", "application/zip"]:
-            if mimetype == "application/x-tar":
-                archive = tarfile.open(local_path, 'r', encoding='utf-8')
-            else:
-                archive = zipfile.ZipFile(local_path, 'r')
-            archive.extractall(out_dir)
-            archive.close()
-            os.remove(local_path)
+            Storage._unpack_archive_file(local_path, mimetype, out_dir)
 
         return out_dir
+
+    @staticmethod
+    def _unpack_archive_file(file_path, mimetype, target_dir=None):
+        if not target_dir:
+            target_dir = os.path.dirname(file_path)
+        
+        try:
+            logging.info("Unpacking: %s", file_path)
+            if mimetype == "application/x-tar":
+                archive = tarfile.open(file_path, 'r', encoding='utf-8')
+            else:
+                archive = zipfile.ZipFile(file_path, 'r')
+            archive.extractall(target_dir)
+            archive.close()
+        except (tarfile.TarError, zipfile.BadZipfile):
+            raise RuntimeError("Failed to unpack archieve file. \
+The file format is not valid.")
+        os.remove(file_path)

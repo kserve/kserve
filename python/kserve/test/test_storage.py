@@ -16,6 +16,8 @@ import os
 import tempfile
 import binascii
 import unittest.mock as mock
+import mimetypes
+from pathlib import Path
 
 import botocore
 import kserve
@@ -174,3 +176,23 @@ def test_no_permission_buckets(mock_connection, mock_boto3):
 
     with pytest.raises(botocore.exceptions.ClientError):
         kserve.Storage.download(bad_s3_path)
+
+
+def test_unpack_tar_file():
+    out_dir = '.'
+    tar_file = os.path.join(out_dir, "model.tgz")
+    Path(tar_file).write_bytes(FILE_TAR_GZ_RAW)
+    mimetype, _ = mimetypes.guess_type(tar_file)
+    kserve.Storage._unpack_archive_file(tar_file, mimetype, out_dir)
+    assert os.path.exists(os.path.join(out_dir, 'model.pth'))
+    os.remove(os.path.join(out_dir, 'model.pth'))
+
+
+def test_unpack_zip_file():
+    out_dir = '.'
+    tar_file = os.path.join(out_dir, "model.zip")
+    Path(tar_file).write_bytes(FILE_ZIP_RAW)
+    mimetype, _ = mimetypes.guess_type(tar_file)
+    kserve.Storage._unpack_archive_file(tar_file, mimetype, out_dir)
+    assert os.path.exists(os.path.join(out_dir, 'model.pth'))
+    os.remove(os.path.join(out_dir, 'model.pth'))
