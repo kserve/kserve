@@ -35,10 +35,11 @@ def test_transformer():
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
+            protocol_version="v1",
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '256Mi'},
-                limits={'cpu': '100m', 'memory': '256Mi'}
-            )
+                requests={"cpu": "1", "memory": "4Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
         ),
     )
     transformer = V1beta1TransformerSpec(
