@@ -12,7 +12,6 @@
 # limitations under the License.
 
 import os
-import numpy as np
 from kubernetes import client
 
 from kserve import KServeClient
@@ -47,8 +46,11 @@ def test_transformer():
         min_replicas=1,
         containers=[V1Container(
                       image='kfserving/torchserve-image-transformer:latest',
-                      name='kserve-container',
-                      env=[client.V1EnvVar(name="STORAGE_URI", value="gs://kfserving-examples/models/torchserve/image_classifier")],
+                      name='kserve-transformer',
+                      env=[client.V1EnvVar(
+                          name="STORAGE_URI",
+                          value="gs://kfserving-examples/models/torchserve/image_classifier")
+                          ],
                       resources=V1ResourceRequirements(
                           requests={'cpu': '100m', 'memory': '1Gi'},
                           limits={'cpu': '100m', 'memory': '1Gi'}),
