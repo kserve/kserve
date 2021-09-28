@@ -47,10 +47,6 @@ def test_transformer():
         containers=[V1Container(
                       image='kfserving/torchserve-image-transformer:latest',
                       name='kserve-transformer',
-                      env=[client.V1EnvVar(
-                          name="STORAGE_URI",
-                          value="gs://kfserving-examples/models/torchserve/image_classifier")
-                          ],
                       resources=V1ResourceRequirements(
                           requests={'cpu': '100m', 'memory': '1Gi'},
                           limits={'cpu': '100m', 'memory': '1Gi'}),
