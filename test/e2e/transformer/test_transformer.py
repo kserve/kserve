@@ -35,8 +35,7 @@ def test_transformer():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
-            model_class_name="Net",
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
             resources=V1ResourceRequirements(
                 requests={'cpu': '100m', 'memory': '256Mi'},
                 limits={'cpu': '100m', 'memory': '256Mi'}
@@ -46,8 +45,9 @@ def test_transformer():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:latest',
+                      image='kfserving/torchserve-image-transformer:latest',
                       name='kserve-container',
+                      env=[client.V1EnvVar(name="STORAGE_URI", value="gs://kfserving-examples/models/torchserve/image_classifier")],
                       resources=V1ResourceRequirements(
                           requests={'cpu': '100m', 'memory': '256Mi'},
                           limits={'cpu': '100m', 'memory': '256Mi'}))]
@@ -72,6 +72,6 @@ def test_transformer():
         for pod in pods.items:
             print(pod)
         raise e
-    res = predict(service_name, './data/transformer.json')
-    assert(np.argmax(res["predictions"]) == 3)
+    res = predict(service_name, "./data/torchserve_input.json", model_name="mnist")
+    assert(res.get("predictions")[0] == 2)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
