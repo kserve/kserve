@@ -14,7 +14,7 @@ webhooks:
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.defaulter
     sideEffects: None
-    admissionReviewVersions: [v1beta1]
+    admissionReviewVersions: ["v1", "v1beta1"]
     rules:
       - apiGroups:
           - serving.kserve.io
@@ -34,7 +34,7 @@ webhooks:
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.v1beta1.defaulter
     sideEffects: None
-    admissionReviewVersions: [v1beta1]
+    admissionReviewVersions: ["v1", "v1beta1"]
     rules:
       - apiGroups:
           - serving.kserve.io
@@ -54,7 +54,7 @@ webhooks:
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.pod-mutator
     sideEffects: None
-    admissionReviewVersions: [v1beta1]
+    admissionReviewVersions: ["v1", "v1beta1"]
     namespaceSelector:
       matchExpressions:
         - key: control-plane
@@ -90,7 +90,7 @@ webhooks:
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.validator
     sideEffects: None
-    admissionReviewVersions: [v1beta1]
+    admissionReviewVersions: ["v1", "v1beta1"]
     rules:
       - apiGroups:
           - serving.kserve.io
@@ -110,7 +110,7 @@ webhooks:
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.v1beta1.validator
     sideEffects: None
-    admissionReviewVersions: [v1beta1]
+    admissionReviewVersions: ["v1", "v1beta1"]
     rules:
       - apiGroups:
           - serving.kserve.io
@@ -137,7 +137,7 @@ webhooks:
     failurePolicy: Fail
     name: trainedmodel.kserve-webhook-server.validator
     sideEffects: None
-    admissionReviewVersions: [v1beta1]
+    admissionReviewVersions: ["v1", "v1beta1"]
     rules:
       - apiGroups:
           - serving.kserve.io
