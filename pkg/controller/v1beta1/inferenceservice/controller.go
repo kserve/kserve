@@ -19,7 +19,6 @@ import (
 
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
@@ -53,6 +52,8 @@ import (
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices/finalizers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations;validatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
@@ -60,6 +61,15 @@ import (
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
+
+// InferenceState describes the Readiness of the InferenceService
+type InferenceServiceState string
+
+// Different InferenceServiceState an InferenceService may have.
+const (
+	InferenceServiceReadyState    InferenceServiceState = "InferenceServiceReady"
+	InferenceServiceNotReadyState InferenceServiceState = "InferenceServiceNotReady"
+)
 
 // InferenceServiceReconciler reconciles a InferenceService object
 type InferenceServiceReconciler struct {
@@ -213,10 +223,10 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		// If there was a difference and there was no error.
 		isReady := inferenceServiceReadiness(desiredService.Status)
 		if wasReady && !isReady { // Moved to NotReady State
-			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(v1alpha2.InferenceServiceNotReadyState),
+			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
 				fmt.Sprintf("InferenceService [%v] is no longer Ready", desiredService.GetName()))
 		} else if !wasReady && isReady { // Moved to Ready State
-			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(v1alpha2.InferenceServiceReadyState),
+			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(InferenceServiceReadyState),
 				fmt.Sprintf("InferenceService [%v] is Ready", desiredService.GetName()))
 		}
 	}
