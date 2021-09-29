@@ -29,16 +29,14 @@ isControllerRunning() {
     fi
     svc_names=$(kubectl get svc -n $namespace -o jsonpath='{.items[*].metadata.name}')
     for svc_name in "${prefix}-controller-manager-metrics-service" \
-                    "${prefix}-controller-manager-service" \
-                    "${prefix}-models-web-app" \
-                    "${prefix}-webhook-server-service"; do
+                    "${prefix}-controller-manager-service"; do
         if [ ! -z "${svc_names##*$svc_name*}" ]; then
             log ERROR "${prefix} controller services are not installed completely."
             exit 1;
         fi
     done
     po_names=$(kubectl get po -n $namespace -o jsonpath='{.items[*].metadata.name}')
-    for po_name in "${prefix}-controller-manager" "${prefix}-models-web-app"; do
+    for po_name in "${prefix}-controller-manager"; do
         if [ ! -z "${po_names##*$po_name*}" ]; then
             log ERROR "${prefix} controller services are not installed completely."
             exit 1;
@@ -219,16 +217,6 @@ if [ "${CLEAN_KFSERVING}" == "true" ]; then
     kubectl delete ValidatingWebhookConfiguration inferenceservice.serving.kubeflow.org
     kubectl delete ValidatingWebhookConfiguration trainedmodel.serving.kubeflow.org
 fi
-
-log INFO "deleting kfserving revisions"
-for (( i=0; i<${isvc_count}; i++ ));
-do
-    revisions=$(kubectl get deployment.apps -n ${isvc_ns[$i]} -o json | jq -r '.items[] | select(.status.availableReplicas==null and .metadata.ownerReferences[0].kind=="Revision") | .metadata.ownerReferences[0].name')
-    for revision in "${revisions[@]}"
-    do
-        kubectl delete revision.serving.knative.dev ${revision} -n ${isvc_ns[$i]}
-    done
-done
 
 rm -rf ${CONFIG_DIR}
 
