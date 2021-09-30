@@ -53,7 +53,7 @@ vars:
   fieldref:
     fieldpath: data.ingressGateway
 - fieldref:
-    fieldPath: metadata.name
+    fieldpath: metadata.name
   name: webhookServiceName
   objref:
     apiVersion: v1
