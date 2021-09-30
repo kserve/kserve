@@ -17,7 +17,7 @@ limitations under the License.
 package autoscaler
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -59,26 +59,12 @@ func NewAutoscalerReconciler(client client.Client,
 	}, err
 }
 
-func autoscalerClassValidation(class constants.AutoscalerClassType) error {
-	for _, item := range constants.AutoscalerAllowedClassList {
-		if class == item {
-			return nil
-		}
-	}
-	var msg string = string(class) + " is not a supported autoscaler class."
-	return errors.New(msg)
-}
-
-func getAutoscalerClass(metadata metav1.ObjectMeta) (constants.AutoscalerClassType, error) {
+func getAutoscalerClass(metadata metav1.ObjectMeta) constants.AutoscalerClassType {
 	annotations := metadata.Annotations
 	if value, ok := annotations[constants.AutoscalerClass]; ok {
-		if err := autoscalerClassValidation(constants.AutoscalerClassType(value)); err != nil {
-			return "nil", err
-		} else {
-			return constants.AutoscalerClassType(value), nil
-		}
+		return constants.AutoscalerClassType(value)
 	} else {
-		return constants.DefaultAutoscalerClass, nil
+		return constants.DefaultAutoscalerClass
 	}
 }
 
@@ -86,10 +72,7 @@ func createAutoscaler(client client.Client,
 	scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) (*Autoscaler, error) {
 	as := &Autoscaler{}
-	ac, err := getAutoscalerClass(componentMeta)
-	if err != nil {
-		return nil, err
-	}
+	ac := getAutoscalerClass(componentMeta)
 	as.AutoscalerClass = ac
 	switch ac {
 	case constants.AutoscalerClassHPA:

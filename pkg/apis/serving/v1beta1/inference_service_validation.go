@@ -21,6 +21,7 @@ import (
 
 	"regexp"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -47,6 +48,10 @@ func (isvc *InferenceService) ValidateCreate() error {
 	validatorLogger.Info("validate create", "name", isvc.Name)
 
 	if err := validateInferenceServiceName(isvc); err != nil {
+		return err
+	}
+
+	if err := validateInferenceServiceAutoscaler(isvc); err != nil {
 		return err
 	}
 
@@ -95,4 +100,40 @@ func validateInferenceServiceName(isvc *InferenceService) error {
 		return fmt.Errorf(InvalidISVCNameFormatError, isvc.Name, IsvcNameFmt)
 	}
 	return nil
+}
+
+//Validation of isvc autoscaler class
+func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
+	annotations := isvc.ObjectMeta.Annotations
+	value, ok := annotations[constants.AutoscalerClass]
+	class := constants.AutoscalerClassType(value)
+	if ok {
+		for _, item := range constants.AutoscalerAllowedClassList {
+			if class == item {
+				switch class {
+				case constants.AutoscalerClassHPA:
+					if metric, ok := annotations[constants.AutoscalerMetrics]; ok {
+						return validateHPAMetrics(metric)
+					} else {
+						return nil
+					}
+				default:
+					return fmt.Errorf("unknown autoscaler class [%s]", class)
+				}
+			}
+		}
+		return fmt.Errorf("[%s] is not a supported autoscaler class type.\n", value)
+	}
+	return nil
+}
+
+//Validate of autoscaler HPA metrics
+func validateHPAMetrics(metric string) error {
+	for _, item := range constants.AutoscalerAllowedMetricsList {
+		if item == constants.AutoscalerMetricsType(metric) {
+			return nil
+		}
+	}
+	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
+
 }

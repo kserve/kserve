@@ -15,7 +15,6 @@ package hpa
 
 import (
 	"context"
-	"errors"
 	"strconv"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -57,36 +56,17 @@ func NewHPAReconciler(client client.Client,
 	}, err
 }
 
-func hpaMetricsValidation(metric string) error {
-	for _, item := range constants.AutoscalerAllowedMetricsList {
-		if item == constants.AutoscalerMetricsType(metric) {
-			return nil
-		}
-	}
-	var msg string = string(metric) + " is not a supported HPA metric."
-	return errors.New(msg)
-}
-
 func getHPAMetrics(metadata metav1.ObjectMeta) ([]v2beta2.MetricSpec, error) {
 	var metrics []v2beta2.MetricSpec
 	var cpuUtilization int32
 	annotations := metadata.Annotations
-	if metric, ok := annotations[constants.AutoscalerMetrics]; ok {
-		log.Info("getHPAMetrics", "metric", metric)
-		if err := hpaMetricsValidation(metric); err == nil {
-			log.Info("getHPAMetrics", "metricsValidationCheck", "OK")
-			if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
-				utilization, err := strconv.Atoi(value)
-				if err != nil {
-					return nil, err
-				}
-				cpuUtilization = int32(utilization)
-			} else {
-				cpuUtilization = constants.DefaultCPUUtilization
-			}
-		} else {
+
+	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
+		utilization, err := strconv.Atoi(value)
+		if err != nil {
 			return nil, err
 		}
+		cpuUtilization = int32(utilization)
 	} else {
 		cpuUtilization = constants.DefaultCPUUtilization
 	}
