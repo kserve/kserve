@@ -26,7 +26,7 @@ Additionally, we have compiled a list of [presentations and demoes](/docs/PRESEN
 
 #### Standalone Installation
 KServe by default installs Knative for serverless deployment, please follow [Serverless installation guide](https://kserve.github.io/website/admin/serverless) to
-install KServe. If you are looking to install KServe without Knative(this feature is still alpha), please follow [Raw Kubernetes Deployment installation guide](https://kserve.github.io/website/admin/kubernetes_deployment).
+install KServe. If you are looking to install KServe without Knative(this feature is still alpha), please follow [Raw Kubernetes Deployment installation guide](https://kserve.github.io/website/admin/kubernetes_deployment). For multi-model serving with ModelMesh, please follow [ModelMesh installation guide](https://kserve.github.io/website/admin/modelmesh)
 
 #### Quick Install
 Please follow [quick install](https://kserve.github.io/website/get_started) to install KServe on your local machine.

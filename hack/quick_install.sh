@@ -34,6 +34,7 @@ export ISTIO_VERSION=1.9.0
 export KNATIVE_VERSION=v0.22.0
 export KSERVE_VERSION=v0.7.0
 export CERT_MANAGER_VERSION=v1.3.0
+export KSERVE_MODELMESH_VERSION=v0.7.0
 
 KUBE_VERSION=$(kubectl version --short=true)
 
@@ -106,3 +107,14 @@ if [ ${KSERVE_VERSION:3:1} -gt 6 ]; then KSERVE_CONFIG=kserve.yaml; fi
 for i in 1 2 3 4 5 ; do kubectl apply -f install/${KSERVE_VERSION}/${KSERVE_CONFIG} && break || sleep 15; done
 # Clean up
 rm -rf istio-${ISTIO_VERSION}
+
+# Install KServe Modelmesh
+kubectl create ns modelmesh-serving || true
+CURRENT_NAMESPACE=$(kubectl config  get-contexts $(kubectl config current-context) |tail -1|awk '{ print $5 }')
+kubectl config set-context --current --namespace=modelmesh-serving
+
+kubectl apply -f https://github.com/kserve/modelmesh-serving/releases/download/${KSERVE_MODELMESH_VERSION}/modelmesh-quickstart-dependencies.yaml
+for i in 1 2 3 4 5 ; do kubectl apply -f https://github.com/kserve/modelmesh-serving/releases/download/${KSERVE_MODELMESH_VERSION}/modelmesh.yaml && break || sleep 15; done
+for i in 1 2 3 4 5 ; do kubectl apply -f https://github.com/kserve/modelmesh-serving/releases/download/${KSERVE_MODELMESH_VERSION}/modelmesh-runtimes.yaml && break || sleep 15; done
+
+kubectl config set-context --current --namespace=${CURRENT_NAMESPACE}
