@@ -115,7 +115,7 @@ def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
 
     # then
     actual_calls = get_call_args(mock_container.download_blob.call_args_list)
-    assert set(actual_calls) == set(expected_calls[:1])
+    assert set(actual_calls) == set(expected_calls)
 
 
 @mock.patch('kserve.storage.os.makedirs')
