@@ -26,6 +26,32 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func makeTestRawInferenceService() InferenceService {
+	inferenceservice := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"serving.kserve.io/deploymentMode":              "RawDeployment",
+				"serving.kserve.io/autoscalerClass":             "hpa",
+				"serving.kserve.io/metrics":                     "cpu",
+				"serving.kserve.io/targetUtilizationPercentage": "75",
+			},
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI:     proto.String("gs://testbucket/testmodel"),
+						RuntimeVersion: proto.String("0.14.0"),
+					},
+				},
+			},
+		},
+	}
+	return inferenceservice
+}
+
 func makeTestInferenceService() InferenceService {
 	inferenceservice := InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -44,6 +70,26 @@ func makeTestInferenceService() InferenceService {
 		},
 	}
 	return inferenceservice
+}
+
+func TestValidAutoscalerClassTypeAndHPAMetrics(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestRawInferenceService()
+	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
+}
+
+func TestInvalidAutoscalerClassType(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestRawInferenceService()
+	isvc.ObjectMeta.Annotations["serving.kserve.io/autoscalerClass"] = "test"
+	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
+}
+
+func TestInvalidAutoscalerHPAMetrics(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestRawInferenceService()
+	isvc.ObjectMeta.Annotations["serving.kserve.io/metrics"] = "test"
+	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
 
 func TestValidStorageURIPrefixOK(t *testing.T) {

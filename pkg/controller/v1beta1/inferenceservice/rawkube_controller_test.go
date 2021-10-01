@@ -25,15 +25,17 @@ import (
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	v2beta2 "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/network"
+
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -93,7 +95,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		}
 	)
 	Context("When creating inference service with raw kube predictor", func() {
-		It("Should have ingress/service/deployment created", func() {
+		It("Should have ingress/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -115,7 +117,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": "RawDeployment",
+						"serving.kserve.io/deploymentMode":              "RawDeployment",
+						"serving.kserve.io/autoscalerClass":             "hpa",
+						"serving.kserve.io/metrics":                     "cpu",
+						"serving.kserve.io/targetUtilizationPercentage": "75",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -138,6 +143,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
 			inferenceService := &v1beta1.InferenceService{}
 
 			Eventually(func() bool {
@@ -181,6 +187,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
 								"serving.kserve.io/deploymentMode":                         "RawDeployment",
+								"serving.kserve.io/autoscalerClass":                        "hpa",
+								"serving.kserve.io/metrics":                                "cpu",
+								"serving.kserve.io/targetUtilizationPercentage":            "75",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -390,6 +399,40 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(gomega.BeEmpty())
+
+			//check HPA
+			var minReplicas int32 = 1
+			var maxReplicas int32 = 3
+			var cpuUtilization int32 = 75
+			actualHPA := &v2beta2.HorizontalPodAutoscaler{}
+			predictorHPAKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
+				Should(Succeed())
+			expectedHPA := &v2beta2.HorizontalPodAutoscaler{
+				Spec: v2beta2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: v2beta2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       constants.DefaultPredictorServiceName(serviceKey.Name),
+					},
+					MinReplicas: &minReplicas,
+					MaxReplicas: maxReplicas,
+					Metrics: []v2beta2.MetricSpec{
+						{
+							Type: v2beta2.ResourceMetricSourceType,
+							Resource: &v2beta2.ResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2beta2.MetricTarget{
+									Type:               "Utilization",
+									AverageUtilization: &cpuUtilization,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(actualHPA.Spec).To(gomega.Equal(expectedHPA.Spec))
 		})
 	})
 })
