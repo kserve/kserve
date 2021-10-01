@@ -404,6 +404,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var minReplicas int32 = 1
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
+			var stabilizationWindowSeconds int32 = 0
+			selectPolicy := v2beta2.MaxPolicySelect
 			actualHPA := &v2beta2.HorizontalPodAutoscaler{}
 			predictorHPAKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
@@ -426,6 +428,35 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Target: v2beta2.MetricTarget{
 									Type:               "Utilization",
 									AverageUtilization: &cpuUtilization,
+								},
+							},
+						},
+					},
+					Behavior: &v2beta2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &v2beta2.HPAScalingRules{
+							StabilizationWindowSeconds: &stabilizationWindowSeconds,
+							SelectPolicy:               &selectPolicy,
+							Policies: []v2beta2.HPAScalingPolicy{
+								{
+									Type:          "Pods",
+									Value:         4,
+									PeriodSeconds: 15,
+								},
+								{
+									Type:          "Percent",
+									Value:         100,
+									PeriodSeconds: 15,
+								},
+							},
+						},
+						ScaleDown: &v2beta2.HPAScalingRules{
+							StabilizationWindowSeconds: nil,
+							SelectPolicy:               &selectPolicy,
+							Policies: []v2beta2.HPAScalingPolicy{
+								{
+									Type:          "Percent",
+									Value:         100,
+									PeriodSeconds: 15,
 								},
 							},
 						},
