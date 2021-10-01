@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 import requests
 from pathlib import Path
 from azure.storage.blob import BlobServiceClient
+from azure.storage.blob._list_blobs_helper import BlobPrefix
 
 from botocore.client import Config
 from botocore import UNSIGNED
@@ -176,9 +177,22 @@ The path or model %s does not exist." % uri)
         blob_service_client = BlobServiceClient(account_url, credential=token)
         container_client = blob_service_client.get_container_client(container_name)
         count = 0
-        blobs = container_client.list_blobs(prefix=prefix)
+        blobs = []
+        max_depth = 5
+        stack = [(prefix, max_depth)]
+        while stack:
+            curr_prefix, depth = stack.pop()
+            if depth < 0:
+                continue
+            for item in container_client.walk_blobs(
+                            name_starts_with=curr_prefix):
+                if isinstance(item, BlobPrefix):
+                    stack.append((item.name, depth - 1))
+                else:
+                    blobs += container_client.list_blobs(name_starts_with=item.name,
+                                                         include=['snapshots'])
         for blob in blobs:
-            dest_path = os.path.join(out_dir, blob.name)
+            dest_path = os.path.join(out_dir, blob.name.replace(prefix, ""))
             Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
             logging.info("Downloading: %s to %s", blob.name, dest_path)
             downloader = container_client.download_blob(blob.name)
