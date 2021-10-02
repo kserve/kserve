@@ -18,9 +18,11 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 
 	"regexp"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -50,6 +52,13 @@ func (isvc *InferenceService) ValidateCreate() error {
 		return err
 	}
 
+	if err := validateInferenceServiceAutoscaler(isvc); err != nil {
+		return err
+	}
+
+	if err := validateAutoscalerTargetUtilizationPercentage(isvc); err != nil {
+		return err
+	}
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
 		isvc.Spec.Transformer,
@@ -93,6 +102,59 @@ func GetIntReference(number int) *int {
 func validateInferenceServiceName(isvc *InferenceService) error {
 	if !IsvcRegexp.MatchString(isvc.Name) {
 		return fmt.Errorf(InvalidISVCNameFormatError, isvc.Name, IsvcNameFmt)
+	}
+	return nil
+}
+
+//Validation of isvc autoscaler class
+func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
+	annotations := isvc.ObjectMeta.Annotations
+	value, ok := annotations[constants.AutoscalerClass]
+	class := constants.AutoscalerClassType(value)
+	if ok {
+		for _, item := range constants.AutoscalerAllowedClassList {
+			if class == item {
+				switch class {
+				case constants.AutoscalerClassHPA:
+					if metric, ok := annotations[constants.AutoscalerMetrics]; ok {
+						return validateHPAMetrics(metric)
+					} else {
+						return nil
+					}
+				default:
+					return fmt.Errorf("unknown autoscaler class [%s]", class)
+				}
+			}
+		}
+		return fmt.Errorf("[%s] is not a supported autoscaler class type.\n", value)
+	}
+
+	return nil
+}
+
+//Validate of autoscaler HPA metrics
+func validateHPAMetrics(metric string) error {
+	for _, item := range constants.AutoscalerAllowedMetricsList {
+		if item == constants.AutoscalerMetricsType(metric) {
+			return nil
+		}
+	}
+	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
+
+}
+
+//Validate of autoscaler targetUtilizationPercentage
+func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error {
+	annotations := isvc.ObjectMeta.Annotations
+	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
+		t, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
+		} else {
+			if t < 1 || t > 100 {
+				return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
+			}
+		}
 	}
 	return nil
 }

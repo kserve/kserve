@@ -98,8 +98,11 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	// Here we allow switch between knative and vanilla deployment
 	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
-		r := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
+		r, err := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
 			&podSpec)
+		if err != nil {
+			return errors.Wrapf(err, "fails to create NewRawKubeReconciler for transformer")
+		}
 		//set Deployment Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, p.scheme); err != nil {
 			return errors.Wrapf(err, "fails to set deployment owner reference for transformer")
@@ -107,6 +110,12 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		//set Service Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, p.scheme); err != nil {
 			return errors.Wrapf(err, "fails to set service owner reference for transformer")
+		}
+		//set autoscaler Controller
+		if r.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
+			if err := controllerutil.SetControllerReference(isvc, r.Scaler.Autoscaler.HPA.HPA, p.scheme); err != nil {
+				return errors.Wrapf(err, "fails to set HPA owner reference for transformer")
+			}
 		}
 
 		deployment, err := r.Reconcile()
