@@ -26,7 +26,7 @@ Additionally, we have compiled a list of [presentations and demoes](/docs/PRESEN
 
 #### Standalone Installation
 KServe by default installs Knative for serverless deployment, please follow [Serverless installation guide](https://kserve.github.io/website/admin/serverless) to
-install KServe. If you are looking to install KServe without Knative(this feature is still alpha), please follow [Raw Kubernetes Deployment installation guide](https://kserve.github.io/website/admin/kubernetes_deployment.md).
+install KServe. If you are looking to install KServe without Knative(this feature is still alpha), please follow [Raw Kubernetes Deployment installation guide](https://kserve.github.io/website/admin/kubernetes_deployment).
 
 #### Quick Install
 Please follow [quick install](https://kserve.github.io/website/get_started) to install KServe on your local machine.
@@ -39,13 +39,10 @@ Please follow [getting started](https://kserve.github.io/website/get_started/fir
 [Roadmap](./ROADMAP.md)
 
 ### API Reference
-[InferenceService v1beta1 API Docs](./docs/apis/v1beta1/README.md)
+[InferenceService v1beta1 API Docs](https://kserve.github.io/website/reference/api)
 
 ### Developer Guide
-[Developer Guide](/docs/DEVELOPER_GUIDE.md).
-
-### Performance Tests
-[benchmark test comparing Knative and Kubernetes Deployment with HPA](test/benchmark/README.md)
+[Developer Guide](https://kserve.github.io/website/developer/developer/).
 
 ### Contributor Guide
 [Contributor Guide](./CONTRIBUTING.md)
