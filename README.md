@@ -14,7 +14,7 @@ It encapsulates the complexity of autoscaling, networking, health checking, and 
 
 
 _Since 0.7 KFServing is rebranded to KServe, we still support previous KFServing [0.5.x](https://github.com/kserve/kserve/tree/release-0.5) and 
-[0.6.x](https://github.com/kserve/kserve/tree/release-0.6) releases, please refer to corresponding release branch for docs.
+[0.6.x](https://github.com/kserve/kserve/tree/release-0.6) releases, please refer to corresponding release branch for docs_.
 
 
 ### Learn More
@@ -26,7 +26,7 @@ Additionally, we have compiled a list of [presentations and demoes](/docs/PRESEN
 
 #### Standalone Installation
 KServe by default installs Knative for serverless deployment, please follow [Serverless installation guide](https://kserve.github.io/website/admin/serverless) to
-install KServe. If you are looking to install KServe without Knative(this feature is still alpha), please follow [Raw kubernetes deployment installation guide](https://kserve.github.io/website/admin/kubernetes_deployment.md) to install `KServe` .
+install KServe. If you are looking to install KServe without Knative(this feature is still alpha), please follow [Raw Kubernetes Deployment installation guide](https://kserve.github.io/website/admin/kubernetes_deployment.md).
 
 #### Quick Install
 Please follow [quick install](https://kserve.github.io/website/get_started) to install KServe on your local machine.
