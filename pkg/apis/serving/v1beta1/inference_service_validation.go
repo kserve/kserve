@@ -18,6 +18,7 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 
 	"regexp"
 
@@ -55,6 +56,9 @@ func (isvc *InferenceService) ValidateCreate() error {
 		return err
 	}
 
+	if err := validateAutoscalerTargetUtilizationPercentage(isvc); err != nil {
+		return err
+	}
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
 		isvc.Spec.Transformer,
@@ -124,6 +128,7 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 		}
 		return fmt.Errorf("[%s] is not a supported autoscaler class type.\n", value)
 	}
+
 	return nil
 }
 
@@ -136,4 +141,20 @@ func validateHPAMetrics(metric string) error {
 	}
 	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
 
+}
+
+//Validate of autoscaler targetUtilizationPercentage
+func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error {
+	annotations := isvc.ObjectMeta.Annotations
+	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
+		t, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
+		} else {
+			if t < 1 || t > 100 {
+				return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
+			}
+		}
+	}
+	return nil
 }

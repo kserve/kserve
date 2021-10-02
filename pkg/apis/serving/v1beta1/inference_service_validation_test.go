@@ -85,6 +85,29 @@ func TestInvalidAutoscalerClassType(t *testing.T) {
 	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
 
+func TestValidTargetUtilizationPercentage(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestRawInferenceService()
+	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "70"
+	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
+}
+
+func TestInvalidTargetUtilizationPercentage(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestRawInferenceService()
+	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "101"
+	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
+
+	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "abc"
+	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
+
+	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "0"
+	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
+
+	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "99.9"
+	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
+}
+
 func TestInvalidAutoscalerHPAMetrics(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestRawInferenceService()

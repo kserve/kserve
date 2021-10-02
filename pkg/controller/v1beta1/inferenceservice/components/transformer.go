@@ -114,7 +114,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		//set autoscaler Controller
 		if r.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
 			if err := controllerutil.SetControllerReference(isvc, r.Scaler.Autoscaler.HPA.HPA, p.scheme); err != nil {
-				return errors.Wrapf(err, "fails to set HPA owner reference for explainer")
+				return errors.Wrapf(err, "fails to set HPA owner reference for transformer")
 			}
 		}
 

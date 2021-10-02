@@ -43,29 +43,22 @@ type HPAReconciler struct {
 func NewHPAReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) (*HPAReconciler, error) {
-	hpa, err := createHPA(componentMeta, componentExt)
-	if err != nil {
-		return nil, err
-	}
+	componentExt *v1beta1.ComponentExtensionSpec) *HPAReconciler {
 	return &HPAReconciler{
 		client:       client,
 		scheme:       scheme,
-		HPA:          hpa,
+		HPA:          createHPA(componentMeta, componentExt),
 		componentExt: componentExt,
-	}, err
+	}
 }
 
-func getHPAMetrics(metadata metav1.ObjectMeta) ([]v2beta2.MetricSpec, error) {
+func getHPAMetrics(metadata metav1.ObjectMeta) []v2beta2.MetricSpec {
 	var metrics []v2beta2.MetricSpec
 	var cpuUtilization int32
 	annotations := metadata.Annotations
 
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
-		utilization, err := strconv.Atoi(value)
-		if err != nil {
-			return nil, err
-		}
+		utilization, _ := strconv.Atoi(value)
 		cpuUtilization = int32(utilization)
 	} else {
 		cpuUtilization = constants.DefaultCPUUtilization
@@ -82,11 +75,11 @@ func getHPAMetrics(metadata metav1.ObjectMeta) ([]v2beta2.MetricSpec, error) {
 		},
 	}
 	metrics = append(metrics, ms)
-	return metrics, nil
+	return metrics
 }
 
 func createHPA(componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) (*v2beta2.HorizontalPodAutoscaler, error) {
+	componentExt *v1beta1.ComponentExtensionSpec) *v2beta2.HorizontalPodAutoscaler {
 	minReplicas := int32(*componentExt.MinReplicas)
 	if minReplicas < int32(constants.DefaultMinReplicas) {
 		minReplicas = int32(constants.DefaultMinReplicas)
@@ -95,10 +88,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas
 	}
-	metrics, err := getHPAMetrics(componentMeta)
-	if err != nil {
-		return nil, err
-	}
+	metrics := getHPAMetrics(componentMeta)
 	hpa := &v2beta2.HorizontalPodAutoscaler{
 		ObjectMeta: componentMeta,
 		Spec: v2beta2.HorizontalPodAutoscalerSpec{
@@ -113,7 +103,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			Behavior:    &v2beta2.HorizontalPodAutoscalerBehavior{},
 		},
 	}
-	return hpa, nil
+	return hpa
 }
 
 //checkHPAExist checks if the hpa exists?
