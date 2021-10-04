@@ -72,6 +72,7 @@ log INFO "getting inference services config"
 inference_services=$(kubectl get inferenceservice.serving.kubeflow.org -A -o jsonpath='{.items[*].metadata.namespace},{.items[*].metadata.name}')
 declare -a isvc_names
 declare -a isvc_ns
+declare -A kfserving_isvc_status
 if [ ! -z "$inference_services" ]; then
     mkdir -p ${ISVC_CONFIG_DIR}
     IFS=','; isvc_split=($inference_services); unset IFS;
@@ -82,6 +83,7 @@ isvc_count=${#isvc_names[@]}
 for (( i=0; i<${isvc_count}; i++ ));
 do
     kubectl get inferenceservice.serving.kubeflow.org ${isvc_names[$i]} -n ${isvc_ns[$i]} -o yaml > "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+    kfserving_isvc_status[${isvc_names[$i]}]=$(kubectl get inferenceservice.serving.kubeflow.org ${isvc_names[$i]} -n ${isvc_ns[$i]} -o json | jq --raw-output '.status.conditions | map(select(.type == "Ready"))[0].status')
 done
 
 # Get knative services names
@@ -182,10 +184,12 @@ sleep 5
 log INFO "verifying inference services are migrated and ready"
 for (( i=0; i<${isvc_count}; i++ ));
 do
-    (
-        trap 'log ERROR "inference service ${isvc_names[$i]} did not migrate properly. migration job exits with code 1."' ERR
-        kubectl wait --for=condition=ready --timeout=10s inferenceservice.serving.kserve.io/${isvc_names[$i]} -n ${isvc_ns[$i]}
-    )
+    if [ "${kfserving_isvc_status[${isvc_names[$i]}]}" == "True" ]; then
+        (
+            trap 'log ERROR "inference service ${isvc_names[$i]} did not migrate properly. migration job exits with code 1."' ERR
+            kubectl wait --for=condition=ready --timeout=10s inferenceservice.serving.kserve.io/${isvc_names[$i]} -n ${isvc_ns[$i]}
+        )
+    fi
 done
 
 # Start kfserving controller for clean up
