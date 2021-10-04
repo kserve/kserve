@@ -35,7 +35,7 @@ data:
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.2.1",
+            "defaultImageVersion": "0.5.0",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -53,7 +53,7 @@ data:
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.2.1",
+            "defaultImageVersion": "0.5.0",
             "supportedFrameworks": [
               "xgboost"
             ],
