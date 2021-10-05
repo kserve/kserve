@@ -24,7 +24,7 @@ all: test manager agent
 
 # Run tests
 test: fmt vet manifests kubebuilder
-	go test ./pkg/... ./cmd/... -coverprofile coverage.out
+	go test $$(go list ./pkg/... | grep -v /v1alpha2) ./cmd/... -coverprofile coverage.out
 
 # Build manager binary
 manager: generate fmt vet lint
@@ -133,6 +133,9 @@ manifests: controller-gen
 	#With v1 and newer kubernetes protocol requires default
 	yq read config/crd/serving.kserve.io_inferenceservices.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_inferenceservices.yaml {} TCP
 	yq read config/crd/serving.kserve.io_inferenceservices.yaml spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_inferenceservices.yaml {} TCP
+# Added for debugging. Will be removed
+	kustomize version
+	controller-gen --version
 	kustomize build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
 
 # Run go fmt against code

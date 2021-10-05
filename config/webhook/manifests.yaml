@@ -86,16 +86,16 @@ webhooks:
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
-        path: /validate-serving-kserve-io-v1alpha2-inferenceservice
+        path: /validate-serving-kserve-io-v1beta1-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kserve-webhook-server.validator
+    name: inferenceservice.kserve-webhook-server.v1beta1.validator
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
     rules:
       - apiGroups:
           - serving.kserve.io
         apiVersions:
-          - v1alpha2
+          - v1beta1
         operations:
           - CREATE
           - UPDATE
@@ -108,7 +108,7 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /validate-serving-kserve-io-v1beta1-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kserve-webhook-server.v1beta1.validator
+    name: inferenceservice.kserve-webhook-server.validator
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
     rules:

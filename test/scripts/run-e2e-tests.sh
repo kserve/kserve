@@ -36,6 +36,12 @@ echo "Configuring kubectl ..."
 pip3 install awscli --upgrade --user
 aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
 
+echo "Updating kustomize"
+KUSTOMIZE_PATH=$(which kustomize)
+rm -rf ${KUSTOMIZE_PATH}
+curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- 4.2.0 ${KUSTOMIZE_PATH::-10}
+
+
 echo "Install istio ..."
 mkdir istio_tmp
 pushd istio_tmp >/dev/null

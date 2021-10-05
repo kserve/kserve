@@ -4,8 +4,17 @@ export ISTIO_VERSION=1.9.0
 export KNATIVE_VERSION=v0.22.0
 export KSERVE_VERSION=v0.7.0-rc0
 export CERT_MANAGER_VERSION=v1.3.0
+
+KUBE_VERSION=$(kubectl version --short=true)
+
+echo ${KUBE_VERSION:43:2}
+
+if [ ${KUBE_VERSION:43:2} -gt 21 ]; then export ISTIO_VERSION=1.10.3; export KNATIVE_VERSION=v0.23.2; fi
+
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}
+
+
 
 # Create istio-system namespace
 cat <<EOF | kubectl apply -f -
@@ -18,7 +27,7 @@ metadata:
 EOF
 
 cat << EOF > ./istio-minimal-operator.yaml
-apiVersion: install.istio.io/v1alpha1
+apiVersion: install.istio.io/v1beta1
 kind: IstioOperator
 spec:
   values:
@@ -43,7 +52,12 @@ spec:
         enabled: true
 EOF
 
-bin/istioctl manifest apply -f istio-minimal-operator.yaml -y
+if [ ${ISTIO_VERSION:2:-2} -gt 9 ]
+then
+    bin/istioctl install --set profile=demo -y;
+else
+    bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
+fi
 
 # Install Knative
 kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
