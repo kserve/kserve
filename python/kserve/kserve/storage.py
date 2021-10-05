@@ -324,7 +324,7 @@ The path or model %s does not exist." % (uri))
     def _unpack_archive_file(file_path, mimetype, target_dir=None):
         if not target_dir:
             target_dir = os.path.dirname(file_path)
-        
+
         try:
             logging.info("Unpacking: %s", file_path)
             if mimetype == "application/x-tar":
