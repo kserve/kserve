@@ -82,7 +82,23 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
+	//get annotations from isvc
+	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
 
+	deployConfig, err := v1beta1api.NewDeployConfig(r.Client)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
+	}
+
+	deploymentMode := isvcutils.GetDeploymentMode(annotations, deployConfig)
+
+	if  deploymentMode == constants.ModelMeshDeployment {
+		r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+		return ctrl.Result{}, nil
+	}
 	// name of our custom finalizer
 	finalizerName := "inferenceservice.finalizers"
 
@@ -118,11 +134,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	//get annotations from isvc
-	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
-	})
-
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
 	if err != nil {
@@ -150,13 +161,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
 
-	deployConfig, err := v1beta1api.NewDeployConfig(r.Client)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
-	}
-
 	//check raw deployment
-	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
+	if deploymentMode == constants.RawDeployment {
 		reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")

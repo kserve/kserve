@@ -270,8 +270,9 @@ const (
 type DeploymentModeType string
 
 const (
-	Serverless    DeploymentModeType = "Serverless"
-	RawDeployment DeploymentModeType = "RawDeployment"
+	Serverless          DeploymentModeType = "Serverless"
+	RawDeployment       DeploymentModeType = "RawDeployment"
+	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
 
 // GetRawServiceLabel generate native service label

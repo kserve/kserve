@@ -47,12 +47,13 @@ GetDeploymentMode returns the current deployment mode, supports Serverless and R
 case 1: no serving.kserve.org/deploymentMode annotation
         return config.deploy.defaultDeploymentMode
 case 2: serving.kserve.org/deploymentMode is set
-        if the mode is "RawDeployment" or "Serverless", return it.
+        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
 		else return config.deploy.defaultDeploymentMode
 */
 func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.DeployConfig) constants.DeploymentModeType {
 	deploymentMode, ok := annotations[constants.DeploymentMode]
-	if ok && (deploymentMode == string(constants.RawDeployment) || deploymentMode == string(constants.Serverless)) {
+	if ok && (deploymentMode == string(constants.RawDeployment) || deploymentMode ==
+		string(constants.Serverless) || deploymentMode == string(constants.ModelMeshDeployment)) {
 		return constants.DeploymentModeType(deploymentMode)
 	}
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)

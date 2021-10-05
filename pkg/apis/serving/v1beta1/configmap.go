@@ -191,8 +191,11 @@ func NewDeployConfig(cli client.Client) (*DeployConfig, error) {
 			return nil, fmt.Errorf("Invalid deploy config, defaultDeploymentMode is required.")
 		}
 
-		if deployConfig.DefaultDeploymentMode != string(constants.Serverless) && deployConfig.DefaultDeploymentMode != string(constants.RawDeployment) {
-			return nil, fmt.Errorf("Invalid deployment mode. Supported modes are Serverless and RawDeployment")
+		if deployConfig.DefaultDeploymentMode != string(constants.Serverless) &&
+			deployConfig.DefaultDeploymentMode != string(constants.RawDeployment) &&
+			deployConfig.DefaultDeploymentMode != string(constants.ModelMeshDeployment) {
+			return nil, fmt.Errorf("Invalid deployment mode. Supported modes are Serverless," +
+				" RawDeployment and ModelMesh")
 		}
 	}
 	return deployConfig, nil
