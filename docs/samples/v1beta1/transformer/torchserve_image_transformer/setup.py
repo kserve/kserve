@@ -30,7 +30,7 @@ setup(
     python_requires='>=3.6',
     packages=find_packages("image_transformer"),
     install_requires=[
-        "kserve",
+        "kserve>=0.7.0rc0",
         "joblib>=0.13.2",
         "torchvision>=0.4.0",
         "pillow==6.2.0"
