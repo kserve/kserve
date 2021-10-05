@@ -80,10 +80,13 @@ func getHPAMetrics(metadata metav1.ObjectMeta) []v2beta2.MetricSpec {
 
 func createHPA(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) *v2beta2.HorizontalPodAutoscaler {
-	minReplicas := int32(*componentExt.MinReplicas)
-	if minReplicas < int32(constants.DefaultMinReplicas) {
+	var minReplicas int32 
+	if(componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas) {
 		minReplicas = int32(constants.DefaultMinReplicas)
+	} else {
+		minReplicas = int32(*componentExt.MinReplicas)
 	}
+	
 	maxReplicas := int32(componentExt.MaxReplicas)
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas
