@@ -78,7 +78,7 @@ Until this [Issue/824](https://github.com/kubeflow/kfserving/issues/824) is reso
 
 The service will match on a path-based route (required by IAP) such as:
 ```https://<Ingress_DNS>/kfserving/<namespace>/sklearn-iap:predict```
-and will forward to cluster-local-gateway whilst rewriting host and uri.  The uri is then a host based route as expected by kfserving:
+and will forward to knative-local-gateway whilst rewriting host and uri.  The uri is then a host based route as expected by kfserving:
 ```https://sklearn-iap-predictor-default.<namespace>.svc.cluster.local/v1/models/sklearn-iap:predict```
 
 To create the Istio virtual service, edit [virtual-service.yaml](./virtual-service.yaml) to replace all appearances of `<namespace>` with your user profile' namespace. Then run command:
