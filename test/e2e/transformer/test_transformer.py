@@ -51,7 +51,7 @@ def test_transformer():
                       resources=V1ResourceRequirements(
                           requests={'cpu': '100m', 'memory': '1Gi'},
                           limits={'cpu': '100m', 'memory': '1Gi'}),
-                      env=[V1EnvVar(name="STORAGE_URI", 
+                      env=[V1EnvVar(name="STORAGE_URI",
                                     value="gs://kfserving-examples/models/torchserve/image_classifier")])]
     )
 
@@ -75,5 +75,5 @@ def test_transformer():
             print(pod)
         raise e
     res = predict(service_name, './data/torchserve_input.json', model_name='mnist')
-    assert(np.argmax(res["predictions"]) == 2)
+    assert(np.argmax(res["predictions"]) == 0)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
