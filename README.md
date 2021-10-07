@@ -10,12 +10,12 @@ KServe provides a Kubernetes [Custom Resource Definition](https://kubernetes.io/
 
 It encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for Production ML Serving including prediction, pre-processing, post-processing and explainability. KServe is being [used across various organizations.](https://kserve.github.io/website/community/adopters/)
 
+For more details, visit [KServe website](https://kserve.github.io/website/)
+
 ![KServe](/docs/diagrams/kserve.png)
 
-
-_Since 0.7 KFServing is rebranded to KServe, we still support previous KFServing [0.5.x](https://github.com/kserve/kserve/tree/release-0.5) and 
+_Since 0.7 [KFServing is rebranded to KServe](https://blog.kubeflow.org/release/official/2021/09/27/kfserving-transition.html), we still support previous KFServing [0.5.x](https://github.com/kserve/kserve/tree/release-0.5) and 
 [0.6.x](https://github.com/kserve/kserve/tree/release-0.6) releases, please refer to corresponding release branch for docs_.
-
 
 ### Learn More
 To learn more about KServe, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KServe community, 
