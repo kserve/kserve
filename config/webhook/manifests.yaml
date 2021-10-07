@@ -12,26 +12,6 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /mutate-serving-kserve-io-v1beta1-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kserve-webhook-server.defaulter
-    sideEffects: None
-    admissionReviewVersions: ["v1beta1"]
-    rules:
-      - apiGroups:
-          - serving.kserve.io
-        apiVersions:
-          - v1beta1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - inferenceservices
-  - clientConfig:
-      caBundle: Cg==
-      service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
-        path: /mutate-serving-kserve-io-v1beta1-inferenceservice
-    failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.v1beta1.defaulter
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
@@ -89,26 +69,6 @@ webhooks:
         path: /validate-serving-kserve-io-v1beta1-inferenceservice
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.v1beta1.validator
-    sideEffects: None
-    admissionReviewVersions: ["v1beta1"]
-    rules:
-      - apiGroups:
-          - serving.kserve.io
-        apiVersions:
-          - v1beta1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - inferenceservices
-  - clientConfig:
-      caBundle: Cg==
-      service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
-        path: /validate-serving-kserve-io-v1beta1-inferenceservice
-    failurePolicy: Fail
-    name: inferenceservice.kserve-webhook-server.validator
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
     rules:
