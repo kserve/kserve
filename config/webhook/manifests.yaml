@@ -12,7 +12,7 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /mutate-serving-kserve-io-v1beta1-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kserve-webhook-server.v1beta1.defaulter
+    name: inferenceservice.kserve-webhook-server.defaulter
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
     rules:
@@ -68,7 +68,7 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /validate-serving-kserve-io-v1beta1-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kserve-webhook-server.v1beta1.validator
+    name: inferenceservice.kserve-webhook-server.validator
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
     rules:
