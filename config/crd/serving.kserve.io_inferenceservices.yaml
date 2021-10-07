@@ -1,8 +1,8 @@
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.1-0.20200528125929-5c0c6ae3b64b
+    controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
   name: inferenceservices.serving.kserve.io
 spec:
@@ -15,24 +15,21 @@ spec:
       - isvc
     singular: inferenceservice
   scope: Namespaced
-  subresources:
-    status: {}
-  version: v1alpha2
   versions:
     - additionalPrinterColumns:
-        - JSONPath: .status.url
+        - jsonPath: .status.url
           name: URL
           type: string
-        - JSONPath: .status.conditions[?(@.type=='Ready')].status
+        - jsonPath: .status.conditions[?(@.type=='Ready')].status
           name: Ready
           type: string
-        - JSONPath: .status.traffic
+        - jsonPath: .status.traffic
           name: Default Traffic
           type: integer
-        - JSONPath: .status.canaryTraffic
+        - jsonPath: .status.canaryTraffic
           name: Canary Traffic
           type: integer
-        - JSONPath: .metadata.creationTimestamp
+        - jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
       name: v1alpha2
@@ -410,6 +407,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -985,6 +983,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -1790,6 +1789,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -2440,6 +2440,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -3015,6 +3016,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -3820,6 +3822,7 @@ spec:
                                         type: string
                                       protocol:
                                         type: string
+                                        default: TCP
                                     required:
                                       - containerPort
                                     type: object
@@ -4170,26 +4173,28 @@ spec:
           type: object
       served: true
       storage: false
+      subresources:
+        status: {}
     - additionalPrinterColumns:
-        - JSONPath: .status.url
+        - jsonPath: .status.url
           name: URL
           type: string
-        - JSONPath: .status.conditions[?(@.type=='Ready')].status
+        - jsonPath: .status.conditions[?(@.type=='Ready')].status
           name: Ready
           type: string
-        - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].percent
+        - jsonPath: .status.components.predictor.traffic[?(@.tag=='prev')].percent
           name: Prev
           type: integer
-        - JSONPath: .status.components.predictor.traffic[?(@.latestRevision==true)].percent
+        - jsonPath: .status.components.predictor.traffic[?(@.latestRevision==true)].percent
           name: Latest
           type: integer
-        - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].revisionName
+        - jsonPath: .status.components.predictor.traffic[?(@.tag=='prev')].revisionName
           name: PrevRolledoutRevision
           type: string
-        - JSONPath: .status.components.predictor.traffic[?(@.latestRevision==true)].revisionName
+        - jsonPath: .status.components.predictor.traffic[?(@.latestRevision==true)].revisionName
           name: LatestReadyRevision
           type: string
-        - JSONPath: .metadata.creationTimestamp
+        - jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
       name: v1beta1
@@ -4751,6 +4756,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -5294,6 +5300,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -5837,6 +5844,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -6396,6 +6404,7 @@ spec:
                                   type: string
                                 protocol:
                                   type: string
+                                  default: TCP
                               required:
                                 - containerPort
                               type: object
@@ -8132,6 +8141,7 @@ spec:
                                   type: string
                                 protocol:
                                   type: string
+                                  default: TCP
                               required:
                                 - containerPort
                               type: object
@@ -8720,6 +8730,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -9280,6 +9291,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -9827,6 +9839,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -10366,6 +10379,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -10914,6 +10928,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -11538,6 +11553,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -12079,6 +12095,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -12683,6 +12700,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -13894,6 +13912,7 @@ spec:
                                 type: string
                               protocol:
                                 type: string
+                                default: TCP
                             required:
                               - containerPort
                             type: object
@@ -14721,6 +14740,7 @@ spec:
                                   type: string
                                 protocol:
                                   type: string
+                                  default: TCP
                               required:
                                 - containerPort
                               type: object
@@ -15976,6 +15996,8 @@ spec:
           type: object
       served: true
       storage: true
+      subresources:
+        status: {}
 status:
   acceptedNames:
     kind: ""

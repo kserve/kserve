@@ -24,7 +24,7 @@ all: test manager agent
 
 # Run tests
 test: fmt vet manifests kubebuilder
-	go test ./pkg/... ./cmd/... -coverprofile coverage.out
+	go test $$(go list ./pkg/... | grep -v /v1alpha2) ./cmd/... -coverprofile coverage.out
 
 # Build manager binary
 manager: generate fmt vet lint
@@ -130,6 +130,12 @@ manifests: controller-gen
 	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
 	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required'
 	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required'
+	#With v1 and newer kubernetes protocol requires default
+	yq read config/crd/serving.kserve.io_inferenceservices.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_inferenceservices.yaml {} TCP
+	yq read config/crd/serving.kserve.io_inferenceservices.yaml spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_inferenceservices.yaml {} TCP
+# Added for debugging. Will be removed
+	kustomize version
+	controller-gen --version
 	kustomize build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
 
 # Run go fmt against code
@@ -244,7 +250,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@5c0c6ae3b64bccf89fb16353880376d3ce9d9128 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOPATH)/bin/controller-gen

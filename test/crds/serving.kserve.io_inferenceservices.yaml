@@ -1,8 +1,8 @@
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.1-0.20200528125929-5c0c6ae3b64b
+    controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
   name: inferenceservices.serving.kserve.io
 spec:
@@ -15,24 +15,21 @@ spec:
     - isvc
     singular: inferenceservice
   scope: Namespaced
-  subresources:
-    status: {}
-  version: v1alpha2
   versions:
   - additionalPrinterColumns:
-    - JSONPath: .status.url
+    - jsonPath: .status.url
       name: URL
       type: string
-    - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
       name: Ready
       type: string
-    - JSONPath: .status.traffic
+    - jsonPath: .status.traffic
       name: Default Traffic
       type: integer
-    - JSONPath: .status.canaryTraffic
+    - jsonPath: .status.canaryTraffic
       name: Canary Traffic
       type: integer
-    - JSONPath: .metadata.creationTimestamp
+    - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     name: v1alpha2
@@ -409,10 +406,10 @@ spec:
                                     name:
                                       type: string
                                     protocol:
+                                      default: TCP
                                       type: string
                                   required:
                                   - containerPort
-                                  - protocol
                                   type: object
                                 type: array
                                 x-kubernetes-list-map-keys:
@@ -985,10 +982,10 @@ spec:
                                     name:
                                       type: string
                                     protocol:
+                                      default: TCP
                                       type: string
                                   required:
                                   - containerPort
-                                  - protocol
                                   type: object
                                 type: array
                                 x-kubernetes-list-map-keys:
@@ -1791,10 +1788,10 @@ spec:
                                     name:
                                       type: string
                                     protocol:
+                                      default: TCP
                                       type: string
                                   required:
                                   - containerPort
-                                  - protocol
                                   type: object
                                 type: array
                                 x-kubernetes-list-map-keys:
@@ -2442,10 +2439,10 @@ spec:
                                     name:
                                       type: string
                                     protocol:
+                                      default: TCP
                                       type: string
                                   required:
                                   - containerPort
-                                  - protocol
                                   type: object
                                 type: array
                                 x-kubernetes-list-map-keys:
@@ -3018,10 +3015,10 @@ spec:
                                     name:
                                       type: string
                                     protocol:
+                                      default: TCP
                                       type: string
                                   required:
                                   - containerPort
-                                  - protocol
                                   type: object
                                 type: array
                                 x-kubernetes-list-map-keys:
@@ -3824,10 +3821,10 @@ spec:
                                     name:
                                       type: string
                                     protocol:
+                                      default: TCP
                                       type: string
                                   required:
                                   - containerPort
-                                  - protocol
                                   type: object
                                 type: array
                                 x-kubernetes-list-map-keys:
@@ -4176,26 +4173,28 @@ spec:
         type: object
     served: true
     storage: false
+    subresources:
+      status: {}
   - additionalPrinterColumns:
-    - JSONPath: .status.url
+    - jsonPath: .status.url
       name: URL
       type: string
-    - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
       name: Ready
       type: string
-    - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].percent
+    - jsonPath: .status.components.predictor.traffic[?(@.tag=='prev')].percent
       name: Prev
       type: integer
-    - JSONPath: .status.components.predictor.traffic[?(@.latestRevision==true)].percent
+    - jsonPath: .status.components.predictor.traffic[?(@.latestRevision==true)].percent
       name: Latest
       type: integer
-    - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].revisionName
+    - jsonPath: .status.components.predictor.traffic[?(@.tag=='prev')].revisionName
       name: PrevRolledoutRevision
       type: string
-    - JSONPath: .status.components.predictor.traffic[?(@.latestRevision==true)].revisionName
+    - jsonPath: .status.components.predictor.traffic[?(@.latestRevision==true)].revisionName
       name: LatestReadyRevision
       type: string
-    - JSONPath: .metadata.creationTimestamp
+    - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     name: v1beta1
@@ -4756,10 +4755,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -5300,10 +5299,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -5844,10 +5843,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -6404,10 +6403,10 @@ spec:
                               name:
                                 type: string
                               protocol:
+                                default: TCP
                                 type: string
                             required:
                             - containerPort
-                            - protocol
                             type: object
                           type: array
                           x-kubernetes-list-map-keys:
@@ -8141,10 +8140,10 @@ spec:
                               name:
                                 type: string
                               protocol:
+                                default: TCP
                                 type: string
                             required:
                             - containerPort
-                            - protocol
                             type: object
                           type: array
                           x-kubernetes-list-map-keys:
@@ -8730,10 +8729,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -9291,10 +9290,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -9839,10 +9838,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -10379,10 +10378,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -10928,10 +10927,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -11553,10 +11552,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -12095,10 +12094,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -12700,10 +12699,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -13912,10 +13911,10 @@ spec:
                             name:
                               type: string
                             protocol:
+                              default: TCP
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -14740,10 +14739,10 @@ spec:
                               name:
                                 type: string
                               protocol:
+                                default: TCP
                                 type: string
                             required:
                             - containerPort
-                            - protocol
                             type: object
                           type: array
                           x-kubernetes-list-map-keys:
@@ -15997,6 +15996,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
@@ -16004,24 +16005,14 @@ status:
   conditions: []
   storedVersions: []
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.1-0.20200528125929-5c0c6ae3b64b
+    controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
   name: trainedmodels.serving.kserve.io
 spec:
-  additionalPrinterColumns:
-  - JSONPath: .status.url
-    name: URL
-    type: string
-  - JSONPath: .status.conditions[?(@.type=='Ready')].status
-    name: Ready
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    name: Age
-    type: date
   group: serving.kserve.io
   names:
     kind: TrainedModel
@@ -16031,85 +16022,94 @@ spec:
     - tm
     singular: trainedmodel
   scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        apiVersion:
-          type: string
-        kind:
-          type: string
-        metadata:
-          type: object
-        spec:
-          properties:
-            inferenceService:
-              type: string
-            model:
-              properties:
-                framework:
-                  type: string
-                memory:
-                  anyOf:
-                  - type: integer
-                  - type: string
-                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                  x-kubernetes-int-or-string: true
-                storageUri:
-                  type: string
-              required:
-              - framework
-              - memory
-              - storageUri
-              type: object
-          required:
-          - inferenceService
-          - model
-          type: object
-        status:
-          properties:
-            address:
-              properties:
-                url:
-                  type: string
-              type: object
-            annotations:
-              additionalProperties:
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.url
+      name: URL
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              inferenceService:
                 type: string
-              type: object
-            conditions:
-              items:
+              model:
                 properties:
-                  lastTransitionTime:
+                  framework:
                     type: string
-                  message:
-                    type: string
-                  reason:
-                    type: string
-                  severity:
-                    type: string
-                  status:
-                    type: string
-                  type:
+                  memory:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  storageUri:
                     type: string
                 required:
-                - status
-                - type
+                - framework
+                - memory
+                - storageUri
                 type: object
-              type: array
-            observedGeneration:
-              format: int64
-              type: integer
-            url:
-              type: string
-          type: object
-      type: object
-  version: v1alpha1
-  versions:
-  - name: v1alpha1
+            required:
+            - inferenceService
+            - model
+            type: object
+          status:
+            properties:
+              address:
+                properties:
+                  url:
+                    type: string
+                type: object
+              annotations:
+                additionalProperties:
+                  type: string
+                type: object
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    severity:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                format: int64
+                type: integer
+              url:
+                type: string
+            type: object
+        type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
