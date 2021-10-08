@@ -20,7 +20,6 @@ import (
 	"os"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
@@ -85,12 +84,6 @@ func main() {
 	log.Info("Setting up KServe v1alpha1 scheme")
 	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add KServe v1alpha1 to scheme")
-		os.Exit(1)
-	}
-
-	log.Info("Setting up KServe v1alpha2 scheme")
-	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add KServe v1alpha2 to scheme")
 		os.Exit(1)
 	}
 
@@ -175,12 +168,6 @@ func main() {
 		For(&v1alpha1.TrainedModel{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
-		os.Exit(1)
-	}
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.InferenceService{}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha2")
 		os.Exit(1)
 	}
 	if err = ctrl.NewWebhookManagedBy(mgr).

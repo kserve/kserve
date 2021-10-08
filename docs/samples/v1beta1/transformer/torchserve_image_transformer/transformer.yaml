@@ -5,7 +5,7 @@ metadata:
 spec:
   transformer:
     containers:
-    - image: kfserving/torchserve-image-transformer:latest
+    - image: kserve/torchserve-image-transformer:latest
       name: kfserving-container
       env:
         - name: STORAGE_URI

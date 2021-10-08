@@ -24,6 +24,7 @@ from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
+from kubernetes.client import V1EnvVar
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
@@ -35,11 +36,10 @@ def test_transformer():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
-            model_class_name="Net",
+            storage_uri='gs://kfserving-examples/models/torchserve/image_classifier',
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '256Mi'},
-                limits={'cpu': '100m', 'memory': '256Mi'}
+                requests={'cpu': '100m', 'memory': '1Gi'},
+                limits={'cpu': '100m', 'memory': '1Gi'}
             )
         ),
     )
@@ -49,8 +49,10 @@ def test_transformer():
                       image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:latest',
                       name='kserve-container',
                       resources=V1ResourceRequirements(
-                          requests={'cpu': '100m', 'memory': '256Mi'},
-                          limits={'cpu': '100m', 'memory': '256Mi'}))]
+                          requests={'cpu': '100m', 'memory': '1Gi'},
+                          limits={'cpu': '100m', 'memory': '1Gi'}),
+                      env=[V1EnvVar(name="STORAGE_URI",
+                                    value="gs://kfserving-examples/models/torchserve/image_classifier")])]
     )
 
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
@@ -72,6 +74,6 @@ def test_transformer():
         for pod in pods.items:
             print(pod)
         raise e
-    res = predict(service_name, './data/transformer.json')
-    assert(np.argmax(res["predictions"]) == 3)
+    res = predict(service_name, './data/torchserve_input.json', model_name='mnist')
+    assert(np.argmax(res["predictions"]) == 0)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
