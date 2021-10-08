@@ -36,25 +36,19 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 
 @pytest.mark.parametrize(
-    "protocol_version,storage_uris",
+    "protocol_version,storage_uri",
     [
         (
             "v1",
-            [
-                "gs://kfserving-samples/models/sklearn/iris",
-                "gs://kfserving-samples/models/sklearn/iris",
-            ],
+            "gs://kfserving-samples/models/sklearn/iris",
         ),
         (
             "v2",
-            [
-                "gs://seldon-models/sklearn/mms/model1-sklearn-v2",
-                "gs://seldon-models/sklearn/mms/model2-sklearn-v2",
-            ],
+            "gs://seldon-models/sklearn/mms/lr_model",
         ),
     ],
 )
-def test_mms_sklearn_kserve(protocol_version: str, storage_uris: List[str]):
+def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -88,7 +82,7 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uris: List[str]):
         f"model2-sklearn-{protocol_version}",
     ]
 
-    for model_name, storage_uri in zip(model_names, storage_uris):
+    for model_name in model_names:
         model_spec = V1alpha1ModelSpec(
             storage_uri=storage_uri,
             memory="128Mi",
@@ -146,25 +140,19 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uris: List[str]):
 
 
 @pytest.mark.parametrize(
-    "protocol_version,storage_uris",
+    "protocol_version,storage_uri",
     [
         (
             "v1",
-            [
-                "gs://kfserving-samples/models/xgboost/iris",
-                "gs://kfserving-samples/models/xgboost/iris",
-            ],
+            "gs://kfserving-samples/models/xgboost/iris",
         ),
         (
             "v2",
-            [
-                "gs://seldon-models/xgboost/mms/model1-xgboost-v2",
-                "gs://seldon-models/xgboost/mms/model2-xgboost-v2",
-            ],
+            "gs://seldon-models/xgboost/mms/iris",
         ),
     ],
 )
-def test_mms_xgboost_kserve(protocol_version: str, storage_uris: List[str]):
+def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -197,7 +185,7 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uris: List[str]):
         f"model2-xgboost-{protocol_version}",
     ]
 
-    for model_name, storage_uri in zip(model_names, storage_uris):
+    for model_name in model_names:
         # Define trained models
         model_spec = V1alpha1ModelSpec(
             storage_uri=storage_uri,
