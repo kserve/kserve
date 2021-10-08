@@ -16525,15 +16525,15 @@ data:
     {
         "alibi": {
             "image" : "kfserving/alibi-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "v0.6.0"
         },
         "aix": {
             "image" : "kfserving/aix-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "v0.6.0"
         },
         "art": {
             "image" : "kfserving/art-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "v0.6.0"
         }
     }
   ingress: |-
@@ -16575,7 +16575,7 @@ data:
         "sklearn": {
           "v1": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.6.0",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -16593,7 +16593,7 @@ data:
         "xgboost": {
           "v1": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.6.0",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -16611,8 +16611,8 @@ data:
         "pytorch": {
           "v1" : {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "latest",
-            "defaultGpuImageVersion": "latest-gpu",
+            "defaultImageVersion": "v0.6.0",
+            "defaultGpuImageVersion": "v0.6.0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -16642,7 +16642,7 @@ data:
         },
         "pmml": {
             "image": "kfserving/pmmlserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.6.0",
             "supportedFrameworks": [
               "pmml"
             ],
@@ -16650,7 +16650,7 @@ data:
         },
         "lightgbm": {
             "image": "kfserving/lgbserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.6.0",
             "supportedFrameworks": [
               "lightgbm"
             ],
@@ -16658,7 +16658,7 @@ data:
         },
         "paddle": {
             "image": "kfserving/paddleserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.6.0",
             "supportedFrameworks": [
               "paddle"
             ],
