@@ -24,7 +24,7 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name='kserve',
-    version='0.7.0rc1',
+    version='0.7.0',
     author="The KServe Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net',
     license="Apache License Version 2.0",
