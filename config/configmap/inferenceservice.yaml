@@ -27,7 +27,7 @@ data:
         "sklearn": {
           "v1": {
             "image": "kserve/sklearnserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.7.0",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -45,7 +45,7 @@ data:
         "xgboost": {
           "v1": {
             "image": "kserve/xgbserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.7.0",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -63,7 +63,7 @@ data:
         "pytorch": {
           "v1" : {
             "image": "kserve/pytorchserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.7.0",
             "defaultGpuImageVersion": "latest-gpu",
             "supportedFrameworks": [
               "pytorch"
@@ -93,7 +93,7 @@ data:
         },
         "pmml": {
             "image": "kserve/pmmlserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.7.0",
             "supportedFrameworks": [
               "pmml"
             ],
@@ -101,7 +101,7 @@ data:
         },
         "lightgbm": {
             "image": "kserve/lgbserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.7.0",
             "supportedFrameworks": [
               "lightgbm"
             ],
@@ -109,7 +109,7 @@ data:
         },
         "paddle": {
             "image": "kserve/paddleserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.7.0",
             "supportedFrameworks": [
               "paddle"
             ],
@@ -123,20 +123,20 @@ data:
     {
         "alibi": {
             "image" : "kserve/alibi-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "v0.7.0"
         },
         "aix": {
             "image" : "kserve/aix-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "v0.7.0"
         },
         "art": {
             "image" : "kserve/art-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "v0.7.0"
         }
     }
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:latest",
+        "image" : "kserve/storage-initializer:v0.7.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
