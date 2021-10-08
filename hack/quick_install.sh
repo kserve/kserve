@@ -44,8 +44,6 @@ if [ ${KUBE_VERSION:43:2} -gt 21 ]; then export ISTIO_VERSION=1.10.3; export KNA
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}
 
-
-
 # Create istio-system namespace
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
@@ -82,7 +80,7 @@ spec:
         enabled: true
 EOF
 
-if [ ${ISTIO_VERSION:2:-2} -gt 9 ]
+if [ $(cut -d '.' -f 2,2 <<< $ISTIO_VERSION) -gt 9 ]
 then
     bin/istioctl install --set profile=demo -y;
 else
@@ -90,7 +88,7 @@ else
 fi
 
 # Install Knative
-if [ deploymentmode = serverless ]; then
+if [ $deploymentMode = serverless ]; then
    kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
    kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
    kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
