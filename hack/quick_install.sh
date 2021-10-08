@@ -1,8 +1,38 @@
 set -e
+############################################################
+# Help                                                     #
+############################################################
+Help()
+{
+   # Display Help
+   echo "KServe quick install script."
+   echo
+   echo "Syntax: [-s|-r]"
+   echo "options:"
+   echo "s Serverless Mode."
+   echo "r RawDeployment Mode."
+   echo
+}
+
+deploymentMode=serverless
+while getopts ":hsr" option; do
+   case $option in
+      h) # display Help
+         Help
+         exit;;
+      r) # skip knative install
+	 deploymentMode=kubernetes;;
+      s) # install knative
+         deploymentMode=serverless;;
+     \?) # Invalid option
+         echo "Error: Invalid option"
+         exit;;
+   esac
+done
 
 export ISTIO_VERSION=1.9.0
 export KNATIVE_VERSION=v0.22.0
-export KSERVE_VERSION=v0.7.0-rc0
+export KSERVE_VERSION=v0.7.0
 export CERT_MANAGER_VERSION=v1.3.0
 
 KUBE_VERSION=$(kubectl version --short=true)
@@ -60,9 +90,11 @@ else
 fi
 
 # Install Knative
-kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
-kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+if [ deploymentmode = serverless ]; then
+   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
+   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
+   kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+fi
 
 # Install Cert Manager
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml

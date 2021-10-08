@@ -12,21 +12,10 @@ commonLabels:
 bases:
 - ../../default
 - cluster-role.yaml
-- web-app-authorization-policy.yaml
 
 patchesStrategicMerge:
 - patches/statefulset.yaml
 - patches/namespace.yaml
-- patches/web-app-sidecar.yaml
-
-patchesJson6902:
-- target:
-    group: networking.istio.io
-    version: v1beta1
-    kind: VirtualService
-    name: kserve-models-web-app
-    namespace: kserve
-  path: patches/web-app-vsvc.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
@@ -39,10 +28,6 @@ configMapGenerator:
     behavior: replace
     envs:
     - params.env
-  - name: kserve-models-web-app-config
-    behavior: replace
-    literals:
-    - USERID_HEADER=kubeflow-userid
 
 configurations:
 - params.yaml

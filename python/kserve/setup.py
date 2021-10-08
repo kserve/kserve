@@ -24,8 +24,8 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name='kserve',
-    version='0.7.0rc0',
-    author="Kubeflow Authors",
+    version='0.7.0',
+    author="The KServe Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net',
     license="Apache License Version 2.0",
     url="https://github.com/kserve/kserve/tree/master/python/kserve",
