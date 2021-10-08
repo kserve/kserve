@@ -61,7 +61,6 @@ func Create(fileName string) (*os.File, error) {
 	// compatible with any model / server container, using any user ID. Note we
 	// also need to enable the `+x` bit to ensure the folder is "listable":
 	// https://stackoverflow.com/a/30788944/5015573
-	fmt.Println("MkdirAll - ", fileName, filepath.Dir(fileName))
 	if err := os.MkdirAll(filepath.Dir(fileName), 0777); err != nil {
 		return nil, err
 	}
