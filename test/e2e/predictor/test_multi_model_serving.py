@@ -14,7 +14,6 @@
 import os
 import pytest
 
-from typing import List
 from kubernetes import client
 from kserve import (
     constants,
