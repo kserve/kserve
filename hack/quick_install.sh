@@ -39,7 +39,7 @@ KUBE_VERSION=$(kubectl version --short=true)
 
 echo ${KUBE_VERSION:43:2}
 
-if [ ${KUBE_VERSION:43:2} -gt 21 ]; then export ISTIO_VERSION=1.10.3; export KNATIVE_VERSION=v0.23.2; fi
+if [ ${KUBE_VERSION:43:2} -gt 20 ]; then export ISTIO_VERSION=1.10.3; export KNATIVE_VERSION=v0.23.2; fi
 
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}

@@ -12522,7 +12522,7 @@ data:
           "v1" : {
             "image": "kserve/pytorchserver",
             "defaultImageVersion": "v0.7.0",
-            "defaultGpuImageVersion": "latest-gpu",
+            "defaultGpuImageVersion": "v0.7.0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
