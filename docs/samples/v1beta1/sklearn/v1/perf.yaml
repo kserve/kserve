@@ -33,7 +33,7 @@ spec:
 apiVersion: v1
 data:
   cfg: |
-    POST http://sklearn-iris.kfserving-test.svc.cluster.local/v1/models/sklearn-iris:predict
+    POST http://sklearn-iris.kserve-test.svc.cluster.local/v1/models/sklearn-iris:predict
     @/var/vegeta/payload
   payload: |
     {
