@@ -63,7 +63,7 @@ def test_sklearn_v2_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
-            storage_uri="gs://kfserving-examples/models/sklearn/irisv2",
+            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
             protocol_version="v2",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},
@@ -85,6 +85,6 @@ def test_sklearn_v2_kserve():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 2]
+    assert res["outputs"][0]["data"] == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
