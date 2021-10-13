@@ -35,12 +35,11 @@ def test_transformer():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
-            protocol_version="v1",
+            storage_uri='gs://kfserving-examples/models/torchserve/image_classifier',
             resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "4Gi"},
-                limits={"cpu": "1", "memory": "4Gi"},
-            ),
+                requests={'cpu': '100m', 'memory': '1Gi'},
+                limits={'cpu': '100m', 'memory': '1Gi'}
+            )
         ),
     )
     transformer = V1beta1TransformerSpec(
