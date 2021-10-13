@@ -26,17 +26,23 @@ KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 
 
-def predict(service_name, input_json, protocol_version="v1",
-            version=constants.KSERVE_V1BETA1_VERSION, model_name=None):
+def predict(
+    service_name,
+    input_json,
+    protocol_version="v1",
+    version=constants.KSERVE_V1BETA1_VERSION,
+    model_name=None,
+):
     kfs_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     isvc = kfs_client.get(
         service_name,
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    time.sleep(10)
+    time.sleep(15)
     cluster_ip = get_cluster_ip()
     host = urlparse(isvc["status"]["url"]).netloc
     headers = {"Host": host}
@@ -70,12 +76,15 @@ def explain_aix(service_name, input_json):
 
 
 def explain_art(service_name, input_json):
-    return explain_response(service_name, input_json)["explanations"]["adversarial_prediction"]
+    return explain_response(service_name, input_json)["explanations"][
+        "adversarial_prediction"
+    ]
 
 
 def explain_response(service_name, input_json):
     kfs_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     isvc = kfs_client.get(
         service_name,
         namespace=KSERVE_TEST_NAMESPACE,
