@@ -73,15 +73,12 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		}),
 		Annotations: annotations,
 	}
+	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig)
 	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
-		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig)
-		isvc.Spec.Explainer.PodSpec = v1beta1.PodSpec{
-			Containers: []v1.Container{
-				*container,
-			},
+		isvc.Spec.Explainer.PodSpec.Containers = []v1.Container{
+			*container,
 		}
 	} else {
-		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig)
 		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
 	}
 	if hasInferenceLogging {
