@@ -29,12 +29,12 @@ KUBECTL_VERSION="v1.20.2"
 CERT_MANAGER_VERSION="v1.2.0"
 
 echo "Upgrading kubectl ..."
-# wget -q -O /usr/local/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
-# chmod a+x /usr/local/bin/kubectl
+wget -q -O /usr/local/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+chmod a+x /usr/local/bin/kubectl
 
 echo "Configuring kubectl ..."
-# pip3 install awscli --upgrade --user
-# aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
+pip3 install awscli --upgrade --user
+aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
 
 echo "Updating kustomize"
 KUSTOMIZE_PATH=$(which kustomize)
