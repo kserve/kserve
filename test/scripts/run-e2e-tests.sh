@@ -16,7 +16,7 @@
 
 # The script is used to deploy knative and kserve, and run e2e tests.
 
-set -o errexit
+# set -o errexit
 set -o nounset
 set -o pipefail
 
@@ -151,5 +151,6 @@ pytest --ignore=credentials/test_set_creds.py predictor/test_sklearn.py::test_sk
 popd
 
 kubectl get pods -n kserve-ci-e2e-test
+kubectl describe pods -n kserve-ci-e2e-test
 kubectl get events -n kserve-ci-e2e-test
 kubectl get events -n kserve
