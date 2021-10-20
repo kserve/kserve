@@ -150,7 +150,9 @@ pushd test/e2e >/dev/null
 pytest --ignore=credentials/test_set_creds.py predictor/test_sklearn.py::test_sklearn_v2_kserve
 popd
 
-kubectl get pods -n kserve-ci-e2e-test
 kubectl describe pods -n kserve-ci-e2e-test
-kubectl get events -n kserve-ci-e2e-test
-kubectl get events -n kserve
+kubectl get revisions -n kserve-ci-e2e-test
+kubectl get kservice -n kserve-ci-e2e-test
+kubectl logs svc/isvc-sklearn-v2-predictor-default-00001-private -c kserve-container -n kserve-ci-e2e-test
+# kubectl get events -n kserve-ci-e2e-test
+# kubectl get events -n kserve
