@@ -6,6 +6,8 @@ metadata:
   labels:
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
+  annotations:
+    prometheus.io/scrape: 'true'
 spec:
   selector:
     matchLabels:
@@ -19,11 +21,23 @@ spec:
         controller-tools.k8s.io: "1.0"
     spec:
       containers:
+      - name: kube-rbac-proxy
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0
+        args:
+        - "--secure-listen-address=0.0.0.0:8443"
+        - "--upstream=http://127.0.0.1:8080/"
+        - "--logtostderr=true"
+        - "--v=10"
+        ports:
+        - containerPort: 8443
+          name: https
       - command:
         - /manager
         image: "{{ .Values.kserve.image }}"
         imagePullPolicy: Always
         name: manager
+        args:
+        - "--metrics-addr=127.0.0.1:8080"
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -32,10 +46,15 @@ spec:
           - name: SECRET_NAME
             value: kserve-webhook-server-cert
         resources:
-          {{ toYaml .Values.kserve.controller.resources | trim | indent 12 }}
+{{- if .Values.kserve.controller.resources }}
+{{ toYaml .Values.kserve.controller.resources | trim | indent 12 }}
+{{- end }}
         ports:
         - containerPort: 9443
           name: webhook-server
+          protocol: TCP
+        - containerPort: 8080
+          name: metrics
           protocol: TCP
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
