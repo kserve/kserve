@@ -8,7 +8,7 @@ metadata:
 # Do not use this role directly. These rules will be added to the "addressable-resolver" role.
 rules:
   - apiGroups:
-      - serving.kubeflow.org
+      - serving.kserve.io
     resources:
       - inferenceservices
       - inferenceservices/status

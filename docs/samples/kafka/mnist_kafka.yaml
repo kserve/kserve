@@ -3,10 +3,23 @@ kind: InferenceService
 metadata:
   name: mnist
 spec:
-  default:
-    predictor:
-      minReplicas: 1
-      tensorflow:
+  predictor:
+    minReplicas: 1
+    tensorflow:
+      resources:
+        limits:
+          cpu: 100m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 1Gi
+      runtimeVersion: 1.14.0
+      storageUri: s3://mnist/model-v1/export
+  transformer:
+    minReplicas: 1
+    containers:
+      - image: kserve/mnist-transformer:latest
+        name: kserve-container
         resources:
           limits:
             cpu: 100m
@@ -14,18 +27,3 @@ spec:
           requests:
             cpu: 100m
             memory: 1Gi
-        runtimeVersion: 1.14.0
-        storageUri: s3://mnist/model-v1/export
-    transformer:
-      custom:
-        container:
-          image: kfserving/mnist-transformer:latest
-          name: kfserving-container
-          resources:
-            limits:
-              cpu: 100m
-              memory: 1Gi
-            requests:
-              cpu: 100m
-              memory: 1Gi
-      minReplicas: 1
