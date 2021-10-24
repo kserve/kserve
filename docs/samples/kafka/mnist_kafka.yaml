@@ -18,8 +18,8 @@ spec:
   transformer:
     minReplicas: 1
     containers:
-      - image: kfserving/mnist-transformer:latest
-        name: kfserving-container
+      - image: kserve/mnist-transformer:latest
+        name: kserve-container
         resources:
           limits:
             cpu: 100m

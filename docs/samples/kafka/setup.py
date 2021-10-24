@@ -33,7 +33,6 @@ setup(
         "kserve>=0.7.0",
         "pandas>=0.24.2",
         "opencv-python-headless==4.0.0.21",
-        "boto3==1.7.2"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
