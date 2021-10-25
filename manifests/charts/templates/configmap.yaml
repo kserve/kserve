@@ -2,7 +2,7 @@ apiVersion: v1
 data:
   agent: |-
     {
-        "image" : {{ .Values.kserve.agent.image }},
+        "image" : "{{ .Values.kserve.agent.image }}",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -10,7 +10,7 @@ data:
     }
   batcher: |-
     {
-        "image" : {{ .Values.kserve.agent.image }},
+        "image" : "{{ .Values.kserve.agent.image }}",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -22,8 +22,8 @@ data:
            "gcsCredentialFileName": "gcloud-application-credentials.json"
        },
        "s3": {
-           "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
-           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
+           "s3AccessKeyIDName": "{{ .Values.kserve.storage.s3.accessKeyIdName }}",
+           "s3SecretAccessKeyName": "{{ .Values.kserve.storage.s3.secretAccessKeyName }}"
        }
     }
   deploy: |-
@@ -33,29 +33,29 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "kserve/alibi-explainer",
-            "defaultImageVersion": "v0.7.0"
+            "image" : "{{ .Values.kserve.servingruntime.alibi.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.alibi.defaultVersion }}"
         },
         "aix": {
-            "image" : "kserve/aix-explainer",
-            "defaultImageVersion": "v0.7.0"
+            "image" : "{{ .Values.kserve.servingruntime.aix.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.aix.defaultVersion }}"
         },
         "art": {
-            "image" : "kserve/art-explainer",
-            "defaultImageVersion": "v0.7.0"
+            "image" : "{{ .Values.kserve.servingruntime.art.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.art.defaultVersion }}"
         }
     }
   ingress: |-
     {
-        "ingressGateway" : "knative-serving/knative-ingress-gateway",
-        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
-        "localGateway" : "knative-serving/knative-local-gateway",
-        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
-        "ingressDomain"  : "example.com"
+        "ingressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.gateway }}",
+        "ingressService" : "{{ .Values.kserve.controller.gateway.ingressGateway.gatewayService }}",
+        "localGateway" : "{{ .Values.kserve.controller.gateway.localGateway.gateway }}",
+        "localGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.gatewayService }}",
+        "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}"
     }
   logger: |-
     {
-        "image" : {{ .Values.kserve.agent.image }},
+        "image" : "{{ .Values.kserve.agent.image }}",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -65,9 +65,9 @@ data:
   predictors: |-
     {
         "tensorflow": {
-            "image": {{ .Values.kserve.servingruntime.tfserving.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.tfserving.defaultVersion }},
-            "defaultGpuImageVersion": {{ .Values.kserve.servingruntime.tfserving.defaultGpuVersion }},
+            "image": "{{ .Values.kserve.servingruntime.tfserving.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.tfserving.defaultVersion }}",
+            "defaultGpuImageVersion": "{{ .Values.kserve.servingruntime.tfserving.defaultGpuVersion }}",
             "defaultTimeout": "60",
             "supportedFrameworks": [
               "tensorflow"
@@ -75,8 +75,8 @@ data:
             "multiModelServer": false
         },
         "onnx": {
-            "image": {{ .Values.kserve.servingruntime.onnx.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.onnx.defaultVersion }},
+            "image": "{{ .Values.kserve.servingruntime.onnx.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.onnx.defaultVersion }}",
             "supportedFrameworks": [
               "onnx"
             ],
@@ -84,16 +84,16 @@ data:
         },
         "sklearn": {
           "v1": {
-            "image": {{ .Values.kserve.servingruntime.sklearn.v1.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.sklearn.v1.defaultVersion }},
+            "image": "{{ .Values.kserve.servingruntime.sklearn.v1.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.sklearn.v1.defaultVersion }}",
             "supportedFrameworks": [
               "sklearn"
             ],
             "multiModelServer": true
           },
           "v2": {
-            "image": {{ .Values.kserve.servingruntime.sklearn.v2.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.sklearn.v2.defaultVersion }},
+            "image": "{{ .Values.kserve.servingruntime.sklearn.v2.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.sklearn.v2.defaultVersion }}",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -102,16 +102,16 @@ data:
         },
         "xgboost": {
           "v1": {
-            "image": {{ .Values.kserve.servingruntime.xgboost.v1.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.xgboost.v1.defaultVersion }},
+            "image": "{{ .Values.kserve.servingruntime.xgboost.v1.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.xgboost.v1.defaultVersion }}",
             "supportedFrameworks": [
               "xgboost"
             ],
             "multiModelServer": true
           },
           "v2": {
-            "image": {{ .Values.kserve.servingruntime.xgboost.v2.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.xgboost.v2.defaultVersion }},
+            "image": "{{ .Values.kserve.servingruntime.xgboost.v2.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.xgboost.v2.defaultVersion }}",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -120,18 +120,18 @@ data:
         },
         "pytorch": {
           "v1" : {
-            "image": {{ .Values.kserve.servingruntime.pytorch.v1.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.pytorch.v1.defaultVersion }},
-            "defaultGpuImageVersion": {{ .Values.kserve.servingruntime.pytorch.v1.defaultGpuVersion }},
+            "image": "{{ .Values.kserve.servingruntime.pytorch.v1.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.pytorch.v1.defaultVersion }}",
+            "defaultGpuImageVersion": "{{ .Values.kserve.servingruntime.pytorch.v1.defaultGpuVersion }}",
             "supportedFrameworks": [
               "pytorch"
             ],
             "multiModelServer": false
           },
           "v2" : {
-            "image": {{ .Values.kserve.servingruntime.pytorch.v2.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.pytorch.v2.defaultVersion }},
-            "defaultGpuImageVersion": ,{{ .Values.kserve.servingruntime.pytorch.v2.defaultGpuVersion }}
+            "image": "{{ .Values.kserve.servingruntime.pytorch.v2.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.pytorch.v2.defaultVersion }}",
+            "defaultGpuImageVersion": "{{ .Values.kserve.servingruntime.pytorch.v2.defaultGpuVersion }}",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -139,8 +139,8 @@ data:
           }
         },
         "triton": {
-            "image": {{ .Values.kserve.servingruntime.triton.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.triton.defaultVersion }},
+            "image": "{{ .Values.kserve.servingruntime.triton.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.triton.defaultVersion }}",
             "supportedFrameworks": [
               "tensorrt",
               "tensorflow",
@@ -150,24 +150,24 @@ data:
             "multiModelServer": true
         },
         "pmml": {
-            "image": {{ .Values.kserve.servingruntime.pmml.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.pmml.defaultVersion }},
+            "image": "{{ .Values.kserve.servingruntime.pmml.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.pmml.defaultVersion }}",
             "supportedFrameworks": [
               "pmml"
             ],
             "multiModelServer": false
         },
         "lightgbm": {
-            "image": {{ .Values.kserve.servingruntime.lightgbm.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.lightgbm.defaultVersion }},
+            "image": "{{ .Values.kserve.servingruntime.lightgbm.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.lightgbm.defaultVersion }}",
             "supportedFrameworks": [
               "lightgbm"
             ],
             "multiModelServer": false
         },
         "paddle": {
-            "image": {{ .Values.kserve.servingruntime.paddle.image }},
-            "defaultImageVersion": {{ .Values.kserve.servingruntime.paddle.defaultVersion }},
+            "image": "{{ .Values.kserve.servingruntime.paddle.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.paddle.defaultVersion }}",
             "supportedFrameworks": [
               "paddle"
             ],
@@ -176,7 +176,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : {{ .Values.kserve.storage.image }},
+        "image" : "{{ .Values.kserve.storage.image }}",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",

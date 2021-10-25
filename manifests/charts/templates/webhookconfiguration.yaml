@@ -29,17 +29,13 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: $(webhookServiceName)
+        name: kserve-webhook-server-service
         namespace: {{ .Release.Namespace }}
         path: /mutate-pods
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.pod-mutator
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
-    namespaceSelector:
-      matchExpressions:
-        - key: control-plane
-          operator: DoesNotExist
     objectSelector:
       matchExpressions:
         - key: serving.kserve.io/inferenceservice
