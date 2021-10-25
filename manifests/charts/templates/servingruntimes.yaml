@@ -1,0 +1,110 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+    name: modelmesh-serving-mlserver-0.x-SR
+  name: mlserver-0.x
+spec:
+  builtInAdapter:
+    memBufferBytes: 134217728
+    modelLoadingTimeoutMillis: 90000
+    runtimeManagementPort: 8001
+    serverType: mlserver
+  containers:
+  - env:
+    - name: MLSERVER_MODELS_DIR
+      value: /models/_mlserver_models/
+    - name: MLSERVER_GRPC_PORT
+      value: "8001"
+    - name: MLSERVER_HTTP_PORT
+      value: "8002"
+    - name: MLSERVER_LOAD_MODELS_AT_STARTUP
+      value: "false"
+    - name: MLSERVER_MODEL_NAME
+      value: dummy-model-fixme
+    - name: MLSERVER_HOST
+      value: 127.0.0.1
+    image: seldonio/mlserver:0.3.2
+    name: mlserver
+    resources:
+      limits:
+        cpu: "5"
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+  grpcDataEndpoint: port:8001
+  grpcEndpoint: port:8085
+  supportedModelTypes:
+  - name: sklearn
+    version: "0"
+  - name: xgboost
+    version: "1"
+  - name: lightgbm
+    version: "3"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  annotations:
+    maxLoadingConcurrency: "2"
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+    name: modelmesh-serving-triton-2.x-SR
+  name: triton-2.x
+spec:
+  builtInAdapter:
+    memBufferBytes: 134217728
+    modelLoadingTimeoutMillis: 90000
+    runtimeManagementPort: 8001
+    serverType: triton
+  containers:
+  - args:
+    - -c
+    - 'mkdir -p /models/_triton_models; chmod 777 /models/_triton_models; exec tritonserver
+      "--model-repository=/models/_triton_models" "--model-control-mode=explicit"
+      "--strict-model-config=false" "--strict-readiness=false" "--allow-http=true"
+      "--allow-sagemaker=false" '
+    command:
+    - /bin/sh
+    image: nvcr.io/nvidia/tritonserver:21.06.1-py3
+    livenessProbe:
+      exec:
+        command:
+        - curl
+        - --fail
+        - --silent
+        - --show-error
+        - --max-time
+        - "9"
+        - http://localhost:8000/v2/health/live
+      initialDelaySeconds: 5
+      periodSeconds: 30
+      timeoutSeconds: 10
+    name: triton
+    resources:
+      limits:
+        cpu: "5"
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+  grpcDataEndpoint: port:8001
+  grpcEndpoint: port:8085
+  supportedModelTypes:
+  - name: tensorflow
+    version: "1"
+  - name: tensorflow
+    version: "2"
+  - name: tensorrt
+    version: "7"
+  - name: pytorch
+    version: "1"
+  - name: onnx
+    version: "1"
+

@@ -1,3 +1,54 @@
+---
+apiVersion: v1
+data:
+  config-defaults.yaml: |
+    podsPerRuntime: 2
+    headlessService: true
+    modelMeshImage:
+      name: kserve/modelmesh
+      tag: v0.7.0
+    modelMeshResources:
+      requests:
+        cpu: "300m"
+        memory: "448Mi"
+      limits:
+        cpu: "3"
+        memory: "448Mi"
+    restProxy:
+      enabled: true
+      port: 8008
+      image:
+        name: kserve/rest-proxy
+        tag: v0.1.1
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "96Mi"
+        limits:
+          cpu: "1"
+          memory: "512Mi"
+    storageHelperImage:
+      name: kserve/modelmesh-runtime-adapter
+      tag: v0.7.0
+      command: ["/opt/app/puller"]
+    storageHelperResources:
+      requests:
+        cpu: "50m"
+        memory: "96Mi"
+      limits:
+        cpu: "2"
+        memory: "512Mi"
+    serviceAccountName: modelmesh
+    metrics:
+      enabled: true
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+  name: model-serving-config-defaults
+---
 apiVersion: v1
 data:
   agent: |-
