@@ -33,7 +33,7 @@ spec:
           name: https
       - command:
         - /manager
-        image: "{{ .Values.kserve.image }}"
+        image: "{{ .Values.kserve.controller.image }}"
         imagePullPolicy: Always
         name: manager
         args:

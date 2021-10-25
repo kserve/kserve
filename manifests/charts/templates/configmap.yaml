@@ -1,0 +1,191 @@
+apiVersion: v1
+data:
+  agent: |-
+    {
+        "image" : {{ .Values.kserve.agent.image }},
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  batcher: |-
+    {
+        "image" : {{ .Values.kserve.agent.image }},
+        "memoryRequest": "1Gi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "1",
+        "cpuLimit": "1"
+    }
+  credentials: |-
+    {
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
+       }
+    }
+  deploy: |-
+    {
+      "defaultDeploymentMode": "{{ .Values.kserve.controller.deploymentMode }}"
+    }
+  explainers: |-
+    {
+        "alibi": {
+            "image" : "kserve/alibi-explainer",
+            "defaultImageVersion": "v0.7.0"
+        },
+        "aix": {
+            "image" : "kserve/aix-explainer",
+            "defaultImageVersion": "v0.7.0"
+        },
+        "art": {
+            "image" : "kserve/art-explainer",
+            "defaultImageVersion": "v0.7.0"
+        }
+    }
+  ingress: |-
+    {
+        "ingressGateway" : "knative-serving/knative-ingress-gateway",
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+        "localGateway" : "knative-serving/knative-local-gateway",
+        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+        "ingressDomain"  : "example.com"
+    }
+  logger: |-
+    {
+        "image" : {{ .Values.kserve.agent.image }},
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "defaultUrl": "http://default-broker"
+    }
+  predictors: |-
+    {
+        "tensorflow": {
+            "image": {{ .Values.kserve.servingruntime.tfserving.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.tfserving.defaultVersion }},
+            "defaultGpuImageVersion": {{ .Values.kserve.servingruntime.tfserving.defaultGpuVersion }},
+            "defaultTimeout": "60",
+            "supportedFrameworks": [
+              "tensorflow"
+            ],
+            "multiModelServer": false
+        },
+        "onnx": {
+            "image": {{ .Values.kserve.servingruntime.onnx.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.onnx.defaultVersion }},
+            "supportedFrameworks": [
+              "onnx"
+            ],
+            "multiModelServer": false
+        },
+        "sklearn": {
+          "v1": {
+            "image": {{ .Values.kserve.servingruntime.sklearn.v1.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.sklearn.v1.defaultVersion }},
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": true
+          },
+          "v2": {
+            "image": {{ .Values.kserve.servingruntime.sklearn.v2.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.sklearn.v2.defaultVersion }},
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": false
+          }
+        },
+        "xgboost": {
+          "v1": {
+            "image": {{ .Values.kserve.servingruntime.xgboost.v1.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.xgboost.v1.defaultVersion }},
+            "supportedFrameworks": [
+              "xgboost"
+            ],
+            "multiModelServer": true
+          },
+          "v2": {
+            "image": {{ .Values.kserve.servingruntime.xgboost.v2.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.xgboost.v2.defaultVersion }},
+            "supportedFrameworks": [
+              "xgboost"
+            ],
+            "multiModelServer": false
+          }
+        },
+        "pytorch": {
+          "v1" : {
+            "image": {{ .Values.kserve.servingruntime.pytorch.v1.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.pytorch.v1.defaultVersion }},
+            "defaultGpuImageVersion": {{ .Values.kserve.servingruntime.pytorch.v1.defaultGpuVersion }},
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          },
+          "v2" : {
+            "image": {{ .Values.kserve.servingruntime.pytorch.v2.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.pytorch.v2.defaultVersion }},
+            "defaultGpuImageVersion": ,{{ .Values.kserve.servingruntime.pytorch.v2.defaultGpuVersion }}
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          }
+        },
+        "triton": {
+            "image": {{ .Values.kserve.servingruntime.triton.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.triton.defaultVersion }},
+            "supportedFrameworks": [
+              "tensorrt",
+              "tensorflow",
+              "onnx",
+              "pytorch"
+            ],
+            "multiModelServer": true
+        },
+        "pmml": {
+            "image": {{ .Values.kserve.servingruntime.pmml.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.pmml.defaultVersion }},
+            "supportedFrameworks": [
+              "pmml"
+            ],
+            "multiModelServer": false
+        },
+        "lightgbm": {
+            "image": {{ .Values.kserve.servingruntime.lightgbm.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.lightgbm.defaultVersion }},
+            "supportedFrameworks": [
+              "lightgbm"
+            ],
+            "multiModelServer": false
+        },
+        "paddle": {
+            "image": {{ .Values.kserve.servingruntime.paddle.image }},
+            "defaultImageVersion": {{ .Values.kserve.servingruntime.paddle.defaultVersion }},
+            "supportedFrameworks": [
+              "paddle"
+            ],
+            "multiModelServer": false
+        }
+    }
+  storageInitializer: |-
+    {
+        "image" : {{ .Values.kserve.storage.image }},
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  transformers: |-
+    {
+    }
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: {{ .Release.Namespace }} 
