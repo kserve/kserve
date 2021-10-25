@@ -154,5 +154,5 @@ kubectl describe pods -n kserve-ci-e2e-test
 kubectl get revisions -n kserve-ci-e2e-test
 kubectl get kservice -n kserve-ci-e2e-test
 kubectl logs svc/isvc-sklearn-v2-predictor-default-00001-private -c kserve-container -n kserve-ci-e2e-test
-# kubectl get events -n kserve-ci-e2e-test
+kubectl get events -n kserve-ci-e2e-test
 # kubectl get events -n kserve
