@@ -2,7 +2,7 @@
 
 ## Setup
 
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kserve/kserve/#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
@@ -16,11 +16,11 @@ kubectl apply -f custom.yaml
 Expected Output
 
 ```
-inferenceservice.serving.kubeflow.org/custom-prebuilt-image
+inferenceservice.serving.kserve.io/custom-prebuilt-image
 ```
 
 ## Run a prediction
-The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/get_started/first_isvc/#3-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 This example uses the [codait/max-object-detector](https://github.com/IBM/MAX-Object-Detector) image. The Max Object Detector api server expects a POST request to the `/model/predict` endpoint that includes an `image` multipart/form-data and an optional `threshold` query string.
 
