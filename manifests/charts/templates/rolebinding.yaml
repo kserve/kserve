@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: leader-election-rolebinding
+  name: kserve-leader-election-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -34,7 +34,7 @@ metadata:
     app.kubernetes.io/instance: modelmesh-controller
     app.kubernetes.io/managed-by: modelmesh-controller
     app.kubernetes.io/name: modelmesh-controller
-  name: controller-restricted-scc
+  name: modelmesh-controller-restricted-scc
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -50,7 +50,7 @@ metadata:
     app.kubernetes.io/instance: modelmesh-controller
     app.kubernetes.io/managed-by: modelmesh-controller
     app.kubernetes.io/name: modelmesh-controller
-  name: controller-rolebinding
+  name: modelmesh-controller-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

@@ -24,6 +24,15 @@ kserve:
       requests:
         cpu: 100m
         memory: 300Mi
+  modelmesh:
+    controller:
+      image: kserve/modelmesh-controller:v0.7.0
+    config:
+      modelmeshImage: kserve/modelmesh
+      modelmeshImageTag: v0.7.0
+      modelmeshRuntimeAdapterImage: kserve/modelmesh-runtime-adapter
+      modelmeshRuntimeAdapterTag: v0.7.0
+      podsPerRuntime: 2
   servingruntime:
     tfserving:
       image: tensorflow/serving

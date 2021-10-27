@@ -2,11 +2,11 @@
 apiVersion: v1
 data:
   config-defaults.yaml: |
-    podsPerRuntime: 2
+    podsPerRuntime: {{ .Values.kserve.modelmesh.config.podPerRuntime }}
     headlessService: true
     modelMeshImage:
-      name: kserve/modelmesh
-      tag: v0.7.0
+      name: {{ .Values.kserve.modelmesh.config.modelmeshImage }}
+      tag: {{ .Values.kserve.modelmesh.config.modelmeshImageTag }}
     modelMeshResources:
       requests:
         cpu: "300m"
@@ -18,8 +18,8 @@ data:
       enabled: true
       port: 8008
       image:
-        name: kserve/rest-proxy
-        tag: v0.1.1
+        name: {{ .Values.kserve.modelmesh.config.restProxyImage }}
+        tag: {{ .Values.kserve.modelmesh.config.restProxyImageTag }}
       resources:
         requests:
           cpu: "50m"
@@ -28,8 +28,8 @@ data:
           cpu: "1"
           memory: "512Mi"
     storageHelperImage:
-      name: kserve/modelmesh-runtime-adapter
-      tag: v0.7.0
+      name: {{ .Values.kserve.modelmesh.config.modelmeshRuntimeAdapterImage }}
+      tag: {{ .Values.kserve.modelmesh.config.modelmeshRuntimeAdapterImageTag }}
       command: ["/opt/app/puller"]
     storageHelperResources:
       requests:

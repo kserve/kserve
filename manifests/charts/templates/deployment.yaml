@@ -76,6 +76,7 @@ metadata:
     app.kubernetes.io/name: modelmesh-controller
     control-plane: modelmesh-controller
   name: modelmesh-controller
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
@@ -111,7 +112,7 @@ spec:
               fieldPath: metadata.name
         - name: ETCD_SECRET_NAME
           value: model-serving-etcd
-        image: kserve/modelmesh-controller:v0.7.0
+        image: {{ .Values.kserve.modelmesh-controller.image }}
         livenessProbe:
           httpGet:
             path: /healthz
