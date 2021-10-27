@@ -45,9 +45,9 @@ In addition to deploy InferenceService with HTTP/gRPC endpoint, you can also dep
 , you can find an example [here](./kafka) which shows how to build an async inference pipeline. 
 
 ### Deploy InferenceService with Transformer
-Kserve transformer enables users to define a pre/post processing step before the prediction and explanation workflow.
+KServe transformer enables users to define a pre/post processing step before the prediction and explanation workflow.
 Using the preprocessing step, users can also enrich the inference request with features retrieved from a feature store.
-Kserve transformer runs as a separate microservice and can work with any type of pre-packaged model server, it can also 
+KServe transformer runs as a separate microservice and can work with any type of pre-packaged model server, it can also 
 scale differently from the predictor if your transformer is CPU bound while predictor requires running on GPU. 
 
 | Features  | Examples |
@@ -58,11 +58,11 @@ scale differently from the predictor if your transformer is CPU bound while pred
 | Deploy Transformer with TorchScript model| [Image classifier](./v1beta1/triton/torchscript)  |
 
 ### Deploy InferenceService with Explainer
-Model explainability answers the question: "Why did my model make this prediction" for a given instance. Kserve 
+Model explainability answers the question: "Why did my model make this prediction" for a given instance. KServe 
 integrates with [Alibi Explainer](https://github.com/SeldonIO/alibi) which implements a black-box algorithm by generating a lot of similar looking intances 
 for a given instance and send out to the model server to produce an explanation.
 
-Additionally Kserve also integrates with The [AI Explainability 360 (AIX360)](https://ai-explainability-360.org/) toolkit, an LF AI Foundation incubation project, which is an open-source library that supports the interpretability and explainability of datasets and machine learning models. The AI Explainability 360 Python package includes a comprehensive set of algorithms that cover different dimensions of explanations along with proxy explainability metrics. In addition to native algorithms, AIX360 also provides algorithms from LIME and Shap.
+Additionally KServe also integrates with The [AI Explainability 360 (AIX360)](https://ai-explainability-360.org/) toolkit, an LF AI Foundation incubation project, which is an open-source library that supports the interpretability and explainability of datasets and machine learning models. The AI Explainability 360 Python package includes a comprehensive set of algorithms that cover different dimensions of explanations along with proxy explainability metrics. In addition to native algorithms, AIX360 also provides algorithms from LIME and Shap.
 
 | Features  | Examples |
 | ------------- | ------------- |
@@ -84,7 +84,7 @@ Multi Model Serving is supported for Triton, SKLearn/XGBoost as well as Custom K
 
 ### Deploy InferenceService with Outlier/Drift Detector
 In order to trust and reliably act on model predictions, it is crucial to monitor the distribution of the incoming
-requests via various different type of detectors. Kserve integrates [Alibi Detect](https://github.com/SeldonIO/alibi-detect) with the following components:
+requests via various different type of detectors. KServe integrates [Alibi Detect](https://github.com/SeldonIO/alibi-detect) with the following components:
 - Drift detector checks when the distribution of incoming requests is diverging from a reference distribution such as that of the training data 
 - Outlier detector flags single instances which do not follow the training distribution.
 
@@ -102,9 +102,8 @@ requests via various different type of detectors. Kserve integrates [Alibi Detec
 | Deploy Model with HTTP/HTTPS| [Models with HTTP/HTTPS URL](./storage/uri) |
 
 ### Autoscaling
-Kserve's main serverless capability is to allow you to run inference workload without worrying about scaling your service manually once it is deployed. KFServing leverages Knative's [autoscaler](https://knative.dev/docs/serving/configuring-autoscaling/),
-the autoscaler works on GPU as well since the Autoscaler is based on request volume instead of GPU/CPU metrics which can be hard
- to reason about. 
+KServe's main serverless capability is to allow you to run inference workload without worrying about scaling your service manually once it is deployed. KServe leverages Knative's [autoscaler](https://knative.dev/docs/serving/configuring-autoscaling/),
+the autoscaler works on GPU as well since the Autoscaler is based on request volume instead of GPU/CPU metrics which can be hard to reason about. 
  
 [Autoscale inference workload on CPU/GPU](./autoscaling)
 
@@ -122,11 +121,11 @@ Canary deployment enables rollout releases by splitting traffic between differen
 Batching individual inference requests can be important as most of ML/DL frameworks are optimized for batch requests.
 In cases where the services receive heavy load of requests, its advantageous to batch the requests. This allows for maximally
 utilizing the CPU/GPU compute resource, but user needs to carefully perform enough tests to find optimal batch size and analyze 
-the traffic patterns before enabling the batch inference. Kserve injects a batcher sidecar so it can work with any model server
-deployed on Kserve, you can read more from this [example](./batcher).
+the traffic patterns before enabling the batch inference. KServe injects a batcher sidecar so it can work with any model server
+deployed on KServe, you can read more from this [example](./batcher).
 
 ### Request/Response Logger
-Kserve supports logging your inference request/response by injecting a sidecar alongside with your model server.
+KServe supports logging your inference request/response by injecting a sidecar alongside with your model server.
 
 | Feature  | Examples |
 | ------------- | ------------- |
