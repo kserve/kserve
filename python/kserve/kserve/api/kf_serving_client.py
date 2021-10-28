@@ -13,7 +13,6 @@
 
 import time
 import requests
-import logging
 from kubernetes import client, config
 from urllib.parse import urlparse
 
@@ -96,8 +95,6 @@ class KServeClient(object):
         :return: created inference service
         """
 
-        if inferenceservice.api_version == constants.KSERVE_V1ALPHA2:
-            logging.warning("The version v1alpha2 will be deprecated from KServe 0.7 release.")
         version = inferenceservice.api_version.split("/")[1]
 
         if namespace is None:
@@ -134,8 +131,6 @@ class KServeClient(object):
         :param version: api group version
         :return: inference service
         """
-        if version == 'v1alpha2':
-            logging.warning("The version v1alpha2 will be deprecated from KServe 0.7 release.")
 
         if namespace is None:
             namespace = utils.get_default_target_namespace()
@@ -187,8 +182,6 @@ class KServeClient(object):
         :return: patched inference service
         """
 
-        if inferenceservice.api_version == constants.KSERVE_V1ALPHA2:
-            logging.warning("The version v1alpha2 will be deprecated from KServe 0.7 release.")
         version = inferenceservice.api_version.split("/")[1]
         if namespace is None:
             namespace = utils.set_isvc_namespace(inferenceservice)
@@ -228,8 +221,6 @@ class KServeClient(object):
         :return: replaced inference service
         """
 
-        if inferenceservice.api_version == constants.KSERVE_V1ALPHA2:
-            logging.warning("The version v1alpha2 will be deprecated from KServe 0.7 release.")
         version = inferenceservice.api_version.split("/")[1]
 
         if namespace is None:
