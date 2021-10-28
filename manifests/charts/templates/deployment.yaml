@@ -112,7 +112,7 @@ spec:
               fieldPath: metadata.name
         - name: ETCD_SECRET_NAME
           value: model-serving-etcd
-        image: {{ .Values.kserve.modelmesh-controller.image }}
+        image: {{ .Values.kserve.modelmesh.controller.image }}
         livenessProbe:
           httpGet:
             path: /healthz

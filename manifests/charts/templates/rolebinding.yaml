@@ -18,11 +18,11 @@ metadata:
     app.kubernetes.io/instance: modelmesh-controller
     app.kubernetes.io/managed-by: modelmesh-controller
     app.kubernetes.io/name: modelmesh-controller
-  name: controller-leader-election-rolebinding
+  name: modelmesh-controller-leader-election-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: controller-leader-election-role
+  name: modelmesh-controller-leader-election-role
 subjects:
 - kind: ServiceAccount
   name: modelmesh-controller
@@ -54,7 +54,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: controller-role
+  name: modelmesh-controller-role
 subjects:
 - kind: ServiceAccount
   name: modelmesh-controller
