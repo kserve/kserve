@@ -38,36 +38,12 @@ from kserve.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kserve.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kserve.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
 
-# import v1alpha2 models into kserve package
+# import v1beta1 models into sdk package
 from kserve.models.knative_addressable import KnativeAddressable
 from kserve.models.knative_condition import KnativeCondition
 from kserve.models.knative_url import KnativeURL
 from kserve.models.knative_volatile_time import KnativeVolatileTime
 from kserve.models.net_url_userinfo import NetUrlUserinfo
-from kserve.models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec
-from kserve.models.v1alpha2_aix_explainer_spec import V1alpha2AIXExplainerSpec
-from kserve.models.v1alpha2_batcher import V1alpha2Batcher
-from kserve.models.v1alpha2_custom_spec import V1alpha2CustomSpec
-from kserve.models.v1alpha2_inference_service import V1alpha2InferenceService
-from kserve.models.v1alpha2_inference_service_list import V1alpha2InferenceServiceList
-from kserve.models.v1alpha2_inference_service_spec import V1alpha2InferenceServiceSpec
-from kserve.models.v1alpha2_inference_service_status import V1alpha2InferenceServiceStatus
-from kserve.models.v1alpha2_endpoint_spec import V1alpha2EndpointSpec
-from kserve.models.v1alpha2_predictor_spec import V1alpha2PredictorSpec
-from kserve.models.v1alpha2_transformer_spec import V1alpha2TransformerSpec
-from kserve.models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
-from kserve.models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
-from kserve.models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
-from kserve.models.v1alpha2_pmml_spec import V1alpha2PMMLSpec
-from kserve.models.v1alpha2_logger import V1alpha2Logger
-from kserve.models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
-from kserve.models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
-from kserve.models.v1alpha2_triton_spec import V1alpha2TritonSpec
-from kserve.models.v1alpha2_tensorflow_spec import V1alpha2TensorflowSpec
-from kserve.models.v1alpha2_xg_boost_spec import V1alpha2XGBoostSpec
-from kserve.models.v1alpha2_light_gbm_spec import V1alpha2LightGBMSpec
-
-# import v1beta1 models into sdk package
 from kserve.models.v1beta1_aix_explainer_spec import V1beta1AIXExplainerSpec
 from kserve.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
 from kserve.models.v1beta1_alibi_explainer_spec import V1beta1AlibiExplainerSpec

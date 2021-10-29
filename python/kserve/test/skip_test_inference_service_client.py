@@ -15,11 +15,10 @@ from unittest.mock import patch
 
 from kubernetes import client
 
-from kserve import V1alpha2EndpointSpec
-from kserve import V1alpha2PredictorSpec
-from kserve import V1alpha2TensorflowSpec
-from kserve import V1alpha2InferenceServiceSpec
-from kserve import V1alpha2InferenceService
+from kserve import V1beta1PredictorSpec
+from kserve import V1beta1TFServingSpec
+from kserve import V1beta1InferenceServiceSpec
+from kserve import V1beta1InferenceService
 from kserve import KServeClient
 
 kserve_client = KServeClient()
@@ -27,18 +26,16 @@ kserve_client = KServeClient()
 mocked_unit_result = \
     '''
 {
-    "api_version": "serving.kserve.io/v1alpha2",
+    "api_version": "serving.kserve.io/v1beta1",
     "kind": "InferenceService",
     "metadata": {
         "name": "flower-sample",
         "namespace": "kubeflow"
     },
     "spec": {
-        "default": {
-            "predictor": {
-                "tensorflow": {
-                    "storage_uri": "gs://kfserving-samples/models/tensorflow/flowers"
-                }
+        "predictor": {
+            "tensorflow": {
+                "storage_uri": "gs://kfserving-samples/models/tensorflow/flowers"
             }
         }
     }
@@ -47,16 +44,15 @@ mocked_unit_result = \
 
 
 def generate_inferenceservice():
-    tf_spec = V1alpha2TensorflowSpec(
+    tf_spec = V1beta1TFServingSpec(
         storage_uri='gs://kfserving-samples/models/tensorflow/flowers')
-    default_endpoint_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(
-        tensorflow=tf_spec))
+    predictor_spec = V1beta1PredictorSpec(tensorflow=tf_spec)
 
-    isvc = V1alpha2InferenceService(
-        api_version='serving.kserve.io/v1alpha2',
+    isvc = V1beta1InferenceService(
+        api_version='serving.kserve.io/v1beta1',
         kind='InferenceService',
         metadata=client.V1ObjectMeta(name='flower-sample'),
-        spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
+        spec=V1beta1InferenceServiceSpec(predictor=predictor_spec))
     return isvc
 
 
