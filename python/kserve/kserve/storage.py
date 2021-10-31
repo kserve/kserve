@@ -117,8 +117,20 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 continue
             # In the case where bucket_path points to a single object, set the target key to bucket_path
             # Otherwise, remove the bucket_path prefix, strip any extra slashes, then prepend the target_dir
+            # Example:
+            # s3://test-bucket
+            # Objects: /a/b/c/model.bin /a/model.bin /model.bin
+            #
+            # If 'uri' is set to "s3://test-bucket", then the dowloader will
+            # download all the objects listed above, re-creating their subpaths
+            # under the temp_dir.
+            # If 'uri' is set to "s3://test-bucket/a", then the downloader will
+            # add to temp_dir: b/c/model.bin and model.bin.
+            # If 'uri' is set to "s3://test-bucket/a/b/c/model.bin", then
+            # the downloader will add to temp dir: model.bin
+            # (without any subpaths).
             target_key = (
-                obj.key
+                obj.key.rsplit("/", 1)[-1]
                 if bucket_path == obj.key
                 else obj.key.replace(bucket_path, "", 1).lstrip("/")
             )
@@ -126,7 +138,11 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             if not os.path.exists(os.path.dirname(target)):
                 os.makedirs(os.path.dirname(target), exist_ok=True)
             bucket.download_file(obj.key, target)
+            logging.info('Downloaded object %s to %s' % (obj.key, target))
             count = count + 1
+        if count == 0:
+            raise RuntimeError(
+                "Failed to fetch model. No model found in %s." % bucket_path)
 
         # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
         if count == 1:
@@ -164,8 +180,8 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 blob.download_to_filename(dest_path)
             count = count + 1
         if count == 0:
-            raise RuntimeError("Failed to fetch model. \
-The path or model %s does not exist." % uri)
+            raise RuntimeError(
+                "Failed to fetch model. No model found in %s." % uri)
 
         # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
         if count == 1:
@@ -214,8 +230,8 @@ The path or model %s does not exist." % uri)
                 f.write(downloader.readall())
             count = count + 1
         if count == 0:
-            raise RuntimeError("Failed to fetch model. \
-The path or model %s does not exist." % (uri))
+            raise RuntimeError(
+                "Failed to fetch model. No model found in %s." % (uri))
 
         # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
         if count == 1:
@@ -263,7 +279,9 @@ The path or model %s does not exist." % (uri))
             logging.info("Linking: %s to %s", src, dest_path)
             os.symlink(src, dest_path)
             count = count + 1
-
+        if count == 0:
+            raise RuntimeError(
+                "Failed to fetch model. No model found in %s." % (uri))
         # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
         if count == 1:
             mimetype, _ = mimetypes.guess_type(dest_path)

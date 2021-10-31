@@ -45,6 +45,12 @@ def get_call_args(call_args_list):
     return arg_list
 
 
+def expected_call_args_list_single_obj(dest, path):
+    return [(
+        f'{path}'.strip('/'),
+        f'{dest}/{path.rsplit("/", 1)[-1]}'.strip('/'))]
+
+
 def expected_call_args_list(parent_key, dest, paths):
     return [(f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
             for p in paths]
@@ -102,8 +108,27 @@ def test_full_name_key(mock_storage):
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert arg_list == expected_call_args_list('', 'dest_path',
-                                               [object_key])
+    assert arg_list == expected_call_args_list_single_obj('dest_path',
+                                                          object_key)
+
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
+
+
+@mock.patch('kserve.storage.boto3')
+def test_full_name_key_root_bucket_dir(mock_storage):
+
+    # given
+    bucket_name = 'foo'
+    object_key = 'name.pt'
+
+    # when
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, [object_key])
+    kserve.Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
+
+    # then
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert arg_list == expected_call_args_list_single_obj('dest_path',
+                                                          object_key)
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
 
