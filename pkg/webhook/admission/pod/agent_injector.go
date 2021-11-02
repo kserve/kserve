@@ -197,17 +197,22 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	}
 
 	queueProxyEnvs := []v1.EnvVar{}
+	queueProxyAvailable := false
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "queue-proxy" {
 			queueProxyEnvs = container.Env
+			queueProxyAvailable = true
 		}
 	}
-	readinessProbeJson, err := json.Marshal(pod.Spec.Containers[0].ReadinessProbe)
-	if err != nil {
-		return err
-	}
 
-	queueProxyEnvs = append(queueProxyEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+	if !queueProxyAvailable {
+		readinessProbeJson, err := json.Marshal(pod.Spec.Containers[0].ReadinessProbe)
+		if err != nil {
+			return err
+		}
+		queueProxyEnvs = append(queueProxyEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+
+	}
 
 	// Make sure securityContext is initialized and valid
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()

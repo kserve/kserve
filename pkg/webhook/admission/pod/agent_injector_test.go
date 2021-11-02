@@ -122,7 +122,7 @@ func TestAgentInjector(t *testing.T) {
 								},
 							},
 							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
-							Env:  []v1.EnvVar{},
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "null"}},
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
 									Exec: &v1.ExecAction{
@@ -235,7 +235,7 @@ func TestAgentInjector(t *testing.T) {
 								LoggerArgumentComponent,
 								"predictor",
 							},
-							Env:       []v1.EnvVar{},
+							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "null"}},
 							Resources: agentResourceRequirement,
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
