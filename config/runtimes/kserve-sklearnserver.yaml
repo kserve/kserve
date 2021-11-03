@@ -1,0 +1,22 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-sklearnserver
+spec:
+  supportedModelTypes:
+    - name: sklearn
+      version: "0"
+  containers:
+    - name: kserve-container
+      image: kserve-sklearnserver:replace
+      args:
+        - --model_name=model
+        - --model_dir=/mnt/models
+        - --http_port=8080
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi

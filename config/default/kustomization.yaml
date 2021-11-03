@@ -15,6 +15,7 @@ bases:
 - ../manager
 - ../webhook
 - ../certmanager
+- ../runtimes
 
   # Protect the /metrics endpoint by putting it behind auth.
   # Only one of manager_auth_proxy_patch.yaml and

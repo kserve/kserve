@@ -1,0 +1,14 @@
+resources:
+  - kserve-tensorflow-serving.yaml
+  - kserve-sklearnserver.yaml
+
+images:
+  # SMS Only Runtimes
+  - name: tensorflow-serving
+    newName: tensorflow/serving
+    newTag: 1.14.0
+
+  - name: kserve-sklearnserver
+    newName: kserve/sklearnserver
+    newTag: latest
+

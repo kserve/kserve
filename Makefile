@@ -109,7 +109,7 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
-	
+
 	#TODO Remove this until new controller-tools is released
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kserve.io_inferenceservices.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_inferenceservices.yaml
