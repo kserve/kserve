@@ -90,7 +90,6 @@ type batcherArgs struct {
 func main() {
 	flag.Parse()
 	// Parse the environment.
-	//TODO agent config debug
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
 		fmt.Fprintln(os.Stderr, err)

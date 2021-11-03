@@ -71,7 +71,6 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 			panic(fmt.Errorf("Unable to unmarshall agent json string due to %v ", err))
 		}
 	}
-	log.Info("Initializing agent info ", "agent info ", agentConfig)
 	//Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{agentConfig.MemoryRequest,
 		agentConfig.MemoryLimit,
