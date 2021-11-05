@@ -293,7 +293,7 @@ Please use the [YAML file](./torch_transformer.yaml) to create the InferenceServ
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: torch-transfomer
+  name: torch-transformer
 spec:
   predictor:
     triton:
@@ -323,7 +323,7 @@ kubectl apply -f torch_transformer.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kserve.io/torch-transfomer created
+$ inferenceservice.serving.kserve.io/torch-transformer created
 ```
 
 ### Run a prediction from curl
@@ -333,24 +333,24 @@ The transformer does not enforce a specific schema like predictor but the genera
 {
   "instances": [
     {
-      "image": { "b64": "aW1hZ2UgYnl0ZXM=" },
+      "image_bytes": { "b64": "aW1hZ2UgYnl0ZXM=" },
       "caption": "seaside"
     },
     {
-      "image": { "b64": "YXdlc29tZSBpbWFnZSBieXRlcw==" },
+      "image_bytes": { "b64": "YXdlc29tZSBpbWFnZSBieXRlcw==" },
       "caption": "mountains"
     }
   ]
 }
 ```
 ```
-SERVICE_NAME=torch-transfomer
+SERVICE_NAME=torch-transformer
 MODEL_NAME=cifar10
 INPUT_PATH=@./image.json
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice $SERVICE_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" https://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 
 You should see an output similar to the one below:
