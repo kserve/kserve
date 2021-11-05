@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict
+from typing import Dict, Union
 import sys
 import inspect
 import json
@@ -21,6 +21,10 @@ from cloudevents.http import CloudEvent
 from http import HTTPStatus
 from enum import Enum
 from ray.serve.utils import ServeRequest
+import grpc
+import tritonclient.grpc as grpcclient
+from tritonclient.grpc import InferResult, service_pb2, service_pb2_grpc
+from tritonclient.grpc.service_pb2 import ModelInferRequest
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -47,6 +51,7 @@ class KFModel:
         # timeouts should be handled elsewhere in the system.
         self.timeout = 600
         self._http_client_instance = None
+        self._grpc_client_stub = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
         request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
@@ -69,6 +74,13 @@ class KFModel:
             self._http_client_instance = AsyncHTTPClient(max_clients=sys.maxsize)
         return self._http_client_instance
 
+    @property
+    def _grpc_client(self):
+        if self._grpc_client_stub is None:
+            _channel = grpc.aio.insecure_channel(self.predictor_host)
+            self._grpc_client_stub = service_pb2_grpc.GRPCInferenceServiceStub(_channel)
+        return self._grpc_client_stub
+
     @staticmethod
     def validate(request):
         if isinstance(request, dict):
@@ -89,12 +101,12 @@ class KFModel:
         self.ready = True
         return self.ready
 
-    async def preprocess(self, request: Dict) -> Dict:
+    async def preprocess(self, request: Dict) -> Union[Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation,
         the default implementation decodes to Dict if it is cloudevent JSON otherwise pass the data field
         :param request: JSON Dict or CloudEvent
-        :return: Transformed Dict which passes to predict handler
+        :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
         response = request
 
@@ -126,23 +138,15 @@ class KFModel:
 
         return response
 
-    def postprocess(self, request: Dict) -> Dict:
+    def postprocess(self, request: Union[Dict, InferResult]) -> Dict:
         """
         The postprocess handler can be overridden for inference response transformation
-        :param request: Dict passed from predict handler
+        :param request: Dict|InferResult passed from predict handler
         :return: Dict
         """
         return request
 
-    async def predict(self, request: Dict) -> Dict:
-        """
-        The predict handler can be overridden to implement the model inference.
-        The default implementation makes an call to the predictor if predictor_host is specified
-        :param request: Dict passed from preprocess handler
-        :return: Dict
-        """
-        if not self.predictor_host:
-            raise NotImplementedError
+    async def _http_predict(self, request: Dict) -> Dict:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
         if self.protocol == "v2":
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
@@ -157,6 +161,25 @@ class KFModel:
                 status_code=response.code,
                 reason=response.body)
         return json.loads(response.body)
+
+    async def _grpc_predict(self, request: ModelInferRequest) -> InferResult:
+        async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
+        return async_result 
+
+    async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, InferResult]:
+        """
+        The predict handler can be overridden to implement the model inference.
+        The default implementation makes an call to the predictor if predictor_host is specified
+        :param request: Dict|ModelInferRequest passed from preprocess handler
+        :return: Dict|InferResult
+        """
+        if not self.predictor_host:
+            raise NotImplementedError
+        # TODO select grpc/http
+        if True:
+            return await self._http_predict(request)
+        else:
+            return await self._grpc_predict(request)
 
     async def explain(self, request: Dict) -> Dict:
         """

@@ -32,3 +32,4 @@ idna==3.2
 certifi==2021.5.30
 azure_identity==1.6.0
 azure_core==1.17.0
+tritonclient==2.14.2
