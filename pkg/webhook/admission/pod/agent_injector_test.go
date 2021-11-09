@@ -21,6 +21,8 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/credentials"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"knative.dev/pkg/kmp"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -89,6 +91,20 @@ func TestAgentInjector(t *testing.T) {
 					ServiceAccountName: "sa",
 					Containers: []v1.Container{{
 						Name: "sklearn",
+						ReadinessProbe: &v1.Probe{
+							Handler: v1.Handler{
+								TCPSocket: &v1.TCPSocketAction{
+									Port: intstr.IntOrString{
+										IntVal: 8080,
+									},
+								},
+							},
+							InitialDelaySeconds: 0,
+							TimeoutSeconds:      1,
+							PeriodSeconds:       10,
+							SuccessThreshold:    1,
+							FailureThreshold:    3,
+						},
 					}},
 				},
 			},
@@ -104,6 +120,20 @@ func TestAgentInjector(t *testing.T) {
 					Containers: []v1.Container{
 						{
 							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								Handler: v1.Handler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
 						},
 						{
 							Name:      constants.AgentContainerName,
@@ -122,7 +152,7 @@ func TestAgentInjector(t *testing.T) {
 								},
 							},
 							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
-							Env:  []v1.EnvVar{},
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
 									Exec: &v1.ExecAction{
@@ -200,6 +230,20 @@ func TestAgentInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{{
 						Name: "sklearn",
+						ReadinessProbe: &v1.Probe{
+							Handler: v1.Handler{
+								TCPSocket: &v1.TCPSocketAction{
+									Port: intstr.IntOrString{
+										IntVal: 8080,
+									},
+								},
+							},
+							InitialDelaySeconds: 0,
+							TimeoutSeconds:      1,
+							PeriodSeconds:       10,
+							SuccessThreshold:    1,
+							FailureThreshold:    3,
+						},
 					}},
 				},
 			},
@@ -215,6 +259,20 @@ func TestAgentInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{{
 						Name: "sklearn",
+						ReadinessProbe: &v1.Probe{
+							Handler: v1.Handler{
+								TCPSocket: &v1.TCPSocketAction{
+									Port: intstr.IntOrString{
+										IntVal: 8080,
+									},
+								},
+							},
+							InitialDelaySeconds: 0,
+							TimeoutSeconds:      1,
+							PeriodSeconds:       10,
+							SuccessThreshold:    1,
+							FailureThreshold:    3,
+						},
 					},
 						{
 							Name:  constants.AgentContainerName,
@@ -235,7 +293,7 @@ func TestAgentInjector(t *testing.T) {
 								LoggerArgumentComponent,
 								"predictor",
 							},
-							Env:       []v1.EnvVar{},
+							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{

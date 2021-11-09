@@ -62,8 +62,8 @@ type AgentInjector struct {
 	batcherConfig     *BatcherConfig
 }
 
+//TODO agent config
 func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
-
 	agentConfig := &AgentConfig{}
 	if agentConfigValue, ok := configMap.Data[constants.AgentConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &agentConfig)
@@ -71,7 +71,6 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 			panic(fmt.Errorf("Unable to unmarshall agent json string due to %v ", err))
 		}
 	}
-
 	//Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{agentConfig.MemoryRequest,
 		agentConfig.MemoryLimit,
@@ -197,10 +196,21 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	}
 
 	queueProxyEnvs := []v1.EnvVar{}
+	queueProxyAvailable := false
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "queue-proxy" {
 			queueProxyEnvs = container.Env
+			queueProxyAvailable = true
 		}
+	}
+
+	if !queueProxyAvailable {
+		readinessProbeJson, err := json.Marshal(pod.Spec.Containers[0].ReadinessProbe)
+		if err != nil {
+			return err
+		}
+		queueProxyEnvs = append(queueProxyEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+
 	}
 
 	// Make sure securityContext is initialized and valid
