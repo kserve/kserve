@@ -13,8 +13,6 @@ limitations under the License.
 package components
 
 import (
-	"encoding/json"
-
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -32,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
@@ -92,7 +89,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			return errors.New("No container configuration found in selected serving runtime")
 		}
 		// Assume only one container is specified in runtime spec.
-		container, err = mergeRuntimeContainers(&sRuntime.Containers[0], &isvc.Spec.Predictor.Model.Container)
+		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[0], &isvc.Spec.Predictor.Model.Container)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get runtime container")
 		}
@@ -100,7 +97,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 		}
 
-		mergedPodSpec, err := mergePodSpec(&sRuntime.ServingRuntimePodSpec, &isvc.Spec.Predictor.PodSpec)
+		mergedPodSpec, err := isvcutils.MergePodSpec(&sRuntime.ServingRuntimePodSpec, &isvc.Spec.Predictor.PodSpec)
 		if err != nil {
 			return errors.Wrapf(err, "failed to consolidate serving runtime PodSpecs")
 		}
@@ -198,78 +195,4 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	return nil
-}
-
-// Merge the predictor Container struct with the runtime Container struct, allowing users
-// to override runtime container settings from the predictor spec.
-func mergeRuntimeContainers(runtimeContainer *v1alpha1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
-	// Default container configuration from the runtime.
-	coreContainer := v1.Container{
-		Args:            runtimeContainer.Args,
-		Command:         runtimeContainer.Command,
-		Env:             runtimeContainer.Env,
-		Image:           runtimeContainer.Image,
-		Name:            runtimeContainer.Name,
-		Resources:       runtimeContainer.Resources,
-		ImagePullPolicy: runtimeContainer.ImagePullPolicy,
-		WorkingDir:      runtimeContainer.WorkingDir,
-		LivenessProbe:   runtimeContainer.LivenessProbe,
-	}
-	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
-	// since the Name field does not have the 'omitempty' struct tag.
-	runtimeContainerName := runtimeContainer.Name
-
-	// Args and Env will be combined instead of overridden.
-	argCopy := make([]string, len(coreContainer.Args))
-	copy(argCopy, coreContainer.Args)
-
-	envCopy := make([]v1.EnvVar, len(coreContainer.Env))
-	copy(envCopy, coreContainer.Env)
-
-	// Use JSON Marshal/Unmarshal to merge Container structs.
-	overrides, err := json.Marshal(predictorContainer)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(overrides, &coreContainer); err != nil {
-		return nil, err
-	}
-
-	if coreContainer.Name == "" {
-		coreContainer.Name = runtimeContainerName
-	}
-
-	argCopy = append(argCopy, predictorContainer.Args...)
-	envCopy = append(envCopy, predictorContainer.Env...)
-
-	coreContainer.Args = argCopy
-	coreContainer.Env = envCopy
-
-	return &coreContainer, nil
-
-}
-
-// Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
-// to override runtime PodSpec settings from the predictor spec.
-func mergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
-
-	corePodSpec := v1.PodSpec{
-		NodeSelector: runtimePodSpec.NodeSelector,
-		Affinity:     runtimePodSpec.Affinity,
-		Tolerations:  runtimePodSpec.Tolerations,
-	}
-
-	// Use JSON Marshal/Unmarshal to merge PodSpec structs.
-	overrides, err := json.Marshal(predictorPodSpec)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(overrides, &corePodSpec); err != nil {
-		return nil, err
-	}
-
-	return &corePodSpec, nil
-
 }

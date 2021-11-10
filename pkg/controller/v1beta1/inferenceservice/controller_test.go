@@ -19,6 +19,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo"
@@ -1010,6 +1011,155 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				return true
 			}, timeout, interval).Should(BeTrue())
+		})
+	})
+
+	Context("When creating an inference service using a ServingRuntime", func() {
+		It("Should create successfully", func() {
+			serviceName := "svc-with-servingruntime"
+			servingRuntimeName := "tf-serving"
+			namespace := "default"
+			// var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
+			// // var serviceKey = expectedRequest.NamespacedName
+
+			var predictorServiceKey = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
+				Namespace: namespace}
+
+			var servingRuntime = &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      servingRuntimeName,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelTypes: []v1beta1.Framework{
+						{
+							Name:    "tensorflow",
+							Version: proto.String("1"),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1alpha1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+
+			var isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Model: &v1beta1.ModelSpec{
+							Framework: v1beta1.Framework{
+								Name: "tensorflow",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test/mnist/export"),
+							},
+						},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							LatestReadyRevision: "revision-v1",
+						},
+					},
+				},
+			}
+
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create the InferenceService object and expect the Reconcile and knative service to be created
+			instance := isvc.DeepCopy()
+			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), instance)
+
+			predictorService := &knservingv1.Service{}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, predictorService) }, timeout).
+				Should(gomega.Succeed())
+
+			expectedPredictorService := &knservingv1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.DefaultPredictorServiceName(serviceName),
+					Namespace: instance.Namespace,
+				},
+				Spec: knservingv1.ServiceSpec{
+					ConfigurationSpec: knservingv1.ConfigurationSpec{
+						Template: knservingv1.RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
+									constants.KServiceComponentLabel: constants.Predictor.String(),
+								},
+								Annotations: map[string]string{
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/maxScale":                         "3",
+									"autoscaling.knative.dev/minScale":                         "1",
+									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/mnist/export",
+								},
+							},
+							Spec: knservingv1.RevisionSpec{
+								ContainerConcurrency: nil,
+								TimeoutSeconds:       nil,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Name:    constants.InferenceServiceContainerName,
+											Image:   "tensorflow/serving:1.14.0",
+											Command: []string{"/usr/bin/tensorflow_model_server"},
+											Args: []string{
+												"--port=9000",
+												"--rest_api_port=8080",
+												"--model_base_path=/mnt/models",
+												"--rest_api_timeout_in_ms=60000",
+											},
+											Resources: defaultResource,
+										},
+									},
+								},
+							},
+						},
+					},
+					RouteSpec: knservingv1.RouteSpec{
+						Traffic: []knservingv1.TrafficTarget{{LatestRevision: proto.Bool(true), Percent: proto.Int64(100)}},
+					},
+				},
+			}
+
+			expectedPredictorService.SetDefaults(context.TODO())
+			Expect(cmp.Diff(predictorService.Spec, expectedPredictorService.Spec)).To(gomega.Equal(""))
+
 		})
 	})
 })

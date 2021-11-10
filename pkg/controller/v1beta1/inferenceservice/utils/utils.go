@@ -16,8 +16,13 @@ limitations under the License.
 package utils
 
 import (
+	"encoding/json"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -57,4 +62,78 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 		return constants.DeploymentModeType(deploymentMode)
 	}
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
+}
+
+// Merge the predictor Container struct with the runtime Container struct, allowing users
+// to override runtime container settings from the predictor spec.
+func MergeRuntimeContainers(runtimeContainer *v1alpha1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
+	// Default container configuration from the runtime.
+	coreContainer := v1.Container{
+		Args:            runtimeContainer.Args,
+		Command:         runtimeContainer.Command,
+		Env:             runtimeContainer.Env,
+		Image:           runtimeContainer.Image,
+		Name:            runtimeContainer.Name,
+		Resources:       runtimeContainer.Resources,
+		ImagePullPolicy: runtimeContainer.ImagePullPolicy,
+		WorkingDir:      runtimeContainer.WorkingDir,
+		LivenessProbe:   runtimeContainer.LivenessProbe,
+	}
+	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
+	// since the Name field does not have the 'omitempty' struct tag.
+	runtimeContainerName := runtimeContainer.Name
+
+	// Args and Env will be combined instead of overridden.
+	argCopy := make([]string, len(coreContainer.Args))
+	copy(argCopy, coreContainer.Args)
+
+	envCopy := make([]v1.EnvVar, len(coreContainer.Env))
+	copy(envCopy, coreContainer.Env)
+
+	// Use JSON Marshal/Unmarshal to merge Container structs.
+	overrides, err := json.Marshal(predictorContainer)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(overrides, &coreContainer); err != nil {
+		return nil, err
+	}
+
+	if coreContainer.Name == "" {
+		coreContainer.Name = runtimeContainerName
+	}
+
+	argCopy = append(argCopy, predictorContainer.Args...)
+	envCopy = append(envCopy, predictorContainer.Env...)
+
+	coreContainer.Args = argCopy
+	coreContainer.Env = envCopy
+
+	return &coreContainer, nil
+
+}
+
+// Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
+// to override runtime PodSpec settings from the predictor spec.
+func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
+
+	corePodSpec := v1.PodSpec{
+		NodeSelector: runtimePodSpec.NodeSelector,
+		Affinity:     runtimePodSpec.Affinity,
+		Tolerations:  runtimePodSpec.Tolerations,
+	}
+
+	// Use JSON Marshal/Unmarshal to merge PodSpec structs.
+	overrides, err := json.Marshal(predictorPodSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(overrides, &corePodSpec); err != nil {
+		return nil, err
+	}
+
+	return &corePodSpec, nil
+
 }

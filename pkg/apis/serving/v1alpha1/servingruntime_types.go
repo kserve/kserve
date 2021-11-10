@@ -36,7 +36,8 @@ type Container struct {
 	// Container will be restarted if the probe fails.
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
 	// +optional
-	LivenessProbe *corev1.Probe `json:"livenessProbe,omitempty"`
+	LivenessProbe  *corev1.Probe `json:"livenessProbe,omitempty"`
+	ReadinessProbe *corev1.Probe `json:"readinessProbe,omitempty"`
 }
 
 type StorageHelper struct {

@@ -23,6 +23,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ModelSpec struct {
+	// Framework of the model being served.
+	Framework Framework `json:"framework,omitempty"`
+
+	// Specific ClusterServingRuntime/ServingRuntime name to use for deployment.
+	// +optional
+	Runtime *string `json:"runtime,omitempty"`
+
+	PredictorExtensionSpec `json:",inline"`
+}
+
 var (
 	_ ComponentImplementation = &ModelSpec{}
 )
