@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -93,7 +92,9 @@ type InferenceService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   InferenceServiceSpec   `json:"spec,omitempty"`
+	Spec InferenceServiceSpec `json:"spec,omitempty"`
+
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Status InferenceServiceStatus `json:"status,omitempty"`
 }
 

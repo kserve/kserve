@@ -2,6 +2,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: kfserving-iap
+  namespace: <namespace> # Set the user namespace your profile is in.
+  labels:
+    app: kfserving-app
 spec:
   gateways:
   - kubeflow/kubeflow-gateway
@@ -13,7 +16,7 @@ spec:
         prefix: /kfserving/<namespace>/sklearn-iap
     route:
     - destination:
-        host: cluster-local-gateway.istio-system.svc.cluster.local
+        host: knative-local-gateway.istio-system.svc.cluster.local
       headers:
         request:
           set:

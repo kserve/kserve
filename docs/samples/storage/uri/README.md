@@ -74,7 +74,7 @@ Now, you'll need to take that frozen model object and put it somewhere on the we
 
 ### Specify and create the `InferenceService`
 ```yaml
-apiVersion: serving.kubeflow.org/v1alpha2
+apiVersion: serving.kserve.io/v1alpha2
 kind: InferenceService
 metadata:
   name: sklearn-from-uri
@@ -92,7 +92,7 @@ kubectl apply -f sklearn_uri.yaml
 ```
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/sklearn-from-uri created
+$ inferenceservice.serving.kserve.io/sklearn-from-uri created
 ```
 ### Run a prediction
 The first is to [determine the ingress IP and ports](https://github.com/kubeflow/kfserving/blob/master/README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
@@ -197,7 +197,7 @@ Now, you can either push the `.tar` or `.tgz` file to some remote uri.
 And again, if everything went to plan we should be able to pull down the tarball and expose the endpoint.
 
 ```yaml
-apiVersion: serving.kubeflow.org/v1alpha2
+apiVersion: serving.kserve.io/v1alpha2
 kind: InferenceService
 metadata:
   name: tensorflow-from-uri-gzip
@@ -213,7 +213,7 @@ kubectl apply -f tensorflow_uri.yaml
 ```
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/tensorflow-from-uri created
+$ inferenceservice.serving.kserve.io/tensorflow-from-uri created
 ```
 
 ## Run a prediction

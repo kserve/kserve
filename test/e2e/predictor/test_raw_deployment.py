@@ -1,4 +1,3 @@
-# Copyright 2021 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +13,9 @@
 
 import os
 from kubernetes import client
-from kfserving import (
+from kserve import (
     constants,
-    KFServingClient,
+    KServeClient,
     V1beta1InferenceService,
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
@@ -24,19 +23,19 @@ from kfserving import (
 )
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import KFSERVING_TEST_NAMESPACE
+from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
-api_version = constants.KFSERVING_V1BETA1
+api_version = constants.KSERVE_V1BETA1
 
-KFServing = KFServingClient(
+kserve_client = KServeClient(
     config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-def test_raw_deployment_kfserving():
+def test_raw_deployment_kserve():
     service_name = "raw-sklearn"
     annotations = dict()
-    annotations['serving.kubeflow.org/raw'] = 'true'
+    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
     annotations['kubernetes.io/ingress.class'] = 'istio'
 
     predictor = V1beta1PredictorSpec(
@@ -51,17 +50,17 @@ def test_raw_deployment_kfserving():
     )
 
     isvc = V1beta1InferenceService(
-        api_version=constants.KFSERVING_V1BETA1,
-        kind=constants.KFSERVING_KIND,
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KFSERVING_TEST_NAMESPACE,
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    KFServing.create(isvc)
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
-    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

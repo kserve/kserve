@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,18 +17,19 @@ package pod
 import (
 	"context"
 	"encoding/json"
-	v1 "k8s.io/api/core/v1"
-	k8types "k8s.io/apimachinery/pkg/types"
 	"net/http"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/credentials"
+	v1 "k8s.io/api/core/v1"
+	k8types "k8s.io/apimachinery/pkg/types"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/credentials"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,name=inferenceservice.kfserving-webhook-server.pod-mutator
+// +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,name=inferenceservice.kserve-webhook-server.pod-mutator
 var log = logf.Log.WithName(constants.PodMutatorWebhookName)
 
 // Mutator is a webhook that injects incoming pods
@@ -52,7 +52,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 	}
 
 	configMap := &v1.ConfigMap{}
-	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 	if err != nil {
 		log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return admission.Errored(http.StatusInternalServerError, err)
@@ -126,7 +126,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 }
 
 func needMutate(pod *v1.Pod) bool {
-	// Skip webhook if pod not managed by kfserving
+	// Skip webhook if pod not managed by kserve
 	_, ok := pod.Labels[constants.InferenceServicePodLabelKey]
 	return ok
 }

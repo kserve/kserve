@@ -12,6 +12,6 @@ spec:
   -  mnist
   sink:
     ref:
-      apiVersion: serving.kubeflow.org/v1beta1
+      apiVersion: serving.kserve.io/v1beta1
       kind: InferenceService
       name: mnist

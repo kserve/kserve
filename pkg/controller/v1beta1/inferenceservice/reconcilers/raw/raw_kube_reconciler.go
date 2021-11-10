@@ -1,5 +1,4 @@
 /*
-Copyright 2021 kubeflow.org.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -14,9 +13,10 @@ limitations under the License.
 package raw
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	deployment "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
-	service "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
+	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
+	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +31,7 @@ type RawKubeReconciler struct {
 	scheme     *runtime.Scheme
 	Deployment *deployment.DeploymentReconciler
 	Service    *service.ServiceReconciler
+	Scaler     *autoscaler.AutoscalerReconciler
 	URL        *knapis.URL
 }
 
@@ -39,14 +40,19 @@ func NewRawKubeReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) *RawKubeReconciler {
+	podSpec *corev1.PodSpec) (*RawKubeReconciler, error) {
+	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt)
+	if err != nil {
+		return nil, err
+	}
 	return &RawKubeReconciler{
 		client:     client,
 		scheme:     scheme,
 		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, componentExt, podSpec),
 		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec),
+		Scaler:     as,
 		URL:        createRawURL(client, componentMeta),
-	}
+	}, nil
 }
 
 func createRawURL(client client.Client, metadata metav1.ObjectMeta) *knapis.URL {
@@ -78,6 +84,10 @@ func (r *RawKubeReconciler) Reconcile() (*appsv1.Deployment, error) {
 	if err != nil {
 		return nil, err
 	}
-	//@TODO reconcile HPA
+	//reconcile HPA
+	_, err = r.Scaler.Reconcile()
+	if err != nil {
+		return nil, err
+	}
 	return deployment, nil
 }

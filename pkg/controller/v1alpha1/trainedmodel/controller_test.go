@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,10 +17,12 @@ package trainedmodel
 
 import (
 	"context"
+	"time"
+
 	"github.com/golang/protobuf/proto"
-	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -32,7 +33,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 var _ = Describe("v1beta1 TrainedModel controller", func() {
@@ -117,7 +117,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -187,7 +187,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -213,7 +213,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfserving-container",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -295,7 +295,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -321,7 +321,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfserving-container",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -449,7 +449,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -475,7 +475,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfserving-container",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -577,7 +577,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -603,7 +603,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfserving-container",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -708,7 +708,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -734,7 +734,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfserving-container",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -837,7 +837,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KFServingNamespace,
+					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
@@ -863,7 +863,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfserving-container",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 								StorageURI: &storageUri,

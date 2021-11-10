@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +13,19 @@
 
 from typing import List, Dict
 import logging
-import kfserving
+import kserve
+import http.client
+import json
 
-from feast import Client
-
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
-class DriverTransformer(kfserving.KFModel):
+class DriverTransformer(kserve.KFModel):
     """ A class object for the data handling activities of driver ranking
-    Task and returns a KFServing compatible response.
+    Task and returns a KServe compatible response.
 
     Args:
-        kfserving (class object): The KFModel class from the KFServing
+        kserve (class object): The KFModel class from the KServe
         modeule is passed here.
     """
     def __init__(self, name: str,
@@ -40,7 +39,7 @@ class DriverTransformer(kfserving.KFModel):
         Args:
             name (str): Name of the model.
             predictor_host (str): The host in which the predictor runs.
-            feast_serving_url (str): The Feast serving URL, in the form
+            feast_serving_url (str): The Feast feature server URL, in the form
             of <host_name:port>
             entity_ids (List[str]): The entity IDs for which to retrieve
             features from the Feast feature store
@@ -49,9 +48,10 @@ class DriverTransformer(kfserving.KFModel):
         """
         super().__init__(name)
         self.predictor_host = predictor_host
-        self.client = Client(serving_url=feast_serving_url)
+        self.feast_serving_url = feast_serving_url
         self.entity_ids = entity_ids
         self.feature_refs = feature_refs
+        self.feature_refs_key = [feature_refs[i].replace(":", "__") for i in range(len(feature_refs))]
 
         logging.info("Model name = %s", name)
         logging.info("Predictor host = %s", predictor_host)
@@ -61,24 +61,27 @@ class DriverTransformer(kfserving.KFModel):
 
         self.timeout = 100
 
-    def buildEntityRow(self, instance) -> Dict:
+    def buildEntityRow(self, inputs) -> Dict:
         """Build an entity row and return it as a dict.
 
         Args:
-            instance (list): entity id attributes to identify a unique entity
+            inputs (Dict): entity ids to identify unique entities
 
         Returns:
             Dict: Returns the entity id attributes as an entity row
 
         """
-        entity_row = {self.entity_ids[i]: instance[i] for i in range(len(instance))}
-        return entity_row
+        entity_rows = {}
+        for i in range(len(self.entity_ids)):
+            entity_rows[self.entity_ids[i]] = [instance[i] for instance in inputs['instances']]
+
+        return entity_rows
 
     def buildPredictRequest(self, inputs, features) -> Dict:
         """Build the predict request for all entitys and return it as a dict.
 
         Args:
-            inputs (Dict): entity ids from KFServing http request
+            inputs (Dict): entity ids from http request
             features (Dict): entity features extracted from the feature store
 
         Returns:
@@ -86,11 +89,12 @@ class DriverTransformer(kfserving.KFModel):
 
         """
         request_data = []
-        for i in range(len(inputs['instances'])):
-            entity_req = [features[self.feature_refs[j]][i] for j in range(len(self.feature_refs))]
+        for i in range(len(features["field_values"])):
+            entity_req = [features["field_values"][i]["fields"][self.feature_refs_key[j]]
+                          for j in range(len(self.feature_refs_key))]
             for j in range(len(self.entity_ids)):
-                entity_req.append(inputs['instances'][i][j])
-            request_data.insert(i, entity_req)
+                entity_req.append(features["field_values"][i]["fields"][self.entity_ids[j]])
+                request_data.insert(i, entity_req)
 
         return {'instances': request_data}
 
@@ -98,14 +102,22 @@ class DriverTransformer(kfserving.KFModel):
         """Pre-process activity of the driver input data.
 
         Args:
-            inputs (Dict): KFServing http request
+            inputs (Dict): http request
 
         Returns:
             Dict: Returns the request input after ingesting online features
         """
 
-        entity_rows = [self.buildEntityRow(instance) for instance in inputs['instances']]
-        features = self.client.get_online_features(feature_refs=self.feature_refs, entity_rows=entity_rows).to_dict()
+        headers = {"Content-type": "application/json", "Accept": "application/json"}
+        params = {'features': self.feature_refs, 'entities': self.buildEntityRow(inputs),
+                  'full_feature_names': True}
+        json_params = json.dumps(params)
+
+        conn = http.client.HTTPConnection(self.feast_serving_url)
+        conn.request("GET", "/get-online-features/", json_params, headers)
+        resp = conn.getresponse()
+        logging.info("The online feature rest request status is %s", resp.status)
+        features = json.loads(resp.read().decode())
 
         outputs = self.buildPredictRequest(inputs, features)
 

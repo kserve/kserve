@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: kfserving-controller-manager
-  namespace: kfserving-system
+  name: kserve-controller-manager
+  namespace: kserve
 spec:
   template:
     spec:
       containers:
       # Change the value of image field below to your controller image URL
-      - image: gcr.io/kfserving/kfserving-controller:latest
+      - image: kserve/kserve-controller:latest
         name: manager

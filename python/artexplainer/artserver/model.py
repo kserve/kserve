@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +14,13 @@ from typing import Dict
 
 import asyncio
 import logging
-import kfserving
+import kserve
 import numpy as np
 from art.classifiers import BlackBoxClassifier
 from art.attacks.evasion.square_attack import SquareAttack
 
 
-class ARTModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
+class ARTModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, predictor_host: str, adversary_type: str,
                  nb_classes: str, max_iter: str):
         super().__init__(name)

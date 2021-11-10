@@ -50,7 +50,7 @@ kubectl apply -f sklearn.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/sklearn-iris created
+$ inferenceservice.serving.kserve.io/sklearn-iris created
 ```
 ## Run a prediction
 The first step is to [determine the ingress IP and ports](https://github.com/kubeflow/kfserving#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
@@ -101,7 +101,7 @@ To use your SKLearnServer image:
 ```
 - Specify the `runtimeVersion` on `InferenceService` spec
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "sklearn-iris"

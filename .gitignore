@@ -50,12 +50,15 @@ config/overlays/dev-image-config/inferenceservice_patch.yaml
 # swagger-codegen tools and auto generated files but useless
 hack/current_violation_exceptions.list
 hack/python-sdk/openapi-generator-cli.jar
-python/kfserving/.swagger-codegen-ignore
-python/kfserving/.swagger-codegen/
-python/kfserving/.travis.yml
-python/kfserving/git_push.sh
-python/kfserving/test-requirements.txt
-python/kfserving/tox.ini
+python/kserve/.swagger-codegen-ignore
+python/kserve/.swagger-codegen/
+python/kserve/.travis.yml
+python/kserve/git_push.sh
+python/kserve/test-requirements.txt
+python/kserve/tox.ini
 
 # Ignore files for MacOS
 **/.DS_Store
+
+# Downloaded by hack install
+hack/istio-*

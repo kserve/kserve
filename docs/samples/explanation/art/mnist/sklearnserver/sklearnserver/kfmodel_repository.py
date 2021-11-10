@@ -1,4 +1,3 @@
-# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +12,7 @@
 # limitations under the License.
 
 from typing import List, Optional
-from kfserving import KFModel
+from kserve import KFModel
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 

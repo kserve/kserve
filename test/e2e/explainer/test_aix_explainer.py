@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,24 +16,24 @@ import os
 
 from kubernetes import client
 
-from kfserving import KFServingClient
-from kfserving import constants
-from kfserving import V1beta1PredictorSpec
-from kfserving import V1beta1InferenceServiceSpec
-from kfserving import V1beta1ExplainerSpec
-from kfserving import V1beta1AIXExplainerSpec
-from kfserving import V1beta1InferenceService
+from kserve import KServeClient
+from kserve import constants
+from kserve import V1beta1PredictorSpec
+from kserve import V1beta1InferenceServiceSpec
+from kserve import V1beta1ExplainerSpec
+from kserve import V1beta1AIXExplainerSpec
+from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 
 from ..common.utils import predict
 from ..common.utils import explain_aix
-from ..common.utils import KFSERVING_TEST_NAMESPACE
+from ..common.utils import KSERVE_TEST_NAMESPACE
 
 import numpy as np
 
 logging.basicConfig(level=logging.INFO)
-KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_tabular_explainer():
@@ -59,21 +58,21 @@ def test_tabular_explainer():
         )
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
-                                   kind=constants.KFSERVING_KIND,
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor, explainer=explainer))
 
-    KFServing.create(isvc)
+    kserve_client.create(isvc)
     try:
-        KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=720)
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
     except RuntimeError as e:
-        logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                     KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
-        pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
-                                                      label_selector='serving.kubeflow.org/inferenceservice={}'
-                                                      .format(service_name))
+        logging.info(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
+                     KSERVE_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
+        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
+                                                          label_selector='serving.kserve.io/inferenceservice={}'
+                                                          .format(service_name))
         for pod in pods.items:
             logging.info(pod)
         raise e
@@ -84,4 +83,4 @@ def test_tabular_explainer():
     mask = explain_aix(service_name, './data/mnist_input.json')
     percent_in_mask = np.count_nonzero(mask) / np.size(np.array(mask))
     assert(percent_in_mask > 0.6)
-    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

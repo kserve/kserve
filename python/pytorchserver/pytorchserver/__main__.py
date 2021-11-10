@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 import argparse
 
 from pytorchserver import PyTorchModel
@@ -21,7 +20,7 @@ DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_MODEL_CLASS_NAME = "PyTorchModel"
 
-parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -33,4 +32,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = PyTorchModel(args.model_name, args.model_class_name, args.model_dir)
     model.load()
-    kfserving.KFServer().start([model])
+    kserve.KFServer().start([model])

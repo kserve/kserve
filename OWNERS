@@ -1,18 +1,18 @@
 approvers:
+  - animeshsingh
+  - cliveseldon
+  - deadeyegoodwin
   - ellistarn
   - yuzisun
-  - cliveseldon
-  - animeshsingh
-  - rakelkar
-  - deadeyegoodwin
 reviewers:
+  - adriangonz
   - iamlovingit
   - ifilonenko
   - jinchihe
-  - salanki
-  - tomcli
+  - njhill
   - pugangxa
-  - yuzliu
-  - adriangonz
   - pvaneck
+  - salanki
   - theofpa
+  - tomcli
+  - yuzliu

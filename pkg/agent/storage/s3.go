@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -88,14 +87,14 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 	}
 
 	var foundObject = false
-	filePath := filepath.Join(s.ModelDir, s.ModelName)
 
 	for _, object := range resp.Contents {
-		subObjectKey := strings.TrimPrefix(*object.Key, s.Prefix)
-		fileName := filepath.Join(s.ModelDir, s.ModelName, subObjectKey)
-		if fileName == filePath {
+		if strings.HasSuffix(*object.Key, "/") {
 			continue
 		}
+		subObjectKey := strings.TrimPrefix(*object.Key, s.Prefix)
+		fileName := filepath.Join(s.ModelDir, s.ModelName, subObjectKey)
+		
 		if FileExists(fileName) {
 			// File got corrupted or is mid-download :(
 			// TODO: Figure out if we can maybe continue?

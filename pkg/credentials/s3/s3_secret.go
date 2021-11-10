@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,22 +16,28 @@ limitations under the License.
 package s3
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"k8s.io/api/core/v1"
+	"github.com/kserve/kserve/pkg/constants"
+	v1 "k8s.io/api/core/v1"
 )
 
+/*
+For a quick reference about AWS ENV variables:
+AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
+Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables
+*/
 const (
 	AWSAccessKeyId         = "AWS_ACCESS_KEY_ID"
 	AWSSecretAccessKey     = "AWS_SECRET_ACCESS_KEY"
 	AWSAccessKeyIdName     = "awsAccessKeyID"
 	AWSSecretAccessKeyName = "awsSecretAccessKey"
 	AWSEndpointUrl         = "AWS_ENDPOINT_URL"
-	AWSRegion              = "AWS_REGION"
+	AWSRegion              = "AWS_DEFAULT_REGION"
 	S3Endpoint             = "S3_ENDPOINT"
 	S3UseHttps             = "S3_USE_HTTPS"
 	S3VerifySSL            = "S3_VERIFY_SSL"
 	S3UseVirtualBucket     = "S3_USER_VIRTUAL_BUCKET"
 	AWSAnonymousCredential = "awsAnonymousCredential"
+	AWSCABundle            = "AWS_CA_BUNDLE"
 )
 
 type S3Config struct {
@@ -43,12 +48,13 @@ type S3Config struct {
 }
 
 var (
-	InferenceServiceS3SecretEndpointAnnotation   = constants.KFServingAPIGroupName + "/" + "s3-endpoint"
-	InferenceServiceS3SecretRegionAnnotation     = constants.KFServingAPIGroupName + "/" + "s3-region"
-	InferenceServiceS3SecretSSLAnnotation        = constants.KFServingAPIGroupName + "/" + "s3-verifyssl"
-	InferenceServiceS3SecretHttpsAnnotation      = constants.KFServingAPIGroupName + "/" + "s3-usehttps"
-	InferenceServiceS3UseVirtualBucketAnnotation = constants.KFServingAPIGroupName + "/" + "s3-usevirtualbucket"
-	InferenceServiceS3UseAnonymousCredential     = constants.KFServingAPIGroupName + "/" + "s3-useanoncredential"
+	InferenceServiceS3SecretEndpointAnnotation   = constants.KServeAPIGroupName + "/" + "s3-endpoint"
+	InferenceServiceS3SecretRegionAnnotation     = constants.KServeAPIGroupName + "/" + "s3-region"
+	InferenceServiceS3SecretSSLAnnotation        = constants.KServeAPIGroupName + "/" + "s3-verifyssl"
+	InferenceServiceS3SecretHttpsAnnotation      = constants.KServeAPIGroupName + "/" + "s3-usehttps"
+	InferenceServiceS3UseVirtualBucketAnnotation = constants.KServeAPIGroupName + "/" + "s3-usevirtualbucket"
+	InferenceServiceS3UseAnonymousCredential     = constants.KServeAPIGroupName + "/" + "s3-useanoncredential"
+	InferenceServiceS3CABundleAnnotation         = constants.KServeAPIGroupName + "/" + "s3-cabundle"
 )
 
 func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
@@ -151,6 +157,13 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 		envs = append(envs, v1.EnvVar{
 			Name:  S3UseVirtualBucket,
 			Value: useVirtualBucket,
+		})
+	}
+
+	if customCABundle, ok := secret.Annotations[InferenceServiceS3CABundleAnnotation]; ok {
+		envs = append(envs, v1.EnvVar{
+			Name:  AWSCABundle,
+			Value: customCABundle,
 		})
 	}
 	return envs

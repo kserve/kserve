@@ -7,14 +7,15 @@ It is the internal model representation for the SavedModel defined in the Tensor
 */
 import (
 	"fmt"
+	"sort"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/go-cmp/cmp"
-	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"sort"
+	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
 )
 
 type TFSavedModel struct {
-	MetaGraphs [] TFMetaGraph
+	MetaGraphs []TFMetaGraph
 }
 
 // Known error messages

@@ -2,11 +2,12 @@ package types
 
 import (
 	"fmt"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
-	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"github.com/onsi/gomega"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/kserve/kserve/tools/tf2openapi/generated/framework"
+	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
+	"github.com/onsi/gomega"
 )
 
 /* Expected values */
@@ -217,8 +218,8 @@ func TestTFMetaGraphTypical(t *testing.T) {
 				},
 			},
 		},
-		Required: []string{"instances"},
-		AdditionalPropertiesAllowed: func(b bool) *bool {return &b}(false),
+		Required:                    []string{"instances"},
+		AdditionalPropertiesAllowed: func(b bool) *bool { return &b }(false),
 	}
 	expectedResponseSchema := &openapi3.Schema{
 		Type: "object",
@@ -241,8 +242,8 @@ func TestTFMetaGraphTypical(t *testing.T) {
 				},
 			},
 		},
-		Required: []string{"predictions"},
-		AdditionalPropertiesAllowed: func(b bool) *bool {return &b}(false),
+		Required:                    []string{"predictions"},
+		AdditionalPropertiesAllowed: func(b bool) *bool { return &b }(false),
 	}
 	requestSchema, responseSchema, err := tfMetaGraph.Schema("sigDefKey")
 	g.Expect(requestSchema).Should(gomega.Equal(expectedRequestSchema))
@@ -253,7 +254,7 @@ func TestTFMetaGraphTypical(t *testing.T) {
 func TestTFMetaGraphMissingSigDef(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfMetaGraph := expectedTFMetaGraph()
-	_,_, err := tfMetaGraph.Schema("missingSigDefKey")
+	_, _, err := tfMetaGraph.Schema("missingSigDefKey")
 	expectedErr := fmt.Sprintf(SignatureDefNotFoundError, "missingSigDefKey")
 	g.Expect(err).To(gomega.MatchError(expectedErr))
 }

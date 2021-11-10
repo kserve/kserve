@@ -60,7 +60,7 @@ kubectl apply -f lightgbm.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/lightgbm-iris created
+$ inferenceservice.serving.kserve.io/lightgbm-iris created
 ```
 
 ## Run a prediction
@@ -111,7 +111,7 @@ To use your lgbserver image:
 ```
 - Specify the `runtimeVersion` on `InferenceService` spec
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "lightgbm-iris"

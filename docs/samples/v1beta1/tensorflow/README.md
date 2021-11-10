@@ -9,7 +9,7 @@
 Create an `InferenceService` yaml which specifies the framework `tensorflow` and `storageUri` that is pointed to a saved tensorflow model,
 by default it exposes a HTTP/REST endpoint.
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flower-sample"
@@ -26,7 +26,7 @@ kubectl apply -f tensorflow.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/flower-sample created
+$ inferenceservice.serving.kserve.io/flower-sample created
 ```
 
 Wait the `InferenceService` to be in ready state
@@ -81,7 +81,7 @@ Canary rollout is a great way to control the risk of rolling out a new model by 
 To run a canary rollout, you can apply the `canary.yaml` with the `canaryTrafficPercent` field specified.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flower-example"
@@ -111,7 +111,7 @@ do not need to maintain both default and canary on the `InferenceService` as in 
 ## Create the InferenceService with gRPC
 Create `InferenceService` which exposes the gRPC port and by default it listens on port 9000.
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flower-grpc"
@@ -132,7 +132,7 @@ kubectl apply -f grpc.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/flower-grpc created
+$ inferenceservice.serving.kserve.io/flower-grpc created
 ```
 
 ### Run a prediction

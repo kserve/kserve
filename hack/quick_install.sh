@@ -1,9 +1,46 @@
 set -e
+############################################################
+# Help                                                     #
+############################################################
+Help()
+{
+   # Display Help
+   echo "KServe quick install script."
+   echo
+   echo "Syntax: [-s|-r]"
+   echo "options:"
+   echo "s Serverless Mode."
+   echo "r RawDeployment Mode."
+   echo
+}
+
+deploymentMode=serverless
+while getopts ":hsr" option; do
+   case $option in
+      h) # display Help
+         Help
+         exit;;
+      r) # skip knative install
+	 deploymentMode=kubernetes;;
+      s) # install knative
+         deploymentMode=serverless;;
+     \?) # Invalid option
+         echo "Error: Invalid option"
+         exit;;
+   esac
+done
 
 export ISTIO_VERSION=1.9.0
 export KNATIVE_VERSION=v0.22.0
-export KFSERVING_VERSION=v0.6.0
+export KSERVE_VERSION=v0.7.0
 export CERT_MANAGER_VERSION=v1.3.0
+
+KUBE_VERSION=$(kubectl version --short=true)
+
+echo ${KUBE_VERSION:43:2}
+
+if [ ${KUBE_VERSION:43:2} -gt 20 ]; then export ISTIO_VERSION=1.10.3; export KNATIVE_VERSION=v0.23.2; fi
+
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}
 
@@ -18,7 +55,7 @@ metadata:
 EOF
 
 cat << EOF > ./istio-minimal-operator.yaml
-apiVersion: install.istio.io/v1alpha1
+apiVersion: install.istio.io/v1beta1
 kind: IstioOperator
 spec:
   values:
@@ -43,19 +80,29 @@ spec:
         enabled: true
 EOF
 
-bin/istioctl manifest apply -f istio-minimal-operator.yaml -y
+if [ $(cut -d '.' -f 2,2 <<< $ISTIO_VERSION) -gt 9 ]
+then
+    bin/istioctl install --set profile=demo -y;
+else
+    bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
+fi
 
 # Install Knative
-kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
-kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+if [ $deploymentMode = serverless ]; then
+   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
+   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
+   kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+fi
 
 # Install Cert Manager
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
 kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
 cd ..
 # Install KFServing
+KSERVE_CONFIG=kfserving.yaml
+if [ ${KSERVE_VERSION:3:1} -gt 6 ]; then KSERVE_CONFIG=kserve.yaml; fi
+
 # Retry inorder to handle that it may take a minute or so for the TLS assets required for the webhook to function to be provisioned
-for i in 1 2 3 4 5 ; do kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml && break || sleep 15; done
+for i in 1 2 3 4 5 ; do kubectl apply -f install/${KSERVE_VERSION}/${KSERVE_CONFIG} && break || sleep 15; done
 # Clean up
 rm -rf istio-${ISTIO_VERSION}

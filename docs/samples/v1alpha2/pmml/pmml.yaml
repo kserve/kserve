@@ -1,9 +1,0 @@
-apiVersion: "serving.kubeflow.org/v1alpha2"
-kind: "InferenceService"
-metadata:
-  name: "pmml-demo"
-spec:
-  default:
-    predictor:
-      pmml:
-        storageUri: "gs://kfserving-examples/models/pmml"

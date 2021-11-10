@@ -1,5 +1,4 @@
 /*
-Copyright 2021 kubeflow.org.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,8 +15,8 @@ package deployment
 import (
 	"context"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -93,8 +92,8 @@ func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (const
 	//get deployment
 	existingDeployment := &appsv1.Deployment{}
 	err := client.Get(context.TODO(), types.NamespacedName{
-		Namespace: r.Deployment.Namespace,
-		Name:      r.Deployment.Name,
+		Namespace: r.Deployment.ObjectMeta.Namespace,
+		Name:      r.Deployment.ObjectMeta.Name,
 	}, existingDeployment)
 	if err != nil {
 		if apierr.IsNotFound(err) {
@@ -153,6 +152,10 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 								},
 							},
 						},
+						TimeoutSeconds:   1,
+						PeriodSeconds:    10,
+						SuccessThreshold: 1,
+						FailureThreshold: 3,
 					}
 				} else {
 					container.ReadinessProbe = &corev1.Probe{
@@ -163,6 +166,10 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 								},
 							},
 						},
+						TimeoutSeconds:   1,
+						PeriodSeconds:    10,
+						SuccessThreshold: 1,
+						FailureThreshold: 3,
 					}
 				}
 			}

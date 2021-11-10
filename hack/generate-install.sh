@@ -33,6 +33,9 @@ RELEASES=(
     "v0.5.1"
     "v0.6.0-rc0"
     "v0.6.0"
+    "v0.6.1"
+    "v0.7.0-rc0"
+    "v0.7.0"
 )
 
 TAG=$1
@@ -43,8 +46,8 @@ if [[ ! " ${RELEASES[@]} " =~ " ${TAG} " ]]; then
 fi
 
 INSTALL_DIR=./install/$TAG
-INSTALL_PATH=$INSTALL_DIR/kfserving.yaml
-KUBEFLOW_INSTALL_PATH=$INSTALL_DIR/kfserving_kubeflow.yaml
+INSTALL_PATH=$INSTALL_DIR/kserve.yaml
+KUBEFLOW_INSTALL_PATH=$INSTALL_DIR/kserve_kubeflow.yaml
 
 mkdir -p $INSTALL_DIR
 kustomize build config/default | sed s/:latest/:$TAG/ > $INSTALL_PATH

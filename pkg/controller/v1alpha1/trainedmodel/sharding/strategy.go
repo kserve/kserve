@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +15,7 @@ limitations under the License.
 
 package main
 
-import v1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+import v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 
 type Strategy interface {
 	GetOrAssignShard(trainedModel *v1alpha1.TrainedModel) int

@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +20,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1beta1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )

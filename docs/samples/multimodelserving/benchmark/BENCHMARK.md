@@ -1,6 +1,6 @@
 # Benchmark of Multi-Model Serving
 
-The following stress and performance tests have been executed to support that Multi-Model Serving is a solution to the model deployment scalability problem as discussed in the [MMS Guide](../MULTIMODELSERVING_GUIDE.md).
+The following stress and performance tests have been executed to support that Multi-Model Serving is a solution to the model deployment scalability problem as discussed in the [MMS Guide](../../../MULTIMODELSERVING_GUIDE.md).
 
 ## Stress Test
 To determine the maximum amount of models that can be deployed
@@ -18,7 +18,7 @@ To determine the maximum amount of models that can be deployed
         - 6 total worker nodes
     - ETCD size of 65 MiB
 - Inference Service:
-    - apiVersion: `serving.kubeflow.org/v1beta1`
+    - apiVersion: `serving.kserve.io/v1beta1`
     - concurrency: 1
     - minReplicas: 1
     - Triton model server
@@ -50,7 +50,7 @@ To compare the latency between traditional model serving and multi-model serving
     - knative: v0.17.0
     - istio: v1.7.x
 - Inference Service:
-    - apiVersion: `serving.kubeflow.org/v1beta1`
+    - apiVersion: `serving.kserve.io/v1beta1`
     - concurrency: 1
     - minReplicas: 1
     - Triton model server
@@ -94,7 +94,7 @@ To compare the latency between traditional model serving and multi-model serving
       | 2500 | 500 | 11.796 | 2.719 | 8.509 | 64.447 | 217.911 | 1043 |
 
     - Multi-model serving with 1 inferenceService and 5 TrainedModels
-            
+
         | Client side QPS | QPS per InferenceService | QPS per TrainedModel | mean | p50 | p90 | p95 | p99 | max |
         | --- | --- | --- | --- | --- | --- | --- | --- | --- |
         | 25 | 25 | 5 | 4.453 | 3.85 | 4.181 | 4.282 | 26.465 | 138.671 |
@@ -134,7 +134,7 @@ To compare the latency between traditional model serving and multi-model serving
       | 50 | 10 | 29.458ms | 29.519ms | 32.725ms | 33.833ms | 44.221ms | 670.303ms |
       | 100 | 20 | 26.844ms | 25.783ms | 31.322ms | 32.179ms | 39.265ms | 811.652ms |
       | 200 | 40 | 51.627ms | 25.389ms | 107.946ms | 175.522ms | 321.154ms | 1.616s|
-    
+
     - Multi-Model Serving with 1 inferenceService and 5 trainedmodels
 
         | Client side QPS | QPS per InferenceService | QPS per TrainedModel | mean | p50 | p90 | p95 | p99 | max |
@@ -144,7 +144,7 @@ To compare the latency between traditional model serving and multi-model serving
         | 20 | 20 | 4 | 29.782ms | 30.777ms | 34.452ms | 36.409ms | 46.074ms | 256.518ms |
         | 30 | 30 | 6 | 24.929ms | 23.548ms | 30.218ms | 30.935ms | 49.506ms | 205.663ms |
         | 40 | 40 | 8 | 34.087ms | 24.483ms | 50.588ms | 87.01ms | 155.853ms | 801.393ms |
-    
+
     ![](./plots/bert_5_qps_gpu.png)
     ![](./plots/bert_10_qps_gpu.png)
     ![](./plots/bert_20_qps_gpu.png)

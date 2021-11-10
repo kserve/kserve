@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,8 +16,8 @@ limitations under the License.
 package memory
 
 import (
-	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 //TODO MemoryStrategy will be implemented in another PR

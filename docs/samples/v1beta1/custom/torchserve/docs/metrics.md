@@ -70,7 +70,7 @@ metrics_format=prometheus
 Enable prometheus scraping by adding annotations to deployment yaml. Here our torchserve's metrics port is 8082.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: torchserve-custom
@@ -95,7 +95,7 @@ kubectl apply -f torchserve-custom.yaml
 Expected Output
 
 ```bash
-$inferenceservice.serving.kubeflow.org/torchserve-custom created
+$inferenceservice.serving.kserve.io/torchserve-custom created
 ```
 
 ## Run a prediction

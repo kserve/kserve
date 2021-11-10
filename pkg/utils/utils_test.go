@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,9 +16,10 @@ limitations under the License.
 package utils
 
 import (
-	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
-	v1 "k8s.io/api/core/v1"
 	"testing"
+
+	"github.com/kserve/kserve/pkg/credentials/gcs"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -57,11 +57,11 @@ func TestUnionUtil(t *testing.T) {
 		expected map[string]string
 	}{
 		"UnionTwoMaps": {
-			input1: map[string]string{"serving.kubeflow.org/service": "mnist",
+			input1: map[string]string{"serving.kserve.io/service": "mnist",
 				"label1": "value1"},
 			input2: map[string]string{"service.knative.dev/service": "mnist",
 				"label2": "value2"},
-			expected: map[string]string{"serving.kubeflow.org/service": "mnist",
+			expected: map[string]string{"serving.kserve.io/service": "mnist",
 				"label1": "value1", "service.knative.dev/service": "mnist", "label2": "value2"},
 		},
 		"UnionWithEmptyMap": {

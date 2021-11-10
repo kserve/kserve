@@ -1,9 +1,0 @@
-apiVersion: "serving.kubeflow.org/v1alpha2"
-kind: "InferenceService"
-metadata:
-  name: "triton-simple-string"
-spec:
-  default:
-    predictor:
-      triton:
-        storageUri: "gs://kfserving-samples/models/tensorrt"

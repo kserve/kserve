@@ -1,4 +1,3 @@
-# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +23,7 @@ import tornado.httpserver
 import tornado.log
 
 from .http import PredictHandler, ExplainHandler
-from kfserving import KFModel
+from kserve import KFModel
 from .kfmodel_repository import KFModelRepository
 
 DEFAULT_HTTP_PORT = 8080

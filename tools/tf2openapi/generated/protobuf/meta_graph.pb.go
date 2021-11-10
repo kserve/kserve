@@ -7,7 +7,7 @@ import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
 	any "github.com/golang/protobuf/ptypes/any"
-	framework "github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
+	framework "github.com/kserve/kserve/tools/tf2openapi/generated/framework"
 	math "math"
 )
 

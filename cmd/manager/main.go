@@ -1,5 +1,4 @@
 /*
-Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,13 +19,13 @@ import (
 	"flag"
 	"os"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel"
-	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
-	v1beta1controller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice"
-	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
+	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
@@ -37,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -81,34 +81,40 @@ func main() {
 
 	log.Info("Registering Components.")
 
-	log.Info("Setting up KFServing v1alpha1 scheme")
+	log.Info("Setting up KServe v1alpha1 scheme")
 	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add KFServing v1alpha1 to scheme")
+		log.Error(err, "unable to add KServe v1alpha1 to scheme")
 		os.Exit(1)
 	}
 
-	log.Info("Setting up KFServing v1alpha2 scheme")
-	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add KFServing v1alpha2 to scheme")
-		os.Exit(1)
-	}
-
-	log.Info("Setting up KFServing v1beta1 scheme")
+	log.Info("Setting up KServe v1beta1 scheme")
 	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add KFServing v1beta1 to scheme")
+		log.Error(err, "unable to add KServe v1beta1 to scheme")
 		os.Exit(1)
 	}
 
-	log.Info("Setting up Knative scheme")
-	if err := knservingv1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add Knative APIs to scheme")
-		os.Exit(1)
+	client, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
+	if err != nil {
+		log.Error(err, "unable to create new client.")
 	}
 
-	log.Info("Setting up Istio schemes")
-	if err := v1alpha3.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add Istio v1alpha3 APIs to scheme")
+	deployConfig, err := v1beta1.NewDeployConfig(client)
+	if err != nil {
+		log.Error(err, "unable to get deploy config.")
 		os.Exit(1)
+	}
+	if deployConfig.DefaultDeploymentMode == string(constants.Serverless) {
+		log.Info("Setting up Knative scheme")
+		if err := knservingv1.AddToScheme(mgr.GetScheme()); err != nil {
+			log.Error(err, "unable to add Knative APIs to scheme")
+			os.Exit(1)
+		}
+
+		log.Info("Setting up Istio schemes")
+		if err := v1alpha3.AddToScheme(mgr.GetScheme()); err != nil {
+			log.Error(err, "unable to add Istio v1alpha3 APIs to scheme")
+			os.Exit(1)
+		}
 	}
 
 	log.Info("Setting up core scheme")
@@ -132,7 +138,7 @@ func main() {
 		Scheme: mgr.GetScheme(),
 		Recorder: eventBroadcaster.NewRecorder(
 			mgr.GetScheme(), v1.EventSource{Component: "v1beta1Controllers"}),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, deployConfig); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1beta1Controller", "InferenceService")
 		os.Exit(1)
 	}
@@ -162,12 +168,6 @@ func main() {
 		For(&v1alpha1.TrainedModel{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
-		os.Exit(1)
-	}
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.InferenceService{}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha2")
 		os.Exit(1)
 	}
 	if err = ctrl.NewWebhookManagedBy(mgr).

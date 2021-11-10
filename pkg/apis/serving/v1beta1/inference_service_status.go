@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -205,6 +204,14 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 					// track the last revision that's rolled out
 					statusSpec.PreviousRolledoutRevision = statusSpec.LatestRolledoutRevision
 					statusSpec.LatestRolledoutRevision = serviceStatus.LatestReadyRevisionName
+				}
+			} else {
+				// This is to handle case when the latest ready revision is rolled out with 100% and then rolled back
+				// so here we need to rollback the LatestRolledoutRevision to PreviousRolledoutRevision
+				if serviceStatus.LatestReadyRevisionName == serviceStatus.LatestCreatedRevisionName {
+					if traffic.Percent != nil && *traffic.Percent < 100 {
+						statusSpec.LatestRolledoutRevision = statusSpec.PreviousRolledoutRevision
+					}
 				}
 			}
 		}

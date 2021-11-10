@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +18,14 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type FileError error

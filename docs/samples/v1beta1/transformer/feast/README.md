@@ -3,14 +3,14 @@ Transformer is an `InferenceService` component which does pre/post processing al
 
 ## Setup
 
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kserve/kserve/#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Your Feast online store is populated with driver [data](https://github.com/tedhtchang/populate_feast_online_store/blob/main/driver_stats.parquet), instructions available [here](https://github.com/tedhtchang/populate_feast_online_store), and network accessible.
 
 ## Build Transformer image
-`KFServing.KFModel` base class mainly defines three handlers `preprocess`, `predict` and `postprocess`, these handlers are executed
+`KServe.KFModel` base class mainly defines three handlers `preprocess`, `predict` and `postprocess`, these handlers are executed
 in sequence, the output of the `preprocess` is passed to `predict` as the input, when `predictor_host` is passed the `predict` handler by default makes a HTTP call to the predictor url 
-and gets back a response which then passes to `postproces` handler. KFServing automatically fills in the `predictor_host` for `Transformer` and handle the call to the `Predictor`, for gRPC
+and gets back a response which then passes to `postproces` handler. KServe automatically fills in the `predictor_host` for `Transformer` and handle the call to the `Predictor`, for gRPC
 predictor currently you would need to overwrite the `predict` handler to make the gRPC call.
 
 To implement a `Transformer` you can derive from the base `KFModel` class and then overwrite the `preprocess` and `postprocess` handler to have your own
@@ -35,7 +35,7 @@ docker push {username}/driver-transformer:latest
 ## Create the InferenceService
 Please use the [YAML file](./driver_transformer.yaml) and update the `feast_serving_url` argument to create the `InferenceService`, which includes a Feast Transformer and a SKLearn Predictor.
 
-In the Feast Transformer image we packaged the driver transformer class so KFServing knows to use the preprocess implementation to augment inputs with online features before making model inference requests. Then the `InferenceService` uses `SKLearn` to serve the [driver ranking model](https://github.com/feast-dev/feast-driver-ranking-tutorial), which is trained with Feast offline features, available in a gcs bucket specified under `storageUri`.
+In the Feast Transformer image we packaged the driver transformer class so KServe knows to use the preprocess implementation to augment inputs with online features before making model inference requests. Then the `InferenceService` uses `SKLearn` to serve the [driver ranking model](https://github.com/feast-dev/feast-driver-ranking-tutorial), which is trained with Feast offline features, available in a gcs bucket specified under `storageUri`.
 
 Apply the CRD
 ```
@@ -70,13 +70,13 @@ Expected Output
 >
 * upload completely sent off: 57 out of 57 bytes
 < HTTP/1.1 200 OK
-< content-length: 117
+< content-length: 119
 < content-type: application/json; charset=UTF-8
-< date: Thu, 27 May 2021 00:34:21 GMT
+< date: Thu, 02 Sep 2021 19:27:55 GMT
 < server: istio-envoy
-< x-envoy-upstream-service-time: 47
+< x-envoy-upstream-service-time: 30
 <
 * Connection #0 to host 1.2.3.4 left intact
-{"predictions": [1.8440737040128852, 1.7381656744054226, 3.6771303027855993, 2.241143189554492, 0.06753551272342406]}
+{"predictions": [-1.7783805127914718, 2.7682636004737162, 3.8109928578957977, 0.31319656700671317, 0.7741179292417257]}
 ```
 

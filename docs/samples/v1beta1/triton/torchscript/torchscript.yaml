@@ -1,4 +1,4 @@
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "torchscript-cifar"
@@ -6,7 +6,7 @@ spec:
   predictor:
     triton:
       storageUri: "gs://kfserving-examples/models/torchscript"
-      runtimeVersion: 20.10-py3
+      runtimeVersion: 21.08-py3
       env:
       - name: OMP_NUM_THREADS
         value: "1"

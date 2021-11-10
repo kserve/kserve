@@ -5,6 +5,6 @@ RUN apt-get update \
 
 COPY . .
 RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir kfserving==0.5.1
+RUN pip install --no-cache-dir kserve>=0.7.0rc0
 RUN pip install --no-cache-dir -e .
 ENTRYPOINT ["python", "-m", "image_transformer"]

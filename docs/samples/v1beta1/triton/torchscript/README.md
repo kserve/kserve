@@ -116,7 +116,7 @@ kubectl apply -f torchscript.yaml
 ```
 
 ```yaml
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: torchscript-cifar10
@@ -137,7 +137,7 @@ We want one thread per worker instead of many threads per worker to avoid conten
 
 Expected Output and check the readiness of the `InferenceService`
 ```
-$ inferenceservice.serving.kubeflow.org/torchscript-cifar10 created
+$ inferenceservice.serving.kserve.io/torchscript-cifar10 created
 ```
 
 ```bash
@@ -185,7 +185,7 @@ expected output
 Create the inference service yaml and expose the gRPC port, currently only one port is allowed to expose either HTTP or gRPC port and by default HTTP port is exposed.
 
 ```yaml
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: torchscript-cifar10
@@ -290,10 +290,10 @@ docker build -t $DOCKER_USER/image-transformer-v2:latest -f transformer.Dockerfi
 ### Create the InferenceService with Transformer
 Please use the [YAML file](./torch_transformer.yaml) to create the InferenceService, which adds the image transformer component with the docker image built from above.
 ```yaml
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: torch-transfomer
+  name: torch-transformer
 spec:
   predictor:
     triton:
@@ -323,7 +323,7 @@ kubectl apply -f torch_transformer.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/torch-transfomer created
+$ inferenceservice.serving.kserve.io/torch-transformer created
 ```
 
 ### Run a prediction from curl
@@ -333,24 +333,24 @@ The transformer does not enforce a specific schema like predictor but the genera
 {
   "instances": [
     {
-      "image": { "b64": "aW1hZ2UgYnl0ZXM=" },
+      "image_bytes": { "b64": "aW1hZ2UgYnl0ZXM=" },
       "caption": "seaside"
     },
     {
-      "image": { "b64": "YXdlc29tZSBpbWFnZSBieXRlcw==" },
+      "image_bytes": { "b64": "YXdlc29tZSBpbWFnZSBieXRlcw==" },
       "caption": "mountains"
     }
   ]
 }
 ```
 ```
-SERVICE_NAME=torch-transfomer
+SERVICE_NAME=torch-transformer
 MODEL_NAME=cifar10
 INPUT_PATH=@./image.json
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice $SERVICE_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" https://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 
 You should see an output similar to the one below:

@@ -44,6 +44,8 @@ The following should be viewed as Best Practices unless you know better ones (pl
 
 ## Get involved
 
-* [Slack](https://kubeflow.slack.com/join/shared_invite/zt-n73pfj05-l206djXlXk5qdQKs4o1Zkg#/)
-* [Twitter](http://twitter.com/kubeflow)
-* [Mailing List](https://groups.google.com/forum/#!forum/kubeflow-discuss)
+* [Kubeflow Slack channel #kubeflow-kfserving](https://kubeflow.slack.com/join/shared_invite/zt-n73pfj05-l206djXlXk5qdQKs4o1Zkg#/)
+* [Kubeflow Twitter](http://twitter.com/kubeflow)
+* [Kubeflow mailing list](https://groups.google.com/forum/#!forum/kubeflow-discuss)
+* [KServe mailing list](https://groups.google.com/u/3/g/kserve-io)
+* [KServe WG biweekly meeting](https://docs.google.com/document/d/1KZUURwr9MnHXqHA08TFbfVbM8EAJSJjmaMhnvstvi-k/edit?usp=sharing)

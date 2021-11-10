@@ -1,28 +1,28 @@
 # This patch add annotation to admission webhook config and
 # the variables $(CERTIFICATE_NAMESPACE) and $(CERTIFICATE_NAME) will be substituted by kustomize.
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: inferenceservice.serving.kubeflow.org
+  name: inferenceservice.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: $(kfservingNamespace)/serving-cert
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/serving-cert
 webhooks:
-  - name: inferenceservice.kfserving-webhook-server.defaulter
+  - name: inferenceservice.kserve-webhook-server.defaulter
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: inferenceservice.serving.kubeflow.org
+  name: inferenceservice.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: $(kfservingNamespace)/serving-cert
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/serving-cert
 webhooks:
-  - name: inferenceservice.kfserving-webhook-server.validator
+  - name: inferenceservice.kserve-webhook-server.validator
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: trainedmodel.serving.kubeflow.org
+  name: trainedmodel.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: $(kfservingNamespace)/serving-cert
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/serving-cert
 webhooks:
-  - name: trainedmodel.kfserving-webhook-server.validator
+  - name: trainedmodel.kserve-webhook-server.validator

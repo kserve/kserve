@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +13,14 @@
 from typing import Dict
 
 import asyncio
-import kfserving
+import kserve
 import numpy as np
 import pandas as pd
 from aif360.metrics import BinaryLabelDatasetMetric
 from aif360.datasets import BinaryLabelDataset
 
 
-class AIFModel(kfserving.KFModel):
+class AIFModel(kserve.KFModel):
     def __init__(self, name: str, predictor_host: str, feature_names: list, label_names: list, favorable_label: float,
                  unfavorable_label: float, privileged_groups: list, unprivileged_groups: list):
         super().__init__(name)

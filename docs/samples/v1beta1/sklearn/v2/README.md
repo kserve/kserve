@@ -89,7 +89,7 @@ For this, we will just need to use **version `v1beta1`** of the
 `InferenceService` CRD and set the the **`protocolVersion` field to `v2`**.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "sklearn-irisv2"

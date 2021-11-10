@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 import os
 from typing import Dict
 import torch
@@ -22,7 +21,7 @@ import sys
 PYTORCH_FILE = "model.pt"
 
 
-class PyTorchModel(kfserving.KFModel):
+class PyTorchModel(kserve.KFModel):
     def __init__(self, name: str, model_class_name: str, model_dir: str):
         super().__init__(name)
         self.name = name
@@ -33,7 +32,7 @@ class PyTorchModel(kfserving.KFModel):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     def load(self) -> bool:
-        model_file_dir = kfserving.Storage.download(self.model_dir, self.name)
+        model_file_dir = kserve.Storage.download(self.model_dir, self.name)
         model_file = os.path.join(model_file_dir, PYTORCH_FILE)
         py_files = []
         for filename in os.listdir(model_file_dir):

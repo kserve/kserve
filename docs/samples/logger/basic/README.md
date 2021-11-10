@@ -25,7 +25,7 @@ kubectl create -f message-dumper.yaml
 We can now create an sklearn predictor with a logger which points at the message dumper. The YAML is shown below.
 
 ```
-apiVersion: serving.kubeflow.org/v1beta1
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: sklearn-iris

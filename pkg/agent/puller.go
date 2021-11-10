@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,8 +23,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/agent/storage"
+	v1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"go.uber.org/zap"
 )
 

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: inferenceservice-config
-  namespace: kfserving-system
+  namespace: kserve
 data:
   predictors: |-
     {
@@ -26,7 +26,7 @@ data:
         },
         "sklearn": {
           "v1": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/sklearnserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "sklearn"
@@ -44,7 +44,7 @@ data:
         },
         "xgboost": {
           "v1": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/xgbserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "xgboost"
@@ -62,9 +62,9 @@ data:
         },
         "pytorch": {
           "v1" : {
-            "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "v0.5.0-rc0",
-            "defaultGpuImageVersion": "v0.5.0-rc0-gpu",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/pytorchserver",
+            "defaultImageVersion": "latest",
+            "defaultGpuImageVersion": "latest-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -101,7 +101,7 @@ data:
             "multiModelServer": true
         },
         "pmml": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/pmmlserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "pmml"
@@ -109,7 +109,7 @@ data:
             "multiModelServer": false
         },
         "lightgbm": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/lgbserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "lightgbm"
@@ -123,21 +123,21 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/alibi-explainer",
+            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/alibi-explainer",
             "defaultImageVersion": "latest"
         },
         "aix": {
-            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer",
+            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/aix-explainer",
             "defaultImageVersion": "latest"
         },
         "art": {
-            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/art-explainer",
+            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/art-explainer",
             "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/storage-initializer:latest",
+        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -162,7 +162,7 @@ data:
     }
   logger: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:latest",
+        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -171,7 +171,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher:latest",
+        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/batcher:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",
@@ -179,7 +179,7 @@ data:
     }
   agent: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:latest",
+        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",

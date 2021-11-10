@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
+import kserve
 import joblib
 import numpy as np
 import pathlib
@@ -22,7 +21,7 @@ MODEL_BASENAME = "model"
 MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
 
 
-class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
+class SKLearnModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
@@ -30,7 +29,7 @@ class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
         self.ready = False
 
     def load(self) -> bool:
-        model_path = pathlib.Path(kfserving.Storage.download(self.model_dir))
+        model_path = pathlib.Path(kserve.Storage.download(self.model_dir))
         paths = [model_path / (MODEL_BASENAME + model_extension) for model_extension in MODEL_EXTENSIONS]
         existing_paths = [path for path in paths if path.exists()]
         if len(existing_paths) == 0:

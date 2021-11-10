@@ -13,10 +13,10 @@ kind: Secret
 metadata:
   name: mysecret
   annotations:
-     serving.kubeflow.org/s3-endpoint: s3.amazonaws.com # replace with your s3 endpoint e.g minio-service.kubeflow:9000 
-     serving.kubeflow.org/s3-usehttps: "1" # by default 1, if testing with minio you can set to 0
-     serving.kubeflow.org/s3-region: "us-east-2"
-     serving.kubeflow.org/s3-useanoncredential: "false" # omitting this is the same as false, if true will ignore provided credential and use anonymous credentials
+     serving.kserve.io/s3-endpoint: s3.amazonaws.com # replace with your s3 endpoint e.g minio-service.kubeflow:9000 
+     serving.kserve.io/s3-usehttps: "1" # by default 1, if testing with minio you can set to 0
+     serving.kserve.io/s3-region: "us-east-2"
+     serving.kserve.io/s3-useanoncredential: "false" # omitting this is the same as false, if true will ignore provided credential and use anonymous credentials
 type: Opaque
 stringData: # use `stringData` for raw credential string or `data` for base64 encoded string
   AWS_ACCESS_KEY_ID: XXXX
@@ -49,7 +49,7 @@ You can enabled this by setting `proxy.holdApplicationUntilProxyStarts: true` in
 ## Create the InferenceService
 Create the InferenceService with the s3 `storageUri` and the service account with s3 credential attached.
 ```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "mnist-s3"
@@ -66,7 +66,7 @@ kubectl apply -f tensorflow_s3.yaml
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/mnist-s3 created
+$ inferenceservice.serving.kserve.io/mnist-s3 created
 ```
 
 ## Run a prediction

@@ -3,7 +3,7 @@
 We first create a pytorch predictor with a batcher. The "maxLatency" is set to a big value (5000 milliseconds) to make us be able to observe the batching process.
 
 ```
-apiVersion: "serving.kubeflow.org/v1beta1"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "pytorch-cifar10"

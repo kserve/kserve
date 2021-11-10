@@ -29,7 +29,7 @@
 
 ## Build a development AIF bias detector docker image
 
-First build your docker image by changing directory to kfserving/python and replacing dockeruser with your docker username in the snippet below (running this will take some time).
+First build your docker image by changing directory to kserve/python and replacing dockeruser with your docker username in the snippet below (running this will take some time).
 
 ```
 docker build -t dockeruser/aifserver:latest -f aiffairness.Dockerfile .

@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,25 +17,25 @@ import requests
 import os
 from urllib.parse import urlparse
 from kubernetes import client
-from kfserving import KFServingClient
-from kfserving import constants
+from kserve import KServeClient
+from kserve import constants
 
 logging.basicConfig(level=logging.INFO)
 
-KFSERVING_NAMESPACE = "kfserving-system"
-KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
+KSERVE_NAMESPACE = "kserve"
+KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 
 
 def predict(service_name, input_json, protocol_version="v1",
-            version=constants.KFSERVING_V1BETA1_VERSION, model_name=None):
-    kfs_client = KFServingClient(
+            version=constants.KSERVE_V1BETA1_VERSION, model_name=None):
+    kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
         service_name,
-        namespace=KFSERVING_TEST_NAMESPACE,
+        namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
+    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     time.sleep(10)
     cluster_ip = get_cluster_ip()
     host = urlparse(isvc["status"]["url"]).netloc
@@ -75,14 +74,14 @@ def explain_art(service_name, input_json):
 
 
 def explain_response(service_name, input_json):
-    kfs_client = KFServingClient(
+    kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
         service_name,
-        namespace=KFSERVING_TEST_NAMESPACE,
-        version=constants.KFSERVING_V1BETA1_VERSION,
+        namespace=KSERVE_TEST_NAMESPACE,
+        version=constants.KSERVE_V1BETA1_VERSION,
     )
-    # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
+    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     time.sleep(10)
     cluster_ip = get_cluster_ip()
     host = urlparse(isvc["status"]["url"]).netloc
@@ -105,14 +104,14 @@ def explain_response(service_name, input_json):
                 kfs_client.api_instance.get_namespaced_custom_object(
                     "serving.knative.dev",
                     "v1",
-                    KFSERVING_TEST_NAMESPACE,
+                    KSERVE_TEST_NAMESPACE,
                     "services",
                     service_name + "-explainer",
                 )
             )
             pods = kfs_client.core_api.list_namespaced_pod(
-                KFSERVING_TEST_NAMESPACE,
-                label_selector="serving.kubeflow.org/inferenceservice={}".format(
+                KSERVE_TEST_NAMESPACE,
+                label_selector="serving.kserve.io/inferenceservice={}".format(
                     service_name
                 ),
             )
@@ -124,8 +123,8 @@ def explain_response(service_name, input_json):
                 )
                 api_response = kfs_client.core_api.read_namespaced_pod_log(
                     pod.metadata.name,
-                    KFSERVING_TEST_NAMESPACE,
-                    container="kfserving-container",
+                    KSERVE_TEST_NAMESPACE,
+                    container="kserve-container",
                 )
                 logging.info(api_response)
             raise e
@@ -144,4 +143,4 @@ def get_cluster_ip():
             cluster_ip = service.status.load_balancer.ingress[0].hostname
         else:
             cluster_ip = service.status.load_balancer.ingress[0].ip
-    return os.environ.get("KFSERVING_INGRESS_HOST_PORT", cluster_ip)
+    return os.environ.get("KSERVE_INGRESS_HOST_PORT", cluster_ip)

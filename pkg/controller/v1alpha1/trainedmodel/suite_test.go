@@ -1,5 +1,4 @@
 /*
-Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,18 +17,19 @@ package trainedmodel
 
 import (
 	"context"
-	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
-	"k8s.io/client-go/tools/record"
 	"testing"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
+	"k8s.io/client-go/tools/record"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	kfservingv1beta1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	kfservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kfservingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -84,7 +84,7 @@ var _ = BeforeSuite(func(done Done) {
 	//Create namespace
 	kfservingNamespaceObj := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.KFServingNamespace,
+			Name: constants.KServeNamespace,
 		},
 	}
 	Expect(k8sClient.Create(context.Background(), kfservingNamespaceObj)).Should(Succeed())

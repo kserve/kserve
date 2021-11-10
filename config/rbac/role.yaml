@@ -4,7 +4,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: kfserving-manager-role
+  name: kserve-manager-role
 rules:
 - apiGroups:
   - admissionregistration.k8s.io
@@ -23,6 +23,18 @@ rules:
   - apps
   resources:
   - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
   verbs:
   - create
   - delete
@@ -170,7 +182,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - serving.kubeflow.org
+  - serving.kserve.io
   resources:
   - inferenceservices
   - inferenceservices/finalizers
@@ -183,7 +195,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - serving.kubeflow.org
+  - serving.kserve.io
   resources:
   - inferenceservices/status
   verbs:
@@ -191,7 +203,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - serving.kubeflow.org
+  - serving.kserve.io
   resources:
   - trainedmodels
   verbs:
@@ -203,7 +215,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - serving.kubeflow.org
+  - serving.kserve.io
   resources:
   - trainedmodels/status
   verbs:

@@ -1,4 +1,3 @@
-# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +23,8 @@ setup(
     name='sklearnserver',
     version='0.4.0',
     author_email='singhan@us.ibm.com',
-    license='https://github.com/kubeflow/kfserving/LICENSE',
-    url='https://github.com/kubeflow/kfserving/python/sklearnserver',
+    license='https://github.com/kserve/kserve/LICENSE',
+    url='https://github.com/kserve/kserve/python/sklearnserver',
     description='Model Server implementation for scikit-learn. \
                  Not intended for use outside KFServing Frameworks Images',
     long_description=open('README.md').read(),
