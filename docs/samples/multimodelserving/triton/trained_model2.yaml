@@ -1,4 +1,4 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kserve.io/v1alpha1"
 kind: "TrainedModel"
 metadata:
   name: "simple-string"

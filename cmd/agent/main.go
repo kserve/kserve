@@ -58,14 +58,15 @@ var (
 )
 
 type config struct {
-	ContainerConcurrency   int    `split_words:"true" required:"true"`
-	QueueServingPort       int    `split_words:"true" required:"true"`
-	UserPort               int    `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds int    `split_words:"true" required:"true"`
+	//Making the below fields optional since raw deployment wont have them
+	ContainerConcurrency   int    `split_words:"true"`
+	QueueServingPort       int    `split_words:"true"`
+	UserPort               int    `split_words:"true"`
+	RevisionTimeoutSeconds int    `split_words:"true"`
 	ServingReadinessProbe  string `split_words:"true" required:"true"`
 	// Logging configuration
-	ServingLoggingConfig         string `split_words:"true" required:"true"`
-	ServingLoggingLevel          string `split_words:"true" required:"true"`
+	ServingLoggingConfig         string `split_words:"true"`
+	ServingLoggingLevel          string `split_words:"true"`
 	ServingRequestLogTemplate    string `split_words:"true"` // optional
 	ServingEnableRequestLog      bool   `split_words:"true"` // optional
 	ServingEnableProbeRequestLog bool   `split_words:"true"` // optional
