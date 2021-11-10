@@ -20,7 +20,6 @@ import (
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	network "knative.dev/networking/pkg"
 	pkglogging "knative.dev/pkg/logging"
@@ -295,11 +294,7 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string, port string) *readi
 	if err != nil {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
 	}
-	if coreProbe.TCPSocket != nil {
-		coreProbe.TCPSocket.Port = intstr.FromString(port)
-	} else if coreProbe.HTTPGet != nil {
-		coreProbe.HTTPGet.Port = intstr.FromString(port)
-	}
+
 	return readiness.NewProbe(coreProbe)
 }
 
