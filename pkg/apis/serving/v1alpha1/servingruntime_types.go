@@ -17,10 +17,16 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type Framework struct {
+	// +required
+	Name string `json:"name"`
+	// +optional
+	Version *string `json:"version,omitempty"`
+}
 
 type Container struct {
 	Name            string                      `json:"name,omitempty" validate:"required"`
@@ -74,7 +80,7 @@ type ServingRuntimePodSpec struct {
 // ServingRuntimeSpec defines the desired state of ServingRuntime
 type ServingRuntimeSpec struct {
 	// Model formats and version supported by this runtime
-	SupportedModelTypes []v1beta1.Framework `json:"supportedModelTypes,omitempty"`
+	SupportedModelTypes []Framework `json:"supportedModelTypes,omitempty"`
 	// Set to true to disable use of this runtime
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`

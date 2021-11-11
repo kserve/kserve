@@ -1019,8 +1019,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			serviceName := "svc-with-servingruntime"
 			servingRuntimeName := "tf-serving"
 			namespace := "default"
-			// var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
-			// // var serviceKey = expectedRequest.NamespacedName
 
 			var predictorServiceKey = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
 				Namespace: namespace}
@@ -1031,7 +1029,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: namespace,
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
-					SupportedModelTypes: []v1beta1.Framework{
+					SupportedModelTypes: []v1alpha1.Framework{
 						{
 							Name:    "tensorflow",
 							Version: proto.String("1"),
@@ -1072,7 +1070,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MaxReplicas: 3,
 						},
 						Model: &v1beta1.ModelSpec{
-							Framework: v1beta1.Framework{
+							Framework: v1alpha1.Framework{
 								Name: "tensorflow",
 							},
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{

@@ -123,21 +123,12 @@ func validateStorageURI(storageURI *string) error {
 			return nil
 		}
 	} else {
-		if IsPrefixStorageURISupported(*storageURI, SupportedStorageURIPrefixList) {
+		if utils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
 			return nil
 		}
 	}
 
 	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
-}
-
-func IsPrefixStorageURISupported(storageURI string, supportedStorageURIPrefixes []string) bool {
-	for _, prefix := range supportedStorageURIPrefixes {
-		if strings.HasPrefix(storageURI, prefix) {
-			return true
-		}
-	}
-	return false
 }
 
 func validateReplicas(minReplicas *int, maxReplicas int) error {

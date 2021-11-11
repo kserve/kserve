@@ -47,7 +47,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1beta1.ExplainerExtensionSpec":  schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
 		"./pkg/apis/serving/v1beta1.ExplainerSpec":           schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
 		"./pkg/apis/serving/v1beta1.ExplainersConfig":        schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
-		"./pkg/apis/serving/v1beta1.Framework":               schema_pkg_apis_serving_v1beta1_Framework(ref),
 		"./pkg/apis/serving/v1beta1.InferenceService":        schema_pkg_apis_serving_v1beta1_InferenceService(ref),
 		"./pkg/apis/serving/v1beta1.InferenceServiceList":    schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
 		"./pkg/apis/serving/v1beta1.InferenceServiceSpec":    schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
@@ -3121,31 +3120,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref common.ReferenceCallba
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_Framework(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"version": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				
-			},
-		},
-	}
-}
-
 func schema_pkg_apis_serving_v1beta1_InferenceService(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3727,7 +3701,7 @@ func schema_pkg_apis_serving_v1beta1_ModelSpec(ref common.ReferenceCallback) com
 					"framework": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Framework of the model being served.",
-							Ref:         ref("./pkg/apis/serving/v1beta1.Framework"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.Framework"),
 						},
 					},
 					"runtime": {
@@ -3984,7 +3958,7 @@ func schema_pkg_apis_serving_v1beta1_ModelSpec(ref common.ReferenceCallback) com
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.Framework", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.Framework", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 

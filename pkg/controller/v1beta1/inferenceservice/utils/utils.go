@@ -16,14 +16,18 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	goerrors "github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
@@ -136,4 +140,26 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 
 	return &corePodSpec, nil
 
+}
+
+// Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
+// If a resource of the specified name is not found, then ClusterServingRuntimes will be checked.
+func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error) {
+
+	runtime := &v1alpha1.ServingRuntime{}
+	err := cl.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: namespace}, runtime)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	} else if err == nil {
+		return &runtime.Spec, nil
+	}
+
+	clusterRuntime := &v1alpha1.ClusterServingRuntime{}
+	err = cl.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: namespace}, clusterRuntime)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	} else if err == nil {
+		return &runtime.Spec, nil
+	}
+	return nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name)
 }

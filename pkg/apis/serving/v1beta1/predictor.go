@@ -63,13 +63,6 @@ type PredictorSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 }
 
-type Framework struct {
-	// +required
-	Name string `json:"name"`
-	// +optional
-	Version *string `json:"version,omitempty"`
-}
-
 var _ Component = &PredictorSpec{}
 
 // PredictorExtensionSpec defines configuration shared across all predictor frameworks

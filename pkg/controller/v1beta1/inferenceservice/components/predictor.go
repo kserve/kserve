@@ -20,7 +20,6 @@ import (
 	raw "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
-	"github.com/kserve/kserve/pkg/servingruntimes"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -76,7 +75,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Predictor.Model != nil {
-		runtimes, err := servingruntimes.GetRuntimesSupportingModelType(p.client, isvc.Namespace, isvc.Spec.Predictor)
+		runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(p.client, isvc.Namespace)
 		if err != nil {
 			return err
 		}

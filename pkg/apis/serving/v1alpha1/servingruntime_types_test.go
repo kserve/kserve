@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/yaml"
@@ -57,7 +56,7 @@ func TestMarshalServingRuntime(t *testing.T) {
 					},
 				},
 			},
-			SupportedModelTypes: []v1beta1.Framework{
+			SupportedModelTypes: []Framework{
 				{
 					Name:    "name",
 					Version: &version,

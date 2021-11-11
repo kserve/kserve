@@ -1688,17 +1688,6 @@
         }
       }
     },
-    "v1beta1.Framework": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "version": {
-          "type": "string"
-        }
-      }
-    },
     "v1beta1.InferenceService": {
       "description": "InferenceService is the Schema for the InferenceServices API",
       "type": "object",
@@ -2043,7 +2032,7 @@
         },
         "framework": {
           "description": "Framework of the model being served.",
-          "$ref": "#/definitions/v1beta1.Framework"
+          "$ref": "#/definitions/v1alpha1.Framework"
         },
         "image": {
           "description": "Docker image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.",
