@@ -125,14 +125,6 @@ data:
             ],
             "multiModelServer": false
         },
-        "onnx": {
-            "image": "{{ .Values.kserve.servingruntime.onnx.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.onnx.defaultVersion }}",
-            "supportedFrameworks": [
-              "onnx"
-            ],
-            "multiModelServer": false
-        },
         "sklearn": {
           "v1": {
             "image": "{{ .Values.kserve.servingruntime.sklearn.v1.image }}",

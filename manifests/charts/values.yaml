@@ -40,9 +40,6 @@ kserve:
       image: tensorflow/serving
       defaultVersion: 1.14.0
       defaultGpuVersion: 1.14.0-gpu
-    onnx:
-      image: mcr.microsoft.com/onnxruntime/server
-      defaultVersion: v1.0.0
     sklearn:
       v1:
         image: kserve/sklearnserver

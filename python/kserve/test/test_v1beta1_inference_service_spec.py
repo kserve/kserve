@@ -221,45 +221,6 @@ class TestV1beta1InferenceServiceSpec(unittest.TestCase):
                     node_selector = {
                         'key' : '0'
                         }, 
-                    onnx = kserve.models.v1beta1_onnx_runtime_spec.V1beta1ONNXRuntimeSpec(
-                        args = [
-                            '0'
-                            ], 
-                        command = [
-                            '0'
-                            ], 
-                        env = [
-                            None
-                            ], 
-                        env_from = [
-                            None
-                            ], 
-                        image = '0', 
-                        image_pull_policy = '0', 
-                        lifecycle = None, 
-                        liveness_probe = None, 
-                        name = '0', 
-                        ports = [
-                            None
-                            ], 
-                        readiness_probe = None, 
-                        resources = None, 
-                        runtime_version = '0', 
-                        security_context = None, 
-                        startup_probe = None, 
-                        stdin = True, 
-                        stdin_once = True, 
-                        storage_uri = '0', 
-                        termination_message_path = '0', 
-                        termination_message_policy = '0', 
-                        tty = True, 
-                        volume_devices = [
-                            None
-                            ], 
-                        volume_mounts = [
-                            None
-                            ], 
-                        working_dir = '0', ), 
                     overhead = {
                         'key' : None
                         }, 
@@ -492,45 +453,6 @@ class TestV1beta1InferenceServiceSpec(unittest.TestCase):
                     node_selector = {
                         'key' : '0'
                         }, 
-                    onnx = kserve.models.v1beta1_onnx_runtime_spec.V1beta1ONNXRuntimeSpec(
-                        args = [
-                            '0'
-                            ], 
-                        command = [
-                            '0'
-                            ], 
-                        env = [
-                            None
-                            ], 
-                        env_from = [
-                            None
-                            ], 
-                        image = '0', 
-                        image_pull_policy = '0', 
-                        lifecycle = None, 
-                        liveness_probe = None, 
-                        name = '0', 
-                        ports = [
-                            None
-                            ], 
-                        readiness_probe = None, 
-                        resources = None, 
-                        runtime_version = '0', 
-                        security_context = None, 
-                        startup_probe = None, 
-                        stdin = True, 
-                        stdin_once = True, 
-                        storage_uri = '0', 
-                        termination_message_path = '0', 
-                        termination_message_policy = '0', 
-                        tty = True, 
-                        volume_devices = [
-                            None
-                            ], 
-                        volume_mounts = [
-                            None
-                            ], 
-                        working_dir = '0', ), 
                     overhead = {
                         'key' : None
                         }, 

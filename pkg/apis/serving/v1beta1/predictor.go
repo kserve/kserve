@@ -41,8 +41,6 @@ type PredictorSpec struct {
 	PyTorch *TorchServeSpec `json:"pytorch,omitempty"`
 	// Spec for Triton Inference Server (https://github.com/triton-inference-server/server)
 	Triton *TritonSpec `json:"triton,omitempty"`
-	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
-	ONNX *ONNXRuntimeSpec `json:"onnx,omitempty"`
 	// Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)
 	PMML *PMMLSpec `json:"pmml,omitempty"`
 	// Spec for LightGBM model server
@@ -87,7 +85,6 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.Triton,
 		s.SKLearn,
 		s.Tensorflow,
-		s.ONNX,
 		s.PMML,
 		s.LightGBM,
 		s.Paddle,
@@ -117,7 +114,6 @@ func (s *PredictorSpec) GetPredictorImplementations() []PredictorImplementation 
 		s.Triton,
 		s.SKLearn,
 		s.Tensorflow,
-		s.ONNX,
 		s.PMML,
 		s.LightGBM,
 		s.Paddle,

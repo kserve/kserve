@@ -49,11 +49,6 @@ class TestV1beta1PredictorsConfig(unittest.TestCase):
         # model = kserve.models.v1beta1_predictors_config.V1beta1PredictorsConfig()  # noqa: E501
         if include_optional :
             return V1beta1PredictorsConfig(
-                onnx = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                    default_gpu_image_version = '0', 
-                    default_image_version = '0', 
-                    image = '0', 
-                    supported_frameworks=['0'] ), 
                 pytorch = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                     default_gpu_image_version = '0', 
                     default_image_version = '0', 

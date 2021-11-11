@@ -63,7 +63,6 @@ from kserve.models.v1beta1_inference_service_status import V1beta1InferenceServi
 from kserve.models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig
 from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
-from kserve.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
 from kserve.models.v1beta1_pod_spec import V1beta1PodSpec
 from kserve.models.v1beta1_predictor_config import V1beta1PredictorConfig
 from kserve.models.v1beta1_predictor_extension_spec import V1beta1PredictorExtensionSpec

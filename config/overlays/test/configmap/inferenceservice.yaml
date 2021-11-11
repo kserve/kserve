@@ -16,14 +16,6 @@ data:
             ],
             "multiModelServer": false
         },
-        "onnx": {
-            "image": "mcr.microsoft.com/onnxruntime/server",
-            "defaultImageVersion": "v1.0.0",
-            "supportedFrameworks": [
-              "onnx"
-            ],
-            "multiModelServer": false
-        },
         "sklearn": {
           "v1": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/sklearnserver",

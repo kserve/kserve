@@ -52,7 +52,6 @@ from kserve.models.v1beta1_inference_services_config import V1beta1InferenceServ
 from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
-from kserve.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
 from kserve.models.v1beta1_pmml_spec import V1beta1PMMLSpec
 from kserve.models.v1beta1_paddle_server_spec import V1beta1PaddleServerSpec
 from kserve.models.v1beta1_pod_spec import V1beta1PodSpec

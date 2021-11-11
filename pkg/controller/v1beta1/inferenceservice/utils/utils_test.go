@@ -51,11 +51,6 @@ func TestIsMMSPredictor(t *testing.T) {
 					DefaultImageVersion: "v0.4.0",
 					MultiModelServer:    mmsCase,
 				},
-				ONNX: PredictorConfig{
-					ContainerImage:      "onnxruntime",
-					DefaultImageVersion: "v1.0.0",
-					MultiModelServer:    mmsCase,
-				},
 				PMML: PredictorConfig{
 					ContainerImage:      "pmmlserver",
 					DefaultImageVersion: "v0.4.0",
@@ -148,47 +143,6 @@ func TestIsMMSPredictor(t *testing.T) {
 									StorageURI: proto.String("gs://someUri"),
 									Container: v1.Container{
 										Image:     "customImage:0.1.0",
-										Resources: requestedResource,
-									},
-								},
-							},
-						},
-					},
-				},
-				expected: false,
-			},
-			"Onnx": {
-				isvc: InferenceService{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "onnx",
-					},
-					Spec: InferenceServiceSpec{
-						Predictor: PredictorSpec{
-							ONNX: &ONNXRuntimeSpec{
-								PredictorExtensionSpec: PredictorExtensionSpec{
-									Container: v1.Container{
-										Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
-										Resources: requestedResource,
-									},
-								},
-							},
-						},
-					},
-				},
-				expected: mmsCase,
-			},
-			"OnnxWithURI": {
-				isvc: InferenceService{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "onnxWithURI",
-					},
-					Spec: InferenceServiceSpec{
-						Predictor: PredictorSpec{
-							ONNX: &ONNXRuntimeSpec{
-								PredictorExtensionSpec: PredictorExtensionSpec{
-									StorageURI: proto.String("gs://someUri"),
-									Container: v1.Container{
-										Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
 										Resources: requestedResource,
 									},
 								},
@@ -628,10 +582,6 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 				ContainerImage:      "lightgbm",
 				DefaultImageVersion: "v0.4.0",
 			},
-			ONNX: PredictorConfig{
-				ContainerImage:      "onnxruntime",
-				DefaultImageVersion: "v1.0.0",
-			},
 			PMML: PredictorConfig{
 				ContainerImage:      "pmmlserver",
 				DefaultImageVersion: "v0.4.0",
@@ -753,47 +703,6 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 									StorageURI: proto.String("gs://someUri"),
 									Container: v1.Container{
 										Image:     "customImage:0.1.0",
-										Name:      constants.InferenceServiceContainerName,
-										Resources: reqResourcesScenario.resource,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			"Onnx": {
-				isvc: InferenceService{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "onnx",
-					},
-					Spec: InferenceServiceSpec{
-						Predictor: PredictorSpec{
-							ONNX: &ONNXRuntimeSpec{
-								PredictorExtensionSpec: PredictorExtensionSpec{
-									Container: v1.Container{
-										Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
-										Name:      constants.InferenceServiceContainerName,
-										Resources: reqResourcesScenario.resource,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			"OnnxWithURI": {
-				isvc: InferenceService{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "onnxWithURI",
-					},
-					Spec: InferenceServiceSpec{
-						Predictor: PredictorSpec{
-							ONNX: &ONNXRuntimeSpec{
-								PredictorExtensionSpec: PredictorExtensionSpec{
-									StorageURI: proto.String("gs://someUri"),
-									Container: v1.Container{
-										Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},

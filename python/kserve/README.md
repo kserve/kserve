@@ -90,7 +90,6 @@ Please review [KServe Client API](https://github.com/kserve/website/blob/main/do
  - [V1beta1IngressConfig](docs/V1beta1IngressConfig.md)
  - [V1beta1LoggerSpec](docs/V1beta1LoggerSpec.md)
  - [V1beta1ModelSpec](docs/V1beta1ModelSpec.md)
- - [V1beta1ONNXRuntimeSpec](docs/V1beta1ONNXRuntimeSpec.md)
  - [V1beta1PodSpec](docs/V1beta1PodSpec.md)
  - [V1beta1PredictorConfig](docs/V1beta1PredictorConfig.md)
  - [V1beta1PredictorExtensionSpec](docs/V1beta1PredictorExtensionSpec.md)

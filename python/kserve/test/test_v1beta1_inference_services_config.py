@@ -57,11 +57,6 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
                         default_image_version = '0', 
                         image = '0', ), ), 
                 predictors = kserve.models.v1beta1_predictors_config.V1beta1PredictorsConfig(
-                    onnx = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0', 
-                        supported_frameworks=['none'],),
                     pytorch = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                         default_gpu_image_version = '0', 
                         default_image_version = '0', 
@@ -102,11 +97,6 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
                         default_image_version = '0', 
                         image = '0', ), ), 
                 predictors = kserve.models.v1beta1_predictors_config.V1beta1PredictorsConfig(
-                    onnx = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'],), 
                     pytorch = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                         default_gpu_image_version = '0', 
                         default_image_version = '0', 

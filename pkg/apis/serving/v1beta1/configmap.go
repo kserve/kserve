@@ -82,7 +82,6 @@ type PredictorsConfig struct {
 	XGBoost    PredictorProtocols `json:"xgboost,omitempty"`
 	SKlearn    PredictorProtocols `json:"sklearn,omitempty"`
 	PyTorch    PredictorProtocols `json:"pytorch,omitempty"`
-	ONNX       PredictorConfig    `json:"onnx,omitempty"`
 	PMML       PredictorConfig    `json:"pmml,omitempty"`
 	LightGBM   PredictorConfig    `json:"lightgbm,omitempty"`
 	Paddle     PredictorConfig    `json:"paddle,omitempty"`
