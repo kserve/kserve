@@ -32,7 +32,7 @@ done
 
 export ISTIO_VERSION=1.9.0
 export KNATIVE_VERSION=v0.22.0
-export KSERVE_VERSION=v0.8.0-rc0
+export KSERVE_VERSION=v0.7.0
 export CERT_MANAGER_VERSION=v1.3.0
 
 KUBE_VERSION=$(kubectl version --short=true)
