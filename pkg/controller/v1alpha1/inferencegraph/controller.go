@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/golang/protobuf/proto"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
@@ -41,6 +40,14 @@ type InferenceGraphReconciler struct {
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
 }
+
+// InferenceGraphState describes the Readiness of the InferenceGraph
+type InferenceGraphState string
+
+const (
+	InferenceGraphNotReadyState InferenceGraphState = "InferenceGraphNotReady"
+	InferenceGraphReadyState    InferenceGraphState = "InferenceGraphReady"
+)
 
 type RouterConfig struct {
 	Image         string `json:"image"`
@@ -92,7 +99,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	r.Log.Info("Reconciling inference graph", "apiVersion", graph.APIVersion, "graph", graph.Name)
 	configMap := &v1.ConfigMap{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 	if err != nil {
 		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return reconcile.Result{}, err
@@ -167,6 +174,9 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 		return nil
 	}
 	annotations := componentMeta.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
 
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
@@ -235,10 +245,10 @@ func (r *InferenceGraphReconciler) updateStatus(desiredService *v1alpha1api.Infe
 		// If there was a difference and there was no error.
 		isReady := inferenceGraphReadiness(desiredService.Status)
 		if wasReady && !isReady { // Moved to NotReady State
-			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(v1beta1.InferenceServiceNotReadyState),
+			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceGraphNotReadyState),
 				fmt.Sprintf("InferenceGraph [%v] is no longer Ready", desiredService.GetName()))
 		} else if !wasReady && isReady { // Moved to Ready State
-			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(v1beta1.InferenceServiceReadyState),
+			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(InferenceGraphReadyState),
 				fmt.Sprintf("InferenceGraph [%v] is Ready", desiredService.GetName()))
 		}
 	}

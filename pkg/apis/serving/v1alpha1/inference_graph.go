@@ -30,20 +30,21 @@ type InferenceGraphSpec struct {
 type InferenceRouterType string
 
 const (
-	// Default type only route to one destination
+	// Single Default type only route to one destination
 	Single InferenceRouterType = "Single"
 
-	// Split router randomly routes the requests to the named service according to the weight
+	// Splitter router randomly routes the requests to the named service according to the weight
 	Splitter InferenceRouterType = "Splitter"
 
 	// Ensemble router routes the requests to multiple models and then merge the responses
 	Ensemble InferenceRouterType = "Ensemble"
 
-	// ABNTest routes the request to two or more models with specified routing rule
-	ABNTest InferenceRouterType = "ABNTest"
+	// Switch routes the request to the model based on certain condition
+	Switch InferenceRouterType = "Switch"
 )
 
 // +k8s:openapi-gen=true
+
 // InferenceRouter defines the router for each InferenceGraph node with one or multiple models
 // and where it routes to as next step
 //
@@ -69,16 +70,12 @@ const (
 // spec:
 //   nodes:
 //     mymodel:
-//       routerType: ABNTest
+//       routerType: Switch
 //       routes:
 //       - service: mymodel1
-//         headers:
-//         - userid:
-//             exact: 1
+//         condition: "{ $input.userId == 1 }"
 //       - service: mymodel2
-//         headers:
-//         - userid:
-//             exact: 2
+//         condition: "{ $input.userId == 2 }"
 // ```
 //
 // Scoring a case using a model ensemble consists of scoring it using each model separately,
@@ -99,7 +96,7 @@ const (
 //       - service: feast
 //       nextRoutes:
 //       - nodeName: ensembleModel
-//         data: $response
+//         data: "{ $output }"
 //     ensembleModel:
 //       routerType: Ensemble
 //       routes:
@@ -119,45 +116,35 @@ const (
 //       - service: mymodel-s1
 //       nextRoutes:
 //       - nodeName: mymodel-s2
-//         data: $response
+//         data: "{ $output }"
 //     mymodel-s2:
 //       routes:
 //       - service: mymodel-s2
 // ```
 //
+// In the flow described below, the pre_processing node base64 encodes the image and passes it to two model nodes in the flow.
+// The encoded data is available to both these nodes for classification. The second node i.e. dog-breed-classification takes the
+// original input from the pre_processing node along-with the response from the cat-dog-classification node to do further classification
+// of the dog breed if required.
 // ```yaml
 // kind: InferenceGraph
 // metadata:
-//   name: conditional-model-chainer
+//   name: dog-breed-classification
 // spec:
 //   nodes:
-//     news-classifier:
-//       routerType: Splitter
+//     top-level-classifier:
 //       routes:
-//       - service: top-level-classifier
+//       - service: cat-dog-classifier
 //       nextRoutes:
-//       - nodeName: sports-categorizer
-//         AllOf:
-//         - required: ["class"]
-//           properties:
-//             class:
-//               pattern: "sports"
-//         data: $request
-//       - nodeName: sports-categorizer
-//         AllOf:
-//         - required: ["class"]
-//           properties:
-//             class:
-//               pattern: "stock"
-//         data: $request
-//     sports-categorizer:
-//       routerType: Splitter
+//         nodeName: breed-classifier
+//         data: "{ $input }"
+//     breed-classifier:
+//       routerType: Switch
 //       routes:
-//       - service: sports-model
-//     stock-categorizer:
-//       routerType: Splitter
-//       routes:
-//       - service: stock-model
+//       - service: dog-breed-classifier
+//         condition: { $output.predictions.class == "dog" }
+//       - service: cat-breed-classifier
+//         condition: { $output.predictions.class == "cat" }
 // ```
 type InferenceRouter struct {
 	// RouterType
@@ -174,12 +161,28 @@ type InferenceRouter struct {
 	// +optional
 	Routes []InferenceRoute `json:"routes,omitempty"`
 
-	// nextRoutes defines where to route to as next step
+	// nextRoute defines where to route to as next step
 	// +optional
 	NextRoutes []RouteTo `json:"nextRoutes,omitempty"`
 }
 
 // +k8s:openapi-gen=true
+
+type RouteTo struct {
+	// The node name for routing as next step
+	// +optional
+	NodeName string `json:"nodeName"`
+
+	// request data sent to the next route specified with jsonpath of the request or response json data
+	// from the current step
+	// $request
+	// $response.predictions
+	// +required
+	Data string `json:"data"`
+}
+
+// +k8s:openapi-gen=true
+
 type InferenceRoute struct {
 	// named reference for InferenceService
 	// +optional
@@ -194,34 +197,9 @@ type InferenceRoute struct {
 	// +optional
 	Weight *int64 `json:"weight,omitempty"`
 
-	// routing based on the headers
+	// routing based on the condition
 	// +optional
-	//Headers map[string]istio_networking.StringMatch `json:"headers,omitempty"`
-}
-
-// +k8s:openapi-gen=true
-// RouteTo defines the outgoing route for the current InferenceGraph node
-type RouteTo struct {
-	// next named router node
-	// +required
-	NodeName string `json:"nodeName"`
-	// when the condition validates the request data is then sent to the next router
-	// e.g
-	// allOf
-	//  - required: ["class"]
-	//    properties:
-	//      class:
-	//        pattern: "1"
-	// +optional
-	// Condition v1.JSONSchemaDefinitions `json:"condition,omitempty"`
-
-	// request data sent to the next route specified with jsonpath of the request or response json data
-	// from the current step
-	// e.g
-	// $request
-	// $response.predictions
-	// +required
-	Data string `json:"data"`
+	Condition string `json:"condition,omitempty"`
 }
 
 type InferenceGraphStatus struct {

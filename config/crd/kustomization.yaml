@@ -12,7 +12,7 @@ resources:
 - serving.kserve.io_trainedmodels.yaml
 - serving.kserve.io_clusterservingruntimes.yaml
 - serving.kserve.io_servingruntimes.yaml
-
+- serving.kserve.io_inferencegraphs.yaml
 patchesJson6902:
   # Fix for https://github.com/kubernetes/kubernetes/issues/91395
   - target:
