@@ -21,9 +21,10 @@ from ..constants import constants
 from ..utils import utils
 
 
-def isvc_watch(name=None, namespace=None, timeout_seconds=600):
+def isvc_watch(name=None, namespace=None, timeout_seconds=600, generation=0):
     """Watch the created or patched InferenceService in the specified namespace"""
 
+    print("isvc watch called")
     if namespace is None:
         namespace = utils.get_default_target_namespace()
 
@@ -51,10 +52,15 @@ def isvc_watch(name=None, namespace=None, timeout_seconds=600):
                 traffic = isvc['status'].get('components', {}).get(
                     'predictor', {}).get('traffic', [])
                 traffic_percent = 100
+                latest_ready_revision = isvc['status']['components']['predictor']['latestReadyRevision']
+                expected_revision = isvc_name+'-predictor-default-'+'{:05d}'.format(generation)
                 for t in traffic:
                     if t["latestRevision"]:
                         traffic_percent = t["percent"]
                 status = 'Unknown'
+                if generation!=0 and latest_ready_revision!=expected_revision:
+                    time.sleep(2)
+                    continue
                 for condition in isvc['status'].get('conditions', {}):
                     if condition.get('type', '') == 'Ready':
                         status = condition.get('status', 'Unknown')
