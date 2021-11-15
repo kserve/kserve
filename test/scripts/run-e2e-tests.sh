@@ -16,7 +16,7 @@
 
 # The script is used to deploy knative and kserve, and run e2e tests.
 
-# set -o errexit
+set -o errexit
 set -o nounset
 set -o pipefail
 
@@ -45,11 +45,11 @@ curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack
 echo "Install istio ..."
 mkdir istio_tmp
 pushd istio_tmp >/dev/null
-curl -L https://git.io/getLatestIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
-cd istio-${ISTIO_VERSION}
-export PATH=$PWD/bin:$PATH
-istioctl operator init
-cat <<EOF >./istio-minimal-operator.yaml
+  curl -L https://git.io/getLatestIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
+  cd istio-${ISTIO_VERSION}
+  export PATH=$PWD/bin:$PATH
+  istioctl operator init
+  cat << EOF > ./istio-minimal-operator.yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -74,7 +74,7 @@ spec:
       - name: istio-ingressgateway
         enabled: true
 EOF
-istioctl manifest install -y -f ./istio-minimal-operator.yaml
+  istioctl manifest install -y -f ./istio-minimal-operator.yaml
 
 popd
 
@@ -141,18 +141,14 @@ pip3 install --upgrade pytest-tornasync
 pip3 install urllib3==1.24.2
 pip3 install --upgrade setuptools
 pushd python/kserve >/dev/null
-pip3 install -r requirements.txt
-python3 setup.py install --force --user
+    pip3 install -r requirements.txt
+    python3 setup.py install --force --user
 popd
 
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
-pytest --ignore=credentials/test_set_creds.py predictor/test_sklearn.py::test_sklearn_v2_kserve
+  pytest -n 4 --ignore=credentials/test_set_creds.py
 popd
 
-kubectl describe pods -n kserve-ci-e2e-test
-kubectl get revisions -n kserve-ci-e2e-test
-kubectl get kservice -n kserve-ci-e2e-test
-kubectl logs svc/isvc-sklearn-v2-predictor-default-00001-private -c kserve-container -n kserve-ci-e2e-test
 kubectl get events -n kserve-ci-e2e-test
-# kubectl get events -n kserve
+kubectl get events -n kserve
