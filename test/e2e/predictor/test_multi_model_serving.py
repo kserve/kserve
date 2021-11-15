@@ -54,8 +54,8 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
         sklearn=V1beta1SKLearnSpec(
             protocol_version=protocol_version,
             resources=client.V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "100m", "memory": "512Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
             ),
         ),
     )
@@ -158,8 +158,8 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
         xgboost=V1beta1XGBoostSpec(
             protocol_version=protocol_version,
             resources=client.V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "100m", "memory": "512Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
             ),
         ),
     )
