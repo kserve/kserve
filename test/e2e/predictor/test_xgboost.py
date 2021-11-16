@@ -65,7 +65,7 @@ def test_xgboost_v2_kserve():
             storage_uri="gs://kfserving-samples/models/xgboost/iris",
             protocol_version="v2",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "512Mi"},
+                requests={"cpu": "100m", "memory": "256Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
             ),
         ),
