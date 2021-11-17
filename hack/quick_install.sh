@@ -103,6 +103,6 @@ KSERVE_CONFIG=kfserving.yaml
 if [ ${KSERVE_VERSION:3:1} -gt 6 ]; then KSERVE_CONFIG=kserve.yaml; fi
 
 # Retry inorder to handle that it may take a minute or so for the TLS assets required for the webhook to function to be provisioned
-for i in 1 2 3 4 5 ; do kubectl apply -f install/${KSERVE_VERSION}/${KSERVE_CONFIG} && break || sleep 15; done
+for i in 1 2 3 4 5 ; do kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/${KSERVE_CONFIG} && break || sleep 15; done
 # Clean up
 rm -rf istio-${ISTIO_VERSION}
