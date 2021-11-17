@@ -11,6 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 import tornado.web
 import json
 import pytz
@@ -25,7 +27,28 @@ from datetime import datetime
 from ray.serve.api import RayServeHandle
 
 
-class HTTPHandler(tornado.web.RequestHandler):
+class BaseHandler(tornado.web.RequestHandler):
+    def write_error(self, status_code: int, **kwargs: Any) -> None:
+        """This method is called when there are unhandled tornado.web.HTTPErrors"""
+        self.set_status(status_code)
+
+        reason = "An error occurred"
+
+        exc_info = kwargs.get("exc_info", None)
+        if exc_info is not None:
+            if hasattr(exc_info[1], "reason"):
+                reason = exc_info[1].reason
+
+        self.write({"error": reason})
+
+
+class NotFoundHandler(tornado.web.RequestHandler):
+    def write_error(self, status_code: int, **kwargs: Any) -> None:
+        self.set_status(HTTPStatus.NOT_FOUND)
+        self.write({"error": "invalid path"})
+
+
+class HTTPHandler(BaseHandler):
     def initialize(self, models: KFModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 

@@ -13,7 +13,6 @@
 
 import argparse
 import logging
-import json
 import inspect
 import sys
 from typing import List, Optional, Dict, Union
@@ -25,7 +24,7 @@ import asyncio
 from tornado import concurrent
 from .utils import utils
 
-from kserve.handlers.http import PredictHandler, ExplainHandler
+from kserve.handlers.http import BaseHandler, NotFoundHandler, PredictHandler, ExplainHandler
 from kserve import KFModel
 from kserve.kfmodel_repository import KFModelRepository
 from ray.serve.api import Deployment, RayServeHandle
@@ -92,7 +91,7 @@ class KFServer:
              LoadHandler, dict(models=self.registered_models)),
             (r"/v2/repository/models/([a-zA-Z0-9_-]+)/unload",
              UnloadHandler, dict(models=self.registered_models)),
-        ])
+        ], default_handler_class=NotFoundHandler)
 
     def start(self, models: Union[List[KFModel], Dict[str, Deployment]], nest_asyncio: bool = False):
         if isinstance(models, list):
@@ -150,12 +149,12 @@ class KFServer:
         logging.info("Registering model: %s", model.name)
 
 
-class LivenessHandler(tornado.web.RequestHandler):  # pylint:disable=too-few-public-methods
+class LivenessHandler(BaseHandler):  # pylint:disable=too-few-public-methods
     def get(self):
-        self.write("Alive")
+        self.write({"status": "alive"})
 
 
-class HealthHandler(tornado.web.RequestHandler):
+class HealthHandler(BaseHandler):
     def initialize(self, models: KFModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
@@ -173,21 +172,21 @@ class HealthHandler(tornado.web.RequestHandler):
                 reason="Model with name %s is not ready." % name
             )
 
-        self.write(json.dumps({
+        self.write({
             "name": model.name,
             "ready": model.ready
-        }))
+        })
 
 
-class ListHandler(tornado.web.RequestHandler):
+class ListHandler(BaseHandler):
     def initialize(self, models: KFModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self):
-        self.write(json.dumps([ob.name for ob in self.models.get_models()]))
+        self.write({"models": [ob.name for ob in self.models.get_models()]})
 
 
-class LoadHandler(tornado.web.RequestHandler):
+class LoadHandler(BaseHandler):
     def initialize(self, models: KFModelRepository):  # pylint:disable=attribute-defined-outside-init
         self.models = models
 
@@ -210,13 +209,13 @@ class LoadHandler(tornado.web.RequestHandler):
                 status_code=503,
                 reason=f"Model with name {name} is not ready."
             )
-        self.write(json.dumps({
+        self.write({
             "name": name,
             "load": True
-        }))
+        })
 
 
-class UnloadHandler(tornado.web.RequestHandler):
+class UnloadHandler(BaseHandler):
     def initialize(self, models: KFModelRepository):  # pylint:disable=attribute-defined-outside-init
         self.models = models
 
@@ -228,7 +227,7 @@ class UnloadHandler(tornado.web.RequestHandler):
                 status_code=404,
                 reason="Model with name %s does not exist." % name
             )
-        self.write(json.dumps({
+        self.write({
             "name": name,
             "unload": True
-        }))
+        })
