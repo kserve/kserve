@@ -29,7 +29,8 @@ import (
 
 type ModelSpec struct {
 	// Framework of the model being served.
-	Framework v1alpha1.Framework `json:"framework,omitempty"`
+	// +required
+	Framework v1alpha1.Framework `json:"framework"`
 
 	// Specific ClusterServingRuntime/ServingRuntime name to use for deployment.
 	// +optional
@@ -97,14 +98,16 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string) ([
 	}
 
 	srSpecs := make([]v1alpha1.ServingRuntimeSpec, 0, len(runtimes.Items)+len(clusterRuntimes.Items))
-	for _, rt := range runtimes.Items {
-		if !rt.Spec.IsDisabled() && m.runtimeSupportsModel(rt.GetName(), &rt.Spec) {
+	for i := range runtimes.Items {
+		rt := &runtimes.Items[i]
+		if !rt.Spec.IsDisabled() && m.RuntimeSupportsModel(rt.GetName(), &rt.Spec) {
 			srSpecs = append(srSpecs, rt.Spec)
 		}
 	}
 
-	for _, crt := range clusterRuntimes.Items {
-		if !crt.Spec.IsDisabled() && m.runtimeSupportsModel(crt.GetName(), &crt.Spec) {
+	for i := range clusterRuntimes.Items {
+		crt := &clusterRuntimes.Items[i]
+		if !crt.Spec.IsDisabled() && m.RuntimeSupportsModel(crt.GetName(), &crt.Spec) {
 			srSpecs = append(srSpecs, crt.Spec)
 		}
 	}
@@ -112,7 +115,7 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string) ([
 }
 
 // Check if the given runtime supports the specified model.
-func (m *ModelSpec) runtimeSupportsModel(runtimeName string, srSpec *v1alpha1.ServingRuntimeSpec) bool {
+func (m *ModelSpec) RuntimeSupportsModel(runtimeName string, srSpec *v1alpha1.ServingRuntimeSpec) bool {
 	// assignment to a runtime depends on the model type labels
 	runtimeLabelSet := getServingRuntimeSupportedModelTypeLabelSet(runtimeName, srSpec.SupportedModelTypes)
 	modelLabel := m.getModelTypeLabel()
@@ -121,11 +124,6 @@ func (m *ModelSpec) runtimeSupportsModel(runtimeName string, srSpec *v1alpha1.Se
 }
 
 func (m *ModelSpec) getModelTypeLabel() string {
-	if m.Runtime != nil {
-		// constrain placement to specific runtime
-		return "rt:" + *m.Runtime
-	}
-	// constrain placement based on model type
 	mt := m.Framework
 	if mt.Version != nil {
 		return "mt:" + mt.Name + ":" + *mt.Version
@@ -143,7 +141,5 @@ func getServingRuntimeSupportedModelTypeLabelSet(runtimeName string, supportedMo
 			set.add("mt:" + t.Name + ":" + *t.Version)
 		}
 	}
-	// runtime label
-	set.add("rt:" + runtimeName)
 	return set
 }

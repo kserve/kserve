@@ -13,6 +13,8 @@ limitations under the License.
 package components
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -29,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
@@ -75,15 +78,30 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Predictor.Model != nil {
-		runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(p.client, isvc.Namespace)
-		if err != nil {
-			return err
+		var sRuntime v1alpha1.ServingRuntimeSpec
+		var err error
+
+		if isvc.Spec.Predictor.Model.Runtime != nil {
+			r, err := isvcutils.GetServingRuntime(p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
+			if err != nil {
+				return err
+			}
+			// Verify that the selected runtime supports the specified framework.
+			if !isvc.Spec.Predictor.Model.RuntimeSupportsModel(*isvc.Spec.Predictor.Model.Runtime, r) {
+				return fmt.Errorf("Specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
+			}
+			sRuntime = *r
+		} else {
+			runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(p.client, isvc.Namespace)
+			if err != nil {
+				return err
+			}
+			if len(runtimes) == 0 {
+				return errors.New("No runtime found to support predictor")
+			}
+			// Get first supporting runtime.
+			sRuntime = runtimes[0]
 		}
-		if len(runtimes) == 0 {
-			return errors.New("No runtime found to support predictor")
-		}
-		// Get first supporting runtime.
-		sRuntime := runtimes[0]
 		if len(sRuntime.Containers) == 0 {
 			return errors.New("No container configuration found in selected serving runtime")
 		}
@@ -118,15 +136,14 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 		}
 
-		if len(isvc.Spec.Predictor.PodSpec.Containers) == 0 {
-			isvc.Spec.Predictor.PodSpec.Containers = []v1.Container{
+		podSpec = v1.PodSpec(isvc.Spec.Predictor.PodSpec)
+		if len(podSpec.Containers) == 0 {
+			podSpec.Containers = []v1.Container{
 				*container,
 			}
 		} else {
-			isvc.Spec.Predictor.PodSpec.Containers[0] = *container
+			podSpec.Containers[0] = *container
 		}
-
-		podSpec = v1.PodSpec(isvc.Spec.Predictor.PodSpec)
 
 	}
 

@@ -142,18 +142,6 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			expected: []v1alpha1.ServingRuntimeSpec{},
 		},
-		"RuntimeExplicitlySpecified": {
-			spec: &ModelSpec{
-				Framework: v1alpha1.Framework{
-					Name: "tensorflow",
-				},
-				Runtime: &tfRuntime,
-				PredictorExtensionSpec: PredictorExtensionSpec{
-					StorageURI: &storageUri,
-				},
-			},
-			expected: []v1alpha1.ServingRuntimeSpec{servingRuntimeSpecs[tfRuntime]},
-		},
 		"DisabledRuntimeSpecified": {
 			spec: &ModelSpec{
 				Framework: v1alpha1.Framework{
