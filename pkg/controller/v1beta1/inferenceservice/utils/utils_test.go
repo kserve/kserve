@@ -20,12 +20,15 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestIsMMSPredictor(t *testing.T) {
@@ -1184,4 +1187,110 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestGetServingRuntime(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	namespace := "default"
+
+	tfRuntime := "tf-runtime"
+	sklearnRuntime := "sklearn-runtime"
+
+	servingRuntimeSpecs := map[string]v1alpha1.ServingRuntimeSpec{
+		tfRuntime: {
+			SupportedModelTypes: []v1alpha1.Framework{
+				{
+					Name:    "tensorflow",
+					Version: proto.String("1"),
+				},
+			},
+			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+				Containers: []v1alpha1.Container{
+					{
+						Name:  "kserve-container",
+						Image: tfRuntime + "-image:latest",
+					},
+				},
+			},
+			Disabled: proto.Bool(false),
+		},
+		sklearnRuntime: {
+			SupportedModelTypes: []v1alpha1.Framework{
+				{
+					Name:    "sklearn",
+					Version: proto.String("0"),
+				},
+			},
+			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+				Containers: []v1alpha1.Container{
+					{
+						Name:  "kserve-container",
+						Image: sklearnRuntime + "-image:latest",
+					},
+				},
+			},
+			Disabled: proto.Bool(false),
+		},
+	}
+
+	runtimes := &v1alpha1.ServingRuntimeList{
+		Items: []v1alpha1.ServingRuntime{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tfRuntime,
+					Namespace: namespace,
+				},
+				Spec: servingRuntimeSpecs[tfRuntime],
+			},
+		},
+	}
+
+	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
+		Items: []v1alpha1.ClusterServingRuntime{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: sklearnRuntime,
+				},
+				Spec: servingRuntimeSpecs[sklearnRuntime],
+			},
+		},
+	}
+
+	scenarios := map[string]struct {
+		runtimeName string
+		expected    v1alpha1.ServingRuntimeSpec
+	}{
+		"NamespaceServingRuntime": {
+			runtimeName: tfRuntime,
+			expected:    servingRuntimeSpecs[tfRuntime],
+		},
+		"ClusterServingRuntime": {
+			runtimeName: sklearnRuntime,
+			expected:    servingRuntimeSpecs[sklearnRuntime],
+		},
+	}
+
+	s := runtime.NewScheme()
+	v1alpha1.AddToScheme(s)
+
+	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, _ := GetServingRuntime(mockClient, scenario.runtimeName, namespace)
+			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
+				t.Errorf("got %v, want %v", res, &scenario.expected)
+			}
+		})
+	}
+
+	// Check invalid case
+	t.Run("InvalidServingRuntime", func(t *testing.T) {
+		res, err := GetServingRuntime(mockClient, "foo", namespace)
+		if !g.Expect(res).To(gomega.BeNil()) {
+			t.Errorf("got %v, want %v", res, nil)
+		}
+		g.Expect(err.Error()).To(gomega.ContainSubstring("No ServingRuntimes or ClusterServingRuntimes with the name"))
+	})
+
 }

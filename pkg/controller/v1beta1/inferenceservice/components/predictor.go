@@ -86,13 +86,19 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			if err != nil {
 				return err
 			}
+
+			if r.IsDisabled() {
+				return fmt.Errorf("Specified runtime %s is disabled", *isvc.Spec.Predictor.Model.Runtime)
+			}
+
 			// Verify that the selected runtime supports the specified framework.
 			if !isvc.Spec.Predictor.Model.RuntimeSupportsModel(*isvc.Spec.Predictor.Model.Runtime, r) {
 				return fmt.Errorf("Specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
 			}
+
 			sRuntime = *r
 		} else {
-			runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(p.client, isvc.Namespace)
+			runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(p.client, isvc.Namespace, false)
 			if err != nil {
 				return err
 			}

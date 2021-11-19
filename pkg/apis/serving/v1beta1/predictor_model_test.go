@@ -34,6 +34,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	tfRuntime := "tf-runtime"
 	sklearnRuntime := "sklearn-runtime"
 	pmmlRuntime := "pmml-runtime"
+	mlserverRuntime := "mlserver-runtime"
 
 	servingRuntimeSpecs := map[string]v1alpha1.ServingRuntimeSpec{
 		tfRuntime: {
@@ -87,6 +88,32 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			Disabled: proto.Bool(true),
 		},
+		mlserverRuntime: {
+			SupportedModelTypes: []v1alpha1.Framework{
+				{
+					Name:    "sklearn",
+					Version: proto.String("0"),
+				},
+				{
+					Name:    "xgboost",
+					Version: proto.String("1"),
+				},
+				{
+					Name:    "lightgbm",
+					Version: proto.String("3"),
+				},
+			},
+			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+				Containers: []v1alpha1.Container{
+					{
+						Name:  "kserve-container",
+						Image: pmmlRuntime + "-image:latest",
+					},
+				},
+			},
+			GrpcMultiModelManagementEndpoint: proto.String("port:8085"),
+			Disabled:                         proto.Bool(false),
+		},
 	}
 
 	runtimes := &v1alpha1.ServingRuntimeList{
@@ -115,21 +142,40 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		},
 	}
 
+	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
+		Items: []v1alpha1.ClusterServingRuntime{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: mlserverRuntime,
+				},
+				Spec: servingRuntimeSpecs[mlserverRuntime],
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: tfRuntime,
+				},
+				Spec: servingRuntimeSpecs[tfRuntime],
+			},
+		},
+	}
+
 	var storageUri = "s3://test/model"
 	scenarios := map[string]struct {
 		spec     *ModelSpec
+		isMMS    bool
 		expected []v1alpha1.ServingRuntimeSpec
 	}{
-		"RuntimeSupportsModel": {
+		"BothClusterAndNamespaceRuntimesSupportModel": {
 			spec: &ModelSpec{
 				Framework: v1alpha1.Framework{
-					Name: "sklearn",
+					Name: "tensorflow",
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{
 					StorageURI: &storageUri,
 				},
 			},
-			expected: []v1alpha1.ServingRuntimeSpec{servingRuntimeSpecs[sklearnRuntime]},
+			isMMS:    false,
+			expected: []v1alpha1.ServingRuntimeSpec{servingRuntimeSpecs[tfRuntime], servingRuntimeSpecs[tfRuntime]},
 		},
 		"RuntimeNotFound": {
 			spec: &ModelSpec{
@@ -140,29 +186,54 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI: &storageUri,
 				},
 			},
+			isMMS:    false,
 			expected: []v1alpha1.ServingRuntimeSpec{},
 		},
-		"DisabledRuntimeSpecified": {
+		"FrameworkWithDisabledRuntimeSpecified": {
 			spec: &ModelSpec{
 				Framework: v1alpha1.Framework{
 					Name: "pmml",
 				},
-				Runtime: &pmmlRuntime,
 				PredictorExtensionSpec: PredictorExtensionSpec{
 					StorageURI: &storageUri,
 				},
 			},
+			isMMS:    false,
 			expected: []v1alpha1.ServingRuntimeSpec{},
+		},
+		"ModelMeshCompatibleRuntimeFrameworkSpecified": {
+			spec: &ModelSpec{
+				Framework: v1alpha1.Framework{
+					Name: "sklearn",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					StorageURI: &storageUri,
+				},
+			},
+			isMMS:    true,
+			expected: []v1alpha1.ServingRuntimeSpec{servingRuntimeSpecs[mlserverRuntime]},
+		},
+		"SMSRuntimeFrameworkSpecified": {
+			spec: &ModelSpec{
+				Framework: v1alpha1.Framework{
+					Name: "sklearn",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					StorageURI: &storageUri,
+				},
+			},
+			isMMS:    false,
+			expected: []v1alpha1.ServingRuntimeSpec{servingRuntimeSpecs[sklearnRuntime]},
 		},
 	}
 
 	s := runtime.NewScheme()
 	v1alpha1.AddToScheme(s)
 
-	mockClient := fake.NewClientBuilder().WithLists(runtimes).WithScheme(s).Build()
+	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := scenario.spec.GetSupportingRuntimes(mockClient, namespace)
+			res, _ := scenario.spec.GetSupportingRuntimes(mockClient, namespace, scenario.isMMS)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", res, scenario.expected)
 			}

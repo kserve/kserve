@@ -14,6 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Here, types related to Serving Runtimes are defined. The types defined here are provisional
+// and are subject to change as details regarding single-model serving and multi-model serving
+// are hammered out.
+
 package v1alpha1
 
 import (

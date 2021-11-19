@@ -82,8 +82,9 @@ func (ss stringSet) contains(s string) bool {
 }
 
 // Get a list of ServingRuntimeSpecs that correspond to ServingRuntimes and ClusterServingRuntimes that
-// support the given model.
-func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string) ([]v1alpha1.ServingRuntimeSpec, error) {
+// support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
+// ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
+func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.ServingRuntimeSpec, error) {
 
 	// List all namespace-scoped runtimes.
 	runtimes := &v1alpha1.ServingRuntimeList{}
@@ -100,14 +101,14 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string) ([
 	srSpecs := make([]v1alpha1.ServingRuntimeSpec, 0, len(runtimes.Items)+len(clusterRuntimes.Items))
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
-		if !rt.Spec.IsDisabled() && m.RuntimeSupportsModel(rt.GetName(), &rt.Spec) {
+		if !rt.Spec.IsDisabled() && isRuntimeModelMeshCompatible(&rt.Spec) == isMMS && m.RuntimeSupportsModel(rt.GetName(), &rt.Spec) {
 			srSpecs = append(srSpecs, rt.Spec)
 		}
 	}
 
 	for i := range clusterRuntimes.Items {
 		crt := &clusterRuntimes.Items[i]
-		if !crt.Spec.IsDisabled() && m.RuntimeSupportsModel(crt.GetName(), &crt.Spec) {
+		if !crt.Spec.IsDisabled() && isRuntimeModelMeshCompatible(&crt.Spec) == isMMS && m.RuntimeSupportsModel(crt.GetName(), &crt.Spec) {
 			srSpecs = append(srSpecs, crt.Spec)
 		}
 	}
@@ -142,4 +143,8 @@ func getServingRuntimeSupportedModelTypeLabelSet(runtimeName string, supportedMo
 		}
 	}
 	return set
+}
+
+func isRuntimeModelMeshCompatible(srSpec *v1alpha1.ServingRuntimeSpec) bool {
+	return srSpec.GrpcMultiModelManagementEndpoint != nil
 }
