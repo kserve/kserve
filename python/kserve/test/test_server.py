@@ -10,6 +10,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
+import re
 
 import avro.io
 import avro.schema
@@ -148,10 +150,17 @@ class TestTFHttpServer:
     async def test_liveness(self, http_server_client):
         resp = await http_server_client.fetch('/')
         assert resp.code == 200
+        assert resp.body == b'{"status": "alive"}'
 
     async def test_model(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models/TestModel')
         assert resp.code == 200
+
+    async def test_unknown_model(self, http_server_client):
+        with pytest.raises(HTTPClientError) as err:
+            _ = await http_server_client.fetch('/v1/models/InvalidModel')
+        assert err.value.code == 404
+        assert err.value.response.body == b'{"error": "Model with name InvalidModel does not exist."}'
 
     async def test_predict(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models/TestModel:predict',
@@ -185,7 +194,13 @@ class TestTFHttpServer:
     async def test_list(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models')
         assert resp.code == 200
-        assert resp.body == b'["TestModel"]'
+        assert resp.body == b'{"models": ["TestModel"]}'
+
+    async def test_unknown_path(self, http_server_client):
+        with pytest.raises(HTTPClientError) as err:
+            _ = await http_server_client.fetch('/unknown_path')
+        assert err.value.code == 404
+        assert err.value.response.body == b'{"error": "invalid path"}'
 
 
 class TestTFHttpServerLoadAndUnLoad:
@@ -289,26 +304,33 @@ class TestTFHttpServerCloudEvent:
     async def test_predict_ce_bytes_bad_format_exception(self, http_server_client):
         event = dummy_cloud_event(b'{', set_contenttype=True)
         headers, body = to_binary(event)
-        with pytest.raises(
-            HTTPClientError, match=r".*HTTP 400: Unrecognized request format: "
-                                   r"Expecting property name enclosed in double quotes.*"
-        ):
-            await http_server_client.fetch('/v1/models/TestModel:predict',
-                                           method="POST",
-                                           headers=headers,
-                                           body=body)
+
+        with pytest.raises(HTTPClientError) as err:
+            _ = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                               method="POST",
+                                               headers=headers,
+                                               body=body)
+        assert err.value.code == 400
+
+        error_regex = re.compile("Unrecognized request format: Expecting property name enclosed in double quotes.*")
+        response = json.loads(err.value.response.body)
+        assert error_regex.match(response["error"]) is not None
 
     async def test_predict_ce_bytes_bad_hex_format_exception(self, http_server_client):
         event = dummy_cloud_event(b'0\x80\x80\x06World!\x00\x00', set_contenttype=True)
         headers, body = to_binary(event)
-        with pytest.raises(
-            HTTPClientError, match=r".*HTTP 400: Unrecognized request format: "
-                                   r"'utf-8' codec can't decode byte 0x80 in position 1: invalid start byte.*"
-        ):
-            await http_server_client.fetch('/v1/models/TestModel:predict',
-                                           method="POST",
-                                           headers=headers,
-                                           body=body)
+
+        with pytest.raises(HTTPClientError) as err:
+            _ = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                               method="POST",
+                                               headers=headers,
+                                               body=body)
+        assert err.value.code == 400
+
+        error_regex = re.compile("Unrecognized request format: 'utf-8' codec can't decode byte 0x80 in position 1: "
+                                 "invalid start byte.*")
+        response = json.loads(err.value.response.body)
+        assert error_regex.match(response["error"]) is not None
 
 
 class TestTFHttpServerAvroCloudEvent:
