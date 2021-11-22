@@ -21,7 +21,7 @@ from kserve import (
     V1beta1PredictorSpec,
     V1beta1XGBoostSpec,
 )
-from kubernetes.client import V1ResourceRequirements
+from kubernetes.client import V1ResourceRequirements, V1EnvVar
 
 from ..common.utils import predict, KSERVE_TEST_NAMESPACE
 
@@ -63,6 +63,7 @@ def test_xgboost_v2_kserve():
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
             storage_uri="gs://kfserving-samples/models/xgboost/iris",
+            env=[V1EnvVar(name="MLSERVER_MODEL_PARALLEL_WORKERS", value="0")],
             protocol_version="v2",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},
