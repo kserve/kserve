@@ -168,7 +168,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	//TODO now knative supports multi containers, consolidate logger/batcher/puller to the sidecar container
 	//https://github.com/kserve/kserve/issues/973
 	if hasInferenceLogging || hasInferenceBatcher {
-		addAgentContainerPort(&isvc.Spec.Predictor.PodSpec.Containers[0])
+		addAgentContainerPort(&podSpec.Containers[0])
 	}
 
 	deployConfig, err := v1beta1.NewDeployConfig(p.client)
