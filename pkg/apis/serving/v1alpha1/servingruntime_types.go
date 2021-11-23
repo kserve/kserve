@@ -14,10 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Here, types related to Serving Runtimes are defined. The types defined here are provisional
-// and are subject to change as details regarding single-model serving and multi-model serving
-// are hammered out.
-
 package v1alpha1
 
 import (
@@ -26,8 +22,12 @@ import (
 )
 
 type Framework struct {
+	// Name of the model format/framework.
 	// +required
 	Name string `json:"name"`
+	// Version of the model format/framework.
+	// Used in validating that a predictor is supported by a runtime.
+	// Can be "major", "major.minor" or "major.minor.patch".
 	// +optional
 	Version *string `json:"version,omitempty"`
 }
@@ -81,7 +81,9 @@ type ServingRuntimePodSpec struct {
 	// Possibly other things here
 }
 
-// ServingRuntimeSpec defines the desired state of ServingRuntime
+// ServingRuntimeSpec defines the desired state of ServingRuntime. This spec is currently provisional
+// and are subject to change as details regarding single-model serving and multi-model serving
+// are hammered out.
 type ServingRuntimeSpec struct {
 	// Model formats and version supported by this runtime
 	SupportedModelTypes []Framework `json:"supportedModelTypes,omitempty"`
