@@ -88,12 +88,12 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			}
 
 			if r.IsDisabled() {
-				return fmt.Errorf("Specified runtime %s is disabled", *isvc.Spec.Predictor.Model.Runtime)
+				return fmt.Errorf("specified runtime %s is disabled", *isvc.Spec.Predictor.Model.Runtime)
 			}
 
 			// Verify that the selected runtime supports the specified framework.
 			if !isvc.Spec.Predictor.Model.RuntimeSupportsModel(*isvc.Spec.Predictor.Model.Runtime, r) {
-				return fmt.Errorf("Specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
+				return fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
 			}
 
 			sRuntime = *r
@@ -103,13 +103,13 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 				return err
 			}
 			if len(runtimes) == 0 {
-				return errors.New("No runtime found to support predictor")
+				return fmt.Errorf("no runtime found to support predictor with model type: %v", isvc.Spec.Predictor.Model.Framework)
 			}
 			// Get first supporting runtime.
 			sRuntime = runtimes[0]
 		}
 		if len(sRuntime.Containers) == 0 {
-			return errors.New("No container configuration found in selected serving runtime")
+			return errors.New("no container configuration found in selected serving runtime")
 		}
 		// Assume only one container is specified in runtime spec.
 		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[0], &isvc.Spec.Predictor.Model.Container)
