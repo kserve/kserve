@@ -156,6 +156,7 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
+            env=[client.V1EnvVar(name="MLSERVER_MODEL_PARALLEL_WORKERS", value="0")],
             protocol_version=protocol_version,
             resources=client.V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "512Mi"},
