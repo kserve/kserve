@@ -58,7 +58,7 @@ def isvc_watch(name=None, namespace=None, timeout_seconds=600, generation=0):
                     if t["latestRevision"]:
                         traffic_percent = t["percent"]
                 status = 'Unknown'
-                if generation!=0 and latest_ready_revision!=expected_revision:
+                if generation != 0 and latest_ready_revision != expected_revision:
                     time.sleep(2)
                     continue
                 for condition in isvc['status'].get('conditions', {}):
