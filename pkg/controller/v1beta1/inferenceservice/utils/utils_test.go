@@ -20,12 +20,16 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestIsMMSPredictor(t *testing.T) {
@@ -1184,4 +1188,238 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 			})
 		}
 	}
+}
+func TestMergeRuntimeContainers(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		containerBase     *v1alpha1.Container
+		containerOverride *v1.Container
+		expected          *v1.Container
+	}{
+		"BasicMerge": {
+			containerBase: &v1alpha1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			containerOverride: &v1.Container{
+				Args: []string{
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "Some", Value: "Var"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+				},
+			},
+			expected: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "Some", Value: "Var"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, _ := MergeRuntimeContainers(scenario.containerBase, scenario.containerOverride)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", res, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestMergePodSpec(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		podSpecBase     *v1alpha1.ServingRuntimePodSpec
+		podSpecOverride *v1beta1.PodSpec
+		expected        *v1.PodSpec
+	}{
+		"BasicMerge": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				NodeSelector: map[string]string{
+					"foo": "bar",
+					"aaa": "bbb",
+				},
+				Tolerations: []v1.Toleration{
+					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
+				},
+			},
+			podSpecOverride: &v1beta1.PodSpec{
+				NodeSelector: map[string]string{
+					"foo": "baz",
+					"xxx": "yyy",
+				},
+				ServiceAccountName: "testAccount",
+			},
+			expected: &v1.PodSpec{
+				NodeSelector: map[string]string{
+					"foo": "baz",
+					"xxx": "yyy",
+					"aaa": "bbb",
+				},
+				Tolerations: []v1.Toleration{
+					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
+				},
+				ServiceAccountName: "testAccount",
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, _ := MergePodSpec(scenario.podSpecBase, scenario.podSpecOverride)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", res, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestGetServingRuntime(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	namespace := "default"
+
+	tfRuntime := "tf-runtime"
+	sklearnRuntime := "sklearn-runtime"
+
+	servingRuntimeSpecs := map[string]v1alpha1.ServingRuntimeSpec{
+		tfRuntime: {
+			SupportedModelTypes: []v1alpha1.Framework{
+				{
+					Name:    "tensorflow",
+					Version: proto.String("1"),
+				},
+			},
+			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+				Containers: []v1alpha1.Container{
+					{
+						Name:  "kserve-container",
+						Image: tfRuntime + "-image:latest",
+					},
+				},
+			},
+			Disabled: proto.Bool(false),
+		},
+		sklearnRuntime: {
+			SupportedModelTypes: []v1alpha1.Framework{
+				{
+					Name:    "sklearn",
+					Version: proto.String("0"),
+				},
+			},
+			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+				Containers: []v1alpha1.Container{
+					{
+						Name:  "kserve-container",
+						Image: sklearnRuntime + "-image:latest",
+					},
+				},
+			},
+			Disabled: proto.Bool(false),
+		},
+	}
+
+	runtimes := &v1alpha1.ServingRuntimeList{
+		Items: []v1alpha1.ServingRuntime{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tfRuntime,
+					Namespace: namespace,
+				},
+				Spec: servingRuntimeSpecs[tfRuntime],
+			},
+		},
+	}
+
+	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
+		Items: []v1alpha1.ClusterServingRuntime{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: sklearnRuntime,
+				},
+				Spec: servingRuntimeSpecs[sklearnRuntime],
+			},
+		},
+	}
+
+	scenarios := map[string]struct {
+		runtimeName string
+		expected    v1alpha1.ServingRuntimeSpec
+	}{
+		"NamespaceServingRuntime": {
+			runtimeName: tfRuntime,
+			expected:    servingRuntimeSpecs[tfRuntime],
+		},
+		"ClusterServingRuntime": {
+			runtimeName: sklearnRuntime,
+			expected:    servingRuntimeSpecs[sklearnRuntime],
+		},
+	}
+
+	s := runtime.NewScheme()
+	v1alpha1.AddToScheme(s)
+
+	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, _ := GetServingRuntime(mockClient, scenario.runtimeName, namespace)
+			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
+				t.Errorf("got %v, want %v", res, &scenario.expected)
+			}
+		})
+	}
+
+	// Check invalid case
+	t.Run("InvalidServingRuntime", func(t *testing.T) {
+		res, err := GetServingRuntime(mockClient, "foo", namespace)
+		if !g.Expect(res).To(gomega.BeNil()) {
+			t.Errorf("got %v, want %v", res, nil)
+		}
+		g.Expect(err.Error()).To(gomega.ContainSubstring("No ServingRuntimes or ClusterServingRuntimes with the name"))
+	})
+
 }

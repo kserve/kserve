@@ -100,3 +100,13 @@ func RemoveString(slice []string, s string) (result []string) {
 	}
 	return
 }
+
+// Check if a given string contains one of the prefixes in the provided list.
+func IsPrefixSupported(input string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(input, prefix) {
+			return true
+		}
+	}
+	return false
+}

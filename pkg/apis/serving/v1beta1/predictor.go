@@ -50,6 +50,9 @@ type PredictorSpec struct {
 	// Spec for Paddle model server (https://github.com/PaddlePaddle/Serving)
 	Paddle *PaddleServerSpec `json:"paddle,omitempty"`
 
+	// Model spec for any arbitary framework.
+	Model *ModelSpec `json:"model,omitempty"`
+
 	// This spec is dual purpose. <br />
 	// 1) Provide a full PodSpec for custom predictor.
 	// The field PodSpec.Containers is mutually exclusive with other predictors (i.e. TFServing). <br />
@@ -91,11 +94,13 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.PMML,
 		s.LightGBM,
 		s.Paddle,
+		s.Model,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {
 		implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
 	}
+
 	return implementations
 }
 

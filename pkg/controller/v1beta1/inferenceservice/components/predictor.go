@@ -13,6 +13,8 @@ limitations under the License.
 package components
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -29,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
@@ -54,19 +57,101 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceService
 
 // Reconcile observes the predictor and attempts to drive the status towards the desired state.
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
-	predictor := isvc.Spec.Predictor.GetImplementation()
+	var container *v1.Container
+	var podSpec v1.PodSpec
+
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
-	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
-	// StorageInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
-		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-	}
+
 	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
+
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
 	addAgentAnnotations(isvc, annotations, p.inferenceServiceConfig)
+
+	// Reconcile modelConfig
+	configMapReconciler := modelconfig.NewModelConfigReconciler(p.client, p.scheme)
+	if err := configMapReconciler.Reconcile(isvc); err != nil {
+		return err
+	}
+
+	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
+	if isvc.Spec.Predictor.Model != nil {
+		var sRuntime v1alpha1.ServingRuntimeSpec
+		var err error
+
+		if isvc.Spec.Predictor.Model.Runtime != nil {
+			r, err := isvcutils.GetServingRuntime(p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
+			if err != nil {
+				return err
+			}
+
+			if r.IsDisabled() {
+				return fmt.Errorf("specified runtime %s is disabled", *isvc.Spec.Predictor.Model.Runtime)
+			}
+
+			// Verify that the selected runtime supports the specified framework.
+			if !isvc.Spec.Predictor.Model.RuntimeSupportsModel(*isvc.Spec.Predictor.Model.Runtime, r) {
+				return fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
+			}
+
+			sRuntime = *r
+		} else {
+			runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(p.client, isvc.Namespace, false)
+			if err != nil {
+				return err
+			}
+			if len(runtimes) == 0 {
+				return fmt.Errorf("no runtime found to support predictor with model type: %v", isvc.Spec.Predictor.Model.Framework)
+			}
+			// Get first supporting runtime.
+			sRuntime = runtimes[0]
+		}
+		if len(sRuntime.Containers) == 0 {
+			return errors.New("no container configuration found in selected serving runtime")
+		}
+		// Assume only one container is specified in runtime spec.
+		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[0], &isvc.Spec.Predictor.Model.Container)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get runtime container")
+		}
+		if sourceURI := isvc.Spec.Predictor.Model.GetStorageUri(); sourceURI != nil {
+			annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		}
+
+		mergedPodSpec, err := isvcutils.MergePodSpec(&sRuntime.ServingRuntimePodSpec, &isvc.Spec.Predictor.PodSpec)
+		if err != nil {
+			return errors.Wrapf(err, "failed to consolidate serving runtime PodSpecs")
+		}
+
+		// Other dependencies rely on the container to be a specific name.
+		container.Name = constants.InferenceServiceContainerName
+
+		podSpec = *mergedPodSpec
+		podSpec.Containers = []v1.Container{
+			*container,
+		}
+
+	} else {
+		predictor := isvc.Spec.Predictor.GetImplementation()
+		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
+		// Knative does not support INIT containers or mounting, so we add annotations that trigger the
+		// StorageInitializer injector to mutate the underlying deployment to provision model data
+		if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
+			annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		}
+
+		podSpec = v1.PodSpec(isvc.Spec.Predictor.PodSpec)
+		if len(podSpec.Containers) == 0 {
+			podSpec.Containers = []v1.Container{
+				*container,
+			}
+		} else {
+			podSpec.Containers[0] = *container
+		}
+
+	}
 
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultPredictorServiceName(isvc.Name),
@@ -77,26 +162,13 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		}),
 		Annotations: annotations,
 	}
-	container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
-	if len(isvc.Spec.Predictor.PodSpec.Containers) == 0 {
-		isvc.Spec.Predictor.PodSpec.Containers = []v1.Container{
-			*container,
-		}
-	} else {
-		isvc.Spec.Predictor.PodSpec.Containers[0] = *container
-	}
+
+	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)
+
 	//TODO now knative supports multi containers, consolidate logger/batcher/puller to the sidecar container
 	//https://github.com/kserve/kserve/issues/973
 	if hasInferenceLogging || hasInferenceBatcher {
-		addAgentContainerPort(&isvc.Spec.Predictor.PodSpec.Containers[0])
-	}
-
-	podSpec := v1.PodSpec(isvc.Spec.Predictor.PodSpec)
-
-	// Reconcile modelConfig
-	configMapReconciler := modelconfig.NewModelConfigReconciler(p.client, p.scheme)
-	if err := configMapReconciler.Reconcile(isvc); err != nil {
-		return err
+		addAgentContainerPort(&podSpec.Containers[0])
 	}
 
 	deployConfig, err := v1beta1.NewDeployConfig(p.client)

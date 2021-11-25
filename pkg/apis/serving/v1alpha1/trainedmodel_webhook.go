@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -109,7 +108,7 @@ func (tm *TrainedModel) validateTrainedModelName() error {
 
 // Validates TrainModel's storageURI
 func (tm *TrainedModel) validateStorageURI() error {
-	if !v1beta1.IsPrefixStorageURISupported(tm.Spec.Model.StorageURI, storage.GetAllProtocol()) {
+	if !utils.IsPrefixSupported(tm.Spec.Model.StorageURI, storage.GetAllProtocol()) {
 		return fmt.Errorf(InvalidStorageUriFormatError, tm.Name, StorageUriProtocols, tm.Spec.Model.StorageURI)
 	}
 	return nil
