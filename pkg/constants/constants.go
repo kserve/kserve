@@ -312,6 +312,7 @@ const (
 	SupportedModelPMML       = "pmml"
 	SupportedModelLightGBM   = "lightgbm"
 	SupportedModelPaddle     = "paddle"
+	SupportedModelTriton     = "triton"
 )
 
 // GetRawServiceLabel generate native service label

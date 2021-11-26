@@ -12,6 +12,8 @@ spec:
       version: "0"
     - name: pytorch
       version: "0"
+    - name: triton
+      version: "0"
   containers:
     - name: kserve-container
       image: kserve-tritonserver:replace

@@ -248,7 +248,7 @@ func (isvc *InferenceService) assignTritonRuntime(config *InferenceServicesConfi
 
 	// TODO: pytorch framework is assigned as default, needs to find a to get framework from model.
 	return &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPYTorch},
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelTriton},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Triton.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
