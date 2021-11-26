@@ -1,15 +1,16 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: kserve-sklearnserver
+  name: kserve-xgbserver
 spec:
   supportedModelTypes:
-    - name: sklearn
+    - name: xgboost
       version: "0"
   containers:
     - name: kserve-container
-      image: kserve-sklearnserver:replace
+      image: kserve-xgbserver:replace
       args:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models
         - --http_port=8080
+        - --nthread=1

@@ -1,0 +1,24 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-tritonserver
+spec:
+  supportedModelTypes:
+    - name: tensorrt
+      version: "0"
+    - name: tensorflow
+      version: "1"
+    - name: onnx
+      version: "0"
+    - name: pytorch
+      version: "0"
+  containers:
+    - name: kserve-container
+      image: kserve-tritonserver:replace
+      args:
+        - tritonserver
+        - --model-store=/mnt/models
+        - --grpc-port=9000
+        - --http-port=8080
+        - --allow-grpc=true
+        - --allow-http=true

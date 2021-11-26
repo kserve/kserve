@@ -1,14 +1,14 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: kserve-sklearnserver
+  name: kserve-pmmlserver
 spec:
   supportedModelTypes:
-    - name: sklearn
+    - name: pmml
       version: "0"
   containers:
     - name: kserve-container
-      image: kserve-sklearnserver:replace
+      image: kserve-pmmlserver:replace
       args:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models

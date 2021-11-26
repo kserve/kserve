@@ -1,18 +1,18 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: kserve-tensorflow-serving
+  name: kserve-tensorflow-serving-gpu
 spec:
   supportedModelTypes:
     - name: tensorflow
       version: "1"
   containers:
     - name: kserve-container
-      image: tensorflow-serving:replace
+      image: tensorflow-serving-gpu:replace
       command: [/usr/bin/tensorflow_model_server]
       args:
-        - --model_name={{.Name}}
         - --port=9000
+        - --model_name={{.Name}}
         - --rest_api_port=8080
         - --model_base_path=/mnt/models
         - --rest_api_timeout_in_ms=60000

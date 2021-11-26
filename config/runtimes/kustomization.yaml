@@ -1,6 +1,18 @@
 resources:
   - kserve-tensorflow-serving.yaml
+  - kserve-tensorflow-serving-gpu.yaml
   - kserve-sklearnserver.yaml
+  - kserve-mlserver-sklearn.yaml
+  - kserve-xgbserver.yaml
+  - kserve-mlserver-xgb.yaml
+  - kserve-tritonserver.yaml
+  - kserve-pmmlserver.yaml
+  - kserve-paddleserver.yaml
+  - kserve-lgbserver.yaml
+  - kserve-pytorchserver.yaml
+  - kserve-pytorchserver-gpu.yaml
+  - kserve-torchserveserver.yaml
+  - kserve-torchserveserver-gpu.yaml
 
 images:
   # SMS Only Runtimes
@@ -8,7 +20,50 @@ images:
     newName: tensorflow/serving
     newTag: 1.14.0
 
+  - name: tensorflow-serving-gpu
+    newName: tensorflow/serving
+    newTag: 1.14.0-gpu
+
   - name: kserve-sklearnserver
     newName: kserve/sklearnserver
     newTag: latest
 
+  - name: mlserver
+    newName: docker.io/seldonio/mlserver
+    newTag: 0.2.1
+
+  - name: kserve-xgbserver
+    newName: kserve/xgbserver
+    newTag: latest
+
+  - name: kserve-tritonserver
+    newName: nvcr.io/nvidia/tritonserver
+    newTag: 21.09-py3
+
+  - name: kserve-pmmlserver
+    newName: kserve/pmmlserver
+    newTag: latest
+
+  - name: kserve-paddleserver
+    newName: kserve/paddleserver
+    newTag: latest
+
+  - name: kserve-lgbserver
+    newName: kserve/lgbserver
+    newTag: latest
+
+  - name: kserve-pytorchserver
+    newName: kserve/pytorchserver
+    newTag: latest
+
+  - name: kserve-pytorchserver-gpu
+    newName: kserve/pytorchserver
+    newTag: latest-gpu
+
+  - name: kserve-torchserveserver
+    newName: pytorch/torchserve-kfs
+    newTag: 0.4.1
+
+  - name: kserve-torchserveserver-gpu
+    newName: pytorch/torchserve-kfs
+    newTag: 0.4.1-gpu

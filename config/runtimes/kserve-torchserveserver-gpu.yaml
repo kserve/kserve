@@ -1,0 +1,16 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-torchserveserver-gpu
+spec:
+  supportedModelTypes:
+    - name: pytorch
+      version: "0"
+  containers:
+    - name: kserve-container
+      image: kserve-torchserveserver-gpu:replace
+      args:
+        - torchserve
+        - --start
+        - --model-store=/mnt/models/model-store
+        - --ts-config=/mnt/models/config/config.properties

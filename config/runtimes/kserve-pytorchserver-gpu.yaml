@@ -1,15 +1,17 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: kserve-sklearnserver
+  name: kserve-pytorchserver-gpu
 spec:
   supportedModelTypes:
-    - name: sklearn
+    - name: pytorch
       version: "0"
   containers:
     - name: kserve-container
-      image: kserve-sklearnserver:replace
+      image: kserve-pytorchserver-gpu:replace
       args:
         - --model_name={{.Name}}
+        - --model_class_name={{.Labels.modelClass}}
         - --model_dir=/mnt/models
         - --http_port=8080
+        - --worker=1
