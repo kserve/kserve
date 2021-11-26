@@ -275,6 +275,45 @@ const (
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
 
+// built-in runtime servers
+const (
+	SKLearnServer    = "kserve-sklearnserver"
+	MLServer         = "kserve-mlserver"
+	TFServing        = "kserve-tensorflow-serving"
+	TFServingGPU     = "kserve-tensorflow-serving-gpu"
+	XGBServer        = "kserve-xgbserver"
+	PYTorchServer    = "kserve-pytorchserver"
+	PYTorchServerGPU = "kserve-pytorchserver-gpu"
+	TorchServe       = "kserve-torchserve"
+	TorchServeGPU    = "kserve-torchserve-gpu"
+	TritonServer     = "kserve-tritonserver"
+	PMMLServer       = "kserve-pmmlserver"
+	LGBServer        = "kserve-lgbserver"
+	PaddleServer     = "kserve-paddleserver"
+)
+
+const (
+	ModelClassLabel = "modelClass"
+)
+
+// allowed model class implementation in mlserver
+const (
+	MLServerModelClassSKLearn = "mlserver_sklearn.SKLearnModel"
+	MLServerModelClassXGBoost = "mlserver_xgboost.XGBoostModel"
+)
+
+// supported model type
+const (
+	SupportedModelSKLearn    = "sklearn"
+	SupportedModelTensorflow = "tensorflow"
+	SupportedModelXGBoost    = "xgboost"
+	SupportedModelPYTorch    = "pytorch"
+	SupportedModelONNX       = "onnx"
+	SupportedModelPMML       = "pmml"
+	SupportedModelLightGBM   = "lightgbm"
+	SupportedModelPaddle     = "paddle"
+)
+
 // GetRawServiceLabel generate native service label
 func GetRawServiceLabel(service string) string {
 	return "isvc." + service
