@@ -128,6 +128,12 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		// Other dependencies rely on the container to be a specific name.
 		container.Name = constants.InferenceServiceContainerName
 
+		// Replace placeholders in runtime container by values from inferenceservice metadata
+		err = isvcutils.ReplacePlaceholders(container, isvc.ObjectMeta)
+		if err != nil {
+			return errors.Wrapf(err, "failed to replace placeholders in serving runtime Container")
+		}
+
 		podSpec = *mergedPodSpec
 		podSpec.Containers = []v1.Container{
 			*container,
