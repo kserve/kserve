@@ -5,7 +5,7 @@ metadata:
 spec:
   supportedModelTypes:
     - name: xgboost
-      version: "0"
+      version: "1"
   containers:
     - name: kserve-container
       image: kserve-xgbserver:replace
@@ -14,3 +14,10 @@ spec:
         - --model_dir=/mnt/models
         - --http_port=8080
         - --nthread=1
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi

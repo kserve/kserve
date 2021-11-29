@@ -5,15 +5,15 @@ metadata:
 spec:
   supportedModelTypes:
     - name: tensorrt
-      version: "0"
+      version: "2"
     - name: tensorflow
-      version: "1"
+      version: "2"
     - name: onnx
-      version: "0"
+      version: "2"
     - name: pytorch
-      version: "0"
+      version: "2"
     - name: triton
-      version: "0"
+      version: "2"
   containers:
     - name: kserve-container
       image: kserve-tritonserver:replace
@@ -24,3 +24,10 @@ spec:
         - --http-port=8080
         - --allow-grpc=true
         - --allow-http=true
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi

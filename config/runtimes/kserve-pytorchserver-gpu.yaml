@@ -5,7 +5,7 @@ metadata:
 spec:
   supportedModelTypes:
     - name: pytorch
-      version: "0"
+      version: "1"
   containers:
     - name: kserve-container
       image: kserve-pytorchserver-gpu:replace
@@ -15,3 +15,10 @@ spec:
         - --model_dir=/mnt/models
         - --http_port=8080
         - --worker=1
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi

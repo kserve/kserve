@@ -16,8 +16,9 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/golang/protobuf/proto"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
 
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -81,8 +82,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
 	isvc.DefaultInferenceService(config)
-	g.Expect(*isvc.Spec.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal("1.14.0"))
-	g.Expect(isvc.Spec.Predictor.Tensorflow.Resources).To(gomega.Equal(resources))
+	g.Expect(*isvc.Spec.Predictor.Model.RuntimeVersion).To(gomega.Equal("1.14.0"))
+	g.Expect(isvc.Spec.Predictor.Model.Resources).To(gomega.Equal(resources))
 
 	g.Expect(isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
 

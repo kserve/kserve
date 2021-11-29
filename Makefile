@@ -54,6 +54,9 @@ deploy-dev: manifests
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 	kustomize build config/overlays/development | kubectl apply --validate=false -f -
+	# TODO: Add runtimes as part of default deployment
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	kustomize build config/runtimes | kubectl apply --validate=false -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev-sklearn: docker-push-sklearn
@@ -90,6 +93,9 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 
 deploy-ci: manifests
 	kustomize build config/overlays/test | kubectl apply -f -
+	# TODO: Add runtimes as part of default deployment
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	kustomize build config/runtimes | kubectl apply --validate=false -f -
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -

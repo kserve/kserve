@@ -1,16 +1,23 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: kserve-torchserveserver
+  name: kserve-torchserve
 spec:
   supportedModelTypes:
     - name: pytorch
-      version: "0"
+      version: "1"
   containers:
     - name: kserve-container
-      image: kserve-torchserveserver:replace
+      image: kserve-torchserve:replace
       args:
         - torchserve
         - --start
         - --model-store=/mnt/models/model-store
         - --ts-config=/mnt/models/config/config.properties
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi

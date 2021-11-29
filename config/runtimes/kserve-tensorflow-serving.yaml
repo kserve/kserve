@@ -6,6 +6,8 @@ spec:
   supportedModelTypes:
     - name: tensorflow
       version: "1"
+    - name: tensorflow
+      version: "2"
   containers:
     - name: kserve-container
       image: tensorflow-serving:replace
@@ -16,3 +18,10 @@ spec:
         - --rest_api_port=8080
         - --model_base_path=/mnt/models
         - --rest_api_timeout_in_ms=60000
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
