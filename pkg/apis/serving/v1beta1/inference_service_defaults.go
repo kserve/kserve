@@ -172,7 +172,7 @@ func (isvc *InferenceService) assignTensorflowRuntime() {
 
 func (isvc *InferenceService) assignXGBoostRuntime() {
 	// skips if the storage uri is not specified
-	if isvc.Spec.Predictor.SKLearn.StorageURI == nil {
+	if isvc.Spec.Predictor.XGBoost.StorageURI == nil {
 		return
 	}
 	// assign built-in runtime based on protocol version
@@ -297,7 +297,7 @@ func (isvc *InferenceService) assignLightGBMRuntime() {
 
 func (isvc *InferenceService) assignPaddleRuntime() {
 	// skips if the storage uri is not specified
-	if isvc.Spec.Predictor.SKLearn.StorageURI == nil {
+	if isvc.Spec.Predictor.Paddle.StorageURI == nil {
 		return
 	}
 	// assign built-in runtime
