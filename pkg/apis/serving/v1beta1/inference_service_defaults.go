@@ -75,6 +75,7 @@ func (isvc *InferenceService) Default() {
 }
 
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig) {
+	isvc.setPredictorModelDefaults()
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
 		isvc.Spec.Transformer,
@@ -89,13 +90,9 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 			}
 		}
 	}
-	isvc.setPredictorModelDefaults()
 }
 
 func (isvc *InferenceService) setPredictorModelDefaults() {
-	if isvc.Spec.Predictor.Model != nil {
-		return
-	}
 	switch {
 	case isvc.Spec.Predictor.SKLearn != nil:
 		isvc.assignSKLearnRuntime()
@@ -129,6 +126,7 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 func (isvc *InferenceService) assignSKLearnRuntime() {
 	// skips if the storage uri is not specified
 	if isvc.Spec.Predictor.SKLearn.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime based on protocol version
@@ -154,6 +152,7 @@ func (isvc *InferenceService) assignSKLearnRuntime() {
 func (isvc *InferenceService) assignTensorflowRuntime() {
 	// skips if the storage uri is not specified
 	if isvc.Spec.Predictor.Tensorflow.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime based on gpu config
@@ -173,6 +172,7 @@ func (isvc *InferenceService) assignTensorflowRuntime() {
 func (isvc *InferenceService) assignXGBoostRuntime() {
 	// skips if the storage uri is not specified
 	if isvc.Spec.Predictor.XGBoost.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime based on protocol version
@@ -200,6 +200,7 @@ func (isvc *InferenceService) assignPyTorchRuntime() {
 	if isvc.Spec.Predictor.PyTorch.StorageURI == nil ||
 		(isvc.Spec.Predictor.PyTorch.ProtocolVersion != nil &&
 			constants.ProtocolV1 != *isvc.Spec.Predictor.PyTorch.ProtocolVersion) {
+		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime based on gpu config
@@ -233,6 +234,7 @@ func (isvc *InferenceService) assignPyTorchRuntime() {
 func (isvc *InferenceService) assignTritonRuntime() {
 	// skips if the storage uri is not specified
 	if isvc.Spec.Predictor.Triton.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime
@@ -250,6 +252,7 @@ func (isvc *InferenceService) assignTritonRuntime() {
 func (isvc *InferenceService) assignONNXRuntime() {
 	// skips if the storage uri is not specified
 	if isvc.Spec.Predictor.ONNX.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime
@@ -266,6 +269,7 @@ func (isvc *InferenceService) assignONNXRuntime() {
 func (isvc *InferenceService) assignPMMLRuntime() {
 	// skips if the storage uri is not specified
 	if isvc.Spec.Predictor.PMML.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime
@@ -282,6 +286,7 @@ func (isvc *InferenceService) assignPMMLRuntime() {
 func (isvc *InferenceService) assignLightGBMRuntime() {
 	// skips if the storage uri is not specified
 	if isvc.Spec.Predictor.LightGBM.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime
@@ -298,6 +303,7 @@ func (isvc *InferenceService) assignLightGBMRuntime() {
 func (isvc *InferenceService) assignPaddleRuntime() {
 	// skips if the storage uri is not specified
 	if isvc.Spec.Predictor.Paddle.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
 		return
 	}
 	// assign built-in runtime
