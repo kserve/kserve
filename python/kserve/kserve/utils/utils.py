@@ -14,6 +14,8 @@
 import os
 import sys
 import psutil
+from typing import Dict, Union
+from cloudevents.http import CloudEvent, to_binary, to_structured
 
 
 def is_running_in_k8s():
@@ -68,3 +70,43 @@ def cpu_count():
             pass
 
     return count
+
+
+def is_structured_cloudevent(body: Dict) -> bool:
+    """Returns True if the JSON request body resembles a structured CloudEvent"""
+    return "time" in body \
+           and "type" in body \
+           and "source" in body \
+           and "id" in body \
+           and "specversion" in body \
+           and "data" in body
+
+
+def create_response_cloudevent(model_name: str, body: Union[Dict, CloudEvent], response: Dict,
+                               binary_event=False) -> tuple:
+    ce_attributes = {}
+
+    if os.getenv("CE_MERGE", "false").lower() == "true":
+        if binary_event:
+            ce_attributes = body._attributes
+            if "datacontenttype" in ce_attributes:  # Optional field so must check
+                del ce_attributes["datacontenttype"]
+        else:
+            ce_attributes = body
+            del ce_attributes["data"]
+
+        # Remove these fields so we generate new ones
+        del ce_attributes["id"]
+        del ce_attributes["time"]
+
+    ce_attributes["type"] = os.getenv("CE_TYPE", "io.kserve.inference.response")
+    ce_attributes["source"] = os.getenv("CE_SOURCE", f"io.kserve.kfserver.{model_name}")
+
+    event = CloudEvent(ce_attributes, response)
+
+    if binary_event:
+        event_headers, event_body = to_binary(event)
+    else:
+        event_headers, event_body = to_structured(event)
+
+    return event_headers, event_body

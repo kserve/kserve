@@ -20,9 +20,11 @@ from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from http import HTTPStatus
 from enum import Enum
+from kserve.utils.utils import is_structured_cloudevent
 import grpc
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
+
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -108,40 +110,35 @@ class KFModel:
         self.ready = True
         return self.ready
 
-    async def preprocess(self, request: Dict) -> Union[Dict, ModelInferRequest]:
+    async def preprocess(self, request: Dict) -> Union[Dict, CloudEvent, ModelInferRequest]:
         """
-        The preprocess handler can be overridden for data or feature transformation,
-        the default implementation decodes to Dict if it is cloudevent JSON otherwise pass the data field
-        :param request: JSON Dict or CloudEvent
+        The preprocess handler can be overridden for data or feature transformation
+        the default implementation decodes to Dict if it is a binary CloudEvent
+        or gets the data field from a structured CloudEvent
+        :param request: Dict|CloudEvent|ModelInferRequest
         :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
-        response = request
-
         if isinstance(request, CloudEvent):
-            response = request.data
-            if isinstance(response, bytes):
-                try:
-                    response = json.loads(response.decode('UTF-8'))
-                except (json.decoder.JSONDecodeError, UnicodeDecodeError) as e:
-                    attributes = request._attributes
-                    if "content-type" in attributes:
-                        if attributes["content-type"] == "application/cloudevents+json" or \
-                           attributes["content-type"] == "application/json":
-                            raise tornado.web.HTTPError(
-                                status_code=HTTPStatus.BAD_REQUEST,
-                                reason="Unrecognized request format: %s" % e
-                            )
+            # Try to decode JSON UTF-8 if possible, otherwise leave the CloudEvent alone
+            # and just pass the CloudEvent on to the predict function.
+            # This is for the cases that CloudEvent encoding is protobuf, avro etc.
+            try:
+                request = json.loads(request.data.decode('UTF-8'))
+            except (json.decoder.JSONDecodeError, UnicodeDecodeError) as e:
+                # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
+                if "content-type" in request._attributes and \
+                        (request._attributes["content-type"] == "application/cloudevents+json" or
+                         request._attributes["content-type"] == "application/json"):
+                    raise tornado.web.HTTPError(
+                        status_code=HTTPStatus.BAD_REQUEST,
+                        reason=f"Failed to decode or parse binary json cloudevent: {e}"
+                    )
+
         elif isinstance(request, dict):
+            if is_structured_cloudevent(request):
+                request = request["data"]
 
-            if "time" in request \
-                    and "type" in request \
-                    and "source" in request \
-                    and "id" in request \
-                    and "specversion" in request \
-                    and "data" in request:
-                response = request["data"]
-
-        return response
+        return request
 
     def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
         """
@@ -174,11 +171,11 @@ class KFModel:
         async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
         return async_result
 
-    async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
+    async def predict(self, request: Union[Dict, CloudEvent, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
         """
         The predict handler can be overridden to implement the model inference.
         The default implementation makes a call to the predictor if predictor_host is specified
-        :param request: Dict|ModelInferRequest passed from preprocess handler
+        :param request: Dict|CloudEvent|ModelInferRequest passed from preprocess handler
         :return: Dict|ModelInferResponse
         """
         if not self.predictor_host:
