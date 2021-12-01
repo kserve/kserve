@@ -5,7 +5,7 @@ metadata:
 spec:
   supportedModelTypes:
     - name: pytorch
-      version: "1"
+      version: "2"
   containers:
     - name: kserve-container
       image: kserve-torchserve-gpu:replace

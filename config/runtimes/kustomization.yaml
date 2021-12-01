@@ -29,7 +29,7 @@ images:
 
   - name: mlserver
     newName: docker.io/seldonio/mlserver
-    newTag: 0.2.1
+    newTag: 0.5.3
 
   - name: kserve-xgbserver
     newName: kserve/xgbserver
@@ -61,8 +61,8 @@ images:
 
   - name: kserve-torchserve
     newName: pytorch/torchserve-kfs
-    newTag: 0.5.0
+    newTag: 0.4.1
 
   - name: kserve-torchserve-gpu
     newName: pytorch/torchserve-kfs
-    newTag: 0.5.0-gpu
+    newTag: 0.4.1-gpu
