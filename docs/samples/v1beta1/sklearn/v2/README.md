@@ -97,7 +97,7 @@ spec:
   predictor:
     sklearn:
       protocolVersion: "v2"
-      storageUri: "gs://seldon-models/sklearn/iris"
+      storageUri: "gs://seldon-models/sklearn/mms/lr_model"
 ```
 
 Note that this makes the following assumptions:

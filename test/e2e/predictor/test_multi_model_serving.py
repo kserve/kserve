@@ -14,7 +14,6 @@
 import os
 import pytest
 
-from typing import List
 from kubernetes import client
 from kserve import (
     constants,
@@ -36,33 +35,27 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 
 @pytest.mark.parametrize(
-    "protocol_version,storage_uris",
+    "protocol_version,storage_uri",
     [
         (
             "v1",
-            [
-                "gs://kfserving-samples/models/sklearn/iris",
-                "gs://kfserving-samples/models/sklearn/iris",
-            ],
+            "gs://kfserving-samples/models/sklearn/iris",
         ),
         (
             "v2",
-            [
-                "gs://seldon-models/sklearn/mms/model1-sklearn-v2",
-                "gs://seldon-models/sklearn/mms/model2-sklearn-v2",
-            ],
+            "gs://seldon-models/sklearn/mms/lr_model",
         ),
     ],
 )
-def test_mms_sklearn_kserve(protocol_version: str, storage_uris: List[str]):
+def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
             protocol_version=protocol_version,
             resources=client.V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "100m", "memory": "512Mi"},
+                limits={"cpu": "100m", "memory": "1024Mi"},
             ),
         ),
     )
@@ -88,7 +81,7 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uris: List[str]):
         f"model2-sklearn-{protocol_version}",
     ]
 
-    for model_name, storage_uri in zip(model_names, storage_uris):
+    for model_name in model_names:
         model_spec = V1alpha1ModelSpec(
             storage_uri=storage_uri,
             memory="128Mi",
@@ -136,8 +129,8 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uris: List[str]):
         assert responses[0]["predictions"] == [1, 1]
         assert responses[1]["predictions"] == [1, 1]
     elif protocol_version == "v2":
-        assert responses[0]["outputs"][0]["data"] == [1, 2]
-        assert responses[1]["outputs"][0]["data"] == [1, 2]
+        assert responses[0]["outputs"][0]["data"] == [1, 1]
+        assert responses[1]["outputs"][0]["data"] == [1, 1]
 
     # Clean up inference service and trained models
     for model_name in model_names:
@@ -146,33 +139,28 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uris: List[str]):
 
 
 @pytest.mark.parametrize(
-    "protocol_version,storage_uris",
+    "protocol_version,storage_uri",
     [
         (
             "v1",
-            [
-                "gs://kfserving-samples/models/xgboost/iris",
-                "gs://kfserving-samples/models/xgboost/iris",
-            ],
+            "gs://kfserving-samples/models/xgboost/iris",
         ),
         (
             "v2",
-            [
-                "gs://seldon-models/xgboost/mms/model1-xgboost-v2",
-                "gs://seldon-models/xgboost/mms/model2-xgboost-v2",
-            ],
+            "gs://seldon-models/xgboost/mms/iris",
         ),
     ],
 )
-def test_mms_xgboost_kserve(protocol_version: str, storage_uris: List[str]):
+def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
+            env=[client.V1EnvVar(name="MLSERVER_MODEL_PARALLEL_WORKERS", value="0")],
             protocol_version=protocol_version,
             resources=client.V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "100m", "memory": "512Mi"},
+                limits={"cpu": "100m", "memory": "1024Mi"},
             ),
         ),
     )
@@ -197,7 +185,7 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uris: List[str]):
         f"model2-xgboost-{protocol_version}",
     ]
 
-    for model_name, storage_uri in zip(model_names, storage_uris):
+    for model_name in model_names:
         # Define trained models
         model_spec = V1alpha1ModelSpec(
             storage_uri=storage_uri,

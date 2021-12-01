@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"sync"
+	"syscall"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
 	v1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -64,6 +65,12 @@ func StartPullerAndProcessModels(downloader *Downloader, commands <-chan ModelOp
 		Downloader:  downloader,
 		logger:      logger,
 	}
+
+	// Change umask to ensure we have control over the downloaded file
+	// permissions:
+	// https://stackoverflow.com/a/61645606/5015573
+	syscall.Umask(0)
+
 	puller.waitGroup.wg.Add(len(commands))
 	go puller.processCommands(commands)
 	puller.waitGroup.wg.Wait()
