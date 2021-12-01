@@ -37,4 +37,4 @@ if __name__ == "__main__":
         logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
                       f"exception type {exc_info[0]}, exception msg: {exc_info[1]}")
         model.ready = False
-    kserve.KFServer(registered_models=SKLearnModelRepository(args.model_dir)).start([model] if model.ready else [])
+    kserve.KFServer(registered_models=SKLearnModelRepository(args.model_dir)).start([model])

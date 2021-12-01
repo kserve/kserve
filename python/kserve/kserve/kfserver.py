@@ -94,6 +94,9 @@ class KFServer:
         ], default_handler_class=NotFoundHandler)
 
     def start(self, models: Union[List[KFModel], Dict[str, Deployment]], nest_asyncio: bool = False):
+        if len(models) == 1 and not models[0].ready:
+            raise RuntimeError("Model not loaded")
+
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, KFModel):

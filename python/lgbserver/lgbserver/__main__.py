@@ -42,7 +42,8 @@ if __name__ == "__main__":
         ex_type, ex_value = sys.exc_info()[:2]
         logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
                       f"exception type {ex_type}, exception msg: {ex_value}")
+        model.ready = False
     model_repository = LightGBMModelRepository(args.model_dir, args.nthread)
     # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
     kfserver = kserve.KFServer(workers=1, registered_models=model_repository)  # pylint:disable=c-extension-no-member
-    kfserver.start([model] if model.ready else [])
+    kfserver.start([model])
