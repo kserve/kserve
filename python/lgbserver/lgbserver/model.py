@@ -46,7 +46,9 @@ class LightGBMModel(kserve.KFModel):
             for input in request['inputs']:
                 dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
             inputs = pd.concat(dfs, axis=0)
-
+            cat_features = request.get("cat_feature")
+            if cat_features :
+                inputs[cat_features] = inputs[cat_features].astype('category')
             result = self._booster.predict(inputs)
             return {"predictions": result.tolist()}
         except Exception as e:
