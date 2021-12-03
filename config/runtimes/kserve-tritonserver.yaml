@@ -9,9 +9,9 @@ spec:
     - name: tensorflow
       version: "2"
     - name: onnx
-      version: "2"
+      version: "1"
     - name: pytorch
-      version: "2"
+      version: "1"
     - name: triton
       version: "2"
   containers:

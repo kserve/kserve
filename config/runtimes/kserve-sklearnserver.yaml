@@ -5,7 +5,7 @@ metadata:
 spec:
   supportedModelTypes:
     - name: sklearn
-      version: "1"
+      version: "0"
   containers:
     - name: kserve-container
       image: kserve-sklearnserver:replace

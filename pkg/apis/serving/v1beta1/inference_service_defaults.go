@@ -20,7 +20,6 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -157,9 +156,6 @@ func (isvc *InferenceService) assignTensorflowRuntime() {
 	}
 	// assign built-in runtime based on gpu config
 	var runtime = constants.TFServing
-	if utils.IsGPUEnabled(isvc.Spec.Predictor.Tensorflow.Resources) {
-		runtime = constants.TFServingGPU
-	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		Framework:              v1alpha1.Framework{Name: constants.SupportedModelTensorflow},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Tensorflow.PredictorExtensionSpec,
@@ -207,10 +203,6 @@ func (isvc *InferenceService) assignPyTorchRuntime() {
 	var runtime string
 	if isvc.Spec.Predictor.PyTorch.ModelClassName != "" {
 		runtime = constants.PyTorchServer
-		if utils.IsGPUEnabled(isvc.Spec.Predictor.PyTorch.Resources) {
-			runtime = constants.PyTorchServerGPU
-		}
-
 		if isvc.ObjectMeta.Labels == nil {
 			isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: isvc.Spec.Predictor.PyTorch.ModelClassName}
 		} else {
@@ -218,9 +210,6 @@ func (isvc *InferenceService) assignPyTorchRuntime() {
 		}
 	} else {
 		runtime = constants.TorchServe
-		if utils.IsGPUEnabled(isvc.Spec.Predictor.PyTorch.Resources) {
-			runtime = constants.TorchServeGPU
-		}
 	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPyTorch},

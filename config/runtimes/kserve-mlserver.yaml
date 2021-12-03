@@ -5,9 +5,9 @@ metadata:
 spec:
   supportedModelTypes:
     - name: sklearn
-      version: "2"
+      version: "0"
     - name: xgboost
-      version: "2"
+      version: "1"
   containers:
     - name: kserve-container
       image: mlserver:replace

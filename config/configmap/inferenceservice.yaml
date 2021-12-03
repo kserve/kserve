@@ -8,8 +8,8 @@ data:
     {
         "tensorflow": {
             "image": "tensorflow/serving",
-            "defaultImageVersion": "1.14.0",
-            "defaultGpuImageVersion": "1.14.0-gpu",
+            "defaultImageVersion": "2.6.2",
+            "defaultGpuImageVersion": "2.6.2-gpu",
             "defaultTimeout": "60",
             "supportedFrameworks": [
               "tensorflow"

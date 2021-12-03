@@ -277,19 +277,16 @@ const (
 
 // built-in runtime servers
 const (
-	SKLearnServer    = "kserve-sklearnserver"
-	MLServer         = "kserve-mlserver"
-	TFServing        = "kserve-tensorflow-serving"
-	TFServingGPU     = "kserve-tensorflow-serving-gpu"
-	XGBServer        = "kserve-xgbserver"
-	PyTorchServer    = "kserve-pytorchserver"
-	PyTorchServerGPU = "kserve-pytorchserver-gpu"
-	TorchServe       = "kserve-torchserve"
-	TorchServeGPU    = "kserve-torchserve-gpu"
-	TritonServer     = "kserve-tritonserver"
-	PMMLServer       = "kserve-pmmlserver"
-	LGBServer        = "kserve-lgbserver"
-	PaddleServer     = "kserve-paddleserver"
+	SKLearnServer = "kserve-sklearnserver"
+	MLServer      = "kserve-mlserver"
+	TFServing     = "kserve-tensorflow-serving"
+	XGBServer     = "kserve-xgbserver"
+	PyTorchServer = "kserve-pytorchserver"
+	TorchServe    = "kserve-torchserve"
+	TritonServer  = "kserve-tritonserver"
+	PMMLServer    = "kserve-pmmlserver"
+	LGBServer     = "kserve-lgbserver"
+	PaddleServer  = "kserve-paddleserver"
 )
 
 const (

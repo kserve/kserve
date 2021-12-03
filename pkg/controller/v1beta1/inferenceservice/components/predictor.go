@@ -134,6 +134,9 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			return errors.Wrapf(err, "failed to replace placeholders in serving runtime Container")
 		}
 
+		// Update image tag if GPU is enabled or runtime version is provided
+		isvcutils.UpdateImageTag(container, isvc.Spec.Predictor.Model.RuntimeVersion, p.inferenceServiceConfig)
+
 		podSpec = *mergedPodSpec
 		podSpec.Containers = []v1.Container{
 			*container,
