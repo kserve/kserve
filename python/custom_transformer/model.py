@@ -18,24 +18,16 @@ import torch
 from PIL import Image
 import base64
 import io
-from ray import serve
+from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
+from tritonclient.grpc import InferResult, InferInput
 
-
-# the model handle name should match the model endpoint name
-@serve.deployment(name="custom-model", num_replicas=2)
-class AlexNetModel(kserve.KFModel):
-    def __init__(self):
-        self.name = "custom-model"
-        super().__init__(self.name)
-        self.load()
-
-    def load(self):
-        model = models.alexnet(pretrained=True)
-        model.eval()
-        self.model = model
+class ImageTransformer(kserve.KFModel):
+    def __init__(self, name: str, predictor_host: str):
+        super().__init__(name)
+        self.predictor_host = predictor_host
         self.ready = True
 
-    async def predict(self, request: Dict) -> Dict:
+    def preprocess(self, request: Dict) -> ModelInferRequest:
         inputs = request["instances"]
 
         # Input follows the Tensorflow V1 HTTP API for binary values
@@ -54,16 +46,22 @@ class AlexNetModel(kserve.KFModel):
         ])
 
         input_tensor = preprocess(input_image)
-        input_batch = input_tensor.unsqueeze(0)
+        request = ModelInferRequest()
+        request.model_name = self.name
+        input_0 = InferInput(
+            "INPUT__0", [1, 3, 32, 32], "FP32"
+        )
+        print(type(input_tensor))
+        input_0.set_data_from_numpy(input_tensor)
+        request.inputs.extend(input_0._get_tensor())
 
-        output = self.model(input_batch)
+        return request
 
-        torch.nn.functional.softmax(output, dim=1)[0]
-
-        values, top_5 = torch.topk(output, 5)
-
-        return {"predictions": values.tolist()}
+    def postprocess(self, infer_response: ModelInferResponse) -> Dict:
+        response = InferResult(infer_response)
+        return response.get_response(as_json=True)
 
 
 if __name__ == "__main__":
-    kserve.KFServer(workers=1).start({"custom-model": AlexNetModel})
+    model = ImageTransformer("custom-model")
+    kserve.KFServer(workers=1).start([model])
