@@ -37,22 +37,23 @@ class ImageTransformer(kserve.KFModel):
 
         raw_img_data = base64.b64decode(data)
         input_image = Image.open(io.BytesIO(raw_img_data))
-
         preprocess = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            transforms.Normalize((0.1307,), (0.3081,))
         ])
 
         input_tensor = preprocess(input_image).numpy()
         request = ModelInferRequest()
         request.model_name = self.name
+        sp = [1]
+        for p in input_tensor.shape:
+            sp.append(p)
         input_0 = InferInput(
-            "INPUT__0", input_tensor.shape, "FP32"
+            "INPUT__0", sp, "FP32"
         )
-        input_0.set_data_from_numpy(input_tensor)
+        input_0.set_data_from_numpy(input_tensor.reshape(sp))
         request.inputs.extend([input_0._get_tensor()])
         request.raw_input_contents.extend([input_0._get_content()])
-
         return request
 
     def postprocess(self, infer_response: ModelInferResponse) -> Dict:
