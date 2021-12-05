@@ -43,6 +43,7 @@ class KFModel:
         self.name = name
         self.ready = False
         self.protocol = "v1"
+        self.predictor_grpc = False
         self.predictor_host = None
         self.explainer_host = None
         # The timeout matches what is set in generated Istio resources.
@@ -76,7 +77,8 @@ class KFModel:
     @property
     def _grpc_client(self):
         if self._grpc_client_stub is None:
-            _channel = grpc.aio.insecure_channel(self.predictor_host)
+            # requires appending ":80" to the predictor host for gRPC to work
+            _channel = grpc.aio.insecure_channel(self.predictor_host + ":80")
             self._grpc_client_stub = service_pb2_grpc.GRPCInferenceServiceStub(_channel)
         return self._grpc_client_stub
 
@@ -174,8 +176,7 @@ class KFModel:
         """
         if not self.predictor_host:
             raise NotImplementedError
-        # TODO select grpc/http
-        if True:
+        if not self.predictor_grpc:
             return await self._http_predict(request)
         else:
             return await self._grpc_predict(request)

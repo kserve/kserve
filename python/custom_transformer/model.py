@@ -18,6 +18,7 @@ import torch
 from PIL import Image
 import base64
 import io
+import argparse
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 from tritonclient.grpc import InferResult, InferInput
 
@@ -38,22 +39,19 @@ class ImageTransformer(kserve.KFModel):
         input_image = Image.open(io.BytesIO(raw_img_data))
 
         preprocess = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
 
-        input_tensor = preprocess(input_image)
+        input_tensor = preprocess(input_image).numpy()
         request = ModelInferRequest()
         request.model_name = self.name
         input_0 = InferInput(
-            "INPUT__0", [1, 3, 32, 32], "FP32"
+            "INPUT__0", input_tensor.shape, "FP32"
         )
-        print(type(input_tensor))
         input_0.set_data_from_numpy(input_tensor)
-        request.inputs.extend(input_0._get_tensor())
+        request.inputs.extend([input_0._get_tensor()])
+        request.raw_input_contents.extend([input_0._get_content()])
 
         return request
 
@@ -61,7 +59,17 @@ class ImageTransformer(kserve.KFModel):
         response = InferResult(infer_response)
         return response.get_response(as_json=True)
 
+parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
+parser.add_argument(
+    "--predictor_host", help="The URL for the model predict function", required=True
+)
+parser.add_argument(
+        "--model_name",
+        help="The name that the model is served under.",
+    )
+args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    model = ImageTransformer("custom-model")
+    model = ImageTransformer(args.model_name, predictor_host=args.predictor_host)
+    model.predictor_grpc = True
     kserve.KFServer(workers=1).start([model])
