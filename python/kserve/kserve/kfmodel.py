@@ -22,8 +22,7 @@ from http import HTTPStatus
 from enum import Enum
 from ray.serve.utils import ServeRequest
 import grpc
-import tritonclient.grpc as grpcclient
-from tritonclient.grpc import InferResult, service_pb2, service_pb2_grpc
+from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
@@ -164,7 +163,7 @@ class KFModel:
 
     async def _grpc_predict(self, request: ModelInferRequest) -> InferResult:
         async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
-        return async_result 
+        return async_result
 
     async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, InferResult]:
         """
