@@ -32,7 +32,7 @@ def test_triton():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         triton=V1beta1TritonSpec(
-            storage_uri='gs://kfserving-samples/models/torchscript',
+            storage_uri='gs://kfserving-examples/models/torchscript',
             ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)]
         )
     )
@@ -44,7 +44,7 @@ def test_triton():
                       resources=V1ResourceRequirements(
                           requests={'cpu': '100m', 'memory': '1Gi'},
                           limits={'cpu': '100m', 'memory': '1Gi'}),
-                      args=["--model_name", "cifar10"])]
+                      args=["--model_name", "cifar10", "--protocol", "grpc-v2"])]
     )
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,
@@ -66,6 +66,6 @@ def test_triton():
         for deployment in deployments.items:
             print(deployment)
         raise e
-    res = predict(service_name, "./data/image.json")
+    res = predict(service_name, "./data/image.json", model_name='cifar10')
     assert(res.get("outputs")[0]["name"] == "OUTPUT__0")
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

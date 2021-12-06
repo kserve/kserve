@@ -20,7 +20,7 @@ tests_require = [
 ]
 setup(
     name='aixserver',
-    version='0.7.0rc0',
+    version='0.7.0',
     author_email='Andrew.Butler@ibm.com',
     license='https://github.com/kserve/kserve/LICENSE',
     url='https://github.com/kserve/kserve/python/aixserver',
@@ -30,7 +30,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("aixserver"),
     install_requires=[
-        "kserve>=0.7.0rc0",
+        "kserve>=0.7.0",
         "argparse >= 1.4.0",
         "aix360 >= 0.1.0",
         "lime >= 0.1.1.37",
