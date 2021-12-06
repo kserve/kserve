@@ -16,12 +16,13 @@ from kubernetes import client
 
 from kserve import KServeClient
 from kserve import constants
-from kserve import V1beta1PredictorSpec
+from kserve import V1beta1PredictorSpec, V1beta1TransformerSpec
 from kserve import V1beta1TritonSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
-from kubernetes.client import V1ResourceRequirements, V1ContainerPort
+from kubernetes.client import V1ResourceRequirements, V1Container, V1ContainerPort
 from ..common.utils import KSERVE_TEST_NAMESPACE
+from ..common.utils import predict
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
@@ -32,7 +33,7 @@ def test_triton():
         min_replicas=1,
         triton=V1beta1TritonSpec(
             storage_uri='gs://kfserving-samples/models/torchscript',
-            ports=[V1ContainerPort(name="h2c", protocol="TCP", containerPort=9000)]
+            ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)]
         )
     )
     transformer = V1beta1TransformerSpec(
@@ -66,5 +67,5 @@ def test_triton():
             print(deployment)
         raise e
     res = predict(service_name, "./data/image.json")
-    assert(res.get("outputs")[0] == "OUTPUT__0")
+    assert(res.get("outputs")[0]["name"] == "OUTPUT__0")
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
