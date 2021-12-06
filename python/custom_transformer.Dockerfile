@@ -7,4 +7,4 @@ RUN pip install --upgrade pip && pip install -e ./kserve
 RUN pip install -e ./custom_transformer
 COPY third_party third_party
 
-ENTRYPOINT ["python", "-m", "custom_transformer"]
+ENTRYPOINT ["python", "-m", "custom_transformer.model"]

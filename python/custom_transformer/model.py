@@ -12,15 +12,15 @@
 # limitations under the License.
 
 import kserve
-from torchvision import models, transforms
+from torchvision import transforms
 from typing import Dict
-import torch
 from PIL import Image
 import base64
 import io
 import argparse
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 from tritonclient.grpc import InferResult, InferInput
+
 
 class ImageTransformer(kserve.KFModel):
     def __init__(self, name: str, predictor_host: str):
@@ -29,11 +29,10 @@ class ImageTransformer(kserve.KFModel):
         self.ready = True
 
     def preprocess(self, request: Dict) -> ModelInferRequest:
-        inputs = request["instances"]
-
+        instances = request["instances"]
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-        data = inputs[0]["image"]["b64"]
+        data = instances[0]["image"]["b64"]
 
         raw_img_data = base64.b64decode(data)
         input_image = Image.open(io.BytesIO(raw_img_data))
@@ -43,8 +42,6 @@ class ImageTransformer(kserve.KFModel):
         ])
 
         input_tensor = preprocess(input_image).numpy()
-        request = ModelInferRequest()
-        request.model_name = self.name
         sp = [1]
         for p in input_tensor.shape:
             sp.append(p)
@@ -52,17 +49,26 @@ class ImageTransformer(kserve.KFModel):
             "INPUT__0", sp, "FP32"
         )
         input_0.set_data_from_numpy(input_tensor.reshape(sp))
-        request.inputs.extend([input_0._get_tensor()])
-        request.raw_input_contents.extend([input_0._get_content()])
+        inputs = [input_0]
+        request = ModelInferRequest()
+        request.model_name = self.name
+        for infer_input in inputs:
+            request.inputs.extend([infer_input._get_tensor()])
+            if infer_input._get_content() is not None:
+                request.raw_input_contents.extend([infer_input._get_content()])
         return request
 
     def postprocess(self, infer_response: ModelInferResponse) -> Dict:
         response = InferResult(infer_response)
-        return response.get_response(as_json=True)
+        return response.as_numpy("OUTPUT__0")
+
 
 parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
 parser.add_argument(
     "--predictor_host", help="The URL for the model predict function", required=True
+)
+parser.add_argument(
+    "--predictor_grpc", help="The URL for the model predict function", required=False, default=True
 )
 parser.add_argument(
         "--model_name",

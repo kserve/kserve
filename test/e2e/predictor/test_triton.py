@@ -20,6 +20,7 @@ from kserve import V1beta1PredictorSpec
 from kserve import V1beta1TritonSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
+from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
@@ -30,15 +31,25 @@ def test_triton():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         triton=V1beta1TritonSpec(
-            storage_uri='gs://kfserving-samples/models/tensorrt'
+            storage_uri='gs://kfserving-samples/models/torchscript',
+            ports=[V1ContainerPort(name="h2c", protocol="TCP", containerPort=9000)]
         )
     )
-
+    transformer = V1beta1TransformerSpec(
+        min_replicas=1,
+        containers=[V1Container(
+                      image='yuzisun/grpc-image-transformer:latest',
+                      name='kserve-container',
+                      resources=V1ResourceRequirements(
+                          requests={'cpu': '100m', 'memory': '1Gi'},
+                          limits={'cpu': '100m', 'memory': '1Gi'}),
+                      args=["--model_name", "cifar10"])]
+    )
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(
                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer))
 
     kserve_client.create(isvc)
     try:
@@ -54,4 +65,6 @@ def test_triton():
         for deployment in deployments.items:
             print(deployment)
         raise e
+    res = predict(service_name, "./data/image.json")
+    assert(res.get("outputs")[0] == "OUTPUT__0")
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

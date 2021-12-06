@@ -23,7 +23,7 @@ from enum import Enum
 from ray.serve.utils import ServeRequest
 import grpc
 from tritonclient.grpc import InferResult, service_pb2_grpc
-from tritonclient.grpc.service_pb2 import ModelInferRequest
+from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -139,13 +139,16 @@ class KFModel:
 
         return response
 
-    def postprocess(self, request: Union[Dict, InferResult]) -> Dict:
+    def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
         """
         The postprocess handler can be overridden for inference response transformation
-        :param request: Dict|InferResult passed from predict handler
+        :param response: Dict|ModelInferResponse passed from predict handler
         :return: Dict
         """
-        return request
+        if isinstance(response, ModelInferResponse):
+            response = InferResult(response)
+            return response.get_response(as_json=True)
+        return response
 
     async def _http_predict(self, request: Dict) -> Dict:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
@@ -163,16 +166,16 @@ class KFModel:
                 reason=response.body)
         return json.loads(response.body)
 
-    async def _grpc_predict(self, request: ModelInferRequest) -> InferResult:
+    async def _grpc_predict(self, request: ModelInferRequest) -> ModelInferResponse:
         async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
         return async_result
 
-    async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, InferResult]:
+    async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
         """
         The predict handler can be overridden to implement the model inference.
-        The default implementation makes an call to the predictor if predictor_host is specified
+        The default implementation makes a call to the predictor if predictor_host is specified
         :param request: Dict|ModelInferRequest passed from preprocess handler
-        :return: Dict|InferResult
+        :return: Dict|ModelInferResponse
         """
         if not self.predictor_host:
             raise NotImplementedError
