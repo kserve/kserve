@@ -1423,3 +1423,157 @@ func TestGetServingRuntime(t *testing.T) {
 	})
 
 }
+
+func TestReplacePlaceholders(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		container *v1.Container
+		meta      metav1.ObjectMeta
+		expected  *v1.Container
+	}{
+		"ReplaceArgsAndEnvPlaceholders": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo={{.Name}}",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "{{.Labels.modelDir}}"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			meta: metav1.ObjectMeta{
+				Name: "bar",
+				Labels: map[string]string{
+					"modelDir": "/mnt/models",
+				},
+			},
+			expected: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			_ = ReplacePlaceholders(scenario.container, scenario.meta)
+			if !g.Expect(scenario.container).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", scenario.container, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestUpdateImageTag(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			Tensorflow: PredictorConfig{
+				ContainerImage:         "tfserving",
+				DefaultImageVersion:    "1.14.0",
+				DefaultGpuImageVersion: "1.14.0-gpu",
+				DefaultTimeout:         60,
+			},
+		},
+	}
+
+	scenarios := map[string]struct {
+		container      *v1.Container
+		runtimeVersion *string
+		isvcConfig     *v1beta1.InferenceServicesConfig
+		expected       string
+	}{
+		"UpdateRuntimeVersion": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "tfserving",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: proto.String("2.6.2"),
+			isvcConfig:     &config,
+			expected:       "tfserving:2.6.2",
+		},
+		"UpdateGPUImageTag": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "tfserving:1.14.0",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			isvcConfig:     &config,
+			expected:       "tfserving:1.14.0-gpu",
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			UpdateImageTag(scenario.container, scenario.runtimeVersion, scenario.isvcConfig)
+			if !g.Expect(scenario.container.Image).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", scenario.container.Image, scenario.expected)
+			}
+		})
+	}
+}
