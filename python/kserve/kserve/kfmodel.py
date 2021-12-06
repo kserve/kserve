@@ -36,14 +36,19 @@ class ModelType(Enum):
     PREDICTOR = 2
 
 
+class PredictorProtocol(Enum):
+    REST_V1 = "v1"
+    REST_V2 = "v2"
+    GRPC_V2 = "grpc-v2"
+
+
 # KFModel is intended to be subclassed by various components within KFServing.
 class KFModel:
 
     def __init__(self, name: str):
         self.name = name
         self.ready = False
-        self.protocol = "v1"
-        self.predictor_grpc = False
+        self.protocol = PredictorProtocol.REST_V1.value
         self.predictor_host = None
         self.explainer_host = None
         # The timeout matches what is set in generated Istio resources.
@@ -78,7 +83,9 @@ class KFModel:
     def _grpc_client(self):
         if self._grpc_client_stub is None:
             # requires appending ":80" to the predictor host for gRPC to work
-            _channel = grpc.aio.insecure_channel(self.predictor_host + ":80")
+            if ":" not in self.predictor_host:
+                self.predictor_host = self.predictor_host + ":80"
+            _channel = grpc.aio.insecure_channel(self.predictor_host)
             self._grpc_client_stub = service_pb2_grpc.GRPCInferenceServiceStub(_channel)
         return self._grpc_client_stub
 
@@ -152,7 +159,7 @@ class KFModel:
 
     async def _http_predict(self, request: Dict) -> Dict:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
-        if self.protocol == "v2":
+        if self.protocol == PredictorProtocol.REST_V2.value:
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
         response = await self._http_client.fetch(
             predict_url,
@@ -179,10 +186,10 @@ class KFModel:
         """
         if not self.predictor_host:
             raise NotImplementedError
-        if not self.predictor_grpc:
-            return await self._http_predict(request)
-        else:
+        if self.protocol == PredictorProtocol.GRPC_V2.value:
             return await self._grpc_predict(request)
+        else:
+            return await self._http_predict(request)
 
     async def explain(self, request: Dict) -> Dict:
         """
@@ -194,7 +201,7 @@ class KFModel:
         if self.explainer_host is None:
             raise NotImplementedError
         explain_url = EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name)
-        if self.protocol == "v2":
+        if self.protocol == PredictorProtocol.REST_V2.value:
             explain_url = EXPLAINER_V2_URL_FORMAT.format(self.explainer_host, self.name)
         response = await self._http_client.fetch(
             url=explain_url,

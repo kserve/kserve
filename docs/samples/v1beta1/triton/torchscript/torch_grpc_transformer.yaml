@@ -28,6 +28,4 @@ spec:
       - --model_name
       - cifar10
       - --protocol
-      - v2
-      - --predictor_host
-      - "torch-transformer-predictor-default.default:80"
+      - grpc-v2

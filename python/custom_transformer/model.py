@@ -68,7 +68,7 @@ parser.add_argument(
     "--predictor_host", help="The URL for the model predict function", required=True
 )
 parser.add_argument(
-    "--predictor_grpc", help="The URL for the model predict function", required=False, default=True
+    "--protocol", help="The protocol for the predictor", required=True
 )
 parser.add_argument(
         "--model_name",
@@ -78,5 +78,5 @@ args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     model = ImageTransformer(args.model_name, predictor_host=args.predictor_host)
-    model.predictor_grpc = True
+    model.protocol = args.protocol
     kserve.KFServer(workers=1).start([model])
