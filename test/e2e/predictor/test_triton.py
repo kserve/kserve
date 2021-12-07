@@ -13,7 +13,7 @@
 
 import os
 from kubernetes import client
-
+import numpy as np
 from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec, V1beta1TransformerSpec
@@ -39,7 +39,7 @@ def test_triton():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image='yuzisun/grpc-image-transformer:latest',
+                      image='kserve/grpc-image-transformer:latest',
                       name='kserve-container',
                       resources=V1ResourceRequirements(
                           requests={'cpu': '100m', 'memory': '1Gi'},
@@ -67,5 +67,5 @@ def test_triton():
             print(deployment)
         raise e
     res = predict(service_name, "./data/image.json", model_name='cifar10')
-    assert(res.get("outputs")[0]["name"] == "OUTPUT__0")
+    assert(np.argmax(res.get("predictions")[0]) == 5)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

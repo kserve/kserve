@@ -61,7 +61,7 @@ class ImageTransformer(kserve.KFModel):
 
     def postprocess(self, infer_response: ModelInferResponse) -> Dict:
         response = InferResult(infer_response)
-        return response.as_numpy("OUTPUT__0").tolist()
+        return {"predictions": response.as_numpy("OUTPUT__0").tolist()}
 
 
 parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
