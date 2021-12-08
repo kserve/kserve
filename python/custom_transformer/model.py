@@ -72,9 +72,8 @@ parser.add_argument(
     "--protocol", help="The protocol for the predictor", required=True
 )
 parser.add_argument(
-        "--model_name",
-        help="The name that the model is served under.",
-    )
+    "--model_name", help="The name that the model is served under."
+)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":

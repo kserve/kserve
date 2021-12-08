@@ -19,6 +19,9 @@ tests_require = [
     'mypy'
 ]
 
+with open('requirements.txt') as f:
+    REQUIRES = f.readlines()
+
 setup(
     name='grpc_image_transformer',
     version='0.1.0',
@@ -26,11 +29,7 @@ setup(
     url='https://github.com/kserve/kserve/python/custom_transformer',
     description='gRPCImageTransformer',
     python_requires='>=3.7',
-    install_requires=[
-        "kserve",
-        "torchvision>=0.4.0",
-        "pillow==6.2.0"
-    ],
+    install_requires=REQUIRES,
     tests_require=tests_require,
     extras_require={'test': tests_require}
 )

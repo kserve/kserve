@@ -18,8 +18,8 @@ spec:
       - --log-verbose=1
   transformer:
     containers:
-    - image: yuzisun/grpc-image-transformer:latest
-      name: kfserving-container
+    - image: kserve/grpc-image-transformer:latest
+      name: kserve-container
       command:
       - "python"
       - "-m"
