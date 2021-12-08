@@ -8,6 +8,10 @@ spec:
       version: "0"
     - name: xgboost
       version: "1"
+    - name: lightgbm
+      version: "3"
+    - name: mlflow
+      version: "1"
   containers:
     - name: kserve-container
       image: mlserver:replace

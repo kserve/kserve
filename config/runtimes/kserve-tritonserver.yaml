@@ -5,7 +5,9 @@ metadata:
 spec:
   supportedModelTypes:
     - name: tensorrt
-      version: "2"
+      version: "8"
+    - name: tensorflow
+      version: "1"
     - name: tensorflow
       version: "2"
     - name: onnx

@@ -5,7 +5,9 @@ metadata:
 spec:
   supportedModelTypes:
     - name: pmml
-      version: "1"
+      version: "3"
+    - name: pmml
+      version: "4"
   containers:
     - name: kserve-container
       image: kserve-pmmlserver:replace

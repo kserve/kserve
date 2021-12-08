@@ -5,7 +5,7 @@ metadata:
 spec:
   supportedModelTypes:
     - name: paddle
-      version: "1"
+      version: "2"
   containers:
     - name: kserve-container
       image: kserve-paddleserver:replace
