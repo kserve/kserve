@@ -1,0 +1,3 @@
+kserve
+torchvision
+pillow==6.2.0

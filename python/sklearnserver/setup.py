@@ -21,7 +21,7 @@ tests_require = [
 ]
 setup(
     name='sklearnserver',
-    version='0.7.0rc0',
+    version='0.7.0',
     author_email='singhan@us.ibm.com',
     license='https://github.com/kserve/kserve/LICENSE',
     url='https://github.com/kserve/kserve/python/sklearnserver',
@@ -31,7 +31,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("sklearnserver"),
     install_requires=[
-        "kserve>=0.7.0rc0",
+        "kserve>=0.7.0",
         "scikit-learn == 0.20.3",
         "joblib >= 0.13.0"
     ],

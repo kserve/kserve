@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict
+from typing import Dict, Union
 import sys
 import inspect
 import json
@@ -21,6 +21,9 @@ from cloudevents.http import CloudEvent
 from http import HTTPStatus
 from enum import Enum
 from ray.serve.utils import ServeRequest
+import grpc
+from tritonclient.grpc import InferResult, service_pb2_grpc
+from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -33,13 +36,19 @@ class ModelType(Enum):
     PREDICTOR = 2
 
 
+class PredictorProtocol(Enum):
+    REST_V1 = "v1"
+    REST_V2 = "v2"
+    GRPC_V2 = "grpc-v2"
+
+
 # KFModel is intended to be subclassed by various components within KFServing.
 class KFModel:
 
     def __init__(self, name: str):
         self.name = name
         self.ready = False
-        self.protocol = "v1"
+        self.protocol = PredictorProtocol.REST_V1.value
         self.predictor_host = None
         self.explainer_host = None
         # The timeout matches what is set in generated Istio resources.
@@ -47,6 +56,7 @@ class KFModel:
         # timeouts should be handled elsewhere in the system.
         self.timeout = 600
         self._http_client_instance = None
+        self._grpc_client_stub = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
         request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
@@ -69,6 +79,16 @@ class KFModel:
             self._http_client_instance = AsyncHTTPClient(max_clients=sys.maxsize)
         return self._http_client_instance
 
+    @property
+    def _grpc_client(self):
+        if self._grpc_client_stub is None:
+            # requires appending ":80" to the predictor host for gRPC to work
+            if ":" not in self.predictor_host:
+                self.predictor_host = self.predictor_host + ":80"
+            _channel = grpc.aio.insecure_channel(self.predictor_host)
+            self._grpc_client_stub = service_pb2_grpc.GRPCInferenceServiceStub(_channel)
+        return self._grpc_client_stub
+
     @staticmethod
     def validate(request):
         if isinstance(request, dict):
@@ -89,12 +109,12 @@ class KFModel:
         self.ready = True
         return self.ready
 
-    async def preprocess(self, request: Dict) -> Dict:
+    async def preprocess(self, request: Dict) -> Union[Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation,
         the default implementation decodes to Dict if it is cloudevent JSON otherwise pass the data field
         :param request: JSON Dict or CloudEvent
-        :return: Transformed Dict which passes to predict handler
+        :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
         response = request
 
@@ -126,25 +146,20 @@ class KFModel:
 
         return response
 
-    def postprocess(self, request: Dict) -> Dict:
+    def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
         """
         The postprocess handler can be overridden for inference response transformation
-        :param request: Dict passed from predict handler
+        :param response: Dict|ModelInferResponse passed from predict handler
         :return: Dict
         """
-        return request
+        if isinstance(response, ModelInferResponse):
+            response = InferResult(response)
+            return response.get_response(as_json=True)
+        return response
 
-    async def predict(self, request: Dict) -> Dict:
-        """
-        The predict handler can be overridden to implement the model inference.
-        The default implementation makes an call to the predictor if predictor_host is specified
-        :param request: Dict passed from preprocess handler
-        :return: Dict
-        """
-        if not self.predictor_host:
-            raise NotImplementedError
+    async def _http_predict(self, request: Dict) -> Dict:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
-        if self.protocol == "v2":
+        if self.protocol == PredictorProtocol.REST_V2.value:
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
         response = await self._http_client.fetch(
             predict_url,
@@ -158,6 +173,24 @@ class KFModel:
                 reason=response.body)
         return json.loads(response.body)
 
+    async def _grpc_predict(self, request: ModelInferRequest) -> ModelInferResponse:
+        async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
+        return async_result
+
+    async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
+        """
+        The predict handler can be overridden to implement the model inference.
+        The default implementation makes a call to the predictor if predictor_host is specified
+        :param request: Dict|ModelInferRequest passed from preprocess handler
+        :return: Dict|ModelInferResponse
+        """
+        if not self.predictor_host:
+            raise NotImplementedError
+        if self.protocol == PredictorProtocol.GRPC_V2.value:
+            return await self._grpc_predict(request)
+        else:
+            return await self._http_predict(request)
+
     async def explain(self, request: Dict) -> Dict:
         """
         The explain handler can be overridden to implement the model explanation.
@@ -168,7 +201,7 @@ class KFModel:
         if self.explainer_host is None:
             raise NotImplementedError
         explain_url = EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name)
-        if self.protocol == "v2":
+        if self.protocol == PredictorProtocol.REST_V2.value:
             explain_url = EXPLAINER_V2_URL_FORMAT.format(self.explainer_host, self.name)
         response = await self._http_client.fetch(
             url=explain_url,

@@ -21,7 +21,7 @@ tests_require = [
 
 setup(
     name='aifserver',
-    version='0.7.0rc0',
+    version='0.7.0',
     author_email='Andrew.Butler@ibm.com',
     license='https://github.com/kserve/kserve/LICENSE',
     url='https://github.com/kserve/kserve/python/aifserver',
@@ -31,7 +31,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("aifserver"),
     install_requires=[
-        "kserve>=0.7.0rc0",
+        "kserve>=0.7.0",
         "aif360 >= 0.2.3",
         "nest_asyncio>=1.4.0",
         "requests[security]>=2.24.0"

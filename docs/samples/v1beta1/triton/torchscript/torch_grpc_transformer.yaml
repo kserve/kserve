@@ -1,0 +1,31 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: torch-transformer
+spec:
+  predictor:
+    triton:
+      storageUri: gs://kfserving-examples/models/torchscript
+      runtimeVersion: 20.10-py3
+      env:
+      - name: OMP_NUM_THREADS
+        value: "1"
+      ports:
+      - name: h2c
+        protocol: TCP
+        containerPort: 9000
+      args:
+      - --log-verbose=1
+  transformer:
+    containers:
+    - image: kserve/grpc-image-transformer:latest
+      name: kserve-container
+      command:
+      - "python"
+      - "-m"
+      - "model"
+      args:
+      - --model_name
+      - cifar10
+      - --protocol
+      - grpc-v2
