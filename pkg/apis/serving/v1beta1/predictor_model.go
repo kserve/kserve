@@ -63,6 +63,9 @@ func (m *ModelSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compone
 }
 
 func (m *ModelSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if m.ProtocolVersion != nil{
+		return *m.ProtocolVersion
+	}
 	return constants.ProtocolV2
 }
 
@@ -81,7 +84,7 @@ func (ss stringSet) contains(s string) bool {
 	return found
 }
 
-// Get a list of ServingRuntimeSpecs that correspond to ServingRuntimes and ClusterServingRuntimes that
+// GetSupportingRuntimes Get a list of ServingRuntimeSpecs that correspond to ServingRuntimes and ClusterServingRuntimes that
 // support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
 func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.ServingRuntimeSpec, error) {
@@ -101,24 +104,24 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 	srSpecs := make([]v1alpha1.ServingRuntimeSpec, 0, len(runtimes.Items)+len(clusterRuntimes.Items))
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
-		if !rt.Spec.IsDisabled() && isRuntimeModelMeshCompatible(&rt.Spec) == isMMS && m.RuntimeSupportsModel(rt.GetName(), &rt.Spec) {
+		if !rt.Spec.IsDisabled() && isRuntimeModelMeshCompatible(&rt.Spec) == isMMS && m.RuntimeSupportsModel(&rt.Spec) {
 			srSpecs = append(srSpecs, rt.Spec)
 		}
 	}
 
 	for i := range clusterRuntimes.Items {
 		crt := &clusterRuntimes.Items[i]
-		if !crt.Spec.IsDisabled() && isRuntimeModelMeshCompatible(&crt.Spec) == isMMS && m.RuntimeSupportsModel(crt.GetName(), &crt.Spec) {
+		if !crt.Spec.IsDisabled() && isRuntimeModelMeshCompatible(&crt.Spec) == isMMS && m.RuntimeSupportsModel(&crt.Spec) {
 			srSpecs = append(srSpecs, crt.Spec)
 		}
 	}
 	return srSpecs, nil
 }
 
-// Check if the given runtime supports the specified model.
-func (m *ModelSpec) RuntimeSupportsModel(runtimeName string, srSpec *v1alpha1.ServingRuntimeSpec) bool {
+// RuntimeSupportsModel Check if the given runtime supports the specified model.
+func (m *ModelSpec) RuntimeSupportsModel(srSpec *v1alpha1.ServingRuntimeSpec) bool {
 	// assignment to a runtime depends on the model type labels
-	runtimeLabelSet := getServingRuntimeSupportedModelTypeLabelSet(runtimeName, srSpec.SupportedModelTypes)
+	runtimeLabelSet := getServingRuntimeSupportedModelTypeLabelSet(srSpec.SupportedModelTypes)
 	modelLabel := m.getModelTypeLabel()
 	// if the runtime has the model's label, then it supports that model.
 	return runtimeLabelSet.contains(modelLabel)
@@ -132,7 +135,7 @@ func (m *ModelSpec) getModelTypeLabel() string {
 	return "mt:" + mt.Name
 }
 
-func getServingRuntimeSupportedModelTypeLabelSet(runtimeName string, supportedModelTypes []v1alpha1.Framework) stringSet {
+func getServingRuntimeSupportedModelTypeLabelSet(supportedModelTypes []v1alpha1.Framework) stringSet {
 	set := make(stringSet, 2*len(supportedModelTypes)+1)
 
 	// model type labels

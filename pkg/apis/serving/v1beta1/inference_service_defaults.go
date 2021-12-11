@@ -129,6 +129,10 @@ func (isvc *InferenceService) assignSKLearnRuntime() {
 		return
 	}
 	// assign built-in runtime based on protocol version
+	if isvc.Spec.Predictor.SKLearn.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.SKLearn.ProtocolVersion = &defaultProtocol
+	}
 	var runtime = constants.SKLearnServer
 	if isvc.Spec.Predictor.SKLearn.ProtocolVersion != nil &&
 		constants.ProtocolV2 == *isvc.Spec.Predictor.SKLearn.ProtocolVersion {
@@ -155,6 +159,10 @@ func (isvc *InferenceService) assignTensorflowRuntime() {
 		return
 	}
 	// assign built-in runtime based on gpu config
+	if isvc.Spec.Predictor.Tensorflow.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.Tensorflow.ProtocolVersion = &defaultProtocol
+	}
 	var runtime = constants.TFServing
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		Framework:              v1alpha1.Framework{Name: constants.SupportedModelTensorflow},
@@ -172,6 +180,10 @@ func (isvc *InferenceService) assignXGBoostRuntime() {
 		return
 	}
 	// assign built-in runtime based on protocol version
+	if isvc.Spec.Predictor.XGBoost.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.XGBoost.ProtocolVersion = &defaultProtocol
+	}
 	var runtime = constants.XGBServer
 	if isvc.Spec.Predictor.XGBoost.ProtocolVersion != nil &&
 		constants.ProtocolV2 == *isvc.Spec.Predictor.XGBoost.ProtocolVersion {
@@ -228,7 +240,6 @@ func (isvc *InferenceService) assignTritonRuntime() {
 	}
 	// assign built-in runtime
 	var runtime = constants.TritonServer
-	// TODO: pytorch framework is assigned as default, needs to find a to get framework from model.
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		Framework:              v1alpha1.Framework{Name: constants.SupportedModelTriton},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Triton.PredictorExtensionSpec,
@@ -262,6 +273,10 @@ func (isvc *InferenceService) assignPMMLRuntime() {
 		return
 	}
 	// assign built-in runtime
+	if isvc.Spec.Predictor.PMML.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.PMML.ProtocolVersion = &defaultProtocol
+	}
 	var runtime = constants.PMMLServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPMML},
@@ -279,6 +294,10 @@ func (isvc *InferenceService) assignLightGBMRuntime() {
 		return
 	}
 	// assign built-in runtime
+	if isvc.Spec.Predictor.LightGBM.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.LightGBM.ProtocolVersion = &defaultProtocol
+	}
 	var runtime = constants.LGBServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		Framework:              v1alpha1.Framework{Name: constants.SupportedModelLightGBM},
@@ -296,6 +315,10 @@ func (isvc *InferenceService) assignPaddleRuntime() {
 		return
 	}
 	// assign built-in runtime
+	if isvc.Spec.Predictor.Paddle.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.Paddle.ProtocolVersion = &defaultProtocol
+	}
 	var runtime = constants.PaddleServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPaddle},

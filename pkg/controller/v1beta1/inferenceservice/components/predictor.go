@@ -92,7 +92,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			}
 
 			// Verify that the selected runtime supports the specified framework.
-			if !isvc.Spec.Predictor.Model.RuntimeSupportsModel(*isvc.Spec.Predictor.Model.Runtime, r) {
+			if !isvc.Spec.Predictor.Model.RuntimeSupportsModel(r) {
 				return fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
 			}
 
