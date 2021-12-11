@@ -18,6 +18,8 @@ package v1beta1
 import (
 	"reflect"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,6 +74,7 @@ func (isvc *InferenceService) Default() {
 }
 
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig) {
+	isvc.setPredictorModelDefaults()
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
 		isvc.Spec.Transformer,
@@ -86,4 +89,242 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 			}
 		}
 	}
+}
+
+func (isvc *InferenceService) setPredictorModelDefaults() {
+	switch {
+	case isvc.Spec.Predictor.SKLearn != nil:
+		isvc.assignSKLearnRuntime()
+
+	case isvc.Spec.Predictor.Tensorflow != nil:
+		isvc.assignTensorflowRuntime()
+
+	case isvc.Spec.Predictor.XGBoost != nil:
+		isvc.assignXGBoostRuntime()
+
+	case isvc.Spec.Predictor.PyTorch != nil:
+		isvc.assignPyTorchRuntime()
+
+	case isvc.Spec.Predictor.Triton != nil:
+		isvc.assignTritonRuntime()
+
+	case isvc.Spec.Predictor.ONNX != nil:
+		isvc.assignONNXRuntime()
+
+	case isvc.Spec.Predictor.PMML != nil:
+		isvc.assignPMMLRuntime()
+
+	case isvc.Spec.Predictor.LightGBM != nil:
+		isvc.assignLightGBMRuntime()
+
+	case isvc.Spec.Predictor.Paddle != nil:
+		isvc.assignPaddleRuntime()
+	}
+}
+
+func (isvc *InferenceService) assignSKLearnRuntime() {
+	// skips if the storage uri is not specified
+	if isvc.Spec.Predictor.SKLearn.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
+		return
+	}
+	// assign built-in runtime based on protocol version
+	if isvc.Spec.Predictor.SKLearn.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.SKLearn.ProtocolVersion = &defaultProtocol
+	}
+	var runtime = constants.SKLearnServer
+	if isvc.Spec.Predictor.SKLearn.ProtocolVersion != nil &&
+		constants.ProtocolV2 == *isvc.Spec.Predictor.SKLearn.ProtocolVersion {
+		runtime = constants.MLServer
+		if isvc.ObjectMeta.Labels == nil {
+			isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: constants.MLServerModelClassSKLearn}
+		} else {
+			isvc.ObjectMeta.Labels[constants.ModelClassLabel] = constants.MLServerModelClassSKLearn
+		}
+	}
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelSKLearn},
+		PredictorExtensionSpec: isvc.Spec.Predictor.SKLearn.PredictorExtensionSpec,
+		Runtime:                &runtime,
+	}
+	// remove sklearn spec
+	isvc.Spec.Predictor.SKLearn = nil
+}
+
+func (isvc *InferenceService) assignTensorflowRuntime() {
+	// skips if the storage uri is not specified
+	if isvc.Spec.Predictor.Tensorflow.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
+		return
+	}
+	// assign built-in runtime based on gpu config
+	if isvc.Spec.Predictor.Tensorflow.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.Tensorflow.ProtocolVersion = &defaultProtocol
+	}
+	var runtime = constants.TFServing
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelTensorflow},
+		PredictorExtensionSpec: isvc.Spec.Predictor.Tensorflow.PredictorExtensionSpec,
+		Runtime:                &runtime,
+	}
+	// remove tensorflow spec
+	isvc.Spec.Predictor.Tensorflow = nil
+}
+
+func (isvc *InferenceService) assignXGBoostRuntime() {
+	// skips if the storage uri is not specified
+	if isvc.Spec.Predictor.XGBoost.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
+		return
+	}
+	// assign built-in runtime based on protocol version
+	if isvc.Spec.Predictor.XGBoost.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.XGBoost.ProtocolVersion = &defaultProtocol
+	}
+	var runtime = constants.XGBServer
+	if isvc.Spec.Predictor.XGBoost.ProtocolVersion != nil &&
+		constants.ProtocolV2 == *isvc.Spec.Predictor.XGBoost.ProtocolVersion {
+		runtime = constants.MLServer
+		if isvc.ObjectMeta.Labels == nil {
+			isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: constants.MLServerModelClassXGBoost}
+		} else {
+			isvc.ObjectMeta.Labels[constants.ModelClassLabel] = constants.MLServerModelClassXGBoost
+		}
+	}
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelXGBoost},
+		PredictorExtensionSpec: isvc.Spec.Predictor.XGBoost.PredictorExtensionSpec,
+		Runtime:                &runtime,
+	}
+	// remove xgboost spec
+	isvc.Spec.Predictor.XGBoost = nil
+}
+
+func (isvc *InferenceService) assignPyTorchRuntime() {
+	// skips if the storage uri is not specified or protocol version is not v1.
+	if isvc.Spec.Predictor.PyTorch.StorageURI == nil ||
+		(isvc.Spec.Predictor.PyTorch.ProtocolVersion != nil &&
+			constants.ProtocolV1 != *isvc.Spec.Predictor.PyTorch.ProtocolVersion) {
+		isvc.Spec.Predictor.Model = nil
+		return
+	}
+	// assign built-in runtime based on gpu config
+	var runtime string
+	if isvc.Spec.Predictor.PyTorch.ModelClassName != "" {
+		runtime = constants.PyTorchServer
+		if isvc.ObjectMeta.Labels == nil {
+			isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: isvc.Spec.Predictor.PyTorch.ModelClassName}
+		} else {
+			isvc.ObjectMeta.Labels[constants.ModelClassLabel] = isvc.Spec.Predictor.PyTorch.ModelClassName
+		}
+	} else {
+		runtime = constants.TorchServe
+	}
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPyTorch},
+		PredictorExtensionSpec: isvc.Spec.Predictor.PyTorch.PredictorExtensionSpec,
+		Runtime:                &runtime,
+	}
+	// remove pytorch spec
+	isvc.Spec.Predictor.PyTorch = nil
+}
+
+func (isvc *InferenceService) assignTritonRuntime() {
+	// skips if the storage uri is not specified
+	if isvc.Spec.Predictor.Triton.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
+		return
+	}
+	// assign built-in runtime
+	var runtime = constants.TritonServer
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelTriton},
+		PredictorExtensionSpec: isvc.Spec.Predictor.Triton.PredictorExtensionSpec,
+		Runtime:                &runtime,
+	}
+	// remove triton spec
+	isvc.Spec.Predictor.Triton = nil
+}
+
+func (isvc *InferenceService) assignONNXRuntime() {
+	// skips if the storage uri is not specified
+	if isvc.Spec.Predictor.ONNX.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
+		return
+	}
+	// assign built-in runtime
+	var runtime = constants.TritonServer
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelONNX},
+		PredictorExtensionSpec: isvc.Spec.Predictor.ONNX.PredictorExtensionSpec,
+		Runtime:                &runtime,
+	}
+	// remove onnx spec
+	isvc.Spec.Predictor.ONNX = nil
+}
+
+func (isvc *InferenceService) assignPMMLRuntime() {
+	// skips if the storage uri is not specified
+	if isvc.Spec.Predictor.PMML.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
+		return
+	}
+	// assign built-in runtime
+	if isvc.Spec.Predictor.PMML.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.PMML.ProtocolVersion = &defaultProtocol
+	}
+	var runtime = constants.PMMLServer
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPMML},
+		PredictorExtensionSpec: isvc.Spec.Predictor.PMML.PredictorExtensionSpec,
+		Runtime:                &runtime,
+	}
+	// remove pmml spec
+	isvc.Spec.Predictor.PMML = nil
+}
+
+func (isvc *InferenceService) assignLightGBMRuntime() {
+	// skips if the storage uri is not specified
+	if isvc.Spec.Predictor.LightGBM.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
+		return
+	}
+	// assign built-in runtime
+	if isvc.Spec.Predictor.LightGBM.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.LightGBM.ProtocolVersion = &defaultProtocol
+	}
+	var runtime = constants.LGBServer
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelLightGBM},
+		PredictorExtensionSpec: isvc.Spec.Predictor.LightGBM.PredictorExtensionSpec,
+		Runtime:                &runtime,
+	}
+	// remove lightgbm spec
+	isvc.Spec.Predictor.LightGBM = nil
+}
+
+func (isvc *InferenceService) assignPaddleRuntime() {
+	// skips if the storage uri is not specified
+	if isvc.Spec.Predictor.Paddle.StorageURI == nil {
+		isvc.Spec.Predictor.Model = nil
+		return
+	}
+	// assign built-in runtime
+	if isvc.Spec.Predictor.Paddle.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		isvc.Spec.Predictor.Paddle.ProtocolVersion = &defaultProtocol
+	}
+	var runtime = constants.PaddleServer
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPaddle},
+		PredictorExtensionSpec: isvc.Spec.Predictor.Paddle.PredictorExtensionSpec,
+		Runtime:                &runtime,
+	}
+	// remove paddle spec
+	isvc.Spec.Predictor.Paddle = nil
 }

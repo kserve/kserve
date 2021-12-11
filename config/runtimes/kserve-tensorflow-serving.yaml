@@ -6,12 +6,14 @@ spec:
   supportedModelTypes:
     - name: tensorflow
       version: "1"
+    - name: tensorflow
+      version: "2"
   containers:
     - name: kserve-container
       image: tensorflow-serving:replace
       command: [/usr/bin/tensorflow_model_server]
       args:
-        - --model_name=model
+        - --model_name={{.Name}}
         - --port=9000
         - --rest_api_port=8080
         - --model_base_path=/mnt/models

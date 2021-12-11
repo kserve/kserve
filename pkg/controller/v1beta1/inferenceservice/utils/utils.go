@@ -16,17 +16,22 @@ limitations under the License.
 package utils
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"html/template"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	goerrors "github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -162,4 +167,38 @@ func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alph
 		return nil, err
 	}
 	return nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name)
+}
+
+// Replace placeholders in runtime container by values from inferenceservice metadata
+func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error {
+	data, _ := json.Marshal(container)
+	tmpl, err := template.New("container-tmpl").Parse(string(data))
+	if err != nil {
+		return err
+	}
+	buf := &bytes.Buffer{}
+	err = tmpl.Execute(buf, meta)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(buf.Bytes(), container)
+}
+
+// Update image tag if GPU is enabled or runtime version is provided
+func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
+	image := container.Image
+	if runtimeVersion != nil && len(strings.Split(image, ":")) > 0 {
+		container.Image = strings.Split(image, ":")[0] + ":" + *runtimeVersion
+		return
+	}
+	if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
+		imageName := strings.Split(image, ":")[0]
+		if imageName == isvcConfig.Predictors.Tensorflow.ContainerImage {
+			container.Image = imageName + ":" + isvcConfig.Predictors.Tensorflow.DefaultGpuImageVersion
+		} else if imageName == isvcConfig.Predictors.PyTorch.V1.ContainerImage {
+			container.Image = imageName + ":" + isvcConfig.Predictors.PyTorch.V1.DefaultGpuImageVersion
+		} else if imageName == isvcConfig.Predictors.PyTorch.V2.ContainerImage {
+			container.Image = imageName + ":" + isvcConfig.Predictors.PyTorch.V2.DefaultGpuImageVersion
+		}
+	}
 }

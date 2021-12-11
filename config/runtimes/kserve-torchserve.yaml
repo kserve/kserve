@@ -1,18 +1,19 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: kserve-sklearnserver
+  name: kserve-torchserve
 spec:
   supportedModelTypes:
-    - name: sklearn
-      version: "0"
+    - name: pytorch
+      version: "1"
   containers:
     - name: kserve-container
-      image: kserve-sklearnserver:replace
+      image: kserve-torchserve:replace
       args:
-        - --model_name={{.Name}}
-        - --model_dir=/mnt/models
-        - --http_port=8080
+        - torchserve
+        - --start
+        - --model-store=/mnt/models/model-store
+        - --ts-config=/mnt/models/config/config.properties
       resources:
         requests:
           cpu: "1"
