@@ -63,7 +63,7 @@ func (m *ModelSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compone
 }
 
 func (m *ModelSpec) GetProtocol() constants.InferenceServiceProtocol {
-	if m.ProtocolVersion != nil{
+	if m.ProtocolVersion != nil {
 		return *m.ProtocolVersion
 	}
 	return constants.ProtocolV2
