@@ -58,7 +58,7 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} <namespace> -o jso
 ### Get Pods
 
 ```bash
-Kubectl get pods -n kfserving-test
+Kubectl get pods -n kserve-test
 
 NAME                                                             READY   STATUS        RESTARTS   AGE
 torchserve-custom-cj2d8-deployment-69444c9c74-rq8jq   2/2     Running       0          50m

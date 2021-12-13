@@ -1,5 +1,5 @@
 # Autoscaling
-KFServing supports the implementation of Knative Pod Autoscaler (KPA) and Kubernetes’ Horizontal Pod Autoscaler (HPA).
+KServe supports the implementation of Knative Pod Autoscaler (KPA) and Kubernetes’ Horizontal Pod Autoscaler (HPA).
 The features and limitations of each of these Autoscalers are listed below.
 
 IMPORTANT: If you want to use Kubernetes Horizontal Pod Autoscaler (HPA), you must install [HPA extension](https://knative.dev/docs/install/any-kubernetes-cluster/#optional-serving-extensions)
@@ -85,7 +85,7 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve -o jsonpath='{.status
 `hey` by default generates 50 requests concurrently, so you can see that the InferenceService scales to 5 pods as the container concurrency target is 10.
 
 ```bash
-kubectl get pods -n kfserving-test 
+kubectl get pods -n kserve-test 
 
 NAME                                                             READY   STATUS        RESTARTS   AGE
 torchserve-predictor-default-cj2d8-deployment-69444c9c74-67qwb   2/2     Terminating   0          103s
