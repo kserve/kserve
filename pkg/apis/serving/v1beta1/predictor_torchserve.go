@@ -30,8 +30,8 @@ const (
 	PyTorchServingGPUSuffix          = "-gpu"
 	InvalidPyTorchRuntimeIncludesGPU = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. "
 	InvalidPyTorchRuntimeExcludesGPU = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. "
-	V1ServiceEnvelope                = "kfserving"
-	V2ServiceEnvelope                = "kfservingv2"
+	V1ServiceEnvelope                = "kserve"
+	V2ServiceEnvelope                = "kservev2"
 )
 
 // TorchServeSpec defines arguments for configuring PyTorch model serving.
