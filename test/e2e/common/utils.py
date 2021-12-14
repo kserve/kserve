@@ -10,11 +10,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import grpc
 import time
 import logging
 import json
 import requests
 import os
+from . import inference_pb2_grpc
 from urllib.parse import urlparse
 from kubernetes import client
 from kserve import KServeClient
@@ -26,8 +28,33 @@ KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 
 
-def predict(service_name, input_json, protocol_version="v1",
-            version=constants.KSERVE_V1BETA1_VERSION, model_name=None):
+def grpc_stub(service_name, namespace):
+    cluster_ip = get_cluster_ip()
+    method_config = json.dumps({
+        "methodConfig": [{
+            "name": [{"service": "org.pytorch.serve.grpc.inference"}],
+            "retryPolicy": {
+                "maxAttempts": 5,
+                "initialBackoff": "0.1s",
+                "maxBackoff": "10s",
+                "backoffMultiplier": 2,
+                "retryableStatusCodes": ["UNAVAILABLE"],
+            }}
+        ]
+    })
+    os.environ["GRPC_VERBOSITY"] = "debug"
+    channel = grpc.insecure_channel(
+        cluster_ip,
+        options=(('grpc.ssl_target_name_override', service_name + '.' + namespace + '.example.com'),
+                 ('grpc.service_config', method_config)))
+    return inference_pb2_grpc.InferenceAPIsServiceStub(channel)
+
+
+def predict(service_name,
+            input_json,
+            protocol_version="v1",
+            version=constants.KSERVE_V1BETA1_VERSION,
+            model_name=None):
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
@@ -54,9 +81,8 @@ def predict(service_name, input_json, protocol_version="v1",
         logging.info("Sending url = %s", url)
         logging.info("Sending request data: %s", json.dumps(data))
         response = requests.post(url, json.dumps(data), headers=headers)
-        logging.info(
-            "Got response code %s, content %s", response.status_code, response.content
-        )
+        logging.info("Got response code %s, content %s", response.status_code,
+                     response.content)
         preds = json.loads(response.content.decode("utf-8"))
         return preds
 
@@ -66,11 +92,13 @@ def explain(service_name, input_json):
 
 
 def explain_aix(service_name, input_json):
-    return explain_response(service_name, input_json)["explanations"]["masks"][0]
+    return explain_response(service_name,
+                            input_json)["explanations"]["masks"][0]
 
 
 def explain_art(service_name, input_json):
-    return explain_response(service_name, input_json)["explanations"]["adversarial_prediction"]
+    return explain_response(
+        service_name, input_json)["explanations"]["adversarial_prediction"]
 
 
 def explain_response(service_name, input_json):
@@ -107,20 +135,17 @@ def explain_response(service_name, input_json):
                     KSERVE_TEST_NAMESPACE,
                     "services",
                     service_name + "-explainer",
-                )
-            )
+                ))
             pods = kfs_client.core_api.list_namespaced_pod(
                 KSERVE_TEST_NAMESPACE,
                 label_selector="serving.kserve.io/inferenceservice={}".format(
-                    service_name
-                ),
+                    service_name),
             )
             for pod in pods.items:
                 logging.info(pod)
                 logging.info(
-                    "%s\t%s\t%s"
-                    % (pod.metadata.name, pod.status.phase, pod.status.pod_ip)
-                )
+                    "%s\t%s\t%s" %
+                    (pod.metadata.name, pod.status.phase, pod.status.pod_ip))
                 api_response = kfs_client.core_api.read_namespaced_pod_log(
                     pod.metadata.name,
                     KSERVE_TEST_NAMESPACE,
@@ -133,9 +158,9 @@ def explain_response(service_name, input_json):
 
 def get_cluster_ip():
     api_instance = client.CoreV1Api(client.ApiClient())
-    service = api_instance.read_namespaced_service(
-        "istio-ingressgateway", "istio-system", exact="true"
-    )
+    service = api_instance.read_namespaced_service("istio-ingressgateway",
+                                                   "istio-system",
+                                                   exact="true")
     if service.status.load_balancer.ingress is None:
         cluster_ip = service.spec.cluster_ip
     else:

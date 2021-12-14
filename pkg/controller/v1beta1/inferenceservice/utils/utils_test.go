@@ -77,17 +77,10 @@ func TestIsMMSPredictor(t *testing.T) {
 						MultiModelServer:    mmsCase,
 					},
 				},
-				PyTorch: PredictorProtocols{
-					V1: &PredictorConfig{
-						ContainerImage:      "pytorchserver",
-						DefaultImageVersion: "latest",
-						MultiModelServer:    mmsCase,
-					},
-					V2: &PredictorConfig{
-						ContainerImage:      "pytorch/torchserve-kfs",
-						DefaultImageVersion: "0.4.1",
-						MultiModelServer:    mmsCase,
-					},
+				PyTorch: PredictorConfig{
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.1",
+					MultiModelServer:    mmsCase,
 				},
 				Tensorflow: PredictorConfig{
 					ContainerImage:         "tfserving",
@@ -370,7 +363,6 @@ func TestIsMMSPredictor(t *testing.T) {
 					Spec: InferenceServiceSpec{
 						Predictor: PredictorSpec{
 							PyTorch: &TorchServeSpec{
-								ModelClassName: "PyTorchModel",
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									ProtocolVersion: &protocolV1,
 									Container: v1.Container{
@@ -411,7 +403,6 @@ func TestIsMMSPredictor(t *testing.T) {
 					Spec: InferenceServiceSpec{
 						Predictor: PredictorSpec{
 							PyTorch: &TorchServeSpec{
-								ModelClassName: "PyTorchModel",
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI:      proto.String("gs://someUri"),
 									ProtocolVersion: &protocolV1,
@@ -650,15 +641,9 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 					DefaultImageVersion: "0.1.2",
 				},
 			},
-			PyTorch: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "pytorchserver",
-					DefaultImageVersion: "latest",
-				},
-				V2: &PredictorConfig{
-					ContainerImage:      "pytorch/torchserve-kfs",
-					DefaultImageVersion: "0.4.1",
-				},
+			PyTorch: PredictorConfig{
+				ContainerImage:      "pytorch/torchserve-kfs",
+				DefaultImageVersion: "0.4.1",
 			},
 			Tensorflow: PredictorConfig{
 				ContainerImage:         "tfserving",
@@ -975,7 +960,6 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 					Spec: InferenceServiceSpec{
 						Predictor: PredictorSpec{
 							PyTorch: &TorchServeSpec{
-								ModelClassName: "PyTorchModel",
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									ProtocolVersion: &protocolV1,
 									Container: v1.Container{
@@ -1016,7 +1000,6 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 					Spec: InferenceServiceSpec{
 						Predictor: PredictorSpec{
 							PyTorch: &TorchServeSpec{
-								ModelClassName: "PyTorchModel",
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI:      proto.String("gs://someUri"),
 									ProtocolVersion: &protocolV1,

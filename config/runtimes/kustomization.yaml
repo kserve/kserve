@@ -7,7 +7,6 @@ resources:
   - kserve-pmmlserver.yaml
   - kserve-paddleserver.yaml
   - kserve-lgbserver.yaml
-  - kserve-pytorchserver.yaml
   - kserve-torchserve.yaml
 
 images:
@@ -44,10 +43,6 @@ images:
     newName: kserve/lgbserver
     newTag: latest
 
-  - name: kserve-pytorchserver
-    newName: kserve/pytorchserver
-    newTag: latest
-
   - name: kserve-torchserve
-    newName: pytorch/torchserve-kfs
-    newTag: 0.4.1
+    newName: kserve/torchserve-kfs
+    newTag: 0.5.0
