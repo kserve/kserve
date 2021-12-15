@@ -92,7 +92,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			}
 
 			// Verify that the selected runtime supports the specified framework.
-			if !isvc.Spec.Predictor.Model.RuntimeSupportsModel(*isvc.Spec.Predictor.Model.Runtime, r) {
+			if !isvc.Spec.Predictor.Model.RuntimeSupportsModel(r) {
 				return fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
 			}
 
@@ -127,6 +127,15 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 		// Other dependencies rely on the container to be a specific name.
 		container.Name = constants.InferenceServiceContainerName
+
+		// Replace placeholders in runtime container by values from inferenceservice metadata
+		err = isvcutils.ReplacePlaceholders(container, isvc.ObjectMeta)
+		if err != nil {
+			return errors.Wrapf(err, "failed to replace placeholders in serving runtime Container")
+		}
+
+		// Update image tag if GPU is enabled or runtime version is provided
+		isvcutils.UpdateImageTag(container, isvc.Spec.Predictor.Model.RuntimeVersion, p.inferenceServiceConfig)
 
 		podSpec = *mergedPodSpec
 		podSpec.Containers = []v1.Container{

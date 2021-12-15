@@ -12,7 +12,6 @@
 # limitations under the License.
 
 import os
-import numpy as np
 from kubernetes import client
 
 from kserve import KServeClient
@@ -36,11 +35,12 @@ def test_transformer():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri='gs://kfserving-examples/models/torchserve/image_classifier',
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
+            protocol_version="v1",
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '1Gi'},
-                limits={'cpu': '100m', 'memory': '1Gi'}
-            )
+                requests={"cpu": "100m", "memory": "1Gi"},
+                limits={"cpu": "1", "memory": "1Gi"},
+            ),
         ),
     )
     transformer = V1beta1TransformerSpec(
@@ -74,6 +74,6 @@ def test_transformer():
         for pod in pods.items:
             print(pod)
         raise e
-    res = predict(service_name, './data/torchserve_input.json', model_name='mnist')
-    assert(np.argmax(res["predictions"]) == 0)
+    res = predict(service_name, "./data/torchserve_input.json", model_name="mnist")
+    assert(res.get("predictions")[0] == 2)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

@@ -21,7 +21,7 @@ tests_require = [
 ]
 setup(
     name='pmmlserver',
-    version='0.7.0rc0',
+    version='0.7.0',
     author_email='anyisalin@gmail.com',
     license='https://github.com/kserve/kserve/LICENSE',
     url='https://github.com/kserve/kserve/python/pmmlserver',
@@ -31,7 +31,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("pmmlserver"),
     install_requires=[
-        "kserve>=0.7.0rc0",
+        "kserve>=0.7.0",
         "jpmml-evaluator==0.5.1",
     ],
     tests_require=tests_require,

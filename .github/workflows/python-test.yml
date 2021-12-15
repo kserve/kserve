@@ -42,13 +42,19 @@ jobs:
         pip install --upgrade pytest-tornasync
         cd python
         pip install -e ./kserve
-        pip install -e ./aixexplainer
+        pytest ./kserve
+        pip install -e ./sklearnserver
+        pytest ./sklearnserver
+        pip install -e ./xgbserver
+        pytest ./xgbserver
+        pip install -e ./pytorchserver
+        pytest ./pytorchserver
+        pip install -e ./pmmlserver
+        pytest ./pmmlserver
+        pip install -e ./lgbserver
+        pytest ./lgbserver
+        pip install -e ./paddleserver[test]
+        pytest ./paddleserver
         pip install -e ./alibiexplainer
         pip install h5py==2.9.0
-        pip install -e ./sklearnserver
-        pip install -e ./xgbserver
-        pip install -e ./pytorchserver
-        pip install -e ./pmmlserver
-        pip install -e ./lgbserver
-        pip install -e ./paddleserver[test]
-        pytest
+        pytest ./alibiexplainer

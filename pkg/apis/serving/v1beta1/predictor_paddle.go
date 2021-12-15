@@ -46,7 +46,7 @@ func (p *PaddleServerSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(&p.Resources)
 }
 
-// GetContainers transforms the resource into a container spec
+// GetContainer GetContainers transforms the resource into a container spec
 func (p *PaddleServerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),

@@ -86,7 +86,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 	} else {
 		minReplicas = int32(*componentExt.MinReplicas)
 	}
-	
+
 	maxReplicas := int32(componentExt.MaxReplicas)
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas

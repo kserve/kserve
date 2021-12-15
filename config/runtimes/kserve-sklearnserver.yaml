@@ -10,7 +10,7 @@ spec:
     - name: kserve-container
       image: kserve-sklearnserver:replace
       args:
-        - --model_name=model
+        - --model_name={{.Name}}
         - --model_dir=/mnt/models
         - --http_port=8080
       resources:

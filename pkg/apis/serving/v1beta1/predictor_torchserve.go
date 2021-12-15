@@ -17,7 +17,6 @@ package v1beta1
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -28,18 +27,15 @@ import (
 )
 
 const (
-	DefaultPyTorchModelClassName     = "PyTorchModel"
 	PyTorchServingGPUSuffix          = "-gpu"
 	InvalidPyTorchRuntimeIncludesGPU = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. "
 	InvalidPyTorchRuntimeExcludesGPU = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. "
-	InvalidInferenceProtocolVersion  = "PyTorch ProtocolVersion v2 is not supported"
+	V1ServiceEnvelope                = "kfserving"
+	V2ServiceEnvelope                = "kfservingv2"
 )
 
 // TorchServeSpec defines arguments for configuring PyTorch model serving.
 type TorchServeSpec struct {
-	// When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation
-	// +optional
-	ModelClassName string `json:"modelClassName,omitempty"`
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
 }
@@ -54,7 +50,6 @@ func (t *TorchServeSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(t.GetStorageUri()),
 		t.validateGPU(),
-		t.validateProtocol(),
 	})
 }
 
@@ -69,13 +64,6 @@ func (t *TorchServeSpec) validateGPU() error {
 	return nil
 }
 
-func (t *TorchServeSpec) validateProtocol() error {
-	if t.ProtocolVersion != nil && *t.ProtocolVersion == constants.ProtocolV2 {
-		return fmt.Errorf("Invalid inference protocol version")
-	}
-	return nil
-}
-
 // Default sets defaults on the resource
 func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
@@ -84,78 +72,47 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 		t.ProtocolVersion = &defaultProtocol
 	}
 	if t.RuntimeVersion == nil {
-		if t.ProtocolVersion != nil && *t.ProtocolVersion == constants.ProtocolV2 {
-			if utils.IsGPUEnabled(t.Resources) {
-				t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V2.DefaultGpuImageVersion)
-			} else {
-				t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V2.DefaultImageVersion)
-			}
+		if utils.IsGPUEnabled(t.Resources) {
+			t.RuntimeVersion = proto.String(config.Predictors.PyTorch.DefaultGpuImageVersion)
 		} else {
-			if t.ModelClassName != "" {
-				if utils.IsGPUEnabled(t.Resources) {
-					t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V1.DefaultGpuImageVersion)
-				} else {
-					t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V1.DefaultImageVersion)
-				}
-			} else {
-				if utils.IsGPUEnabled(t.Resources) {
-					t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V2.DefaultGpuImageVersion)
-				} else {
-					t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V2.DefaultImageVersion)
-				}
-			}
+			t.RuntimeVersion = proto.String(config.Predictors.PyTorch.DefaultImageVersion)
 		}
 	}
-
 	setResourceRequirementDefaults(&t.Resources)
 }
 
 // GetContainers transforms the resource into a container spec
 func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+	var tsServiceEnvelope = ""
+
 	if t.ProtocolVersion == nil || *t.ProtocolVersion == constants.ProtocolV1 {
-		if t.ModelClassName != "" {
-			return t.GetContainerV1(metadata, extensions, config)
-		} else {
-			return t.GetContainerV2(metadata, extensions, config)
-		}
+		tsServiceEnvelope = V1ServiceEnvelope
+	} else {
+		tsServiceEnvelope = V2ServiceEnvelope
 	}
-	return t.GetContainerV2(metadata, extensions, config)
-}
 
-func (t *TorchServeSpec) GetContainerV1(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	arguments := []string{
-		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
-		fmt.Sprintf("%s=%s", constants.ArgumentModelClassName, t.ModelClassName),
-		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
-		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
-	}
-	if utils.IsGPUEnabled(t.Resources) {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, "1"))
-	} else if extensions.ContainerConcurrency != nil {
-		if !utils.IncludesArg(t.Container.Args, constants.ArgumentWorkers) {
-			arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
-		}
-	}
-	if t.Container.Image == "" {
-		t.Container.Image = config.Predictors.PyTorch.V1.ContainerImage + ":" + *t.RuntimeVersion
-	}
-	t.Name = constants.InferenceServiceContainerName
-	t.Args = append(arguments, t.Args...)
-	return &t.Container
-}
+	t.Container.Env = append(
+		t.Container.Env,
+		v1.EnvVar{
+			Name:  "TS_SERVICE_ENVELOPE",
+			Value: tsServiceEnvelope,
+		},
+	)
 
-func (t *TorchServeSpec) GetContainerV2(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		"torchserve",
 		"--start",
 		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath+"/model-store"),
 		fmt.Sprintf("%s=%s", "--ts-config", constants.DefaultModelLocalMountPath+"/config/config.properties"),
 	}
+
 	if t.Container.Image == "" {
-		t.Container.Image = config.Predictors.PyTorch.V2.ContainerImage + ":" + *t.RuntimeVersion
+		t.Container.Image = config.Predictors.PyTorch.ContainerImage + ":" + *t.RuntimeVersion
 	}
+
 	t.Name = constants.InferenceServiceContainerName
 	t.Args = append(arguments, t.Args...)
+
 	return &t.Container
 }
 
@@ -168,21 +125,10 @@ func (t *TorchServeSpec) GetProtocol() constants.InferenceServiceProtocol {
 }
 
 func (t *TorchServeSpec) IsMMS(config *InferenceServicesConfig) bool {
-	predictorConfig := t.getPredictorConfig(config)
-	return predictorConfig.MultiModelServer
+	return config.Predictors.PyTorch.MultiModelServer
 }
 
 func (t *TorchServeSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
-	predictorConfig := t.getPredictorConfig(config)
-	supportedFrameworks := predictorConfig.SupportedFrameworks
+	supportedFrameworks := config.Predictors.PyTorch.SupportedFrameworks
 	return isFrameworkIncluded(supportedFrameworks, framework)
-}
-
-func (t *TorchServeSpec) getPredictorConfig(config *InferenceServicesConfig) *PredictorConfig {
-	protocol := t.GetProtocol()
-	if protocol == constants.ProtocolV1 {
-		return config.Predictors.PyTorch.V1
-	} else {
-		return config.Predictors.PyTorch.V2
-	}
 }

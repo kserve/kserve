@@ -35,7 +35,7 @@ data:
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.2.1",
+            "defaultImageVersion": "0.5.3",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -53,7 +53,7 @@ data:
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.2.1",
+            "defaultImageVersion": "0.5.3",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -61,24 +61,13 @@ data:
           }
         },
         "pytorch": {
-          "v1" : {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/pytorchserver",
-            "defaultImageVersion": "latest",
-            "defaultGpuImageVersion": "latest-gpu",
-            "supportedFrameworks": [
-              "pytorch"
-            ],
-            "multiModelServer": false
-          },
-          "v2" : {
-            "image": "pytorch/torchserve-kfs",
-            "defaultImageVersion": "0.4.1",
-            "defaultGpuImageVersion": "0.4.1-gpu",
-            "supportedFrameworks": [
-              "pytorch"
-            ],
-            "multiModelServer": false
-          }
+          "image": "kserve/torchserve-kfs",
+          "defaultImageVersion": "0.5.0",
+          "defaultGpuImageVersion": "0.5.0-gpu",
+          "supportedFrameworks": [
+            "pytorch"
+          ],
+          "multiModelServer": false
         },
         "paddle": {
             "image": "ruminateer/paddleserver",

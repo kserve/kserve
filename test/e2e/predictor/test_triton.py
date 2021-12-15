@@ -13,14 +13,16 @@
 
 import os
 from kubernetes import client
-
+import numpy as np
 from kserve import KServeClient
 from kserve import constants
-from kserve import V1beta1PredictorSpec
+from kserve import V1beta1PredictorSpec, V1beta1TransformerSpec
 from kserve import V1beta1TritonSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
+from kubernetes.client import V1ResourceRequirements, V1Container, V1ContainerPort
 from ..common.utils import KSERVE_TEST_NAMESPACE
+from ..common.utils import predict
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
@@ -30,15 +32,25 @@ def test_triton():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         triton=V1beta1TritonSpec(
-            storage_uri='gs://kfserving-samples/models/tensorrt'
+            storage_uri='gs://kfserving-examples/models/torchscript',
+            ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)]
         )
     )
-
+    transformer = V1beta1TransformerSpec(
+        min_replicas=1,
+        containers=[V1Container(
+                      image='kserve/grpc-image-transformer:latest',
+                      name='kserve-container',
+                      resources=V1ResourceRequirements(
+                          requests={'cpu': '100m', 'memory': '1Gi'},
+                          limits={'cpu': '100m', 'memory': '1Gi'}),
+                      args=["--model_name", "cifar10", "--protocol", "grpc-v2"])]
+    )
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(
                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer))
 
     kserve_client.create(isvc)
     try:
@@ -54,4 +66,6 @@ def test_triton():
         for deployment in deployments.items:
             print(deployment)
         raise e
+    res = predict(service_name, "./data/image.json", model_name='cifar10')
+    assert(np.argmax(res.get("predictions")[0]) == 5)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

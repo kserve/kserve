@@ -1358,10 +1358,10 @@ spec:
                         type: object
                       pytorch:
                         properties:
-                          modelClassName:
-                            type: string
                           resources:
                             properties:
+                              modelClassName:
+                                type: string
                               limits:
                                 additionalProperties:
                                   anyOf:
@@ -3364,8 +3364,6 @@ spec:
                         type: object
                       pytorch:
                         properties:
-                          modelClassName:
-                            type: string
                           resources:
                             properties:
                               limits:

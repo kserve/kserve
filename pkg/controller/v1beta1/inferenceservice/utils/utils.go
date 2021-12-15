@@ -16,26 +16,30 @@ limitations under the License.
 package utils
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"html/template"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	goerrors "github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
+// IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
 	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
 }
 
-// Container
 func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
 	if isvc.Spec.Predictor.GetExtensions() == nil || len(isvc.Spec.Predictor.GetImplementations()) == 0 {
 		return false
@@ -68,7 +72,7 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
 }
 
-// Merge the predictor Container struct with the runtime Container struct, allowing users
+// MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
 func MergeRuntimeContainers(runtimeContainer *v1alpha1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
 	// Default container configuration from the runtime.
@@ -118,7 +122,7 @@ func MergeRuntimeContainers(runtimeContainer *v1alpha1.Container, predictorConta
 
 }
 
-// Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
+// MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
 // to override runtime PodSpec settings from the predictor spec.
 func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
 
@@ -142,7 +146,7 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 
 }
 
-// Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
+// GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
 // If a resource of the specified name is not found, then ClusterServingRuntimes will be checked.
 func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error) {
 
@@ -162,4 +166,36 @@ func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alph
 		return nil, err
 	}
 	return nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name)
+}
+
+// ReplacePlaceholders Replace placeholders in runtime container by values from inferenceservice metadata
+func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error {
+	data, _ := json.Marshal(container)
+	tmpl, err := template.New("container-tmpl").Parse(string(data))
+	if err != nil {
+		return err
+	}
+	buf := &bytes.Buffer{}
+	err = tmpl.Execute(buf, meta)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(buf.Bytes(), container)
+}
+
+// UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
+func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
+	image := container.Image
+	if runtimeVersion != nil && len(strings.Split(image, ":")) > 0 {
+		container.Image = strings.Split(image, ":")[0] + ":" + *runtimeVersion
+		return
+	}
+	if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
+		imageName := strings.Split(image, ":")[0]
+		if imageName == isvcConfig.Predictors.Tensorflow.ContainerImage {
+			container.Image = imageName + ":" + isvcConfig.Predictors.Tensorflow.DefaultGpuImageVersion
+		} else if imageName == isvcConfig.Predictors.PyTorch.ContainerImage {
+			container.Image = imageName + ":" + isvcConfig.Predictors.PyTorch.DefaultGpuImageVersion
+		}
+	}
 }

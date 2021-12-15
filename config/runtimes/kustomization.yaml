@@ -1,14 +1,48 @@
 resources:
   - kserve-tensorflow-serving.yaml
   - kserve-sklearnserver.yaml
+  - kserve-mlserver.yaml
+  - kserve-xgbserver.yaml
+  - kserve-tritonserver.yaml
+  - kserve-pmmlserver.yaml
+  - kserve-paddleserver.yaml
+  - kserve-lgbserver.yaml
+  - kserve-torchserve.yaml
 
 images:
   # SMS Only Runtimes
   - name: tensorflow-serving
     newName: tensorflow/serving
-    newTag: 1.14.0
+    newTag: 2.6.2
 
   - name: kserve-sklearnserver
     newName: kserve/sklearnserver
     newTag: latest
 
+  - name: mlserver
+    newName: docker.io/seldonio/mlserver
+    newTag: 0.5.3
+
+  - name: kserve-xgbserver
+    newName: kserve/xgbserver
+    newTag: latest
+
+  - name: kserve-tritonserver
+    newName: nvcr.io/nvidia/tritonserver
+    newTag: 21.09-py3
+
+  - name: kserve-pmmlserver
+    newName: kserve/pmmlserver
+    newTag: latest
+
+  - name: kserve-paddleserver
+    newName: kserve/paddleserver
+    newTag: latest
+
+  - name: kserve-lgbserver
+    newName: kserve/lgbserver
+    newTag: latest
+
+  - name: kserve-torchserve
+    newName: kserve/torchserve-kfs
+    newTag: 0.5.0

@@ -6,7 +6,7 @@ C++ is very often the language of choice, The following example will outline the
 to a serialized representation that can be loaded and executed purely from C++ like Triton Inference Server, with no dependency on Python.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing 0.5 installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with KServe installed](https://github.com/kserve/kserve/#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Skip [tag resolution](https://knative.dev/docs/serving/tag-resolution/) for `nvcr.io` which requires auth to resolve triton inference server image digest
 ```bash
@@ -147,7 +147,7 @@ kubectl get inferenceservices torchscript-demo
 ### Run a prediction with curl
 The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
-The latest Triton Inference Server already switched to use KFServing [prediction V2 protocol](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2), so 
+The latest Triton Inference Server already switched to use KFServing [prediction V2 protocol](https://github.com/kserve/kserve/tree/master/docs/predict-api/v2), so 
 the input request needs to follow the V2 schema with the specified data type, shape.
 ```bash
 MODEL_NAME=cifar10
@@ -234,7 +234,7 @@ format to tensor format according to V2 prediction protocol, `postprocess` handl
 
 ### Implement pre/post processing functions
 ```python
-import kfserving
+import kserve 
 from typing import List, Dict
 from PIL import Image
 import torchvision.transforms as transforms
@@ -243,7 +243,7 @@ import io
 import numpy as np
 import base64
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KFSERVING_LOGLEVEL)
 
 transform = transforms.Compose(
         [transforms.ToTensor(),
@@ -259,7 +259,7 @@ def image_transform(instance):
     return res.tolist()
 
 
-class ImageTransformer(kfserving.KFModel):
+class ImageTransformer(kserve.KFModel):
     def __init__(self, name: str, predictor_host: str):
         super().__init__(name)
         self.predictor_host = predictor_host
@@ -305,7 +305,7 @@ spec:
   transformer:
     containers:
     - image: kfserving/image-transformer-v2:latest
-      name: kfserving-container
+      name: kserve-container
       command:
       - "python"
       - "-m"
