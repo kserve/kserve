@@ -161,10 +161,12 @@ class KFModel:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
+        json_header = {'Content-Type': 'application/json'}
         response = await self._http_client.fetch(
             predict_url,
             method='POST',
             request_timeout=self.timeout,
+            headers=json_header,
             body=json.dumps(request)
         )
         if response.code != 200:
