@@ -77,10 +77,6 @@ func (x *LightGBMSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Comp
 	return &x.Container
 }
 
-func (x *LightGBMSpec) GetStorageUri() *string {
-	return x.StorageURI
-}
-
 func (x *LightGBMSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }

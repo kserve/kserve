@@ -15,7 +15,11 @@ limitations under the License.
 
 package v1beta1
 
-import v1 "k8s.io/api/core/v1"
+import (
+	"strings"
+
+	v1 "k8s.io/api/core/v1"
+)
 
 // ExplainerSpec defines the container spec for a model explanation server,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
@@ -48,9 +52,28 @@ type ExplainerExtensionSpec struct {
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional
 	v1.Container `json:",inline"`
+	// Storage Spec for model location
+	// +optional
+	Storage *StorageSpec `json:"storage,omitempty"`
 }
 
 var _ Component = &ExplainerSpec{}
+
+// GetStorageUri returns the predictor storage Uri
+func (e *ExplainerExtensionSpec) GetStorageUri() *string {
+	if e.StorageURI != "" {
+		return &e.StorageURI
+	} else if e.Storage != nil && e.Storage.Path != nil {
+		storageSpecUri := "s3://<bucket-placeholder>/" + strings.TrimPrefix(*e.Storage.Path, "/")
+		return &storageSpecUri
+	}
+	return nil
+}
+
+// GetStorageSpec returns the predictor storage spec object
+func (e *ExplainerExtensionSpec) GetStorageSpec() *StorageSpec {
+	return e.Storage
+}
 
 // GetImplementations returns the implementations for the component
 func (s *ExplainerSpec) GetImplementations() []ComponentImplementation {

@@ -90,10 +90,6 @@ func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *C
 	return &o.Container
 }
 
-func (o *ONNXRuntimeSpec) GetStorageUri() *string {
-	return o.StorageURI
-}
-
 func (o *ONNXRuntimeSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }

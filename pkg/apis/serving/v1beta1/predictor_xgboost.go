@@ -176,10 +176,6 @@ func (x *XGBoostSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
 	return vars
 }
 
-func (x *XGBoostSpec) GetStorageUri() *string {
-	return x.StorageURI
-}
-
 func (x *XGBoostSpec) GetProtocol() constants.InferenceServiceProtocol {
 	if x.ProtocolVersion != nil {
 		return *x.ProtocolVersion

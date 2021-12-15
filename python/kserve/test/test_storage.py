@@ -196,3 +196,10 @@ def test_unpack_zip_file():
     kserve.Storage._unpack_archive_file(tar_file, mimetype, out_dir)
     assert os.path.exists(os.path.join(out_dir, 'model.pth'))
     os.remove(os.path.join(out_dir, 'model.pth'))
+
+
+def test_storage_spec_update():
+    uri = 's3://<bucket-placeholder>/bar'
+    expected_uri = 's3://default/bar'
+    os.environ["STORAGE_SECRET_JSON"] = '{"type": "s3", "bucket": "default"}'
+    assert expected_uri == kserve.Storage._update_with_storage_spec(uri)

@@ -66,7 +66,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
-
+	// Add StorageSpec annotations so mutator will mount storage credentials to InferenceService's predictor
+	addStorageSpecAnnotations(isvc.Spec.Predictor.GetImplementation().GetStorageSpec(), annotations)
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
 	addAgentAnnotations(isvc, annotations, p.inferenceServiceConfig)
 

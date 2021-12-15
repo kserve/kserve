@@ -116,10 +116,6 @@ func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Co
 	return &t.Container
 }
 
-func (t *TorchServeSpec) GetStorageUri() *string {
-	return t.StorageURI
-}
-
 func (t *TorchServeSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }

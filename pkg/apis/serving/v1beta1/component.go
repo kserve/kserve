@@ -56,6 +56,7 @@ type ComponentImplementation interface {
 	Validate() error
 	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container
 	GetStorageUri() *string
+	GetStorageSpec() *StorageSpec
 	GetProtocol() constants.InferenceServiceProtocol
 	IsMMS(config *InferenceServicesConfig) bool
 }

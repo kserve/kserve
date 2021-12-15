@@ -43,13 +43,6 @@ type ARTExplainerSpec struct {
 
 var _ ComponentImplementation = &ARTExplainerSpec{}
 
-func (s *ARTExplainerSpec) GetStorageUri() *string {
-	if s.StorageURI == "" {
-		return nil
-	}
-	return &s.StorageURI
-}
-
 func (s *ARTExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
 	return &s.Resources

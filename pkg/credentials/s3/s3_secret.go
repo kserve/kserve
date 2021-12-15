@@ -41,10 +41,11 @@ const (
 )
 
 type S3Config struct {
-	S3AccessKeyIDName     string `json:"s3AccessKeyIDName,omitempty"`
-	S3SecretAccessKeyName string `json:"s3SecretAccessKeyName,omitempty"`
-	S3Endpoint            string `json:"s3Endpoint,omitempty"`
-	S3UseHttps            string `json:"s3UseHttps,omitempty"`
+	S3AccessKeyIDName       string `json:"s3AccessKeyIDName,omitempty"`
+	S3SecretAccessKeyName   string `json:"s3SecretAccessKeyName,omitempty"`
+	S3Endpoint              string `json:"s3Endpoint,omitempty"`
+	S3UseHttps              string `json:"s3UseHttps,omitempty"`
+	DefaultStorageSecretKey string `json:"defaultStorageSecretKey,omitempty"`
 }
 
 var (

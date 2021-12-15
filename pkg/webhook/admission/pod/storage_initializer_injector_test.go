@@ -32,18 +32,20 @@ import (
 )
 
 const (
-	StorageInitializerDefaultCPURequest    = "100m"
-	StorageInitializerDefaultCPULimit      = "1"
-	StorageInitializerDefaultMemoryRequest = "200Mi"
-	StorageInitializerDefaultMemoryLimit   = "1Gi"
+	StorageInitializerDefaultCPURequest            = "100m"
+	StorageInitializerDefaultCPULimit              = "1"
+	StorageInitializerDefaultMemoryRequest         = "200Mi"
+	StorageInitializerDefaultMemoryLimit           = "1Gi"
+	StorageInitializerDefaultStorageSpecSecretName = "storage-config"
 )
 
 var (
 	storageInitializerConfig = &StorageInitializerConfig{
-		CpuRequest:    StorageInitializerDefaultCPURequest,
-		CpuLimit:      StorageInitializerDefaultCPULimit,
-		MemoryRequest: StorageInitializerDefaultMemoryRequest,
-		MemoryLimit:   StorageInitializerDefaultMemoryLimit,
+		CpuRequest:            StorageInitializerDefaultCPURequest,
+		CpuLimit:              StorageInitializerDefaultCPULimit,
+		MemoryRequest:         StorageInitializerDefaultMemoryRequest,
+		MemoryLimit:           StorageInitializerDefaultMemoryLimit,
+		StorageSpecSecretName: StorageInitializerDefaultStorageSpecSecretName,
 	}
 
 	resourceRequirement = v1.ResourceRequirements{
@@ -760,11 +762,12 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
-				Image:         "kfserving/storage-initializer@sha256:xxx",
-				CpuRequest:    StorageInitializerDefaultCPURequest,
-				CpuLimit:      StorageInitializerDefaultCPULimit,
-				MemoryRequest: StorageInitializerDefaultMemoryRequest,
-				MemoryLimit:   StorageInitializerDefaultMemoryLimit,
+				Image:                 "kfserving/storage-initializer@sha256:xxx",
+				CpuRequest:            StorageInitializerDefaultCPURequest,
+				CpuLimit:              StorageInitializerDefaultCPULimit,
+				MemoryRequest:         StorageInitializerDefaultMemoryRequest,
+				MemoryLimit:           StorageInitializerDefaultMemoryLimit,
+				StorageSpecSecretName: StorageInitializerDefaultStorageSpecSecretName,
 			},
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {

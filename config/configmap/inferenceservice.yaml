@@ -129,7 +129,8 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "storageSpecSecretName": "storage-config"
     }
   credentials: |-
     {
@@ -138,7 +139,8 @@ data:
        },
        "s3": {
            "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
-           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+           "defaultStorageSecretKey": "s3_default"
        }
     }
   ingress: |-

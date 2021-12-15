@@ -17,6 +17,7 @@ package v1beta1
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
@@ -80,6 +81,25 @@ type PredictorExtensionSpec struct {
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional
 	v1.Container `json:",inline"`
+	// Storage Spec for model location
+	// +optional
+	Storage *StorageSpec `json:"storage,omitempty"`
+}
+
+type StorageSpec struct {
+	// The path to the model object in the storage. It cannot co-exist
+	// with the storageURI.
+	// +optional
+	Path *string `json:"path,omitempty"`
+	// The path to the model schema file in the storage.
+	// +optional
+	SchemaPath *string `json:"schemaPath,omitempty"`
+	// Parameters to override the default storage credentials and config.
+	// +optional
+	Parameters *map[string]string `json:"parameters,omitempty"`
+	// The Storage Key in the secret for this model.
+	// +optional
+	StorageKey *string `json:"key,omitempty"`
 }
 
 // GetImplementations returns the implementations for the component
@@ -112,6 +132,22 @@ func (s *PredictorSpec) GetImplementation() ComponentImplementation {
 // GetExtensions returns the extensions for the component
 func (s *PredictorSpec) GetExtensions() *ComponentExtensionSpec {
 	return &s.ComponentExtensionSpec
+}
+
+// GetStorageUri returns the predictor storage Uri
+func (p *PredictorExtensionSpec) GetStorageUri() *string {
+	if p.StorageURI != nil {
+		return p.StorageURI
+	} else if p.Storage != nil && p.Storage.Path != nil {
+		storageSpecUri := "s3://<bucket-placeholder>/" + strings.TrimPrefix(*p.Storage.Path, "/")
+		return &storageSpecUri
+	}
+	return nil
+}
+
+// GetStorageSpec returns the predictor storage spec object
+func (p *PredictorExtensionSpec) GetStorageSpec() *StorageSpec {
+	return p.Storage
 }
 
 // GetPredictor returns the implementation for the predictor

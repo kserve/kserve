@@ -80,10 +80,6 @@ func (t *TFServingSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(&t.Resources)
 }
 
-func (t *TFServingSpec) GetStorageUri() *string {
-	return t.StorageURI
-}
-
 // GetContainers transforms the resource into a container spec
 func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	// Get the timeout from user input or else use the default timeout

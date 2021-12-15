@@ -67,10 +67,6 @@ func (p *PaddleServerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 	return &p.Container
 }
 
-func (p *PaddleServerSpec) GetStorageUri() *string {
-	return p.StorageURI
-}
-
 func (p *PaddleServerSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }

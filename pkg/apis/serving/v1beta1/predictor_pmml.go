@@ -69,10 +69,6 @@ func (p *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Componen
 	return &p.Container
 }
 
-func (p *PMMLSpec) GetStorageUri() *string {
-	return p.StorageURI
-}
-
 func (p *PMMLSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }

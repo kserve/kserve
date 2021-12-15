@@ -13,6 +13,7 @@ limitations under the License.
 package components
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -25,6 +26,22 @@ import (
 // Component can be reconciled to create underlying resources for an InferenceService
 type Component interface {
 	Reconcile(isvc *v1beta1.InferenceService) error
+}
+
+func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map[string]string) bool {
+	if storageSpec != nil {
+		annotations[constants.StorageSpecAnnotationKey] = "true"
+		if storageSpec.Parameters != nil {
+			if jsonParam, err := json.Marshal(storageSpec.Parameters); err == nil {
+				annotations[constants.StorageSpecParamAnnotationKey] = string(jsonParam)
+			}
+		}
+		if storageSpec.StorageKey != nil {
+			annotations[constants.StorageSpecKeyAnnotationKey] = *storageSpec.StorageKey
+		}
+		return true
+	}
+	return false
 }
 
 func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) bool {
