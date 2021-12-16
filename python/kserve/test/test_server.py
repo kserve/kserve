@@ -236,12 +236,31 @@ class TestRayServer:
 
         return server.create_application()
 
-    async def test_model(self, http_server_client):
+    async def test_liveness_handler(self, http_server_client):
+        resp = await http_server_client.fetch('/')
+        assert resp.code == 200
+        assert resp.body == b'{"status": "alive"}'
+
+    async def test_list_handler(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models')
+        assert resp.code == 200
+        assert resp.body == b'{"models": ["TestModel"]}'
+
+    async def test_health_handler(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models/TestModel')
         assert resp.code == 200
+        assert resp.body == b'{"name": "TestModel", "ready": true}'
 
     async def test_predict(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                              method="POST",
+                                              body=b'{"instances":[[1,2]]}')
+        assert resp.code == 200
+        assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.headers['content-type'] == "application/json; charset=UTF-8"
+
+    async def test_explain(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models/TestModel:explain',
                                               method="POST",
                                               body=b'{"instances":[[1,2]]}')
         assert resp.code == 200
