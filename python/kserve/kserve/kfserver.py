@@ -184,7 +184,7 @@ class ListHandler(BaseHandler):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self):
-        self.write({"models": [ob.name for ob in self.models.get_models()]})
+        self.write({"models": list(self.models.get_models().keys())})
 
 
 class LoadHandler(BaseHandler):

@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Union
+from typing import Dict, Optional, Union
 from kserve import KFModel
 from ray.serve.api import RayServeHandle
 
@@ -34,8 +34,8 @@ class KFModelRepository:
     def get_model(self, name: str) -> Optional[Union[KFModel, RayServeHandle]]:
         return self.models.get(name, None)
 
-    def get_models(self) -> List[Union[KFModel, RayServeHandle]]:
-        return list(self.models.values())
+    def get_models(self) -> Dict[str, Union[KFModel, RayServeHandle]]:
+        return self.models
 
     def is_model_ready(self, name: str):
         model = self.get_model(name)
