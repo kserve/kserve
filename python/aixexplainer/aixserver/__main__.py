@@ -25,7 +25,7 @@ DEFAULT_MIN_WEIGHT = "0.01"
 DEFAULT_POSITIVE_ONLY = "true"
 # The required parameter is predictor_host
 
-parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
                     help='The name that the model is served under.')
 parser.add_argument('--num_samples', default=DEFAULT_NUM_SAMPLES,
@@ -50,4 +50,4 @@ if __name__ == "__main__":
                      top_labels=args.top_labels, min_weight=args.min_weight,
                      positive_only=args.positive_only, explainer_type=args.explainer_type)
     model.load()
-    kserve.KFServer().start([model], nest_asyncio=True)
+    kserve.ModelServer().start([model], nest_asyncio=True)

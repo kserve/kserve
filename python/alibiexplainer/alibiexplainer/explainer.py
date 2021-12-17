@@ -35,7 +35,7 @@ class ExplainerMethod(Enum):
         return self.value
 
 
-class AlibiExplainer(kserve.KFModel):
+class AlibiExplainer(kserve.Model):
     def __init__(  # pylint:disable=too-many-arguments
         self,
         name: str,

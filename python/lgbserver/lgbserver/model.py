@@ -21,7 +21,7 @@ import pandas as pd
 BOOSTER_FILE = "model.bst"
 
 
-class LightGBMModel(kserve.KFModel):
+class LightGBMModel(kserve.Model):
     def __init__(self, name: str, model_dir: str, nthread: int,
                  booster: Booster = None):
         super().__init__(name)

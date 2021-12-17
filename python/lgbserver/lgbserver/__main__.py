@@ -24,7 +24,7 @@ DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
 
-parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])  # pylint:disable=c-extension-no-member
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])  # pylint:disable=c-extension-no-member
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -44,5 +44,5 @@ if __name__ == "__main__":
                       f"exception type {ex_type}, exception msg: {ex_value}")
     model_repository = LightGBMModelRepository(args.model_dir, args.nthread)
     # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
-    kfserver = kserve.KFServer(workers=1, registered_models=model_repository)  # pylint:disable=c-extension-no-member
+    kfserver = kserve.ModelServer(workers=1, registered_models=model_repository)  # pylint:disable=c-extension-no-member
     kfserver.start([model] if model.ready else [])

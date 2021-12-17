@@ -46,7 +46,7 @@ def main():
         alibi_model,
     )
     explainer.load()
-    kserve.KFServer().start(models=[explainer], nest_asyncio=True)
+    kserve.ModelServer().start(models=[explainer], nest_asyncio=True)
 
 
 if __name__ == "__main__":

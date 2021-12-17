@@ -12,11 +12,11 @@
 # limitations under the License.
 
 import os
-from kserve.kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
+from kserve.model_repository import ModelRepository, MODEL_MOUNT_DIRS
 from sklearnserver import SKLearnModel
 
 
-class SKLearnModelRepository(KFModelRepository):
+class SKLearnModelRepository(ModelRepository):
 
     def __init__(self, model_dir: str = MODEL_MOUNT_DIRS):
         super().__init__(model_dir)

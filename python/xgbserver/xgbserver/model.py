@@ -21,7 +21,7 @@ from typing import Dict
 BOOSTER_FILE = "model.bst"
 
 
-class XGBoostModel(kserve.KFModel):
+class XGBoostModel(kserve.Model):
     def __init__(self, name: str, model_dir: str, nthread: int,
                  booster: XGBModel = None):
         super().__init__(name)

@@ -20,7 +20,7 @@ from aif360.metrics import BinaryLabelDatasetMetric
 from aif360.datasets import BinaryLabelDataset
 
 
-class AIFModel(kserve.KFModel):
+class AIFModel(kserve.Model):
     def __init__(self, name: str, predictor_host: str, feature_names: list, label_names: list, favorable_label: float,
                  unfavorable_label: float, privileged_groups: list, unprivileged_groups: list):
         super().__init__(name)

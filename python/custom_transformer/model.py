@@ -22,7 +22,7 @@ from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 from tritonclient.grpc import InferResult, InferInput
 
 
-class ImageTransformer(kserve.KFModel):
+class ImageTransformer(kserve.Model):
     def __init__(self, name: str, predictor_host: str, protocol: str):
         super().__init__(name)
         self.predictor_host = predictor_host
@@ -64,7 +64,7 @@ class ImageTransformer(kserve.KFModel):
         return {"predictions": response.as_numpy("OUTPUT__0").tolist()}
 
 
-parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument(
     "--predictor_host", help="The URL for the model predict function", required=True
 )
@@ -79,4 +79,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = ImageTransformer(args.model_name, predictor_host=args.predictor_host,
                              protocol=args.protocol)
-    kserve.KFServer(workers=1).start([model])
+    kserve.ModelServer(workers=1).start([model])

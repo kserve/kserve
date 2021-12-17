@@ -20,7 +20,7 @@ import base64
 import io
 
 
-class AlexNetModel(kserve.KFModel):
+class AlexNetModel(kserve.Model):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -65,4 +65,4 @@ class AlexNetModel(kserve.KFModel):
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
     model.load()
-    kserve.KFServer(workers=1).start([model])
+    kserve.ModelServer(workers=1).start([model])
