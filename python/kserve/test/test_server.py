@@ -22,6 +22,8 @@ from kserve import kfmodel
 from kserve import kfserver
 from kserve.kfmodel_repository import KFModelRepository
 from tornado.httpclient import HTTPClientError
+from ray import serve
+
 
 test_avsc_schema = '''
         {
@@ -54,6 +56,23 @@ def dummy_cloud_event(data, set_contenttype=False):
 
 
 class DummyModel(kfmodel.KFModel):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    async def predict(self, request):
+        return {"predictions": request["instances"]}
+
+    async def explain(self, request):
+        return {"predictions": request["instances"]}
+
+
+@serve.deployment
+class DummyServeModel(kfmodel.KFModel):
     def __init__(self, name):
         super().__init__(name)
         self.name = name
@@ -201,6 +220,52 @@ class TestTFHttpServer:
             _ = await http_server_client.fetch('/unknown_path')
         assert err.value.code == 404
         assert err.value.response.body == b'{"error": "invalid path"}'
+
+
+class TestRayServer:
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        serve.start(detached=False, http_options={"host": "0.0.0.0", "port": 9071})
+
+        DummyServeModel.deploy("TestModel")
+        handle = DummyServeModel.get_handle()
+        handle.load.remote()
+
+        server = kfserver.KFServer()
+        server.register_model_handle("TestModel", handle)
+
+        return server.create_application()
+
+    async def test_liveness_handler(self, http_server_client):
+        resp = await http_server_client.fetch('/')
+        assert resp.code == 200
+        assert resp.body == b'{"status": "alive"}'
+
+    async def test_list_handler(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models')
+        assert resp.code == 200
+        assert resp.body == b'{"models": ["TestModel"]}'
+
+    async def test_health_handler(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models/TestModel')
+        assert resp.code == 200
+        assert resp.body == b'{"name": "TestModel", "ready": true}'
+
+    async def test_predict(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                              method="POST",
+                                              body=b'{"instances":[[1,2]]}')
+        assert resp.code == 200
+        assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.headers['content-type'] == "application/json; charset=UTF-8"
+
+    async def test_explain(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models/TestModel:explain',
+                                              method="POST",
+                                              body=b'{"instances":[[1,2]]}')
+        assert resp.code == 200
+        assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.headers['content-type'] == "application/json; charset=UTF-8"
 
 
 class TestTFHttpServerLoadAndUnLoad:

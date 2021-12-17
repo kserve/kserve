@@ -102,7 +102,7 @@ class KFServer:
                     raise RuntimeError("Model type should be KFModel")
         elif isinstance(models, dict):
             if all([isinstance(v, Deployment) for v in models.values()]):
-                serve.start(detached=True, http_host='0.0.0.0', http_port=9071)
+                serve.start(detached=True, http_options={"host": "0.0.0.0", "port": 9071})
                 for key in models:
                     models[key].deploy()
                     handle = models[key].get_handle()
@@ -166,16 +166,17 @@ class HealthHandler(BaseHandler):
                 reason="Model with name %s does not exist." % name
             )
 
-        if not self.models.is_model_ready(name):
-            raise tornado.web.HTTPError(
-                status_code=503,
-                reason="Model with name %s is not ready." % name
-            )
-
-        self.write({
-            "name": model.name,
-            "ready": model.ready
-        })
+        if self.models.is_model_ready(name):
+            self.write({
+                "name": name,
+                "ready": True
+            })
+        else:
+            self.set_status(503)
+            self.write({
+                "name": name,
+                "ready": False
+            })
 
 
 class ListHandler(BaseHandler):
@@ -183,7 +184,7 @@ class ListHandler(BaseHandler):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self):
-        self.write({"models": [ob.name for ob in self.models.get_models()]})
+        self.write({"models": list(self.models.get_models().keys())})
 
 
 class LoadHandler(BaseHandler):

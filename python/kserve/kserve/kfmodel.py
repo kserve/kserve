@@ -20,7 +20,6 @@ from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from http import HTTPStatus
 from enum import Enum
-from ray.serve.utils import ServeRequest
 import grpc
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
@@ -132,8 +131,6 @@ class KFModel:
                                 status_code=HTTPStatus.BAD_REQUEST,
                                 reason="Unrecognized request format: %s" % e
                             )
-        elif isinstance(request, ServeRequest):
-            return await request.body()
         elif isinstance(request, dict):
 
             if "time" in request \
