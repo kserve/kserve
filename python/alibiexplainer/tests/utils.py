@@ -17,7 +17,7 @@ import numpy as np
 
 
 class Predictor:  # pylint:disable=too-few-public-methods
-    def __init__(self, clf: kserve.KFModel):
+    def __init__(self, clf: kserve.Model):
         self.clf = clf
 
     def predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:
