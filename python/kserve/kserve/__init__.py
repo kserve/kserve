@@ -12,15 +12,16 @@
 # limitations under the License.
 from __future__ import absolute_import
 
-from kserve.kfmodel import KFModel
-from kserve.kfserver import KFServer
+from kserve.model import Model
+from kserve.model_server import ModelServer
+from kserve.model_repository import ModelRepository
 from kserve.storage import Storage
 from kserve.constants import constants
 from kserve.utils import utils
 from kserve.handlers import http
 
 # import client apis into kserve package
-from kserve.api.kf_serving_client import KServeClient
+from kserve.api.kserve_client import KServeClient
 from kserve.constants import constants
 
 # import ApiClient

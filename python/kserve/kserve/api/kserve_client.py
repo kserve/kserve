@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 from ..constants import constants
 from ..utils import utils
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
-from .kf_serving_watch import isvc_watch
+from .watch import isvc_watch
 
 
 class KServeClient(object):
@@ -27,7 +27,7 @@ class KServeClient(object):
     def __init__(self, config_file=None, context=None,  # pylint: disable=too-many-arguments
                  client_configuration=None, persist_config=True):
         """
-        KFServing client constructor
+        KServe client constructor
         :param config_file: kubeconfig file, defaults to ~/.kube/config
         :param context: kubernetes context
         :param client_configuration: kubernetes configuration object
@@ -48,7 +48,7 @@ class KServeClient(object):
     def set_credentials(self, storage_type, namespace=None, credentials_file=None,
                         service_account=constants.DEFAULT_SA_NAME, **kwargs):
         """
-        Setup credentials for KFServing.
+        Setup credentials for KServe.
 
         :param storage_type: Valid value: GCS or S3 (required)
         :param namespace: inference service deployment namespace

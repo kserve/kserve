@@ -20,8 +20,8 @@ import cloudevents.exceptions as ce
 from cloudevents.http import CloudEvent, from_http, is_binary, is_structured, to_binary, to_structured
 from cloudevents.sdk.converters.util import has_binary_headers
 from http import HTTPStatus
-from kserve.kfmodel_repository import KFModelRepository
-from kserve.kfmodel import ModelType
+from kserve.model_repository import ModelRepository
+from kserve.model import ModelType
 from datetime import datetime
 
 from ray.serve.api import RayServeHandle
@@ -49,7 +49,7 @@ class NotFoundHandler(tornado.web.RequestHandler):
 
 
 class HTTPHandler(BaseHandler):
-    def initialize(self, models: KFModelRepository):
+    def initialize(self, models: ModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get_model(self, name: str):

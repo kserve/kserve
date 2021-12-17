@@ -18,9 +18,9 @@ import avro.schema
 import io
 import pytest
 from cloudevents.http import CloudEvent, to_binary, to_structured
-from kserve import kfmodel
-from kserve import kfserver
-from kserve.kfmodel_repository import KFModelRepository
+from kserve import Model
+from kserve import ModelServer
+from kserve import ModelRepository
 from tornado.httpclient import HTTPClientError
 from ray import serve
 
@@ -55,7 +55,7 @@ def dummy_cloud_event(data, set_contenttype=False):
     return event
 
 
-class DummyModel(kfmodel.KFModel):
+class DummyModel(Model):
     def __init__(self, name):
         super().__init__(name)
         self.name = name
@@ -72,7 +72,7 @@ class DummyModel(kfmodel.KFModel):
 
 
 @serve.deployment
-class DummyServeModel(kfmodel.KFModel):
+class DummyServeModel(Model):
     def __init__(self, name):
         super().__init__(name)
         self.name = name
@@ -88,7 +88,7 @@ class DummyServeModel(kfmodel.KFModel):
         return {"predictions": request["instances"]}
 
 
-class DummyCEModel(kfmodel.KFModel):
+class DummyCEModel(Model):
     def __init__(self, name):
         super().__init__(name)
         self.name = name
@@ -104,7 +104,7 @@ class DummyCEModel(kfmodel.KFModel):
         return {"predictions": request["instances"]}
 
 
-class DummyAvroCEModel(kfmodel.KFModel):
+class DummyAvroCEModel(Model):
     def __init__(self, name):
         super().__init__(name)
         self.name = name
@@ -141,7 +141,7 @@ class DummyAvroCEModel(kfmodel.KFModel):
         return {"predictions": [[record1['name'], record1['favorite_number'], record1['favorite_color']]]}
 
 
-class DummyKFModelRepository(KFModelRepository):
+class DummyModelRepository(ModelRepository):
     def __init__(self, test_load_success: bool):
         super().__init__()
         self.test_load_success = test_load_success
@@ -162,7 +162,7 @@ class TestTFHttpServer:
     def app(self):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
         model.load()
-        server = kfserver.KFServer()
+        server = ModelServer()
         server.register_model(model)
         return server.create_application()
 
@@ -231,7 +231,7 @@ class TestRayServer:
         handle = DummyServeModel.get_handle()
         handle.load.remote()
 
-        server = kfserver.KFServer()
+        server = ModelServer()
         server.register_model_handle("TestModel", handle)
 
         return server.create_application()
@@ -271,7 +271,7 @@ class TestRayServer:
 class TestTFHttpServerLoadAndUnLoad:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        server = kfserver.KFServer(registered_models=DummyKFModelRepository(test_load_success=True))
+        server = ModelServer(registered_models=DummyModelRepository(test_load_success=True))
         return server.create_application()
 
     async def test_load(self, http_server_client):
@@ -290,7 +290,7 @@ class TestTFHttpServerLoadAndUnLoad:
 class TestTFHttpServerLoadAndUnLoadFailure:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        server = kfserver.KFServer(registered_models=DummyKFModelRepository(test_load_success=False))
+        server = ModelServer(registered_models=DummyModelRepository(test_load_success=False))
         return server.create_application()
 
     async def test_load_fail(self, http_server_client):
@@ -311,7 +311,7 @@ class TestTFHttpServerModelNotLoaded:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
-        server = kfserver.KFServer()
+        server = ModelServer()
         server.register_model(model)
         return server.create_application()
 
@@ -326,7 +326,7 @@ class TestTFHttpServerCloudEvent:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         model = DummyCEModel("TestModel")
-        server = kfserver.KFServer()
+        server = ModelServer()
         server.register_model(model)
         return server.create_application()
 
@@ -403,7 +403,7 @@ class TestTFHttpServerAvroCloudEvent:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         model = DummyAvroCEModel("TestModel")
-        server = kfserver.KFServer()
+        server = ModelServer()
         server.register_model(model)
         return server.create_application()
 

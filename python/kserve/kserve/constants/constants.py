@@ -13,7 +13,7 @@
 
 import os
 
-# KFServing K8S constants
+# KServe K8S constants
 KSERVE_GROUP = 'serving.kserve.io'
 KSERVE_KIND = 'InferenceService'
 KSERVE_PLURAL = 'inferenceservices'
