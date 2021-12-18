@@ -33,7 +33,7 @@ setup(
     packages=find_packages("sklearnserver"),
     install_requires=[
         "kserve>=0.7.0",
-        "scikit-learn == 0.20.3",
+        "scikit-learn == 1.0.1",
         "joblib >= 0.13.0"
     ],
     tests_require=tests_require,

@@ -34,8 +34,8 @@ setup(
     packages=find_packages("xgbserver"),
     install_requires=[
         "kserve>=0.7.0",
-        "xgboost == 0.82",
-        "scikit-learn == 0.20.3",
+        "xgboost == 1.5.0",
+        "scikit-learn == 1.0.1",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
