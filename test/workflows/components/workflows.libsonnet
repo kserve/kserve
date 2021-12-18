@@ -264,10 +264,10 @@
                     name: "build-pytorchserver-gpu",
                     template: "build-pytorchserver-gpu",
                   },
-                  //{
-                  //  name: "build-paddleserver",
-                  //  template: "build-paddleserver",
-                  //},
+                  {
+                    name: "build-paddleserver",
+                    template: "build-paddleserver",
+                  },
                   {
                     name: "build-sklearnserver",
                     template: "build-sklearnserver",
