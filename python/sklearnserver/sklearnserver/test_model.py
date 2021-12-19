@@ -69,6 +69,11 @@ def test_dir_with_no_model():
         model.load()
     assert 'Missing Model File' in str(e.value)
 
+def test_dir_with_incompatible_model():
+    model = SKLearnModel("model", _MODEL_DIR + "/pkl")
+    with pytest.raises(ModuleNotFoundError) as e:
+        model.load()
+    assert 'No module named' in str(e.value)
 
 def test_dir_with_two_models():
     model = SKLearnModel("model", MULTI_DIR)

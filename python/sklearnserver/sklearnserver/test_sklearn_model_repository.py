@@ -40,6 +40,13 @@ async def test_load_joblib():
     assert repo.get_model(model_name) is not None
     assert repo.is_model_ready(model_name)
 
+@pytest.mark.asyncio
+async def test_load_multiple():
+    repo = SKLearnModelRepository(_MODEL_DIR + "/multi/model_repository")
+    for model in ["model1", "model2"]:
+        await repo.load(model)
+        assert repo.get_model(model) is not None
+        assert repo.is_model_ready(model)
 
 @pytest.mark.asyncio
 async def test_load_fail():
