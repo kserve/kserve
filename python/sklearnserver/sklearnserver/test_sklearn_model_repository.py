@@ -49,6 +49,7 @@ async def test_load_multiple():
         assert repo.get_model(model) is not None
         assert repo.is_model_ready(model)
 
+
 @pytest.mark.asyncio
 async def test_load_fail():
     repo = SKLearnModelRepository(INVALID_MODEL_DIR)
