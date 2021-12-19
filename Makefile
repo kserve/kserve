@@ -95,7 +95,7 @@ deploy-ci: manifests
 	kustomize build config/overlays/test | kubectl apply -f -
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kustomize build config/runtimes | kubectl apply --validate=false -f -
+	kustomize build config/overlays/test/runtimes | kubectl apply --validate=false -f -
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
