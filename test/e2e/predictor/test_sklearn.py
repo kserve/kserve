@@ -34,7 +34,7 @@ def test_sklearn_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
-            storage_uri="gs://kfserving-samples/models/sklearn/iris",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
