@@ -37,11 +37,8 @@ jobs:
         python -m pip install --upgrade pip
     - name: Test with pytest
       run: |
-        pip install pytest
-        pip install pytest-cov
-        pip install --upgrade pytest-tornasync
         cd python
-        pip install -e ./kserve
+        pip install -e ./kserve[test]
         pytest ./kserve
         pip install -e ./sklearnserver
         pytest ./sklearnserver

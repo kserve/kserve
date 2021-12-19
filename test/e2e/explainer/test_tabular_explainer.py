@@ -37,7 +37,7 @@ def test_tabular_explainer():
     service_name = 'isvc-explainer-tabular'
     predictor = V1beta1PredictorSpec(
         sklearn=V1beta1SKLearnSpec(
-            storage_uri='gs://seldon-models/sklearn/income/model',
+            storage_uri='gs://kfserving-examples/models/sklearn/1.0/income/model',
             resources=V1ResourceRequirements(
                 requests={'cpu': '100m', 'memory': '1Gi'},
                 limits={'cpu': '100m', 'memory': '1Gi'}
@@ -49,7 +49,7 @@ def test_tabular_explainer():
         alibi=V1beta1AlibiExplainerSpec(
             name='kserve-container',
             type='AnchorTabular',
-            storage_uri='gs://seldon-models/sklearn/income/explainer-py37-0.6.0',
+            storage_uri='gs://kfserving-examples/models/sklearn/1.0/income/explainer-py37-0.6.2',
             resources=V1ResourceRequirements(
                 requests={'cpu': '100m', 'memory': '1Gi'},
                 limits={'cpu': '100m', 'memory': '1Gi'}
