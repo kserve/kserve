@@ -17,6 +17,7 @@ import joblib
 import numpy as np
 import pathlib
 from typing import Dict
+from kserve.kfmodel import ModelMissingException
 
 MODEL_BASENAME = "model"
 MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
@@ -34,7 +35,7 @@ class SKLearnModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
         paths = [model_path / (MODEL_BASENAME + model_extension) for model_extension in MODEL_EXTENSIONS]
         existing_paths = [path for path in paths if path.exists()]
         if len(existing_paths) == 0:
-            raise RuntimeError('Missing Model File.')
+            raise ModelMissingException('Missing Model File.')
         elif len(existing_paths) > 1:
             raise RuntimeError('More than one model file is detected, '
                                f'Only one is allowed within model_dir: {existing_paths}')
