@@ -14,7 +14,6 @@
 import logging
 import os
 import numpy as np
-import pytest
 
 from kubernetes.client import (
     V1ResourceRequirements,
@@ -35,7 +34,6 @@ logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-@pytest.mark.skip()
 def test_paddle():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,

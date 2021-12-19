@@ -32,21 +32,12 @@ setup(
     python_requires='>=3.6',
     packages=find_packages("alibiexplainer"),
     install_requires=[
-        "tensorflow==2.3.2",
         "kserve>=0.7.0",
-        "pandas>=0.24.2",
         "nest_asyncio>=1.4.0",
-        "alibi==0.6.0",
-        "scikit-learn == 0.20.3",
-        "argparse>=1.4.0",
-        "requests>=2.22.0",
+        "alibi==0.6.2",
         "joblib>=0.13.2",
-        "dill>=0.3.0",
-        "grpcio>=1.22.0",
-        "xgboost==1.0.2",
+        "xgboost==1.5.0",
         "shap==0.39.0",
-        "numpy<1.19.0",
-        'spacy[lookups]>=2.0.0, <4.0.0'
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
