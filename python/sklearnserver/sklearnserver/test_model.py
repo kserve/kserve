@@ -18,7 +18,7 @@ from sklearnserver import SKLearnModel
 import joblib
 import pickle
 import os
-from kserve.kfmodel import ModelMissingException
+from kserve.kfmodel import ModelMissingError
 
 import pytest
 
@@ -32,7 +32,7 @@ MULTI_DIR = os.path.join(_MODEL_DIR, "multi", "model")
 def _train_sample_model():
     iris = datasets.load_iris()
     X, y = iris.data, iris.target
-    sklearn_model = svm.SVC(gamma='scale')
+    sklearn_model = svm.SVC(gamma='scale', probability=True)
     sklearn_model.fit(X, y)
     return sklearn_model, X
 
@@ -66,9 +66,8 @@ def test_model_pickle():
 
 def test_dir_with_no_model():
     model = SKLearnModel("model", _MODEL_DIR)
-    with pytest.raises(ModelMissingException) as e:
+    with pytest.raises(ModelMissingError):
         model.load()
-    assert 'Missing Model File' in str(e.value)
 
 
 def test_dir_with_incompatible_model():

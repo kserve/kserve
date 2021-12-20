@@ -45,16 +45,14 @@ async def test_load_joblib():
 async def test_load_multiple():
     repo = SKLearnModelRepository(_MODEL_DIR + "/multi/model_repository")
     for model in ["model1", "model2"]:
-        await repo.load(model)
         assert repo.get_model(model) is not None
         assert repo.is_model_ready(model)
 
 
 @pytest.mark.asyncio
 async def test_load_fail():
-    repo = SKLearnModelRepository(INVALID_MODEL_DIR)
-    model_name = "model"
-    with pytest.raises(Exception):
-        await repo.load(model_name)
-    assert repo.get_model(model_name) is None
-    assert not repo.is_model_ready(model_name)
+    with pytest.raises(FileNotFoundError):
+        repo = SKLearnModelRepository(INVALID_MODEL_DIR)
+        model_name = "model"
+        assert repo.get_model(model_name) is None
+        assert not repo.is_model_ready(model_name)

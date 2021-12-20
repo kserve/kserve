@@ -31,9 +31,8 @@ async def test_load():
 
 @pytest.mark.asyncio
 async def test_load_fail():
-    repo = XGBoostModelRepository(model_dir=model_dir, nthread=1)
-    model_name = "model"
     with pytest.raises(Exception):
-        await repo.load(model_name)
+        repo = XGBoostModelRepository(model_dir=invalid_model_dir, nthread=1)
+        model_name = "model"
         assert repo.get_model(model_name) is None
         assert not repo.is_model_ready(model_name)

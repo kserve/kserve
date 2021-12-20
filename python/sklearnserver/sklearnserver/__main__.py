@@ -17,7 +17,7 @@ import logging
 
 import kserve
 from sklearnserver import SKLearnModel, SKLearnModelRepository
-from kserve.kfmodel import ModelMissingException
+from kserve.kfmodel import ModelMissingError
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -33,8 +33,8 @@ if __name__ == "__main__":
     model = SKLearnModel(args.model_name, args.model_dir)
     try:
         model.load()
-    except ModelMissingException:
-        logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir}, trying"
-                      f" loading from model repository")
+    except ModelMissingError:
+        logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
+                      f"trying loading from model repository.")
 
     kserve.KFServer(registered_models=SKLearnModelRepository(args.model_dir)).start([model] if model.ready else [])

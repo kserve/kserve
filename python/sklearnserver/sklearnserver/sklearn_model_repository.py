@@ -21,6 +21,12 @@ class SKLearnModelRepository(KFModelRepository):
 
     def __init__(self, model_dir: str = MODEL_MOUNT_DIRS):
         super().__init__(model_dir)
+        for name in os.listdir(model_dir):
+            d = os.path.join(model_dir, name)
+            if os.path.isdir(d):
+                model = SKLearnModel(name, os.path.join(self.models_dir, name))
+                if model.load():
+                    self.update(model)
 
     async def load(self, name: str) -> bool:
         model = SKLearnModel(name, os.path.join(self.models_dir, name))
