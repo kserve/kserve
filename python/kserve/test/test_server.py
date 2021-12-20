@@ -134,15 +134,13 @@ class DummyAvroCEModel(kfmodel.KFModel):
             assert attributes["type"] == "com.example.sampletype1"
             assert attributes["datacontenttype"] == "application/x-www-form-urlencoded"
             assert attributes["content-type"] == "application/json"
-            return request.data
+            return self._parserequest(request.data)
 
     async def predict(self, request):
-        record1 = self._parserequest(request)
-        return {"predictions": [[record1['name'], record1['favorite_number'], record1['favorite_color']]]}
+        return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
 
     async def explain(self, request):
-        record1 = self._parserequest(request)
-        return {"predictions": [[record1['name'], record1['favorite_number'], record1['favorite_color']]]}
+        return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
 
 
 class DummyKFModelRepository(KFModelRepository):
