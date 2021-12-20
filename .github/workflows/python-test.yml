@@ -56,5 +56,4 @@ jobs:
         pip install -e ./paddleserver[test]
         pytest ./paddleserver
         pip install -e ./alibiexplainer
-        pip install h5py==2.9.0
         pytest ./alibiexplainer
