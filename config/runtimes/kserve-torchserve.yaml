@@ -6,6 +6,7 @@ spec:
   supportedModelTypes:
     - name: pytorch
       version: "1"
+      autoSelect: true
   containers:
     - name: kserve-container
       image: kserve-torchserve:replace

@@ -567,6 +567,8 @@ spec:
               supportedModelTypes:
                 items:
                   properties:
+                    autoSelect:
+                      type: boolean
                     name:
                       type: string
                     version:
@@ -5552,6 +5554,8 @@ spec:
                         type: array
                       framework:
                         properties:
+                          autoSelect:
+                            type: boolean
                           name:
                             type: string
                           version:
@@ -13573,6 +13577,8 @@ spec:
               supportedModelTypes:
                 items:
                   properties:
+                    autoSelect:
+                      type: boolean
                     name:
                       type: string
                     version:

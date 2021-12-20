@@ -30,6 +30,10 @@ type Framework struct {
 	// Can be "major", "major.minor" or "major.minor.patch".
 	// +optional
 	Version *string `json:"version,omitempty"`
+	// Set to true to allow the ServingRuntime to be used for automatic model placement if
+	// this framework is specified with no explicit runtime.
+	// +optional
+	AutoSelect *bool `json:"autoSelect,omitempty"`
 }
 
 type Container struct {

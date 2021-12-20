@@ -6,6 +6,7 @@ spec:
   supportedModelTypes:
     - name: sklearn
       version: "0"
+      autoSelect: true
   containers:
     - name: kserve-container
       image: kserve-sklearnserver:replace

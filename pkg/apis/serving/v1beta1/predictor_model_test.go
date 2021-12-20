@@ -40,8 +40,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		tfRuntime: {
 			SupportedModelTypes: []v1alpha1.Framework{
 				{
-					Name:    "tensorflow",
-					Version: proto.String("1"),
+					Name:       "tensorflow",
+					Version:    proto.String("1"),
+					AutoSelect: proto.Bool(true),
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
@@ -57,8 +58,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		sklearnRuntime: {
 			SupportedModelTypes: []v1alpha1.Framework{
 				{
-					Name:    "sklearn",
-					Version: proto.String("0"),
+					Name:       "sklearn",
+					Version:    proto.String("0"),
+					AutoSelect: proto.Bool(true),
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
@@ -91,8 +93,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		mlserverRuntime: {
 			SupportedModelTypes: []v1alpha1.Framework{
 				{
-					Name:    "sklearn",
-					Version: proto.String("0"),
+					Name:       "sklearn",
+					Version:    proto.String("0"),
+					AutoSelect: proto.Bool(true),
 				},
 				{
 					Name:    "xgboost",
