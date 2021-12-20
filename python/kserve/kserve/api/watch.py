@@ -24,7 +24,6 @@ from ..utils import utils
 def isvc_watch(name=None, namespace=None, timeout_seconds=600, generation=0):
     """Watch the created or patched InferenceService in the specified namespace"""
 
-    print("isvc watch called")
     if namespace is None:
         namespace = utils.get_default_target_namespace()
 
