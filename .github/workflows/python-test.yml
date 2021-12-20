@@ -39,18 +39,18 @@ jobs:
       run: |
         cd python
         pip install -e ./kserve[test]
-        pytest ./kserve
+        pytest --cov=kserve ./kserve
         pip install -e ./sklearnserver
-        pytest ./sklearnserver
+        pytest --cov=sklearnserver ./sklearnserver
         pip install -e ./xgbserver
-        pytest ./xgbserver
+        pytest --cov=xgbserver ./xgbserver
         pip install -e ./pytorchserver
-        pytest ./pytorchserver
+        pytest --cov=pytorchserver ./pytorchserver
         pip install -e ./pmmlserver
-        pytest ./pmmlserver
+        pytest --cov=pmmlserver ./pmmlserver
         pip install -e ./lgbserver
-        pytest ./lgbserver
+        pytest --cov=lgbserver ./lgbserver
         pip install -e ./paddleserver[test]
-        pytest ./paddleserver
+        pytest --cov=paddleserver ./paddleserver
         pip install -e ./alibiexplainer
-        pytest ./alibiexplainer
+        pytest --cov=alibiexplainer ./alibiexplainer
