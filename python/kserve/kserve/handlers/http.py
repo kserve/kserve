@@ -15,7 +15,7 @@ from typing import Any
 import tornado.web
 import json
 import cloudevents.exceptions as ce
-from cloudevents.http import from_http
+from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from http import HTTPStatus
 from kserve.kfmodel_repository import KFModelRepository
@@ -63,7 +63,7 @@ class HTTPHandler(BaseHandler):
 
 
 class PredictHandler(HTTPHandler):
-    def get_binary_cloudevent(self) -> str:
+    def get_binary_cloudevent(self) -> CloudEvent:
         try:
             # Use default unmarshaller if contenttype is set in header
             if "ce-contenttype" in self.request.headers:
