@@ -3,7 +3,7 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-mlserver
 spec:
-  supportedModelTypes:
+  supportedModelFormats:
     - name: sklearn
       version: "0"
     - name: xgboost

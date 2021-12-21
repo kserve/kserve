@@ -3,7 +3,7 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-sklearnserver
 spec:
-  supportedModelTypes:
+  supportedModelFormats:
     - name: sklearn
       version: "0"
       autoSelect: true
