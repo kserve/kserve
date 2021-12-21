@@ -4941,17 +4941,6 @@ spec:
                                 type: object
                             type: object
                           type: array
-                        framework:
-                          properties:
-                            autoSelect:
-                              type: boolean
-                            name:
-                              type: string
-                            version:
-                              type: string
-                          required:
-                            - name
-                          type: object
                         image:
                           type: string
                         imagePullPolicy:
@@ -5119,6 +5108,15 @@ spec:
                             timeoutSeconds:
                               format: int32
                               type: integer
+                          type: object
+                        modelFormat:
+                          properties:
+                            name:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                            - name
                           type: object
                         name:
                           type: string

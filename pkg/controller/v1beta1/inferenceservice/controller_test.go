@@ -1029,7 +1029,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: namespace,
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
-					SupportedModelTypes: []v1alpha1.Framework{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 						{
 							Name:       "tensorflow",
 							Version:    proto.String("1"),
@@ -1071,7 +1071,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MaxReplicas: 3,
 						},
 						Model: &v1beta1.ModelSpec{
-							Framework: v1alpha1.Framework{
+							ModelFormat: v1beta1.ModelFormat{
 								Name: "tensorflow",
 							},
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{

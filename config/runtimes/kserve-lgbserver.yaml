@@ -3,7 +3,7 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-lgbserver
 spec:
-  supportedModelTypes:
+  supportedModelFormats:
     - name: lightgbm
       version: "2"
       autoSelect: true

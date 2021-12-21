@@ -38,7 +38,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 
 	servingRuntimeSpecs := map[string]v1alpha1.ServingRuntimeSpec{
 		tfRuntime: {
-			SupportedModelTypes: []v1alpha1.Framework{
+			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
 					Name:       "tensorflow",
 					Version:    proto.String("1"),
@@ -56,7 +56,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			Disabled: proto.Bool(false),
 		},
 		sklearnRuntime: {
-			SupportedModelTypes: []v1alpha1.Framework{
+			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
 					Name:       "sklearn",
 					Version:    proto.String("0"),
@@ -74,7 +74,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			Disabled: proto.Bool(false),
 		},
 		pmmlRuntime: {
-			SupportedModelTypes: []v1alpha1.Framework{
+			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
 					Name:    "pmml",
 					Version: proto.String("4"),
@@ -91,7 +91,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			Disabled: proto.Bool(true),
 		},
 		mlserverRuntime: {
-			SupportedModelTypes: []v1alpha1.Framework{
+			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
 					Name:       "sklearn",
 					Version:    proto.String("0"),
@@ -170,7 +170,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	}{
 		"BothClusterAndNamespaceRuntimesSupportModel": {
 			spec: &ModelSpec{
-				Framework: v1alpha1.Framework{
+				ModelFormat: ModelFormat{
 					Name: "tensorflow",
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{
@@ -182,8 +182,8 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		},
 		"RuntimeNotFound": {
 			spec: &ModelSpec{
-				Framework: v1alpha1.Framework{
-					Name: "nonexistent-framework",
+				ModelFormat: ModelFormat{
+					Name: "nonexistent-modelformat",
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{
 					StorageURI: &storageUri,
@@ -192,9 +192,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			isMMS:    false,
 			expected: []v1alpha1.ServingRuntimeSpec{},
 		},
-		"FrameworkWithDisabledRuntimeSpecified": {
+		"ModelFormatWithDisabledRuntimeSpecified": {
 			spec: &ModelSpec{
-				Framework: v1alpha1.Framework{
+				ModelFormat: ModelFormat{
 					Name: "pmml",
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{
@@ -204,9 +204,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			isMMS:    false,
 			expected: []v1alpha1.ServingRuntimeSpec{},
 		},
-		"ModelMeshCompatibleRuntimeFrameworkSpecified": {
+		"ModelMeshCompatibleRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
-				Framework: v1alpha1.Framework{
+				ModelFormat: ModelFormat{
 					Name: "sklearn",
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{
@@ -216,9 +216,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			isMMS:    true,
 			expected: []v1alpha1.ServingRuntimeSpec{servingRuntimeSpecs[mlserverRuntime]},
 		},
-		"SMSRuntimeFrameworkSpecified": {
+		"SMSRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
-				Framework: v1alpha1.Framework{
+				ModelFormat: ModelFormat{
 					Name: "sklearn",
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{

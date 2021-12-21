@@ -3,7 +3,7 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-tensorflow-serving
 spec:
-  supportedModelTypes:
+  supportedModelFormats:
     - name: tensorflow
       version: "1"
       autoSelect: true

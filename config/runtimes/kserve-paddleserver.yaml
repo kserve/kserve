@@ -3,7 +3,7 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-paddleserver
 spec:
-  supportedModelTypes:
+  supportedModelFormats:
     - name: paddle
       version: "2"
       autoSelect: true

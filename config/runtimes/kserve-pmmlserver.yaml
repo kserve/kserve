@@ -3,7 +3,7 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-pmmlserver
 spec:
-  supportedModelTypes:
+  supportedModelFormats:
     - name: pmml
       version: "3"
       autoSelect: true

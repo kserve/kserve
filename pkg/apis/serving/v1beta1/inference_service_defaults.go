@@ -18,7 +18,6 @@ package v1beta1
 import (
 	"reflect"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -144,7 +143,7 @@ func (isvc *InferenceService) assignSKLearnRuntime() {
 		}
 	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelSKLearn},
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelSKLearn},
 		PredictorExtensionSpec: isvc.Spec.Predictor.SKLearn.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
@@ -165,7 +164,7 @@ func (isvc *InferenceService) assignTensorflowRuntime() {
 	}
 	var runtime = constants.TFServing
 	isvc.Spec.Predictor.Model = &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelTensorflow},
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelTensorflow},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Tensorflow.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
@@ -195,7 +194,7 @@ func (isvc *InferenceService) assignXGBoostRuntime() {
 		}
 	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelXGBoost},
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelXGBoost},
 		PredictorExtensionSpec: isvc.Spec.Predictor.XGBoost.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
@@ -221,7 +220,7 @@ func (isvc *InferenceService) assignPyTorchRuntime() {
 	}
 	runtime := constants.TorchServe
 	isvc.Spec.Predictor.Model = &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPyTorch},
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelPyTorch},
 		PredictorExtensionSpec: isvc.Spec.Predictor.PyTorch.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
@@ -238,7 +237,7 @@ func (isvc *InferenceService) assignTritonRuntime() {
 	// assign built-in runtime
 	var runtime = constants.TritonServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelTriton},
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelTriton},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Triton.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
@@ -255,7 +254,7 @@ func (isvc *InferenceService) assignONNXRuntime() {
 	// assign built-in runtime
 	var runtime = constants.TritonServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelONNX},
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelONNX},
 		PredictorExtensionSpec: isvc.Spec.Predictor.ONNX.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
@@ -276,7 +275,7 @@ func (isvc *InferenceService) assignPMMLRuntime() {
 	}
 	var runtime = constants.PMMLServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPMML},
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelPMML},
 		PredictorExtensionSpec: isvc.Spec.Predictor.PMML.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
@@ -297,7 +296,7 @@ func (isvc *InferenceService) assignLightGBMRuntime() {
 	}
 	var runtime = constants.LGBServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelLightGBM},
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelLightGBM},
 		PredictorExtensionSpec: isvc.Spec.Predictor.LightGBM.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
@@ -318,7 +317,7 @@ func (isvc *InferenceService) assignPaddleRuntime() {
 	}
 	var runtime = constants.PaddleServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
-		Framework:              v1alpha1.Framework{Name: constants.SupportedModelPaddle},
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelPaddle},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Paddle.PredictorExtensionSpec,
 		Runtime:                &runtime,
 	}
