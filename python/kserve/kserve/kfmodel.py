@@ -174,11 +174,11 @@ class KFModel:
         async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
         return async_result
 
-    async def predict(self, request: Union[Dict, CloudEvent, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
+    async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
         """
         The predict handler can be overridden to implement the model inference.
         The default implementation makes a call to the predictor if predictor_host is specified
-        :param request: Dict|CloudEvent|ModelInferRequest passed from preprocess handler
+        :param request: Dict|ModelInferRequest passed from preprocess handler
         :return: Dict|ModelInferResponse
         """
         if not self.predictor_host:
