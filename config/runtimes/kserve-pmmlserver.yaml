@@ -6,8 +6,10 @@ spec:
   supportedModelTypes:
     - name: pmml
       version: "3"
+      autoSelect: true
     - name: pmml
       version: "4"
+      autoSelect: true
   containers:
     - name: kserve-container
       image: kserve-pmmlserver:replace

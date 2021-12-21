@@ -569,6 +569,8 @@ spec:
               supportedModelTypes:
                 items:
                   properties:
+                    autoSelect:
+                      type: boolean
                     name:
                       type: string
                     version:

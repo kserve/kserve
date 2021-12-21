@@ -1031,8 +1031,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1alpha1.ServingRuntimeSpec{
 					SupportedModelTypes: []v1alpha1.Framework{
 						{
-							Name:    "tensorflow",
-							Version: proto.String("1"),
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{

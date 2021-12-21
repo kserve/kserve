@@ -6,6 +6,7 @@ spec:
   supportedModelTypes:
     - name: xgboost
       version: "0"
+      autoSelect: true
   containers:
     - name: kserve-container
       image: kserve-xgbserver:replace

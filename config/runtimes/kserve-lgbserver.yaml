@@ -6,6 +6,7 @@ spec:
   supportedModelTypes:
     - name: lightgbm
       version: "2"
+      autoSelect: true
   containers:
     - name: kserve-container
       image: kserve-lgbserver:replace

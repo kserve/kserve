@@ -121,7 +121,7 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 // RuntimeSupportsModel Check if the given runtime supports the specified model.
 func (m *ModelSpec) RuntimeSupportsModel(srSpec *v1alpha1.ServingRuntimeSpec) bool {
 	// assignment to a runtime depends on the model type labels
-	runtimeLabelSet := getServingRuntimeSupportedModelTypeLabelSet(srSpec.SupportedModelTypes)
+	runtimeLabelSet := m.getServingRuntimeSupportedModelTypeLabelSet(srSpec.SupportedModelTypes)
 	modelLabel := m.getModelTypeLabel()
 	// if the runtime has the model's label, then it supports that model.
 	return runtimeLabelSet.contains(modelLabel)
@@ -135,14 +135,17 @@ func (m *ModelSpec) getModelTypeLabel() string {
 	return "mt:" + mt.Name
 }
 
-func getServingRuntimeSupportedModelTypeLabelSet(supportedModelTypes []v1alpha1.Framework) stringSet {
+func (m *ModelSpec) getServingRuntimeSupportedModelTypeLabelSet(supportedModelTypes []v1alpha1.Framework) stringSet {
 	set := make(stringSet, 2*len(supportedModelTypes)+1)
 
 	// model type labels
 	for _, t := range supportedModelTypes {
-		set.add("mt:" + t.Name)
-		if t.Version != nil {
-			set.add("mt:" + t.Name + ":" + *t.Version)
+		// If runtime isn't explicitly set, only add labels for modelTypes where AutoSelect is true.
+		if m.Runtime != nil || (t.AutoSelect != nil && *t.AutoSelect) {
+			set.add("mt:" + t.Name)
+			if t.Version != nil {
+				set.add("mt:" + t.Name + ":" + *t.Version)
+			}
 		}
 	}
 	return set
