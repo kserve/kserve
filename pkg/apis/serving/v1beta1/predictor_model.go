@@ -27,10 +27,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ModelSpec struct {
-	// Framework of the model being served.
+type ModelFormat struct {
+	// Name of the model format.
 	// +required
-	Framework v1alpha1.Framework `json:"framework"`
+	Name string `json:"name"`
+	// Version of the model format.
+	// Used in validating that a predictor is supported by a runtime.
+	// Can be "major", "major.minor" or "major.minor.patch".
+	// +optional
+	Version *string `json:"version,omitempty"`
+}
+
+type ModelSpec struct {
+	// ModelFormat being served.
+	// +required
+	ModelFormat ModelFormat `json:"modelFormat"`
 
 	// Specific ClusterServingRuntime/ServingRuntime name to use for deployment.
 	// +optional
@@ -120,27 +131,27 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 
 // RuntimeSupportsModel Check if the given runtime supports the specified model.
 func (m *ModelSpec) RuntimeSupportsModel(srSpec *v1alpha1.ServingRuntimeSpec) bool {
-	// assignment to a runtime depends on the model type labels
-	runtimeLabelSet := m.getServingRuntimeSupportedModelTypeLabelSet(srSpec.SupportedModelTypes)
-	modelLabel := m.getModelTypeLabel()
+	// assignment to a runtime depends on the model format labels
+	runtimeLabelSet := m.getServingRuntimeSupportedModelFormatLabelSet(srSpec.SupportedModelFormats)
+	modelLabel := m.getModelFormatLabel()
 	// if the runtime has the model's label, then it supports that model.
 	return runtimeLabelSet.contains(modelLabel)
 }
 
-func (m *ModelSpec) getModelTypeLabel() string {
-	mt := m.Framework
+func (m *ModelSpec) getModelFormatLabel() string {
+	mt := m.ModelFormat
 	if mt.Version != nil {
 		return "mt:" + mt.Name + ":" + *mt.Version
 	}
 	return "mt:" + mt.Name
 }
 
-func (m *ModelSpec) getServingRuntimeSupportedModelTypeLabelSet(supportedModelTypes []v1alpha1.Framework) stringSet {
-	set := make(stringSet, 2*len(supportedModelTypes)+1)
+func (m *ModelSpec) getServingRuntimeSupportedModelFormatLabelSet(supportedModelFormats []v1alpha1.SupportedModelFormat) stringSet {
+	set := make(stringSet, 2*len(supportedModelFormats)+1)
 
-	// model type labels
-	for _, t := range supportedModelTypes {
-		// If runtime isn't explicitly set, only add labels for modelTypes where AutoSelect is true.
+	// model format labels
+	for _, t := range supportedModelFormats {
+		// If runtime isn't explicitly set, only add labels for modelFormats where AutoSelect is true.
 		if m.Runtime != nil || (t.AutoSelect != nil && *t.AutoSelect) {
 			set.add("mt:" + t.Name)
 			if t.Version != nil {

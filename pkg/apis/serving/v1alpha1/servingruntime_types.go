@@ -21,17 +21,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type Framework struct {
-	// Name of the model format/framework.
+type SupportedModelFormat struct {
+	// Name of the model format.
 	// +required
 	Name string `json:"name"`
-	// Version of the model format/framework.
+	// Version of the model format.
 	// Used in validating that a predictor is supported by a runtime.
 	// Can be "major", "major.minor" or "major.minor.patch".
 	// +optional
 	Version *string `json:"version,omitempty"`
 	// Set to true to allow the ServingRuntime to be used for automatic model placement if
-	// this framework is specified with no explicit runtime.
+	// this model format is specified with no explicit runtime.
 	// +optional
 	AutoSelect *bool `json:"autoSelect,omitempty"`
 }
@@ -90,7 +90,7 @@ type ServingRuntimePodSpec struct {
 // are hammered out.
 type ServingRuntimeSpec struct {
 	// Model formats and version supported by this runtime
-	SupportedModelTypes []Framework `json:"supportedModelTypes,omitempty"`
+	SupportedModelFormats []SupportedModelFormat `json:"supportedModelFormats,omitempty"`
 	// Set to true to disable use of this runtime
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
