@@ -110,20 +110,23 @@ class KFModel:
         self.ready = True
         return self.ready
 
-    async def preprocess(self, request: Dict) -> Union[Dict, CloudEvent, ModelInferRequest]:
+    async def preprocess(self, request: Union[Dict, CloudEvent]) -> Union[Dict, ModelInferRequest]:
         """
-        The preprocess handler can be overridden for data or feature transformation
-        the default implementation decodes to Dict if it is a binary CloudEvent
-        or gets the data field from a structured CloudEvent
+        The preprocess handler can be overridden for data or feature transformation.
+        The default implementation decodes to Dict if it is a binary CloudEvent
+        or gets the data field from a structured CloudEvent.
         :param request: Dict|CloudEvent|ModelInferRequest
         :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
+        response = request
+
         if isinstance(request, CloudEvent):
-            # Try to decode JSON UTF-8 if possible, otherwise leave the CloudEvent alone
-            # and just pass the CloudEvent on to the predict function.
+            response = request.data
+            # Try to decode and parse JSON UTF-8 if possible, otherwise
+            # just pass the CloudEvent data on to the predict function.
             # This is for the cases that CloudEvent encoding is protobuf, avro etc.
             try:
-                request = json.loads(request.data.decode('UTF-8'))
+                response = json.loads(response.decode('UTF-8'))
             except (json.decoder.JSONDecodeError, UnicodeDecodeError) as e:
                 # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
                 if "content-type" in request._attributes and \
@@ -136,9 +139,9 @@ class KFModel:
 
         elif isinstance(request, dict):
             if is_structured_cloudevent(request):
-                request = request["data"]
+                response = request["data"]
 
-        return request
+        return response
 
     def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
         """
