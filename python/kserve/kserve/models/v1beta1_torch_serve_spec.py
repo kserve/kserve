@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,7 +55,6 @@ class V1beta1TorchServeSpec(object):
         'image_pull_policy': 'str',
         'lifecycle': 'V1Lifecycle',
         'liveness_probe': 'V1Probe',
-        'model_class_name': 'str',
         'name': 'str',
         'ports': 'list[V1ContainerPort]',
         'protocol_version': 'str',
@@ -83,7 +83,6 @@ class V1beta1TorchServeSpec(object):
         'image_pull_policy': 'imagePullPolicy',
         'lifecycle': 'lifecycle',
         'liveness_probe': 'livenessProbe',
-        'model_class_name': 'modelClassName',
         'name': 'name',
         'ports': 'ports',
         'protocol_version': 'protocolVersion',
@@ -103,7 +102,7 @@ class V1beta1TorchServeSpec(object):
         'working_dir': 'workingDir'
     }
 
-    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, model_class_name=None, name=None, ports=None, protocol_version=None, readiness_probe=None, resources=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name=None, ports=None, protocol_version=None, readiness_probe=None, resources=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TorchServeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -117,7 +116,6 @@ class V1beta1TorchServeSpec(object):
         self._image_pull_policy = None
         self._lifecycle = None
         self._liveness_probe = None
-        self._model_class_name = None
         self._name = None
         self._ports = None
         self._protocol_version = None
@@ -153,8 +151,6 @@ class V1beta1TorchServeSpec(object):
             self.lifecycle = lifecycle
         if liveness_probe is not None:
             self.liveness_probe = liveness_probe
-        if model_class_name is not None:
-            self.model_class_name = model_class_name
         if name is not None:
             self.name = name
         if ports is not None:
@@ -369,29 +365,6 @@ class V1beta1TorchServeSpec(object):
         """
 
         self._liveness_probe = liveness_probe
-
-    @property
-    def model_class_name(self):
-        """Gets the model_class_name of this V1beta1TorchServeSpec.  # noqa: E501
-
-        When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation  # noqa: E501
-
-        :return: The model_class_name of this V1beta1TorchServeSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._model_class_name
-
-    @model_class_name.setter
-    def model_class_name(self, model_class_name):
-        """Sets the model_class_name of this V1beta1TorchServeSpec.
-
-        When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation  # noqa: E501
-
-        :param model_class_name: The model_class_name of this V1beta1TorchServeSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._model_class_name = model_class_name
 
     @property
     def name(self):

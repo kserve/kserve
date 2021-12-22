@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,14 +50,55 @@ class TestV1beta1ModelSpec(unittest.TestCase):
         # model = kserve.models.v1beta1_model_spec.V1beta1ModelSpec()  # noqa: E501
         if include_optional :
             return V1beta1ModelSpec(
-                framework = '0', 
-                memory = None, 
-                storage_uri = '0'
+                args = [
+                    '0'
+                    ], 
+                command = [
+                    '0'
+                    ], 
+                env = [
+                    None
+                    ], 
+                env_from = [
+                    None
+                    ], 
+                image = '0', 
+                image_pull_policy = '0', 
+                lifecycle = None, 
+                liveness_probe = None, 
+                model_format = kserve.models.v1beta1_model_format.V1beta1ModelFormat(
+                    name = '0', 
+                    version = '0', ), 
+                name = '0', 
+                ports = [
+                    None
+                    ], 
+                protocol_version = '0', 
+                readiness_probe = None, 
+                resources = None, 
+                runtime = '0', 
+                runtime_version = '0', 
+                security_context = None, 
+                startup_probe = None, 
+                stdin = True, 
+                stdin_once = True, 
+                storage_uri = '0', 
+                termination_message_path = '0', 
+                termination_message_policy = '0', 
+                tty = True, 
+                volume_devices = [
+                    None
+                    ], 
+                volume_mounts = [
+                    None
+                    ], 
+                working_dir = '0'
             )
         else :
             return V1beta1ModelSpec(
-                framework = '0',
-                storage_uri = '0',
+                model_format = kserve.models.v1beta1_model_format.V1beta1ModelFormat(
+                    name = '0', 
+                    version = '0', ),
         )
 
     def testV1beta1ModelSpec(self):
