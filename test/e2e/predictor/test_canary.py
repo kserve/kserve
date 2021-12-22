@@ -20,6 +20,7 @@ from kserve import V1beta1PredictorSpec
 from kserve import V1beta1TFServingSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
+from kserve import V1beta1ModelSpec, V1beta1ModelFormat
 from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import KSERVE_TEST_NAMESPACE
@@ -54,6 +55,59 @@ def test_canary_rollout():
         predictor=V1beta1PredictorSpec(
             canary_traffic_percent=10,
             tensorflow=V1beta1TFServingSpec(
+                storage_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
+                resources=V1ResourceRequirements(
+                    requests={'cpu': '100m', 'memory': '256Mi'},
+                    limits={'cpu': '100m', 'memory': '256Mi'}))))
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+                                   spec=canary_endpoint_spec)
+
+    kserve_client.patch(service_name, isvc, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    canary_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    for traffic in canary_isvc['status']['components']['predictor']['traffic']:
+        if traffic['latestRevision']:
+            assert(traffic['percent'] == 10)
+
+    # Delete the InferenceService
+    kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+
+def test_canary_rollout_runtime():
+    service_name = 'isvc-canary-runtime'
+    default_endpoint_spec = V1beta1InferenceServiceSpec(
+        predictor=V1beta1PredictorSpec(
+            min_replicas=1,
+            model=V1beta1ModelSpec(
+                model_format=V1beta1ModelFormat(
+                    name="tensorflow",
+                ),
+                storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
+                resources=V1ResourceRequirements(
+                    requests={'cpu': '100m', 'memory': '256Mi'},
+                    limits={'cpu': '100m', 'memory': '256Mi'}))))
+
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+                                   spec=default_endpoint_spec)
+
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    # define canary endpoint spec, and then rollout 10% traffic to the canary version
+    canary_endpoint_spec = V1beta1InferenceServiceSpec(
+        predictor=V1beta1PredictorSpec(
+            canary_traffic_percent=10,
+            model=V1beta1ModelSpec(
+                model_format=V1beta1ModelFormat(
+                    name="tensorflow",
+                ),
                 storage_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},

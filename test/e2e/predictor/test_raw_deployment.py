@@ -20,6 +20,8 @@ from kserve import (
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
+    V1beta1ModelSpec,
+    V1beta1ModelFormat,
 )
 from kubernetes.client import V1ResourceRequirements
 
@@ -41,6 +43,43 @@ def test_raw_deployment_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    res = predict(service_name, "./data/iris_input.json")
+    assert res["predictions"] == [1, 1]
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+def test_raw_deployment_runtime_kserve():
+    service_name = "raw-sklearn-runtime"
+    annotations = dict()
+    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
+    annotations['kubernetes.io/ingress.class'] = 'istio'
+
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="sklearn",
+            ),
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},

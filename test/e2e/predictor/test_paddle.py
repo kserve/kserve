@@ -27,6 +27,8 @@ from kserve import (
     V1beta1InferenceService,
     V1beta1InferenceServiceSpec,
     V1beta1PaddleServerSpec,
+    V1beta1ModelSpec,
+    V1beta1ModelFormat,
 )
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict
 
@@ -47,6 +49,48 @@ def test_paddle():
     )
 
     service_name = 'isvc-paddle'
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor)
+    )
+
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
+    except RuntimeError as e:
+        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
+                                                          label_selector='serving.kserve.io/inferenceservice={}'.format(
+                                                              service_name))
+        for pod in pods.items:
+            logging.info(pod)
+        raise e
+
+    res = predict(service_name, './data/jay.json')
+    assert np.argmax(res["predictions"][0]) == 17
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+def test_paddle_runtime():
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="paddle",
+            ),
+            storage_uri="https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "200m", "memory": "4Gi"},
+                limits={"cpu": "200m", "memory": "4Gi"},
+            )
+        )
+    )
+
+    service_name = 'isvc-paddle-runtime'
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
