@@ -14,8 +14,8 @@
 
 import argparse
 import logging
-import sys
 import kserve
+from kserve.kfmodel import ModelMissingError
 
 
 from xgbserver import XGBoostModel, XGBoostModelRepository
@@ -37,11 +37,9 @@ if __name__ == "__main__":
     model = XGBoostModel(args.model_name, args.model_dir, args.nthread)
     try:
         model.load()
-    except Exception:
-        ex_type, ex_value, _ = sys.exc_info()
-        logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
-                      f"exception type {ex_type}, exception msg: {ex_value}")
-        model.ready = False
+    except ModelMissingError:
+        logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
+                      f"trying loading from model repository.")
 
     kserve.KFServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread))\
-        .start([model] if model.ready else [])  # pylint:disable=c-extension-no-member
+        .start([model] if model.ready else [])

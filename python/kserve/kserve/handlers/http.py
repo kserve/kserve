@@ -37,6 +37,8 @@ class BaseHandler(tornado.web.RequestHandler):
         if exc_info is not None:
             if hasattr(exc_info[1], "reason"):
                 reason = exc_info[1].reason
+            else:
+                reason = str(exc_info[1])
 
         self.write({"error": reason})
 

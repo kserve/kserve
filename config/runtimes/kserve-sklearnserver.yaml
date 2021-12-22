@@ -5,7 +5,7 @@ metadata:
 spec:
   supportedModelFormats:
     - name: sklearn
-      version: "0"
+      version: "1"
       autoSelect: true
   containers:
     - name: kserve-container

@@ -48,7 +48,7 @@ print("Creating Anchor Text explainer")
 spacy_language_model = 'en_core_web_md'
 spacy_model(model=spacy_language_model)
 nlp = spacy.load(spacy_language_model)
-anchors_text = AnchorText(nlp, lambda x: pipeline.predict(x))
+anchors_text = AnchorText(nlp=nlp, predictor=lambda x: pipeline.predict(x))
 
 # Test explanations locally
 expl = anchors_text.explain("the actors are very bad")

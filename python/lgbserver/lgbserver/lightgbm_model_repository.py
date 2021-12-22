@@ -21,8 +21,12 @@ class LightGBMModelRepository(KFModelRepository):
     def __init__(self, model_dir: str = MODEL_MOUNT_DIRS, nthread: int = 1):
         super().__init__(model_dir)
         self.nthread = nthread
+        self.load_models()
 
     async def load(self, name: str) -> bool:
+        return self.load_model(name)
+
+    def load_model(self, name: str) -> bool:
         model = LightGBMModel(name, os.path.join(self.models_dir, name), self.nthread)
         if model.load():
             self.update(model)

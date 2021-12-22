@@ -44,6 +44,22 @@ class PredictorProtocol(Enum):
     GRPC_V2 = "grpc-v2"
 
 
+class ModelMissingError(Exception):
+    def __init__(self, path):
+        self.path = path
+
+    def __str__(self):
+        return self.path
+
+
+class InferenceError(RuntimeError):
+    def __init__(self, reason):
+        self.reason = reason
+
+    def __str__(self):
+        return self.reason
+
+
 # KFModel is intended to be subclassed by various components within KFServing.
 class KFModel:
 

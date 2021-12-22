@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kserve
+from kserve import KFModel, Storage
+from kserve.kfmodel import ModelMissingError, InferenceError
 import xgboost as xgb
 import numpy as np
 from xgboost import XGBModel
@@ -22,7 +23,7 @@ from typing import Dict
 BOOSTER_FILE = "model.bst"
 
 
-class XGBoostModel(kserve.KFModel):
+class XGBoostModel(KFModel):
     def __init__(self, name: str, model_dir: str, nthread: int,
                  booster: XGBModel = None):
         super().__init__(name)
@@ -35,7 +36,9 @@ class XGBoostModel(kserve.KFModel):
 
     def load(self) -> bool:
         model_file = os.path.join(
-            kserve.Storage.download(self.model_dir), BOOSTER_FILE)
+            Storage.download(self.model_dir), BOOSTER_FILE)
+        if not os.path.exists(model_file):
+            raise ModelMissingError(model_file)
         self._booster = xgb.Booster(params={"nthread": self.nthread},
                                     model_file=model_file)
         self.ready = True
@@ -48,4 +51,4 @@ class XGBoostModel(kserve.KFModel):
             result: xgb.DMatrix = self._booster.predict(dmatrix)
             return {"predictions": result.tolist()}
         except Exception as e:
-            raise Exception("Failed to predict %s" % e)
+            raise InferenceError(str(e))
