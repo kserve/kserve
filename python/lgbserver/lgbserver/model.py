@@ -18,7 +18,7 @@ from lightgbm import Booster
 import os
 from typing import Dict
 import pandas as pd
-from kserve.kfmodel import ModelMissingError, InferenceError
+from kserve.model import ModelMissingError, InferenceError
 
 
 BOOSTER_FILE = "model.bst"

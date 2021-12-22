@@ -16,7 +16,7 @@ import argparse
 import logging
 import kserve
 
-from kserve.kfmodel import ModelMissingError
+from kserve.model import ModelMissingError
 from lgbserver.lightgbm_model_repository import LightGBMModelRepository
 from lgbserver.model import LightGBMModel
 
