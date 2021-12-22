@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +51,7 @@ class V1beta1PredictorsConfig(object):
         'onnx': 'V1beta1PredictorConfig',
         'paddle': 'V1beta1PredictorConfig',
         'pmml': 'V1beta1PredictorConfig',
-        'pytorch': 'V1beta1PredictorProtocols',
+        'pytorch': 'V1beta1PredictorConfig',
         'sklearn': 'V1beta1PredictorProtocols',
         'tensorflow': 'V1beta1PredictorConfig',
         'triton': 'V1beta1PredictorConfig',
@@ -195,7 +196,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :return: The pytorch of this V1beta1PredictorsConfig.  # noqa: E501
-        :rtype: V1beta1PredictorProtocols
+        :rtype: V1beta1PredictorConfig
         """
         return self._pytorch
 
@@ -205,7 +206,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :param pytorch: The pytorch of this V1beta1PredictorsConfig.  # noqa: E501
-        :type: V1beta1PredictorProtocols
+        :type: V1beta1PredictorConfig
         """
 
         self._pytorch = pytorch
