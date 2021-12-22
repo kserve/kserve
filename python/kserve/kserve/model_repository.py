@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +15,7 @@
 from typing import Dict, Optional, Union
 from kserve import Model
 from ray.serve.api import RayServeHandle
+import os
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -27,6 +29,12 @@ class ModelRepository:
     def __init__(self, models_dir: str = MODEL_MOUNT_DIRS):
         self.models = {}
         self.models_dir = models_dir
+
+    def load_models(self):
+        for name in os.listdir(self.models_dir):
+            d = os.path.join(self.models_dir, name)
+            if os.path.isdir(d):
+                self.load_model(name)
 
     def set_models_dir(self, models_dir):  # used for unit tests
         self.models_dir = models_dir
@@ -44,7 +52,7 @@ class ModelRepository:
         if isinstance(model, Model):
             return False if model is None else model.ready
         else:
-            # For Ray Serve, the models are guaranteed to be ready after the deploy call.
+            # For Ray Serve, the models are guaranteed to be ready after deploying the model.
             return True
 
     def update(self, model: Model):
@@ -54,6 +62,9 @@ class ModelRepository:
         self.models[name] = model_handle
 
     def load(self, name: str) -> bool:
+        pass
+
+    def load_model(self, name: str) -> bool:
         pass
 
     def unload(self, name: str):

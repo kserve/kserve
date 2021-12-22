@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,6 +46,7 @@ parser.add_argument('--workers', default=1, type=int,
                     help='The number of works to fork')
 parser.add_argument('--max_asyncio_workers', default=None, type=int,
                     help='Max number of asyncio workers to spawn')
+
 args, _ = parser.parse_known_args()
 
 tornado.log.enable_pretty_logging()

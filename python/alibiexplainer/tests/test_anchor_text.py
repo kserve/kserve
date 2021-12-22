@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,12 +20,12 @@ from alibi.datasets import fetch_movie_sentiment
 import json
 import numpy as np
 
-MOVIE_MODEL_URI = "gs://seldon-models/sklearn/moviesentiment"
+MOVIE_MODEL_URI = "gs://kfserving-examples/models/sklearn/1.0/moviesentiment/model"
 
 
 def test_anchor_text():
     os.environ.clear()
-    skmodel = SKLearnModel("adult", MOVIE_MODEL_URI)
+    skmodel = SKLearnModel("movie", MOVIE_MODEL_URI)
     skmodel.load()
     predictor = Predictor(skmodel)
     anchor_text = AnchorText(predictor.predict_fn, None)

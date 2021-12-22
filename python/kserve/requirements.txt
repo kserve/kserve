@@ -10,7 +10,7 @@ minio>=4.0.9,<7.0.0
 google-cloud-storage==1.41.1
 adal>=1.2.2
 table_logger>=0.3.5
-numpy>=1.17.3
+numpy~=1.19.2
 azure-storage-blob==12.8.1
 azure-identity>=1.6.0
 cloudevents>=1.2.0
@@ -19,7 +19,7 @@ boto3==1.18.18
 botocore==1.21.18
 psutil>=5.0
 ray[serve]==1.9.0
-grpcio==1.38.1
+grpcio>=1.34.0
 google_api_core==1.29.0
 jmespath==0.10.0
 googleapis_common_protos==1.53.0

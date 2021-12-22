@@ -257,14 +257,6 @@
                     template: "build-custom-image-transformer",
                   },
                   {
-                    name: "build-pytorchserver",
-                    template: "build-pytorchserver",
-                  },
-                  {
-                    name: "build-pytorchserver-gpu",
-                    template: "build-pytorchserver-gpu",
-                  },
-                  {
                     name: "build-paddleserver",
                     template: "build-paddleserver",
                   },

@@ -33,7 +33,7 @@ def test_xgboost_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
-            storage_uri="gs://kfserving-samples/models/xgboost/iris",
+            storage_uri="gs://kfserving-examples/models/xgboost/1.5/model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},

@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +18,8 @@ from lightgbm import Booster
 import os
 from typing import Dict
 import pandas as pd
+from kserve.kfmodel import ModelMissingError, InferenceError
+
 
 BOOSTER_FILE = "model.bst"
 
@@ -35,6 +38,8 @@ class LightGBMModel(kserve.Model):
     def load(self) -> bool:
         model_file = os.path.join(
             kserve.Storage.download(self.model_dir), BOOSTER_FILE)
+        if not os.path.exists(model_file):
+            raise ModelMissingError(model_file)
         self._booster = lgb.Booster(params={"nthread": self.nthread},
                                     model_file=model_file)
         self.ready = True
@@ -50,4 +55,4 @@ class LightGBMModel(kserve.Model):
             result = self._booster.predict(inputs)
             return {"predictions": result.tolist()}
         except Exception as e:
-            raise Exception("Failed to predict %s" % e)
+            raise InferenceError(str(e))

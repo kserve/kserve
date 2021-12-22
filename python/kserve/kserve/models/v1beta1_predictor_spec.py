@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,6 +69,7 @@ class V1beta1PredictorSpec(object):
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
+        'model': 'V1beta1ModelSpec',
         'node_name': 'str',
         'node_selector': 'dict(str, str)',
         'onnx': 'V1beta1ONNXRuntimeSpec',
@@ -122,6 +124,7 @@ class V1beta1PredictorSpec(object):
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
+        'model': 'model',
         'node_name': 'nodeName',
         'node_selector': 'nodeSelector',
         'onnx': 'onnx',
@@ -153,7 +156,7 @@ class V1beta1PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, onnx=None, overhead=None, paddle=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, onnx=None, overhead=None, paddle=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -181,6 +184,7 @@ class V1beta1PredictorSpec(object):
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
+        self._model = None
         self._node_name = None
         self._node_selector = None
         self._onnx = None
@@ -256,6 +260,8 @@ class V1beta1PredictorSpec(object):
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
+        if model is not None:
+            self.model = model
         if node_name is not None:
             self.node_name = node_name
         if node_selector is not None:
@@ -810,6 +816,27 @@ class V1beta1PredictorSpec(object):
         """
 
         self._min_replicas = min_replicas
+
+    @property
+    def model(self):
+        """Gets the model of this V1beta1PredictorSpec.  # noqa: E501
+
+
+        :return: The model of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: V1beta1ModelSpec
+        """
+        return self._model
+
+    @model.setter
+    def model(self, model):
+        """Sets the model of this V1beta1PredictorSpec.
+
+
+        :param model: The model of this V1beta1PredictorSpec.  # noqa: E501
+        :type: V1beta1ModelSpec
+        """
+
+        self._model = model
 
     @property
     def node_name(self):

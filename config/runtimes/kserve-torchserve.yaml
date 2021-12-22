@@ -3,9 +3,10 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-torchserve
 spec:
-  supportedModelTypes:
+  supportedModelFormats:
     - name: pytorch
       version: "1"
+      autoSelect: true
   containers:
     - name: kserve-container
       image: kserve-torchserve:replace
