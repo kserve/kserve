@@ -566,9 +566,11 @@ spec:
                   disabled:
                     type: boolean
                 type: object
-              supportedModelTypes:
+              supportedModelFormats:
                 items:
                   properties:
+                    autoSelect:
+                      type: boolean
                     name:
                       type: string
                     version:

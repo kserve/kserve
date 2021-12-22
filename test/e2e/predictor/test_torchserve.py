@@ -13,6 +13,7 @@
 
 import os
 import json
+import pytest
 from kubernetes import client
 from kserve import (
     constants,
@@ -101,6 +102,7 @@ def test_torchserve_v2_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.skip()
 def test_torchserve_grpc():
     service_name = "mnist-grpc"
     predictor = V1beta1PredictorSpec(

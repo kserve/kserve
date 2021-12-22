@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,12 +45,16 @@ _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
+_PVC_PREFIX = "/mnt/pvc"
 
 
 class Storage(object):  # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local", uri)
+
+        if uri.startswith(_PVC_PREFIX) and not os.path.exists(uri):
+            raise Exception(f"Cannot locate source uri {uri} for PVC")
 
         is_local = False
         if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):

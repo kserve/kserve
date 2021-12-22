@@ -122,6 +122,7 @@ export PATH="${PATH}:${GOPATH}/bin"
 wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64
 chmod +x $GOPATH/bin/yq
 sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
+sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/runtimes/kustomization.yaml
 sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/manager_image_patch.yaml
 make deploy-ci
 

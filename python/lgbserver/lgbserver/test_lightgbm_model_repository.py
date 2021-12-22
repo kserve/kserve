@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,9 +31,8 @@ async def test_load():
 
 @pytest.mark.asyncio
 async def test_load_fail():
-    repo = LightGBMModelRepository(model_dir=model_dir, nthread=1)
-    model_name = "model"
     with pytest.raises(Exception):
-        await repo.load(model_name)
+        repo = LightGBMModelRepository(model_dir=invalid_model_dir, nthread=1)
+        model_name = "model"
         assert repo.get_model(model_name) is None
         assert not repo.is_model_ready(model_name)

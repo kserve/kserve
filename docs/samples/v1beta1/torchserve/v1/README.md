@@ -73,6 +73,7 @@ Expected Output
 ```
 
 ## Inference with gRPC protocol
+
 ### Create the InferenceService
 
 For deploying the `InferenceService` with gRPC protocol you need to expose the gRPC port on InferenceService.
@@ -88,6 +89,7 @@ $inferenceservice.serving.kserve.io/torchserve-grpc created
 ```
 
 ### Run Inference with gRPC protocol
+
 #### Clone TorchServe Repo
 
 ```bash

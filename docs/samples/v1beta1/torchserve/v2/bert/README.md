@@ -1,4 +1,5 @@
 # TorchServe example with Huggingface bert model
+
 In this example we will show how to serve [Huggingface Transformers with TorchServe](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Transformers)
 on KServe.
 
@@ -69,7 +70,9 @@ Expected Output
 ```
 
 ## Captum Explanations
+
 In order to understand the word importances and attributions when we make an explanation Request, we use Captum Insights for the Hugginface Transformers pre-trained model.
+
 ```bash
 MODEL_NAME=torchserve-bert
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
@@ -77,7 +80,9 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/BERTSeqClassification/explain -d ./bert_v2.json
 
 ```
+
 Expected output
+
 ```bash
 *   Trying ::1:8080...
 * Connected to localhost (::1) port 8080 (#0)

@@ -30,50 +30,285 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"./pkg/apis/serving/v1alpha1.ModelSpec":              schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
-		"./pkg/apis/serving/v1alpha1.TrainedModel":           schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
-		"./pkg/apis/serving/v1alpha1.TrainedModelList":       schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
-		"./pkg/apis/serving/v1alpha1.TrainedModelSpec":       schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
-		"./pkg/apis/serving/v1beta1.AIXExplainerSpec":        schema_pkg_apis_serving_v1beta1_AIXExplainerSpec(ref),
-		"./pkg/apis/serving/v1beta1.ARTExplainerSpec":        schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
-		"./pkg/apis/serving/v1beta1.AlibiExplainerSpec":      schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
-		"./pkg/apis/serving/v1beta1.Batcher":                 schema_pkg_apis_serving_v1beta1_Batcher(ref),
-		"./pkg/apis/serving/v1beta1.ComponentExtensionSpec":  schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
-		"./pkg/apis/serving/v1beta1.ComponentStatusSpec":     schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
-		"./pkg/apis/serving/v1beta1.CustomExplainer":         schema_pkg_apis_serving_v1beta1_CustomExplainer(ref),
-		"./pkg/apis/serving/v1beta1.CustomPredictor":         schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
-		"./pkg/apis/serving/v1beta1.CustomTransformer":       schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
-		"./pkg/apis/serving/v1beta1.DeployConfig":            schema_pkg_apis_serving_v1beta1_DeployConfig(ref),
-		"./pkg/apis/serving/v1beta1.ExplainerConfig":         schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
-		"./pkg/apis/serving/v1beta1.ExplainerExtensionSpec":  schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
-		"./pkg/apis/serving/v1beta1.ExplainerSpec":           schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
-		"./pkg/apis/serving/v1beta1.ExplainersConfig":        schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
-		"./pkg/apis/serving/v1beta1.InferenceService":        schema_pkg_apis_serving_v1beta1_InferenceService(ref),
-		"./pkg/apis/serving/v1beta1.InferenceServiceList":    schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
-		"./pkg/apis/serving/v1beta1.InferenceServiceSpec":    schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
-		"./pkg/apis/serving/v1beta1.InferenceServiceStatus":  schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
-		"./pkg/apis/serving/v1beta1.InferenceServicesConfig": schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
-		"./pkg/apis/serving/v1beta1.IngressConfig":           schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
-		"./pkg/apis/serving/v1beta1.LightGBMSpec":            schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
-		"./pkg/apis/serving/v1beta1.LoggerSpec":              schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
-		"./pkg/apis/serving/v1beta1.ModelSpec":               schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
-		"./pkg/apis/serving/v1beta1.ONNXRuntimeSpec":         schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
-		"./pkg/apis/serving/v1beta1.PMMLSpec":                schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
-		"./pkg/apis/serving/v1beta1.PaddleServerSpec":        schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
-		"./pkg/apis/serving/v1beta1.PodSpec":                 schema_pkg_apis_serving_v1beta1_PodSpec(ref),
-		"./pkg/apis/serving/v1beta1.PredictorConfig":         schema_pkg_apis_serving_v1beta1_PredictorConfig(ref),
-		"./pkg/apis/serving/v1beta1.PredictorExtensionSpec":  schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
-		"./pkg/apis/serving/v1beta1.PredictorProtocols":      schema_pkg_apis_serving_v1beta1_PredictorProtocols(ref),
-		"./pkg/apis/serving/v1beta1.PredictorSpec":           schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
-		"./pkg/apis/serving/v1beta1.PredictorsConfig":        schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref),
-		"./pkg/apis/serving/v1beta1.SKLearnSpec":             schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
-		"./pkg/apis/serving/v1beta1.TFServingSpec":           schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
-		"./pkg/apis/serving/v1beta1.TorchServeSpec":          schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
-		"./pkg/apis/serving/v1beta1.TransformerConfig":       schema_pkg_apis_serving_v1beta1_TransformerConfig(ref),
-		"./pkg/apis/serving/v1beta1.TransformerSpec":         schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
-		"./pkg/apis/serving/v1beta1.TransformersConfig":      schema_pkg_apis_serving_v1beta1_TransformersConfig(ref),
-		"./pkg/apis/serving/v1beta1.TritonSpec":              schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
-		"./pkg/apis/serving/v1beta1.XGBoostSpec":             schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
+		"./pkg/apis/serving/v1alpha1.BuiltInAdapter":            schema_pkg_apis_serving_v1alpha1_BuiltInAdapter(ref),
+		"./pkg/apis/serving/v1alpha1.ClusterServingRuntime":     schema_pkg_apis_serving_v1alpha1_ClusterServingRuntime(ref),
+		"./pkg/apis/serving/v1alpha1.ClusterServingRuntimeList": schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref),
+		"./pkg/apis/serving/v1alpha1.Container":                 schema_pkg_apis_serving_v1alpha1_Container(ref),
+		"./pkg/apis/serving/v1alpha1.ModelSpec":                 schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
+		"./pkg/apis/serving/v1alpha1.ServingRuntime":            schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref),
+		"./pkg/apis/serving/v1alpha1.ServingRuntimeList":        schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref),
+		"./pkg/apis/serving/v1alpha1.ServingRuntimePodSpec":     schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref),
+		"./pkg/apis/serving/v1alpha1.ServingRuntimeSpec":        schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref),
+		"./pkg/apis/serving/v1alpha1.ServingRuntimeStatus":      schema_pkg_apis_serving_v1alpha1_ServingRuntimeStatus(ref),
+		"./pkg/apis/serving/v1alpha1.StorageHelper":             schema_pkg_apis_serving_v1alpha1_StorageHelper(ref),
+		"./pkg/apis/serving/v1alpha1.SupportedModelFormat":      schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref),
+		"./pkg/apis/serving/v1alpha1.TrainedModel":              schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
+		"./pkg/apis/serving/v1alpha1.TrainedModelList":          schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
+		"./pkg/apis/serving/v1alpha1.TrainedModelSpec":          schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
+		"./pkg/apis/serving/v1beta1.AIXExplainerSpec":           schema_pkg_apis_serving_v1beta1_AIXExplainerSpec(ref),
+		"./pkg/apis/serving/v1beta1.ARTExplainerSpec":           schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
+		"./pkg/apis/serving/v1beta1.AlibiExplainerSpec":         schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
+		"./pkg/apis/serving/v1beta1.Batcher":                    schema_pkg_apis_serving_v1beta1_Batcher(ref),
+		"./pkg/apis/serving/v1beta1.ComponentExtensionSpec":     schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
+		"./pkg/apis/serving/v1beta1.ComponentStatusSpec":        schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
+		"./pkg/apis/serving/v1beta1.CustomExplainer":            schema_pkg_apis_serving_v1beta1_CustomExplainer(ref),
+		"./pkg/apis/serving/v1beta1.CustomPredictor":            schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
+		"./pkg/apis/serving/v1beta1.CustomTransformer":          schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
+		"./pkg/apis/serving/v1beta1.DeployConfig":               schema_pkg_apis_serving_v1beta1_DeployConfig(ref),
+		"./pkg/apis/serving/v1beta1.ExplainerConfig":            schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
+		"./pkg/apis/serving/v1beta1.ExplainerExtensionSpec":     schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
+		"./pkg/apis/serving/v1beta1.ExplainerSpec":              schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
+		"./pkg/apis/serving/v1beta1.ExplainersConfig":           schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
+		"./pkg/apis/serving/v1beta1.InferenceService":           schema_pkg_apis_serving_v1beta1_InferenceService(ref),
+		"./pkg/apis/serving/v1beta1.InferenceServiceList":       schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
+		"./pkg/apis/serving/v1beta1.InferenceServiceSpec":       schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
+		"./pkg/apis/serving/v1beta1.InferenceServiceStatus":     schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
+		"./pkg/apis/serving/v1beta1.InferenceServicesConfig":    schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
+		"./pkg/apis/serving/v1beta1.IngressConfig":              schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
+		"./pkg/apis/serving/v1beta1.LightGBMSpec":               schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
+		"./pkg/apis/serving/v1beta1.LoggerSpec":                 schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
+		"./pkg/apis/serving/v1beta1.ModelFormat":                schema_pkg_apis_serving_v1beta1_ModelFormat(ref),
+		"./pkg/apis/serving/v1beta1.ModelSpec":                  schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
+		"./pkg/apis/serving/v1beta1.ONNXRuntimeSpec":            schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
+		"./pkg/apis/serving/v1beta1.PMMLSpec":                   schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
+		"./pkg/apis/serving/v1beta1.PaddleServerSpec":           schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
+		"./pkg/apis/serving/v1beta1.PodSpec":                    schema_pkg_apis_serving_v1beta1_PodSpec(ref),
+		"./pkg/apis/serving/v1beta1.PredictorConfig":            schema_pkg_apis_serving_v1beta1_PredictorConfig(ref),
+		"./pkg/apis/serving/v1beta1.PredictorExtensionSpec":     schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
+		"./pkg/apis/serving/v1beta1.PredictorProtocols":         schema_pkg_apis_serving_v1beta1_PredictorProtocols(ref),
+		"./pkg/apis/serving/v1beta1.PredictorSpec":              schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
+		"./pkg/apis/serving/v1beta1.PredictorsConfig":           schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref),
+		"./pkg/apis/serving/v1beta1.SKLearnSpec":                schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
+		"./pkg/apis/serving/v1beta1.TFServingSpec":              schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
+		"./pkg/apis/serving/v1beta1.TorchServeSpec":             schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
+		"./pkg/apis/serving/v1beta1.TransformerConfig":          schema_pkg_apis_serving_v1beta1_TransformerConfig(ref),
+		"./pkg/apis/serving/v1beta1.TransformerSpec":            schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
+		"./pkg/apis/serving/v1beta1.TransformersConfig":         schema_pkg_apis_serving_v1beta1_TransformersConfig(ref),
+		"./pkg/apis/serving/v1beta1.TritonSpec":                 schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
+		"./pkg/apis/serving/v1beta1.XGBoostSpec":                schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_BuiltInAdapter(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"serverType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerType can be one of triton/mlserver and the runtime's container must have the same name",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeManagementPort": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Port which the runtime server listens for model management requests",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"memBufferBytes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Fixed memory overhead to subtract from runtime container's memory allocation to determine model capacity",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"modelLoadingTimeoutMillis": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timeout for model loading operations in milliseconds",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_ClusterServingRuntime(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterServingRuntime is the Schema for the servingruntimes API",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/serving/v1alpha1.ServingRuntimeSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/serving/v1alpha1.ServingRuntimeStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.ServingRuntimeSpec", "./pkg/apis/serving/v1alpha1.ServingRuntimeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServingRuntimeList contains a list of ServingRuntime",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/serving/v1alpha1.ClusterServingRuntime"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.ClusterServingRuntime", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_Container(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"env": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.EnvVar"),
+									},
+								},
+							},
+						},
+					},
+					"imagePullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"workingDir": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"livenessProbe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Periodic probe of container liveness. Container will be restarted if the probe fails. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Ref:         ref("k8s.io/api/core/v1.Probe"),
+						},
+					},
+					"readinessProbe": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/api/core/v1.Probe"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -110,6 +345,357 @@ func schema_pkg_apis_serving_v1alpha1_ModelSpec(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServingRuntime is the Schema for the servingruntimes API",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/serving/v1alpha1.ServingRuntimeSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/serving/v1alpha1.ServingRuntimeStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.ServingRuntimeSpec", "./pkg/apis/serving/v1alpha1.ServingRuntimeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServingRuntimeList contains a list of ServingRuntime",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/serving/v1alpha1.ServingRuntime"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.ServingRuntime", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"containers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/serving/v1alpha1.Container"),
+									},
+								},
+							},
+						},
+					},
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the pod's scheduling constraints",
+							Ref:         ref("k8s.io/api/core/v1.Affinity"),
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the pod's tolerations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"containers"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.Container", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServingRuntimeSpec defines the desired state of ServingRuntime. This spec is currently provisional and are subject to change as details regarding single-model serving and multi-model serving are hammered out.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"supportedModelFormats": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Model formats and version supported by this runtime",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/serving/v1alpha1.SupportedModelFormat"),
+									},
+								},
+							},
+						},
+					},
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Set to true to disable use of this runtime",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"containers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/serving/v1alpha1.Container"),
+									},
+								},
+							},
+						},
+					},
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the pod's scheduling constraints",
+							Ref:         ref("k8s.io/api/core/v1.Affinity"),
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the pod's tolerations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+					"grpcEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Grpc endpoint for internal model-management (implementing mmesh.ModelRuntime gRPC service) Assumed to be single-model runtime if omitted",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"grpcDataEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Grpc endpoint for inferencing",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"httpDataEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HTTP endpoint for inferencing",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"replicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configure the number of replicas in the Deployment generated by this ServingRuntime If specified, this overrides the podsPerRuntime configuration value",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"storageHelper": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configuration for this runtime's use of the storage helper (model puller) It is enabled unless explicitly disabled",
+							Ref:         ref("./pkg/apis/serving/v1alpha1.StorageHelper"),
+						},
+					},
+					"builtInAdapter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Provide the details about built-in runtime adapter",
+							Ref:         ref("./pkg/apis/serving/v1alpha1.BuiltInAdapter"),
+						},
+					},
+				},
+				Required: []string{"containers"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.BuiltInAdapter", "./pkg/apis/serving/v1alpha1.Container", "./pkg/apis/serving/v1alpha1.StorageHelper", "./pkg/apis/serving/v1alpha1.SupportedModelFormat", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_ServingRuntimeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServingRuntimeStatus defines the observed state of ServingRuntime",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_StorageHelper(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the model format.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version of the model format. Used in validating that a predictor is supported by a runtime. Can be \"major\", \"major.minor\" or \"major.minor.patch\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"autoSelect": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Set to true to allow the ServingRuntime to be used for automatic model placement if this model format is specified with no explicit runtime.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				
+			},
+		},
 	}
 }
 
@@ -3691,16 +4277,43 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the model format.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version of the model format. Used in validating that a predictor is supported by a runtime. Can be \"major\", \"major.minor\" or \"major.minor.patch\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_ModelSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"framework": {
+					"modelFormat": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Framework of the model being served.",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.Framework"),
+							Description: "ModelFormat being served.",
+							Ref:         ref("./pkg/apis/serving/v1beta1.ModelFormat"),
 						},
 					},
 					"runtime": {
@@ -3953,11 +4566,11 @@ func schema_pkg_apis_serving_v1beta1_ModelSpec(ref common.ReferenceCallback) com
 						},
 					},
 				},
-				Required: []string{"framework", "name"},
+				Required: []string{"modelFormat"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.Framework", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"./pkg/apis/serving/v1beta1.ModelFormat", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -5955,7 +6568,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref common.ReferenceCallba
 					},
 					"pytorch": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorProtocols"),
+							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
 						},
 					},
 					"onnx": {
@@ -6507,13 +7120,6 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 				Description: "TorchServeSpec defines arguments for configuring PyTorch model serving.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"modelClassName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"storageUri": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This field points to the location of the trained model which is mounted onto the pod.",

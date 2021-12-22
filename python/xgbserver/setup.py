@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,8 +34,8 @@ setup(
     packages=find_packages("xgbserver"),
     install_requires=[
         "kserve>=0.7.0",
-        "xgboost == 0.82",
-        "scikit-learn == 0.20.3",
+        "xgboost == 1.5.0",
+        "scikit-learn == 1.0.1",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

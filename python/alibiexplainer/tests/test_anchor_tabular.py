@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +22,8 @@ import numpy as np
 import json
 from .utils import Predictor
 
-ADULT_EXPLAINER_URI = "gs://seldon-models/sklearn/income/explainer-py37-0.6.0"
-ADULT_MODEL_URI = "gs://seldon-models/sklearn/income/model"
+ADULT_EXPLAINER_URI = "gs://kfserving-examples/models/sklearn/1.0/income/explainer-py37-0.6.2"
+ADULT_MODEL_URI = "gs://kfserving-examples/models/sklearn/1.0/income/model"
 EXPLAINER_FILENAME = "explainer.dill"
 
 
@@ -42,5 +43,5 @@ def test_anchor_tabular():
         np.random.seed(0)
         explanation = anchor_tabular.explain(X_test[0:1].tolist())
         exp_json = json.loads(explanation.to_json())
-        assert exp_json["data"]["anchor"][0] == "Marital Status = Never-Married" or \
+        assert exp_json["data"]["anchor"][0] == "Relationship = Own-child" or \
                exp_json["data"]["anchor"][0] == "Age <= 28.00"

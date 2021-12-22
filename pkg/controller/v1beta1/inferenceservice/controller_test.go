@@ -1,8 +1,12 @@
 /*
+Copyright 2021 The KServe Authors.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -1029,10 +1033,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: namespace,
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
-					SupportedModelTypes: []v1alpha1.Framework{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 						{
-							Name:    "tensorflow",
-							Version: proto.String("1"),
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
@@ -1070,7 +1075,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MaxReplicas: 3,
 						},
 						Model: &v1beta1.ModelSpec{
-							Framework: v1alpha1.Framework{
+							ModelFormat: v1beta1.ModelFormat{
 								Name: "tensorflow",
 							},
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{

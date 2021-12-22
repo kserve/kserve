@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +21,11 @@ from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from http import HTTPStatus
 from enum import Enum
-from ray.serve.utils import ServeRequest
+from kserve.utils.utils import is_structured_cloudevent
 import grpc
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
+
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -40,6 +42,22 @@ class PredictorProtocol(Enum):
     REST_V1 = "v1"
     REST_V2 = "v2"
     GRPC_V2 = "grpc-v2"
+
+
+class ModelMissingError(Exception):
+    def __init__(self, path):
+        self.path = path
+
+    def __str__(self):
+        return self.path
+
+
+class InferenceError(RuntimeError):
+    def __init__(self, reason):
+        self.reason = reason
+
+    def __str__(self):
+        return self.reason
 
 
 # KFModel is intended to be subclassed by various components within KFServing.
@@ -109,39 +127,35 @@ class KFModel:
         self.ready = True
         return self.ready
 
-    async def preprocess(self, request: Dict) -> Union[Dict, ModelInferRequest]:
+    async def preprocess(self, request: Union[Dict, CloudEvent]) -> Union[Dict, ModelInferRequest]:
         """
-        The preprocess handler can be overridden for data or feature transformation,
-        the default implementation decodes to Dict if it is cloudevent JSON otherwise pass the data field
-        :param request: JSON Dict or CloudEvent
+        The preprocess handler can be overridden for data or feature transformation.
+        The default implementation decodes to Dict if it is a binary CloudEvent
+        or gets the data field from a structured CloudEvent.
+        :param request: Dict|CloudEvent|ModelInferRequest
         :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
         response = request
 
         if isinstance(request, CloudEvent):
             response = request.data
-            if isinstance(response, bytes):
-                try:
-                    response = json.loads(response.decode('UTF-8'))
-                except (json.decoder.JSONDecodeError, UnicodeDecodeError) as e:
-                    attributes = request._attributes
-                    if "content-type" in attributes:
-                        if attributes["content-type"] == "application/cloudevents+json" or \
-                           attributes["content-type"] == "application/json":
-                            raise tornado.web.HTTPError(
-                                status_code=HTTPStatus.BAD_REQUEST,
-                                reason="Unrecognized request format: %s" % e
-                            )
-        elif isinstance(request, ServeRequest):
-            return await request.body()
-        elif isinstance(request, dict):
+            # Try to decode and parse JSON UTF-8 if possible, otherwise
+            # just pass the CloudEvent data on to the predict function.
+            # This is for the cases that CloudEvent encoding is protobuf, avro etc.
+            try:
+                response = json.loads(response.decode('UTF-8'))
+            except (json.decoder.JSONDecodeError, UnicodeDecodeError) as e:
+                # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
+                if "content-type" in request._attributes and \
+                        (request._attributes["content-type"] == "application/cloudevents+json" or
+                         request._attributes["content-type"] == "application/json"):
+                    raise tornado.web.HTTPError(
+                        status_code=HTTPStatus.BAD_REQUEST,
+                        reason=f"Failed to decode or parse binary json cloudevent: {e}"
+                    )
 
-            if "time" in request \
-                    and "type" in request \
-                    and "source" in request \
-                    and "id" in request \
-                    and "specversion" in request \
-                    and "data" in request:
+        elif isinstance(request, dict):
+            if is_structured_cloudevent(request):
                 response = request["data"]
 
         return response
@@ -161,10 +175,12 @@ class KFModel:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
+        json_header = {'Content-Type': 'application/json'}
         response = await self._http_client.fetch(
             predict_url,
             method='POST',
             request_timeout=self.timeout,
+            headers=json_header,
             body=json.dumps(request)
         )
         if response.code != 200:

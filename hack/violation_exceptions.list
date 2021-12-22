@@ -1,3 +1,9 @@
+API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,Container,Args
+API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,Container,Command
+API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,Container,Env
+API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Containers
+API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Tolerations
+API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimeSpec,SupportedModelFormats
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,TrainedModelList,Items
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,ComponentStatusSpec,Traffic
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,InferenceServiceList,Items
@@ -11,6 +17,7 @@ API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,Tolerat
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,Volumes
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PredictorConfig,SupportedFrameworks
 API rule violation: names_match,./pkg/apis/serving/v1alpha1,ModelSpec,StorageURI
+API rule violation: names_match,./pkg/apis/serving/v1alpha1,ServingRuntimeSpec,GrpcMultiModelManagementEndpoint
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ComponentExtensionSpec,TimeoutSeconds
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainerConfig,ContainerImage
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainerExtensionSpec,StorageURI

@@ -16,24 +16,28 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from alibi.datasets import adult
+from alibi.datasets import fetch_adult
 import joblib
 import dill
 from sklearn.pipeline import Pipeline
 import alibi
 
 # load data
-data, labels, feature_names, category_map = adult()
+adult = fetch_adult()
+data = adult.data
+targets = adult.target
+feature_names = adult.feature_names
+category_map = adult.category_map
 
 # define train and test set
 np.random.seed(0)
-data_perm = np.random.permutation(np.c_[data, labels])
+data_perm = np.random.permutation(np.c_[data, targets])
 data = data_perm[:, :-1]
 labels = data_perm[:, -1]
 
 idx = 30000
-X_train, Y_train = data[:idx, :], labels[:idx]
-X_test, Y_test = data[idx + 1:, :], labels[idx + 1:]
+X_train, Y_train = data[:idx, :], targets[:idx]
+X_test, Y_test = data[idx + 1:, :], targets[idx + 1:]
 
 # feature transformation pipeline
 ordinal_features = [x for x in range(len(feature_names)) if x not in list(category_map.keys())]
@@ -56,7 +60,7 @@ pipeline = Pipeline([('preprocessor', preprocessor),
 pipeline.fit(X_train, Y_train)
 
 print("Creating an explainer")
-explainer = alibi.explainers.AnchorTabular(predict_fn=lambda x: clf.predict(preprocessor.transform(x)),
+explainer = alibi.explainers.AnchorTabular(predictor=lambda x: clf.predict(preprocessor.transform(x)),
                                            feature_names=feature_names,
                                            categorical_names=category_map)
 explainer.fit(X_train)
