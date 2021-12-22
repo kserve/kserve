@@ -45,7 +45,7 @@ curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack
 echo "Install istio ..."
 mkdir istio_tmp
 pushd istio_tmp >/dev/null
-  curl -L https://git.io/getLatestIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
+  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
   cd istio-${ISTIO_VERSION}
   export PATH=$PWD/bin:$PATH
   istioctl operator init
