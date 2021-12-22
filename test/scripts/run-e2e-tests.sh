@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019 The Kubeflow Authors.
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/relea
 echo "Waiting for cert manager started ..."
 kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --timeout=180s -n cert-manager
 
-echo "Install KFServing ..."
+echo "Install KServe ..."
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
 
@@ -126,24 +126,19 @@ sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/runtimes/kustomizat
 sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/manager_image_patch.yaml
 make deploy-ci
 
-echo "Waiting for KFServing started ..."
+echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A
 
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
 
-echo "Istio, Knative and KFServing have been installed and started."
+echo "Istio, Knative and KServe have been installed and started."
 
-echo "Installing KFServing Python SDK ..."
+echo "Installing KServe Python SDK ..."
 python3 -m pip install --upgrade pip
-pip3 install pytest==6.0.2 pytest-xdist pytest-rerunfailures
-pip3 install --upgrade pytest-tornasync
-pip3 install urllib3==1.24.2
-pip3 install --upgrade setuptools
 pushd python/kserve >/dev/null
-    pip3 install -r requirements.txt
-    python3 setup.py install --force --user
+    pip3 install -e .[test] --user
 popd
 
 echo "Starting E2E functional tests ..."
