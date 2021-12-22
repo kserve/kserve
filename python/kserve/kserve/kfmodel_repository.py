@@ -15,6 +15,7 @@
 from typing import Dict, Optional, Union
 from kserve import KFModel
 from ray.serve.api import RayServeHandle
+import os
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -28,6 +29,12 @@ class KFModelRepository:
     def __init__(self, models_dir: str = MODEL_MOUNT_DIRS):
         self.models = {}
         self.models_dir = models_dir
+
+    def load_models(self):
+        for name in os.listdir(self.models_dir):
+            d = os.path.join(self.models_dir, name)
+            if os.path.isdir(d):
+                self.load_model(name)
 
     def set_models_dir(self, models_dir):  # used for unit tests
         self.models_dir = models_dir
@@ -45,7 +52,7 @@ class KFModelRepository:
         if isinstance(model, KFModel):
             return False if model is None else model.ready
         else:
-            # For Ray Serve, the models are guaranteed to be ready after the deploy call.
+            # For Ray Serve, the models are guaranteed to be ready after deploying the model.
             return True
 
     def update(self, model: KFModel):
@@ -55,6 +62,9 @@ class KFModelRepository:
         self.models[name] = model_handle
 
     def load(self, name: str) -> bool:
+        pass
+
+    def load_model(self, name: str) -> bool:
         pass
 
     def unload(self, name: str):
