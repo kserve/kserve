@@ -18,7 +18,7 @@ import joblib
 import numpy as np
 import pathlib
 from typing import Dict
-from kserve.kfmodel import ModelMissingError, InferenceError
+from kserve.model import ModelMissingError, InferenceError
 
 MODEL_BASENAME = "model"
 MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
