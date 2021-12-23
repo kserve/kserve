@@ -16,6 +16,7 @@ import setuptools
 
 TESTS_REQUIRES = [
     'pytest',
+    'pytest-xdist',
     'pytest-cov',
     'pytest-asyncio',
     'pytest-tornasync',
