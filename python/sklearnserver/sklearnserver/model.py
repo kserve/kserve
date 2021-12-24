@@ -18,14 +18,14 @@ import joblib
 import numpy as np
 import pathlib
 from typing import Dict
-from kserve.kfmodel import ModelMissingError, InferenceError
+from kserve.model import ModelMissingError, InferenceError
 
 MODEL_BASENAME = "model"
 MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
 ENV_PREDICT_PROBA = "PREDICT_PROBA"
 
 
-class SKLearnModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
+class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name

@@ -20,7 +20,7 @@ from pmmlserver import PmmlModel
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 
-parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -30,4 +30,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = PmmlModel(args.model_name, args.model_dir)
     model.load()
-    kserve.KFServer().start([model])
+    kserve.ModelServer().start([model])

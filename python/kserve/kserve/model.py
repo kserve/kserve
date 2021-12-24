@@ -60,9 +60,8 @@ class InferenceError(RuntimeError):
         return self.reason
 
 
-# KFModel is intended to be subclassed by various components within KFServing.
-class KFModel:
-
+# Model is intended to be subclassed by various components within KServe.
+class Model:
     def __init__(self, name: str):
         self.name = name
         self.ready = False

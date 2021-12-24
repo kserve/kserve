@@ -22,7 +22,7 @@ import sys
 PYTORCH_FILE = "model.pt"
 
 
-class PyTorchModel(kserve.KFModel):
+class PyTorchModel(kserve.Model):
     def __init__(self, name: str, model_class_name: str, model_dir: str):
         super().__init__(name)
         self.name = name
