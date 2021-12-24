@@ -72,7 +72,6 @@ class ImageTransformer(Model):
         request.inputs.extend([input_0._get_tensor()])
         if input_0._get_content() is not None:
             request.raw_input_contents.extend([input_0._get_content()])
-        print(request)
         return request
 
     def postprocess(self, infer_response: ModelInferResponse) -> Dict:
