@@ -381,8 +381,8 @@
             ]),  // build-agent
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", kanikoExecutorImage, [
               "/kaniko/executor",
-              "--dockerfile=" + srcDir + "/docs/samples/v1beta1/transformer/torchserve_image_transformer/transformer.Dockerfile",
-              "--context=dir://" + srcDir + "/docs/samples/v1beta1/transformer/torchserve_image_transformer",
+              "--dockerfile=" + srcDir + "/python/custom_transformer.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
               "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:latest",
             ]),  // build-custom-image-transformer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", kanikoExecutorImage, [
