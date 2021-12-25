@@ -32,7 +32,7 @@ setup(
     install_requires=[
         "kserve>=0.7.0",
         "pandas>=0.24.2",
-        "opencv-python-headless==4.0.0.21",
+        "opencv-python-headless==4.2.0.32",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
