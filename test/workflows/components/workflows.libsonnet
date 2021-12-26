@@ -383,7 +383,7 @@
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/custom_transformer.Dockerfile",
               "--context=dir://" + srcDir + "/python",
-              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:latest",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:$(PULL_BASE_SHA)",
             ]),  // build-custom-image-transformer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", kanikoExecutorImage, [
               "/kaniko/executor",
