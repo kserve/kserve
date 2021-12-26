@@ -75,8 +75,11 @@ class ImageTransformer(Model):
         return request
 
     def postprocess(self, infer_response: ModelInferResponse) -> Dict:
-        response = InferResult(infer_response)
-        return {"predictions": response.as_numpy("OUTPUT__0").tolist()}
+        if self.protocol == PredictorProtocol.GRPC_V2.value:
+            response = InferResult(infer_response)
+            return {"predictions": response.as_numpy("OUTPUT__0").tolist()}
+        else:
+            return infer_response
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])
@@ -84,7 +87,7 @@ parser.add_argument(
     "--predictor_host", help="The URL for the model predict function", required=True
 )
 parser.add_argument(
-    "--protocol", help="The protocol for the predictor", required=True
+    "--protocol", help="The protocol for the predictor", default="v1"
 )
 parser.add_argument(
     "--model_name", help="The name that the model is served under."
