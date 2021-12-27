@@ -108,13 +108,13 @@ class Model:
 
     def validate(self, request):
         if self.protocol == PredictorProtocol.REST_V2:
-            if ("inputs" in request and not isinstance(request["inputs"], list)):
+            if "inputs" in request and not isinstance(request["inputs"], list):
                 raise tornado.web.HTTPError(
                     status_code=HTTPStatus.BAD_REQUEST,
                     reason="Expected \"inputs\" to be a list"
                 )
-        else:
-            if ("instances" in request and not isinstance(request["instances"], list)):
+        elif isinstance(request, Dict) or self.protocol == PredictorProtocol.REST_V1:
+            if "instances" in request and not isinstance(request["instances"], list):
                 raise tornado.web.HTTPError(
                     status_code=HTTPStatus.BAD_REQUEST,
                     reason="Expected \"instances\" to be a list"

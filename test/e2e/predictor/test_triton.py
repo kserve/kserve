@@ -43,7 +43,7 @@ def test_triton():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer'
+                      image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:'
                             + os.environ.get("PULL_BASE_SHA"),
                       name='kserve-container',
                       resources=V1ResourceRequirements(
