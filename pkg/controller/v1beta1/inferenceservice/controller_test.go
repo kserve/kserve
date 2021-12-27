@@ -18,6 +18,7 @@ package inferenceservice
 
 import (
 	"context"
+	"knative.dev/pkg/kmp"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -170,9 +171,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									constants.InferenceServicePodLabelKey: serviceName,
 								},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/maxScale":                         "3",
-									"autoscaling.knative.dev/minScale":                         "1",
 									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
+									"autoscaling.knative.dev/max-scale":                        "3",
+									"autoscaling.knative.dev/min-scale":                        "1",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 								},
 							},
@@ -203,7 +204,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			expectedService.SetDefaults(context.TODO())
-			Expect(actualService.Spec.ConfigurationSpec).To(gomega.Equal(expectedService.Spec.ConfigurationSpec))
+			Expect(kmp.SafeDiff(actualService.Spec, expectedService.Spec)).To(Equal(""))
 			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			// update predictor
 			{
@@ -399,9 +400,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									constants.KServiceComponentLabel: constants.Transformer.String(),
 								},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/maxScale": "3",
-									"autoscaling.knative.dev/minScale": "1",
+									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/max-scale": "3",
+									"autoscaling.knative.dev/min-scale": "1",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -615,8 +616,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/maxScale":                         "3",
-									"autoscaling.knative.dev/minScale":                         "1",
+									"autoscaling.knative.dev/max-scale":                        "3",
+									"autoscaling.knative.dev/min-scale":                        "1",
 									"internal.serving.kserve.io/storage-initializer-sourceuri": "s3://test/mnist/explainer",
 								},
 							},
@@ -1127,8 +1128,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/maxScale":                         "3",
-									"autoscaling.knative.dev/minScale":                         "1",
+									"autoscaling.knative.dev/max-scale":                        "3",
+									"autoscaling.knative.dev/min-scale":                        "1",
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/mnist/export",
 								},
 							},

@@ -29,7 +29,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 var configMap = &v1.ConfigMap{
@@ -73,66 +72,62 @@ func TestS3CredentialBuilder(t *testing.T) {
 	}
 	scenarios := map[string]struct {
 		serviceAccount        *v1.ServiceAccount
-		inputConfiguration    *v1alpha1.Configuration
-		expectedConfiguration *v1alpha1.Configuration
+		inputConfiguration    *knservingv1.Configuration
+		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
 	}{
 		"Build s3 secrets envs": {
 			serviceAccount: existingServiceAccount,
-			inputConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					Template: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: knservingv1.RevisionSpec{
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
-										{},
-									},
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					Template: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: knservingv1.RevisionSpec{
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
-										{
-											Env: []v1.EnvVar{
-												{
-													Name: s3.AWSAccessKeyId,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "s3-secret",
-															},
-															Key: "awsAccessKeyID",
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Env: []v1.EnvVar{
+											{
+												Name: s3.AWSAccessKeyId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "s3-secret",
 														},
+														Key: "awsAccessKeyID",
 													},
 												},
-												{
-													Name: s3.AWSSecretAccessKey,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "s3-secret",
-															},
-															Key: "awsSecretAccessKey",
+											},
+											{
+												Name: s3.AWSSecretAccessKey,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "s3-secret",
 														},
+														Key: "awsSecretAccessKey",
 													},
 												},
-												{
-													Name:  s3.S3Endpoint,
-													Value: "s3.aws.com",
-												},
-												{
-													Name:  s3.AWSEndpointUrl,
-													Value: "https://s3.aws.com",
-												},
+											},
+											{
+												Name:  s3.S3Endpoint,
+												Value: "s3.aws.com",
+											},
+											{
+												Name:  s3.AWSEndpointUrl,
+												Value: "https://s3.aws.com",
 											},
 										},
 									},
@@ -198,57 +193,53 @@ func TestGCSCredentialBuilder(t *testing.T) {
 	}
 	scenarios := map[string]struct {
 		serviceAccount        *v1.ServiceAccount
-		inputConfiguration    *v1alpha1.Configuration
-		expectedConfiguration *v1alpha1.Configuration
+		inputConfiguration    *knservingv1.Configuration
+		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
 	}{
 		"Build gcs secrets volume": {
 			serviceAccount: existingServiceAccount,
-			inputConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					Template: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: knservingv1.RevisionSpec{
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
-										{},
-									},
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					Template: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: knservingv1.RevisionSpec{
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
-										{
-											VolumeMounts: []v1.VolumeMount{
-												{
-													Name:      gcs.GCSCredentialVolumeName,
-													ReadOnly:  true,
-													MountPath: gcs.GCSCredentialVolumeMountPath,
-												},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										VolumeMounts: []v1.VolumeMount{
+											{
+												Name:      gcs.GCSCredentialVolumeName,
+												ReadOnly:  true,
+												MountPath: gcs.GCSCredentialVolumeMountPath,
 											},
-											Env: []v1.EnvVar{
-												{
-													Name:  gcs.GCSCredentialEnvKey,
-													Value: gcs.GCSCredentialVolumeMountPath + "gcloud-application-credentials.json",
-												},
+										},
+										Env: []v1.EnvVar{
+											{
+												Name:  gcs.GCSCredentialEnvKey,
+												Value: gcs.GCSCredentialVolumeMountPath + "gcloud-application-credentials.json",
 											},
 										},
 									},
-									Volumes: []v1.Volume{
-										{
-											Name: gcs.GCSCredentialVolumeName,
-											VolumeSource: v1.VolumeSource{
-												Secret: &v1.SecretVolumeSource{
-													SecretName: "user-gcp-sa",
-												},
+								},
+								Volumes: []v1.Volume{
+									{
+										Name: gcs.GCSCredentialVolumeName,
+										VolumeSource: v1.VolumeSource{
+											Secret: &v1.SecretVolumeSource{
+												SecretName: "user-gcp-sa",
 											},
 										},
 									},
@@ -318,78 +309,74 @@ func TestAzureCredentialBuilder(t *testing.T) {
 
 	scenarios := map[string]struct {
 		serviceAccount        *v1.ServiceAccount
-		inputConfiguration    *v1alpha1.Configuration
-		expectedConfiguration *v1alpha1.Configuration
+		inputConfiguration    *knservingv1.Configuration
+		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
 	}{
 		"Custom Azure Secret": {
 			serviceAccount: customOnlyServiceAccount,
-			inputConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					Template: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: knservingv1.RevisionSpec{
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
-										{},
-									},
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					Template: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: knservingv1.RevisionSpec{
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
-										{
-											Env: []v1.EnvVar{
-												{
-													Name: azure.AzureSubscriptionId,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "az-custom-secret",
-															},
-															Key: azure.AzureSubscriptionId,
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Env: []v1.EnvVar{
+											{
+												Name: azure.AzureSubscriptionId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
 														},
+														Key: azure.AzureSubscriptionId,
 													},
 												},
-												{
-													Name: azure.AzureTenantId,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "az-custom-secret",
-															},
-															Key: azure.AzureTenantId,
+											},
+											{
+												Name: azure.AzureTenantId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
 														},
+														Key: azure.AzureTenantId,
 													},
 												},
-												{
-													Name: azure.AzureClientId,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "az-custom-secret",
-															},
-															Key: azure.AzureClientId,
+											},
+											{
+												Name: azure.AzureClientId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
 														},
+														Key: azure.AzureClientId,
 													},
 												},
-												{
-													Name: azure.AzureClientSecret,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "az-custom-secret",
-															},
-															Key: azure.AzureClientSecret,
+											},
+											{
+												Name: azure.AzureClientSecret,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
 														},
+														Key: azure.AzureClientSecret,
 													},
 												},
 											},
