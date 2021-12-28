@@ -24,7 +24,7 @@ The KServe/TorchServe integration expects following model store layout.
 │   ├── mnist.mar
 ```
 
-- For remote storage you can choose to start the example using the prebuilt mnist MAR file stored on KFServing example GCS bucket
+- For remote storage you can choose to start the example using the prebuilt mnist MAR file stored on KServe example GCS bucket
 `gs://kfserving-examples/models/torchserve/image_classifier`,
 you can also generate the MAR file with `torch-model-archiver` and create the model store on remote storage according to the above layout.
 
@@ -39,14 +39,14 @@ torch-model-archiver --model-name mnist --version 1.0 \
 - For PVC user please refer to [model archive file generation](./model-archiver/README.md) for auto generation of MAR files from
 the model and dependent files.
 
-- The [config.properties](./v1/config.properties) file includes the flag `service_envelope=kfserving` to enable the KFServing inference protocol.
-The requests are converted from KFServing inference request format to torchserve request format and sent to the `inference_address` configured
+- The [config.properties](./v1/config.properties) file includes the flag `service_envelope=kfserving` to enable the KServe inference protocol.
+The requests are converted from KServe inference request format to torchserve request format and sent to the `inference_address` configured
 via local socket.
 
 
 ## TorchServe with KFS envelope inference endpoints
 
-The KServe/TorchServe integration supports both KFServing v1 and v2 protocols.
+The KServe/TorchServe integration supports both KServe v1 and v2 protocols.
 
 V1 Protocol
 

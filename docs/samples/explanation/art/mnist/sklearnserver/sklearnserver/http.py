@@ -15,11 +15,11 @@ import inspect
 import tornado.web
 import json
 from http import HTTPStatus
-from .kfmodel_repository import KFModelRepository
+from .model_repository import ModelRepository
 
 
 class HTTPHandler(tornado.web.RequestHandler):
-    def initialize(self, models: KFModelRepository):
+    def initialize(self, models: ModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get_model(self, name: str):

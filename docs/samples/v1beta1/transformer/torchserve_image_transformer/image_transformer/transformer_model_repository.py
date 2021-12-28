@@ -1,18 +1,18 @@
 import logging
 
 
-from kserve.kfmodel_repository import KFModelRepository
+from kserve.model_repository import ModelRepository
 import kserve
 
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
-class TransformerModelRepository(KFModelRepository):
+class TransformerModelRepository(ModelRepository):
     """The class object for the Image Transformer.
 
     Args:
-        KFModelRepository (class): KFModel Repository class object of
+        ModelRepository (class): Model Repository class object of
         kfserving is passed here.
     """
 

@@ -50,12 +50,12 @@ def image_transform(instance):
     return instance
 
 
-class ImageTransformer(kserve.KFModel):
+class ImageTransformer(kserve.Model):
     """ A class object for the data handling activities of Image Classification
     Task and returns a KServe compatible response.
 
     Args:
-        kserve (class object): The KFModel class from the KServe
+        kserve (class object): The Model class from the KServe
         modeule is passed here.
     """
     def __init__(self, name: str, predictor_host: str):
