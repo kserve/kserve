@@ -1,6 +1,6 @@
 # Predict on an InferenceService with Tensorflow model
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 
 
@@ -104,7 +104,7 @@ NAME            URL                                        READY   PREV   LATEST
 flower-sample   http://flower-sample.default.example.com   True    80     20       flower-sample-predictor-default-n9zs6   flower-sample-predictor-default-2kwtr   7m15s
 ```
 
-As you can see the traffic is split between the last rolled out revision and the current latest ready revision, KFServing automatically tracks the last rolled out(stable) revision for you so you
+As you can see the traffic is split between the last rolled out revision and the current latest ready revision, KServe automatically tracks the last rolled out(stable) revision for you so you
 do not need to maintain both default and canary on the `InferenceService` as in v1alpha2.
 
 

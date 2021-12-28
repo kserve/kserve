@@ -1,14 +1,14 @@
 # Deploy Custom Python Model with KFServer API
 When out of the box model server does not fit your need, you can build your own model server using KFServer API and use the
-following source to serving workflow to deploy your custom models to KFServing.
+following source to serving workflow to deploy your custom models to KServe.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kserve/kserve#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Install [pack CLI](https://buildpacks.io/docs/tools/pack/) to build your custom model server image.
 
-## Create your custom Model Server by extending KFModel
-`KFServing.KFModel` base class mainly defines three handlers `preprocess`, `predict` and `postprocess`, these handlers are executed
+## Create your custom Model Server by extending Model
+`KServe.Model` base class mainly defines three handlers `preprocess`, `predict` and `postprocess`, these handlers are executed
 in sequence, the output of the `preprocess` is passed to `predict` as the input, the `predictor` handler should execute the
 inference for your model, the `postprocess` handler then turns the raw prediction result into user-friendly inference response. There
 is an additional `load` handler which is used for writing custom code to load your model into the memory from local file system or
@@ -16,10 +16,10 @@ remote model storage, a general good practice is to call the `load` handler in t
 is loaded on startup and ready to serve when user is making the prediction calls.
 
 ```python
-import kfserving
+import kserve
 from typing import Dict
 
-class AlexNetModel(kfserving.KFModel):
+class AlexNetModel(kserve.Model):
     def __init__(self, name: str):
        super().__init__(name)
        self.name = name
@@ -33,11 +33,11 @@ class AlexNetModel(kfserving.KFModel):
 
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
-    kfserving.KFServer().start([model])
+    kserve.ModelServer().start([model])
 ```
 
 ## Build the custom image with Buildpacks
-[Buildpacks](https://buildpacks.io/) allows you to transform your inference code into images that can be deployed on KFServing without
+[Buildpacks](https://buildpacks.io/) allows you to transform your inference code into images that can be deployed on KServe without
 needing to define the `Dockerfile`. Buildpacks automatically determines the python application and then install the dependencies from the
 `requirements.txt` file, it looks at the `Procfile` to determine how to start the model server. Here we are showing how to build the serving
 image manually with `pack`, you can also choose to use [kpack](https://github.com/pivotal/kpack)
@@ -52,16 +52,16 @@ docker push ${DOCKER_USER}/custom-model:v1
 ## Parallel Inference
 By default the model is loaded and inference is ran in the same process as tornado http server, if you are hosting multiple models
 the inference can only be run for one model at a time which limits the concurrency when you share the container for the models.
-KFServing integrates [RayServe](https://docs.ray.io/en/master/serve/index.html) which provides a programmable API to deploy models
+KServe integrates [RayServe](https://docs.ray.io/en/master/serve/index.html) which provides a programmable API to deploy models
 as separate python workers so the inference can be ran in parallel.
 
 ```python
-import kfserving
+import kserve
 from typing import Dict
 from ray import serve
 
 @serve.deployment(name="custom-model", config={"num_replicas": 2})
-class AlexNetModel(kfserving.KFModel):
+class AlexNetModel(kserve.Model):
     def __init__(self):
        self.name = "custom-model"
        super().__init__(self.name)
@@ -74,7 +74,7 @@ class AlexNetModel(kfserving.KFModel):
         pass
 
 if __name__ == "__main__":
-    kfserving.KFServer().start({"custom-model": AlexNetModel})
+    kserve.ModelServer().start({"custom-model": AlexNetModel})
 ```
 
 Modify the `Procfile` to `web: python -m model_remote` and then run the above `pack` command, it builds the serving image which launches
@@ -96,7 +96,7 @@ curl localhost:8080/v1/models/custom-model:predict -d @./input.json
 {"predictions": [[14.861763000488281, 13.94291877746582, 13.924378395080566, 12.182709693908691, 12.00634765625]]}
 ```
 
-## Deploy to KFServing
+## Deploy to KServe
 ### Create the InferenceService
 
 In the `custom.yaml` file edit the container image and replace {username} with your Docker Hub username.

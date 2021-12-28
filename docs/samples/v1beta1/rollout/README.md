@@ -1,13 +1,13 @@
 # Rollout InferenceService with Canary Strategy
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kserve/kserve#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
 In v1beta1 you no longer need to specify both default and canary spec on `InferenceService` to rollout the `InferenceService` with canary strategy, 
-KFServing automatically tracks the last good revision that was rolled out with 100% traffic, you only need to set the `canaryTrafficPercent` field on the component
-and KFServing automatically splits the traffic between the revision that is currently rolling out and the last known good revision that had 100% traffic rolled out.
+KServe automatically tracks the last good revision that was rolled out with 100% traffic, you only need to set the `canaryTrafficPercent` field on the component
+and KServe automatically splits the traffic between the revision that is currently rolling out and the last known good revision that had 100% traffic rolled out.
 
 ![Canary Rollout](./canary.png)
 

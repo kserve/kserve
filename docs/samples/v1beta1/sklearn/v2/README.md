@@ -65,7 +65,7 @@ These can be specified through environment variables or by creating a local
 }
 ```
 
-Note that, when we [deploy our model](#deployment), **KFServing will already
+Note that, when we [deploy our model](#deployment), **KServe will already
 inject some sensible defaults** so that it runs out-of-the-box without any
 further configuration.
 However, you can still override these defaults by providing a
@@ -84,7 +84,7 @@ mlserver start .
 
 ## Deployment
 
-Lastly, we will use KFServing to deploy our trained model.
+Lastly, we will use KServe to deploy our trained model.
 For this, we will just need to use **version `v1beta1`** of the
 `InferenceService` CRD and set the the **`protocolVersion` field to `v2`**.
 
@@ -106,10 +106,10 @@ Note that this makes the following assumptions:
   to a "model repository" (GCS in this example) and can be accessed as
   `gs://seldon-models/sklearn/iris`.
 - There is a K8s cluster available, accessible through `kubectl`.
-- KFServing has already been [installed in your
-  cluster](https://github.com/kubeflow/kfserving/#install-kfserving).
+- KServe has already been [installed in your
+  cluster](https://github.com/kserve/kserve#installation).
 
-Assuming that we've got a cluster accessible through `kubectl` with KFServing
+Assuming that we've got a cluster accessible through `kubectl` with KServe
 already installed, we can deploy our model as:
 
 ```
