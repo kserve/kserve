@@ -46,11 +46,13 @@ def test_transformer():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:latest',
+                      image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:'
+                            + os.environ.get("PULL_BASE_SHA"),
                       name='kserve-container',
                       resources=V1ResourceRequirements(
                           requests={'cpu': '100m', 'memory': '1Gi'},
                           limits={'cpu': '100m', 'memory': '1Gi'}),
+                      args=["--model_name", "mnist"],
                       env=[V1EnvVar(name="STORAGE_URI",
                                     value="gs://kfserving-examples/models/torchserve/image_classifier")])]
     )
@@ -74,6 +76,6 @@ def test_transformer():
         for pod in pods.items:
             print(pod)
         raise e
-    res = predict(service_name, "./data/torchserve_input.json", model_name="mnist")
+    res = predict(service_name, "./data/transformer.json", model_name="mnist")
     assert(res.get("predictions")[0] == 2)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

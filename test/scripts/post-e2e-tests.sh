@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019 The Kubeflow Authors.
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,5 +24,9 @@ echo "Configuring kubectl ..."
 pip3 install awscli --upgrade --user
 aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
 
+# Print e2e test events
+kubectl get events -n kserve-ci-e2e-test
+
 # Print controller logs
 kubectl logs kserve-controller-manager-0 -n kserve manager
+

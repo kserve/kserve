@@ -33,13 +33,18 @@ def test_triton():
         min_replicas=1,
         triton=V1beta1TritonSpec(
             storage_uri='gs://kfserving-examples/models/torchscript',
-            ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)]
+            ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)],
+            resources=V1ResourceRequirements(
+                requests={'cpu': '100m', 'memory': '1Gi'},
+                limits={'cpu': '1', 'memory': '1Gi'},
+            ),
         )
     )
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image='kserve/grpc-image-transformer:latest',
+                      image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:'
+                            + os.environ.get("PULL_BASE_SHA"),
                       name='kserve-container',
                       resources=V1ResourceRequirements(
                           requests={'cpu': '100m', 'memory': '1Gi'},
