@@ -20,7 +20,7 @@ logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 DEFAULT_MODEL_NAME = "sklearn-driver-transformer"
 
-parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument(
     "--predictor_host",
     help="The URL for the model predict function", required=True
@@ -53,5 +53,5 @@ if __name__ == "__main__":
         feast_serving_url=args.feast_serving_url,
         entity_ids=args.entity_ids,
         feature_refs=args.feature_refs)
-    kfserver = kserve.KFServer()
+    kfserver = kserve.ModelServer()
     kfserver.start(models=[transformer])

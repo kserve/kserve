@@ -6,7 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from aif360.algorithms.preprocessing.optim_preproc_helpers.data_preproc_functions import load_preproc_data_german
 
 
-class KServeSampleModel(kserve.KFModel):
+class KServeSampleModel(kserve.Model):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -39,4 +39,4 @@ class KServeSampleModel(kserve.KFModel):
 if __name__ == "__main__":
     model = KServeSampleModel("german-credit")
     model.load()
-    kserve.KFServer(workers=1).start([model])
+    kserve.ModelServer(workers=1).start([model])

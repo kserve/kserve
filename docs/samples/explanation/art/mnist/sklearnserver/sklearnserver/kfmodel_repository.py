@@ -12,12 +12,12 @@
 # limitations under the License.
 
 from typing import List, Optional
-from kserve import KFModel
+from kserve import Model
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
 
-class KFModelRepository:
+class ModelRepository:
     """
     Model repository interface, follows NVIDIA Triton's `model-repository`
     extension.
@@ -30,17 +30,17 @@ class KFModelRepository:
     def set_models_dir(self, models_dir):  # used for unit tests
         self.models_dir = models_dir
 
-    def get_model(self, name: str) -> Optional[KFModel]:
+    def get_model(self, name: str) -> Optional[Model]:
         return self.models.get(name, None)
 
-    def get_models(self) -> List[KFModel]:
+    def get_models(self) -> List[Model]:
         return list(self.models.values())
 
     def is_model_ready(self, name: str):
         model = self.get_model(name)
         return False if model is None else model.ready
 
-    def update(self, model: KFModel):
+    def update(self, model: Model):
         self.models[model.name] = model
 
     def load(self, name: str) -> bool:

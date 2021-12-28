@@ -22,7 +22,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
-class BertTransformer(kserve.KFModel):
+class BertTransformer(kserve.Model):
     def __init__(self, name: str, predictor_host: str):
         super().__init__(name)
         self.short_paragraph_text = "The Apollo program was the third United States human spaceflight program. " \
