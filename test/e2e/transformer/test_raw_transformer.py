@@ -28,8 +28,6 @@ from kubernetes.client import V1EnvVar
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 logging.basicConfig(level=logging.INFO)
-kserve_client = KServeClient(
-    config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_transformer():
@@ -66,6 +64,7 @@ def test_transformer():
                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer))
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(

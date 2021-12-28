@@ -33,7 +33,6 @@ from kserve import (
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict
 
 logging.basicConfig(level=logging.INFO)
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_paddle():
@@ -58,6 +57,7 @@ def test_paddle():
         spec=V1beta1InferenceServiceSpec(predictor=predictor)
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
@@ -100,6 +100,7 @@ def test_paddle_runtime():
         spec=V1beta1InferenceServiceSpec(predictor=predictor)
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)

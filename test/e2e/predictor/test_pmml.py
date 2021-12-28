@@ -26,8 +26,6 @@ from kubernetes.client import V1ResourceRequirements
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 def test_pmml_kserve():
     service_name = 'isvc-pmml'
@@ -48,6 +46,7 @@ def test_pmml_kserve():
                                         name=service_name, namespace=KSERVE_TEST_NAMESPACE),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor))
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, './data/pmml_input.json')
@@ -81,6 +80,7 @@ def test_pmml_runtime_kserve():
                                         name=service_name, namespace=KSERVE_TEST_NAMESPACE),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor))
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, './data/pmml_input.json')

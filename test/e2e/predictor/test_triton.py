@@ -25,8 +25,6 @@ from kubernetes.client import V1ResourceRequirements, V1Container, V1ContainerPo
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 def test_triton():
     service_name = 'isvc-triton'
@@ -58,6 +56,7 @@ def test_triton():
                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer))
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
@@ -107,6 +106,7 @@ def test_triton_runtime():
                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer))
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)

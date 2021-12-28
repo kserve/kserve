@@ -28,8 +28,6 @@ from kubernetes.client import V1ResourceRequirements
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE, MODEL_CLASS_NAME
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 def test_sklearn_kserve():
     service_name = "isvc-sklearn"
@@ -53,6 +51,7 @@ def test_sklearn_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, "./data/iris_input.json")
@@ -83,6 +82,7 @@ def test_sklearn_v2_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -117,6 +117,7 @@ def test_sklearn_runtime_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, "./data/iris_input.json")
@@ -154,6 +155,7 @@ def test_sklearn_v2_runtime_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 

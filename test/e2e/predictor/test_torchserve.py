@@ -31,8 +31,6 @@ from ..common.utils import predict, grpc_stub
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common import inference_pb2
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 def test_torchserve_kserve():
     service_name = "mnist"
@@ -61,6 +59,7 @@ def test_torchserve_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -96,6 +95,7 @@ def test_torchserve_v2_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -132,6 +132,7 @@ def test_torchserve_grpc():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -175,6 +176,7 @@ def test_torchserve_runtime_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
