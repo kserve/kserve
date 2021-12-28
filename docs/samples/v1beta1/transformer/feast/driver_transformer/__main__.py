@@ -53,5 +53,5 @@ if __name__ == "__main__":
         feast_serving_url=args.feast_serving_url,
         entity_ids=args.entity_ids,
         feature_refs=args.feature_refs)
-    kfserver = kserve.ModelServer()
-    kfserver.start(models=[transformer])
+    server = kserve.ModelServer()
+    server.start(models=[transformer])

@@ -26,5 +26,5 @@ args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     transformer = BertTransformer(args.model_name, predictor_host=args.predictor_host)
-    kfserver = kserve.ModelServer()
-    kfserver.start(models=[transformer])
+    server = kserve.ModelServer()
+    server.start(models=[transformer])
