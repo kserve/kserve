@@ -26,7 +26,6 @@ from kubernetes.client import V1ResourceRequirements
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-# Setting config_file is required since SDK is running in a different cluster than KFServing
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
