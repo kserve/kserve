@@ -20,12 +20,12 @@ from kserve import (
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
     V1beta1XGBoostSpec,
+    V1beta1ModelSpec,
+    V1beta1ModelFormat,
 )
 from kubernetes.client import V1ResourceRequirements, V1EnvVar
 
-from ..common.utils import predict, KSERVE_TEST_NAMESPACE
-
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+from ..common.utils import predict, KSERVE_TEST_NAMESPACE, MODEL_CLASS_NAME
 
 
 def test_xgboost_kserve():
@@ -50,6 +50,7 @@ def test_xgboost_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, "./data/iris_input.json")
@@ -81,6 +82,80 @@ def test_xgboost_v2_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
+    assert res["outputs"][0]["data"] == [1.0, 1.0]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+def test_xgboost_runtime_kserve():
+    service_name = "isvc-xgboost-runtime"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="xgboost",
+            ),
+            storage_uri="gs://kfserving-examples/models/xgboost/1.5/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    res = predict(service_name, "./data/iris_input.json")
+    assert res["predictions"] == [1, 1]
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+def test_xgboost_v2_runtime_kserve():
+    service_name = "isvc-xgboost-v2-runtime"
+    labels = dict()
+    labels[MODEL_CLASS_NAME] = "mlserver_xgboost.XGBoostModel"
+
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="xgboost",
+            ),
+            runtime="kserve-mlserver",
+            storage_uri="gs://kfserving-samples/models/xgboost/iris",
+            protocol_version="v2",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "1024Mi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE, labels=labels
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 

@@ -20,12 +20,11 @@ from kserve import V1beta1PredictorSpec
 from kserve import V1beta1TFServingSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
+from kserve import V1beta1ModelSpec, V1beta1ModelFormat
 from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
-
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_tensorflow_kserve():
@@ -47,6 +46,39 @@ def test_tensorflow_kserve():
                                        name=service_name, namespace=KSERVE_TEST_NAMESPACE),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor))
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    res = predict(service_name, './data/flower_input.json')
+    assert(np.argmax(res["predictions"][0].get('scores')) == 0)
+
+    # Delete the InferenceService
+    kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+
+def test_tensorflow_runtime_kserve():
+    service_name = 'isvc-tensorflow-runtime'
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="tensorflow",
+            ),
+            storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
+            resources=V1ResourceRequirements(
+                requests={'cpu': '1', 'memory': '2Gi'},
+                limits={'cpu': '1', 'memory': '2Gi'}
+            )
+        )
+    )
+
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, './data/flower_input.json')
