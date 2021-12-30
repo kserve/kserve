@@ -9,5 +9,4 @@ spec:
       maxBatchSize: 16
       maxLatency: 300
     pytorch:
-      modelClassName: "Net"
-      storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"

@@ -156,15 +156,18 @@ func TestAgentInjector(t *testing.T) {
 							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
-									Exec: &v1.ExecAction{
-										Command: []string{
-											"/ko-app/agent",
-											"--probe-period",
-											"0",
+									HTTPGet: &v1.HTTPGetAction{
+										HTTPHeaders: []v1.HTTPHeader{
+											{
+												Name:  "K-Network-Probe",
+												Value: "queue",
+											},
 										},
+										Port:   intstr.FromInt(9081),
+										Path:   "/",
+										Scheme: "HTTP",
 									},
 								},
-								TimeoutSeconds: 10,
 							},
 						},
 					},
@@ -298,15 +301,18 @@ func TestAgentInjector(t *testing.T) {
 							Resources: agentResourceRequirement,
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
-									Exec: &v1.ExecAction{
-										Command: []string{
-											"/ko-app/agent",
-											"--probe-period",
-											"0",
+									HTTPGet: &v1.HTTPGetAction{
+										HTTPHeaders: []v1.HTTPHeader{
+											{
+												Name:  "K-Network-Probe",
+												Value: "queue",
+											},
 										},
+										Port:   intstr.FromInt(9081),
+										Path:   "/",
+										Scheme: "HTTP",
 									},
 								},
-								TimeoutSeconds: 10,
 							},
 						},
 					},

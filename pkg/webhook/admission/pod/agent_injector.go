@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -211,7 +212,6 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			return err
 		}
 		queueProxyEnvs = append(queueProxyEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
-
 	}
 
 	// Make sure securityContext is initialized and valid
@@ -233,20 +233,22 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		},
 		SecurityContext: securityContext,
 		Env:             queueProxyEnvs,
-	}
-	readinessProbe := &v1.Probe{
-		Handler: v1.Handler{
-			Exec: &v1.ExecAction{
-				Command: []string{
-					"/ko-app/agent",
-					"--probe-period",
-					"0",
+		ReadinessProbe: &v1.Probe{
+			Handler: v1.Handler{
+				HTTPGet: &v1.HTTPGetAction{
+					HTTPHeaders: []v1.HTTPHeader{
+						{
+							Name:  "K-Network-Probe",
+							Value: "queue",
+						},
+					},
+					Port:   intstr.FromInt(9081),
+					Path:   "/",
+					Scheme: "HTTP",
 				},
 			},
 		},
-		TimeoutSeconds: 10,
 	}
-	agentContainer.ReadinessProbe = readinessProbe
 
 	// Inject credentials
 	if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
