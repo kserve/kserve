@@ -83,13 +83,6 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 			},
 		},
 	}
-	//Redirect the traffic to agent when logger and batcher is injected
-	if componentExt.Logger != nil || componentExt.Batcher != nil {
-		service.Spec.Ports[0].TargetPort = intstr.IntOrString{
-			Type:   intstr.String,
-			StrVal: constants.InferenceServiceDefaultAgentPort,
-		}
-	}
 	return service
 }
 

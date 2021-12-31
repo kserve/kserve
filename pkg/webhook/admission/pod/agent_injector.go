@@ -197,10 +197,12 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		args = append(args, loggerArgs...)
 	}
 
-	queueProxyEnvs := []v1.EnvVar{}
+	var queueProxyEnvs []v1.EnvVar
+	var agentEnvs []v1.EnvVar
 	queueProxyAvailable := false
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "queue-proxy" {
+			copy(agentEnvs, container.Env)
 			queueProxyEnvs = container.Env
 			queueProxyAvailable = true
 		}
@@ -212,6 +214,13 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			return err
 		}
 		queueProxyEnvs = append(queueProxyEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+	} else {
+		for i, envVar := range queueProxyEnvs {
+			if envVar.Name == "USER_PORT" {
+				envVar.Value = constants.InferenceServiceDefaultAgentPortStr
+				queueProxyEnvs[i] = envVar
+			}
+		}
 	}
 
 	// Make sure securityContext is initialized and valid
@@ -232,7 +241,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			},
 		},
 		SecurityContext: securityContext,
-		Env:             queueProxyEnvs,
+		Env:             agentEnvs,
 		ReadinessProbe: &v1.Probe{
 			Handler: v1.Handler{
 				HTTPGet: &v1.HTTPGetAction{
@@ -242,7 +251,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 							Value: "queue",
 						},
 					},
-					Port:   intstr.FromInt(9081),
+					Port:   intstr.FromInt(constants.InferenceServiceDefaultAgentPort),
 					Path:   "/",
 					Scheme: "HTTP",
 				},

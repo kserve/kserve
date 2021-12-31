@@ -20,7 +20,6 @@ import (
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	network "knative.dev/networking/pkg"
 	pkglogging "knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
@@ -110,7 +109,7 @@ func main() {
 	// Setup probe to run for checking user container healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
-		probe = buildProbe(logger, env.ServingReadinessProbe, *componentPort).ProbeContainer
+		probe = buildProbe(logger, env.ServingReadinessProbe).ProbeContainer
 	}
 
 	if *enablePuller {
@@ -270,15 +269,11 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	go watcher.Start()
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string, port string) *readiness.Probe {
+func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 	coreProbe, err := readiness.DecodeProbe(probeJSON)
 	if err != nil {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
-	}
-	if coreProbe.TCPSocket != nil {
-		coreProbe.TCPSocket.Port = intstr.FromString(port)
-	} else if coreProbe.HTTPGet != nil {
-		coreProbe.HTTPGet.Port = intstr.FromString(port)
+		panic("Agent failed to parse readiness probe")
 	}
 	return readiness.NewProbe(coreProbe)
 }
