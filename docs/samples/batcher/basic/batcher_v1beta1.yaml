@@ -1,7 +1,7 @@
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "pytorch-cifar10"
+  name: "pytorch-batcher"
 spec:
   predictor:
     minReplicas: 1

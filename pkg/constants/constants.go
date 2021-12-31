@@ -31,10 +31,11 @@ import (
 
 // KServe Constants
 var (
-	KServeName           = "kserve"
-	KServeAPIGroupName   = "serving.kserve.io"
-	KServeNamespace      = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	KServeDefaultVersion = "v0.5.0"
+	KServeName                     = "kserve"
+	KServeAPIGroupName             = "serving.kserve.io"
+	KnativeAutoscalingAPIGroupName = "autoscaling.knative.dev"
+	KServeNamespace                = getEnvOrDefault("POD_NAMESPACE", "kserve")
+	KServeDefaultVersion           = "v0.5.0"
 )
 
 // InferenceService Constants
@@ -72,6 +73,8 @@ var (
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
 	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
+	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/minScale"
+	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/minScale"
 )
 
 // InferenceService Internal Annotations
@@ -93,13 +96,8 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName             = KServeName + "-controller-manager"
-	DefaultPredictorTimeout   int64 = 60
-	DefaultTransformerTimeout int64 = 120
-	DefaultExplainerTimeout   int64 = 300
-	DefaultReadinessTimeout   int32 = 600
-	DefaultScalingTarget            = "1"
-	DefaultMinReplicas        int   = 1
+	ControllerLabelName = KServeName + "-controller-manager"
+	DefaultMinReplicas  = 1
 )
 
 type AutoscalerClassType string
@@ -137,11 +135,7 @@ var (
 
 // Webhook Constants
 var (
-	EnableKServeMutatingWebhook            = "enabled"
-	EnableWebhookNamespaceSelectorEnvName  = "ENABLE_WEBHOOK_NAMESPACE_SELECTOR"
-	EnableWebhookNamespaceSelectorEnvValue = "enabled"
-	IsEnableWebhookNamespaceSelector       = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
-	PodMutatorWebhookName                  = KServeName + "-pod-mutator-webhook"
+	PodMutatorWebhookName = KServeName + "-pod-mutator-webhook"
 )
 
 // GPU Constants
@@ -258,7 +252,7 @@ var (
 	}
 )
 
-// raw k8s deployment, resource exist check result
+// CheckResultType raw k8s deployment, resource exist check result
 type CheckResultType int
 
 const (
@@ -282,7 +276,6 @@ const (
 	MLServer      = "kserve-mlserver"
 	TFServing     = "kserve-tensorflow-serving"
 	XGBServer     = "kserve-xgbserver"
-	PyTorchServer = "kserve-pytorchserver"
 	TorchServe    = "kserve-torchserve"
 	TritonServer  = "kserve-tritonserver"
 	PMMLServer    = "kserve-pmmlserver"
@@ -429,7 +422,7 @@ func TransformerURL(metadata v1.ObjectMeta, isCanary bool) string {
 // Should only match 1..65535, but for simplicity it matches 0-99999.
 const portMatch = `(?::\d{1,5})?`
 
-// hostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
+// HostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
 // for clusterLocalHost, we will also match the prefixes.
 func HostRegExp(host string) string {
 	localDomainSuffix := ".svc." + network.GetClusterDomainName()
