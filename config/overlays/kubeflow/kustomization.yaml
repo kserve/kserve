@@ -21,7 +21,7 @@ generatorOptions:
   disableNameSuffixHash: true
 
 # To make namespace for standalone installation kustomizable,
-# variabalize ingress gateway, webhook service name and
+# variabilize ingress gateway, webhook service name and
 # kserve namespace in webhook configurations
 configMapGenerator:
   - name: kserve-config

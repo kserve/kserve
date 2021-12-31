@@ -71,7 +71,7 @@ docker push {username}/image-transformer:latest
 Please use the [YAML file](./transformer.yaml) to create the `InferenceService`, which includes a Transformer and a PyTorch Predictor.
 
 By default `InferenceService` uses `TorchServe` to serve the PyTorch models and the models are loaded from a model repository in KServe example gcs bucket according to `TorchServe` model repository layout.
-The model repository contains a mnist model but you can store more than one models there. In the `Transformer` image you can create a tranformer class for all the models in the repository if they can share the same transformer 
+The model repository contains a mnist model but you can store more than one models there. In the `Transformer` image you can create a transformer class for all the models in the repository if they can share the same transformer 
 or maintain a map from model name to transformer classes so KServe knows to use the transformer for the corresponding model.  
 
 ```yaml

@@ -144,7 +144,7 @@ def whitespace_tokenize(text):
 
 
 class FullTokenizer(object):
-    """Runs end-to-end tokenziation."""
+    """Runs end-to-end tokenization."""
 
     def __init__(self, vocab_file, do_lower_case=True):
         self.vocab = load_vocab(vocab_file)
@@ -283,7 +283,7 @@ class BasicTokenizer(object):
 
 
 class WordpieceTokenizer(object):
-    """Runs WordPiece tokenziation."""
+    """Runs WordPiece tokenization."""
 
     def __init__(self, vocab, unk_token="[UNK]", max_input_chars_per_word=200):
         self.vocab = vocab
@@ -346,7 +346,7 @@ class WordpieceTokenizer(object):
 
 def _is_whitespace(char):
     """Checks whether `chars` is a whitespace character."""
-    # \t, \n, and \r are technically contorl characters but we treat them
+    # \t, \n, and \r are technically control characters but we treat them
     # as whitespace since they are generally considered as such.
     if char == " " or char == "\t" or char == "\n" or char == "\r":
         return True

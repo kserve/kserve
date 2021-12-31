@@ -172,7 +172,7 @@ class NewsClassifierHandler(BaseHandler):
         attributions = attributions / torch.norm(attributions)
         return attributions
 
-    def explain_handle(self, model_wraper, text, target=1):
+    def explain_handle(self, model_wrapper, text, target=1):
         """Captum explanations handler.
 
         Args:

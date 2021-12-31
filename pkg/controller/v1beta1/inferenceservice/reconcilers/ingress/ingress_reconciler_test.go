@@ -35,7 +35,7 @@ func TestCreateVirtualService(t *testing.T) {
 	serviceName := "my-model"
 	namespace := "test"
 	annotations := map[string]string{"test": "test"}
-	isvcAnnotions := map[string]string{"test": "test", "kubectl.kubernetes.io/last-applied-configuration": "test"}
+	isvcAnnotations := map[string]string{"test": "test", "kubectl.kubernetes.io/last-applied-configuration": "test"}
 	labels := map[string]string{"test": "test"}
 	domain := "example.com"
 	serviceHostName := constants.InferenceServiceHostName(serviceName, namespace, domain)
@@ -468,7 +468,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        serviceName,
 					Namespace:   namespace,
-					Annotations: isvcAnnotions,
+					Annotations: isvcAnnotations,
 					Labels:      labels,
 				},
 				Spec: v1beta1.InferenceServiceSpec{

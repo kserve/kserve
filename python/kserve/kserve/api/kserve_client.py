@@ -389,7 +389,7 @@ class KServeClient(object):
         :param isvc_namespace: defaults to current or default namespace of inference service
         :param isvc_version: api group version of inference service
         :param protocol_version: version of the dataplane protocol
-        :param cluster_ip: ip of the kuberenetes cluster
+        :param cluster_ip: ip of the kubernetes cluster
         :param timeout_seconds: timeout seconds for waiting, default to 600s.
           Print out the InferenceService if timeout.
         :param polling_interval: The time interval to poll status

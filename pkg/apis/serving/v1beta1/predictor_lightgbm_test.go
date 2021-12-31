@@ -409,14 +409,14 @@ func TestLightGBMIsMMS(t *testing.T) {
 
 func TestLightGBMIsFrameworkSupported(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	lightbgm := "lightbgm"
+	lightgbm := "lightgbm"
 	unsupportedFramework := "framework"
 	config := InferenceServicesConfig{
 		Predictors: PredictorsConfig{
 			LightGBM: PredictorConfig{
 				ContainerImage:      "lightgbm",
 				DefaultImageVersion: "v0.4.0",
-				SupportedFrameworks: []string{"lightbgm"},
+				SupportedFrameworks: []string{"lightgbm"},
 			},
 		},
 	}
@@ -435,7 +435,7 @@ func TestLightGBMIsFrameworkSupported(t *testing.T) {
 					PredictorExtensionSpec: PredictorExtensionSpec{},
 				},
 			},
-			framework: lightbgm,
+			framework: lightgbm,
 			expected:  true,
 		},
 		"UnsupportedFramework": {

@@ -68,7 +68,7 @@ To compare the latency between traditional model serving and multi-model serving
         - Queries per second (QPS): 5/sec, 10/sec, 20/sec, 30/sec, 40/sec, 50/sec, 100/sec
     - Bert (GPU):
         - testing duration 1 min
-        - ueries per second (QPS): 5/sec, 10/sec, 20/sec, 30/sec, 40/sec
+        - Queries per second (QPS): 5/sec, 10/sec, 20/sec, 30/sec, 40/sec
 
 ### Simple String test (CPU)
 - Test Summary:

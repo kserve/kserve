@@ -92,7 +92,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		return nil
 	}
 
-	// Don't inject if InitContianer already injected
+	// Don't inject if InitContainer already injected
 	for _, container := range pod.Spec.InitContainers {
 		if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
 			return nil

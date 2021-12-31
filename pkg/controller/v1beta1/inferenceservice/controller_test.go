@@ -561,7 +561,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     "s3://test/mnist/explainer",
 								RuntimeVersion: proto.String("0.4.0"),
 								Container: v1.Container{
-									Name:      "kfserving-contaienr",
+									Name:      "kfserving-container",
 									Resources: defaultResource,
 								},
 							},

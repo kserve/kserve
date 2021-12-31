@@ -8,7 +8,7 @@ In this example, we use a trained paddle resnet50 model to classify images by ru
 
 ## Create the InferenceService
 
-Apply the custom resouce
+Apply the custom resource
 ```bash
 kubectl apply -f paddle.yaml
 ```
