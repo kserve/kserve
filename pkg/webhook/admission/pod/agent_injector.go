@@ -202,6 +202,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	queueProxyAvailable := false
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "queue-proxy" {
+			agentEnvs = make([]v1.EnvVar, len(container.Env))
 			copy(agentEnvs, container.Env)
 			queueProxyEnvs = container.Env
 			queueProxyAvailable = true
@@ -238,6 +239,13 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			Requests: map[v1.ResourceName]resource.Quantity{
 				v1.ResourceCPU:    resource.MustParse(ag.agentConfig.CpuRequest),
 				v1.ResourceMemory: resource.MustParse(ag.agentConfig.MemoryRequest),
+			},
+		},
+		Ports: []v1.ContainerPort{
+			{
+				Name:          "agent-port",
+				ContainerPort: constants.InferenceServiceDefaultAgentPort,
+				Protocol:      "TCP",
 			},
 		},
 		SecurityContext: securityContext,

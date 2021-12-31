@@ -90,23 +90,29 @@ func TestAgentInjector(t *testing.T) {
 				},
 				Spec: v1.PodSpec{
 					ServiceAccountName: "sa",
-					Containers: []v1.Container{{
-						Name: "sklearn",
-						ReadinessProbe: &v1.Probe{
-							Handler: v1.Handler{
-								TCPSocket: &v1.TCPSocketAction{
-									Port: intstr.IntOrString{
-										IntVal: 8080,
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								Handler: v1.Handler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
 									},
 								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
 							},
-							InitialDelaySeconds: 0,
-							TimeoutSeconds:      1,
-							PeriodSeconds:       10,
-							SuccessThreshold:    1,
-							FailureThreshold:    3,
 						},
-					}},
+						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+					},
 				},
 			},
 			expected: &v1.Pod{
@@ -137,6 +143,10 @@ func TestAgentInjector(t *testing.T) {
 							},
 						},
 						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+						{
 							Name:      constants.AgentContainerName,
 							Image:     agentConfig.Image,
 							Resources: agentResourceRequirement,
@@ -153,7 +163,14 @@ func TestAgentInjector(t *testing.T) {
 								},
 							},
 							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Ports: []v1.ContainerPort{
+								{
+									Name:          "agent-port",
+									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+							},
+							Env: []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
 									HTTPGet: &v1.HTTPGetAction{
@@ -232,23 +249,29 @@ func TestAgentInjector(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-						ReadinessProbe: &v1.Probe{
-							Handler: v1.Handler{
-								TCPSocket: &v1.TCPSocketAction{
-									Port: intstr.IntOrString{
-										IntVal: 8080,
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								Handler: v1.Handler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
 									},
 								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
 							},
-							InitialDelaySeconds: 0,
-							TimeoutSeconds:      1,
-							PeriodSeconds:       10,
-							SuccessThreshold:    1,
-							FailureThreshold:    3,
 						},
-					}},
+						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+					},
 				},
 			},
 			expected: &v1.Pod{
@@ -261,23 +284,28 @@ func TestAgentInjector(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-						ReadinessProbe: &v1.Probe{
-							Handler: v1.Handler{
-								TCPSocket: &v1.TCPSocketAction{
-									Port: intstr.IntOrString{
-										IntVal: 8080,
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								Handler: v1.Handler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
 									},
 								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
 							},
-							InitialDelaySeconds: 0,
-							TimeoutSeconds:      1,
-							PeriodSeconds:       10,
-							SuccessThreshold:    1,
-							FailureThreshold:    3,
 						},
-					},
+						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
 						{
 							Name:  constants.AgentContainerName,
 							Image: loggerConfig.Image,
@@ -296,6 +324,13 @@ func TestAgentInjector(t *testing.T) {
 								"default",
 								LoggerArgumentComponent,
 								"predictor",
+							},
+							Ports: []v1.ContainerPort{
+								{
+									Name:          "agent-port",
+									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
 							},
 							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
