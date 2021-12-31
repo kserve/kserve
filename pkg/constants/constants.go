@@ -74,7 +74,7 @@ var (
 	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
 	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/minScale"
-	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/minScale"
+	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/maxScale"
 )
 
 // InferenceService Internal Annotations

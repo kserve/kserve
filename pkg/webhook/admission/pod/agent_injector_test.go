@@ -108,10 +108,6 @@ func TestAgentInjector(t *testing.T) {
 								FailureThreshold:    3,
 							},
 						},
-						{
-							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
-						},
 					},
 				},
 			},
@@ -141,10 +137,6 @@ func TestAgentInjector(t *testing.T) {
 								SuccessThreshold:    1,
 								FailureThreshold:    3,
 							},
-						},
-						{
-							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:      constants.AgentContainerName,

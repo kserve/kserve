@@ -214,7 +214,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		if err != nil {
 			return err
 		}
-		queueProxyEnvs = append(queueProxyEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+		agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
 	} else {
 		for i, envVar := range queueProxyEnvs {
 			if envVar.Name == "USER_PORT" {
