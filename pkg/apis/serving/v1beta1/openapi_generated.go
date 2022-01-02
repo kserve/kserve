@@ -6128,7 +6128,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"model": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Model spec for any arbitary framework.",
+							Description: "Model spec for any arbitrary framework.",
 							Ref:         ref("./pkg/apis/serving/v1beta1.ModelSpec"),
 						},
 					},

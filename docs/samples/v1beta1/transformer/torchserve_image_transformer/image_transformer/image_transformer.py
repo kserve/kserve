@@ -56,7 +56,7 @@ class ImageTransformer(kserve.Model):
 
     Args:
         kserve (class object): The Model class from the KServe
-        modeule is passed here.
+        module is passed here.
     """
     def __init__(self, name: str, predictor_host: str):
         """Initialize the model name, predictor host and the explainer host

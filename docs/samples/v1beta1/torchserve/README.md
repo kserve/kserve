@@ -53,7 +53,7 @@ V1 Protocol
 | API  | Verb | Path | Payload |
 | ------------- | ------------- | ------------- | ------------- |
 | Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
-| Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   ||
+| Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explanations": []}   ||
 
 V2 Protocol
 

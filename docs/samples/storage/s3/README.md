@@ -2,7 +2,7 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
-3. Your cluster's Istio Egresss gateway must [allow accessing S3 Storage](https://knative.dev/docs/serving/outbound-network-access/)
+3. Your cluster's Istio Egress gateway must [allow accessing S3 Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
 ## Create S3 Secret and attach to Service Account
 Create a secret with your [S3 user credential](https://console.aws.amazon.com/iam/home#/users), `KFServing` reads the secret annotations to inject 

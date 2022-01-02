@@ -4,7 +4,7 @@ metadata:
   name: "my-model"
 spec:
   predictor:
-    # 0% of traffic is sent to this model and all traffic goes back to previsous good model
+    # 0% of traffic is sent to this model and all traffic goes back to previous good model
     canaryTrafficPercent: 0
     tensorflow:
       storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"

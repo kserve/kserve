@@ -51,7 +51,7 @@ type PredictorSpec struct {
 	// Spec for Paddle model server (https://github.com/PaddlePaddle/Serving)
 	Paddle *PaddleServerSpec `json:"paddle,omitempty"`
 
-	// Model spec for any arbitary framework.
+	// Model spec for any arbitrary framework.
 	Model *ModelSpec `json:"model,omitempty"`
 
 	// This spec is dual purpose. <br />

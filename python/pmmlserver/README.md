@@ -18,7 +18,7 @@ __main__.py: error: the following arguments are required: --model_dir
 
 ```
 
-You can now point to your `pmlmserver` model directory and use the server to load the model and test for prediction. Model and associaed model class file can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage. Please follow [this sample](https://github.com/kserve/kserve/tree/master/docs/samples/v1beta1/pmml) to test your server by generating your own model. 
+You can now point to your `pmmlserver` model directory and use the server to load the model and test for prediction. Model and associated model class file can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage. Please follow [this sample](https://github.com/kserve/kserve/tree/master/docs/samples/v1beta1/pmml) to test your server by generating your own model. 
 
 ## Development
 

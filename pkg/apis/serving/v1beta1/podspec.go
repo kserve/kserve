@@ -21,7 +21,7 @@ import (
 )
 
 // ***This is a copy of kubernetes corev1.PodSpec to make field Containers optional***
-// PodSpec on InferenceService is for a custom component or an escape hatch for buildin component, so Containers field
+// PodSpec on InferenceService is for a custom component or an escape hatch for builtin component, so Containers field
 // needs to be optional
 
 // PodSpec is a description of a pod.

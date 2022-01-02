@@ -8,7 +8,7 @@ the request is then sent to the model server container for inference.
 ![Batcher](../../diagrams/batcher.jpg)
 
 * We use webhook to inject the model agent container in the InferenceService pod to do the batching when batcher is enabled. 
-* We use go channels to transfer data between http requset handler and batcher go routines.
+* We use go channels to transfer data between http request handler and batcher go routines.
 * Currently we only implemented batching with KFServing v1 HTTP protocol, gRPC is not supported yet.
 * When the number of instances (For example, the number of pictures) reaches the `maxBatchSize` or the latency meets the `maxLatency`, a batch prediction will be triggered.
 ```

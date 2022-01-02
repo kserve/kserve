@@ -1,6 +1,6 @@
 # Metrics
 
-This adds prometheus and granfana to the cluster with some default metrics.
+This adds prometheus and grafana to the cluster with some default metrics.
 
 ## Setup
 

@@ -3395,7 +3395,7 @@
           "format": "int32"
         },
         "model": {
-          "description": "Model spec for any arbitary framework.",
+          "description": "Model spec for any arbitrary framework.",
           "$ref": "#/definitions/v1beta1.ModelSpec"
         },
         "nodeName": {

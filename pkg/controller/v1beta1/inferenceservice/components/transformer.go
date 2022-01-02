@@ -57,7 +57,7 @@ func NewTransformer(client client.Client, scheme *runtime.Scheme, inferenceServi
 
 // Reconcile observes the world and attempts to drive the status towards the desired state.
 func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
-	p.Log.Info("Reconciling Transformer", "TranformerSpec", isvc.Spec.Transformer)
+	p.Log.Info("Reconciling Transformer", "TransformerSpec", isvc.Spec.Transformer)
 	transformer := isvc.Spec.Transformer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -124,7 +124,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 
 		deployment, err := r.Reconcile()
 		if err != nil {
-			return errors.Wrapf(err, "fails to reoncile transformer")
+			return errors.Wrapf(err, "fails to reconcile transformer")
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.TransformerComponent, deployment, r.URL)
 
