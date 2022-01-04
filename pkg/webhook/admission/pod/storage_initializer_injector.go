@@ -211,10 +211,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 	// Inject credentials
 	hasStorageSpec := pod.ObjectMeta.Annotations[constants.StorageSpecAnnotationKey]
-	storageKey, storageKeyExists := pod.ObjectMeta.Annotations[constants.StorageSpecKeyAnnotationKey]
-	if !storageKeyExists {
-		storageKey = ""
-	}
+	storageKey := pod.ObjectMeta.Annotations[constants.StorageSpecKeyAnnotationKey]
 	// Inject Storage Spec credentials if exist
 	if hasStorageSpec == "true" {
 		storageSpecSecret := mi.config.StorageSpecSecretName
@@ -227,13 +224,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		if storageSpecSecret == "" {
 			storageSpecSecret = constants.DefaultStorageSpecSecret
 		}
-		if err := mi.credentialBuilder.CreateStorageSpecSecretVolumeAndEnv(
+		if err := mi.credentialBuilder.CreateStorageSpecSecretEnvs(
 			pod.Namespace,
 			storageKey,
 			storageSpecSecret,
 			overrideParams,
 			initContainer,
-			&pod.Spec.Volumes,
 		); err != nil {
 			return err
 		}

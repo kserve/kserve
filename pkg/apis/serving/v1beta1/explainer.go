@@ -16,8 +16,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strings"
-
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -63,9 +61,6 @@ var _ Component = &ExplainerSpec{}
 func (e *ExplainerExtensionSpec) GetStorageUri() *string {
 	if e.StorageURI != "" {
 		return &e.StorageURI
-	} else if e.Storage != nil && e.Storage.Path != nil {
-		storageSpecUri := "s3://<bucket-placeholder>/" + strings.TrimPrefix(*e.Storage.Path, "/")
-		return &storageSpecUri
 	}
 	return nil
 }

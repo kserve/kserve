@@ -14,12 +14,15 @@ package components
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/credentials"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -29,19 +32,24 @@ type Component interface {
 }
 
 func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map[string]string) bool {
-	if storageSpec != nil {
-		annotations[constants.StorageSpecAnnotationKey] = "true"
-		if storageSpec.Parameters != nil {
-			if jsonParam, err := json.Marshal(storageSpec.Parameters); err == nil {
-				annotations[constants.StorageSpecParamAnnotationKey] = string(jsonParam)
-			}
-		}
-		if storageSpec.StorageKey != nil {
-			annotations[constants.StorageSpecKeyAnnotationKey] = *storageSpec.StorageKey
-		}
-		return true
+	if storageSpec == nil {
+		return false
 	}
-	return false
+	annotations[constants.StorageSpecAnnotationKey] = "true"
+	if storageSpec.Parameters != nil {
+		if jsonParam, err := json.Marshal(storageSpec.Parameters); err == nil {
+			annotations[constants.StorageSpecParamAnnotationKey] = string(jsonParam)
+		}
+	}
+	if storageSpec.StorageKey != nil {
+		annotations[constants.StorageSpecKeyAnnotationKey] = *storageSpec.StorageKey
+	}
+	if storageSpec.Path != nil {
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] =
+			fmt.Sprintf("%s://<bucket-placeholder>/%s", credentials.UriSchemePlaceholder,
+				strings.TrimPrefix(*storageSpec.Path, "/"))
+	}
+	return true
 }
 
 func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) bool {

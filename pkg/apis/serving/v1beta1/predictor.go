@@ -17,7 +17,6 @@ package v1beta1
 
 import (
 	"reflect"
-	"strings"
 
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
@@ -136,13 +135,7 @@ func (s *PredictorSpec) GetExtensions() *ComponentExtensionSpec {
 
 // GetStorageUri returns the predictor storage Uri
 func (p *PredictorExtensionSpec) GetStorageUri() *string {
-	if p.StorageURI != nil {
-		return p.StorageURI
-	} else if p.Storage != nil && p.Storage.Path != nil {
-		storageSpecUri := "s3://<bucket-placeholder>/" + strings.TrimPrefix(*p.Storage.Path, "/")
-		return &storageSpecUri
-	}
-	return nil
+	return p.StorageURI
 }
 
 // GetStorageSpec returns the predictor storage spec object

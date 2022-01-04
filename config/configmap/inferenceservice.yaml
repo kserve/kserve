@@ -139,8 +139,7 @@ data:
        },
        "s3": {
            "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
-           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
-           "defaultStorageSecretKey": "s3_default"
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
        }
     }
   ingress: |-
