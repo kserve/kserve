@@ -11,3 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from .base import NotFoundHandler
+from .liveness import LivenessHandler
+from .health import HealthHandler
+from .list import ListHandler
+from .load import LoadHandler, UnloadHandler
+from .explain import ExplainHandler
+from .predict import PredictHandler
