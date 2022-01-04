@@ -1,4 +1,5 @@
 /*
+Copyright 2021 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -99,7 +100,7 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 		args = append(args, timeout)
 	}
 
-	// Don't inject if Contianer already injected
+	// Don't inject if Container already injected
 	for _, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, BatcherContainerName) == 0 {
 			return nil

@@ -33,7 +33,7 @@ class PipeStep(object):
         return self._step_func(X)
 
 
-class RFModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
+class RFModel(kserve.Model):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name

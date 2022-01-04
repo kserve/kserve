@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +13,20 @@
 # limitations under the License.
 
 import os
-from kserve.kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
+from kserve.model_repository import ModelRepository, MODEL_MOUNT_DIRS
 from xgbserver import XGBoostModel
 
 
-class XGBoostModelRepository(KFModelRepository):
+class XGBoostModelRepository(ModelRepository):
     def __init__(self, model_dir: str = MODEL_MOUNT_DIRS, nthread: int = 1):
         super().__init__(model_dir)
         self.nthread = nthread
+        self.load_models()
 
-    async def load(self, name: str, ) -> bool:
+    async def load(self, name: str) -> bool:
+        return self.load_model(name)
+
+    def load_model(self, name: str) -> bool:
         model = XGBoostModel(name, os.path.join(self.models_dir, name), self.nthread)
         if model.load():
             self.update(model)

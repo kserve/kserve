@@ -1,4 +1,5 @@
 /*
+Copyright 2021 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -158,7 +159,7 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 
 	// Check if parent inference service has the status URL
 	if isvc.Status.URL != nil {
-		// Update status to contain the isvc URL with /v1/models/trained-model-name:predict appened
+		// Update status to contain the isvc URL with /v1/models/trained-model-name:predict appended
 		url := isvc.Status.URL.String() + constants.PredictPath(desiredModel.Name, isvc.Spec.Predictor.GetImplementation().GetProtocol())
 		externURL, err := apis.ParseURL(url)
 		if err != nil {
@@ -170,7 +171,7 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 	// Check if parent inference service has the address URL
 	if isvc.Status.Address != nil {
 		if isvc.Status.Address.URL != nil {
-			////Update status to contain the isvc address with /v1/models/trained-model-name:predict appened
+			////Update status to contain the isvc address with /v1/models/trained-model-name:predict appended
 			url := isvc.Status.Address.URL.String() + constants.PredictPath(desiredModel.Name, isvc.Spec.Predictor.GetImplementation().GetProtocol())
 			clusterURL, err := apis.ParseURL(url)
 			if err != nil {

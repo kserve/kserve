@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -10,18 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 
 import kserve
 import joblib
 import numpy as np
 import pathlib
 from typing import Dict
+from kserve.model import ModelMissingError, InferenceError
 
 MODEL_BASENAME = "model"
 MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
+ENV_PREDICT_PROBA = "PREDICT_PROBA"
 
 
-class SKLearnModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
+class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
@@ -33,7 +37,7 @@ class SKLearnModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
         paths = [model_path / (MODEL_BASENAME + model_extension) for model_extension in MODEL_EXTENSIONS]
         existing_paths = [path for path in paths if path.exists()]
         if len(existing_paths) == 0:
-            raise RuntimeError('Missing Model File.')
+            raise ModelMissingError(model_path)
         elif len(existing_paths) > 1:
             raise RuntimeError('More than one model file is detected, '
                                f'Only one is allowed within model_dir: {existing_paths}')
@@ -46,10 +50,14 @@ class SKLearnModel(kserve.KFModel):  # pylint:disable=c-extension-no-member
         try:
             inputs = np.array(instances)
         except Exception as e:
-            raise Exception(
-                "Failed to initialize NumPy array from inputs: %s, %s" % (e, instances))
+            raise ValueError(
+                f"Failed to initialize NumPy array from inputs: {e}")
         try:
-            result = self._model.predict(inputs).tolist()
+            if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
+                    hasattr(self._model, "predict_proba"):
+                result = self._model.predict_proba(inputs).tolist()
+            else:
+                result = self._model.predict(inputs).tolist()
             return {"predictions": result}
         except Exception as e:
-            raise Exception("Failed to predict %s" % e)
+            raise InferenceError(str(e))

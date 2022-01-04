@@ -1,0 +1,24 @@
+bases:
+  - ../../../runtimes
+
+images:
+  - name: kserve/sklearnserver
+    newName: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/sklearnserver
+    newTag: latest
+
+  - name: kserve/xgbserver
+    newName: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/xgbserver
+    newTag: latest
+
+  - name: kserve/pmmlserver
+    newName: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/pmmlserver
+    newTag: latest
+
+  - name: kserve/paddleserver
+    newName: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/paddleserver
+    newTag: latest
+
+  - name: kserve/lgbserver
+    newName: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/lgbserver
+    newTag: latest
+

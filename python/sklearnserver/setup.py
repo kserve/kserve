@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +33,7 @@ setup(
     packages=find_packages("sklearnserver"),
     install_requires=[
         "kserve>=0.7.0",
-        "scikit-learn == 0.20.3",
+        "scikit-learn == 1.0.1",
         "joblib >= 0.13.0"
     ],
     tests_require=tests_require,

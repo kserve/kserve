@@ -41,7 +41,7 @@ torch-model-archiver --model-name BERTSeqClassification --version 1.0 --serializ
 
 ## Build and push the sample Docker Image
 
-The custom torchserve image is wrapped with model inside the container and serves it with KFServing.
+The custom torchserve image is wrapped with model inside the container and serves it with KServe.
 
 In this example we use Docker to build the torchserve image with marfile and config.properties into a container.
 

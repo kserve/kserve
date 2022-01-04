@@ -3,7 +3,7 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-tritonserver
 spec:
-  supportedModelTypes:
+  supportedModelFormats:
     - name: tensorrt
       version: "8"
     - name: tensorflow

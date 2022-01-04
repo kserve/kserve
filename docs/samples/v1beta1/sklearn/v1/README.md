@@ -38,7 +38,7 @@ print(res.text)
 # Predict on an InferenceService using SKLearnServer
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kserve/kserve#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
@@ -88,12 +88,12 @@ Expected Output
 ```
 
 ## Run SKLearn InferenceService with your own image
-Since the KFServing SKLearnServer image is built from a specific version of `scikit-learn` pip package, sometimes it might not be compatible with the pickled model
+Since the KServe SKLearnServer image is built from a specific version of `scikit-learn` pip package, sometimes it might not be compatible with the pickled model
 you saved from your training environment, however you can build your own SKLearnServer image following [these instructions](../../../../../python/sklearnserver/README.md#building-your-own-scikit-learn-server-docker-image
 ).
 
 To use your SKLearnServer image:
-- Add the image to the KFServing [configmap](../../../config/configmap/inferenceservice.yaml)
+- Add the image to the KServe [configmap](../../../config/configmap/inferenceservice.yaml)
 ```yaml
         "sklearn": {
             "image": "<your-dockerhub-id>/kfserving/sklearnserver",

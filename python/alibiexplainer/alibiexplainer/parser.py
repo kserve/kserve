@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -143,7 +144,7 @@ def addCommonParserArgs(parser):
 
 
 def parse_args(sys_args):
-    parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
+    parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
     parser.add_argument(
         "--model_name",
         default=DEFAULT_EXPLAINER_NAME,

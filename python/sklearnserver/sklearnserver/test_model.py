@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +18,7 @@ from sklearnserver import SKLearnModel
 import joblib
 import pickle
 import os
+from kserve.model import ModelMissingError
 
 import pytest
 
@@ -30,7 +32,7 @@ MULTI_DIR = os.path.join(_MODEL_DIR, "multi", "model")
 def _train_sample_model():
     iris = datasets.load_iris()
     X, y = iris.data, iris.target
-    sklearn_model = svm.SVC(gamma='scale')
+    sklearn_model = svm.SVC(gamma='scale', probability=True)
     sklearn_model.fit(X, y)
     return sklearn_model, X
 
@@ -64,9 +66,15 @@ def test_model_pickle():
 
 def test_dir_with_no_model():
     model = SKLearnModel("model", _MODEL_DIR)
-    with pytest.raises(RuntimeError) as e:
+    with pytest.raises(ModelMissingError):
         model.load()
-    assert 'Missing Model File' in str(e.value)
+
+
+def test_dir_with_incompatible_model():
+    model = SKLearnModel("model", _MODEL_DIR + "/pkl")
+    with pytest.raises(ModuleNotFoundError) as e:
+        model.load()
+    assert 'No module named' in str(e.value)
 
 
 def test_dir_with_two_models():

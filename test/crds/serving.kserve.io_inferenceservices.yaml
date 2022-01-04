@@ -564,9 +564,11 @@ spec:
                   disabled:
                     type: boolean
                 type: object
-              supportedModelTypes:
+              supportedModelFormats:
                 items:
                   properties:
+                    autoSelect:
+                      type: boolean
                     name:
                       type: string
                     version:
@@ -5602,15 +5604,6 @@ spec:
                               type: object
                           type: object
                         type: array
-                      framework:
-                        properties:
-                          name:
-                            type: string
-                          version:
-                            type: string
-                        required:
-                        - name
-                        type: object
                       image:
                         type: string
                       imagePullPolicy:
@@ -5778,6 +5771,15 @@ spec:
                           timeoutSeconds:
                             format: int32
                             type: integer
+                        type: object
+                      modelFormat:
+                        properties:
+                          name:
+                            type: string
+                          version:
+                            type: string
+                        required:
+                        - name
                         type: object
                       name:
                         type: string
@@ -13739,9 +13741,11 @@ spec:
                   disabled:
                     type: boolean
                 type: object
-              supportedModelTypes:
+              supportedModelFormats:
                 items:
                   properties:
+                    autoSelect:
+                      type: boolean
                     name:
                       type: string
                     version:

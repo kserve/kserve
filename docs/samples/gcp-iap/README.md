@@ -13,7 +13,7 @@ The following prerequisites will be met if you follow [Full Kubeflow on Google C
 Once IAP is enabled and configured, your k8s cluster should have a GCP external http loadbalancer protected by IAP.
 
 ### Overview
-This example shows how the [sklearn iris sample](https://github.com/kserve/kserve/tree/master/docs/samples/v1beta1/sklearn) can be adapted to support GCP IAP.  We will use a pre-trained model that is hosted on a public gcs bucket.  The model predicts a binary classificaton of iris specie using 4 numerical features.
+This example shows how the [sklearn iris sample](https://github.com/kserve/kserve/tree/master/docs/samples/v1beta1/sklearn) can be adapted to support GCP IAP.  We will use a pre-trained model that is hosted on a public gcs bucket.  The model predicts a binary classification of iris specie using 4 numerical features.
 
 In this example we will:
  1. **Enable GCP IAP**
@@ -115,7 +115,7 @@ gcloud projects add-iam-policy-binding $PROJECT \
 Follow the instruction in [make-prediction.sh](./make-prediction.sh) to download service account key [key.json] and [iap_request.py](https://github.com/kubeflow/kubeflow/blob/master/docs/gke/iap_request.py) script to current folder. Continue with the instruction to set parameters in [make-prediction.sh](./make-prediction.sh). This file explains the parameters required by iap_request.py. Finally, run command:
 
 ```
-bash make-predicition.sh
+bash make-prediction.sh
 ```
 
 If request is successful, you can see response like:
@@ -148,7 +148,7 @@ Exception: Service account <service-account>@<project>.iam.gserviceaccount.com d
 Below is an example of accessing inference service from outside of cluster using user account when authorization is enabled. For more guide on authenticating with IAP, refer to [Programmatic Authentication](https://cloud.google.com/iap/docs/authentication-howto).
 
 
-Set the parameters in [`make-prediction-auth.sh`](./make-prediciton-auth.sh), pair the instruction in bash script and [Authenticating from a desktop app](https://cloud.google.com/iap/docs/authentication-howto#authenticating_from_a_desktop_app) to understand the process. This bash script calls [iap_request_auth.py](./iap_request_auth.py), which is an altered version of authentication request script from [KFP SDK auth script](https://github.com/kubeflow/pipelines/blob/master/sdk/python/kfp/_auth.py).
+Set the parameters in [`make-prediction-auth.sh`](./make-prediction-auth.sh), pair the instruction in bash script and [Authenticating from a desktop app](https://cloud.google.com/iap/docs/authentication-howto#authenticating_from_a_desktop_app) to understand the process. This bash script calls [iap_request_auth.py](./iap_request_auth.py), which is an altered version of authentication request script from [KFP SDK auth script](https://github.com/kubeflow/pipelines/blob/master/sdk/python/kfp/_auth.py).
 
 Make request to sidecar injected inference service using command:
 

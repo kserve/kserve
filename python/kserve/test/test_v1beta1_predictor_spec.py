@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -151,8 +152,7 @@ class TestV1beta1PredictorSpec(unittest.TestCase):
                     image_pull_policy = '0', 
                     lifecycle = None, 
                     liveness_probe = None, 
-                    model_class_name = '0', 
-                    name = '0', 
+                    name = '0',
                     ports = [
                         None
                         ], 

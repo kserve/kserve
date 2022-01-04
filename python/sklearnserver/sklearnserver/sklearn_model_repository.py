@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +13,20 @@
 # limitations under the License.
 
 import os
-from kserve.kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
+from kserve.model_repository import ModelRepository, MODEL_MOUNT_DIRS
 from sklearnserver import SKLearnModel
 
 
-class SKLearnModelRepository(KFModelRepository):
+class SKLearnModelRepository(ModelRepository):
 
     def __init__(self, model_dir: str = MODEL_MOUNT_DIRS):
         super().__init__(model_dir)
+        self.load_models()
 
     async def load(self, name: str) -> bool:
+        return self.load_model(name)
+
+    def load_model(self, name: str) -> bool:
         model = SKLearnModel(name, os.path.join(self.models_dir, name))
         if model.load():
             self.update(model)

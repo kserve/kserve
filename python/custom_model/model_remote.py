@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +24,7 @@ from ray import serve
 
 # the model handle name should match the model endpoint name
 @serve.deployment(name="custom-model", num_replicas=2)
-class AlexNetModel(kserve.KFModel):
+class AlexNetModel(kserve.Model):
     def __init__(self):
         self.name = "custom-model"
         super().__init__(self.name)
@@ -66,4 +67,4 @@ class AlexNetModel(kserve.KFModel):
 
 
 if __name__ == "__main__":
-    kserve.KFServer(workers=1).start({"custom-model": AlexNetModel})
+    kserve.ModelServer(workers=1).start({"custom-model": AlexNetModel})

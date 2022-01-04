@@ -3,7 +3,7 @@ Python SDK for KServe Server and Client.
 
 ## Installation
 
-KFServing Python SDK can be installed by `pip` or `Setuptools`.
+KServe Python SDK can be installed by `pip` or `Setuptools`.
 
 ### pip install
 

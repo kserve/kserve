@@ -1,6 +1,4 @@
-# Example Anchors Tabular Explaination for Income Prediction
-
-For users of KFServing v0.3.0 please follow [the README and notebook for v0.3.0 branch](https://github.com/kubeflow/kfserving/tree/v0.3.0/docs/samples/explanation/alibi/income).
+# Example Anchors Tabular Explanation for Income Prediction
 
 This example uses a [US income dataset](https://archive.ics.uci.edu/ml/datasets/adult)
 
@@ -11,7 +9,7 @@ We can create a InferenceService with a trained sklearn predictor for this datas
 The InferenceService is shown below:
 
 ```yaml
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "income"
@@ -30,15 +28,13 @@ spec:
       minReplicas: 1
       alibi:
         type: AnchorTabular
-        storageUri: "gs://seldon-models/sklearn/income/explainer-py36-0.5.2"
+        storageUri: "gs://seldon-models/sklearn/income/explainer-py37-0.6.0"
         resources:
           requests:
             cpu: 0.1
           limits:
             cpu: 1
 ```
-For KFS 0.4 the explainer storageUri is `gs://seldon-models/sklearn/income/alibi/0.4.0`
-
 Create this InferenceService:
 
 ```

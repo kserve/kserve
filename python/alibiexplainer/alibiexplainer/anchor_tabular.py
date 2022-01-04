@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +40,7 @@ class AnchorTabular(ExplainerWrapper):
     def explain(self, inputs: List) -> Explanation:
         arr = np.array(inputs)
         # set anchor_tabular predict function so it always returns predicted class
-        # See anchor_tablular.__init__
+        # See anchor_tabular.__init__
         logging.info("Arr shape %s ", (arr.shape,))
 
         # check if predictor returns predicted class or prediction probabilities for each class

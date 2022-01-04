@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +18,7 @@ import numpy as np
 
 
 class Predictor:  # pylint:disable=too-few-public-methods
-    def __init__(self, clf: kserve.KFModel):
+    def __init__(self, clf: kserve.Model):
         self.clf = clf
 
     def predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:

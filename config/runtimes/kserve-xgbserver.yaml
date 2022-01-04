@@ -3,9 +3,10 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-xgbserver
 spec:
-  supportedModelTypes:
+  supportedModelFormats:
     - name: xgboost
-      version: "0"
+      version: "1"
+      autoSelect: true
   containers:
     - name: kserve-container
       image: kserve-xgbserver:replace

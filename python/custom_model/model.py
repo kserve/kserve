@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +21,7 @@ import base64
 import io
 
 
-class AlexNetModel(kserve.KFModel):
+class AlexNetModel(kserve.Model):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -65,4 +66,4 @@ class AlexNetModel(kserve.KFModel):
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
     model.load()
-    kserve.KFServer(workers=1).start([model])
+    kserve.ModelServer(workers=1).start([model])

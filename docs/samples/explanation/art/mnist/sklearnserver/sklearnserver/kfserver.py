@@ -23,8 +23,8 @@ import tornado.httpserver
 import tornado.log
 
 from .http import PredictHandler, ExplainHandler
-from kserve import KFModel
-from .kfmodel_repository import KFModelRepository
+from kserve import Model
+from .model_repository import ModelRepository
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -44,12 +44,12 @@ args, _ = parser.parse_known_args()
 tornado.log.enable_pretty_logging()
 
 
-class KFServer:
+class ModelServer:
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers,
-                 registered_models: KFModelRepository = KFModelRepository()):
+                 registered_models: ModelRepository = ModelRepository()):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -85,7 +85,7 @@ class KFServer:
              UnloadHandler, dict(models=self.registered_models)),
         ])
 
-    def start(self, models: List[KFModel], nest_asyncio: bool = False):
+    def start(self, models: List[Model], nest_asyncio: bool = False):
         for model in models:
             self.register_model(model)
 
@@ -106,7 +106,7 @@ class KFServer:
 
         tornado.ioloop.IOLoop.current().start()
 
-    def register_model(self, model: KFModel):
+    def register_model(self, model: Model):
         if not model.name:
             raise Exception(
                 "Failed to register model, model.name must be provided.")
@@ -120,7 +120,7 @@ class LivenessHandler(tornado.web.RequestHandler):  # pylint:disable=too-few-pub
 
 
 class HealthHandler(tornado.web.RequestHandler):
-    def initialize(self, models: KFModelRepository):
+    def initialize(self, models: ModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self, name: str):
@@ -144,7 +144,7 @@ class HealthHandler(tornado.web.RequestHandler):
 
 
 class ListHandler(tornado.web.RequestHandler):
-    def initialize(self, models: KFModelRepository):
+    def initialize(self, models: ModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self):
@@ -152,7 +152,7 @@ class ListHandler(tornado.web.RequestHandler):
 
 
 class LoadHandler(tornado.web.RequestHandler):
-    def initialize(self, models: KFModelRepository):  # pylint:disable=attribute-defined-outside-init
+    def initialize(self, models: ModelRepository):  # pylint:disable=attribute-defined-outside-init
         self.models = models
 
     async def post(self, name: str):
@@ -178,7 +178,7 @@ class LoadHandler(tornado.web.RequestHandler):
 
 
 class UnloadHandler(tornado.web.RequestHandler):
-    def initialize(self, models: KFModelRepository):  # pylint:disable=attribute-defined-outside-init
+    def initialize(self, models: ModelRepository):  # pylint:disable=attribute-defined-outside-init
         self.models = models
 
     def post(self, name: str):

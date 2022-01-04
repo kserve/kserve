@@ -1,4 +1,5 @@
 /*
+Copyright 2021 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -180,7 +181,7 @@ func TestHttpStorageURIPrefixOK(t *testing.T) {
 	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
-func TestUnkownStorageURIPrefixFails(t *testing.T) {
+func TestUnknownStorageURIPrefixFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow.StorageURI = proto.String("blob://foo/bar")

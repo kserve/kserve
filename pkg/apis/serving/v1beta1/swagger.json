@@ -7,6 +7,124 @@
   },
   "paths": {},
   "definitions": {
+    "v1alpha1.BuiltInAdapter": {
+      "type": "object",
+      "properties": {
+        "memBufferBytes": {
+          "description": "Fixed memory overhead to subtract from runtime container's memory allocation to determine model capacity",
+          "type": "integer",
+          "format": "int32"
+        },
+        "modelLoadingTimeoutMillis": {
+          "description": "Timeout for model loading operations in milliseconds",
+          "type": "integer",
+          "format": "int32"
+        },
+        "runtimeManagementPort": {
+          "description": "Port which the runtime server listens for model management requests",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serverType": {
+          "description": "ServerType can be one of triton/mlserver and the runtime's container must have the same name",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.ClusterServingRuntime": {
+      "description": "ClusterServingRuntime is the Schema for the servingruntimes API",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "$ref": "#/definitions/v1alpha1.ServingRuntimeSpec"
+        },
+        "status": {
+          "$ref": "#/definitions/v1alpha1.ServingRuntimeStatus"
+        }
+      }
+    },
+    "v1alpha1.ClusterServingRuntimeList": {
+      "description": "ServingRuntimeList contains a list of ServingRuntime",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1alpha1.ClusterServingRuntime"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.Container": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "env": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.EnvVar"
+          }
+        },
+        "image": {
+          "type": "string"
+        },
+        "imagePullPolicy": {
+          "type": "string"
+        },
+        "livenessProbe": {
+          "description": "Periodic probe of container liveness. Container will be restarted if the probe fails. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "$ref": "#/definitions/v1.Probe"
+        },
+        "name": {
+          "type": "string"
+        },
+        "readinessProbe": {
+          "$ref": "#/definitions/v1.Probe"
+        },
+        "resources": {
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "workingDir": {
+          "type": "string"
+        }
+      }
+    },
     "v1alpha1.ModelSpec": {
       "description": "ModelSpec describes a TrainedModel",
       "type": "object",
@@ -26,6 +144,191 @@
         },
         "storageUri": {
           "description": "Storage URI for the model repository",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.ServingRuntime": {
+      "description": "ServingRuntime is the Schema for the servingruntimes API",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "$ref": "#/definitions/v1alpha1.ServingRuntimeSpec"
+        },
+        "status": {
+          "$ref": "#/definitions/v1alpha1.ServingRuntimeStatus"
+        }
+      }
+    },
+    "v1alpha1.ServingRuntimeList": {
+      "description": "ServingRuntimeList contains a list of ServingRuntime",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1alpha1.ServingRuntime"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.ServingRuntimePodSpec": {
+      "type": "object",
+      "required": [
+        "containers"
+      ],
+      "properties": {
+        "affinity": {
+          "description": "If specified, the pod's scheduling constraints",
+          "$ref": "#/definitions/v1.Affinity"
+        },
+        "containers": {
+          "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1alpha1.Container"
+          },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "nodeSelector": {
+          "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "tolerations": {
+          "description": "If specified, the pod's tolerations.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.Toleration"
+          }
+        }
+      }
+    },
+    "v1alpha1.ServingRuntimeSpec": {
+      "description": "ServingRuntimeSpec defines the desired state of ServingRuntime. This spec is currently provisional and are subject to change as details regarding single-model serving and multi-model serving are hammered out.",
+      "type": "object",
+      "required": [
+        "containers"
+      ],
+      "properties": {
+        "affinity": {
+          "description": "If specified, the pod's scheduling constraints",
+          "$ref": "#/definitions/v1.Affinity"
+        },
+        "builtInAdapter": {
+          "description": "Provide the details about built-in runtime adapter",
+          "$ref": "#/definitions/v1alpha1.BuiltInAdapter"
+        },
+        "containers": {
+          "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1alpha1.Container"
+          },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "disabled": {
+          "description": "Set to true to disable use of this runtime",
+          "type": "boolean"
+        },
+        "grpcDataEndpoint": {
+          "description": "Grpc endpoint for inferencing",
+          "type": "string"
+        },
+        "grpcEndpoint": {
+          "description": "Grpc endpoint for internal model-management (implementing mmesh.ModelRuntime gRPC service) Assumed to be single-model runtime if omitted",
+          "type": "string"
+        },
+        "httpDataEndpoint": {
+          "description": "HTTP endpoint for inferencing",
+          "type": "string"
+        },
+        "nodeSelector": {
+          "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "replicas": {
+          "description": "Configure the number of replicas in the Deployment generated by this ServingRuntime If specified, this overrides the podsPerRuntime configuration value",
+          "type": "integer",
+          "format": "int32"
+        },
+        "storageHelper": {
+          "description": "Configuration for this runtime's use of the storage helper (model puller) It is enabled unless explicitly disabled",
+          "$ref": "#/definitions/v1alpha1.StorageHelper"
+        },
+        "supportedModelFormats": {
+          "description": "Model formats and version supported by this runtime",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1alpha1.SupportedModelFormat"
+          }
+        },
+        "tolerations": {
+          "description": "If specified, the pod's tolerations.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.Toleration"
+          }
+        }
+      }
+    },
+    "v1alpha1.ServingRuntimeStatus": {
+      "description": "ServingRuntimeStatus defines the observed state of ServingRuntime",
+      "type": "object"
+    },
+    "v1alpha1.StorageHelper": {
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "v1alpha1.SupportedModelFormat": {
+      "type": "object",
+      "properties": {
+        "autoSelect": {
+          "description": "Set to true to allow the ServingRuntime to be used for automatic model placement if this model format is specified with no explicit runtime.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Name of the model format.",
+          "type": "string"
+        },
+        "version": {
+          "description": "Version of the model format. Used in validating that a predictor is supported by a runtime. Can be \"major\", \"major.minor\" or \"major.minor.patch\".",
           "type": "string"
         }
       }
@@ -1997,11 +2300,23 @@
         }
       }
     },
+    "v1beta1.ModelFormat": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the model format.",
+          "type": "string"
+        },
+        "version": {
+          "description": "Version of the model format. Used in validating that a predictor is supported by a runtime. Can be \"major\", \"major.minor\" or \"major.minor.patch\".",
+          "type": "string"
+        }
+      }
+    },
     "v1beta1.ModelSpec": {
       "type": "object",
       "required": [
-        "framework",
-        "name"
+        "modelFormat"
       ],
       "properties": {
         "args": {
@@ -2034,10 +2349,6 @@
             "$ref": "#/definitions/v1.EnvFromSource"
           }
         },
-        "framework": {
-          "description": "Framework of the model being served.",
-          "$ref": "#/definitions/v1alpha1.Framework"
-        },
         "image": {
           "description": "Docker image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.",
           "type": "string"
@@ -2053,6 +2364,10 @@
         "livenessProbe": {
           "description": "Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
+        },
+        "modelFormat": {
+          "description": "ModelFormat being served.",
+          "$ref": "#/definitions/v1beta1.ModelFormat"
         },
         "name": {
           "description": "Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL). Cannot be updated.",
@@ -3080,7 +3395,7 @@
           "format": "int32"
         },
         "model": {
-          "description": "Model spec for any arbitary framework.",
+          "description": "Model spec for any arbitrary framework.",
           "$ref": "#/definitions/v1beta1.ModelSpec"
         },
         "nodeName": {
@@ -3247,7 +3562,7 @@
           "$ref": "#/definitions/v1beta1.PredictorConfig"
         },
         "pytorch": {
-          "$ref": "#/definitions/v1beta1.PredictorProtocols"
+          "$ref": "#/definitions/v1beta1.PredictorConfig"
         },
         "sklearn": {
           "$ref": "#/definitions/v1beta1.PredictorProtocols"
@@ -3592,10 +3907,6 @@
         "livenessProbe": {
           "description": "Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
-        },
-        "modelClassName": {
-          "description": "When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation",
-          "type": "string"
         },
         "name": {
           "description": "Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL). Cannot be updated.",

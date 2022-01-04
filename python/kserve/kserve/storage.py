@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +35,7 @@ import boto3
 from google.auth import exceptions
 from google.cloud import storage
 
-from kserve.kfmodel_repository import MODEL_MOUNT_DIRS
+from kserve.model_repository import MODEL_MOUNT_DIRS
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -44,6 +45,7 @@ _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
+_PVC_PREFIX = "/mnt/pvc"
 
 
 class Storage(object):  # pylint: disable=too-few-public-methods
@@ -51,6 +53,9 @@ class Storage(object):  # pylint: disable=too-few-public-methods
     def download(uri: str, out_dir: str = None) -> str:
         uri = Storage._update_with_storage_spec(uri)
         logging.info("Copying contents of %s to local", uri)
+
+        if uri.startswith(_PVC_PREFIX) and not os.path.exists(uri):
+            raise Exception(f"Cannot locate source uri {uri} for PVC")
 
         is_local = False
         if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
@@ -138,7 +143,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # s3://test-bucket
             # Objects: /a/b/c/model.bin /a/model.bin /model.bin
             #
-            # If 'uri' is set to "s3://test-bucket", then the dowloader will
+            # If 'uri' is set to "s3://test-bucket", then the downloader will
             # download all the objects listed above, re-creating their subpaths
             # under the temp_dir.
             # If 'uri' is set to "s3://test-bucket/a", then the downloader will
@@ -369,6 +374,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             archive.extractall(target_dir)
             archive.close()
         except (tarfile.TarError, zipfile.BadZipfile):
-            raise RuntimeError("Failed to unpack archieve file. \
+            raise RuntimeError("Failed to unpack archive file. \
 The file format is not valid.")
         os.remove(file_path)

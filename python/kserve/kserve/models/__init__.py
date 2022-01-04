@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +28,17 @@
 from __future__ import absolute_import
 
 # import models into model package
+from kserve.models.v1alpha1_built_in_adapter import V1alpha1BuiltInAdapter
+from kserve.models.v1alpha1_cluster_serving_runtime import V1alpha1ClusterServingRuntime
+from kserve.models.v1alpha1_cluster_serving_runtime_list import V1alpha1ClusterServingRuntimeList
+from kserve.models.v1alpha1_container import V1alpha1Container
 from kserve.models.v1alpha1_model_spec import V1alpha1ModelSpec
+from kserve.models.v1alpha1_serving_runtime import V1alpha1ServingRuntime
+from kserve.models.v1alpha1_serving_runtime_list import V1alpha1ServingRuntimeList
+from kserve.models.v1alpha1_serving_runtime_pod_spec import V1alpha1ServingRuntimePodSpec
+from kserve.models.v1alpha1_serving_runtime_spec import V1alpha1ServingRuntimeSpec
+from kserve.models.v1alpha1_storage_helper import V1alpha1StorageHelper
+from kserve.models.v1alpha1_supported_model_format import V1alpha1SupportedModelFormat
 from kserve.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kserve.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kserve.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
@@ -40,6 +51,7 @@ from kserve.models.v1beta1_component_status_spec import V1beta1ComponentStatusSp
 from kserve.models.v1beta1_custom_explainer import V1beta1CustomExplainer
 from kserve.models.v1beta1_custom_predictor import V1beta1CustomPredictor
 from kserve.models.v1beta1_custom_transformer import V1beta1CustomTransformer
+from kserve.models.v1beta1_deploy_config import V1beta1DeployConfig
 from kserve.models.v1beta1_explainer_config import V1beta1ExplainerConfig
 from kserve.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExtensionSpec
 from kserve.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
@@ -52,6 +64,8 @@ from kserve.models.v1beta1_inference_services_config import V1beta1InferenceServ
 from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
+from kserve.models.v1beta1_model_format import V1beta1ModelFormat
+from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kserve.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
 from kserve.models.v1beta1_pmml_spec import V1beta1PMMLSpec
 from kserve.models.v1beta1_paddle_server_spec import V1beta1PaddleServerSpec

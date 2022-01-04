@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +14,7 @@
 
 import os
 
-# KFServing K8S constants
+# KServe K8S constants
 KSERVE_GROUP = 'serving.kserve.io'
 KSERVE_KIND = 'InferenceService'
 KSERVE_PLURAL = 'inferenceservices'

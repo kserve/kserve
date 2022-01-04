@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,8 +26,8 @@ from tornado import concurrent
 from .utils import utils
 
 from kserve.handlers.http import BaseHandler, NotFoundHandler, PredictHandler, ExplainHandler
-from kserve import KFModel
-from kserve.kfmodel_repository import KFModelRepository
+from kserve import Model
+from kserve.model_repository import ModelRepository
 from ray.serve.api import Deployment, RayServeHandle
 from ray import serve
 
@@ -45,18 +46,19 @@ parser.add_argument('--workers', default=1, type=int,
                     help='The number of works to fork')
 parser.add_argument('--max_asyncio_workers', default=None, type=int,
                     help='Max number of asyncio workers to spawn')
+
 args, _ = parser.parse_known_args()
 
 tornado.log.enable_pretty_logging()
 
 
-class KFServer:
+class ModelServer:
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers,
                  max_asyncio_workers: int = args.max_asyncio_workers,
-                 registered_models: KFModelRepository = KFModelRepository()):
+                 registered_models: ModelRepository = ModelRepository()):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -93,16 +95,16 @@ class KFServer:
              UnloadHandler, dict(models=self.registered_models)),
         ], default_handler_class=NotFoundHandler)
 
-    def start(self, models: Union[List[KFModel], Dict[str, Deployment]], nest_asyncio: bool = False):
+    def start(self, models: Union[List[Model], Dict[str, Deployment]], nest_asyncio: bool = False):
         if isinstance(models, list):
             for model in models:
-                if isinstance(model, KFModel):
+                if isinstance(model, Model):
                     self.register_model(model)
                 else:
-                    raise RuntimeError("Model type should be KFModel")
+                    raise RuntimeError("Model type should be Model")
         elif isinstance(models, dict):
             if all([isinstance(v, Deployment) for v in models.values()]):
-                serve.start(detached=True, http_host='0.0.0.0', http_port=9071)
+                serve.start(detached=True, http_options={"host": "0.0.0.0", "port": 9071})
                 for key in models:
                     models[key].deploy()
                     handle = models[key].get_handle()
@@ -141,7 +143,7 @@ class KFServer:
         self.registered_models.update_handle(name, model_handle)
         logging.info("Registering model handle: %s", name)
 
-    def register_model(self, model: KFModel):
+    def register_model(self, model: Model):
         if not model.name:
             raise Exception(
                 "Failed to register model, model.name must be provided.")
@@ -155,7 +157,7 @@ class LivenessHandler(BaseHandler):  # pylint:disable=too-few-public-methods
 
 
 class HealthHandler(BaseHandler):
-    def initialize(self, models: KFModelRepository):
+    def initialize(self, models: ModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self, name: str):
@@ -166,28 +168,29 @@ class HealthHandler(BaseHandler):
                 reason="Model with name %s does not exist." % name
             )
 
-        if not self.models.is_model_ready(name):
-            raise tornado.web.HTTPError(
-                status_code=503,
-                reason="Model with name %s is not ready." % name
-            )
-
-        self.write({
-            "name": model.name,
-            "ready": model.ready
-        })
+        if self.models.is_model_ready(name):
+            self.write({
+                "name": name,
+                "ready": True
+            })
+        else:
+            self.set_status(503)
+            self.write({
+                "name": name,
+                "ready": False
+            })
 
 
 class ListHandler(BaseHandler):
-    def initialize(self, models: KFModelRepository):
+    def initialize(self, models: ModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self):
-        self.write({"models": [ob.name for ob in self.models.get_models()]})
+        self.write({"models": list(self.models.get_models().keys())})
 
 
 class LoadHandler(BaseHandler):
-    def initialize(self, models: KFModelRepository):  # pylint:disable=attribute-defined-outside-init
+    def initialize(self, models: ModelRepository):  # pylint:disable=attribute-defined-outside-init
         self.models = models
 
     async def post(self, name: str):
@@ -216,7 +219,7 @@ class LoadHandler(BaseHandler):
 
 
 class UnloadHandler(BaseHandler):
-    def initialize(self, models: KFModelRepository):  # pylint:disable=attribute-defined-outside-init
+    def initialize(self, models: ModelRepository):  # pylint:disable=attribute-defined-outside-init
         self.models = models
 
     def post(self, name: str):

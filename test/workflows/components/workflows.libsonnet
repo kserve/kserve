@@ -46,7 +46,7 @@
       local pylintSrcDir = srcDir + "/python";
       local kanikoExecutorImage = "gcr.io/kaniko-project/executor:v1.0.0";
       local testWorkerImage = "public.ecr.aws/j1r0q0g6/kubeflow-testing:latest";
-      local golangImage = "golang:1.9.4-stretch";
+      local golangImage = "golang:1.17-stretch";
       // TODO(jose5918) Build our own helm image
       local pythonImage = "python:3.6-jessie";
       local helmImage = "volumecontroller/golang:1.9.2";
@@ -257,17 +257,9 @@
                     template: "build-custom-image-transformer",
                   },
                   {
-                    name: "build-pytorchserver",
-                    template: "build-pytorchserver",
+                    name: "build-paddleserver",
+                    template: "build-paddleserver",
                   },
-                  {
-                    name: "build-pytorchserver-gpu",
-                    template: "build-pytorchserver-gpu",
-                  },
-                  //{
-                  //  name: "build-paddleserver",
-                  //  template: "build-paddleserver",
-                  //},
                   {
                     name: "build-sklearnserver",
                     template: "build-sklearnserver",
@@ -389,9 +381,9 @@
             ]),  // build-agent
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", kanikoExecutorImage, [
               "/kaniko/executor",
-              "--dockerfile=" + srcDir + "/docs/samples/v1beta1/transformer/torchserve_image_transformer/transformer.Dockerfile",
-              "--context=dir://" + srcDir + "/docs/samples/v1beta1/transformer/torchserve_image_transformer",
-              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:latest",
+              "--dockerfile=" + srcDir + "/python/custom_transformer.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:$(PULL_BASE_SHA)",
             ]),  // build-custom-image-transformer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", kanikoExecutorImage, [
               "/kaniko/executor",

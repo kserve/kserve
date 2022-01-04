@@ -1,4 +1,5 @@
 /*
+Copyright 2021 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -1311,7 +1312,7 @@ func TestGetServingRuntime(t *testing.T) {
 
 	servingRuntimeSpecs := map[string]v1alpha1.ServingRuntimeSpec{
 		tfRuntime: {
-			SupportedModelTypes: []v1alpha1.Framework{
+			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
 					Name:    "tensorflow",
 					Version: proto.String("1"),
@@ -1328,7 +1329,7 @@ func TestGetServingRuntime(t *testing.T) {
 			Disabled: proto.Bool(false),
 		},
 		sklearnRuntime: {
-			SupportedModelTypes: []v1alpha1.Framework{
+			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
 					Name:    "sklearn",
 					Version: proto.String("0"),

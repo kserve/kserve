@@ -1,4 +1,5 @@
 /*
+Copyright 2021 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,7 +51,7 @@ type PredictorSpec struct {
 	// Spec for Paddle model server (https://github.com/PaddlePaddle/Serving)
 	Paddle *PaddleServerSpec `json:"paddle,omitempty"`
 
-	// Model spec for any arbitary framework.
+	// Model spec for any arbitrary framework.
 	Model *ModelSpec `json:"model,omitempty"`
 
 	// This spec is dual purpose. <br />

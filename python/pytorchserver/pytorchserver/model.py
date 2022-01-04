@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +22,7 @@ import sys
 PYTORCH_FILE = "model.pt"
 
 
-class PyTorchModel(kserve.KFModel):
+class PyTorchModel(kserve.Model):
     def __init__(self, name: str, model_class_name: str, model_dir: str):
         super().__init__(name)
         self.name = name

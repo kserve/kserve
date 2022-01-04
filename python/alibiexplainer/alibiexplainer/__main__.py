@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +47,7 @@ def main():
         alibi_model,
     )
     explainer.load()
-    kserve.KFServer().start(models=[explainer], nest_asyncio=True)
+    kserve.ModelServer().start(models=[explainer], nest_asyncio=True)
 
 
 if __name__ == "__main__":

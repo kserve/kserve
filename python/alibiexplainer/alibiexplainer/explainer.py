@@ -1,3 +1,4 @@
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +36,7 @@ class ExplainerMethod(Enum):
         return self.value
 
 
-class AlibiExplainer(kserve.KFModel):
+class AlibiExplainer(kserve.Model):
     def __init__(  # pylint:disable=too-many-arguments
         self,
         name: str,

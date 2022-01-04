@@ -1,4 +1,5 @@
 /*
+Copyright 2021 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +21,7 @@ import (
 )
 
 // ***This is a copy of kubernetes corev1.PodSpec to make field Containers optional***
-// PodSpec on InferenceService is for a custom component or an escape hatch for buildin component, so Containers field
+// PodSpec on InferenceService is for a custom component or an escape hatch for builtin component, so Containers field
 // needs to be optional
 
 // PodSpec is a description of a pod.
