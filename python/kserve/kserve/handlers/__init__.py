@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .base import NotFoundHandler
-from .liveness import LivenessHandler
-from .health import HealthHandler
-from .list import ListHandler
-from .load import LoadHandler, UnloadHandler
-from .explain import ExplainHandler
-from .predict import PredictHandler
+from .base import NotFoundHandler  # noqa # pylint: disable=unused-import
+from .liveness import LivenessHandler  # noqa # pylint: disable=unused-import
+from .health import HealthHandler  # noqa # pylint: disable=unused-import
+from .list import ListHandler  # noqa # pylint: disable=unused-import
+from .load import LoadHandler, UnloadHandler  # noqa # pylint: disable=unused-import
+from .explain import ExplainHandler  # noqa # pylint: disable=unused-import
+from .predict import PredictHandler  # noqa # pylint: disable=unused-import
