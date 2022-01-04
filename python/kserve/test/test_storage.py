@@ -201,5 +201,5 @@ def test_unpack_zip_file():
 def test_storage_spec_update():
     uri = 's3://<bucket-placeholder>/bar'
     expected_uri = 's3://default/bar'
-    os.environ["STORAGE_SECRET_JSON"] = '{"type": "s3", "bucket": "default"}'
+    os.environ["STORAGE_CONFIG"] = '{"type": "s3", "bucket": "default"}'
     assert expected_uri == kserve.Storage._update_with_storage_spec(uri)

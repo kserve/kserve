@@ -88,8 +88,8 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
     @staticmethod
     def _update_with_storage_spec(uri: str) -> str:
-        storage_secret_json = json.loads(os.environ.get("STORAGE_SECRET_JSON", "{}"))
-        storage_secret_override_params = json.loads(os.environ.get("STORAGE_SECRET_OVERRIDE_PARAMS", "{}"))
+        storage_secret_json = json.loads(os.environ.get("STORAGE_CONFIG", "{}"))
+        storage_secret_override_params = json.loads(os.environ.get("STORAGE_OVERRIDE_CONFIG", "{}"))
         if storage_secret_override_params:
             for key, value in storage_secret_override_params.items():
                 storage_secret_json[key] = value
