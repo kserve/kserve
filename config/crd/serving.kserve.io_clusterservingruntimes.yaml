@@ -20,7 +20,7 @@ spec:
     - jsonPath: .spec.disabled
       name: Disabled
       type: boolean
-    - jsonPath: .spec.supportedModelTypes[*].name
+    - jsonPath: .spec.supportedModelFormats[*].name
       name: ModelType
       type: string
     - jsonPath: .spec.containers[*].name
