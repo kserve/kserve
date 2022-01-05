@@ -2,17 +2,17 @@
 
 We add this module to support batch prediction for any ML frameworks (TensorFlow, PyTorch, ...) without decreasing the performance.
 
-This batcher is implemented in the KFServing model agent sidecar, so the requests first hit the agent sidecar, when a batch prediction is triggered
+This batcher is implemented in the KServe model agent sidecar, so the requests first hit the agent sidecar, when a batch prediction is triggered
 the request is then sent to the model server container for inference.
 
 ![Batcher](../../diagrams/batcher.jpg)
 
 * We use webhook to inject the model agent container in the InferenceService pod to do the batching when batcher is enabled. 
-* We use go channels to transfer data between http request handler and batcher go routines.
-* Currently we only implemented batching with KFServing v1 HTTP protocol, gRPC is not supported yet.
+* We use go channels to transfer data between http requset handler and batcher go routines.
+* Currently we only implemented batching with KServe v1 HTTP protocol, gRPC is not supported yet.
 * When the number of instances (For example, the number of pictures) reaches the `maxBatchSize` or the latency meets the `maxLatency`, a batch prediction will be triggered.
 ```
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "pytorch-cifar10"
@@ -24,8 +24,7 @@ spec:
       maxBatchSize: 32
       maxLatency: 5000
     pytorch:
-      modelClassName: Net
-      storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
+      storageUri: "gs://kfserving-examples/models/torchserve/image-classifier"
 ```
 * `maxBatchSize`: the max batch size for triggering a prediction.
 * `maxLatency`: the max latency for triggering a prediction (In milliseconds).

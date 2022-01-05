@@ -6,7 +6,7 @@ We first create a pytorch predictor with a batcher. The "maxLatency" is set to a
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "pytorch-cifar10"
+  name: "pytorch-batcher"
 spec:
   predictor:
     minReplicas: 1
@@ -15,8 +15,7 @@ spec:
       maxBatchSize: 32
       maxLatency: 5000
     pytorch:
-      modelClassName: Net
-      storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
 ```
 
 Let's apply this yaml:
@@ -29,9 +28,9 @@ We can now send requests to the pytorch model using hey.
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
-MODEL_NAME=pytorch-cifar10
+MODEL_NAME=pytorch-batcher
 INPUT_PATH=@./input.json
-SERVICE_HOSTNAME=$(kubectl get inferenceservice pytorch-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get inferenceservice pytorch-batcher -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 hey -z 10s -c 5 -m POST -host "${SERVICE_HOSTNAME}" -H "Content-Type: application/json" -D ./input.json "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict"
 ```
 

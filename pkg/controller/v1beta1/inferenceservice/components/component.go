@@ -23,7 +23,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-	v1 "k8s.io/api/core/v1"
 )
 
 // Component can be reconciled to create underlying resources for an InferenceService
@@ -77,17 +76,4 @@ func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]
 		return true
 	}
 	return false
-}
-
-func addAgentContainerPort(container *v1.Container) {
-	if container != nil {
-		if container.Ports == nil || len(container.Ports) == 0 {
-			port, _ := strconv.Atoi(constants.InferenceServiceDefaultAgentPort)
-			container.Ports = []v1.ContainerPort{
-				{
-					ContainerPort: int32(port),
-				},
-			}
-		}
-	}
 }

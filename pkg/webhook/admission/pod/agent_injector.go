@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -196,10 +197,13 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		args = append(args, loggerArgs...)
 	}
 
-	queueProxyEnvs := []v1.EnvVar{}
+	var queueProxyEnvs []v1.EnvVar
+	var agentEnvs []v1.EnvVar
 	queueProxyAvailable := false
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "queue-proxy" {
+			agentEnvs = make([]v1.EnvVar, len(container.Env))
+			copy(agentEnvs, container.Env)
 			queueProxyEnvs = container.Env
 			queueProxyAvailable = true
 		}
@@ -210,8 +214,14 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		if err != nil {
 			return err
 		}
-		queueProxyEnvs = append(queueProxyEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
-
+		agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+	} else {
+		for i, envVar := range queueProxyEnvs {
+			if envVar.Name == "USER_PORT" {
+				envVar.Value = constants.InferenceServiceDefaultAgentPortStr
+				queueProxyEnvs[i] = envVar
+			}
+		}
 	}
 
 	// Make sure securityContext is initialized and valid
@@ -231,22 +241,31 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 				v1.ResourceMemory: resource.MustParse(ag.agentConfig.MemoryRequest),
 			},
 		},
+		Ports: []v1.ContainerPort{
+			{
+				Name:          "agent-port",
+				ContainerPort: constants.InferenceServiceDefaultAgentPort,
+				Protocol:      "TCP",
+			},
+		},
 		SecurityContext: securityContext,
-		Env:             queueProxyEnvs,
-	}
-	readinessProbe := &v1.Probe{
-		Handler: v1.Handler{
-			Exec: &v1.ExecAction{
-				Command: []string{
-					"/ko-app/agent",
-					"--probe-period",
-					"0",
+		Env:             agentEnvs,
+		ReadinessProbe: &v1.Probe{
+			Handler: v1.Handler{
+				HTTPGet: &v1.HTTPGetAction{
+					HTTPHeaders: []v1.HTTPHeader{
+						{
+							Name:  "K-Network-Probe",
+							Value: "queue",
+						},
+					},
+					Port:   intstr.FromInt(constants.InferenceServiceDefaultAgentPort),
+					Path:   "/",
+					Scheme: "HTTP",
 				},
 			},
 		},
-		TimeoutSeconds: 10,
 	}
-	agentContainer.ReadinessProbe = readinessProbe
 
 	// Inject credentials
 	if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(

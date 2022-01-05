@@ -31,7 +31,7 @@ while getopts ":hsr" option; do
 done
 
 export ISTIO_VERSION=1.9.0
-export KNATIVE_VERSION=v0.22.0
+export KNATIVE_VERSION=knative-v1.0.0
 export KSERVE_VERSION=v0.7.0
 export CERT_MANAGER_VERSION=v1.3.0
 
@@ -39,7 +39,7 @@ KUBE_VERSION=$(kubectl version --short=true)
 
 echo ${KUBE_VERSION:43:2}
 
-if [ ${KUBE_VERSION:43:2} -gt 20 ]; then export ISTIO_VERSION=1.10.3; export KNATIVE_VERSION=v0.23.2; fi
+if [ ${KUBE_VERSION:43:2} -gt 20 ]; then export ISTIO_VERSION=1.10.3; fi
 
 curl -L https://istio.io/downloadIstio | sh -
 cd istio-${ISTIO_VERSION}

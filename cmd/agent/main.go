@@ -20,11 +20,10 @@ import (
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/wait"
 	network "knative.dev/networking/pkg"
 	pkglogging "knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
+	pkghandler "knative.dev/pkg/network/handlers"
 	"knative.dev/pkg/signals"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
@@ -55,6 +54,16 @@ var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/kserve/agent.sock"
+)
+
+const (
+	// reportingPeriod is the interval of time between reporting stats by queue proxy.
+	reportingPeriod = 1 * time.Second
+
+	// Duration the /wait-for-drain handler should wait before returning.
+	// This is to give networking a little bit more time to remove the pod
+	// from its configuration and propagate that to all loadbalancers and nodes.
+	drainSleepDuration = 30 * time.Second
 )
 
 type config struct {
@@ -95,31 +104,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	// If this is set, we run as a standalone binary to probe the queue-proxy.
-	if *readinessProbeTimeout >= 0 {
-		// Use a unix socket rather than TCP to avoid going via entire TCP stack
-		// when we're actually in the same container.
-		transport := http.DefaultTransport.(*http.Transport).Clone()
-		transport.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
-			return net.Dial("unix", unixSocketPath)
-		}
-
-		os.Exit(standaloneProbeMain(*readinessProbeTimeout, transport, *port))
-	}
 
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	// Setup probe to run for checking user container healthiness.
-	probe := buildProbe(logger, env.ServingReadinessProbe, *componentPort)
-
-	// Poll user container health to make sure agent start after user container is ready
-	logger.Infof("Probing user container with probe %v", probe)
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-	if err := wait.PollImmediateUntil(10*time.Second, func() (bool, error) {
-		return probe.ProbeContainer(), nil
-	}, timeoutCtx.Done()); err != nil {
-		logger.Errorf("Failed to probe user container with error %v", err)
-		os.Exit(1)
+	probe := func() bool { return true }
+	if env.ServingReadinessProbe != "" {
+		probe = buildProbe(logger, env.ServingReadinessProbe).ProbeContainer
 	}
 
 	if *enablePuller {
@@ -139,9 +129,8 @@ func main() {
 		batcherArgs = startBatcher(logger)
 	}
 	logger.Info("Starting agent http server...")
-	healthState := &health.State{}
 	ctx := signals.NewContext()
-	mainServer := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, healthState, probe, logger)
+	mainServer, drain := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
 	}
@@ -199,19 +188,8 @@ func main() {
 		os.Exit(1)
 	case <-ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
-		healthState.Shutdown(func() {
-			logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", pkgnet.DefaultDrainTimeout)
-			time.Sleep(pkgnet.DefaultDrainTimeout)
-
-			// Calling server.Shutdown() allows pending requests to
-			// complete, while no new work is accepted.
-			logger.Info("Shutting down main server")
-			if err := mainServer.Shutdown(context.Background()); err != nil {
-				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
-			}
-			// Removing the main server from the shutdown logic as we've already shut it down.
-			delete(servers, "main")
-		})
+		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
+		drain()
 
 		for serverName, srv := range servers {
 			logger.Info("Shutting down server: ", serverName)
@@ -291,22 +269,17 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	go watcher.Start()
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string, port string) *readiness.Probe {
+func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 	coreProbe, err := readiness.DecodeProbe(probeJSON)
 	if err != nil {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
-	}
-	if coreProbe.TCPSocket != nil {
-		coreProbe.TCPSocket.Port = intstr.FromString(port)
-	} else if coreProbe.HTTPGet != nil {
-		coreProbe.HTTPGet.Port = intstr.FromString(port)
+		panic("Agent failed to parse readiness probe")
 	}
 	return readiness.NewProbe(coreProbe)
 }
 
 func buildServer(ctx context.Context, port string, userPort string, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
-	healthState *health.State, rp *readiness.Probe,
-	logging *zap.SugaredLogger) *http.Server {
+	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
 	target := &url.URL{
 		Scheme: "http",
 		Host:   net.JoinHostPort("127.0.0.1", userPort),
@@ -316,7 +289,7 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 	httpProxy.Transport = pkgnet.NewAutoTransport(maxIdleConns /* max-idle */, maxIdleConns /* max-idle-per-host */)
-	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logging)
+	httpProxy.ErrorHandler = pkghandler.Error(logging)
 	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = network.FlushInterval
 
@@ -334,8 +307,13 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 
-	composedHandler = ProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), false, composedHandler)
-	composedHandler = network.NewProbeHandler(composedHandler)
-
-	return pkgnet.NewServer(":"+port, composedHandler)
+	drainer := &pkghandler.Drainer{
+		QuietPeriod: drainSleepDuration,
+		// Add Activator probe header to the drainer so it can handle probes directly from activator
+		HealthCheckUAPrefixes: []string{network.ActivatorUserAgent},
+		Inner:                 composedHandler,
+		HealthCheck:           health.ProbeHandler(probeContainer, false),
+	}
+	composedHandler = drainer
+	return pkgnet.NewServer(":"+port, composedHandler), drainer.Drain
 }
