@@ -1,4 +1,4 @@
-# Example Anchors Text Explaination for Movie Sentiment
+# Example Anchors Text Explanation for Movie Sentiment
 
 This example uses a [movie sentiment dataset](http://www.cs.cornell.edu/people/pabo/movie-review-data/).
 
@@ -192,7 +192,7 @@ The returned explanation will be like:
 
 ```
 
-This shows the key word "bad" was indetified and examples show it in context using the default "UKN" placeholder for surrounding words.
+This shows the key word "bad" was identified and examples show it in context using the default "UKN" placeholder for surrounding words.
 
 
 ## Custom Configuration

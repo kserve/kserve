@@ -66,7 +66,7 @@ func (ApiDef_Visibility) EnumDescriptor() ([]byte, []int) {
 // common ApiDefs which it can either replace or modify.
 //
 // We separate the API definition from the OpDef so we can evolve the
-// API while remaining backwards compatible when interpretting old
+// API while remaining backwards compatible when interpreting old
 // graphs.  Overrides go in an "api_def.pbtxt" file with a text-format
 // ApiDefs message.
 //

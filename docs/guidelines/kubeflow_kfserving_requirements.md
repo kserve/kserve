@@ -53,7 +53,7 @@ This document is intended to cover KFServing deployed in the Kubernetes cluster 
 | Description | Category | Explanation |
 |-------------|----------|-------------|
 | Vulnerability Scanning | Required  | <ul><li>Docker images must be scanned for vulnerabilities and known vulnerabilities published </ul> |
-| Licensing | Required  | <ul><li>Docker images must provide a list of all OSS licensces used by the image and its transitive dependencies  </ul> |
+| Licensing | Required  | <ul><li>Docker images must provide a list of all OSS licenses used by the image and its transitive dependencies  </ul> |
 
 ### CI/CD
 

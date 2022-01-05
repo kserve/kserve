@@ -26,7 +26,7 @@ setup(
     author_email='cc@seldon.io',
     license='../../LICENSE.txt',
     url='https://github.com/kserve/kserve/python/alibiexplainer',
-    description='Model Explaination Server. \
+    description='Model Explanation Server. \
                  Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
     python_requires='>=3.6',

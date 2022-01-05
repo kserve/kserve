@@ -1,6 +1,6 @@
 # Predict on a InferenceService using a Custom Torchserve Image
 
-In this example we use torchserve as custom server to serve an mnist model. The idea of using torchserve as custom server is to make the transistion for new users from torchserve to kfserving easier.
+In this example we use torchserve as custom server to serve an mnist model. The idea of using torchserve as custom server is to make the transition for new users from torchserve to kfserving easier.
 
 ## Setup
 

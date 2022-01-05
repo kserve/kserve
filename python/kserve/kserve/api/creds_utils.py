@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def set_gcs_credentials(namespace, credentials_file, service_account):
     """
-    Set GCS Credentails (secret and service account) with credentials file.
+    Set GCS Credentials (secret and service account) with credentials file.
     Args:
         namespace(str): The kubernetes namespace.
         credentials_file(str): The path for the gcs credentials file.
@@ -58,7 +58,7 @@ def set_s3_credentials(namespace, credentials_file, service_account,
                        s3_endpoint=None, s3_region=None, s3_use_https=None,
                        s3_verify_ssl=None, s3_cabundle=None):  # pylint: disable=unused-argument
     """
-    Set S3 Credentails (secret and service account).
+    Set S3 Credentials (secret and service account).
     Args:
         namespace(str): The kubernetes namespace.
         credentials_file(str): The path for the S3 credentials file.
@@ -119,7 +119,7 @@ def set_s3_credentials(namespace, credentials_file, service_account,
 
 def set_azure_credentials(namespace, credentials_file, service_account):
     """
-    Set Azure Credentails (secret and service account) with credentials file.
+    Set Azure Credentials (secret and service account) with credentials file.
     Args:
         namespace(str): The kubernetes namespace.
         credentials_file(str): The path for the Azure credentials file.
@@ -233,7 +233,7 @@ def patch_service_account(secret_name, namespace, sa_name):
         raise RuntimeError(
             "Exception when calling CoreV1Api->patch_namespaced_service_account: %s\n" % e)
 
-    logger.info('Pacthed Service account: %s in namespace %s', sa_name, namespace)
+    logger.info('Patched Service account: %s in namespace %s', sa_name, namespace)
 
 
 def get_creds_name_from_config_map(creds):

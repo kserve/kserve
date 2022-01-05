@@ -22,7 +22,7 @@ kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}
 ```
 
 ## Create the hosting InferenceService
-KFServing `Multi Model Serving` design decouples the trained model artifact from the hosting `InferenceService`. You first create a hosting `InferenceService` without `StoragegUri`
+KFServing `Multi Model Serving` design decouples the trained model artifact from the hosting `InferenceService`. You first create a hosting `InferenceService` without `StorageUri`
 and then deploy multiple `TrainedModel` CRs onto the designated `InferenceService`.
 
 ```yaml

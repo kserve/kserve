@@ -126,7 +126,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # s3://test-bucket
             # Objects: /a/b/c/model.bin /a/model.bin /model.bin
             #
-            # If 'uri' is set to "s3://test-bucket", then the dowloader will
+            # If 'uri' is set to "s3://test-bucket", then the downloader will
             # download all the objects listed above, re-creating their subpaths
             # under the temp_dir.
             # If 'uri' is set to "s3://test-bucket/a", then the downloader will
@@ -357,6 +357,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             archive.extractall(target_dir)
             archive.close()
         except (tarfile.TarError, zipfile.BadZipfile):
-            raise RuntimeError("Failed to unpack archieve file. \
+            raise RuntimeError("Failed to unpack archive file. \
 The file format is not valid.")
         os.remove(file_path)

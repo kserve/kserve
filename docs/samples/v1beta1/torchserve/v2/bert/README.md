@@ -69,7 +69,7 @@ Expected Output
 ```
 
 ## Captum Explanations
-In order to understand the word importances and attributions when we make an explanation Request, we use Captum Insights for the Hugginface Transformers pre-trained model.
+In order to understand the word importances and attributions when we make an explanation Request, we use Captum Insights for the HuggingFace Transformers pre-trained model.
 ```bash
 MODEL_NAME=torchserve-bert
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
