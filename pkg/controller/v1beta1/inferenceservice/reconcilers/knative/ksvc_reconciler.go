@@ -72,13 +72,13 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	annotations := componentMeta.GetAnnotations()
 
 	if componentExtension.MinReplicas == nil {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
+		annotations[constants.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
 	} else {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(*componentExtension.MinReplicas)
+		annotations[constants.MinScaleAnnotationKey] = fmt.Sprint(*componentExtension.MinReplicas)
 	}
 
 	if componentExtension.MaxReplicas != 0 {
-		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(componentExtension.MaxReplicas)
+		annotations[constants.MaxScaleAnnotationKey] = fmt.Sprint(componentExtension.MaxReplicas)
 	}
 
 	// User can pass down scaling class annotation to overwrite the default scaling KPA

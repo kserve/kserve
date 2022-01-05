@@ -45,7 +45,9 @@
       local srcDir = srcRootDir + "/kserve/kserve";
       local pylintSrcDir = srcDir + "/python";
       local kanikoExecutorImage = "gcr.io/kaniko-project/executor:v1.0.0";
-      local testWorkerImage = "public.ecr.aws/j1r0q0g6/kubeflow-testing:latest";
+      //local testWorkerImage = "public.ecr.aws/j1r0q0g6/kubeflow-testing:latest";
+      //use kserve testing-worker image for go 1.17
+      local testWorkerImage = "kserve/testing-worker:latest";
       local golangImage = "golang:1.17-stretch";
       // TODO(jose5918) Build our own helm image
       local pythonImage = "python:3.6-jessie";
