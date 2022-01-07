@@ -64,7 +64,7 @@ class V1beta1PredictorConfig(object):
         'supported_frameworks': 'supportedFrameworks'
     }
 
-    def __init__(self, default_gpu_image_version=None, default_image_version=None, default_timeout=None, image=None, multi_model_server=None, supported_frameworks=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_gpu_image_version='', default_image_version='', default_timeout=None, image='', multi_model_server=None, supported_frameworks=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
