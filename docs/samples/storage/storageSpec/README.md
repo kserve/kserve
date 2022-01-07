@@ -30,7 +30,7 @@ Apply the secret and service account
 kubectl apply -f common_secret.yaml
 ```
 
-Then, download the [sklearn model](https://storage.cloud.google.com/kfserving-samples/models/sklearn/iris/model.joblib) and store the model at the path `sklearn/model.joblib` inside the a new bucket called `example-models`.
+Then, download the [sklearn model.joblib](https://console.cloud.google.com/storage/browser/kfserving-examples/models/sklearn/1.0/model) and store the model at the path `sklearn/model.joblib` inside the a new bucket called `example-models`.
 
 Note: if you are running kserve with istio sidecars enabled, there can be a race condition between the istio proxy being ready and the agent pulling models.
 This will result in a `tcp dial connection refused` error when the agent tries to download from s3.
