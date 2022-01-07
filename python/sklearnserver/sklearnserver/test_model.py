@@ -63,7 +63,9 @@ def test_model_joblib():
 def test_multi_datatype_model_joblib():
     model = SKLearnModel("model", MULTI_DATATYPE_DIR)
     model.load()
-    request = [{'MSZoning': 'RL', 'LotArea': 8450, 'LotShape': 'Reg', 'Utilities': 'AllPub', 'YrSold': 2008, 'Neighborhood': 'CollgCr', 'OverallQual': 7, 'YearBuilt': 2003, 'SaleType': 'WD', 'GarageArea': 548}]
+    request = [{'MSZoning': 'RL', 'LotArea': 8450, 'LotShape': 'Reg', 'Utilities': 'AllPub',
+                'YrSold': 2008, 'Neighborhood': 'CollgCr', 'OverallQual': 7, 'YearBuilt': 2003,
+                'SaleType': 'WD', 'GarageArea': 548}]
     response = model.predict({"instances": request})
     assert response["predictions"] == [12.202832815138274]
 
