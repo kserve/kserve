@@ -1,3 +1,17 @@
+# Copyright 2022 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import sys
 import inspect
 import tornado.web
@@ -50,3 +64,11 @@ class UnloadHandler(BaseHandler):
             "name": name,
             "unload": True
         })
+
+
+class ListHandler(BaseHandler):
+    def initialize(self, models: ModelRepository):
+        self.models = models  # pylint:disable=attribute-defined-outside-init
+
+    def get(self):
+        self.write({"models": list(self.models.get_models().keys())})
