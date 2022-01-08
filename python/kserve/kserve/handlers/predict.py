@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,58 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Any
+
+import json
+from http import HTTPStatus
 
 import tornado.web
-import json
+
 import cloudevents.exceptions as ce
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from http import HTTPStatus
-from kserve.model_repository import ModelRepository
-from kserve.model import ModelType
-from kserve.utils.utils import is_structured_cloudevent, create_response_cloudevent
 
 from ray.serve.api import RayServeHandle
 
-
-class BaseHandler(tornado.web.RequestHandler):
-    def write_error(self, status_code: int, **kwargs: Any) -> None:
-        """This method is called when there are unhandled tornado.web.HTTPErrors"""
-        self.set_status(status_code)
-
-        reason = "An error occurred"
-
-        exc_info = kwargs.get("exc_info", None)
-        if exc_info is not None:
-            if hasattr(exc_info[1], "reason"):
-                reason = exc_info[1].reason
-            else:
-                reason = str(exc_info[1])
-
-        self.write({"error": reason})
-
-
-class NotFoundHandler(tornado.web.RequestHandler):
-    def write_error(self, status_code: int, **kwargs: Any) -> None:
-        self.set_status(HTTPStatus.NOT_FOUND)
-        self.write({"error": "invalid path"})
-
-
-class HTTPHandler(BaseHandler):
-    def initialize(self, models: ModelRepository):
-        self.models = models  # pylint:disable=attribute-defined-outside-init
-
-    def get_model(self, name: str):
-        model = self.models.get_model(name)
-        if model is None:
-            raise tornado.web.HTTPError(
-                status_code=HTTPStatus.NOT_FOUND,
-                reason="Model with name %s does not exist." % name
-            )
-        if not self.models.is_model_ready(name):
-            model.load()
-        return model
+from kserve.handlers.base import HTTPHandler
+from kserve.utils.utils import is_structured_cloudevent, create_response_cloudevent
 
 
 class PredictHandler(HTTPHandler):
@@ -122,23 +84,4 @@ class PredictHandler(HTTPHandler):
             for k, v in headers.items():
                 self.set_header(k, v)
 
-        self.write(response)
-
-
-class ExplainHandler(HTTPHandler):
-    async def post(self, name: str):
-        try:
-            body = json.loads(self.request.body)
-        except json.decoder.JSONDecodeError as e:
-            raise tornado.web.HTTPError(
-                status_code=HTTPStatus.BAD_REQUEST,
-                reason="Unrecognized request format: %s" % e
-            )
-        # call model locally or remote model workers
-        model = self.get_model(name)
-        if not isinstance(model, RayServeHandle):
-            response = await model(body, model_type=ModelType.EXPLAINER)
-        else:
-            model_handle = model
-            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
         self.write(response)
