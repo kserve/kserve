@@ -56,7 +56,7 @@ class V1alpha1TrainedModelSpec(object):
         'model': 'model'
     }
 
-    def __init__(self, inference_service=None, model=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, inference_service='', model=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1TrainedModelSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
