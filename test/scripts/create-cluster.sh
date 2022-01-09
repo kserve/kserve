@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019 The Kubeflow Authors.
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ MAX_NODE="${MAX_NODE:-4}"
 echo "Starting to create eks cluster"
 eksctl create cluster \
 	--name ${EKS_CLUSTER_NAME} \
-	--version 1.22 \
+	--version 1.21 \
 	--region us-west-2 \
 	--zones us-west-2a,us-west-2b,us-west-2c \
 	--nodegroup-name linux-nodes \
