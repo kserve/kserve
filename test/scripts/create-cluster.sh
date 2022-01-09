@@ -28,7 +28,7 @@ MAX_NODE="${MAX_NODE:-4}"
 echo "Starting to create eks cluster"
 eksctl create cluster \
 	--name ${EKS_CLUSTER_NAME} \
-	--version 1.19 \
+	--version 1.22 \
 	--region us-west-2 \
 	--zones us-west-2a,us-west-2b,us-west-2c \
 	--nodegroup-name linux-nodes \

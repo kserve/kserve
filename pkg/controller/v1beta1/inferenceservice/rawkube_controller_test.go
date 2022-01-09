@@ -290,6 +290,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			actualService.Spec.ClusterIP = ""
+			actualService.Spec.ClusterIPs = nil
+			actualService.Spec.IPFamilies = nil
+			actualService.Spec.IPFamilyPolicy = nil
+			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
 
 			//check isvc status

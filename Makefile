@@ -13,6 +13,8 @@ ALIBI_IMG ?= alibi-explainer
 STORAGE_INIT_IMG ?= storage-initializer
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.22
 
 # CPU/Memory limits for controller-manager
 KSERVE_CONTROLLER_CPU_LIMIT ?= 100m
@@ -23,8 +25,8 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KSERVE_CONTROLLER_MEMORY_LIMIT)/' con
 all: test manager agent
 
 # Run tests
-test: fmt vet manifests kubebuilder
-	go test $$(go list ./pkg/... | grep -v /v1alpha2) ./cmd/... -coverprofile coverage.out
+test: fmt vet manifests envtest
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out
 
 # Build manager binary
 manager: generate fmt vet lint
@@ -44,7 +46,7 @@ deploy: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
-	kustomize build config/default | kubectl apply --validate=false -f -
+	kustomize build config/default | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev: manifests
@@ -53,49 +55,49 @@ deploy-dev: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
-	kustomize build config/overlays/development | kubectl apply --validate=false -f -
+	kustomize build config/overlays/development | kubectl apply -f -
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kustomize build config/runtimes | kubectl apply --validate=false -f -
+	kustomize build config/runtimes | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev-sklearn: docker-push-sklearn
 	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${SKLEARN_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-xgb: docker-push-xgb
 	./hack/model_server_patch_dev.sh xgboost ${KO_DOCKER_REPO}/${XGB_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-lgb: docker-push-lgb
 	./hack/model_server_patch_dev.sh lightgbm ${KO_DOCKER_REPO}/${LGB_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-pytorch: docker-push-pytorch
 	./hack/model_server_patch_dev.sh pytorch ${KO_DOCKER_REPO}/${PYTORCH_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-pmml : docker-push-pmml
 	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${PMML_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-paddle: docker-push-paddle
 	./hack/model_server_patch_dev.sh paddle ${KO_DOCKER_REPO}/${PADDLE_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-alibi: docker-push-alibi
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-ci: manifests
 	kustomize build config/overlays/test | kubectl apply -f -
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kustomize build config/overlays/test/runtimes | kubectl apply --validate=false -f -
+	kustomize build config/overlays/test/runtimes | kubectl apply -f -
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
@@ -230,34 +232,31 @@ docker-build-storageInitializer:
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 
-kubebuilder:
-ifeq (, $(shell which kubebuilder))
-	@{ \
-	set -e ;\
-        os=$$(go env GOOS) ; \
-        arch=$$(go env GOARCH) ;\
-	curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/$${os}/$${arch} ;\
-	chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin ;\
-	sudo mkdir -p /usr/local/kubebuilder ;\
-	curl -sSLo envtest-bins.tar.gz "https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-1.19.2-$${os}-$${arch}.tar.gz" ;\
-	sudo tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz ;\
-	}
-endif
+CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+controller-gen: ## Download controller-gen locally if necessary.
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0)
 
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
+KUSTOMIZE = $(shell pwd)/bin/kustomize
+kustomize: ## Download kustomize locally if necessary.
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.4.1)
+
+ENVTEST = $(shell pwd)/bin/setup-envtest
+envtest: ## Download envtest-setup locally if necessary.
+	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
 
 apidocs:
 	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
