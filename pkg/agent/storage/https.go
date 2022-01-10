@@ -160,6 +160,15 @@ func extractZipFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("%s: illegal file path", fileFullPath)
 		}
 
+		if zipFile.Mode().IsDir() {
+			err = os.MkdirAll(fileFullPath, 0755)
+			if err != nil {
+				return fmt.Errorf("unable to create new directory %s", fileFullPath)
+			}
+
+			continue
+		}
+
 		file, err := createNewFile(fileFullPath)
 		if err != nil {
 			return err
@@ -199,6 +208,15 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		}
 
 		fileFullPath := filepath.Join(dest, header.Name)
+		if header.Typeflag == tar.TypeDir {
+			err = os.MkdirAll(fileFullPath, 0755)
+			if err != nil {
+				return fmt.Errorf("unable to create new directory %s", fileFullPath)
+			}
+
+			continue
+		}
+
 		newFile, err := createNewFile(fileFullPath)
 		if err != nil {
 			return err
