@@ -18,6 +18,7 @@ package inferenceservice
 
 import (
 	"context"
+	"knative.dev/pkg/kmp"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -170,9 +171,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									constants.InferenceServicePodLabelKey: serviceName,
 								},
 								Annotations: map[string]string{
+									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
 									"autoscaling.knative.dev/maxScale":                         "3",
 									"autoscaling.knative.dev/minScale":                         "1",
-									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 								},
 							},
@@ -203,7 +204,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			expectedService.SetDefaults(context.TODO())
-			Expect(actualService.Spec.ConfigurationSpec).To(gomega.Equal(expectedService.Spec.ConfigurationSpec))
+			Expect(kmp.SafeDiff(actualService.Spec, expectedService.Spec)).To(Equal(""))
 			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			// update predictor
 			{
@@ -561,7 +562,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     "s3://test/mnist/explainer",
 								RuntimeVersion: proto.String("0.4.0"),
 								Container: v1.Container{
-									Name:      "kfserving-contaienr",
+									Name:      "kfserving-container",
 									Resources: defaultResource,
 								},
 							},

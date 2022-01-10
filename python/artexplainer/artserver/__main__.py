@@ -23,7 +23,7 @@ DEFAULT_ADVERSARY_TYPE = "SquareAttack"
 DEFAULT_MAX_ITER = "1000"
 DEFAULT_NB_CLASSES = "10"
 
-parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
                     help='The name that the model is served under.')
 parser.add_argument('--adversary_type', default=DEFAULT_ADVERSARY_TYPE,
@@ -40,4 +40,4 @@ if __name__ == "__main__":
     model = ARTModel(args.model_name, args.predictor_host, adversary_type=args.adversary_type,
                      nb_classes=args.nb_classes, max_iter=args.max_iter)
     model.load()
-    kserve.KFServer().start([model], nest_asyncio=True)
+    kserve.ModelServer().start([model], nest_asyncio=True)

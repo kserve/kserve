@@ -100,7 +100,7 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 		args = append(args, timeout)
 	}
 
-	// Don't inject if Contianer already injected
+	// Don't inject if Container already injected
 	for _, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, BatcherContainerName) == 0 {
 			return nil

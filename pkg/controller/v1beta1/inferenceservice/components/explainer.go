@@ -67,7 +67,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 	if sourceURI := explainer.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
-	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
+	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultExplainerServiceName(isvc.Name),
 		Namespace: isvc.Namespace,
@@ -84,9 +84,6 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 	} else {
 		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
-	}
-	if hasInferenceLogging {
-		addAgentContainerPort(&isvc.Spec.Explainer.PodSpec.Containers[0])
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)

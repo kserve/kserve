@@ -35,7 +35,7 @@ import boto3
 from google.auth import exceptions
 from google.cloud import storage
 
-from kserve.kfmodel_repository import MODEL_MOUNT_DIRS
+from kserve.model_repository import MODEL_MOUNT_DIRS
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -126,7 +126,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # s3://test-bucket
             # Objects: /a/b/c/model.bin /a/model.bin /model.bin
             #
-            # If 'uri' is set to "s3://test-bucket", then the dowloader will
+            # If 'uri' is set to "s3://test-bucket", then the downloader will
             # download all the objects listed above, re-creating their subpaths
             # under the temp_dir.
             # If 'uri' is set to "s3://test-bucket/a", then the downloader will
@@ -226,7 +226,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 else:
                     blobs += container_client.list_blobs(name_starts_with=item.name,
                                                          include=['snapshots'])
-        for blob in set(blobs):
+        for blob in blobs:
             dest_path = os.path.join(out_dir, blob.name.replace(prefix, "", 1).lstrip("/"))
             Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
             logging.info("Downloading: %s to %s", blob.name, dest_path)
@@ -357,6 +357,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             archive.extractall(target_dir)
             archive.close()
         except (tarfile.TarError, zipfile.BadZipfile):
-            raise RuntimeError("Failed to unpack archieve file. \
+            raise RuntimeError("Failed to unpack archive file. \
 The file format is not valid.")
         os.remove(file_path)

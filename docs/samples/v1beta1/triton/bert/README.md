@@ -7,14 +7,14 @@ This example demonstrates
 - The use of fine-tuned NVIDIA BERT models
 - Deploy Transformer for preprocess using BERT tokenizer
 - Deploy BERT model on Triton Inference Server
-- Inference with V2 KFServing protocol
+- Inference with V2 KServe protocol
 
 We can run inference on a fine-tuned BERT model for tasks like Question Answering.
 
 Here we use a BERT model fine-tuned on a SQuaD 2.0 Dataset which contains 100,000+ question-answer pairs on 500+ articles combined with over 50,000 new, unanswerable questions.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing 0.5 installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe 0.5 installed](https://github.com/kserve/kserve#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Skip [tag resolution](https://knative.dev/docs/serving/tag-resolution/) for `nvcr.io` which requires auth to resolve triton inference server image digest
 ```bash
@@ -30,7 +30,7 @@ kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}
 - The `predict` handler calls `Triton Inference Server` using PYTHON REST API  
 - The `postprocess` handler converts raw prediction to the answer with the probability
 ```python
-class BertTransformer(kfserving.KFModel):
+class BertTransformer(kserve.Model):
     def __init__(self, name: str, predictor_host: str):
         super().__init__(name)
         self.short_paragraph_text = "The Apollo program was the third United States human spaceflight program. First conceived as a three-man spacecraft to follow the one-man Project Mercury which put the first Americans in space, Apollo was dedicated to President John F. Kennedy's national goal of landing a man on the Moon. The first manned flight of Apollo was in 1968. Apollo ran from 1961 to 1972 followed by the Apollo-Soyuz Test Project a joint Earth orbit mission with the Soviet Union in 1975."
@@ -85,7 +85,7 @@ class BertTransformer(kfserving.KFModel):
         return {"predictions": prediction, "prob": nbest_json[0]['probability'] * 100.0}
 ```
 
-Build the KFServing Transformer image with above code
+Build the KServe Transformer image with above code
 ```bash
 cd bert_tokenizer_v2
 docker build -t $USER/bert_transformer-v2:latest . --rm
@@ -93,7 +93,7 @@ docker build -t $USER/bert_transformer-v2:latest . --rm
 Or you can use the prebuild image `kfserving/bert-transformer-v2:latest`
 
 ## Create the InferenceService
-Add above custom KFServing Transformer image and Triton Predictor to the `InferenceService` spec
+Add above custom KServe Transformer image and Triton Predictor to the `InferenceService` spec
 ```yaml
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"

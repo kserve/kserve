@@ -31,7 +31,7 @@ def image_transform(image):
     return g.tolist()
 
 
-class ImageTransformer(kserve.KFModel):
+class ImageTransformer(kserve.Model):
     def __init__(self, name: str, predictor_host: str):
         super().__init__(name)
         self.predictor_host = predictor_host

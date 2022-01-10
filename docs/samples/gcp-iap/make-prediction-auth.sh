@@ -1,6 +1,6 @@
 # This script explains how to make a http request to an inference service hosted behind a GCP IAP.
 
-# Pre-requistes:
+# Prerequisites:
 # set following parameters:
 #   - ${PROJECT} - the gcp project that owns the Identity Aware Proxy https://console.cloud.google.com/security/iap
 #   - ${NAMESPACE} - the k8s namespace the inference service has been deployed to

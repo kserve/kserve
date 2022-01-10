@@ -16041,7 +16041,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": "ture"
+            "multiModelServer": "true"
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",

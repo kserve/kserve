@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kserve import KFModel, Storage
-from kserve.kfmodel import ModelMissingError, InferenceError
+from kserve import Model, Storage
+from kserve.model import ModelMissingError, InferenceError
 import xgboost as xgb
 import numpy as np
 from xgboost import XGBModel
@@ -23,7 +23,7 @@ from typing import Dict
 BOOSTER_FILE = "model.bst"
 
 
-class XGBoostModel(KFModel):
+class XGBoostModel(Model):
     def __init__(self, name: str, model_dir: str, nthread: int,
                  booster: XGBModel = None):
         super().__init__(name)

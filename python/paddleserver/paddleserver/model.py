@@ -19,7 +19,7 @@ from paddle import inference
 import kserve
 
 
-class PaddleModel(kserve.KFModel):
+class PaddleModel(kserve.Model):
 
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)

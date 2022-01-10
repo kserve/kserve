@@ -2,7 +2,7 @@
 spark.mllib supports model export to Predictive Model Markup Language [PMML](https://en.wikipedia.org/wiki/Predictive_Model_Markup_Language).
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kserve/kserve#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Install `pyspark` 3.0.x and `pyspark2pmml`
 ```bash

@@ -1,6 +1,6 @@
 # This script explains how to make a http request to an inference service hosted behind a GCP IAP.  It handles obtaining and using a JWT.
 
-# Pre-requistes:
+# Pre-requisites:
 # 1. download service account key
 #   - gcloud iam service-accounts keys create key.json --iam-account <service-account>@<project>.iam.gserviceaccount.com
 #     Service account name can be custom-user@<project>.iam.gserviceaccount.com

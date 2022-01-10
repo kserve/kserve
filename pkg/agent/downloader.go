@@ -105,7 +105,7 @@ func extractProtocol(storageURI string) (storage.Protocol, error) {
 	}
 
 	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
-		return "", fmt.Errorf("there is no protocol specificed for the storageUri")
+		return "", fmt.Errorf("there is no protocol specified for the storageUri")
 	}
 
 	for _, prefix := range storage.SupportedProtocols {

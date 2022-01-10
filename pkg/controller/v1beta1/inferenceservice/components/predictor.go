@@ -68,8 +68,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
 
-	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
-	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
+	addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
+	addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
 
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
 	addAgentAnnotations(isvc, annotations, p.inferenceServiceConfig)
@@ -177,12 +177,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)
-
-	//TODO now knative supports multi containers, consolidate logger/batcher/puller to the sidecar container
-	//https://github.com/kserve/kserve/issues/973
-	if hasInferenceLogging || hasInferenceBatcher {
-		addAgentContainerPort(&podSpec.Containers[0])
-	}
 
 	deployConfig, err := v1beta1.NewDeployConfig(p.client)
 	if err != nil {

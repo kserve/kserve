@@ -19,13 +19,13 @@ from kserve import (
     V1beta1PredictorSpec,
     V1beta1LightGBMSpec,
     V1beta1InferenceServiceSpec,
-    V1beta1InferenceService
+    V1beta1InferenceService,
+    V1beta1ModelSpec,
+    V1beta1ModelFormat,
 )
 from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import predict, KSERVE_TEST_NAMESPACE
-
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_lightgbm_kserve():
@@ -50,6 +50,41 @@ def test_lightgbm_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = predict(service_name, "./data/iris_input_v3.json")
+    assert res["predictions"][0][0] > 0.5
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+def test_lightgbm_runtime_kserve():
+    service_name = "isvc-lightgbm-runtime"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="lightgbm",
+            ),
+            storage_uri="gs://kfserving-examples/models/lightgbm",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 

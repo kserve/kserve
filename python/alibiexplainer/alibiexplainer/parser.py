@@ -144,7 +144,7 @@ def addCommonParserArgs(parser):
 
 
 def parse_args(sys_args):
-    parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
+    parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
     parser.add_argument(
         "--model_name",
         default=DEFAULT_EXPLAINER_NAME,

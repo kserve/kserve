@@ -59,7 +59,7 @@ def generate_inferenceservice():
 
 def test_inferenceservice_client_creat():
     '''Unit test for kserve create api'''
-    with patch('kserve.api.kf_serving_client.KServeClient.create',
+    with patch('kserve.api.kserve_client.KServeClient.create',
                return_value=mocked_unit_result):
         isvc = generate_inferenceservice()
         assert mocked_unit_result == kserve_client.create(
@@ -68,7 +68,7 @@ def test_inferenceservice_client_creat():
 
 def test_inferenceservice_client_get():
     '''Unit test for kserve get api'''
-    with patch('kserve.api.kf_serving_client.KServeClient.get',
+    with patch('kserve.api.kserve_client.KServeClient.get',
                return_value=mocked_unit_result):
         assert mocked_unit_result == kserve_client.get(
             'flower-sample', namespace='kubeflow')
@@ -76,7 +76,7 @@ def test_inferenceservice_client_get():
 
 def test_inferenceservice_client_watch():
     '''Unit test for kserve get api'''
-    with patch('kserve.api.kf_serving_client.KServeClient.get',
+    with patch('kserve.api.kserve_client.KServeClient.get',
                return_value=mocked_unit_result):
         assert mocked_unit_result == kserve_client.get('flower-sample', namespace='kubeflow',
                                                        watch=True, timeout_seconds=120)
@@ -84,7 +84,7 @@ def test_inferenceservice_client_watch():
 
 def test_inferenceservice_client_patch():
     '''Unit test for kserve patch api'''
-    with patch('kserve.api.kf_serving_client.KServeClient.patch',
+    with patch('kserve.api.kserve_client.KServeClient.patch',
                return_value=mocked_unit_result):
         isvc = generate_inferenceservice()
         assert mocked_unit_result == kserve_client.patch(
@@ -93,7 +93,7 @@ def test_inferenceservice_client_patch():
 
 def test_inferenceservice_client_replace():
     '''Unit test for kserve replace api'''
-    with patch('kserve.api.kf_serving_client.KServeClient.replace',
+    with patch('kserve.api.kserve_client.KServeClient.replace',
                return_value=mocked_unit_result):
         isvc = generate_inferenceservice()
         assert mocked_unit_result == kserve_client.replace(
@@ -102,7 +102,7 @@ def test_inferenceservice_client_replace():
 
 def test_inferenceservice_client_delete():
     '''Unit test for kserve delete api'''
-    with patch('kserve.api.kf_serving_client.KServeClient.delete',
+    with patch('kserve.api.kserve_client.KServeClient.delete',
                return_value=mocked_unit_result):
         assert mocked_unit_result == kserve_client.delete(
             'flower-sample', namespace='kubeflow')

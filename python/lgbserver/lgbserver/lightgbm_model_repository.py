@@ -13,11 +13,11 @@
 # limitations under the License.
 
 import os
-from kserve.kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
+from kserve.model_repository import ModelRepository, MODEL_MOUNT_DIRS
 from lgbserver import LightGBMModel
 
 
-class LightGBMModelRepository(KFModelRepository):
+class LightGBMModelRepository(ModelRepository):
     def __init__(self, model_dir: str = MODEL_MOUNT_DIRS, nthread: int = 1):
         super().__init__(model_dir)
         self.nthread = nthread

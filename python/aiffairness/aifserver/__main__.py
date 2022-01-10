@@ -21,7 +21,7 @@ from .model import AIFModel
 DEFAULT_MODEL_NAME = "aifserver"
 
 
-parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 
 parser.add_argument('--model_name',
                     default=DEFAULT_MODEL_NAME,
@@ -71,4 +71,4 @@ if __name__ == "__main__":
         unprivileged_groups=args.unprivileged_groups
     )
     model.load()
-    kserve.KFServer().start([model], nest_asyncio=True)
+    kserve.ModelServer().start([model], nest_asyncio=True)

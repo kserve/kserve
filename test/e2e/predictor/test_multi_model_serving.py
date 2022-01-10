@@ -31,8 +31,6 @@ from kserve import (
 from ..common.utils import predict, get_cluster_ip
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 @pytest.mark.parametrize(
     "protocol_version,storage_uri",
@@ -71,6 +69,7 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     )
 
     # Create an instance of inference service with isvc
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -176,6 +175,7 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
     )
 
     # Create an instance of inference service with isvc
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 

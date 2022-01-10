@@ -148,7 +148,7 @@ func (x *XGBoostSpec) getEnvVarsV2() []v1.EnvVar {
 }
 
 func (x *XGBoostSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
-	// These env vars set default parameters that can always be overriden
+	// These env vars set default parameters that can always be overridden
 	// individually through `model-settings.json` config files.
 	// These will be used as fallbacks for any missing properties and / or to run
 	// without a `model-settings.json` file in place.

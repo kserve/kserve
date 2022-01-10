@@ -57,7 +57,7 @@ func NewTransformer(client client.Client, scheme *runtime.Scheme, inferenceServi
 
 // Reconcile observes the world and attempts to drive the status towards the desired state.
 func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
-	p.Log.Info("Reconciling Transformer", "TranformerSpec", isvc.Spec.Transformer)
+	p.Log.Info("Reconciling Transformer", "TransformerSpec", isvc.Spec.Transformer)
 	transformer := isvc.Spec.Transformer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -67,8 +67,8 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 	if sourceURI := transformer.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
-	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
-	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)
+	addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
+	addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)
 
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultTransformerServiceName(isvc.Name),
@@ -91,9 +91,6 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		isvc.Spec.Transformer.PodSpec.Containers[0] = *container
 	}
 
-	if hasInferenceLogging || hasInferenceBatcher {
-		addAgentContainerPort(&isvc.Spec.Transformer.PodSpec.Containers[0])
-	}
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 
 	deployConfig, err := v1beta1.NewDeployConfig(p.client)
@@ -124,7 +121,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 
 		deployment, err := r.Reconcile()
 		if err != nil {
-			return errors.Wrapf(err, "fails to reoncile transformer")
+			return errors.Wrapf(err, "fails to reconcile transformer")
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.TransformerComponent, deployment, r.URL)
 

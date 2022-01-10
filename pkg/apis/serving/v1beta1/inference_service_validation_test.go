@@ -181,7 +181,7 @@ func TestHttpStorageURIPrefixOK(t *testing.T) {
 	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
-func TestUnkownStorageURIPrefixFails(t *testing.T) {
+func TestUnknownStorageURIPrefixFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow.StorageURI = proto.String("blob://foo/bar")

@@ -15,7 +15,7 @@
 import argparse
 import logging
 import kserve
-from kserve.kfmodel import ModelMissingError
+from kserve.model import ModelMissingError
 
 
 from xgbserver import XGBoostModel, XGBoostModelRepository
@@ -24,7 +24,7 @@ DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
 
-parser = argparse.ArgumentParser(parents=[kserve.kfserver.parser])  # pylint:disable=c-extension-no-member
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])  # pylint:disable=c-extension-no-member
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -41,5 +41,5 @@ if __name__ == "__main__":
         logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
                       f"trying loading from model repository.")
 
-    kserve.KFServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread))\
+    kserve.ModelServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread))\
         .start([model] if model.ready else [])

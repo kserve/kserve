@@ -7,5 +7,5 @@ environments:
     k8sVersion: v1.7.0
     path: releasing
 kind: ksonnet.io/app
-name: worfklows-app
+name: workflows-app
 version: 0.0.1

@@ -8,7 +8,7 @@ Generate certificate suitable for use with an KFServing webhook service.
 This script uses openssl to generate self-signed CA certificate that is
 suitable for use with KFServing webhook services. See
 https://kubernetes.io/docs/concepts/cluster-administration/certificates/#distributing-self-signed-ca-certificate
-for detailed explantion and additional instructions.
+for detailed explanation and additional instructions.
 The server key/cert CA cert are stored in a k8s secret.
 
 usage: ${0} [OPTIONS]

@@ -48,7 +48,7 @@ print(res.text)
 ## Predict on a InferenceService using LightGBM Server
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kserve/kserve#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
@@ -99,11 +99,11 @@ Expected Output
 ```
 
 ## Run LightGBM InferenceService with your own image
-Since the KFServing LightGBM image is built from a specific version of `lightgbm` pip package, sometimes it might not be compatible with the pickled model
+Since the KServe LightGBM image is built from a specific version of `lightgbm` pip package, sometimes it might not be compatible with the pickled model
 you saved from your training environment, however you can build your own lgbserver image following [this instruction](../../../python/lgbserver/README.md#building-your-own-ligthgbm-server-docker-image).
 
 To use your lgbserver image:
-- Add the image to the KFServing [configmap](../../../../config/configmap/inferenceservice.yaml)
+- Add the image to the KServe [configmap](../../../../config/configmap/inferenceservice.yaml)
 ```yaml
         "lightgbm": {
             "image": "<your-dockerhub-id>/kfserving/lgbserver",

@@ -1,7 +1,7 @@
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "pytorch-cifar10"
+  name: "pytorch-batcher"
 spec:
   predictor:
     minReplicas: 1
@@ -9,5 +9,4 @@ spec:
       maxBatchSize: 16
       maxLatency: 300
     pytorch:
-      modelClassName: "Net"
-      storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"

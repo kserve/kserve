@@ -20,13 +20,13 @@ import json
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
-class DriverTransformer(kserve.KFModel):
+class DriverTransformer(kserve.Model):
     """ A class object for the data handling activities of driver ranking
     Task and returns a KServe compatible response.
 
     Args:
-        kserve (class object): The KFModel class from the KServe
-        modeule is passed here.
+        kserve (class object): The Model class from the KServe
+        module is passed here.
     """
     def __init__(self, name: str,
                  predictor_host: str,
@@ -78,7 +78,7 @@ class DriverTransformer(kserve.KFModel):
         return entity_rows
 
     def buildPredictRequest(self, inputs, features) -> Dict:
-        """Build the predict request for all entitys and return it as a dict.
+        """Build the predict request for all entities and return it as a dict.
 
         Args:
             inputs (Dict): entity ids from http request

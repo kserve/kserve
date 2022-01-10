@@ -24,7 +24,7 @@ MODEL_BASENAME = "model"
 MODEL_EXTENSIONS = ['.pmml']
 
 
-class PmmlModel(kserve.KFModel):
+class PmmlModel(kserve.Model):
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name

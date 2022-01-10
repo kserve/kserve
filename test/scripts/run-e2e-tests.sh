@@ -145,6 +145,3 @@ echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
   pytest -n 4 --ignore=credentials/test_set_creds.py
 popd
-
-kubectl get events -n kserve-ci-e2e-test
-kubectl get events -n kserve

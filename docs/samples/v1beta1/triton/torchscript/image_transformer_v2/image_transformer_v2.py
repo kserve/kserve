@@ -37,7 +37,7 @@ def image_transform(instance):
     return res.tolist()
 
 
-class ImageTransformerV2(kserve.KFModel):
+class ImageTransformerV2(kserve.Model):
     def __init__(self, name: str, predictor_host: str, protocol: str):
         super().__init__(name)
         self.predictor_host = predictor_host

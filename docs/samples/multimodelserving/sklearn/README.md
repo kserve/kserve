@@ -128,7 +128,7 @@ export INGRESS_HOST=$(kubectl get po -l istio=ingressgateway -n istio-system -o 
 export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
 ```
 
-For KIND/Port Fowarding:
+For KIND/Port Forwarding:
 - Run `kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80`
 - In a different window, run:
    ```bash

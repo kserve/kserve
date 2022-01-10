@@ -60,9 +60,8 @@ class InferenceError(RuntimeError):
         return self.reason
 
 
-# KFModel is intended to be subclassed by various components within KFServing.
-class KFModel:
-
+# Model is intended to be subclassed by various components within KServe.
+class Model:
     def __init__(self, name: str):
         self.name = name
         self.ready = False
@@ -107,14 +106,18 @@ class KFModel:
             self._grpc_client_stub = service_pb2_grpc.GRPCInferenceServiceStub(_channel)
         return self._grpc_client_stub
 
-    @staticmethod
-    def validate(request):
-        if isinstance(request, dict):
-            if ("instances" in request and not isinstance(request["instances"], list)) or \
-               ("inputs" in request and not isinstance(request["inputs"], list)):
+    def validate(self, request):
+        if self.protocol == PredictorProtocol.REST_V2:
+            if "inputs" in request and not isinstance(request["inputs"], list):
                 raise tornado.web.HTTPError(
                     status_code=HTTPStatus.BAD_REQUEST,
-                    reason="Expected \"instances\" or \"inputs\" to be a list"
+                    reason="Expected \"inputs\" to be a list"
+                )
+        elif isinstance(request, Dict) or self.protocol == PredictorProtocol.REST_V1:
+            if "instances" in request and not isinstance(request["instances"], list):
+                raise tornado.web.HTTPError(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    reason="Expected \"instances\" to be a list"
                 )
         return request
 
