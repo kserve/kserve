@@ -15,6 +15,9 @@ spec:
         - --start
         - --model-store=/mnt/models/model-store
         - --ts-config=/mnt/models/config/config.properties
+      env:
+        - name: "TS_SERVICE_ENVELOPE"
+          value: "{{.Labels.serviceEnvelope}}"
       resources:
         requests:
           cpu: "1"
