@@ -653,6 +653,8 @@ spec:
                 type: string
               httpDataEndpoint:
                 type: string
+              multiModel:
+                type: boolean
               nodeSelector:
                 additionalProperties:
                   type: string
