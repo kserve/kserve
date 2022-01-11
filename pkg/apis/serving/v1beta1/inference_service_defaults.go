@@ -210,7 +210,11 @@ func (isvc *InferenceService) assignPyTorchRuntime() {
 		return
 	}
 	// assign built-in runtime based on gpu config
-	isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
+	if isvc.ObjectMeta.Labels == nil {
+		isvc.ObjectMeta.Labels = map[string]string{constants.ServiceEnvelope: constants.ServiceEnvelopeKServe}
+	} else {
+		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
+	}
 	if isvc.Spec.Predictor.PyTorch.ProtocolVersion != nil &&
 		constants.ProtocolV2 == *isvc.Spec.Predictor.PyTorch.ProtocolVersion {
 		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
