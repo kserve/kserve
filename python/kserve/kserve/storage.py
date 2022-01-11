@@ -28,6 +28,7 @@ import requests
 from pathlib import Path
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob._list_blobs_helper import BlobPrefix
+from azure.storage.fileshare import ShareServiceClient
 
 from botocore.client import Config
 from botocore import UNSIGNED
@@ -39,8 +40,8 @@ from kserve.model_repository import MODEL_MOUNT_DIRS
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
-_BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
-_ACCOUNT_RE = "https://(.+?).blob.core.windows.net"
+_AZURE_BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
+_AZURE_FILE_RE = "https://(.+?).file.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
@@ -72,8 +73,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             Storage._download_gcs(uri, out_dir)
         elif uri.startswith(_S3_PREFIX):
             Storage._download_s3(uri, out_dir)
-        elif re.search(_BLOB_RE, uri):
-            Storage._download_blob(uri, out_dir)
+        elif re.search(_AZURE_BLOB_RE, uri):
+            Storage._download_azure_blob(uri, out_dir)
+        elif re.search(_AZURE_FILE_RE, uri):
+            Storage._download_azure_file_share(uri, out_dir)
         elif is_local:
             return Storage._download_local(uri, out_dir)
         elif re.search(_URI_RE, uri):
@@ -195,13 +198,8 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 Storage._unpack_archive_file(dest_path, mimetype, temp_dir)
 
     @staticmethod
-    def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
-        match = re.search(_BLOB_RE, uri)
-        account_url = re.search(_ACCOUNT_RE, uri).group(0)
-        account_name = match.group(1)
-        storage_url = match.group(2)
-        container_name, prefix = storage_url.split("/", 1)
-
+    def _download_azure_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
+        account_name, account_url, container_name, prefix = Storage._parse_azure_uri(uri)
         logging.info("Connecting to BLOB account: [%s], container: [%s], prefix: [%s]",
                      account_name,
                      container_name,
@@ -209,6 +207,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         token = Storage._get_azure_storage_token()
         if token is None:
             logging.warning("Azure credentials not found, retrying anonymous access")
+
         blob_service_client = BlobServiceClient(account_url, credential=token)
         container_client = blob_service_client.get_container_client(container_name)
         count = 0
@@ -243,6 +242,64 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             mimetype, _ = mimetypes.guess_type(dest_path)
             if mimetype in ["application/x-tar", "application/zip"]:
                 Storage._unpack_archive_file(dest_path, mimetype, out_dir)
+
+    @staticmethod
+    def _download_azure_file_share(uri, out_dir: str):  # pylint: disable=too-many-locals
+        account_name, account_url, share_name, prefix = Storage._parse_azure_uri(uri)
+        logging.info("Connecting to file share account: [%s], container: [%s], prefix: [%s]",
+                     account_name,
+                     share_name,
+                     prefix)
+        token = Storage._get_azure_storage_token()
+        if token is None:
+            logging.warning("Azure credentials not found, retrying anonymous access")
+
+        share_service_client = ShareServiceClient(account_url, credential=token)
+        share_client = share_service_client.get_share_client(share_name)
+        count = 0
+        share_files = []
+        max_depth = 5
+        stack = [(prefix, max_depth)]
+        while stack:
+            curr_prefix, depth = stack.pop()
+            if depth < 0:
+                continue
+            for item in share_client.list_directories_and_files(
+                    directory_name=curr_prefix):
+                if item.is_directory:
+                    stack.append(('/'.join([curr_prefix, item.name]).strip('/'), depth - 1))
+                else:
+                    share_files.append((curr_prefix, item))
+        for prefix, file_item in share_files:
+            parts = [prefix] if prefix else []
+            parts.append(file_item.name)
+            file_path = '/'.join(parts).lstrip('/')
+            dest_path = os.path.join(out_dir, file_path)
+            Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
+            logging.info("Downloading: %s to %s", file_item.name, dest_path)
+            file_client = share_client.get_file_client(file_path)
+            with open(dest_path, "wb+") as f:
+                data = file_client.download_file()
+                data.readinto(f)
+            count = count + 1
+        if count == 0:
+            raise RuntimeError(
+                "Failed to fetch model. No model found in %s." % (uri))
+
+        # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
+        if count == 1:
+            mimetype, _ = mimetypes.guess_type(dest_path)
+            if mimetype in ["application/x-tar", "application/zip"]:
+                Storage._unpack_archive_file(dest_path, mimetype, out_dir)
+
+    @staticmethod
+    def _parse_azure_uri(uri):  # pylint: disable=too-many-locals
+        parsed = urlparse(uri)
+        account_name = parsed.netloc.split('.')[0]
+        account_url = 'https://{}{}'.format(parsed.netloc, '?' + parsed.query if parsed.query else '')
+        object_name, prefix = parsed.path.lstrip('/').split("/", 1)
+        prefix = prefix.strip('/')
+        return account_name, account_url, object_name, prefix
 
     @staticmethod
     def _get_azure_storage_token():

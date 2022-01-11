@@ -64,7 +64,7 @@ def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
     mock_blob, mock_container = create_mock_blob(mock_storage, paths)
 
     # when
-    kserve.Storage._download_blob(blob_path, "dest_path")
+    kserve.Storage._download_azure_blob(blob_path, "dest_path")
 
     # then
     arg_list = get_call_args(mock_container.download_blob.call_args_list)
@@ -86,7 +86,7 @@ def test_secure_blob(mock_storage, mock_get_token, mock_makedirs):  # pylint: di
 
     # when
     with pytest.raises(RuntimeError):
-        kserve.Storage._download_blob(blob_path, "dest_path")
+        kserve.Storage._download_azure_blob(blob_path, "dest_path")
 
     # then
     mock_get_token.assert_called()
@@ -110,7 +110,7 @@ def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
     # when
     mock_blob, mock_container = create_mock_blob(mock_storage, fq_item_paths)
     try:
-        kserve.Storage._download_blob(blob_path, "some/dest/path")
+        kserve.Storage._download_azure_blob(blob_path, "some/dest/path")
     except OSError:  # Permissions Error Handling
         pass
 
@@ -131,7 +131,7 @@ def test_blob_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
 
     # when
     mock_blob, mock_container = create_mock_blob(mock_storage, paths)
-    kserve.Storage._download_blob(blob_path, "some/dest/path")
+    kserve.Storage._download_azure_blob(blob_path, "some/dest/path")
 
     # then
     actual_calls = get_call_args(mock_container.download_blob.call_args_list)
@@ -150,7 +150,7 @@ def test_blob_fq_file(mock_storage, mock_makedirs):  # pylint: disable=unused-ar
 
     # when
     mock_blob, mock_container = create_mock_blob(mock_storage, fq_item_paths)
-    kserve.Storage._download_blob(blob_path, "some/dest/path")
+    kserve.Storage._download_azure_blob(blob_path, "some/dest/path")
 
     # then
     actual_calls = get_call_args(mock_container.download_blob.call_args_list)
@@ -169,7 +169,7 @@ def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-
 
     # when
     mock_blob, mock_container = create_mock_blob(mock_storage, fq_item_paths)
-    kserve.Storage._download_blob(blob_path, "some/dest/path")
+    kserve.Storage._download_azure_blob(blob_path, "some/dest/path")
 
     # then
     actual_calls = get_call_args(mock_container.download_blob.call_args_list)
