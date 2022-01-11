@@ -27,7 +27,7 @@ JOBLIB_FILE = [os.path.join(_MODEL_DIR, "joblib", "model"), "model.joblib"]
 PICKLE_FILES = [[os.path.join(_MODEL_DIR, "pkl", "model"), "model.pkl"],
                 [os.path.join(_MODEL_DIR, "pickle", "model"), "model.pickle"]]
 MULTI_DIR = os.path.join(_MODEL_DIR, "multi", "model")
-MULTI_DATATYPE_DIR = os.path.join(_MODEL_DIR, "multi_datatype", "model")
+MIXEDTYPE_DIR = os.path.join(_MODEL_DIR, "mixedtype", "model")
 
 
 def _train_sample_model():
@@ -60,8 +60,8 @@ def test_model_joblib():
     assert response["predictions"] == [0]
 
 
-def test_multi_datatype_model_joblib():
-    model = SKLearnModel("model", MULTI_DATATYPE_DIR)
+def test_mixedtype_model_joblib():
+    model = SKLearnModel("model", MIXEDTYPE_DIR)
     model.load()
     request = [{'MSZoning': 'RL', 'LotArea': 8450, 'LotShape': 'Reg', 'Utilities': 'AllPub',
                 'YrSold': 2008, 'Neighborhood': 'CollgCr', 'OverallQual': 7, 'YearBuilt': 2003,
