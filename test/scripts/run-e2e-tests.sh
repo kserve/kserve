@@ -23,8 +23,8 @@ set -o pipefail
 CLUSTER_NAME="${CLUSTER_NAME}"
 AWS_REGION="${AWS_REGION}"
 
-ISTIO_VERSION="1.8.2"
-KNATIVE_VERSION="v0.22.0"
+ISTIO_VERSION="1.12.0"
+KNATIVE_VERSION="knative-v1.0.0"
 KUBECTL_VERSION="v1.20.2"
 CERT_MANAGER_VERSION="v1.2.0"
 
@@ -48,34 +48,7 @@ pushd istio_tmp >/dev/null
   curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
   cd istio-${ISTIO_VERSION}
   export PATH=$PWD/bin:$PATH
-  istioctl operator init
-  cat << EOF > ./istio-minimal-operator.yaml
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  values:
-    global:
-      proxy:
-        autoInject: disabled
-      useMCP: false
-      # The third-party-jwt is not enabled on all k8s.
-      # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
-      jwtPolicy: first-party-jwt
-
-  meshConfig:
-    accessLogFile: /dev/stdout
-
-  addonComponents:
-    pilot:
-      enabled: true
-
-  components:
-    ingressGateways:
-      - name: istio-ingressgateway
-        enabled: true
-EOF
-  istioctl manifest install -y -f ./istio-minimal-operator.yaml
-
+  istioctl install --set meshConfig.accessLogFile=/dev/stdout -y
 popd
 
 echo "Waiting for istio started ..."
@@ -100,7 +73,7 @@ EOF
 
 echo "Waiting for knative started ..."
 kubectl wait --for=condition=Ready knativeservings -n knative-serving knative-serving --timeout=180s
-kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,istio-webhook,networking-istio)'
+kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
 
 # skip nvcr.io for tag resolution due to auth issue
 kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
