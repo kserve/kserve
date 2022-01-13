@@ -27,6 +27,7 @@ JOBLIB_FILE = [os.path.join(_MODEL_DIR, "joblib", "model"), "model.joblib"]
 PICKLE_FILES = [[os.path.join(_MODEL_DIR, "pkl", "model"), "model.pkl"],
                 [os.path.join(_MODEL_DIR, "pickle", "model"), "model.pickle"]]
 MULTI_DIR = os.path.join(_MODEL_DIR, "multi", "model")
+MIXEDTYPE_DIR = os.path.join(_MODEL_DIR, "mixedtype", "model")
 
 
 def _train_sample_model():
@@ -57,6 +58,16 @@ def test_model_joblib():
     request = data[0:1].tolist()
     response = model.predict({"instances": request})
     assert response["predictions"] == [0]
+
+
+def test_mixedtype_model_joblib():
+    model = SKLearnModel("model", MIXEDTYPE_DIR)
+    model.load()
+    request = [{'MSZoning': 'RL', 'LotArea': 8450, 'LotShape': 'Reg', 'Utilities': 'AllPub',
+                'YrSold': 2008, 'Neighborhood': 'CollgCr', 'OverallQual': 7, 'YearBuilt': 2003,
+                'SaleType': 'WD', 'GarageArea': 548}]
+    response = model.predict({"instances": request})
+    assert response["predictions"] == [12.202832815138274]
 
 
 def test_model_pickle():
