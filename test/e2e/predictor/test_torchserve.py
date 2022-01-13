@@ -159,7 +159,7 @@ def test_torchserve_runtime_kserve():
             model_format=V1beta1ModelFormat(
                 name="pytorch",
             ),
-            env=[V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kfserving")],
+            env=[V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kserve")],
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
             protocol_version="v1",
             resources=V1ResourceRequirements(
