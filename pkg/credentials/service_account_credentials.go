@@ -136,7 +136,7 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, storag
 	}
 
 	if strings.HasPrefix(container.Args[0], UriSchemePlaceholder+"://") {
-		container.Args[0] = stype + container.Args[0][20:]
+		container.Args[0] = stype + container.Args[0][len(UriSchemePlaceholder):]
 	}
 
 	// Provide override secret values if parameters are provided
