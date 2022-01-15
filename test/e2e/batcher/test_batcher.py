@@ -38,7 +38,7 @@ def test_batcher():
         ),
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri='gs://kfserving-examples/models/torchserve/image_classifier',
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             resources=V1ResourceRequirements(
                 requests={'cpu': '1', 'memory': '4Gi'},
                 limits={'cpu': '1', 'memory': '4Gi'}

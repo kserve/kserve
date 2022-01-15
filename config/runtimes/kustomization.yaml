@@ -44,5 +44,5 @@ images:
     newTag: latest
 
   - name: kserve-torchserve
-    newName: jagadeeshj/torchserve-kfs
+    newName: kserve/torchserve-kfs
     newTag: 0.5.2

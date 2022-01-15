@@ -61,7 +61,7 @@ data:
           }
         },
         "pytorch": {
-          "image": "jagadeeshj/torchserve-kfs",
+          "image": "kserve/torchserve-kfs",
           "defaultImageVersion": "0.5.2",
           "defaultGpuImageVersion": "0.5.2-gpu",
           "supportedFrameworks": [

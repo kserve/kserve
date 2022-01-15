@@ -5,7 +5,7 @@ metadata:
 spec:
   predictor:
     pytorch:
-      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier/v1
       ports:
        - containerPort: 7070
          name: h2c

@@ -42,6 +42,8 @@ the model and dependent files.
 The requests are converted from KServe inference request format to torchserve request format and sent to the `inference_address` configured
 via local socket.
 
+**Warning**: The `service_envelope` property has beed dreprecated and replaced with `enable_envvars_config` set to true. This enables the service envelope to be set on runtime.
+
 ## TorchServe with KFS envelope inference endpoints
 
 The KServe/TorchServe integration supports both KServe v1 and v2 protocols.

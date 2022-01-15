@@ -37,7 +37,7 @@ def test_torchserve_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             protocol_version="v1",
             resources=V1ResourceRequirements(
                 requests={
@@ -110,7 +110,7 @@ def test_torchserve_grpc():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             ports=[V1ContainerPort(container_port=7070, name="h2c", protocol="TCP")],
             resources=V1ResourceRequirements(
                 requests={
@@ -160,7 +160,7 @@ def test_torchserve_runtime_kserve():
                 name="pytorch",
             ),
             env=[V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kserve")],
-            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             protocol_version="v1",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "4Gi"},
