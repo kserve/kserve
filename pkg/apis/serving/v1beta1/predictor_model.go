@@ -115,14 +115,14 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 	srSpecs := make([]v1alpha1.ServingRuntimeSpec, 0, len(runtimes.Items)+len(clusterRuntimes.Items))
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
-		if !rt.Spec.IsDisabled() && isRuntimeModelMeshCompatible(&rt.Spec) == isMMS && m.RuntimeSupportsModel(&rt.Spec) {
+		if !rt.Spec.IsDisabled() && rt.Spec.IsMultiModelRuntime() == isMMS && m.RuntimeSupportsModel(&rt.Spec) {
 			srSpecs = append(srSpecs, rt.Spec)
 		}
 	}
 
 	for i := range clusterRuntimes.Items {
 		crt := &clusterRuntimes.Items[i]
-		if !crt.Spec.IsDisabled() && isRuntimeModelMeshCompatible(&crt.Spec) == isMMS && m.RuntimeSupportsModel(&crt.Spec) {
+		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS && m.RuntimeSupportsModel(&crt.Spec) {
 			srSpecs = append(srSpecs, crt.Spec)
 		}
 	}
@@ -160,8 +160,4 @@ func (m *ModelSpec) getServingRuntimeSupportedModelFormatLabelSet(supportedModel
 		}
 	}
 	return set
-}
-
-func isRuntimeModelMeshCompatible(srSpec *v1alpha1.ServingRuntimeSpec) bool {
-	return srSpec.GrpcMultiModelManagementEndpoint != nil
 }
