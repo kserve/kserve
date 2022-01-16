@@ -270,6 +270,11 @@ func (in *ServingRuntimeSpec) DeepCopyInto(out *ServingRuntimeSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.MultiModel != nil {
+		in, out := &in.MultiModel, &out.MultiModel
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Disabled != nil {
 		in, out := &in.Disabled, &out.Disabled
 		*out = new(bool)
