@@ -27,7 +27,7 @@ and `1.15.11-gke.15` includes the CFS throttling fix.
 
 ## Benchmarking
 
-### Results on KFServing SKLearn Iris Example
+### Results on KServe SKLearn Iris Example
 - Create `InferenceService`
 ```bash
 kubectl apply -f ./sklearn.yaml
@@ -45,16 +45,15 @@ kubectl create -f ./sk_benchmark.yaml
 #### CC=8 With queue proxy and activator on the request path
 Create an `InferenceService` with `ContainerCurrency`(cc) set to 8 which is equal to the number of cores on the node.
 ```yaml
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "sklearn-iris"
 spec:
-  default:
-    predictor:
-      parallelism: 8 # CC=8
-      sklearn:
-        storageUri: "gs://kfserving-samples/models/sklearn/iris"
+  predictor:
+    containerConcurrency: 8 # CC=8
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
 ```
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
@@ -67,60 +66,23 @@ spec:
 #### Raw Kubernetes Service(Without queue proxy and activator on the request path)
 - Update the SKLearn Iris `InferenceService` with following yaml to use HPA
 ```yaml
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "sklearn-iris"
   annotations:
-    autoscaling.knative.dev/class: hpa.autoscaling.knative.dev
-    autoscaling.knative.dev/metric: cpu
-    autoscaling.knative.dev/target: "80"
+    serving.kserve.io/deploymentMode: RawDeployment
+    serving.kserve.io/autoscalerClass: hpa
+    serving.kserve.io/metric: cpu
+    serving.kserve.io/targetUtilizationPercentage: "80"
 spec:
-  default:
-    predictor:
-      sklearn:
-        storageUri: "gs://kfserving-samples/models/sklearn/iris"
+  predictor:
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
 ```
 ```bash
 kubectl apply -f ./sklearn_hpa.yaml
 ```
-- Setup virtual service to go directly to the private service to bypass the Knative Activator and queue-proxy, change the benchmark
-test target url host to `sklearn-iris-raw.default.svc.cluster.local`.
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: sklearn-iris-raw
-spec:
-  externalName: cluster-local-gateway.istio-system.svc.cluster.local
-  sessionAffinity: None
-  type: ExternalName
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: sklearn-iris-raw
-spec:
-  gateways:
-  - knative-serving/cluster-local-gateway
-  hosts:
-  - sklearn-iris-raw.default.svc.cluster.local
-  http:
-  - match:
-    - authority:
-        regex: ^sklearn-iris-raw\.default(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$
-      gateways:
-      - knative-serving/cluster-local-gateway
-      uri:
-        regex: ^/v1/models/[\w-]+(:predict)?
-    route:
-    - destination:
-        host: sklearn-iris-predictor-default-xt264-private.default.svc.cluster.local #this is the private service to user container
-        port:
-          number: 80
-      weight: 100
-```
-
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
 | 5/s Replicas=1 | 2.673ms | 2.381ms | 4.352ms | 5.966ms | 100% | 
@@ -152,22 +114,21 @@ kubectl create -f ./tf_benchmark.yaml
 - Create `InferenceService` with default `ContainerConcurrency` set to 0 which is unlimited concurrency, activator in this case just pass
 through and you would still expect requests queued on user container in case of request overload.
 ```yaml
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample"
 spec:
-  default:
-    predictor:
-      tensorflow:
-        storageUri: "gs://kfserving-samples/models/tensorflow/flowers
-        resources:
-          requests:
-            cpu: "4"
-            memory: 2Gi
-          limits:
-            cpu: "4"
-            memory: 2Gi
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+      resources:
+        requests:
+          cpu: "4"
+          memory: 2Gi
+        limits:
+          cpu: "4"
+          memory: 2Gi
 ```
 
 ```bash
@@ -185,23 +146,22 @@ kubectl apply -f ./tf_flowers.yaml
 not get queued on user pods and activator chooses to route the requests to the pods which have capacity.
 
 ```yaml
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample"
 spec:
-  default:
-    predictor:
-      parallelism: 1 #CC=1
-      tensorflow:
-        storageUri: "gs://kfserving-samples/models/tensorflow/flowers
-        resources:
-          requests:
-            cpu: "4"
-            memory: 2Gi
-          limits:
-            cpu: "4"
-            memory: 2Gi
+  predictor:
+    containerConcurrency: 1 #CC=1
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+      resources:
+        requests:
+          cpu: "4"
+          memory: 2Gi
+        limits:
+          cpu: "4"
+          memory: 2Gi
 ```
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
@@ -217,66 +177,30 @@ will observe better tail latency at p95 and p99 thanks to Knative activator [sma
 
 #### Raw Kubernetes Service(Without queue proxy and activator)
 ```yaml
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample-hpa"
   annotations:
-    autoscaling.knative.dev/class: hpa.autoscaling.knative.dev
-    autoscaling.knative.dev/metric: cpu
-    autoscaling.knative.dev/target: "60"
+    serving.kserve.io/deploymentMode: RawDeployment
+    serving.kserve.io/autoscalerClass: hpa
+    serving.kserve.io/metric: cpu
+    serving.kserve.io/targetUtilizationPercentage: "60"
 spec:
-  default:
-    predictor:
-      tensorflow:
-        storageUri: "gs://kfserving-samples/models/tensorflow/flowers
-        resources:
-          requests:
-            cpu: "4"
-            memory: 2Gi
-          limits:
-            cpu: "4"
-            memory: 2Gi
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+      resources:
+        requests:
+          cpu: "4"
+          memory: 2Gi
+        limits:
+          cpu: "4"
+          memory: 2Gi
 ```
 Setup virtual service to bypass the knative proxy and update vegeta config target URL to 
 `http://flowers-sample-raw.default.svc.cluster.local/v1/models/flowers-sample-hpa:predict`
 
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: flowers-sample-raw
-  namespace: default
-spec:
-  externalName: cluster-local-gateway.istio-system.svc.cluster.local
-  sessionAffinity: None
-  type: ExternalName
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: flowers-sample-raw
-spec:
-  gateways:
-  - knative-serving/cluster-local-gateway
-  hosts:
-  - flowers-sample-raw.default.svc.cluster.local
-  http:
-  - match:
-    - authority:
-        regex: ^flowers-sample-raw\.default(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$
-      gateways:
-      - knative-serving/cluster-local-gateway
-      uri:
-        regex: ^/v1/models/[\w-]+(:predict)?
-    route:
-    - destination:
-        host: flowers-sample-hpa-predictor-default-95bbz-private.default.svc.cluster.local #this is the private service to user container
-        port:
-          number: 80
-      weight: 100 
-```
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |

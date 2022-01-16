@@ -9,7 +9,7 @@ docker run -it -p 8000:80 --rm -t mendhak/http-https-echo
 Start an SKLearn Iris model on port 8080. You will need to have pip installed the sklearnserver. See `/python/sklearnserver`.
 
 ```
-gsutil cp -r gs://kfserving-samples/models/sklearn/iris .
+gsutil cp -r gs://kfserving-examples/models/sklearn/1.0/model .
 LOCAL_DIR=$(pwd)/iris
 python -m sklearnserver --model_dir $LOCAL_DIR --model_name sklearn-iris --http_port 8080
 ```
