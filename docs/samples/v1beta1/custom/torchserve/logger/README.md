@@ -18,7 +18,7 @@ spec:
 Let's apply the resource to the cluster:
 
 ```bash
-kubectl apply -f message-dumper.yaml -n kfserving-test
+kubectl apply -f message-dumper.yaml -n kserve-test
 ```
 
 We can now create a torchserve predictor with a logger which points at the message dumper. The yaml is shown below.
@@ -42,7 +42,7 @@ spec:
 Let's apply this yaml:
 
 ```bash
-kubectl apply -f torchserve-logger.yaml -n kfserving-test
+kubectl apply -f torchserve-logger.yaml -n kserve-test
 ```
 
 We can now send a request to the torchserve model.
@@ -63,7 +63,7 @@ Expected Output
 *   Trying 44.240.85.24...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (44.240.85.24) port 80 (#0)
 > PUT /predictions/mnist HTTP/1.1
-> Host: torchserve-custom.kfserving-test.a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com
+> Host: torchserve-custom.kserve-test.a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 273
@@ -103,7 +103,7 @@ Context Attributes,
 Extensions,
   endpoint: 
   inferenceservicename: 
-  namespace: kfserving-test
+  namespace: kserve-test
   traceparent: 00-8dafd130bae82f9e470a43da22340b56-839d6d891e0d1343-00
 Data,
   �PNG
@@ -122,7 +122,7 @@ Context Attributes,
 Extensions,
   endpoint: 
   inferenceservicename: 
-  namespace: kfserving-test
+  namespace: kserve-test
   traceparent: 00-911901cf3b9c713a51516861833ce742-710557d1afcc3736-00
 Data,
   1

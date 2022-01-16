@@ -39,10 +39,10 @@ torch-model-archiver --model-name mnist --version 1.0 \
 - For PVC user please refer to [model archive file generation](./model-archiver/README.md) for auto generation of MAR files from
 the model and dependent files.
 
-- The [config.properties](./v1/config.properties) file includes the flag `service_envelope=kfserving` to enable the KServe inference protocol.
 The requests are converted from KServe inference request format to torchserve request format and sent to the `inference_address` configured
 via local socket.
 
+**Warning**: The `service_envelope` property has beed dreprecated and replaced with `enable_envvars_config` set to true. This enables the service envelope to be set on runtime.
 
 ## TorchServe with KFS envelope inference endpoints
 
@@ -62,7 +62,7 @@ V2 Protocol
 | Predict  | POST  | /v2/models/<model_name>/infer  | Request: {"id" : $string #optional,"parameters" : $parameters #optional,"inputs" : [ $request_input, ... ],"outputs" : [ $request_output, ... ] #optional}  Response:{"model_name" : $string,"model_version" : $string #optional,"id" : $string,"parameters" : $parameters #optional,"outputs" : [ $response_output, ... ]}
 | Explain  | POST  | /v2/models/<model_name>/explain  | Request: {"id" : $string #optional,"parameters" : $parameters #optional,"inputs" : [ $request_input, ... ],"outputs" : [ $request_output, ... ] #optional}  Response:{"model_name" : $string,"model_version" : $string #optional,"id" : $string,"parameters" : $parameters #optional,"outputs" : [ $response_output, ... ]} ||
 
-[Sample requests for text and image classification](https://github.com/pytorch/serve/tree/master/kubernetes/kfserving/kf_request_json)
+[Sample requests for text and image classification](https://github.com/pytorch/serve/tree/master/kubernetes/kserve/kf_request_json)
 
 ## Autoscaling
 
@@ -81,4 +81,3 @@ Canary rollout is a deployment strategy when you release a new version of model 
 ## Monitoring
 
 [Expose metrics and setup grafana dashboards](metrics/README.md)
-
