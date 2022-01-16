@@ -46,7 +46,7 @@ Expected Output
 *   Trying 44.239.20.204...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (44.239.20.204) port 80 (#0)
 > PUT /v1/models/BERTSeqClassification:predict HTTP/1.1
-> Host: torchserve-bert.kfserving-test.example.com
+> Host: torchserve-bert.kserve-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 79
@@ -64,7 +64,7 @@ Expected Output
 < x-envoy-upstream-service-time: 2085
 < server: istio-envoy
 <
-* Connection #0 to host torchserve-bert.kfserving-test.example.com left intact
+* Connection #0 to host torchserve-bert.kserve-test.example.com left intact
 Accepted
 ```
 
@@ -76,7 +76,9 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o 
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/BERTSeqClassification:explain -d ./sample_text.txt
 ```
+
 Expected output
+
 ```bash
 *   Trying ::1:8080...
 * Connected to localhost (::1) port 8080 (#0)
@@ -101,5 +103,3 @@ Expected output
 {"explanations": [{"importances": [0.0, -0.6324463574494716, -0.033115653530477414, 0.2681695752722339, -0.29124745608778546, 0.5422589681903883, -0.3848768219546909, 0.0], 
 "words": ["[CLS]", "bloomberg", "has", "reported", "on", "the", "economy", "[SEP]"], "delta": -0.0007350619859377225}]}
 ```
-
-

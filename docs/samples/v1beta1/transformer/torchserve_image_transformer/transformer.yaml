@@ -9,9 +9,9 @@ spec:
       name: kfserving-container
       env:
         - name: STORAGE_URI
-          value: gs://kfserving-examples/models/torchserve/image_classifier
+          value: gs://kfserving-examples/models/torchserve/image_classifier/v1
             #value: pvc://model-pv-claim
   predictor:
     pytorch:
-      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier/v1
       #storageUri: pvc://model-pv-claim

@@ -13,11 +13,13 @@ In this example, we use a trained pytorch mnist model to predict handwritten dig
 ### Create the InferenceService
 
 For deploying the `InferenceService` on CPU
+
 ```bash
 kubectl apply -f torchserve.yaml
 ```
 
 For deploying the `InferenceService` on GPU
+
 ```bash
 kubectl apply -f gpu.yaml
 ```
@@ -36,7 +38,7 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve -o jsonpath='{.status
 ```
 
 Use [image converter](./imgconv/README.md) to create input request for mnist. 
-For other models please refer to [input request](https://github.com/pytorch/serve/tree/master/kubernetes/kfserving/kf_request_json)
+For other models please refer to [input request](https://github.com/pytorch/serve/tree/master/kubernetes/kserve/kf_request_json)
 
 ```bash
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict -d @./mnist.json
@@ -71,9 +73,11 @@ Expected Output
 ```
 
 ## Inference with gRPC protocol
+
 ### Create the InferenceService
 
 For deploying the `InferenceService` with gRPC protocol you need to expose the gRPC port on InferenceService.
+
 ```bash
 kubectl apply -f grpc.yaml
 ```
@@ -85,6 +89,7 @@ $inferenceservice.serving.kserve.io/torchserve-grpc created
 ```
 
 ### Run Inference with gRPC protocol
+
 #### Clone TorchServe Repo
 
 ```bash
@@ -111,7 +116,7 @@ python torchserve_gprc_client.py infer <model_name> <input json>
 
 ## Explanation
 
-Model interpretability is an important aspect which help to understand which of the input features were important for a particular classification. 
+Model interpretability is an important aspect which help to understand which of the input features were important for a particular classification.
 [Captum](https://captum.ai) is a model interpretability library, the `Explain Endpoint` uses Captum's state-of-the-art algorithm, including integrated
 gradients to provide user with an easy way to understand which features are contributing to the model output.
 

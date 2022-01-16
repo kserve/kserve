@@ -1,4 +1,5 @@
 # Predict on a InferenceService with transformer using Torchserve
+
 Transformer is an `InferenceService` component which does pre/post processing alongside with model inference. It usually takes raw input and transforms them to the
 input tensors model server expects. In this example we demonstrate an example of running inference with `Transformer` and `TorchServe` predictor.
 
@@ -8,10 +9,8 @@ input tensors model server expects. In this example we demonstrate an example of
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Build Transformer image
-`KServe.Model` base class mainly defines three handlers `preprocess`, `predict` and `postprocess`, these handlers are executed
-in sequence, the output of the `preprocess` is passed to `predict` as the input, when `predictor_host` is passed the `predict` handler by default makes a HTTP call to the predictor url 
-and gets back a response which then passes to `postproces` handler. KServe automatically fills in the `predictor_host` for `Transformer` and handle the call to the `Predictor`, for gRPC
-predictor currently you would need to overwrite the `predict` handler to make the gRPC call.
+
+`KServe.Model` base class mainly defines three handlers `preprocess`, `predict` and `postprocess`, these handlers are executed in sequence, the output of the `preprocess` is passed to `predict` as the input, when `predictor_host` is passed the `predict` handler by default makes a HTTP call to the predictor url and gets back a response which then passes to `postproces` handler. KServe automatically fills in the `predictor_host` for `Transformer` and handle the call to the `Predictor`, for gRPC predictor currently you would need to overwrite the `predict` handler to make the gRPC call.
 
 To implement a `Transformer` you can derive from the base `Model` class and then overwrite the `preprocess` and `postprocess` handler to have your own
 customized transformation logic.
@@ -28,7 +27,7 @@ import io
 import numpy as np
 import base64
 
-logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 transform = transforms.Compose(
         [transforms.ToTensor(),
@@ -68,11 +67,11 @@ docker push {username}/image-transformer:latest
 ```
 
 ## Create the InferenceService
+
 Please use the [YAML file](./transformer.yaml) to create the `InferenceService`, which includes a Transformer and a PyTorch Predictor.
 
 By default `InferenceService` uses `TorchServe` to serve the PyTorch models and the models are loaded from a model repository in KServe example gcs bucket according to `TorchServe` model repository layout.
-The model repository contains a mnist model but you can store more than one models there. In the `Transformer` image you can create a transformer class for all the models in the repository if they can share the same transformer 
-or maintain a map from model name to transformer classes so KServe knows to use the transformer for the corresponding model.  
+The model repository contains a mnist model but you can store more than one models there. In the `Transformer` image you can create a transformer class for all the models in the repository if they can share the same transformer or maintain a map from model name to transformer classes so KServe knows to use the transformer for the corresponding model.  
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -83,7 +82,7 @@ spec:
   transformer:
     containers:
     - image: kfserving/torchserve-image-transformer:latest
-      name: kfserving-container
+      name: kserve-container
       env:
         - name: STORAGE_URI
           value: gs://kfserving-examples/models/torchserve/image_classifier
@@ -95,21 +94,23 @@ spec:
 Note that `STORAGE_URI` environment variable is a build-in env to inject the storage initializer for custom container just like `StorageURI` field for prepackaged predictors
 and the downloaded artifacts are stored under `/mnt/models`.
 
-
 Apply the CRD
-```
+
+```bash
 kubectl apply -f transformer.yaml
 ```
 
 Expected Output
-```
-$ inferenceservice.serving.kserve.io/torchserve-transformer created
+
+```bash
+inferenceservice.serving.kserve.io/torchserve-transformer created
 ```
 
 ## Run a prediction
+
 The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
-```
+```bash
 SERVICE_NAME=torchserve-transformer
 MODEL_NAME=mnist
 INPUT_PATH=@./input.json
@@ -119,7 +120,8 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://${INGRESS_HOST}:${I
 ```
 
 Expected Output
-```
+
+```bash
 > POST /v1/models/mnist:predict HTTP/1.1
 > Host: torchserve-transformer.default.example.com
 > User-Agent: curl/7.73.0
@@ -140,4 +142,3 @@ Handling connection for 8080
 * Connection #0 to host localhost left intact
 {"predictions": [2]}
 ```
-

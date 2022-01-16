@@ -33,7 +33,7 @@ def test_transformer():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             protocol_version="v1",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "1Gi"},
@@ -52,7 +52,7 @@ def test_transformer():
                           limits={'cpu': '100m', 'memory': '1Gi'}),
                       args=["--model_name", "mnist"],
                       env=[V1EnvVar(name="STORAGE_URI",
-                                    value="gs://kfserving-examples/models/torchserve/image_classifier")])]
+                                    value="gs://kfserving-examples/models/torchserve/image_classifier/v1")])]
     )
 
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,

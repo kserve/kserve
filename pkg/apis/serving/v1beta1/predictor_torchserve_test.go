@@ -307,7 +307,7 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 				Env: []v1.EnvVar{
 					v1.EnvVar{
 						Name:  "TS_SERVICE_ENVELOPE",
-						Value: "kfserving",
+						Value: V1ServiceEnvelope,
 					},
 				},
 			},
@@ -345,7 +345,7 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 				Env: []v1.EnvVar{
 					v1.EnvVar{
 						Name:  "TS_SERVICE_ENVELOPE",
-						Value: "kfserving",
+						Value: V1ServiceEnvelope,
 					},
 				},
 			},
@@ -383,7 +383,7 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 				Env: []v1.EnvVar{
 					v1.EnvVar{
 						Name:  "TS_SERVICE_ENVELOPE",
-						Value: "kfserving",
+						Value: V1ServiceEnvelope,
 					},
 				},
 			},
@@ -421,7 +421,7 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 				Env: []v1.EnvVar{
 					v1.EnvVar{
 						Name:  "TS_SERVICE_ENVELOPE",
-						Value: "kfservingv2",
+						Value: V2ServiceEnvelope,
 					},
 				},
 			},
@@ -458,7 +458,7 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 				Env: []v1.EnvVar{
 					v1.EnvVar{
 						Name:  "TS_SERVICE_ENVELOPE",
-						Value: "kfserving",
+						Value: V1ServiceEnvelope,
 					},
 				},
 			},
@@ -498,7 +498,7 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 				Env: []v1.EnvVar{
 					v1.EnvVar{
 						Name:  "TS_SERVICE_ENVELOPE",
-						Value: "kfserving",
+						Value: V1ServiceEnvelope,
 					},
 				},
 			},
