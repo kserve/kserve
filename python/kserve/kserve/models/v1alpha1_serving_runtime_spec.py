@@ -54,6 +54,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'grpc_data_endpoint': 'str',
         'grpc_endpoint': 'str',
         'http_data_endpoint': 'str',
+        'multi_model': 'bool',
         'node_selector': 'dict(str, str)',
         'replicas': 'int',
         'storage_helper': 'V1alpha1StorageHelper',
@@ -69,6 +70,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'grpc_data_endpoint': 'grpcDataEndpoint',
         'grpc_endpoint': 'grpcEndpoint',
         'http_data_endpoint': 'httpDataEndpoint',
+        'multi_model': 'multiModel',
         'node_selector': 'nodeSelector',
         'replicas': 'replicas',
         'storage_helper': 'storageHelper',
@@ -76,7 +78,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'tolerations': 'tolerations'
     }
 
-    def __init__(self, affinity=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, http_data_endpoint=None, node_selector=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, http_data_endpoint=None, multi_model=None, node_selector=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,6 +91,7 @@ class V1alpha1ServingRuntimeSpec(object):
         self._grpc_data_endpoint = None
         self._grpc_endpoint = None
         self._http_data_endpoint = None
+        self._multi_model = None
         self._node_selector = None
         self._replicas = None
         self._storage_helper = None
@@ -109,6 +112,8 @@ class V1alpha1ServingRuntimeSpec(object):
             self.grpc_endpoint = grpc_endpoint
         if http_data_endpoint is not None:
             self.http_data_endpoint = http_data_endpoint
+        if multi_model is not None:
+            self.multi_model = multi_model
         if node_selector is not None:
             self.node_selector = node_selector
         if replicas is not None:
@@ -278,6 +283,29 @@ class V1alpha1ServingRuntimeSpec(object):
         """
 
         self._http_data_endpoint = http_data_endpoint
+
+    @property
+    def multi_model(self):
+        """Gets the multi_model of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+
+        Whether this ServingRuntime is intended for multi-model usage or not.  # noqa: E501
+
+        :return: The multi_model of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._multi_model
+
+    @multi_model.setter
+    def multi_model(self, multi_model):
+        """Sets the multi_model of this V1alpha1ServingRuntimeSpec.
+
+        Whether this ServingRuntime is intended for multi-model usage or not.  # noqa: E501
+
+        :param multi_model: The multi_model of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._multi_model = multi_model
 
     @property
     def node_selector(self):
