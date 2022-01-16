@@ -52,4 +52,6 @@ KUBEFLOW_INSTALL_PATH=$INSTALL_DIR/kserve_kubeflow.yaml
 
 mkdir -p $INSTALL_DIR
 kustomize build config/default | sed s/:latest/:$TAG/ > $INSTALL_PATH
+kustomize build config/runtimes | sed s/:latest/:$TAG/ >> $INSTALL_PATH
 kustomize build config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
+kustomize build config/runtimes | sed s/:latest/:$TAG/ >> $KUBEFLOW_INSTALL_PATH
