@@ -51,6 +51,7 @@ func (t *TorchServeSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(t.GetStorageUri()),
 		t.validateGPU(),
+		validateStorageSpec(t.GetStorageSpec(), t.GetStorageUri()),
 	})
 }
 

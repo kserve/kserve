@@ -99,13 +99,6 @@ func (s *AIXExplainerSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-// Validate the spec
-func (s *AIXExplainerSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(s.GetStorageUri()),
-	})
-}
-
 func (s *AIXExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }

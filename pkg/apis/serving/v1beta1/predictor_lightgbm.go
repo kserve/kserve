@@ -38,13 +38,6 @@ var (
 	_ PredictorImplementation = &LightGBMSpec{}
 )
 
-// Validate returns an error if invalid
-func (x *LightGBMSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(x.GetStorageUri()),
-	})
-}
-
 // Default sets defaults on the resource
 func (x *LightGBMSpec) Default(config *InferenceServicesConfig) {
 	x.Container.Name = constants.InferenceServiceContainerName

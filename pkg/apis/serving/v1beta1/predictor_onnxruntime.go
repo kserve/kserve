@@ -55,6 +55,7 @@ func (o *ONNXRuntimeSpec) Validate() error {
 
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(o.GetStorageUri()),
+		validateStorageSpec(o.GetStorageSpec(), o.GetStorageUri()),
 	})
 }
 

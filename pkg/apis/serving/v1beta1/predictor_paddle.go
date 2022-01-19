@@ -31,13 +31,6 @@ type PaddleServerSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-func (p *PaddleServerSpec) Validate() error {
-	// TODO: add GPU support
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(p.GetStorageUri()),
-	})
-}
-
 func (p *PaddleServerSpec) Default(config *InferenceServicesConfig) {
 	// TODO: add GPU support
 	p.Container.Name = constants.InferenceServiceContainerName

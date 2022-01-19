@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -57,6 +58,14 @@ type ExplainerExtensionSpec struct {
 }
 
 var _ Component = &ExplainerSpec{}
+
+// Validate returns an error if invalid
+func (e *ExplainerExtensionSpec) Validate() error {
+	return utils.FirstNonNilError([]error{
+		validateStorageURI(e.GetStorageUri()),
+		validateStorageSpec(e.GetStorageSpec(), e.GetStorageUri()),
+	})
+}
 
 // GetStorageUri returns the predictor storage Uri
 func (e *ExplainerExtensionSpec) GetStorageUri() *string {

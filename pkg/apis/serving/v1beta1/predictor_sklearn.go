@@ -37,13 +37,6 @@ var (
 	_ PredictorImplementation = &SKLearnSpec{}
 )
 
-// Validate returns an error if invalid
-func (k *SKLearnSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(k.GetStorageUri()),
-	})
-}
-
 // Default sets defaults on the resource
 func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 	k.Container.Name = constants.InferenceServiceContainerName

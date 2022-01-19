@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -132,6 +133,14 @@ func (s *PredictorSpec) GetImplementation() ComponentImplementation {
 // GetExtensions returns the extensions for the component
 func (s *PredictorSpec) GetExtensions() *ComponentExtensionSpec {
 	return &s.ComponentExtensionSpec
+}
+
+// Validate returns an error if invalid
+func (p *PredictorExtensionSpec) Validate() error {
+	return utils.FirstNonNilError([]error{
+		validateStorageURI(p.GetStorageUri()),
+		validateStorageSpec(p.GetStorageSpec(), p.GetStorageUri()),
+	})
 }
 
 // GetStorageUri returns the predictor storage Uri

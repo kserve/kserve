@@ -97,13 +97,6 @@ func (s *ARTExplainerSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-// Validate the spec
-func (s *ARTExplainerSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(s.GetStorageUri()),
-	})
-}
-
 func (s *ARTExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }

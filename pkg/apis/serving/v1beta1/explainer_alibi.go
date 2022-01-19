@@ -108,13 +108,6 @@ func (s *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-// Validate the spec
-func (s *AlibiExplainerSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(s.GetStorageUri()),
-	})
-}
-
 func (s *AlibiExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
