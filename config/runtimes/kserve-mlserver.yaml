@@ -12,6 +12,7 @@ spec:
       version: "3"
     - name: mlflow
       version: "1"
+      autoSelect: true
   containers:
     - name: kserve-container
       image: mlserver:replace
