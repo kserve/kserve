@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/credentials/https"
@@ -75,14 +74,6 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, storag
 	storageSecretName string, overrideParams map[string]string, container *v1.Container) error {
 
 	stype, ok := overrideParams["type"]
-	if ok && stype != "s3" {
-		return errors.New("only S3 type storage is currently supported with storage spec")
-	}
-	if u, err := url.Parse(container.Args[0]); err == nil {
-		if stype = u.Scheme; stype != "s3" {
-			return errors.New("only S3 type storage is currently supported with storage spec")
-		}
-	}
 
 	secret := &v1.Secret{}
 	var storageData []byte
