@@ -52,7 +52,7 @@ metadata:
 spec:
   inferenceService: "sklearn-iris-example"
   model:
-    storageUri: "gs://kfserving-samples/models/sklearn/iris"
+    storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
     framework: "sklearn"
     memory: "256Mi"
 ---
@@ -63,7 +63,7 @@ metadata:
 spec:
   inferenceService: "sklearn-iris-example"
   model:
-    storageUri: "gs://kfserving-samples/models/sklearn/iris"
+    storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
     framework: "sklearn"
     memory: "256Mi"
 ```
@@ -73,11 +73,11 @@ Run `kubectl get po` to get the name of the predictor pod. The name should be si
 
 Run `kubectl logs <name-of-predictor-pod> -c agent` to check if the models are properly loaded. You should get the same output as below. Wait a few minutes and try again if you do not see "Downloading model".
 ```yaml
-{"level":"info","ts":"2021-01-20T16:24:00.421Z","caller":"agent/puller.go:129","msg":"Downloading model from gs://kfserving-samples/models/sklearn/iris"}
-{"level":"info","ts":"2021-01-20T16:24:00.421Z","caller":"agent/downloader.go:47","msg":"Downloading gs://kfserving-samples/models/sklearn/iris to model dir /mnt/models"}
+{"level":"info","ts":"2021-01-20T16:24:00.421Z","caller":"agent/puller.go:129","msg":"Downloading model from gs://kfserving-examples/models/sklearn/1.0/model"}
+{"level":"info","ts":"2021-01-20T16:24:00.421Z","caller":"agent/downloader.go:47","msg":"Downloading gs://kfserving-examples/models/sklearn/1.0/model to model dir /mnt/models"}
 {"level":"info","ts":"2021-01-20T16:24:00.424Z","caller":"agent/puller.go:121","msg":"Worker is started for model1-sklearn"}
-{"level":"info","ts":"2021-01-20T16:24:00.424Z","caller":"agent/puller.go:129","msg":"Downloading model from gs://kfserving-samples/models/sklearn/iris"}
-{"level":"info","ts":"2021-01-20T16:24:00.424Z","caller":"agent/downloader.go:47","msg":"Downloading gs://kfserving-samples/models/sklearn/iris to model dir /mnt/models"}
+{"level":"info","ts":"2021-01-20T16:24:00.424Z","caller":"agent/puller.go:129","msg":"Downloading model from gs://kfserving-examples/models/sklearn/1.0/model"}
+{"level":"info","ts":"2021-01-20T16:24:00.424Z","caller":"agent/downloader.go:47","msg":"Downloading gs://kfserving-examples/models/sklearn/1.0/model to model dir /mnt/models"}
 {"level":"info","ts":"2021-01-20T16:24:09.255Z","caller":"agent/puller.go:146","msg":"Successfully loaded model model2-sklearn"}
 {"level":"info","ts":"2021-01-20T16:24:09.256Z","caller":"agent/puller.go:114","msg":"completion event for model model2-sklearn, in flight ops 0"}
 {"level":"info","ts":"2021-01-20T16:24:09.260Z","caller":"agent/puller.go:146","msg":"Successfully loaded model model1-sklearn"}
@@ -88,7 +88,7 @@ Run the command `kubectl get cm modelconfig-sklearn-iris-example-0 -oyaml` to ge
 ```yaml
 apiVersion: v1
 data:
-   models.json: '[{"modelName":"model1-sklearn","modelSpec":{"storageUri":"gs://kfserving-samples/models/sklearn/iris","framework":"sklearn","memory":"256Mi"}},{"modelName":"model2-sklearn","modelSpec":{"storageUri":"gs://kfserving-samples/models/sklearn/iris","framework":"sklearn","memory":"256Mi"}}]'
+   models.json: '[{"modelName":"model1-sklearn","modelSpec":{"storageUri":"gs://kfserving-examples/models/sklearn/1.0/model","framework":"sklearn","memory":"256Mi"}},{"modelName":"model2-sklearn","modelSpec":{"storageUri":"gs://kfserving-examples/models/sklearn/1.0/model","framework":"sklearn","memory":"256Mi"}}]'
 kind: ConfigMap
 metadata:
    creationTimestamp: "2021-01-20T16:22:52Z"
@@ -143,13 +143,13 @@ After setting up the above:
 - Query the two models:
   - Curl from ingress gateway:
      ```bash
-     curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/model1-sklearn:predict -d @./docs/samples/v1alpha2/sklearn/iris-input.json
-     curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/model2-sklearn:predict -d @./docs/samples/v1alpha2/sklearn/iris-input.json
+     curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/model1-sklearn:predict -d @./docs/samples/v1beta1/sklearn/v1/iris-input.json
+     curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/model2-sklearn:predict -d @./docs/samples/v1beta1/sklearn/v1/iris-input.json
      ```
   - Curl from local cluster gateway
     ```
-    curl -v http://sklearn-iris-example.default/v1/models/model1-sklearn:predict -d @./docs/samples/v1alpha2/sklearn/iris-input.json
-    curl -v http://sklearn-iris-example.default/v1/models/model2-sklearn:predict -d @./docs/samples/v1alpha2/sklearn/iris-input.json
+    curl -v http://sklearn-iris-example.default/v1/models/model1-sklearn:predict -d @./docs/samples/v1beta1/sklearn/v1/iris-input.json
+    curl -v http://sklearn-iris-example.default/v1/models/model2-sklearn:predict -d @./docs/samples/v1beta1/sklearn/v1/iris-input.json
      ```
 
 The outputs should be
