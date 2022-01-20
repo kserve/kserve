@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/kserve/kserve/pkg/constants"
 
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -135,4 +136,31 @@ func TestCustomPredictorDefaults(t *testing.T) {
 	isvc.Spec.DeepCopy()
 	isvc.DefaultInferenceService(config)
 	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
+}
+
+func TestInferenceServiceDefaultsModelMeshAnnotation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := &InferenceServicesConfig{}
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.DeploymentMode: string(constants.ModelMeshDeployment),
+			},
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+			},
+		},
+	}
+	isvc.Spec.DeepCopy()
+	isvc.DefaultInferenceService(config)
+	g.Expect(isvc.Spec.Predictor.Model).To(gomega.BeNil())
+	g.Expect(isvc.Spec.Predictor.Tensorflow).ToNot(gomega.BeNil())
 }
