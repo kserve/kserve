@@ -139,6 +139,8 @@ def test_xgboost_v2_runtime_kserve():
             runtime="kserve-mlserver",
             storage_uri="gs://kfserving-samples/models/xgboost/iris",
             protocol_version="v2",
+            env=[V1EnvVar(name="MLSERVER_MODEL_NAME", value="isvc-xgboost-v2-runtime"),
+                    V1EnvVar(name="MLSERVER_MODEL_URI", value="/mnt/models")],
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
