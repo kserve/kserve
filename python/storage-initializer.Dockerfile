@@ -9,4 +9,6 @@ COPY third_party third_party
 RUN chmod +x /storage-initializer/scripts/initializer-entrypoint
 RUN mkdir /work
 WORKDIR /work
+
+USER 1000
 ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]

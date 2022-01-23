@@ -30,4 +30,6 @@ COPY third_party third_party
 
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
 RUN pip install --no-cache-dir -e ./pytorchserver
+
+USER 1000
 ENTRYPOINT ["python", "-m", "pytorchserver"]
