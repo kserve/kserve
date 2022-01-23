@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-
+import sys
 import kserve
 import joblib
 import pathlib
@@ -40,6 +40,12 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
         elif len(existing_paths) > 1:
             raise RuntimeError('More than one model file is detected, '
                                f'Only one is allowed within model_dir: {existing_paths}')
+        #support custom lib for the model
+        for filename in os.listdir(model_path):
+            if filename.endswith('.py'):
+                sys.path.append(model_path)
+                break
+
         self._model = joblib.load(existing_paths[0])
         self.ready = True
         return self.ready
