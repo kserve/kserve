@@ -8,5 +8,6 @@ COPY third_party third_party
 
 RUN pip install -e ./kserve -e ./paddleserver
 
+RUN useradd kserve -m -u 1000 -d /home/kserve
 USER 1000
 ENTRYPOINT ["python", "-m", "paddleserver"]
