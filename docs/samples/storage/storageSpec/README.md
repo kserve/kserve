@@ -17,7 +17,8 @@ stringData:
       "secret_access_key": "minio123",
       "endpoint_url": "http://minio-service.kubeflow:9000",
       "bucket": "mlpipeline",
-      "region": "us-south"
+      "region": "us-south",
+      "anonymous": "False"
     }
 kind: Secret
 metadata:
