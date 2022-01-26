@@ -9,4 +9,7 @@ COPY third_party third_party
 RUN chmod +x /storage-initializer/scripts/initializer-entrypoint
 RUN mkdir /work
 WORKDIR /work
+
+RUN useradd kserve -m -u 1000 -d /home/kserve
+USER 1000
 ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]

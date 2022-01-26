@@ -23,9 +23,11 @@ RUN conda install -y python=$PYTHON_VERSION
 
 COPY pmmlserver pmmlserver
 COPY kserve kserve
+COPY third_party third_party
 
 RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kserve
 RUN pip install --no-cache-dir -e ./pmmlserver
-COPY third_party third_party
 
+RUN useradd kserve -m -u 1000 -d /home/kserve
+USER 1000
 ENTRYPOINT ["python3", "-m", "pmmlserver"]
