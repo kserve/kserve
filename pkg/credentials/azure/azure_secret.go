@@ -22,11 +22,13 @@ import (
 
 const (
 	AzureStorageAccessKey = "AZURE_STORAGE_ACCESS_KEY"
+	// Legacy keys for backward compatibility
 	LegacyAzureSubscriptionId = "AZ_SUBSCRIPTION_ID"
 	LegacyAzureTenantId       = "AZ_TENANT_ID"
 	LegacyAzureClientId       = "AZ_CLIENT_ID"
 	LegacyAzureClientSecret   = "AZ_CLIENT_SECRET"
 
+	// Conforms to Azure constants
 	AzureSubscriptionId = "AZURE_SUBSCRIPTION_ID"
 	AzureTenantId       = "AZURE_TENANT_ID"
 	AzureClientId       = "AZURE_CLIENT_ID"

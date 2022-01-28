@@ -466,7 +466,7 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 														LocalObjectReference: v1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
-														Key: azure.AzureSubscriptionId,
+														Key: azure.LegacyAzureSubscriptionId,
 													},
 												},
 											},
@@ -477,7 +477,7 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 														LocalObjectReference: v1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
-														Key: azure.AzureTenantId,
+														Key: azure.LegacyAzureTenantId,
 													},
 												},
 											},
@@ -488,7 +488,7 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 														LocalObjectReference: v1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
-														Key: azure.AzureClientId,
+														Key: azure.LegacyAzureClientId,
 													},
 												},
 											},
@@ -499,7 +499,7 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 														LocalObjectReference: v1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
-														Key: azure.AzureClientSecret,
+														Key: azure.LegacyAzureClientSecret,
 													},
 												},
 											},
