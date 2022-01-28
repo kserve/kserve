@@ -31,6 +31,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+
+	"github.com/kserve/kserve/pkg/credentials/gcs"
+	"github.com/kserve/kserve/pkg/credentials/s3"
 )
 
 var configMap = &v1.ConfigMap{
@@ -400,7 +403,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 	}
 }
 
-func TestAzureCredentialBuilder(t *testing.T) {
+func TestLegacyAzureCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	customOnlyServiceAccount := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -651,7 +654,7 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
-func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
+func TestAzureCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	customOnlyServiceAccount := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -671,7 +674,10 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			"AZURE_STORAGE_ACCESS_KEY": {},
+			"AZURE_SUBSCRIPTION_ID": {},
+			"AZURE_TENANT_ID":       {},
+			"AZURE_CLIENT_ID":       {},
+			"AZURE_CLIENT_SECRET":   {},
 		},
 	}
 
@@ -705,13 +711,46 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 									{
 										Env: []v1.EnvVar{
 											{
-												Name: azure.AzureStorageAccessKey,
+												Name: azure.AzureSubscriptionId,
 												ValueFrom: &v1.EnvVarSource{
 													SecretKeyRef: &v1.SecretKeySelector{
 														LocalObjectReference: v1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
-														Key: azure.AzureStorageAccessKey,
+														Key: azure.AzureSubscriptionId,
+													},
+												},
+											},
+											{
+												Name: azure.AzureTenantId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureTenantId,
+													},
+												},
+											},
+											{
+												Name: azure.AzureClientId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureClientId,
+													},
+												},
+											},
+											{
+												Name: azure.AzureClientSecret,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureClientSecret,
 													},
 												},
 											},
@@ -1265,3 +1304,5 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 		}
 	}
 }
+=======
+>>>>>>> b62bc061 (Use environment variables that matches Azure Identity SDK)
