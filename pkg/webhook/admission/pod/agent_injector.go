@@ -19,8 +19,9 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -206,6 +207,11 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			copy(agentEnvs, container.Env)
 			queueProxyEnvs = container.Env
 			queueProxyAvailable = true
+		}
+
+		if container.Name == "kserve-container" {
+			containerPort := fmt.Sprint((container.Ports[0].ContainerPort))
+			args = append(args, "--component-port", containerPort)
 		}
 	}
 

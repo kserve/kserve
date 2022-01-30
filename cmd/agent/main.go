@@ -275,11 +275,16 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
 		panic("Agent failed to parse readiness probe")
 	}
-	return readiness.NewProbe(coreProbe)
+	newProbe := readiness.NewProbe(coreProbe)
+	newProbe.InitialDelaySeconds = 10
+	return newProbe
 }
 
 func buildServer(ctx context.Context, port string, userPort string, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
 	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
+
+	logging.Info("Building server ", userPort)
+	logging.Info("Port ", port)
 	target := &url.URL{
 		Scheme: "http",
 		Host:   net.JoinHostPort("127.0.0.1", userPort),
