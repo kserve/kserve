@@ -28,7 +28,7 @@ image==1.5.28
 imageio==2.8.0
 importlib-metadata==1.6.0
 ipykernel==5.2.0
-ipython==7.13.0
+ipython==7.16.3
 ipython-genutils==0.2.0
 jedi==0.16.0
 Jinja2==2.11.1
