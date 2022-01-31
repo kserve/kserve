@@ -82,4 +82,4 @@ def test_batcher_custom_port():
         f.result()["batchId"] for f in future_res
     ]
     assert (all(x == results[0] for x in results))
-    #kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
