@@ -33,7 +33,7 @@ setup(
         "kserve>=0.7.0rc0",
         "joblib>=0.13.2",
         "torchvision>=0.4.0",
-        "pillow==6.2.0"
+        "pillow==9.0.0"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
