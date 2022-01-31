@@ -100,6 +100,12 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 				return fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
 			}
 
+			// TODO: adding mlserver specific environment variables, will be removed after mlserver issue fix
+			// Issue: https://github.com/SeldonIO/MLServer/issues/465
+			if *isvc.Spec.Predictor.Model.Runtime == "kserve-mlserver" && isvc.Spec.Predictor.Model.GetStorageUri() != nil {
+				addMlServerEnvs(isvc)
+			}
+
 			sRuntime = *r
 		} else {
 			runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(p.client, isvc.Namespace, false)
@@ -224,4 +230,31 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	return nil
+}
+
+// TODO: adding mlserver specific environment variables, will be removed after mlserver issue fix
+// Issue: https://github.com/SeldonIO/MLServer/issues/465
+func addMlServerEnvs(isvc *v1beta1.InferenceService) {
+	for _, env := range isvc.Spec.Predictor.Model.Env {
+		if env.Name == constants.MLServerModelNameEnv {
+			isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
+				v1.EnvVar{
+					Name:  constants.MLServerModelURIEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+			)
+			return
+		}
+	}
+	isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
+		v1.EnvVar{
+			Name:  constants.MLServerModelNameEnv,
+			Value: isvc.Name,
+		},
+		v1.EnvVar{
+			Name:  constants.MLServerModelURIEnv,
+			Value: constants.DefaultModelLocalMountPath,
+		},
+	)
+	return
 }

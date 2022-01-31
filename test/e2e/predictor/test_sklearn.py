@@ -24,7 +24,6 @@ from kserve import (
     V1beta1ModelFormat,
 )
 from kubernetes.client import V1ResourceRequirements
-from kubernetes.client import V1EnvVar
 
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE, MODEL_CLASS_NAME
@@ -140,8 +139,6 @@ def test_sklearn_v2_runtime_kserve():
             runtime="kserve-mlserver",
             storage_uri="gs://seldon-models/sklearn/mms/lr_model",
             protocol_version="v2",
-            env=[V1EnvVar(name="MLSERVER_MODEL_NAME", value="isvc-sklearn-v2-runtime"),
-                    V1EnvVar(name="MLSERVER_MODEL_URI", value="/mnt/models")],
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},

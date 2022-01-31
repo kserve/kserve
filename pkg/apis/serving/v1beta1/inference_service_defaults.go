@@ -152,10 +152,6 @@ func (isvc *InferenceService) assignSKLearnRuntime() {
 					Name:  constants.MLServerModelNameEnv,
 					Value: isvc.Name,
 				},
-				v1.EnvVar{
-					Name:  constants.MLServerModelURIEnv,
-					Value: constants.DefaultModelLocalMountPath,
-				},
 			)
 		}
 
@@ -213,10 +209,6 @@ func (isvc *InferenceService) assignXGBoostRuntime() {
 				v1.EnvVar{
 					Name:  constants.MLServerModelNameEnv,
 					Value: isvc.Name,
-				},
-				v1.EnvVar{
-					Name:  constants.MLServerModelURIEnv,
-					Value: constants.DefaultModelLocalMountPath,
 				},
 			)
 		}
