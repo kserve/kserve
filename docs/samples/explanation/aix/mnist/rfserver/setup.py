@@ -30,11 +30,9 @@ setup(
     python_requires='>3.4',
     packages=find_packages("rfserver"),
     install_requires=[
-        "kfserving>=0.2.1",
-        "argparse >= 1.4.0",
-        "numpy >= 1.8.2",
-        "scikit-learn >= 0.0",
-        "scikit-image >= 0.0",
+        "kserve",
+        "scikit-learn",
+        "scikit-image",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
