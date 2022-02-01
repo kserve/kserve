@@ -116,18 +116,12 @@ data:
   predictors: |-
     {
         "tensorflow": {
-            "image": "{{ .Values.kserve.servingruntime.tfserving.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.tfserving.defaultVersion }}",
-            "defaultGpuImageVersion": "{{ .Values.kserve.servingruntime.tfserving.defaultGpuVersion }}",
-            "defaultTimeout": "60",
             "supportedFrameworks": [
               "tensorflow"
             ],
             "multiModelServer": false
         },
         "onnx": {
-            "image": "{{ .Values.kserve.servingruntime.onnx.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.onnx.defaultVersion }}",
             "supportedFrameworks": [
               "onnx"
             ],
@@ -135,16 +129,12 @@ data:
         },
         "sklearn": {
           "v1": {
-            "image": "{{ .Values.kserve.servingruntime.sklearn.v1.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.sklearn.v1.defaultVersion }}",
             "supportedFrameworks": [
               "sklearn"
             ],
             "multiModelServer": true
           },
           "v2": {
-            "image": "{{ .Values.kserve.servingruntime.sklearn.v2.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.sklearn.v2.defaultVersion }}",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -153,16 +143,12 @@ data:
         },
         "xgboost": {
           "v1": {
-            "image": "{{ .Values.kserve.servingruntime.xgboost.v1.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.xgboost.v1.defaultVersion }}",
             "supportedFrameworks": [
               "xgboost"
             ],
             "multiModelServer": true
           },
           "v2": {
-            "image": "{{ .Values.kserve.servingruntime.xgboost.v2.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.xgboost.v2.defaultVersion }}",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -170,28 +156,12 @@ data:
           }
         },
         "pytorch": {
-          "v1" : {
-            "image": "{{ .Values.kserve.servingruntime.pytorch.v1.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.pytorch.v1.defaultVersion }}",
-            "defaultGpuImageVersion": "{{ .Values.kserve.servingruntime.pytorch.v1.defaultGpuVersion }}",
-            "supportedFrameworks": [
-              "pytorch"
-            ],
-            "multiModelServer": false
-          },
-          "v2" : {
-            "image": "{{ .Values.kserve.servingruntime.pytorch.v2.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.pytorch.v2.defaultVersion }}",
-            "defaultGpuImageVersion": "{{ .Values.kserve.servingruntime.pytorch.v2.defaultGpuVersion }}",
-            "supportedFrameworks": [
-              "pytorch"
-            ],
-            "multiModelServer": false
-          }
+          "supportedFrameworks": [
+            "pytorch"
+          ],
+          "multiModelServer": false
         },
         "triton": {
-            "image": "{{ .Values.kserve.servingruntime.triton.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.triton.defaultVersion }}",
             "supportedFrameworks": [
               "tensorrt",
               "tensorflow",
@@ -201,24 +171,18 @@ data:
             "multiModelServer": true
         },
         "pmml": {
-            "image": "{{ .Values.kserve.servingruntime.pmml.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.pmml.defaultVersion }}",
             "supportedFrameworks": [
               "pmml"
             ],
             "multiModelServer": false
         },
         "lightgbm": {
-            "image": "{{ .Values.kserve.servingruntime.lightgbm.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.lightgbm.defaultVersion }}",
             "supportedFrameworks": [
               "lightgbm"
             ],
             "multiModelServer": false
         },
         "paddle": {
-            "image": "{{ .Values.kserve.servingruntime.paddle.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.paddle.defaultVersion }}",
             "supportedFrameworks": [
               "paddle"
             ],
