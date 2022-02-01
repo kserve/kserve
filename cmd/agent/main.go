@@ -283,8 +283,7 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 func buildServer(ctx context.Context, port string, userPort string, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
 	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
 
-	logging.Info("Building server ", userPort)
-	logging.Info("Port ", port)
+	logging.Infof("Building server user port %s port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",
 		Host:   net.JoinHostPort("127.0.0.1", userPort),
