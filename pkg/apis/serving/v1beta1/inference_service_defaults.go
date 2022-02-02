@@ -98,6 +98,12 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 }
 
 func (isvc *InferenceService) setPredictorModelDefaults() {
+	// adding mlserver specific default values
+	if isvc.Spec.Predictor.Model != nil &&
+		isvc.Spec.Predictor.Model.Runtime != nil &&
+		*isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
+		isvc.setMlServerDefaults()
+	}
 	switch {
 	case isvc.Spec.Predictor.SKLearn != nil:
 		isvc.assignSKLearnRuntime()
@@ -151,6 +157,10 @@ func (isvc *InferenceService) assignSKLearnRuntime() {
 				v1.EnvVar{
 					Name:  constants.MLServerModelNameEnv,
 					Value: isvc.Name,
+				},
+				v1.EnvVar{
+					Name:  constants.MLServerModelURIEnv,
+					Value: constants.DefaultModelLocalMountPath,
 				},
 			)
 		}
@@ -209,6 +219,10 @@ func (isvc *InferenceService) assignXGBoostRuntime() {
 				v1.EnvVar{
 					Name:  constants.MLServerModelNameEnv,
 					Value: isvc.Name,
+				},
+				v1.EnvVar{
+					Name:  constants.MLServerModelURIEnv,
+					Value: constants.DefaultModelLocalMountPath,
 				},
 			)
 		}
@@ -323,4 +337,37 @@ func (isvc *InferenceService) assignPaddleRuntime() {
 	}
 	// remove paddle spec
 	isvc.Spec.Predictor.Paddle = nil
+}
+
+func (isvc *InferenceService) setMlServerDefaults() {
+	// set environment variables based on storage uri
+	if isvc.Spec.Predictor.Model.StorageURI == nil {
+		isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
+			v1.EnvVar{
+				Name:  constants.MLServerLoadModelsStartupEnv,
+				Value: strconv.FormatBool(false),
+			},
+		)
+	} else {
+		isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
+			v1.EnvVar{
+				Name:  constants.MLServerModelNameEnv,
+				Value: isvc.Name,
+			},
+			v1.EnvVar{
+				Name:  constants.MLServerModelURIEnv,
+				Value: constants.DefaultModelLocalMountPath,
+			},
+		)
+	}
+	// set model class
+	modelClass := constants.MLServerModelClassSKLearn
+	if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelXGBoost {
+		modelClass = constants.MLServerModelClassXGBoost
+	}
+	if isvc.ObjectMeta.Labels == nil {
+		isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: modelClass}
+	} else {
+		isvc.ObjectMeta.Labels[constants.ModelClassLabel] = modelClass
+	}
 }
