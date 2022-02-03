@@ -276,7 +276,9 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 		panic("Agent failed to parse readiness probe")
 	}
 	newProbe := readiness.NewProbe(coreProbe)
-	newProbe.InitialDelaySeconds = 10
+	if newProbe.InitialDelaySeconds == 0 {
+		newProbe.InitialDelaySeconds = 10
+	}
 	return newProbe
 }
 
