@@ -98,11 +98,18 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 }
 
 func (isvc *InferenceService) setPredictorModelDefaults() {
-	// adding mlserver specific default values
-	if isvc.Spec.Predictor.Model != nil &&
-		isvc.Spec.Predictor.Model.Runtime != nil &&
-		*isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
-		isvc.setMlServerDefaults()
+	if isvc.Spec.Predictor.Model != nil {
+		// add mlserver specific default values
+		if isvc.Spec.Predictor.Model.Runtime != nil &&
+			*isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
+			isvc.setMlServerDefaults()
+		}
+		// add torchserve specific default values
+		if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelPyTorch &&
+			(isvc.Spec.Predictor.Model.Runtime == nil ||
+				*isvc.Spec.Predictor.Model.Runtime == constants.TorchServe) {
+			isvc.setTorchServeDefaults()
+		}
 	}
 	switch {
 	case isvc.Spec.Predictor.SKLearn != nil:
@@ -369,5 +376,18 @@ func (isvc *InferenceService) setMlServerDefaults() {
 		isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: modelClass}
 	} else {
 		isvc.ObjectMeta.Labels[constants.ModelClassLabel] = modelClass
+	}
+}
+
+func (isvc *InferenceService) setTorchServeDefaults() {
+	// set torchserve service envelope based on protocol version
+	if isvc.ObjectMeta.Labels == nil {
+		isvc.ObjectMeta.Labels = map[string]string{constants.ServiceEnvelope: constants.ServiceEnvelopeKServe}
+	} else {
+		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
+	}
+	if isvc.Spec.Predictor.Model.ProtocolVersion != nil &&
+		constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion {
+		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
 	}
 }
