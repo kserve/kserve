@@ -292,6 +292,7 @@ const (
 const (
 	MLServerModelClassSKLearn = "mlserver_sklearn.SKLearnModel"
 	MLServerModelClassXGBoost = "mlserver_xgboost.XGBoostModel"
+	MLServerModelClassLightGBM = "mlserver_lightgbm.LightGBMModel"
 )
 
 // torchserve service envelope label allowed values

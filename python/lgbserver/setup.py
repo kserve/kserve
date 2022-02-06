@@ -34,10 +34,9 @@ setup(
     packages=find_packages("lgbserver"),
     install_requires=[
         "kserve>=0.7.0",
-        "lightgbm == 2.3.1",
+        "lightgbm == 3.3.2",
         "pandas == 0.25.3",
         "argparse >= 1.4.0",
-        "numpy == 1.19.5",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
