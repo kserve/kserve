@@ -293,6 +293,7 @@ const (
 	MLServerModelClassSKLearn  = "mlserver_sklearn.SKLearnModel"
 	MLServerModelClassXGBoost  = "mlserver_xgboost.XGBoostModel"
 	MLServerModelClassLightGBM = "mlserver_lightgbm.LightGBMModel"
+	MLServerModelClassMLFlow   = "mlserver_mlflow.MLflowRuntime"
 )
 
 // torchserve service envelope label allowed values
@@ -312,6 +313,7 @@ const (
 	SupportedModelLightGBM   = "lightgbm"
 	SupportedModelPaddle     = "paddle"
 	SupportedModelTriton     = "triton"
+	SupportedModelMLFlow     = "mlflow"
 )
 
 // GetRawServiceLabel generate native service label
