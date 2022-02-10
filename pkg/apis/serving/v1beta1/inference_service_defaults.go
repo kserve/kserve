@@ -371,6 +371,8 @@ func (isvc *InferenceService) setMlServerDefaults() {
 	modelClass := constants.MLServerModelClassSKLearn
 	if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelXGBoost {
 		modelClass = constants.MLServerModelClassXGBoost
+	} else if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelLightGBM {
+		modelClass = constants.MLServerModelClassLightGBM
 	}
 	if isvc.ObjectMeta.Labels == nil {
 		isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: modelClass}
