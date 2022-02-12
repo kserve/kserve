@@ -33,7 +33,7 @@ def test_lightgbm_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         lightgbm=V1beta1LightGBMSpec(
-            storage_uri="gs://kfserving-examples/models/lightgbm",
+            storage_uri="gs://kfserving-examples/models/lightgbm/iris",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
@@ -67,7 +67,7 @@ def test_lightgbm_runtime_kserve():
             model_format=V1beta1ModelFormat(
                 name="lightgbm",
             ),
-            storage_uri="gs://kfserving-examples/models/lightgbm",
+            storage_uri="gs://kfserving-examples/models/lightgbm/iris",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
