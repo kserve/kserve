@@ -103,8 +103,38 @@ echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A
 
+echo "Add testing models to minio stroage ..."
+wget https://dl.min.io/client/mc/release/linux-amd64/mc
+chmod +x mc
+./mc config host add storage http://minio-service.kserve:9000 minio minio123
+./mc mb storage/example-models
+curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o sklearn-model.joblib
+./mc cp sklearn-model.joblib storage/example-models/sklearn/model.joblib
+rm sklearn-model.joblib mc
+
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
+
+echo "Add storageSpec testing secrets ..."
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+stringData:
+  localMinIO: |
+    {
+      "type": "s3",
+      "access_key_id": "minio",
+      "secret_access_key": "minio123",
+      "endpoint_url": "http://minio-service.kserve:9000",
+      "bucket": "mlpipeline",
+      "region": "us-south",
+      "anonymous": "False"
+    }
+kind: Secret
+metadata:
+  name: storage-config
+  namespace: kserve-ci-e2e-test
+type: Opaque
+EOF
 
 echo "Istio, Knative and KServe have been installed and started."
 
