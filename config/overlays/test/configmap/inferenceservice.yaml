@@ -7,18 +7,12 @@ data:
   predictors: |-
     {
         "tensorflow": {
-            "image": "tensorflow/serving",
-            "defaultImageVersion": "1.14.0",
-            "defaultGpuImageVersion": "1.14.0-gpu",
-            "defaultTimeout": "60",
             "supportedFrameworks": [
              "tensorflow"
             ],
             "multiModelServer": false
         },
         "onnx": {
-            "image": "mcr.microsoft.com/onnxruntime/server",
-            "defaultImageVersion": "v1.0.0",
             "supportedFrameworks": [
               "onnx"
             ],
@@ -26,16 +20,12 @@ data:
         },
         "sklearn": {
           "v1": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/sklearnserver",
-            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "sklearn"
             ],
             "multiModelServer": true
           },
           "v2": {
-            "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.5.3",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -44,16 +34,12 @@ data:
         },
         "xgboost": {
           "v1": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/xgbserver",
-            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "xgboost"
             ],
             "multiModelServer": true
           },
           "v2": {
-            "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.5.3",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -61,25 +47,18 @@ data:
           }
         },
         "pytorch": {
-          "image": "kserve/torchserve-kfs",
-          "defaultImageVersion": "0.5.0",
-          "defaultGpuImageVersion": "0.5.0-gpu",
           "supportedFrameworks": [
             "pytorch"
           ],
           "multiModelServer": false
         },
         "paddle": {
-            "image": "ruminateer/paddleserver",
-            "defaultImageVersion": "v0.1.0",
             "supportedFrameworks": [
               "paddle"
             ],
             "multiModelServer": false
         },
         "triton": {
-            "image": "nvcr.io/nvidia/tritonserver",
-            "defaultImageVersion": "20.08-py3",
             "supportedFrameworks": [
               "tensorrt",
               "tensorflow",
@@ -90,16 +69,12 @@ data:
             "multiModelServer": true
         },
         "pmml": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/pmmlserver",
-            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "pmml"
             ],
             "multiModelServer": false
         },
         "lightgbm": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/lgbserver",
-            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "lightgbm"
             ],

@@ -82,15 +82,16 @@ const (
 
 // ConditionType represents a Service condition value
 const (
-	// PredictorRoutesReady is set when network configuration has completed.
+	// PredictorRouteReady  is set when network configuration has completed.
 	PredictorRouteReady apis.ConditionType = "PredictorRouteReady"
-	// TransformerRoutesReady is set when network configuration has completed.
+	// TransformerRouteReady is set when network configuration has completed.
 	TransformerRouteReady apis.ConditionType = "TransformerRouteReady"
 	// ExplainerRoutesReady is set when network configuration has completed.
 	ExplainerRoutesReady apis.ConditionType = "ExplainerRoutesReady"
 	// PredictorConfigurationReady is set when predictor pods are ready.
 	PredictorConfigurationReady apis.ConditionType = "PredictorConfigurationReady"
-	// TransformerConfigurationeReady is set when transformer pods are ready.
+	// TransformerConfigurationReady is set when transformer pods are ready.
+	TransformerConfigurationReady  apis.ConditionType = "TransformerConfigurationReady"
 	TransformerConfigurationeReady apis.ConditionType = "TransformerConfigurationeReady"
 	// ExplainerConfigurationReady is set when explainer pods are ready.
 	ExplainerConfigurationReady apis.ConditionType = "ExplainerConfigurationReady"
@@ -100,7 +101,7 @@ const (
 	TransformerReady apis.ConditionType = "TransformerReady"
 	// ExplainerReady is set when explainer has reported readiness.
 	ExplainerReady apis.ConditionType = "ExplainerReady"
-	// Ingress is created
+	// IngressReady is set when Ingress is created
 	IngressReady apis.ConditionType = "IngressReady"
 )
 
@@ -119,7 +120,7 @@ var routeConditionsMap = map[ComponentType]apis.ConditionType{
 var configurationConditionsMap = map[ComponentType]apis.ConditionType{
 	PredictorComponent:   PredictorConfigurationReady,
 	ExplainerComponent:   ExplainerConfigurationReady,
-	TransformerComponent: TransformerConfigurationeReady,
+	TransformerComponent: TransformerConfigurationReady,
 }
 
 // InferenceService Ready condition is depending on predictor and route readiness condition
@@ -235,15 +236,17 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	readyCondition := conditionsMap[component]
 	ss.SetCondition(readyCondition, serviceCondition)
 	// propagate route condition for each component
-	routeCondition := serviceStatus.GetCondition("ConfigurationsReady")
+	routeCondition := serviceStatus.GetCondition("RoutesReady")
 	routeConditionType := routeConditionsMap[component]
 	ss.SetCondition(routeConditionType, routeCondition)
 	// propagate configuration condition for each component
-	configurationCondition := serviceStatus.GetCondition("RoutesReady")
+	configurationCondition := serviceStatus.GetCondition("ConfigurationsReady")
 	configurationConditionType := configurationConditionsMap[component]
 	// propagate traffic status for each component
 	statusSpec.Traffic = serviceStatus.Traffic
 	ss.SetCondition(configurationConditionType, configurationCondition)
+	// Fix previously incorrectly named condition type
+	ss.ClearCondition(TransformerConfigurationeReady)
 
 	ss.Components[component] = statusSpec
 }
@@ -257,5 +260,11 @@ func (ss *InferenceServiceStatus) SetCondition(conditionType apis.ConditionType,
 		conditionSet.Manage(ss).MarkTrue(conditionType)
 	case condition.Status == v1.ConditionFalse:
 		conditionSet.Manage(ss).MarkFalse(conditionType, condition.Reason, condition.Message)
+	}
+}
+
+func (ss *InferenceServiceStatus) ClearCondition(conditionType apis.ConditionType) {
+	if conditionSet.Manage(ss).GetCondition(conditionType) != nil {
+		conditionSet.Manage(ss).ClearCondition(conditionType)
 	}
 }

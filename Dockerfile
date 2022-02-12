@@ -20,7 +20,7 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
     fi
 
 # Copy the controller-manager into a thin image
-FROM gcr.io/distroless/static:latest
+FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY third_party/ third_party/
 COPY --from=builder /go/src/github.com/kserve/kserve/manager .

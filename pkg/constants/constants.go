@@ -294,12 +294,20 @@ const (
 
 const (
 	ModelClassLabel = "modelClass"
+	ServiceEnvelope = "serviceEnvelope"
 )
 
 // allowed model class implementation in mlserver
 const (
 	MLServerModelClassSKLearn = "mlserver_sklearn.SKLearnModel"
 	MLServerModelClassXGBoost = "mlserver_xgboost.XGBoostModel"
+	MLServerModelClassLightGBM = "mlserver_lightgbm.LightGBMModel"
+)
+
+// torchserve service envelope label allowed values
+const (
+	ServiceEnvelopeKServe   = "kserve"
+	ServiceEnvelopeKServeV2 = "kservev2"
 )
 
 // supported model type

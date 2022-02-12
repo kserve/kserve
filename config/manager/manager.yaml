@@ -18,12 +18,17 @@ spec:
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
     spec:
+      serviceAccountName: kserve-controller-manager
+      securityContext:
+        runAsNonRoot: true
       containers:
       - command:
         - /manager
         image: ko://github.com/kserve/kserve/cmd/manager
         imagePullPolicy: Always
         name: manager
+        securityContext:
+          allowPrivilegeEscalation: false
         env:
           - name: POD_NAMESPACE
             valueFrom:

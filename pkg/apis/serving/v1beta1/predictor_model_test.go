@@ -116,6 +116,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			GrpcMultiModelManagementEndpoint: proto.String("port:8085"),
 			Disabled:                         proto.Bool(false),
+			MultiModel:                       proto.Bool(true),
 		},
 	}
 

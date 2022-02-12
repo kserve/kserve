@@ -20,7 +20,7 @@ spec:
     - jsonPath: .spec.disabled
       name: Disabled
       type: boolean
-    - jsonPath: .spec.supportedModelTypes[*].name
+    - jsonPath: .spec.supportedModelFormats[*].name
       name: ModelType
       type: string
     - jsonPath: .spec.containers[*].name
@@ -653,6 +653,8 @@ spec:
                 type: string
               httpDataEndpoint:
                 type: string
+              multiModel:
+                type: boolean
               nodeSelector:
                 additionalProperties:
                   type: string

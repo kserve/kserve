@@ -96,6 +96,11 @@ type ServingRuntimePodSpec struct {
 type ServingRuntimeSpec struct {
 	// Model formats and version supported by this runtime
 	SupportedModelFormats []SupportedModelFormat `json:"supportedModelFormats,omitempty"`
+
+	// Whether this ServingRuntime is intended for multi-model usage or not.
+	// +optional
+	MultiModel *bool `json:"multiModel,omitempty"`
+
 	// Set to true to disable use of this runtime
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
@@ -167,7 +172,7 @@ type BuiltInAdapter struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Disabled",type="boolean",JSONPath=".spec.disabled"
-// +kubebuilder:printcolumn:name="ModelType",type="string",JSONPath=".spec.supportedModelTypes[*].name"
+// +kubebuilder:printcolumn:name="ModelType",type="string",JSONPath=".spec.supportedModelFormats[*].name"
 // +kubebuilder:printcolumn:name="Containers",type="string",JSONPath=".spec.containers[*].name"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type ServingRuntime struct {
@@ -192,7 +197,7 @@ type ServingRuntimeList struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
 // +kubebuilder:printcolumn:name="Disabled",type="boolean",JSONPath=".spec.disabled"
-// +kubebuilder:printcolumn:name="ModelType",type="string",JSONPath=".spec.supportedModelTypes[*].name"
+// +kubebuilder:printcolumn:name="ModelType",type="string",JSONPath=".spec.supportedModelFormats[*].name"
 // +kubebuilder:printcolumn:name="Containers",type="string",JSONPath=".spec.containers[*].name"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type ClusterServingRuntime struct {
@@ -219,4 +224,8 @@ func init() {
 
 func (srSpec *ServingRuntimeSpec) IsDisabled() bool {
 	return srSpec.Disabled != nil && *srSpec.Disabled
+}
+
+func (srSpec *ServingRuntimeSpec) IsMultiModelRuntime() bool {
+	return srSpec.MultiModel != nil && *srSpec.MultiModel
 }

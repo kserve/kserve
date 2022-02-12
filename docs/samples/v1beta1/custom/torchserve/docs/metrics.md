@@ -117,7 +117,7 @@ Expected Output
 *   Trying 52.89.19.61...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
 > PUT /predictions/mnist HTTP/1.1
-> Host: torchserve-custom.kfserving-test.example.com
+> Host: torchserve-custom.kserve-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 272

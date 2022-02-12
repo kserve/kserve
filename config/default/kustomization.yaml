@@ -6,7 +6,7 @@ namespace: kserve
 
 # Labels to add to all resources and selectors.
 #commonLabels:
-#  someName: someValue
+#  app.kubernetes.io/name: kserve
 
 bases:
 - ../crd

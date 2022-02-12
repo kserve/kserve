@@ -14,8 +14,6 @@
 
 import argparse
 import logging
-import inspect
-import sys
 from typing import List, Optional, Dict, Union
 import tornado.ioloop
 import tornado.web
@@ -23,9 +21,10 @@ import tornado.httpserver
 import tornado.log
 import asyncio
 from tornado import concurrent
+
 from .utils import utils
 
-from kserve.handlers.http import BaseHandler, NotFoundHandler, PredictHandler, ExplainHandler
+import kserve.handlers as handlers
 from kserve import Model
 from kserve.model_repository import ModelRepository
 from ray.serve.api import Deployment, RayServeHandle
@@ -70,30 +69,30 @@ class ModelServer:
     def create_application(self):
         return tornado.web.Application([
             # Server Liveness API returns 200 if server is alive.
-            (r"/", LivenessHandler),
-            (r"/v2/health/live", LivenessHandler),
+            (r"/", handlers.LivenessHandler),
+            (r"/v2/health/live", handlers.LivenessHandler),
             (r"/v1/models",
-             ListHandler, dict(models=self.registered_models)),
+             handlers.ListHandler, dict(models=self.registered_models)),
             (r"/v2/models",
-             ListHandler, dict(models=self.registered_models)),
+             handlers.ListHandler, dict(models=self.registered_models)),
             # Model Health API returns 200 if model is ready to serve.
             (r"/v1/models/([a-zA-Z0-9_-]+)",
-             HealthHandler, dict(models=self.registered_models)),
+             handlers.HealthHandler, dict(models=self.registered_models)),
             (r"/v2/models/([a-zA-Z0-9_-]+)/status",
-             HealthHandler, dict(models=self.registered_models)),
+             handlers.HealthHandler, dict(models=self.registered_models)),
             (r"/v1/models/([a-zA-Z0-9_-]+):predict",
-             PredictHandler, dict(models=self.registered_models)),
+             handlers.PredictHandler, dict(models=self.registered_models)),
             (r"/v2/models/([a-zA-Z0-9_-]+)/infer",
-             PredictHandler, dict(models=self.registered_models)),
+             handlers.PredictHandler, dict(models=self.registered_models)),
             (r"/v1/models/([a-zA-Z0-9_-]+):explain",
-             ExplainHandler, dict(models=self.registered_models)),
+             handlers.ExplainHandler, dict(models=self.registered_models)),
             (r"/v2/models/([a-zA-Z0-9_-]+)/explain",
-             ExplainHandler, dict(models=self.registered_models)),
+             handlers.ExplainHandler, dict(models=self.registered_models)),
             (r"/v2/repository/models/([a-zA-Z0-9_-]+)/load",
-             LoadHandler, dict(models=self.registered_models)),
+             handlers.LoadHandler, dict(models=self.registered_models)),
             (r"/v2/repository/models/([a-zA-Z0-9_-]+)/unload",
-             UnloadHandler, dict(models=self.registered_models)),
-        ], default_handler_class=NotFoundHandler)
+             handlers.UnloadHandler, dict(models=self.registered_models)),
+        ], default_handler_class=handlers.NotFoundHandler)
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]], nest_asyncio: bool = False):
         if isinstance(models, list):
@@ -118,10 +117,6 @@ class ModelServer:
             # formula as suggest in https://bugs.python.org/issue35279
             self.max_asyncio_workers = min(32, utils.cpu_count()+4)
 
-        logging.info(f"Setting asyncio max_workers as {self.max_asyncio_workers}")
-        asyncio.get_event_loop().set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
-
         self._http_server = tornado.httpserver.HTTPServer(
             self.create_application(), max_buffer_size=self.max_buffer_size)
 
@@ -129,6 +124,10 @@ class ModelServer:
         self._http_server.bind(self.http_port)
         logging.info("Will fork %d workers", self.workers)
         self._http_server.start(self.workers)
+
+        logging.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
+        asyncio.get_event_loop().set_default_executor(
+            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
 
         # Need to start the IOLoop after workers have been started
         # https://github.com/tornadoweb/tornado/issues/2426
@@ -149,88 +148,3 @@ class ModelServer:
                 "Failed to register model, model.name must be provided.")
         self.registered_models.update(model)
         logging.info("Registering model: %s", model.name)
-
-
-class LivenessHandler(BaseHandler):  # pylint:disable=too-few-public-methods
-    def get(self):
-        self.write({"status": "alive"})
-
-
-class HealthHandler(BaseHandler):
-    def initialize(self, models: ModelRepository):
-        self.models = models  # pylint:disable=attribute-defined-outside-init
-
-    def get(self, name: str):
-        model = self.models.get_model(name)
-        if model is None:
-            raise tornado.web.HTTPError(
-                status_code=404,
-                reason="Model with name %s does not exist." % name
-            )
-
-        if self.models.is_model_ready(name):
-            self.write({
-                "name": name,
-                "ready": True
-            })
-        else:
-            self.set_status(503)
-            self.write({
-                "name": name,
-                "ready": False
-            })
-
-
-class ListHandler(BaseHandler):
-    def initialize(self, models: ModelRepository):
-        self.models = models  # pylint:disable=attribute-defined-outside-init
-
-    def get(self):
-        self.write({"models": list(self.models.get_models().keys())})
-
-
-class LoadHandler(BaseHandler):
-    def initialize(self, models: ModelRepository):  # pylint:disable=attribute-defined-outside-init
-        self.models = models
-
-    async def post(self, name: str):
-        try:
-            if inspect.iscoroutinefunction(self.models.load):
-                await self.models.load(name)
-            else:
-                self.models.load(name)
-        except Exception:
-            ex_type, ex_value, ex_traceback = sys.exc_info()
-            raise tornado.web.HTTPError(
-                status_code=500,
-                reason=f"Model with name {name} is not ready. "
-                       f"Error type: {ex_type} error msg: {ex_value}"
-            )
-
-        if not self.models.is_model_ready(name):
-            raise tornado.web.HTTPError(
-                status_code=503,
-                reason=f"Model with name {name} is not ready."
-            )
-        self.write({
-            "name": name,
-            "load": True
-        })
-
-
-class UnloadHandler(BaseHandler):
-    def initialize(self, models: ModelRepository):  # pylint:disable=attribute-defined-outside-init
-        self.models = models
-
-    def post(self, name: str):
-        try:
-            self.models.unload(name)
-        except KeyError:
-            raise tornado.web.HTTPError(
-                status_code=404,
-                reason="Model with name %s does not exist." % name
-            )
-        self.write({
-            "name": name,
-            "unload": True
-        })

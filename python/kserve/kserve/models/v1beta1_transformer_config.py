@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ class V1beta1TransformerConfig(object):
         'image': 'image'
     }
 
-    def __init__(self, default_image_version=None, image=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_image_version='', image='', local_vars_configuration=None):  # noqa: E501
         """V1beta1TransformerConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()

@@ -20,4 +20,6 @@ spec:
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
   ports:
-  - port: 443
+  - port: 8443
+    targetPort: https
+    protocol: TCP

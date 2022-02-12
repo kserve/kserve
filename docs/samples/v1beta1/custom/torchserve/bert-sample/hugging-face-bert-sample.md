@@ -110,7 +110,7 @@ Expected Output
 *   Trying 44.239.20.204...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (44.239.20.204) port 80 (#0)
 > PUT /predictions/BERTSeqClassification HTTP/1.1
-> Host: torchserve-bert.kfserving-test.example.com
+> Host: torchserve-bert.kserve-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 79
@@ -128,6 +128,6 @@ Expected Output
 < x-envoy-upstream-service-time: 2085
 < server: istio-envoy
 <
-* Connection #0 to host torchserve-bert.kfserving-test.example.com left intact
+* Connection #0 to host torchserve-bert.kserve-test.example.com left intact
 Accepted
 ```

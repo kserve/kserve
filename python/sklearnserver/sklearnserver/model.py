@@ -15,7 +15,6 @@ import os
 
 import kserve
 import joblib
-import numpy as np
 import pathlib
 from typing import Dict
 from kserve.model import ModelMissingError, InferenceError
@@ -48,16 +47,11 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
     def predict(self, request: Dict) -> Dict:
         instances = request["instances"]
         try:
-            inputs = np.array(instances)
-        except Exception as e:
-            raise ValueError(
-                f"Failed to initialize NumPy array from inputs: {e}")
-        try:
             if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
                     hasattr(self._model, "predict_proba"):
-                result = self._model.predict_proba(inputs).tolist()
+                result = self._model.predict_proba(instances).tolist()
             else:
-                result = self._model.predict(inputs).tolist()
+                result = self._model.predict(instances).tolist()
             return {"predictions": result}
         except Exception as e:
             raise InferenceError(str(e))

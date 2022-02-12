@@ -8,5 +8,5 @@ roleRef:
   name: kserve-proxy-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: kserve-controller-manager
   namespace: kserve

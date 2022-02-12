@@ -20,6 +20,7 @@ spec:
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
     spec:
+      serviceAccountName: kserve-controller-manager
       containers:
       - name: kube-rbac-proxy
         image: gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0

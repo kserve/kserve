@@ -165,6 +165,7 @@ func (s *PredictorSpec) GetPredictorImplementations() []PredictorImplementation 
 		s.PMML,
 		s.LightGBM,
 		s.Paddle,
+		s.Model,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {

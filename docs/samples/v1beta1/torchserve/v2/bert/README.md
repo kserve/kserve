@@ -1,4 +1,5 @@
 # TorchServe example with Huggingface bert model
+
 In this example we will show how to serve [Huggingface Transformers with TorchServe](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Transformers)
 on KServe.
 
@@ -46,7 +47,7 @@ Expected Output
 *   Trying 44.239.20.204...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (44.239.20.204) port 80 (#0)
 > PUT /v2/models/BERTSeqClassification/infer HTTP/1.1
-> Host: torchserve-bert-v2.kfserving-test.example.com
+> Host: torchserve-bert-v2.kserve-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 79
@@ -64,7 +65,7 @@ Expected Output
 < x-envoy-upstream-service-time: 2085
 < server: istio-envoy
 <
-* Connection #0 to host torchserve-bert.kfserving-test.example.com left intact
+* Connection #0 to host torchserve-bert.kserve-test.example.com left intact
 {"id": "97fa9c9a-1c84-4ec0-b181-ff1c733e78bc", "model_name": "bert_test", "model_version": "1", "outputs": [{"name": "predict", "shape": [1], "datatype": "INT64", "data": [2]}]}
 ```
 
@@ -77,7 +78,9 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/BERTSeqClassification/explain -d ./bert_v2.json
 
 ```
+
 Expected output
+
 ```bash
 *   Trying ::1:8080...
 * Connected to localhost (::1) port 8080 (#0)
