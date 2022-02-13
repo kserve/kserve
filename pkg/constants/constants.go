@@ -290,8 +290,8 @@ const (
 
 // allowed model class implementation in mlserver
 const (
-	MLServerModelClassSKLearn = "mlserver_sklearn.SKLearnModel"
-	MLServerModelClassXGBoost = "mlserver_xgboost.XGBoostModel"
+	MLServerModelClassSKLearn  = "mlserver_sklearn.SKLearnModel"
+	MLServerModelClassXGBoost  = "mlserver_xgboost.XGBoostModel"
 	MLServerModelClassLightGBM = "mlserver_lightgbm.LightGBMModel"
 )
 
