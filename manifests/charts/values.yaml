@@ -7,7 +7,7 @@ kserve:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
   controller:
-    deploymentMode: "RawDeployment"
+    deploymentMode: "Serverless"
     gateway:
       domain: example.com
       localGateway:
