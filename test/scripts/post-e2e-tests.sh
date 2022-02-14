@@ -25,6 +25,7 @@ pip3 install awscli --upgrade --user
 aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
 
 # Print e2e test events
+kubectl describe pods -n kserve-ci-e2e-test
 kubectl get events -n kserve-ci-e2e-test
 
 # Print controller logs
