@@ -106,7 +106,8 @@ kubectl get events -A
 echo "Add testing models to minio stroage ..."
 wget https://dl.min.io/client/mc/release/linux-amd64/mc
 chmod +x mc
-./mc config host add storage http://minio-service.kserve:9000 minio minio123
+kubectl port-forward svc/minio-service -n kserve 9000:9000 &
+./mc config host add storage http://localhost:9000 minio minio123
 ./mc mb storage/example-models
 curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o sklearn-model.joblib
 ./mc cp sklearn-model.joblib storage/example-models/sklearn/model.joblib

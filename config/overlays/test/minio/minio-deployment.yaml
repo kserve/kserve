@@ -44,5 +44,4 @@ spec:
             memory: 100Mi
       volumes:
       - name: data
-        persistentVolumeClaim:
-          claimName: minio-pvc
+        emptyDir: {}
