@@ -100,8 +100,9 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 func (isvc *InferenceService) setPredictorModelDefaults() {
 	if isvc.Spec.Predictor.Model != nil {
 		// add mlserver specific default values
-		if isvc.Spec.Predictor.Model.Runtime != nil &&
-			*isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
+		if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelMLFlow ||
+			(isvc.Spec.Predictor.Model.Runtime != nil &&
+				*isvc.Spec.Predictor.Model.Runtime == constants.MLServer) {
 			isvc.setMlServerDefaults()
 		}
 		// add torchserve specific default values
