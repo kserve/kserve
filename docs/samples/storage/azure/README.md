@@ -65,8 +65,8 @@ You may assign Managed Identity to `InferenceService` resource using Pod Identit
 
 ```yaml
 ---
-apiVersion: serving.knative.dev/v1
-kind: Service
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
 metadata:
   name: kserve-simple-string
   labels:
