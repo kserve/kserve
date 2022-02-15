@@ -104,7 +104,7 @@ kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A
 
 echo "Add testing models to minio stroage ..."
-kubectl apply -f config/overlays/test/minio/minio-init-job.yaml
+kubectl apply -f config/overlays/test/minio/minio-init-job.yaml -n kserve
 kubectl wait --for=condition=complete --timeout=30s job/minio-init -n kserve
 
 echo "Creating a namespace kserve-ci-test ..."
