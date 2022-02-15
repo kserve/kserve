@@ -104,14 +104,8 @@ kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A
 
 echo "Add testing models to minio stroage ..."
-wget https://dl.min.io/client/mc/release/linux-amd64/mc
-chmod +x mc
-kubectl port-forward svc/minio-service -n kserve 9000:9000 &
-./mc config host add storage http://localhost:9000 minio minio123
-./mc mb storage/example-models
-curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o sklearn-model.joblib
-./mc cp sklearn-model.joblib storage/example-models/sklearn/model.joblib
-rm sklearn-model.joblib mc
+kubectl apply -f config/overlays/test/minio/minio-init-job.yaml
+kubectl wait --for=condition=complete --timeout=30s job/minio-init -n kserve
 
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
