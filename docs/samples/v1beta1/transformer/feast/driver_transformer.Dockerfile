@@ -4,6 +4,8 @@ RUN apt-get update \
 && apt-get install -y --no-install-recommends git
 
 COPY . .
+
 RUN pip install pip==20.2
+RUN pip install --no-cache-dir kserve>=0.8.0
 RUN pip install -e .
 ENTRYPOINT ["python", "-m", "driver_transformer"]

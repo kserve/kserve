@@ -2,6 +2,8 @@ apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "sklearn-driver-transformer"
+  annotations:
+    serving.kserve.io/deploymentMode: ModelMesh
 spec:
   transformer:
     containers:
@@ -13,7 +15,7 @@ spec:
       - "driver_transformer"
       args:
       - --feast_serving_url
-      - feature-server-service:6566
+      - feature-server-service:6566 
       - --entity_ids
       - driver_id
       - --feature_refs
@@ -24,5 +26,6 @@ spec:
       - v2
   predictor:
     sklearn:
+      protocolVersion: v2
       storageUri: "gs://kfserving-examples/models/feast/driver"
           

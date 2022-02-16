@@ -71,6 +71,9 @@ func (c *CustomTransformer) GetStorageSpec() *StorageSpec {
 func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Containers[0]
 	argumentPredictorHost := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
+	mm_service_name := "modelmesh-serving"
+	mm_http_port := "8008"
+	argumentPredictorHost = fmt.Sprintf("%s.%s:%s", mm_service_name, metadata.Namespace, mm_http_port)
 
 	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{

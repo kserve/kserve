@@ -116,7 +116,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if deploymentMode == constants.ModelMeshDeployment {
 		r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
-		return ctrl.Result{}, nil
+		r.Log.Info("=========================== continue...")
+		//return ctrl.Result{}, nil
 	}
 	// name of our custom finalizer
 	finalizerName := "inferenceservice.finalizers"
@@ -154,13 +155,17 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+	r.Log.Info("=============================", "apiVersion", isvc.APIVersion, "pred", isvc.Spec.Predictor)
+        r.Log.Info("=============================", "apiVersion", isvc.APIVersion, "tran", isvc.Spec.Transformer)
+
 	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
 	}
-	reconcilers := []components.Component{
-		components.NewPredictor(r.Client, r.Scheme, isvcConfig),
-	}
+	reconcilers := []components.Component{}
+	if deploymentMode != constants.ModelMeshDeployment {
+	        reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Scheme, isvcConfig))
+        }
 	if isvc.Spec.Transformer != nil {
 		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Scheme, isvcConfig))
 	}
@@ -223,7 +228,7 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err := r.Status().Update(context.TODO(), desiredService); err != nil {
+	} else if err := r.Status().Patch(context.TODO(), desiredService, client.Merge, &client.PatchOptions{}); err != nil {
 		r.Log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
 		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)
