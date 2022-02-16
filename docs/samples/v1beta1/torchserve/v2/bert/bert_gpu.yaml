@@ -7,4 +7,7 @@ spec:
     pytorch:
       protocolVersion: v2
       storageUri: gs://kfserving-examples/models/torchserve/bert/v2
-      # storageUri: pvc://model-pv-claim
+      resources:
+        limits:
+          memory: 4Gi
+          nvidia.com/gpu: "1"
