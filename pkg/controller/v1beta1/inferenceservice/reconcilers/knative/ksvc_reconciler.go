@@ -89,6 +89,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	// This is to handle case when the latest ready revision is rolled out with 100% and then rolled back
 	// so here we need to get the revision that is previously rolled out with 100%
 	if componentStatus.LatestRolledoutRevision == componentStatus.LatestReadyRevision &&
+		componentStatus.LatestReadyRevision == componentStatus.LatestCreatedRevision &&
 		componentExtension.CanaryTrafficPercent != nil && *componentExtension.CanaryTrafficPercent < 100 {
 		lastRolledoutRevision = componentStatus.PreviousRolledoutRevision
 	}
