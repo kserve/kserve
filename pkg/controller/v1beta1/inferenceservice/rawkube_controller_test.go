@@ -94,7 +94,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
                "ingressService": "test-destination",
                "localGateway": "knative-serving/knative-local-gateway",
                "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-               "ingressDomain": "example.com"
+               "ingressDomain": "example.com",
+               "ingressClassName" : "istio"
             }`,
 		}
 	)
@@ -313,8 +314,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				Should(Succeed())
+			ingressClassName := "istio"
 			expectedIngress := netv1.Ingress{
 				Spec: netv1.IngressSpec{
+					IngressClassName: &ingressClassName,
 					Rules: []netv1.IngressRule{
 						{
 							Host: "raw-foo-default.example.com",
