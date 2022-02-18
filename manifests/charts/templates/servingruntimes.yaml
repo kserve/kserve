@@ -27,7 +27,7 @@ spec:
       value: dummy-model-fixme
     - name: MLSERVER_HOST
       value: 127.0.0.1
-      image: docker.mirrors.iflytek.com:5000/seldonio/mlserver:0.5.3
+      image: docker.limix.com/seldonio/mlserver:0.5.3
     name: mlserver
     resources:
       limits:
@@ -76,7 +76,7 @@ spec:
       "--allow-sagemaker=false" '
     command:
     - /bin/sh
-    image: docker.mirrors.iflytek.com:5000/nvidia/tritonserver:21.09-py3
+    image: docker.limix.com/nvidia/tritonserver:21.09-py3
     livenessProbe:
       exec:
         command:

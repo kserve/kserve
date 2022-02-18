@@ -23,7 +23,7 @@ spec:
       serviceAccountName: kserve-controller-manager
       containers:
       - name: kube-rbac-proxy
-        image: docker.mirrors.iflytek.com:5000/kubebuilder/kube-rbac-proxy:v0.4.0
+        image: docker.limix.com/kubebuilder/kube-rbac-proxy:v0.4.0
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"

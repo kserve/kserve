@@ -1,8 +1,8 @@
 kserve:
   agent:
-    image: docker.mirrors.iflytek.com:5000/kserve/agent:v0.8.0
+    image: docker.limix.com/kserve/agent:v0.8.0
   storage:
-    image: docker.mirrors.iflytek.com:5000/kserve/storage-initializer:v0.8.0
+    image: docker.limix.com/kserve/storage-initializer:v0.8.0
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
@@ -16,7 +16,7 @@ kserve:
       ingressGateway:
         gateway: knative-serving/knative-ingress-gateway
         gatewayService: istio-ingressgateway.istio-system.svc.cluster.local
-    image: docker.mirrors.iflytek.com:5000/kserve/kserve-controller:v0.8.0
+    image: docker.limix.com/kserve/kserve-controller:v0.8.0
     resources:
       limits:
         cpu: 100m
@@ -26,7 +26,7 @@ kserve:
         memory: 300Mi
   modelmesh:
     controller:
-      image: docker.mirrors.iflytek.com:5000/kserve/modelmesh-controller:v0.8.0
+      image: docker.limix.com/kserve/modelmesh-controller:v0.8.0
     config:
       modelmeshImage: kserve/modelmesh
       modelmeshImageTag: v0.8.0
@@ -38,40 +38,40 @@ kserve:
   servingruntime:
     modelNamePlaceholder: '{{.Name}}'
     tensorflow:
-      image: docker.mirrors.iflytek.com:5000/tensorflow/serving
+      image: docker.limix.com/tensorflow/serving
       tag: 2.6.2
     mlserver:
-      image: docker.mirrors.iflytek.com:5000/seldonio/mlserver
+      image: docker.limix.com/seldonio/mlserver
       tag: 0.5.3
       modelClassPlaceholder: '{{.Labels.modelClass}}'
     sklearnserver:
-      image: docker.mirrors.iflytek.com:5000/kserve/sklearnserver
+      image: docker.limix.com/kserve/sklearnserver
       tag: v0.8.0
     xgbserver:
-      image: docker.mirrors.iflytek.com:5000/kserve/xgbserver
+      image: docker.limix.com/kserve/xgbserver
       tag: v0.8.0
     tritonserver:
-      image: docker.mirrors.iflytek.com:5000/nvidia/tritonserver
+      image: docker.limix.com/nvidia/tritonserver
       tag: 21.09-py3
     pmmlserver:
-      image: docker.mirrors.iflytek.com:5000/kserve/pmmlserver
+      image: docker.limix.com/kserve/pmmlserver
       tag: v0.8.0
     paddleserver:
-      image: docker.mirrors.iflytek.com:5000/kserve/paddleserver
+      image: docker.limix.com/kserve/paddleserver
       tag: v0.8.0
     lgbserver:
-      image: docker.mirrors.iflytek.com:5000/kserve/lgbserver
+      image: docker.limix.com/kserve/lgbserver
       tag: v0.8.0
     torchserve:
-      image: docker.mirrors.iflytek.com:5000/kserve/torchserve-kfs
+      image: docker.limix.com/kserve/torchserve-kfs
       tag: 0.5.2
       serviceEnvelopePlaceholder: '{{.Labels.serviceEnvelope}}'
     alibi:
-      image: docker.mirrors.iflytek.com:5000/kserve/alibi-explainer
+      image: docker.limix.com/kserve/alibi-explainer
       defaultVersion: v0.8.0
     art:
-      image: docker.mirrors.iflytek.com:5000/kserve/art-explainer
+      image: docker.limix.com/kserve/art-explainer
       defaultVersion: v0.8.0
     aix:
-      image: docker.mirrors.iflytek.com:5000/kserve/aix-explainer
+      image: docker.limix.com/kserve/aix-explainer
       defaultVersion: v0.8.0
