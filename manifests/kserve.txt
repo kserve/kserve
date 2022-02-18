@@ -4,10 +4,8 @@ kserve/storage-initializer:v0.8.0
 kserve/kserve-controller:v0.8.0
 kserve/modelmesh-controller:v0.8.0
 tensorflow/serving:2.6.2
-docker.io/seldonio/mlserver:0.5.3
 kserve/sklearnserver:v0.8.0
 kserve/xgbserver:v0.8.0
-nvcr.io/nvidia/tritonserver:21.09-py3
 kserve/pmmlserver:v0.8.0
 kserve/paddleserver:v0.8.0
 kserve/lgbserver:v0.8.0
@@ -15,4 +13,6 @@ kserve/torchserve-kfs:0.5.2
 kserve/alibi-explainer:v0.8.0
 kserve/art-explainer:v0.8.0
 kserve/aix-explainer:v0.8.0
+seldonio/mlserver:0.5.3
+nvcr.io/nvidia/tritonserver:21.09-py3
 gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0
