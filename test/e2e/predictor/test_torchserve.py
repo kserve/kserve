@@ -25,7 +25,7 @@ from kserve import (
     V1beta1ModelSpec,
     V1beta1ModelFormat,
 )
-from kubernetes.client import V1ResourceRequirements, V1ContainerPort, V1EnvVar
+from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 
 from ..common.utils import predict, grpc_stub
 from ..common.utils import KSERVE_TEST_NAMESPACE
@@ -159,7 +159,6 @@ def test_torchserve_runtime_kserve():
             model_format=V1beta1ModelFormat(
                 name="pytorch",
             ),
-            env=[V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kserve")],
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             protocol_version="v1",
             resources=V1ResourceRequirements(

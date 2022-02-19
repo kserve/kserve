@@ -12,10 +12,12 @@ spec:
       version: "2"
     - name: onnx
       version: "1"
+      autoSelect: true
     - name: pytorch
       version: "1"
     - name: triton
       version: "2"
+      autoSelect: true
   containers:
     - name: kserve-container
       image: kserve-tritonserver:replace

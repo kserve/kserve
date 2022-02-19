@@ -93,7 +93,7 @@ spec:
       mode: all
       url: http://broker-ingress.knative-eventing.svc.cluster.local/default/default
     sklearn:
-      storageUri: gs://kfserving-samples/models/sklearn/iris
+      storageUri: gs://kfserving-examples/models/sklearn/1.0/model
 ```
 
 Let's apply this YAML:
@@ -102,7 +102,7 @@ Let's apply this YAML:
 kubectl create -f sklearn-logging.yaml
 ```
 
-We can now send a request to the sklearn model. Check the README [here](https://github.com/kubeflow/kfserving#determine-the-ingress-ip-and-ports)
+We can now send a request to the sklearn model. Check the README [here](https://kserve.github.io/website/get_started/first_isvc/#3-determine-the-ingress-ip-and-ports)
 to learn how to determine the INGRESS_HOST and INGRESS_PORT used in curling the InferenceService.
 
 ```

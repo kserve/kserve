@@ -51,11 +51,20 @@ def grpc_stub(service_name, namespace):
     return inference_pb2_grpc.InferenceAPIsServiceStub(channel)
 
 
-def predict(service_name,
-            input_json,
-            protocol_version="v1",
-            version=constants.KSERVE_V1BETA1_VERSION,
-            model_name=None):
+def predict(service_name, input_json, protocol_version="v1",
+            version=constants.KSERVE_V1BETA1_VERSION, model_name=None):
+    with open(input_json) as json_file:
+        data = json.load(json_file)
+
+        return predict_str(service_name=service_name,
+                           input_json=json.dumps(data),
+                           protocol_version=protocol_version,
+                           version=version,
+                           model_name=model_name)
+
+
+def predict_str(service_name, input_json, protocol_version="v1",
+                version=constants.KSERVE_V1BETA1_VERSION, model_name=None):
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
@@ -76,16 +85,13 @@ def predict(service_name,
     if protocol_version == "v2":
         url = f"http://{cluster_ip}/v2/models/{model_name}/infer"
 
-    with open(input_json) as json_file:
-        data = json.load(json_file)
-        logging.info("Sending Header = %s", headers)
-        logging.info("Sending url = %s", url)
-        logging.info("Sending request data: %s", json.dumps(data))
-        response = requests.post(url, json.dumps(data), headers=headers)
-        logging.info("Got response code %s, content %s", response.status_code,
-                     response.content)
-        preds = json.loads(response.content.decode("utf-8"))
-        return preds
+    logging.info("Sending Header = %s", headers)
+    logging.info("Sending url = %s", url)
+    logging.info("Sending request data: %s", input_json)
+    response = requests.post(url, input_json, headers=headers)
+    logging.info("Got response code %s, content %s", response.status_code, response.content)
+    preds = json.loads(response.content.decode("utf-8"))
+    return preds
 
 
 def explain(service_name, input_json):

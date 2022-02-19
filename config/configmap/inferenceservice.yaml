@@ -61,13 +61,24 @@ data:
           }
         },
         "pytorch": {
-          "image": "kserve/torchserve-kfs",
-          "defaultImageVersion": "0.5.2",
-          "defaultGpuImageVersion": "0.5.2-gpu",
-          "supportedFrameworks": [
-            "pytorch"
-          ],
-          "multiModelServer": false
+          "v1" : {
+            "image": "kserve/torchserve-kfs",
+            "defaultImageVersion": "0.5.3",
+            "defaultGpuImageVersion": "0.5.3-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          },
+          "v2" : {
+            "image": "kserve/torchserve-kfs",
+            "defaultImageVersion": "0.5.3",
+            "defaultGpuImageVersion": "0.5.3-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          }
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",

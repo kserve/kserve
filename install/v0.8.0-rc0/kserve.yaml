@@ -15235,6 +15235,7 @@ webhooks:
     resources:
     - trainedmodels
   sideEffects: None
+---
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:

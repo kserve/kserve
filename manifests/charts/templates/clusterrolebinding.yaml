@@ -8,7 +8,7 @@ roleRef:
   name: kserve-proxy-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: kserve-controller-manager
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -21,5 +21,22 @@ roleRef:
   name: kserve-manager-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: kserve-controller-manager
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+  name: modelmesh-controller-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: modelmesh-controller-role
+subjects:
+- kind: ServiceAccount
+  name: modelmesh-controller
   namespace: {{ .Release.Namespace }}

@@ -1,21 +1,21 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kserve.io/v1alpha1"
 kind: "TrainedModel"
 metadata:
   name: "model1-sklearn"
 spec:
   inferenceService: "sklearn-iris-example"
   model:
-    storageUri: "gs://kfserving-samples/models/sklearn/iris"
+    storageUri: "gs://kfserving-examples/models/sklearn/v1/model"
     framework: "sklearn"
     memory: "256Mi"
 ---
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kserve.io/v1alpha1"
 kind: "TrainedModel"
 metadata:
   name: "model2-sklearn"
 spec:
   inferenceService: "sklearn-iris-example"
   model:
-    storageUri: "gs://kfserving-samples/models/sklearn/iris"
+    storageUri: "gs://kfserving-examples/models/sklearn/v1/model"
     framework: "sklearn"
     memory: "256Mi"

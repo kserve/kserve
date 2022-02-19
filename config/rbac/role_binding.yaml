@@ -8,5 +8,4 @@ roleRef:
   name: kserve-manager-role
 subjects:
 - kind: ServiceAccount
-  name: default
-  namespace: kserve
+  name: kserve-controller-manager

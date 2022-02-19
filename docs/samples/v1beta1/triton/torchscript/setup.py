@@ -32,7 +32,7 @@ setup(
     install_requires=[
         "kfserving>=0.4",
         "torchvision>=0.4.0",
-        "pillow==6.2.0"
+        "pillow==9.0.0"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

@@ -26,7 +26,7 @@ from kserve import (
 from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import predict
-from ..common.utils import KSERVE_TEST_NAMESPACE, MODEL_CLASS_NAME
+from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 def test_sklearn_kserve():
@@ -127,8 +127,6 @@ def test_sklearn_runtime_kserve():
 
 def test_sklearn_v2_runtime_kserve():
     service_name = "isvc-sklearn-v2-runtime"
-    labels = dict()
-    labels[MODEL_CLASS_NAME] = "mlserver_sklearn.SKLearnModel"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -150,7 +148,7 @@ def test_sklearn_v2_runtime_kserve():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE, labels=labels
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

@@ -22,5 +22,5 @@ spec:
       - driver_hourly_stats:conv_rate
   predictor:
     sklearn:
-      storageUri: "gs://pv-kfserving/driver"
+      storageUri: "gs://kfserving-examples/models/feast/driver"
           
