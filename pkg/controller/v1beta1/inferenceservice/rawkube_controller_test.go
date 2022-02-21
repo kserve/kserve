@@ -18,6 +18,7 @@ package inferenceservice
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -691,7 +692,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
 						{
-							Name:       "raw-foo-predictor-default",
+							Name:       fmt.Sprintf("%s-predictor-default", serviceName),
 							Protocol:   "TCP",
 							Port:       80,
 							TargetPort: intstr.IntOrString{Type: 0, IntVal: 8080, StrVal: ""},
@@ -700,7 +701,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": "isvc.raw-foo-predictor-default",
+						"app": fmt.Sprintf("isvc.%s-predictor-default", serviceName),
 					},
 				},
 			}
@@ -732,7 +733,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: netv1.IngressSpec{
 					Rules: []netv1.IngressRule{
 						{
-							Host: "raw-foo-default.example.com",
+							Host: fmt.Sprintf("%s-default.example.com", serviceName),
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -741,7 +742,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: "raw-foo-predictor-default",
+													Name: fmt.Sprintf("%s-predictor-default", serviceName),
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -753,7 +754,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: "raw-foo-predictor-default-default.example.com",
+							Host: fmt.Sprintf("%s-predictor-default-default.example.com", serviceName),
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -762,7 +763,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: "raw-foo-predictor-default",
+													Name: fmt.Sprintf("%s-predictor-default", serviceName),
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -797,7 +798,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   "raw-foo-default.example.com",
+					Host:   fmt.Sprintf("%s-default.example.com", serviceName),
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -810,7 +811,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "",
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   "raw-foo-predictor-default-default.example.com",
+							Host:   fmt.Sprintf("%s-predictor-default-default.example.com", serviceName),
 						},
 					},
 				},
