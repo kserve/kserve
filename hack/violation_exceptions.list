@@ -37,4 +37,5 @@ API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,Ligh
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,PyTorch
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,SKlearn
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,XGBoost
+API rule violation: names_match,./pkg/apis/serving/v1beta1,StorageSpec,StorageKey
 API rule violation: names_match,./pkg/apis/serving/v1beta1,TransformerConfig,ContainerImage

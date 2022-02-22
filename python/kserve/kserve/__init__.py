@@ -97,3 +97,4 @@ from kserve.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kserve.models.v1beta1_transformers_config import V1beta1TransformersConfig
 from kserve.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kserve.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
+from kserve.models.v1beta1_storage_spec import V1beta1StorageSpec

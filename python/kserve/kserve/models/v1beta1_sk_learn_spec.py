@@ -65,6 +65,7 @@ class V1beta1SKLearnSpec(object):
         'startup_probe': 'V1Probe',
         'stdin': 'bool',
         'stdin_once': 'bool',
+        'storage': 'V1beta1StorageSpec',
         'storage_uri': 'str',
         'termination_message_path': 'str',
         'termination_message_policy': 'str',
@@ -93,6 +94,7 @@ class V1beta1SKLearnSpec(object):
         'startup_probe': 'startupProbe',
         'stdin': 'stdin',
         'stdin_once': 'stdinOnce',
+        'storage': 'storage',
         'storage_uri': 'storageUri',
         'termination_message_path': 'terminationMessagePath',
         'termination_message_policy': 'terminationMessagePolicy',
@@ -102,7 +104,7 @@ class V1beta1SKLearnSpec(object):
         'working_dir': 'workingDir'
     }
 
-    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resources=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resources=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1SKLearnSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -126,6 +128,7 @@ class V1beta1SKLearnSpec(object):
         self._startup_probe = None
         self._stdin = None
         self._stdin_once = None
+        self._storage = None
         self._storage_uri = None
         self._termination_message_path = None
         self._termination_message_policy = None
@@ -171,6 +174,8 @@ class V1beta1SKLearnSpec(object):
             self.stdin = stdin
         if stdin_once is not None:
             self.stdin_once = stdin_once
+        if storage is not None:
+            self.storage = storage
         if storage_uri is not None:
             self.storage_uri = storage_uri
         if termination_message_path is not None:
@@ -587,6 +592,27 @@ class V1beta1SKLearnSpec(object):
         """
 
         self._stdin_once = stdin_once
+
+    @property
+    def storage(self):
+        """Gets the storage of this V1beta1SKLearnSpec.  # noqa: E501
+
+
+        :return: The storage of this V1beta1SKLearnSpec.  # noqa: E501
+        :rtype: V1beta1StorageSpec
+        """
+        return self._storage
+
+    @storage.setter
+    def storage(self, storage):
+        """Sets the storage of this V1beta1SKLearnSpec.
+
+
+        :param storage: The storage of this V1beta1SKLearnSpec.  # noqa: E501
+        :type: V1beta1StorageSpec
+        """
+
+        self._storage = storage
 
     @property
     def storage_uri(self):

@@ -56,13 +56,6 @@ type AlibiExplainerSpec struct {
 
 var _ ComponentImplementation = &AlibiExplainerSpec{}
 
-func (s *AlibiExplainerSpec) GetStorageUri() *string {
-	if s.StorageURI == "" {
-		return nil
-	}
-	return &s.StorageURI
-}
-
 func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
 	return &s.Resources
@@ -113,13 +106,6 @@ func (s *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
 		s.RuntimeVersion = proto.String(config.Explainers.AlibiExplainer.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&s.Resources)
-}
-
-// Validate the spec
-func (s *AlibiExplainerSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(s.GetStorageUri()),
-	})
 }
 
 func (s *AlibiExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {

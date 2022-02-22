@@ -41,11 +41,12 @@ const (
 )
 
 type StorageInitializerConfig struct {
-	Image         string `json:"image"`
-	CpuRequest    string `json:"cpuRequest"`
-	CpuLimit      string `json:"cpuLimit"`
-	MemoryRequest string `json:"memoryRequest"`
-	MemoryLimit   string `json:"memoryLimit"`
+	Image                 string `json:"image"`
+	CpuRequest            string `json:"cpuRequest"`
+	CpuLimit              string `json:"cpuLimit"`
+	MemoryRequest         string `json:"memoryRequest"`
+	MemoryLimit           string `json:"memoryLimit"`
+	StorageSpecSecretName string `json:"storageSpecSecretName"`
 }
 
 type StorageInitializerInjector struct {
@@ -213,13 +214,39 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	pod.Spec.Volumes = append(pod.Spec.Volumes, podVolumes...)
 
 	// Inject credentials
-	if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
-		pod.Namespace,
-		pod.Spec.ServiceAccountName,
-		initContainer,
-		&pod.Spec.Volumes,
-	); err != nil {
-		return err
+	hasStorageSpec := pod.ObjectMeta.Annotations[constants.StorageSpecAnnotationKey]
+	storageKey := pod.ObjectMeta.Annotations[constants.StorageSpecKeyAnnotationKey]
+	// Inject Storage Spec credentials if exist
+	if hasStorageSpec == "true" {
+		storageSpecSecret := mi.config.StorageSpecSecretName
+		var overrideParams map[string]string
+		if storageSpecParam, ok := pod.ObjectMeta.Annotations[constants.StorageSpecParamAnnotationKey]; ok {
+			if err := json.Unmarshal([]byte(storageSpecParam), &overrideParams); err != nil {
+				return err
+			}
+		}
+		if storageSpecSecret == "" {
+			storageSpecSecret = constants.DefaultStorageSpecSecret
+		}
+		if err := mi.credentialBuilder.CreateStorageSpecSecretEnvs(
+			pod.Namespace,
+			storageKey,
+			storageSpecSecret,
+			overrideParams,
+			initContainer,
+		); err != nil {
+			return err
+		}
+	} else {
+		// Inject service account credentials if storage spec doesn't exist
+		if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
+			pod.Namespace,
+			pod.Spec.ServiceAccountName,
+			initContainer,
+			&pod.Spec.Volumes,
+		); err != nil {
+			return err
+		}
 	}
 
 	// Add init container to the spec
