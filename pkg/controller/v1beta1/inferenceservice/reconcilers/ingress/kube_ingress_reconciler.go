@@ -57,11 +57,16 @@ func NewRawIngressReconciler(client client.Client,
 }
 
 func createRawURL(isvc *v1beta1api.InferenceService,
-	ingressConfig *v1beta1api.IngressConfig) *knapis.URL {
+	ingressConfig *v1beta1api.IngressConfig) (*knapis.URL, error) {
+	var err error
 	url := &knapis.URL{}
 	url.Scheme = "http"
-	url.Host = isvc.Name + "-" + isvc.Namespace + "." + ingressConfig.IngressDomain
-	return url
+	url.Host, err = GenerateDomainName(isvc.Name, isvc.ObjectMeta, ingressConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return url, nil
 }
 
 func generateRule(ingressHost string, componentName string, path string) netv1.IngressRule {
@@ -253,7 +258,10 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1api.InferenceService) erro
 	if err != nil {
 		return err
 	}
-	isvc.Status.URL = createRawURL(isvc, r.ingressConfig)
+	isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
+	if err != nil {
+		return err
+	}
 	isvc.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
 			Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
