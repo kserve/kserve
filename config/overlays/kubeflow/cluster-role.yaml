@@ -22,18 +22,6 @@ rules:
   - serving.kserve.io
   resources:
   - inferenceservices
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - delete
-  - deletecollection
-  - patch
-  - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - servingruntimes
   verbs:
   - get
@@ -43,7 +31,7 @@ rules:
   - delete
   - deletecollection
   - patch
-  - update  
+  - update
 - apiGroups:
   - serving.knative.dev
   resources:
@@ -76,13 +64,6 @@ rules:
   - serving.kserve.io
   resources:
   - inferenceservices
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - servingruntimes
   verbs:
   - get
