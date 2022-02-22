@@ -32,6 +32,19 @@ rules:
   - patch
   - update
 - apiGroups:
+  - serving.kserve.io
+  resources:
+  - servingruntimes
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update  
+- apiGroups:
   - serving.knative.dev
   resources:
   - services
@@ -63,6 +76,14 @@ rules:
   - serving.kserve.io
   resources:
   - inferenceservices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - servingruntimes
   verbs:
   - get
   - list
