@@ -70,7 +70,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
-
+	// Add StorageSpec annotations so mutator will mount storage credentials to InferenceService's predictor
+	addStorageSpecAnnotations(isvc.Spec.Predictor.GetImplementation().GetStorageSpec(), annotations)
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
 	addAgentAnnotations(isvc, annotations, p.inferenceServiceConfig)
 
@@ -79,6 +80,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	if err := configMapReconciler.Reconcile(isvc); err != nil {
 		return err
 	}
+
+	predictor := isvc.Spec.Predictor.GetImplementation()
 
 	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Predictor.Model != nil {
@@ -120,9 +123,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to get runtime container")
 		}
-		if sourceURI := isvc.Spec.Predictor.Model.GetStorageUri(); sourceURI != nil {
-			annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-		}
 
 		mergedPodSpec, err := isvcutils.MergePodSpec(&sRuntime.ServingRuntimePodSpec, &isvc.Spec.Predictor.PodSpec)
 		if err != nil {
@@ -133,8 +133,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		container.Name = constants.InferenceServiceContainerName
 
 		// Replace placeholders in runtime container by values from inferenceservice metadata
-		err = isvcutils.ReplacePlaceholders(container, isvc.ObjectMeta)
-		if err != nil {
+		if err = isvcutils.ReplacePlaceholders(container, isvc.ObjectMeta); err != nil {
 			return errors.Wrapf(err, "failed to replace placeholders in serving runtime Container")
 		}
 
@@ -147,13 +146,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 
 	} else {
-		predictor := isvc.Spec.Predictor.GetImplementation()
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
-		// Knative does not support INIT containers or mounting, so we add annotations that trigger the
-		// StorageInitializer injector to mutate the underlying deployment to provision model data
-		if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
-			annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-		}
 
 		podSpec = v1.PodSpec(isvc.Spec.Predictor.PodSpec)
 		if len(podSpec.Containers) == 0 {
@@ -163,7 +156,15 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		} else {
 			podSpec.Containers[0] = *container
 		}
+	}
 
+	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
+	// StorageInitializer injector to mutate the underlying deployment to provision model data
+	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
+		if _, ok := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]; ok {
+			return errors.New("must provide only one of storageUri and storage.path")
+		}
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 
 	objectMeta := metav1.ObjectMeta{

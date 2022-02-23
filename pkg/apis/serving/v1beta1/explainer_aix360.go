@@ -44,13 +44,6 @@ type AIXExplainerSpec struct {
 
 var _ ComponentImplementation = &AIXExplainerSpec{}
 
-func (s *AIXExplainerSpec) GetStorageUri() *string {
-	if s.StorageURI == "" {
-		return nil
-	}
-	return &s.StorageURI
-}
-
 func (s *AIXExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
 	return &s.Resources
@@ -104,13 +97,6 @@ func (s *AIXExplainerSpec) Default(config *InferenceServicesConfig) {
 		s.RuntimeVersion = proto.String(config.Explainers.AIXExplainer.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&s.Resources)
-}
-
-// Validate the spec
-func (s *AIXExplainerSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(s.GetStorageUri()),
-	})
 }
 
 func (s *AIXExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {

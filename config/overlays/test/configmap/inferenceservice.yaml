@@ -8,11 +8,11 @@ data:
     {
         "tensorflow": {
             "image": "tensorflow/serving",
-            "defaultImageVersion": "1.14.0",
-            "defaultGpuImageVersion": "1.14.0-gpu",
+            "defaultImageVersion": "2.6.2",
+            "defaultGpuImageVersion": "2.6.2-gpu",
             "defaultTimeout": "60",
             "supportedFrameworks": [
-             "tensorflow"
+              "tensorflow"
             ],
             "multiModelServer": false
         },
@@ -61,25 +61,28 @@ data:
           }
         },
         "pytorch": {
-          "image": "kserve/torchserve-kfs",
-          "defaultImageVersion": "0.5.2",
-          "defaultGpuImageVersion": "0.5.2-gpu",
-          "supportedFrameworks": [
-            "pytorch"
-          ],
-          "multiModelServer": false
-        },
-        "paddle": {
-            "image": "ruminateer/paddleserver",
-            "defaultImageVersion": "v0.1.0",
+          "v1" : {
+            "image": "kserve/torchserve-kfs",
+            "defaultImageVersion": "0.5.3",
+            "defaultGpuImageVersion": "0.5.3-gpu",
             "supportedFrameworks": [
-              "paddle"
+              "pytorch"
             ],
             "multiModelServer": false
+          },
+          "v2" : {
+            "image": "kserve/torchserve-kfs",
+            "defaultImageVersion": "0.5.3",
+            "defaultGpuImageVersion": "0.5.3-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          }
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
-            "defaultImageVersion": "20.08-py3",
+            "defaultImageVersion": "21.09-py3",
             "supportedFrameworks": [
               "tensorrt",
               "tensorflow",
@@ -103,7 +106,15 @@ data:
             "supportedFrameworks": [
               "lightgbm"
             ],
-            "multiModelServer": true
+            "multiModelServer": false
+        },
+        "paddle": {
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/paddleserver",
+            "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "paddle"
+            ],
+            "multiModelServer": false
         }
     }
   transformers: |-

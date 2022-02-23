@@ -45,4 +45,4 @@ images:
 
   - name: kserve-torchserve
     newName: kserve/torchserve-kfs
-    newTag: 0.5.2
+    newTag: 0.5.3

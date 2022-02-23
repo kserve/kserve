@@ -552,6 +552,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "The location of a trained explanation model",
           "type": "string"
@@ -714,6 +718,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "The location of a trained explanation model",
           "type": "string"
@@ -875,6 +883,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "The location of a trained explanation model",
@@ -1807,6 +1819,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "The location of a trained explanation model",
           "type": "string"
@@ -2397,6 +2413,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
           "type": "string"
@@ -2585,6 +2605,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
           "type": "string"
@@ -2733,6 +2757,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -2883,6 +2911,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
           "type": "string"
@@ -3030,6 +3062,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3433,6 +3469,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3920,6 +3960,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
           "type": "string"
@@ -3958,6 +4002,31 @@
         },
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.StorageSpec": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "The Storage Key in the secret for this model.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters to override the default storage credentials and config.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "path": {
+          "description": "The path to the model object in the storage. It cannot co-exist with the storageURI.",
+          "type": "string"
+        },
+        "schemaPath": {
+          "description": "The path to the model schema file in the storage.",
           "type": "string"
         }
       }
@@ -4068,6 +4137,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4217,6 +4290,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4640,6 +4717,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
           "type": "string"
@@ -4788,6 +4869,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",

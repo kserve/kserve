@@ -37,6 +37,7 @@ RELEASES=(
     "v0.7.0-rc0"
     "v0.7.0"
     "v0.8.0-rc0"
+    "v0.8.0"
 )
 
 TAG=$1
@@ -57,3 +58,8 @@ kustomize build config/runtimes | sed s/:latest/:$TAG/ >> $INSTALL_PATH
 kustomize build config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
 echo "---" >> $KUBEFLOW_INSTALL_PATH
 kustomize build config/runtimes | sed s/:latest/:$TAG/ >> $KUBEFLOW_INSTALL_PATH
+
+# Copy CRD files to charts crds directory
+cp config/crd/serving.kserve.io_clusterservingruntimes.yaml manifests/charts/crds/serving.kserve.io_clusterservingruntimes.yaml
+cp config/crd/serving.kserve.io_inferenceservices.yaml manifests/charts/crds/serving.kserve.io_inferenceservices.yaml
+cp config/crd/serving.kserve.io_trainedmodels.yaml manifests/charts/crds/serving.kserve.io_trainedmodels.yaml

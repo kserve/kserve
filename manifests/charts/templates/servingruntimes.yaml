@@ -27,7 +27,7 @@ spec:
       value: dummy-model-fixme
     - name: MLSERVER_HOST
       value: 127.0.0.1
-    image: seldonio/mlserver:0.3.2
+    image: seldonio/mlserver:0.5.2
     name: mlserver
     resources:
       limits:
@@ -38,13 +38,17 @@ spec:
         memory: 1Gi
   grpcDataEndpoint: port:8001
   grpcEndpoint: port:8085
-  supportedModelTypes:
-  - name: sklearn
-    version: "0"
-  - name: xgboost
-    version: "1"
-  - name: lightgbm
-    version: "3"
+  multiModel: true
+  supportedModelFormats:
+    - name: sklearn
+      version: "0"
+      autoSelect: true
+    - name: xgboost
+      version: "1"
+      autoSelect: true
+    - name: lightgbm
+      version: "3"
+      autoSelect: true
 ---
 apiVersion: serving.kserve.io/v1alpha1
 kind: ServingRuntime
@@ -96,15 +100,23 @@ spec:
         memory: 1Gi
   grpcDataEndpoint: port:8001
   grpcEndpoint: port:8085
-  supportedModelTypes:
-  - name: tensorflow
-    version: "1"
-  - name: tensorflow
-    version: "2"
-  - name: tensorrt
-    version: "7"
-  - name: pytorch
-    version: "1"
-  - name: onnx
-    version: "1"
-
+  multiModel: true
+  supportedModelFormats:
+    - name: keras
+      version: "2"
+      autoSelect: true
+    - name: onnx
+      version: "1"
+      autoSelect: true
+    - name: pytorch
+      version: "1"
+      autoSelect: true
+    - name: tensorflow
+      version: "1"
+      autoSelect: true
+    - name: tensorflow
+      version: "2"
+      autoSelect: true
+    - name: tensorrt
+      version: "7"
+      autoSelect: true

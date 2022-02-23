@@ -63,6 +63,10 @@ func (c *CustomTransformer) GetStorageUri() *string {
 	return nil
 }
 
+func (c *CustomTransformer) GetStorageSpec() *StorageSpec {
+	return nil
+}
+
 // GetContainers transforms the resource into a container spec
 func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Containers[0]

@@ -54,6 +54,7 @@ func (t *TFServingSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(t.GetStorageUri()),
 		t.validateGPU(),
+		validateStorageSpec(t.GetStorageSpec(), t.GetStorageUri()),
 	})
 }
 
@@ -79,10 +80,6 @@ func (t *TFServingSpec) Default(config *InferenceServicesConfig) {
 		}
 	}
 	setResourceRequirementDefaults(&t.Resources)
-}
-
-func (t *TFServingSpec) GetStorageUri() *string {
-	return t.StorageURI
 }
 
 // GetContainers transforms the resource into a container spec

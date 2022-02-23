@@ -19,10 +19,6 @@ spec:
       env:
         - name: "MLSERVER_MODEL_IMPLEMENTATION"
           value: "{{.Labels.modelClass}}"
-        - name: "MLSERVER_MODEL_NAME"
-          value: "{{.Name}}"
-        - name: "MLSERVER_MODEL_URI"
-          value: "/mnt/models"
         - name: "MLSERVER_HTTP_PORT"
           value: "8080"
         - name: "MLSERVER_GRPC_PORT"
