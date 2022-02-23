@@ -215,7 +215,8 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 			Annotations: isvc.Annotations,
 		},
 		Spec: netv1.IngressSpec{
-			Rules: rules,
+			IngressClassName: ingressConfig.IngressClassName,
+			Rules:            rules,
 		},
 	}
 	if err := controllerutil.SetControllerReference(isvc, ingress, scheme); err != nil {

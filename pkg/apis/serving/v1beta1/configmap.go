@@ -117,12 +117,13 @@ type InferenceServicesConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	IngressGateway          string `json:"ingressGateway,omitempty"`
-	IngressServiceName      string `json:"ingressService,omitempty"`
-	LocalGateway            string `json:"localGateway,omitempty"`
-	LocalGatewayServiceName string `json:"localGatewayService,omitempty"`
-	IngressDomain           string `json:"ingressDomain,omitempty"`
-	DomainTemplate          string `json:"domainTemplate,omitempty"`
+	IngressGateway          string  `json:"ingressGateway,omitempty"`
+	IngressServiceName      string  `json:"ingressService,omitempty"`
+	LocalGateway            string  `json:"localGateway,omitempty"`
+	LocalGatewayServiceName string  `json:"localGatewayService,omitempty"`
+	IngressDomain           string  `json:"ingressDomain,omitempty"`
+	IngressClassName        *string `json:"ingressClassName,omitempty"`
+	DomainTemplate          string  `json:"domainTemplate,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

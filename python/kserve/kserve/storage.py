@@ -51,6 +51,7 @@ _PVC_PREFIX = "/mnt/pvc"
 class Storage(object):  # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
+        uri = Storage._update_with_storage_spec(uri)
         logging.info("Copying contents of %s to local", uri)
 
         if uri.startswith(_PVC_PREFIX) and not os.path.exists(uri):
@@ -89,6 +90,23 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
         logging.info("Successfully copied %s to %s", uri, out_dir)
         return out_dir
+
+    @staticmethod
+    def _update_with_storage_spec(uri: str) -> str:
+        storage_secret_json = json.loads(os.environ.get("STORAGE_CONFIG", "{}"))
+        storage_secret_override_params = json.loads(os.environ.get("STORAGE_OVERRIDE_CONFIG", "{}"))
+        if storage_secret_override_params:
+            for key, value in storage_secret_override_params.items():
+                storage_secret_json[key] = value
+        if storage_secret_json.get("type", "") == "s3":
+            uri = uri.replace("<bucket-placeholder>", storage_secret_json.get("bucket", ""))
+            os.environ["AWS_ENDPOINT_URL"] = storage_secret_json.get("endpoint_url", "")
+            os.environ["AWS_ACCESS_KEY_ID"] = storage_secret_json.get("access_key_id", "")
+            os.environ["AWS_SECRET_ACCESS_KEY"] = storage_secret_json.get("secret_access_key", "")
+            os.environ["AWS_DEFAULT_REGION"] = storage_secret_json.get("region", "")
+            os.environ["AWS_CA_BUNDLE"] = storage_secret_json.get("certificate", "")
+            os.environ["awsAnonymousCredential"] = storage_secret_json.get("anonymous", "")
+        return uri
 
     @staticmethod
     def get_S3_config():

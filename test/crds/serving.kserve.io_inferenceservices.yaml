@@ -1630,6 +1630,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -2185,6 +2198,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -2740,6 +2766,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -5763,6 +5802,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -6340,6 +6392,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -6897,6 +6962,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -7456,6 +7534,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -8007,6 +8098,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -8565,6 +8669,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -9203,6 +9320,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -9756,6 +9886,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -10372,6 +10515,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -11603,6 +11759,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:

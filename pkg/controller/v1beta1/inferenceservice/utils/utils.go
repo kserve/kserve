@@ -36,9 +36,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
+// IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
+// storage uri nor storage spec is set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
-	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
+	return predictor.GetImplementation().IsMMS(isvcConfig) &&
+		predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
 }
 
 func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity, isvcConfig *v1beta1api.InferenceServicesConfig) bool {

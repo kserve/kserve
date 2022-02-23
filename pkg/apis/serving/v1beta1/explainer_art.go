@@ -44,13 +44,6 @@ type ARTExplainerSpec struct {
 
 var _ ComponentImplementation = &ARTExplainerSpec{}
 
-func (s *ARTExplainerSpec) GetStorageUri() *string {
-	if s.StorageURI == "" {
-		return nil
-	}
-	return &s.StorageURI
-}
-
 func (s *ARTExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
 	return &s.Resources
@@ -102,13 +95,6 @@ func (s *ARTExplainerSpec) Default(config *InferenceServicesConfig) {
 		s.RuntimeVersion = proto.String(config.Explainers.ARTExplainer.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&s.Resources)
-}
-
-// Validate the spec
-func (s *ARTExplainerSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(s.GetStorageUri()),
-	})
 }
 
 func (s *ARTExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {

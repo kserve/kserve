@@ -36,6 +36,7 @@ const (
 	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
 	ParallelismLowerBoundExceededError  = "Parallelism cannot be less than 0."
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
+	UnsupportedStorageSpecFormatError   = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported."
 	InvalidLoggerType                   = "Invalid logger type"
 	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 	MaxWorkersShouldBeLessThanMaxError  = "Workers cannot be greater than %d"
@@ -45,9 +46,10 @@ const (
 
 // Constants
 var (
-	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://"}
-	AzureBlobURL                  = "blob.core.windows.net"
-	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
+	SupportedStorageURIPrefixList     = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://"}
+	SupportedStorageSpecURIPrefixList = []string{"s3://"}
+	AzureBlobURL                      = "blob.core.windows.net"
+	AzureBlobURIRegEx                 = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
 // ComponentImplementation interface is implemented by predictor, transformer, and explainer implementations
@@ -57,6 +59,7 @@ type ComponentImplementation interface {
 	Validate() error
 	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container
 	GetStorageUri() *string
+	GetStorageSpec() *StorageSpec
 	GetProtocol() constants.InferenceServiceProtocol
 	IsMMS(config *InferenceServicesConfig) bool
 }
@@ -105,6 +108,31 @@ func (s *ComponentExtensionSpec) Validate() error {
 		validateReplicas(s.MinReplicas, s.MaxReplicas),
 		validateLogger(s.Logger),
 	})
+}
+
+func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
+	if storageSpec == nil {
+		return nil
+	}
+	if storageSpec != nil && storageURI != nil {
+		if utils.IsPrefixSupported(*storageURI, SupportedStorageSpecURIPrefixList) {
+			return nil
+		} else {
+			return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageSpecURIPrefixList, ", "), *storageURI)
+		}
+	}
+	if storageSpec.Parameters != nil {
+		for k, v := range *storageSpec.Parameters {
+			if k == "type" {
+				if utils.IsPrefixSupported(v+"://", SupportedStorageSpecURIPrefixList) {
+					return nil
+				} else {
+					return fmt.Errorf(UnsupportedStorageSpecFormatError, strings.Join(SupportedStorageSpecURIPrefixList, ", "), v)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func validateStorageURI(storageURI *string) error {

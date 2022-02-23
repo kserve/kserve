@@ -51,6 +51,7 @@ func (t *TorchServeSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(t.GetStorageUri()),
 		t.validateGPU(),
+		validateStorageSpec(t.GetStorageSpec(), t.GetStorageUri()),
 	})
 }
 
@@ -115,10 +116,6 @@ func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Co
 	t.Args = append(arguments, t.Args...)
 
 	return &t.Container
-}
-
-func (t *TorchServeSpec) GetStorageUri() *string {
-	return t.StorageURI
 }
 
 func (t *TorchServeSpec) GetProtocol() constants.InferenceServiceProtocol {

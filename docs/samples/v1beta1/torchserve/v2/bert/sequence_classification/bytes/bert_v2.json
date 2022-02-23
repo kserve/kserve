@@ -4,6 +4,7 @@
     "name": "4b7c7d4a-51e4-43c8-af61-04639f6ef4bc",
     "shape": -1,
     "datatype": "BYTES",
-    "data": "this year business is good"
-  }]
+    "data": "{\"text\":\"Bloomberg has decided to publish a new report on the global economy.\", \"target\":1}"
+  }
+  ]
 }
