@@ -54,6 +54,17 @@ popd
 echo "Waiting for istio started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n istio-system
 
+# Necessary since istio is the default ingressClassName in kserve.yaml
+echo "Creating istio ingress class"
+cat <<EOF | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/ingress-controller
+EOF
+
 echo "Installing knative serving ..."
 kubectl apply -f https://github.com/knative/operator/releases/download/${KNATIVE_VERSION}/operator.yaml
 cat <<EOF | kubectl apply -f -
