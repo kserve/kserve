@@ -22,6 +22,7 @@ rules:
   - serving.kserve.io
   resources:
   - inferenceservices
+  - servingruntimes
   verbs:
   - get
   - list
@@ -63,6 +64,7 @@ rules:
   - serving.kserve.io
   resources:
   - inferenceservices
+  - servingruntimes
   verbs:
   - get
   - list
