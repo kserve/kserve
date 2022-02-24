@@ -9,7 +9,7 @@ minio>=4.0.9,<7.0.0
 google-cloud-storage>=1.41.1
 adal>=1.2.2
 table_logger>=0.3.5
-numpy~=1.19.2
+numpy~=1.21.0
 azure-storage-blob==12.8.1
 azure-identity>=1.6.0
 cloudevents>=1.2.0
