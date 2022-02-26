@@ -16,8 +16,8 @@ require (
 	github.com/googleapis/google-cloud-go-testing v0.0.0-20210719221736-1c9a4c676720
 	github.com/json-iterator/go v1.1.11
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.16.0
+	github.com/onsi/ginkgo/v2 v2.1.3
+	github.com/onsi/gomega v1.18.1
 	github.com/pkg/errors v0.9.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.2.1
@@ -81,7 +81,6 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.11.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
@@ -94,7 +93,7 @@ require (
 	golang.org/x/net v0.0.0-20211205041911-012df41ee64c // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881 // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
@@ -105,7 +104,6 @@ require (
 	google.golang.org/grpc v1.42.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a // indirect
