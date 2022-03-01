@@ -17,6 +17,9 @@ limitations under the License.
 package components
 
 import (
+	"fmt"
+	"net/url"
+
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -70,6 +73,11 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 	addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)
 
+	deployConfig, err := v1beta1.NewDeployConfig(p.client)
+	if err != nil {
+		return err
+	}
+
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultTransformerServiceName(isvc.Name),
 		Namespace: isvc.Namespace,
@@ -79,6 +87,33 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		}),
 		Annotations: annotations,
 	}
+
+	// Need to wait for predictor URL in modelmesh deployment mode
+	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.ModelMeshDeployment {
+		// check if predictor URL is populated
+		if isvc.Status.Components["predictor"].URL == nil {
+			// exit transformer reconcile with an error when predictor URL not populated
+			return fmt.Errorf("Predictor URL from ModelMesh is not ready")
+		}
+
+		// add predictor host and protocol to metadata
+		predictorURL, err := url.Parse(isvc.Status.Components["predictor"].URL.String())
+		if err != nil {
+			return fmt.Errorf("unable to parse predictor URL: %v", err)
+		}
+		p.Log.Info("==============Reconciling Transformer26=========", "predictorURL.Host", predictorURL.Host)
+		p.Log.Info("==============Reconciling Transformer26=========", "predictorURL.Scheme", predictorURL.Scheme)
+		isvc.ObjectMeta.Annotations["predictor-host"] = predictorURL.Host
+		if predictorURL.Scheme == "http" {
+			// modelmesh supports v2 only
+			isvc.ObjectMeta.Annotations["predictor-protocol"] = constants.RESTV2
+		} else if predictorURL.Scheme == "grpc" {
+			isvc.ObjectMeta.Annotations["predictor-protocol"] = constants.GRPCV2
+		} else {
+			return fmt.Errorf("Predictor URL Scheme not supported: %v", predictorURL.Scheme)
+		}
+	}
+
 	if len(isvc.Spec.Transformer.PodSpec.Containers) == 0 {
 		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
 		isvc.Spec.Transformer.PodSpec = v1beta1.PodSpec{
@@ -93,10 +128,6 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 
-	deployConfig, err := v1beta1.NewDeployConfig(p.client)
-	if err != nil {
-		return err
-	}
 	// Here we allow switch between knative and vanilla deployment
 	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
 		r, err := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,

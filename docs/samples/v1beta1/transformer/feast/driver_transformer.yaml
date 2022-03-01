@@ -13,15 +13,13 @@ spec:
       - "driver_transformer"
       args:
       - --feast_serving_url
-      - feature-server-service:6566
+      - x.x.x.x:x
       - --entity_ids
       - driver_id
       - --feature_refs
       - driver_hourly_stats:acc_rate
       - driver_hourly_stats:avg_daily_trips
       - driver_hourly_stats:conv_rate
-      - --protocol
-      - v2
   predictor:
     sklearn:
       storageUri: "gs://kfserving-examples/models/feast/driver"

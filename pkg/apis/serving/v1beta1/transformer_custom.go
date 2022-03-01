@@ -24,6 +24,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	pkglogging "knative.dev/pkg/logging"
 )
 
 // CustomTransformer defines arguments for configuring a custom transformer.
@@ -71,9 +72,29 @@ func (c *CustomTransformer) GetStorageSpec() *StorageSpec {
 func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Containers[0]
 	argumentPredictorHost := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
-	mm_service_name := "modelmesh-serving"
-	mm_http_port := "8008"
-	argumentPredictorHost = fmt.Sprintf("%s.%s:%s", mm_service_name, metadata.Namespace, mm_http_port)
+
+	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	logger.Infof("========isvc deploymentMode========>> %s", deploymentMode)
+	if ok && (deploymentMode == string(constants.ModelMeshDeployment)) {
+		mm_service_name := config.ModelMesh.ModelMeshServiceName
+		mm_http_port := config.ModelMesh.ModelMeshHTTPPort
+		argumentPredictorHost = fmt.Sprintf("%s.%s:%d", mm_service_name, metadata.Namespace, mm_http_port)
+		argumentPredictorHost = metadata.Annotations["predictor-host"]
+		argumentPredictorProtocol := metadata.Annotations["predictor-protocol"]
+
+		if utils.IncludesArg(container.Args, "--protocol") {
+			for i := range container.Args {
+				logger.Infof("========container.Args[i]========>> %s", container.Args[i])
+			}
+		} else {
+			logger.Infof("========argumentPredictorProtocol========>> %s", argumentPredictorProtocol)
+			container.Args = append(container.Args, []string{
+				"--protocol",
+				argumentPredictorProtocol,
+			}...)
+		}
+	}
 
 	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{
@@ -81,6 +102,7 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 			metadata.Name,
 		}...)
 	}
+	logger.Infof("========isvc argumentPredictorHost========>> %s", argumentPredictorHost)
 	if !utils.IncludesArg(container.Args, constants.ArgumentPredictorHost) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentPredictorHost,
