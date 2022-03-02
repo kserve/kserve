@@ -32,7 +32,7 @@ done
 
 export ISTIO_VERSION=1.9.0
 export KNATIVE_VERSION=knative-v1.0.0
-export KSERVE_VERSION=v0.8.0-rc0
+export KSERVE_VERSION=v0.8.0
 export CERT_MANAGER_VERSION=v1.3.0
 
 KUBE_VERSION=$(kubectl version --short=true)
@@ -104,5 +104,8 @@ if [ ${KSERVE_VERSION:3:1} -gt 6 ]; then KSERVE_CONFIG=kserve.yaml; fi
 
 # Retry inorder to handle that it may take a minute or so for the TLS assets required for the webhook to function to be provisioned
 for i in 1 2 3 4 5 ; do kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/${KSERVE_CONFIG} && break || sleep 15; done
+# Install KServe built-in servingruntimes
+kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml
 # Clean up
 rm -rf istio-${ISTIO_VERSION}
