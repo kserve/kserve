@@ -93,7 +93,7 @@ you saved from your training environment, however you can build your own SKLearn
 ).
 
 To use your SKLearnServer image:
-- Add the image to the KServe [configmap](../../../config/configmap/inferenceservice.yaml)
+- Add the image to the KServe [configmap](../../../../../config/configmap/inferenceservice.yaml)
 ```yaml
         "sklearn": {
             "image": "<your-dockerhub-id>/kfserving/sklearnserver",
