@@ -6,12 +6,19 @@ spec:
   supportedModelFormats:
     - name: sklearn
       version: "0"
+      protocolVersion: v2
+      autoSelect: true
     - name: xgboost
       version: "1"
+      protocolVersion: v2
+      autoSelect: true
     - name: lightgbm
       version: "3"
+      protocolVersion: v2
+      autoSelect: true
     - name: mlflow
       version: "1"
+      protocolVersion: v2
       autoSelect: true
   containers:
     - name: kserve-container

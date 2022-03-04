@@ -6,9 +6,11 @@ spec:
   supportedModelFormats:
     - name: pmml
       version: "3"
+      protocolVersion: v1
       autoSelect: true
     - name: pmml
       version: "4"
+      protocolVersion: v1
       autoSelect: true
   containers:
     - name: kserve-container

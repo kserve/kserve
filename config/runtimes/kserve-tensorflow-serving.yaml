@@ -6,9 +6,11 @@ spec:
   supportedModelFormats:
     - name: tensorflow
       version: "1"
+      protocolVersion: v1
       autoSelect: true
     - name: tensorflow
       version: "2"
+      protocolVersion: v1
       autoSelect: true
   containers:
     - name: kserve-container

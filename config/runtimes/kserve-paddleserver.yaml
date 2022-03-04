@@ -6,6 +6,7 @@ spec:
   supportedModelFormats:
     - name: paddle
       version: "2"
+      protocolVersion: v1
       autoSelect: true
   containers:
     - name: kserve-container

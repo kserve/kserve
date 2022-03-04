@@ -6,6 +6,11 @@ spec:
   supportedModelFormats:
     - name: pytorch
       version: "1"
+      protocolVersion: v1
+      autoSelect: true
+    - name: pytorch
+      version: "1"
+      protocolVersion: v2
       autoSelect: true
   containers:
     - name: kserve-container
