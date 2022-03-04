@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"regexp"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -186,7 +187,12 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
 	image := container.Image
 	if runtimeVersion != nil && len(strings.Split(image, ":")) > 0 {
-		container.Image = strings.Split(image, ":")[0] + ":" + *runtimeVersion
+		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+		if len(re.FindString(image)) == 0 {
+			container.Image = image + ":" + *runtimeVersion
+		} else {
+			container.Image = re.ReplaceAllString(image, ":" + *runtimeVersion)
+		}
 		return
 	}
 	if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
