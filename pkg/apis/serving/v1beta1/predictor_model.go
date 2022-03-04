@@ -100,7 +100,7 @@ func (ss stringSet) contains(s string) bool {
 // GetSupportingRuntimes Get a list of ServingRuntimeSpecs that correspond to ServingRuntimes and ClusterServingRuntimes that
 // support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
-func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.ServingRuntimeSpec, error) {
+func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) (map[string]v1alpha1.ServingRuntimeSpec, error) {
 
 	// List all namespace-scoped runtimes.
 	runtimes := &v1alpha1.ServingRuntimeList{}
@@ -114,18 +114,18 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 		return nil, err
 	}
 
-	srSpecs := make([]v1alpha1.ServingRuntimeSpec, 0, len(runtimes.Items)+len(clusterRuntimes.Items))
+	srSpecs := make(map[string]v1alpha1.ServingRuntimeSpec, len(runtimes.Items)+len(clusterRuntimes.Items))
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
 		if !rt.Spec.IsDisabled() && rt.Spec.IsMultiModelRuntime() == isMMS && m.RuntimeSupportsModel(&rt.Spec) {
-			srSpecs = append(srSpecs, rt.Spec)
+			srSpecs[rt.GetName()] = rt.Spec
 		}
 	}
 
 	for i := range clusterRuntimes.Items {
 		crt := &clusterRuntimes.Items[i]
 		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS && m.RuntimeSupportsModel(&crt.Spec) {
-			srSpecs = append(srSpecs, crt.Spec)
+			srSpecs[crt.GetName()] = crt.Spec
 		}
 	}
 	return srSpecs, nil
@@ -141,11 +141,15 @@ func (m *ModelSpec) RuntimeSupportsModel(srSpec *v1alpha1.ServingRuntimeSpec) bo
 }
 
 func (m *ModelSpec) getModelFormatLabel() string {
+	pv := constants.ProtocolV1
+	if m.ProtocolVersion != nil {
+		pv = *m.ProtocolVersion
+	}
 	mt := m.ModelFormat
 	if mt.Version != nil {
-		return "mt:" + mt.Name + ":" + *mt.Version
+		return "mt:" + mt.Name + ":" + *mt.Version + ":" + string(pv)
 	}
-	return "mt:" + mt.Name
+	return "mt:" + mt.Name + ":" + string(pv)
 }
 
 func (m *ModelSpec) getServingRuntimeSupportedModelFormatLabelSet(supportedModelFormats []v1alpha1.SupportedModelFormat) stringSet {
@@ -155,9 +159,9 @@ func (m *ModelSpec) getServingRuntimeSupportedModelFormatLabelSet(supportedModel
 	for _, t := range supportedModelFormats {
 		// If runtime isn't explicitly set, only add labels for modelFormats where AutoSelect is true.
 		if m.Runtime != nil || (t.AutoSelect != nil && *t.AutoSelect) {
-			set.add("mt:" + t.Name)
+			set.add("mt:" + t.Name + ":" + string(t.ProtocolVersion))
 			if t.Version != nil {
-				set.add("mt:" + t.Name + ":" + *t.Version)
+				set.add("mt:" + t.Name + ":" + *t.Version + ":" + string(t.ProtocolVersion))
 			}
 		}
 	}

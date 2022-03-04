@@ -191,8 +191,10 @@ const (
 
 // InferenceService protocol enums
 const (
-	ProtocolV1 InferenceServiceProtocol = "v1"
-	ProtocolV2 InferenceServiceProtocol = "v2"
+	ProtocolV1     InferenceServiceProtocol = "v1"
+	ProtocolV2     InferenceServiceProtocol = "v2"
+	ProtocolGRPCV1 InferenceServiceProtocol = "grpc-v1"
+	ProtocolGRPCV2 InferenceServiceProtocol = "grpc-v2"
 )
 
 // InferenceService Endpoint Ports

@@ -673,6 +673,8 @@ spec:
                       type: boolean
                     name:
                       type: string
+                    protocolVersion:
+                      type: string
                     version:
                       type: string
                   required:

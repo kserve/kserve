@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/kserve/kserve/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -31,6 +32,9 @@ type SupportedModelFormat struct {
 	// Can be "major", "major.minor" or "major.minor.patch".
 	// +optional
 	Version *string `json:"version,omitempty"`
+	// Supported protocol version (i.e. v1, v2, grpc-v1 or grpc-v2).
+	// +optional
+	ProtocolVersion constants.InferenceServiceProtocol `json:"protocolVersion,omitempty"`
 	// Set to true to allow the ServingRuntime to be used for automatic model placement if
 	// this model format is specified with no explicit runtime.
 	// +optional

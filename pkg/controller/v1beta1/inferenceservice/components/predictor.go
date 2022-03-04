@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/gogo/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
@@ -113,7 +114,19 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 				return fmt.Errorf("no runtime found to support predictor with model type: %v", isvc.Spec.Predictor.Model.ModelFormat)
 			}
 			// Get first supporting runtime.
-			sRuntime = runtimes[0]
+			for rtName, rtSpec := range runtimes {
+				sRuntime = rtSpec
+				isvc.Spec.Predictor.Model.Runtime = proto.String(rtName)
+				break
+			}
+		}
+		// add mlserver specific default values
+		if *isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
+			isvc.SetMlServerDefaults()
+		}
+		// add torchserve specific default values
+		if *isvc.Spec.Predictor.Model.Runtime == constants.TorchServe {
+			isvc.SetTorchServeDefaults()
 		}
 		if len(sRuntime.Containers) == 0 {
 			return errors.New("no container configuration found in selected serving runtime")

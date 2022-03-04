@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,14 +36,18 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	sklearnRuntime := "sklearn-runtime"
 	pmmlRuntime := "pmml-runtime"
 	mlserverRuntime := "mlserver-runtime"
+	clusterPrefix := "cluster-"
+	protocolV2 := constants.ProtocolV2
+	protocolV1 := constants.ProtocolV1
 
 	servingRuntimeSpecs := map[string]v1alpha1.ServingRuntimeSpec{
 		tfRuntime: {
 			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
-					Name:       "tensorflow",
-					Version:    proto.String("1"),
-					AutoSelect: proto.Bool(true),
+					Name:            "tensorflow",
+					Version:         proto.String("1"),
+					ProtocolVersion: "v1",
+					AutoSelect:      proto.Bool(true),
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
@@ -58,9 +63,10 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		sklearnRuntime: {
 			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
-					Name:       "sklearn",
-					Version:    proto.String("0"),
-					AutoSelect: proto.Bool(true),
+					Name:            "sklearn",
+					Version:         proto.String("0"),
+					ProtocolVersion: "v1",
+					AutoSelect:      proto.Bool(true),
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
@@ -76,8 +82,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		pmmlRuntime: {
 			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
-					Name:    "pmml",
-					Version: proto.String("4"),
+					Name:            "pmml",
+					ProtocolVersion: "v1",
+					Version:         proto.String("4"),
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
@@ -93,9 +100,10 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		mlserverRuntime: {
 			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
-					Name:       "sklearn",
-					Version:    proto.String("0"),
-					AutoSelect: proto.Bool(true),
+					Name:            "sklearn",
+					Version:         proto.String("0"),
+					ProtocolVersion: "v2",
+					AutoSelect:      proto.Bool(true),
 				},
 				{
 					Name:    "xgboost",
@@ -150,13 +158,13 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		Items: []v1alpha1.ClusterServingRuntime{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: mlserverRuntime,
+					Name: clusterPrefix + mlserverRuntime,
 				},
 				Spec: servingRuntimeSpecs[mlserverRuntime],
 			},
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: tfRuntime,
+					Name: clusterPrefix + tfRuntime,
 				},
 				Spec: servingRuntimeSpecs[tfRuntime],
 			},
@@ -167,7 +175,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	scenarios := map[string]struct {
 		spec     *ModelSpec
 		isMMS    bool
-		expected []v1alpha1.ServingRuntimeSpec
+		expected map[string]v1alpha1.ServingRuntimeSpec
 	}{
 		"BothClusterAndNamespaceRuntimesSupportModel": {
 			spec: &ModelSpec{
@@ -179,7 +187,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: []v1alpha1.ServingRuntimeSpec{servingRuntimeSpecs[tfRuntime], servingRuntimeSpecs[tfRuntime]},
+			expected: map[string]v1alpha1.ServingRuntimeSpec{tfRuntime: servingRuntimeSpecs[tfRuntime], clusterPrefix + tfRuntime: servingRuntimeSpecs[tfRuntime]},
 		},
 		"RuntimeNotFound": {
 			spec: &ModelSpec{
@@ -191,7 +199,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: []v1alpha1.ServingRuntimeSpec{},
+			expected: make(map[string]v1alpha1.ServingRuntimeSpec),
 		},
 		"ModelFormatWithDisabledRuntimeSpecified": {
 			spec: &ModelSpec{
@@ -203,7 +211,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: []v1alpha1.ServingRuntimeSpec{},
+			expected: make(map[string]v1alpha1.ServingRuntimeSpec),
 		},
 		"ModelMeshCompatibleRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
@@ -211,11 +219,12 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					Name: "sklearn",
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{
-					StorageURI: &storageUri,
+					StorageURI:      &storageUri,
+					ProtocolVersion: &protocolV2,
 				},
 			},
 			isMMS:    true,
-			expected: []v1alpha1.ServingRuntimeSpec{servingRuntimeSpecs[mlserverRuntime]},
+			expected: map[string]v1alpha1.ServingRuntimeSpec{clusterPrefix + mlserverRuntime: servingRuntimeSpecs[mlserverRuntime]},
 		},
 		"SMSRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
@@ -223,11 +232,12 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					Name: "sklearn",
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{
-					StorageURI: &storageUri,
+					StorageURI:      &storageUri,
+					ProtocolVersion: &protocolV1,
 				},
 			},
 			isMMS:    false,
-			expected: []v1alpha1.ServingRuntimeSpec{servingRuntimeSpecs[sklearnRuntime]},
+			expected: map[string]v1alpha1.ServingRuntimeSpec{sklearnRuntime: servingRuntimeSpecs[sklearnRuntime]},
 		},
 	}
 
