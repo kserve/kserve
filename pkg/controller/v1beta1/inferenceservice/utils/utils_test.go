@@ -1551,6 +1551,62 @@ func TestUpdateImageTag(t *testing.T) {
 			isvcConfig:     &config,
 			expected:       "tfserving:1.14.0-gpu",
 		},
+		"UpdateRuntimeVersionWithProxy": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "localhost:8888/tfserving",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: proto.String("2.6.2"),
+			isvcConfig:     &config,
+			expected:       "localhost:8888/tfserving:2.6.2",
+		},
+		"UpdateRuntimeVersionWithProxyAndTag": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "localhost:8888/tfserving:1.2.3",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: proto.String("2.6.2"),
+			isvcConfig:     &config,
+			expected:       "localhost:8888/tfserving:2.6.2",
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
