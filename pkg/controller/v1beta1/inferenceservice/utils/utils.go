@@ -186,7 +186,7 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
 func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
 	image := container.Image
-	if runtimeVersion != nil && len(strings.Split(image, ":")) > 0 {
+	if runtimeVersion != nil {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
 		if len(re.FindString(image)) == 0 {
 			container.Image = image + ":" + *runtimeVersion
