@@ -85,7 +85,7 @@ func TestTensorflowValidation(t *testing.T) {
 			spec: PredictorSpec{
 				Tensorflow: &TFServingSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("s3://modelzoo"),
+						StorageURI: proto.String("hdfs://modelzoo"),
 					},
 				},
 			},
@@ -95,7 +95,7 @@ func TestTensorflowValidation(t *testing.T) {
 			spec: PredictorSpec{
 				Tensorflow: &TFServingSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
+						StorageURI: proto.String("invaliduri://modelzoo"),
 					},
 				},
 			},

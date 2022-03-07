@@ -60,7 +60,7 @@ func TestLightGBMValidation(t *testing.T) {
 			spec: PredictorSpec{
 				LightGBM: &LightGBMSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
+						StorageURI: proto.String("invaliduri://modelzoo"),
 					},
 				},
 			},

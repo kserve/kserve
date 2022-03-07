@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import glob
 import gzip
 import logging
@@ -22,6 +23,7 @@ import json
 import shutil
 import tarfile
 import tempfile
+from typing import Dict
 import zipfile
 from urllib.parse import urlparse
 import requests
@@ -39,6 +41,7 @@ from kserve.model_repository import MODEL_MOUNT_DIRS
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
+_HDFS_PREFIX = "hdfs://"
 _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _ACCOUNT_RE = "https://(.+?).blob.core.windows.net"
 _LOCAL_PREFIX = "file://"
@@ -47,11 +50,14 @@ _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 
+_HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
+_HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
+
 
 class Storage(object):  # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
-        uri = Storage._update_with_storage_spec(uri)
+        Storage._update_with_storage_spec()
         logging.info("Copying contents of %s to local", uri)
 
         if uri.startswith(_PVC_PREFIX) and not os.path.exists(uri):
@@ -73,6 +79,8 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             Storage._download_gcs(uri, out_dir)
         elif uri.startswith(_S3_PREFIX):
             Storage._download_s3(uri, out_dir)
+        elif uri.startswith(_HDFS_PREFIX):
+            Storage._download_hdfs(uri, out_dir)
         elif re.search(_BLOB_RE, uri):
             Storage._download_blob(uri, out_dir)
         elif is_local:
@@ -92,21 +100,35 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         return out_dir
 
     @staticmethod
-    def _update_with_storage_spec(uri: str) -> str:
+    def _update_with_storage_spec():
         storage_secret_json = json.loads(os.environ.get("STORAGE_CONFIG", "{}"))
         storage_secret_override_params = json.loads(os.environ.get("STORAGE_OVERRIDE_CONFIG", "{}"))
         if storage_secret_override_params:
             for key, value in storage_secret_override_params.items():
                 storage_secret_json[key] = value
+
         if storage_secret_json.get("type", "") == "s3":
-            uri = uri.replace("<bucket-placeholder>", storage_secret_json.get("bucket", ""))
             os.environ["AWS_ENDPOINT_URL"] = storage_secret_json.get("endpoint_url", "")
             os.environ["AWS_ACCESS_KEY_ID"] = storage_secret_json.get("access_key_id", "")
             os.environ["AWS_SECRET_ACCESS_KEY"] = storage_secret_json.get("secret_access_key", "")
             os.environ["AWS_DEFAULT_REGION"] = storage_secret_json.get("region", "")
             os.environ["AWS_CA_BUNDLE"] = storage_secret_json.get("certificate", "")
             os.environ["awsAnonymousCredential"] = storage_secret_json.get("anonymous", "")
-        return uri
+
+        if storage_secret_json.get("type", "") == "hdfs":
+            temp_dir = tempfile.mkdtemp()
+            os.environ["HDFS_SECRET_DIR"] = temp_dir
+            for key, value in storage_secret_json.items():
+                mode = "w"
+
+                # If the secret is supposed to be a file, then it was base64 encoded in the json
+                if key in _HDFS_FILE_SECRETS:
+                    value = base64.b64decode(value)
+                    mode = "wb"
+
+                with open(f"{temp_dir}/{key}", mode) as f:
+                    f.write(value)
+                    f.flush()
 
     @staticmethod
     def get_S3_config():
@@ -211,6 +233,104 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             mimetype, _ = mimetypes.guess_type(blob.name)
             if mimetype in ["application/x-tar", "application/zip"]:
                 Storage._unpack_archive_file(dest_path, mimetype, temp_dir)
+
+    @staticmethod
+    def _load_hdfs_configuration() -> Dict:
+        config = {
+            "HDFS_NAMENODE": None,
+            "USER_PROXY": None,
+            "HDFS_ROOTPATH": None,
+            "TLS_CERT": None,
+            "TLS_KEY": None,
+            "TLS_CA": None,
+            "TLS_SKIP_VERIFY": "false",
+            "HEADERS": None,
+            "N_THREADS": "2",
+            "KERBEROS_KEYTAB": None,
+            "KERBEROS_PRINCIPAL": None,
+        }
+
+        secret_dir = _HDFS_SECRET_DIRECTORY
+        if os.environ.get("HDFS_SECRET_DIR"):
+            secret_dir = os.environ["HDFS_SECRET_DIR"]
+
+        for filename in os.listdir(secret_dir):
+            if filename not in config:
+                continue
+
+            # We don't read files which are supposed to be files, just save their path
+            if filename in _HDFS_FILE_SECRETS:
+                config[filename] = f"{secret_dir}/{filename}"
+                continue
+
+            # Read file and save value in config dict
+            with open(f"{secret_dir}/{filename}") as f:
+                config[filename] = f.read()
+
+        return config
+
+    @staticmethod
+    def _download_hdfs(uri, out_dir: str):
+        from krbcontext.context import krbContext
+        from hdfs.ext.kerberos import Client, KerberosClient
+        from hdfs.util import HdfsError
+
+        config = Storage._load_hdfs_configuration()
+
+        logging.info(f"Using the following hdfs config\n{config}")
+
+        # Remove hdfs:// from the uri to get just the path
+        # hdfs://user/me/model -> user/me/model
+        path = uri[len(_HDFS_PREFIX):]
+        if not config["HDFS_ROOTPATH"]:
+            path = "/" + path
+
+        s = requests.Session()
+
+        if config["TLS_CERT"]:
+            s.cert = (config["TLS_CERT"], config["TLS_KEY"])
+        # s.verify = , True, False, or CA PATH
+        if config["TLS_CA"]:
+            s.verify = config["TLS_CA"]
+        if config["TLS_SKIP_VERIFY"].lower() == "true":
+            s.verify = False
+
+        if config["HEADERS"]:
+            headers = json.loads(config["HEADERS"])
+            s.headers.update(headers)
+
+        if config["KERBEROS_PRINCIPAL"]:
+            context = krbContext(
+                using_keytab=True,
+                principal=config["KERBEROS_PRINCIPAL"],
+                keytab_file=config["KERBEROS_KEYTAB"]
+            )
+            context.init_with_keytab()
+            client = KerberosClient(
+                config["HDFS_NAMENODE"],
+                proxy=config["USER_PROXY"],
+                root=config["HDFS_ROOTPATH"],
+                session=s
+            )
+        else:
+            client = Client(
+                config["HDFS_NAMENODE"],
+                proxy=config["USER_PROXY"],
+                root=config["HDFS_ROOTPATH"],
+                session=s
+            )
+
+        # Check path exists
+        # Raises HdfsError when path does not exist
+        client.status(path)
+
+        try:
+            files = client.list(path)
+            for f in files:
+                client.download(f"{path}/{f}", out_dir, n_threads=int(config["N_THREADS"]))
+        except HdfsError:
+            # client.list raises exception when path is a file
+            client.download(path, out_dir, n_threads=1)
 
     @staticmethod
     def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals

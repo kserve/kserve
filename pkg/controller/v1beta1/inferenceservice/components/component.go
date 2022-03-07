@@ -49,7 +49,7 @@ func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map
 	}
 	if storageSpec.Path != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] =
-			fmt.Sprintf("%s://<bucket-placeholder>/%s", credentials.UriSchemePlaceholder,
+			fmt.Sprintf("%s://%s", credentials.UriSchemePlaceholder,
 				strings.TrimPrefix(*storageSpec.Path, "/"))
 	}
 	return true

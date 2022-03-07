@@ -61,7 +61,7 @@ func TestXGBoostValidation(t *testing.T) {
 			spec: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
+						StorageURI: proto.String("invaliduri://modelzoo"),
 					},
 				},
 			},

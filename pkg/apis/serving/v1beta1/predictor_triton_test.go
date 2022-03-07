@@ -60,7 +60,7 @@ func TestTritonValidation(t *testing.T) {
 			spec: PredictorSpec{
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
+						StorageURI: proto.String("invaliduri://modelzoo"),
 					},
 				},
 			},
