@@ -128,6 +128,10 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		if *isvc.Spec.Predictor.Model.Runtime == constants.TorchServe {
 			isvc.SetTorchServeDefaults()
 		}
+		// add triton specific default values
+		if *isvc.Spec.Predictor.Model.Runtime == constants.TritonServer {
+			isvc.SetTritonDefaults()
+		}
 		if len(sRuntime.Containers) == 0 {
 			return errors.New("no container configuration found in selected serving runtime")
 		}

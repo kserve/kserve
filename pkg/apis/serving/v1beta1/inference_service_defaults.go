@@ -198,9 +198,10 @@ func (isvc *InferenceService) assignPyTorchRuntime() {
 func (isvc *InferenceService) assignTritonRuntime() {
 	// assign built-in runtime
 	var runtime = constants.TritonServer
-	if isvc.Spec.Predictor.Triton.StorageURI == nil {
-		isvc.Spec.Predictor.Triton.Args = append(isvc.Spec.Predictor.Triton.Args,
-			fmt.Sprintf("%s=%s", "--model-control-mode", "explicit"))
+	// assign protocol version 'v2' if not provided for backward compatibility
+	if isvc.Spec.Predictor.Triton.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.Triton.ProtocolVersion = &protocolV2
 	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelTriton},
@@ -318,5 +319,13 @@ func (isvc *InferenceService) SetTorchServeDefaults() {
 	if isvc.Spec.Predictor.Model.ProtocolVersion != nil &&
 		constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion {
 		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
+	}
+}
+
+func (isvc *InferenceService) SetTritonDefaults() {
+	// set model-control-model arg to 'explicit' if storage uri is nil
+	if isvc.Spec.Predictor.Model.StorageURI == nil {
+		isvc.Spec.Predictor.Model.Args = append(isvc.Spec.Predictor.Model.Args,
+			fmt.Sprintf("%s=%s", "--model-control-mode", "explicit"))
 	}
 }
