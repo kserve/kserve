@@ -36,7 +36,7 @@ func GenerateDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1bet
 
 	buf := bytes.Buffer{}
 	if err := tpl.Execute(&buf, values); err != nil {
-		return "", fmt.Errorf("error generating domain tempalte: %w", err)
+		return "", fmt.Errorf("error rendering the domain template: %w", err)
 	}
 
 	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
