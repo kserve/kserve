@@ -134,15 +134,9 @@ func (isvc *InferenceService) assignSKLearnRuntime() {
 		defaultProtocol := constants.ProtocolV1
 		isvc.Spec.Predictor.SKLearn.ProtocolVersion = &defaultProtocol
 	}
-	var runtime = constants.SKLearnServer
-	if isvc.Spec.Predictor.SKLearn.ProtocolVersion != nil &&
-		constants.ProtocolV2 == *isvc.Spec.Predictor.SKLearn.ProtocolVersion {
-		runtime = constants.MLServer
-	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelSKLearn},
 		PredictorExtensionSpec: isvc.Spec.Predictor.SKLearn.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove sklearn spec
 	isvc.Spec.Predictor.SKLearn = nil
@@ -154,11 +148,9 @@ func (isvc *InferenceService) assignTensorflowRuntime() {
 		defaultProtocol := constants.ProtocolV1
 		isvc.Spec.Predictor.Tensorflow.ProtocolVersion = &defaultProtocol
 	}
-	var runtime = constants.TFServing
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelTensorflow},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Tensorflow.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove tensorflow spec
 	isvc.Spec.Predictor.Tensorflow = nil
@@ -170,34 +162,24 @@ func (isvc *InferenceService) assignXGBoostRuntime() {
 		defaultProtocol := constants.ProtocolV1
 		isvc.Spec.Predictor.XGBoost.ProtocolVersion = &defaultProtocol
 	}
-	var runtime = constants.XGBServer
-	if isvc.Spec.Predictor.XGBoost.ProtocolVersion != nil &&
-		constants.ProtocolV2 == *isvc.Spec.Predictor.XGBoost.ProtocolVersion {
-		runtime = constants.MLServer
-	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelXGBoost},
 		PredictorExtensionSpec: isvc.Spec.Predictor.XGBoost.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove xgboost spec
 	isvc.Spec.Predictor.XGBoost = nil
 }
 
 func (isvc *InferenceService) assignPyTorchRuntime() {
-	runtime := constants.TorchServe
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelPyTorch},
 		PredictorExtensionSpec: isvc.Spec.Predictor.PyTorch.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove pytorch spec
 	isvc.Spec.Predictor.PyTorch = nil
 }
 
 func (isvc *InferenceService) assignTritonRuntime() {
-	// assign built-in runtime
-	var runtime = constants.TritonServer
 	// assign protocol version 'v2' if not provided for backward compatibility
 	if isvc.Spec.Predictor.Triton.ProtocolVersion == nil {
 		protocolV2 := constants.ProtocolV2
@@ -206,19 +188,21 @@ func (isvc *InferenceService) assignTritonRuntime() {
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelTriton},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Triton.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove triton spec
 	isvc.Spec.Predictor.Triton = nil
 }
 
 func (isvc *InferenceService) assignONNXRuntime() {
+	// assign protocol version 'v2' if not provided for backward compatibility
+	if isvc.Spec.Predictor.ONNX.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.ONNX.ProtocolVersion = &protocolV2
+	}
 	// assign built-in runtime
-	var runtime = constants.TritonServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelONNX},
 		PredictorExtensionSpec: isvc.Spec.Predictor.ONNX.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove onnx spec
 	isvc.Spec.Predictor.ONNX = nil
@@ -230,11 +214,9 @@ func (isvc *InferenceService) assignPMMLRuntime() {
 		defaultProtocol := constants.ProtocolV1
 		isvc.Spec.Predictor.PMML.ProtocolVersion = &defaultProtocol
 	}
-	var runtime = constants.PMMLServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelPMML},
 		PredictorExtensionSpec: isvc.Spec.Predictor.PMML.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove pmml spec
 	isvc.Spec.Predictor.PMML = nil
@@ -246,11 +228,9 @@ func (isvc *InferenceService) assignLightGBMRuntime() {
 		defaultProtocol := constants.ProtocolV1
 		isvc.Spec.Predictor.LightGBM.ProtocolVersion = &defaultProtocol
 	}
-	var runtime = constants.LGBServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelLightGBM},
 		PredictorExtensionSpec: isvc.Spec.Predictor.LightGBM.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove lightgbm spec
 	isvc.Spec.Predictor.LightGBM = nil
@@ -262,11 +242,9 @@ func (isvc *InferenceService) assignPaddleRuntime() {
 		defaultProtocol := constants.ProtocolV1
 		isvc.Spec.Predictor.Paddle.ProtocolVersion = &defaultProtocol
 	}
-	var runtime = constants.PaddleServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelPaddle},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Paddle.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove paddle spec
 	isvc.Spec.Predictor.Paddle = nil

@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/gogo/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
@@ -116,7 +115,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			// Get first supporting runtime.
 			for rtName, rtSpec := range runtimes {
 				sRuntime = rtSpec
-				isvc.Spec.Predictor.Model.Runtime = proto.String(rtName)
+				isvc.Spec.Predictor.Model.Runtime = &rtName
 				break
 			}
 		}
