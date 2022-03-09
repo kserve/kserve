@@ -52,28 +52,41 @@ func NewHPAReconciler(client client.Client,
 	}
 }
 
-func getHPAMetrics(metadata metav1.ObjectMeta) []v2beta2.MetricSpec {
+func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) []v2beta2.MetricSpec {
 	var metrics []v2beta2.MetricSpec
-	var cpuUtilization int32
+	var utilization int32
 	annotations := metadata.Annotations
 
+	resourceName := corev1.ResourceCPU
+
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
-		utilization, _ := strconv.Atoi(value)
-		cpuUtilization = int32(utilization)
+		utilizationInt, _ := strconv.Atoi(value)
+		utilization = int32(utilizationInt)
 	} else {
-		cpuUtilization = constants.DefaultCPUUtilization
+		utilization = constants.DefaultCPUUtilization
+	}
+
+	if componentExt.ScaleTarget != nil {
+		utilization = int32(*componentExt.ScaleTarget)
+	}
+
+	if componentExt.ScaleMetric != nil {
+		resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
+	}
+
+	metricTarget := v2beta2.MetricTarget{
+		Type:               "Utilization",
+		AverageUtilization: &utilization,
 	}
 
 	ms := v2beta2.MetricSpec{
 		Type: v2beta2.ResourceMetricSourceType,
 		Resource: &v2beta2.ResourceMetricSource{
-			Name: corev1.ResourceCPU,
-			Target: v2beta2.MetricTarget{
-				Type:               "Utilization",
-				AverageUtilization: &cpuUtilization,
-			},
+			Name:   resourceName,
+			Target: metricTarget,
 		},
 	}
+
 	metrics = append(metrics, ms)
 	return metrics
 }
@@ -91,7 +104,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas
 	}
-	metrics := getHPAMetrics(componentMeta)
+	metrics := getHPAMetrics(componentMeta, componentExt)
 	hpa := &v2beta2.HorizontalPodAutoscaler{
 		ObjectMeta: componentMeta,
 		Spec: v2beta2.HorizontalPodAutoscalerSpec{
@@ -102,8 +115,9 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			},
 			MinReplicas: &minReplicas,
 			MaxReplicas: maxReplicas,
-			Metrics:     metrics,
-			Behavior:    &v2beta2.HorizontalPodAutoscalerBehavior{},
+
+			Metrics:  metrics,
+			Behavior: &v2beta2.HorizontalPodAutoscalerBehavior{},
 		},
 	}
 	return hpa

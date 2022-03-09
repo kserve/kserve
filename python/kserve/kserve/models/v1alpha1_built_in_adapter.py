@@ -182,7 +182,7 @@ class V1alpha1BuiltInAdapter(object):
     def server_type(self):
         """Gets the server_type of this V1alpha1BuiltInAdapter.  # noqa: E501
 
-        ServerType can be one of triton/mlserver and the runtime's container must have the same name  # noqa: E501
+        ServerType must be one of the supported built-in types such as \"triton\" or \"mlserver\", and the runtime's container must have the same name  # noqa: E501
 
         :return: The server_type of this V1alpha1BuiltInAdapter.  # noqa: E501
         :rtype: str
@@ -193,7 +193,7 @@ class V1alpha1BuiltInAdapter(object):
     def server_type(self, server_type):
         """Sets the server_type of this V1alpha1BuiltInAdapter.
 
-        ServerType can be one of triton/mlserver and the runtime's container must have the same name  # noqa: E501
+        ServerType must be one of the supported built-in types such as \"triton\" or \"mlserver\", and the runtime's container must have the same name  # noqa: E501
 
         :param server_type: The server_type of this V1alpha1BuiltInAdapter.  # noqa: E501
         :type: str

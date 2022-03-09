@@ -50,17 +50,19 @@ class V1alpha1ServingRuntimePodSpec(object):
         'affinity': 'V1Affinity',
         'containers': 'list[V1Container]',
         'node_selector': 'dict(str, str)',
-        'tolerations': 'list[V1Toleration]'
+        'tolerations': 'list[V1Toleration]',
+        'volumes': 'list[V1Volume]'
     }
 
     attribute_map = {
         'affinity': 'affinity',
         'containers': 'containers',
         'node_selector': 'nodeSelector',
-        'tolerations': 'tolerations'
+        'tolerations': 'tolerations',
+        'volumes': 'volumes'
     }
 
-    def __init__(self, affinity=None, containers=None, node_selector=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, containers=None, node_selector=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimePodSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -70,6 +72,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         self._containers = None
         self._node_selector = None
         self._tolerations = None
+        self._volumes = None
         self.discriminator = None
 
         if affinity is not None:
@@ -79,6 +82,8 @@ class V1alpha1ServingRuntimePodSpec(object):
             self.node_selector = node_selector
         if tolerations is not None:
             self.tolerations = tolerations
+        if volumes is not None:
+            self.volumes = volumes
 
     @property
     def affinity(self):
@@ -171,6 +176,29 @@ class V1alpha1ServingRuntimePodSpec(object):
         """
 
         self._tolerations = tolerations
+
+    @property
+    def volumes(self):
+        """Gets the volumes of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes  # noqa: E501
+
+        :return: The volumes of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: list[V1Volume]
+        """
+        return self._volumes
+
+    @volumes.setter
+    def volumes(self, volumes):
+        """Sets the volumes of this V1alpha1ServingRuntimePodSpec.
+
+        List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes  # noqa: E501
+
+        :param volumes: The volumes of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: list[V1Volume]
+        """
+
+        self._volumes = volumes
 
     def to_dict(self):
         """Returns the model properties as a dict"""
