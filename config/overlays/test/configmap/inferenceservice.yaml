@@ -159,7 +159,8 @@ data:
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
         "localGateway": "knative-serving/knative-local-gateway",
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
-        "ingressClassName" : "istio"
+        "ingressClassName" : "istio",
+        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
     }
   logger: |-
     {

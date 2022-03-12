@@ -17,9 +17,12 @@ limitations under the License.
 package raw
 
 import (
+	"fmt"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
 	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,31 +52,36 @@ func NewRawKubeReconciler(client client.Client,
 	if err != nil {
 		return nil, err
 	}
+
+	url, err := createRawURL(client, componentMeta)
+	if err != nil {
+		return nil, err
+	}
+
 	return &RawKubeReconciler{
 		client:     client,
 		scheme:     scheme,
 		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, componentExt, podSpec),
 		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec),
 		Scaler:     as,
-		URL:        createRawURL(client, componentMeta),
+		URL:        url,
 	}, nil
 }
 
-func createRawURL(client client.Client, metadata metav1.ObjectMeta) *knapis.URL {
+func createRawURL(client client.Client, metadata metav1.ObjectMeta) (*knapis.URL, error) {
 	ingressConfig, err := v1beta1.NewIngressConfig(client)
 	if err != nil {
-		if ingressConfig == nil {
-			ingressConfig = &v1beta1.IngressConfig{}
-		}
-	}
-	if ingressConfig.IngressDomain == "" {
-		ingressConfig.IngressDomain = "example.com"
+		return nil, err
 	}
 
 	url := &knapis.URL{}
 	url.Scheme = "http"
-	url.Host = metadata.Name + "-" + metadata.Namespace + "." + ingressConfig.IngressDomain
-	return url
+	url.Host, err = ingress.GenerateDomainName(metadata.Name, metadata, ingressConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed creating host name: %v", err)
+	}
+
+	return url, nil
 }
 
 //Reconcile ...
