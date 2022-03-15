@@ -6,7 +6,7 @@ C++ is very often the language of choice, The following example will outline the
 to a serialized representation that can be loaded and executed purely from C++ like Triton Inference Server, with no dependency on Python.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with KServe installed](https://github.com/kserve/kserve/#installation).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://kserve.github.io/website/admin/serverless/).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Skip [tag resolution](https://knative.dev/docs/serving/tag-resolution/) for `nvcr.io` which requires auth to resolve triton inference server image digest
 ```bash
@@ -18,7 +18,7 @@ kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}
 ```
 
 ## Train a Pytorch Model
-Train the [cifar pytorch model](../eager/cifar10.py).
+Train the [cifar pytorch model](/python/pytorchserver/pytorchserver/example_model/model/cifar10.py).
 
 ## Export as Torchscript Model
 A PyTorch model’s journey from Python to C++ is enabled by [Torch Script](https://pytorch.org/docs/master/jit.html), a representation of a PyTorch model
@@ -145,7 +145,7 @@ kubectl get inferenceservices torchscript-demo
 ```
 
 ### Run a prediction with curl
-The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/get_started/first_isvc/#3-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 The latest Triton Inference Server already switched to use KServe [prediction V2 protocol](https://github.com/kserve/kserve/tree/master/docs/predict-api/v2), so 
 the input request needs to follow the V2 schema with the specified data type, shape.
@@ -153,7 +153,7 @@ the input request needs to follow the V2 schema with the specified data type, sh
 MODEL_NAME=cifar10
 INPUT_PATH=@./input.json
 SERVICE_HOSTNAME=$(kubectl get inferenceservice torchscript-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -X -H "Host: ${SERVICE_HOSTNAME}" POST https://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME/infer -d $INPUT_PATH
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/${MODEL_NAME}/infer -d $INPUT_PATH
 ```
 expected output
 ```bash
@@ -350,7 +350,7 @@ INPUT_PATH=@./image.json
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice $SERVICE_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/${MODEL_NAME}/infer -d $INPUT_PATH
 ```
 
 You should see an output similar to the one below:
