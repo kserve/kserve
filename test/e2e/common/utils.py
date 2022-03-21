@@ -166,8 +166,7 @@ def explain_response(service_name, input_json):
 def get_cluster_ip():
     api_instance = client.CoreV1Api(client.ApiClient())
     service = api_instance.read_namespaced_service("istio-ingressgateway",
-                                                   "istio-system",
-                                                   exact="true")
+                                                   "istio-system")
     if service.status.load_balancer.ingress is None:
         cluster_ip = service.spec.cluster_ip
     else:
