@@ -250,6 +250,21 @@ func (isvc *InferenceService) assignPaddleRuntime() {
 	isvc.Spec.Predictor.Paddle = nil
 }
 
+func (isvc *InferenceService) SetRuntimeDefaults() {
+	// add mlserver specific default values
+	if *isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
+		isvc.SetMlServerDefaults()
+	}
+	// add torchserve specific default values
+	if *isvc.Spec.Predictor.Model.Runtime == constants.TorchServe {
+		isvc.SetTorchServeDefaults()
+	}
+	// add triton specific default values
+	if *isvc.Spec.Predictor.Model.Runtime == constants.TritonServer {
+		isvc.SetTritonDefaults()
+	}
+}
+
 func (isvc *InferenceService) SetMlServerDefaults() {
 	// set environment variables based on storage uri
 	if isvc.Spec.Predictor.Model.StorageURI == nil {
@@ -301,6 +316,11 @@ func (isvc *InferenceService) SetTorchServeDefaults() {
 }
 
 func (isvc *InferenceService) SetTritonDefaults() {
+	// set 'v2' as default protocol version for triton server
+	if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
+	}
 	// set model-control-model arg to 'explicit' if storage uri is nil
 	if isvc.Spec.Predictor.Model.StorageURI == nil {
 		isvc.Spec.Predictor.Model.Args = append(isvc.Spec.Predictor.Model.Args,

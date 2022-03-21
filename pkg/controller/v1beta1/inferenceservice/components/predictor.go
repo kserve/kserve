@@ -89,6 +89,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		var err error
 
 		if isvc.Spec.Predictor.Model.Runtime != nil {
+			// set runtime defaults
+			isvc.SetRuntimeDefaults()
 			r, err := isvcutils.GetServingRuntime(p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
 			if err != nil {
 				return err
@@ -118,18 +120,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 				isvc.Spec.Predictor.Model.Runtime = &rtName
 				break
 			}
-		}
-		// add mlserver specific default values
-		if *isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
-			isvc.SetMlServerDefaults()
-		}
-		// add torchserve specific default values
-		if *isvc.Spec.Predictor.Model.Runtime == constants.TorchServe {
-			isvc.SetTorchServeDefaults()
-		}
-		// add triton specific default values
-		if *isvc.Spec.Predictor.Model.Runtime == constants.TritonServer {
-			isvc.SetTritonDefaults()
+			// set runtime defaults
+			isvc.SetRuntimeDefaults()
 		}
 		if len(sRuntime.Containers) == 0 {
 			return errors.New("no container configuration found in selected serving runtime")

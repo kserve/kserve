@@ -85,7 +85,6 @@ def test_triton_runtime():
                 name="pytorch",
             ),
             runtime="kserve-tritonserver",
-            protocol_version="v2",
             storage_uri='gs://kfserving-examples/models/torchscript',
             ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)]
         )
