@@ -18,6 +18,9 @@ spec:
       autoSelect: true
     - name: mlflow
       version: "1"
+      autoSelect: true
+    - name: mlflow
+      version: "1"
       protocolVersion: v2
       autoSelect: true
   containers:

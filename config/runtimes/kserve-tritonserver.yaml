@@ -6,6 +6,9 @@ spec:
   supportedModelFormats:
     - name: tensorrt
       version: "8"
+      autoSelect: true
+    - name: tensorrt
+      version: "8"
       protocolVersion: v2
       autoSelect: true
     - name: tensorflow
@@ -18,11 +21,17 @@ spec:
       autoSelect: true
     - name: onnx
       version: "1"
+      autoSelect: true
+    - name: onnx
+      version: "1"
       protocolVersion: v2
       autoSelect: true
     - name: pytorch
       version: "1"
       protocolVersion: v2
+    - name: triton
+      version: "2"
+      autoSelect: true
     - name: triton
       version: "2"
       protocolVersion: v2

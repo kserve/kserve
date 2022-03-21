@@ -141,7 +141,7 @@ func (m *ModelSpec) RuntimeSupportsModel(srSpec *v1alpha1.ServingRuntimeSpec) bo
 }
 
 func (m *ModelSpec) getModelFormatLabel() string {
-	pv := constants.ProtocolV1
+	pv := constants.ProtocolUnknown
 	if m.ProtocolVersion != nil {
 		pv = *m.ProtocolVersion
 	}

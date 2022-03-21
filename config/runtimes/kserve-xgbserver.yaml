@@ -6,6 +6,9 @@ spec:
   supportedModelFormats:
     - name: xgboost
       version: "1"
+      autoSelect: true
+    - name: xgboost
+      version: "1"
       protocolVersion: v1
       autoSelect: true
   containers:

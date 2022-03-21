@@ -44,10 +44,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		tfRuntime: {
 			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 				{
-					Name:            "tensorflow",
-					Version:         proto.String("1"),
-					ProtocolVersion: "v1",
-					AutoSelect:      proto.Bool(true),
+					Name:       "tensorflow",
+					Version:    proto.String("1"),
+					AutoSelect: proto.Bool(true),
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{

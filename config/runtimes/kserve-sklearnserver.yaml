@@ -6,6 +6,9 @@ spec:
   supportedModelFormats:
     - name: sklearn
       version: "1"
+      autoSelect: true
+    - name: sklearn
+      version: "1"
       protocolVersion: v1
       autoSelect: true
   containers:

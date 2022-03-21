@@ -6,6 +6,9 @@ spec:
   supportedModelFormats:
     - name: paddle
       version: "2"
+      autoSelect: true
+    - name: paddle
+      version: "2"
       protocolVersion: v1
       autoSelect: true
   containers:
