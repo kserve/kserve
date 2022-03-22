@@ -3,12 +3,17 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	flag "github.com/spf13/pflag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"time"
+
+	"math/rand"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	flag "github.com/spf13/pflag"
 )
 
 func callService(serviceUrl string, input []byte, res chan<- []byte) error {
@@ -27,11 +32,39 @@ func callService(serviceUrl string, input []byte, res chan<- []byte) error {
 	return nil
 }
 
+func pickupRoute(routes []v1alpha1.InferenceRoute) *v1alpha1.InferenceRoute {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	//generate num [0,100)
+	point := r.Intn(99)
+	start, end := 0, 0
+
+	for _, route := range routes {
+		start += end
+		end += int(*route.Weight)
+		if point >= start && point < end {
+			return &route
+		}
+	}
+	return nil
+}
+
 func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1alpha1.InferenceGraphSpec, input []byte, res chan<- []byte) error {
 	log.Printf("current step %v", nodeName)
 	response := map[string]interface{}{}
 	//For splitter and ABNTest call virtual service
 	if currentStep.RouterType == v1alpha1.Splitter {
+		route := pickupRoute(currentStep.Routes)
+		if route == nil {
+			return fmt.Errorf("The pickuped servcie is nil.")
+		}
+		result := make(chan []byte)
+		go callService(route.ServiceUrl, input, result)
+		responseBytes := <-result
+		var res map[string]interface{}
+		json.Unmarshal(responseBytes, &res)
+		response = res
+	} else if currentStep.RouterType == v1alpha1.Switch {
+
 	} else if currentStep.RouterType == v1alpha1.Ensemble {
 		ensembleRes := map[string]chan []byte{}
 		for i := range currentStep.Routes {
@@ -48,7 +81,7 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 			log.Printf("getting response back %v", res)
 			response[name] = res
 		}
-	} else {
+	} else { //routeType == Single
 		result := make(chan []byte)
 		go callService(currentStep.Routes[0].ServiceUrl, input, result)
 		responseBytes := <-result
@@ -60,6 +93,7 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 	if err != nil {
 		return err
 	}
+
 	if len(currentStep.NextRoutes) == 0 {
 		log.Printf("no next routes")
 		res <- jsonRes

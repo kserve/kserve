@@ -185,6 +185,14 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
 		os.Exit(1)
 	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.InferenceGraph{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
+		os.Exit(1)
+	}
+
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1beta1.InferenceService{}).
 		Complete(); err != nil {

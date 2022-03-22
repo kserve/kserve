@@ -113,12 +113,14 @@ undeploy:
 	kustomize build config/default | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 undeploy-dev:
 	kustomize build config/overlays/development | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -135,6 +137,8 @@ manifests: controller-gen
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kserve.io_trainedmodels.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_trainedmodels.yaml
 	perl -pi -e 's/Any/string/g' config/crd/serving.kserve.io_trainedmodels.yaml
+	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kserve.io_inferencegraphs.yaml
+	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_inferencegraphs.yaml
 	perl -pi -e 's/Any/string/g' config/crd/serving.kserve.io_inferencegraphs.yaml
 	#remove the required property on framework as name field needs to be optional
 	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required'

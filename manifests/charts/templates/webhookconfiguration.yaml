@@ -107,3 +107,30 @@ webhooks:
           - UPDATE
         resources:
           - trainedmodels
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: inferencegraph.serving.kserve.io
+webhooks:
+  - clientConfig:
+      caBundle: Cg==
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha1-inferencegraph
+    failurePolicy: Fail
+    name: inferencegraph.kserve-webhook-server.validator
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1"]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - inferencegraphs
