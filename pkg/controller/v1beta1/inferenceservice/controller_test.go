@@ -1043,7 +1043,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1alpha1.Container{
+						Containers: []v1.Container{
 							{
 								Name:    "kserve-container",
 								Image:   "tensorflow/serving:1.14.0",
