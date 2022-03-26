@@ -13688,6 +13688,8 @@ spec:
                         url:
                           type: string
                       type: object
+                    grpcUrl:
+                      type: string
                     latestCreatedRevision:
                       type: string
                     latestReadyRevision:
@@ -13695,6 +13697,8 @@ spec:
                     latestRolledoutRevision:
                       type: string
                     previousRolledoutRevision:
+                      type: string
+                    restUrl:
                       type: string
                     traffic:
                       items:
@@ -13738,6 +13742,75 @@ spec:
                   - type
                   type: object
                 type: array
+              modelStatus:
+                properties:
+                  copies:
+                    properties:
+                      failedCopies:
+                        default: 0
+                        type: integer
+                      totalCopies:
+                        type: integer
+                    required:
+                    - failedCopies
+                    type: object
+                  lastFailureInfo:
+                    properties:
+                      location:
+                        type: string
+                      message:
+                        type: string
+                      modelRevisionName:
+                        type: string
+                      reason:
+                        enum:
+                        - ModelLoadFailed
+                        - RuntimeUnhealthy
+                        - NoSupportingRuntime
+                        - RuntimeNotRecognized
+                        - InvalidPredictorSpec
+                        type: string
+                      time:
+                        format: date-time
+                        type: string
+                    type: object
+                  states:
+                    properties:
+                      activeModelState:
+                        default: Pending
+                        enum:
+                        - ""
+                        - Pending
+                        - Standby
+                        - Loading
+                        - Loaded
+                        - FailedToLoad
+                        type: string
+                      targetModelState:
+                        default: ""
+                        enum:
+                        - ""
+                        - Pending
+                        - Standby
+                        - Loading
+                        - Loaded
+                        - FailedToLoad
+                        type: string
+                    required:
+                    - activeModelState
+                    type: object
+                  transitionStatus:
+                    default: UpToDate
+                    enum:
+                    - ""
+                    - UpToDate
+                    - InProgress
+                    - BlockedByFailedLoad
+                    - InvalidSpec
+                    type: string
+                required:
+                - transitionStatus
+                type: object
               observedGeneration:
                 format: int64
                 type: integer
