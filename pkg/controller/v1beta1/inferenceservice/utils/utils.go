@@ -74,7 +74,7 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 
 // MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
-func MergeRuntimeContainers(runtimeContainer *v1alpha1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
+func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
 	// Default container configuration from the runtime.
 	coreContainer := v1.Container{
 		Args:            runtimeContainer.Args,

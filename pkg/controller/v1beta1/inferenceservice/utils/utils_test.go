@@ -1177,12 +1177,12 @@ func TestMergeRuntimeContainers(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		containerBase     *v1alpha1.Container
+		containerBase     *v1.Container
 		containerOverride *v1.Container
 		expected          *v1.Container
 	}{
 		"BasicMerge": {
-			containerBase: &v1alpha1.Container{
+			containerBase: &v1.Container{
 				Name:  "kserve-container",
 				Image: "default-image",
 				Args: []string{
@@ -1319,7 +1319,7 @@ func TestGetServingRuntime(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1alpha1.Container{
+				Containers: []v1.Container{
 					{
 						Name:  "kserve-container",
 						Image: tfRuntime + "-image:latest",
@@ -1336,7 +1336,7 @@ func TestGetServingRuntime(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1alpha1.Container{
+				Containers: []v1.Container{
 					{
 						Name:  "kserve-container",
 						Image: sklearnRuntime + "-image:latest",

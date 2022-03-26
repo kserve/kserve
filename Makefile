@@ -139,6 +139,8 @@ manifests: controller-gen
 	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required'
 	#With v1 and newer kubernetes protocol requires default
 	yq read config/crd/serving.kserve.io_inferenceservices.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_inferenceservices.yaml {} TCP
+	yq read config/crd/serving.kserve.io_clusterservingruntimes.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_clusterservingruntimes.yaml {} TCP
+	yq read config/crd/serving.kserve.io_servingruntimes.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_servingruntimes.yaml {} TCP
 	kustomize build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
 
 # Run go fmt against code

@@ -38,25 +38,6 @@ type SupportedModelFormat struct {
 }
 
 // +k8s:openapi-gen=true
-type Container struct {
-	Name            string                      `json:"name,omitempty" validate:"required"`
-	Image           string                      `json:"image,omitempty" validate:"required"`
-	Command         []string                    `json:"command,omitempty"`
-	Args            []string                    `json:"args,omitempty"`
-	Resources       corev1.ResourceRequirements `json:"resources,omitempty"`
-	Env             []corev1.EnvVar             `json:"env,omitempty"`
-	ImagePullPolicy corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
-	WorkingDir      string                      `json:"workingDir,omitempty"`
-
-	// Periodic probe of container liveness.
-	// Container will be restarted if the probe fails.
-	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-	// +optional
-	LivenessProbe  *corev1.Probe `json:"livenessProbe,omitempty"`
-	ReadinessProbe *corev1.Probe `json:"readinessProbe,omitempty"`
-}
-
-// +k8s:openapi-gen=true
 type StorageHelper struct {
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
@@ -70,7 +51,7 @@ type ServingRuntimePodSpec struct {
 	// Cannot be updated.
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	Containers []Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name" validate:"required"`
+	Containers []corev1.Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name" validate:"required"`
 
 	// NodeSelector is a selector which must be true for the pod to fit on a node.
 	// Selector which must match a node's labels for the pod to be scheduled on that node.
