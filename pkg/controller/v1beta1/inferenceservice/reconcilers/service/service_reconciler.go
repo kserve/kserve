@@ -64,6 +64,10 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 	} else {
 		port, _ = strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
 	}
+	if componentExt.Batcher != nil {
+		port = int(constants.InferenceServiceDefaultAgentPort)
+	}
+
 	service := &corev1.Service{
 		ObjectMeta: componentMeta,
 		Spec: corev1.ServiceSpec{
