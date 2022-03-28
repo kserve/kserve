@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/kserve/kserve/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -85,6 +86,10 @@ type ServingRuntimeSpec struct {
 	// Set to true to disable use of this runtime
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
+
+	// Supported protocol version (i.e. v1, v2 or empty for unknown protocol version).
+	// +optional
+	ProtocolVersion constants.InferenceServiceProtocol `json:"protocolVersion"`
 
 	ServingRuntimePodSpec `json:",inline"`
 
@@ -211,4 +216,8 @@ func (srSpec *ServingRuntimeSpec) IsDisabled() bool {
 
 func (srSpec *ServingRuntimeSpec) IsMultiModelRuntime() bool {
 	return srSpec.MultiModel != nil && *srSpec.MultiModel
+}
+
+func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersion constants.InferenceServiceProtocol) bool {
+	return srSpec.ProtocolVersion == modelProtocolVersion || srSpec.ProtocolVersion == constants.ProtocolUnknown
 }

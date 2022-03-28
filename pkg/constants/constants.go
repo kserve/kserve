@@ -191,8 +191,9 @@ const (
 
 // InferenceService protocol enums
 const (
-	ProtocolV1 InferenceServiceProtocol = "v1"
-	ProtocolV2 InferenceServiceProtocol = "v2"
+	ProtocolV1      InferenceServiceProtocol = "v1"
+	ProtocolV2      InferenceServiceProtocol = "v2"
+	ProtocolUnknown InferenceServiceProtocol = ""
 )
 
 // InferenceService Endpoint Ports

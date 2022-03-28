@@ -1038,6 +1038,8 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              protocolVersion:
+                type: string
               replicas:
                 type: integer
               storageHelper:

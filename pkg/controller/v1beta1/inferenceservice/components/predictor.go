@@ -89,6 +89,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		var err error
 
 		if isvc.Spec.Predictor.Model.Runtime != nil {
+			// set runtime defaults
+			isvc.SetRuntimeDefaults()
 			r, err := isvcutils.GetServingRuntime(p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
 			if err != nil {
 				return err
@@ -96,6 +98,11 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 			if r.IsDisabled() {
 				return fmt.Errorf("specified runtime %s is disabled", *isvc.Spec.Predictor.Model.Runtime)
+			}
+
+			if isvc.Spec.Predictor.Model.ProtocolVersion != nil &&
+				*isvc.Spec.Predictor.Model.ProtocolVersion != r.ProtocolVersion {
+				return fmt.Errorf("specified runtime %s does not support specified protocol version", *isvc.Spec.Predictor.Model.Runtime)
 			}
 
 			// Verify that the selected runtime supports the specified framework.
@@ -113,7 +120,13 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 				return fmt.Errorf("no runtime found to support predictor with model type: %v", isvc.Spec.Predictor.Model.ModelFormat)
 			}
 			// Get first supporting runtime.
-			sRuntime = runtimes[0]
+			for rtName, rtSpec := range runtimes {
+				sRuntime = rtSpec
+				isvc.Spec.Predictor.Model.Runtime = &rtName
+				break
+			}
+			// set runtime defaults
+			isvc.SetRuntimeDefaults()
 		}
 		if len(sRuntime.Containers) == 0 {
 			return errors.New("no container configuration found in selected serving runtime")

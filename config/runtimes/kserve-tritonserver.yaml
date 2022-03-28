@@ -6,10 +6,13 @@ spec:
   supportedModelFormats:
     - name: tensorrt
       version: "8"
+      autoSelect: true
     - name: tensorflow
       version: "1"
+      autoSelect: true
     - name: tensorflow
       version: "2"
+      autoSelect: true
     - name: onnx
       version: "1"
       autoSelect: true
@@ -18,6 +21,7 @@ spec:
     - name: triton
       version: "2"
       autoSelect: true
+  protocolVersion: "v2"
   containers:
     - name: kserve-container
       image: kserve-tritonserver:replace

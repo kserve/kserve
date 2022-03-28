@@ -10,6 +10,7 @@ spec:
     - name: tensorflow
       version: "2"
       autoSelect: true
+  protocolVersion: "v1"
   containers:
     - name: kserve-container
       image: tensorflow-serving:replace

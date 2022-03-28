@@ -7,6 +7,7 @@ spec:
     - name: lightgbm
       version: "2"
       autoSelect: true
+  protocolVersion: "v1"
   containers:
     - name: kserve-container
       image: kserve-lgbserver:replace
