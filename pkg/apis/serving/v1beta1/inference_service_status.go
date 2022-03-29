@@ -71,7 +71,7 @@ type ComponentStatusSpec struct {
 	URL *apis.URL `json:"url,omitempty"`
 	// REST endpoint of the component if available.
 	// +optional
-	RestURL string `json:"restUrl,omitempty"`
+	RestURL *apis.URL `json:"restUrl,omitempty"`
 	// gRPC endpoint of the component if available.
 	// +optional
 	GrpcURL *apis.URL `json:"grpcUrl,omitempty"`

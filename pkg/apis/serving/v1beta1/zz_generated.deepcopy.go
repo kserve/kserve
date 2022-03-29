@@ -168,6 +168,11 @@ func (in *ComponentStatusSpec) DeepCopyInto(out *ComponentStatusSpec) {
 		*out = new(apis.URL)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.RestURL != nil {
+		in, out := &in.RestURL, &out.RestURL
+		*out = new(apis.URL)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.GrpcURL != nil {
 		in, out := &in.GrpcURL, &out.GrpcURL
 		*out = new(apis.URL)

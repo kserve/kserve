@@ -85,55 +85,6 @@
         }
       }
     },
-    "v1alpha1.Container": {
-      "type": "object",
-      "properties": {
-        "args": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "default": ""
-          }
-        },
-        "command": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "default": ""
-          }
-        },
-        "env": {
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/v1.EnvVar"
-          }
-        },
-        "image": {
-          "type": "string"
-        },
-        "imagePullPolicy": {
-          "type": "string"
-        },
-        "livenessProbe": {
-          "description": "Periodic probe of container liveness. Container will be restarted if the probe fails. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
-          "$ref": "#/definitions/v1.Probe"
-        },
-        "name": {
-          "type": "string"
-        },
-        "readinessProbe": {
-          "$ref": "#/definitions/v1.Probe"
-        },
-        "resources": {
-          "default": {},
-          "$ref": "#/definitions/v1.ResourceRequirements"
-        },
-        "workingDir": {
-          "type": "string"
-        }
-      }
-    },
     "v1alpha1.ModelSpec": {
       "description": "ModelSpec describes a TrainedModel",
       "type": "object",
@@ -229,7 +180,7 @@
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1alpha1.Container"
+            "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
@@ -272,7 +223,7 @@
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1alpha1.Container"
+            "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
@@ -1025,7 +976,7 @@
         },
         "restUrl": {
           "description": "REST endpoint of the component if available.",
-          "type": "string"
+          "$ref": "#/definitions/knative.URL"
         },
         "traffic": {
           "description": "Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.",
