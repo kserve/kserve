@@ -22,6 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
@@ -244,6 +245,11 @@ func (in *ServingRuntimeSpec) DeepCopyInto(out *ServingRuntimeSpec) {
 		in, out := &in.Disabled, &out.Disabled
 		*out = new(bool)
 		**out = **in
+	}
+	if in.ProtocolVersions != nil {
+		in, out := &in.ProtocolVersions, &out.ProtocolVersions
+		*out = make([]constants.InferenceServiceProtocol, len(*in))
+		copy(*out, *in)
 	}
 	in.ServingRuntimePodSpec.DeepCopyInto(&out.ServingRuntimePodSpec)
 	if in.GrpcMultiModelManagementEndpoint != nil {

@@ -10,7 +10,8 @@ spec:
     - name: pmml
       version: "4"
       autoSelect: true
-  protocolVersion: "v1"
+  protocolVersions:
+    - v1
   containers:
     - name: kserve-container
       image: kserve-pmmlserver:replace

@@ -87,9 +87,9 @@ type ServingRuntimeSpec struct {
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
 
-	// Supported protocol version (i.e. v1, v2 or empty for unknown protocol version).
+	// Supported protocol versions (i.e. v1, v2).
 	// +optional
-	ProtocolVersion constants.InferenceServiceProtocol `json:"protocolVersion"`
+	ProtocolVersions []constants.InferenceServiceProtocol `json:"protocolVersions,omitempty"`
 
 	ServingRuntimePodSpec `json:",inline"`
 
@@ -219,5 +219,13 @@ func (srSpec *ServingRuntimeSpec) IsMultiModelRuntime() bool {
 }
 
 func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersion constants.InferenceServiceProtocol) bool {
-	return srSpec.ProtocolVersion == modelProtocolVersion || srSpec.ProtocolVersion == constants.ProtocolUnknown
+	if srSpec.ProtocolVersions == nil || len(srSpec.ProtocolVersions) == 0 {
+		return true
+	}
+	for _, srProtocolVersion := range srSpec.ProtocolVersions {
+		if srProtocolVersion == modelProtocolVersion {
+			return true
+		}
+	}
+	return false
 }

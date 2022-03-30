@@ -16,7 +16,8 @@ spec:
     - name: mlflow
       version: "1"
       autoSelect: true
-  protocolVersion: "v2"
+  protocolVersions:
+    - v2
   containers:
     - name: kserve-container
       image: mlserver:replace

@@ -101,7 +101,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			}
 
 			if isvc.Spec.Predictor.Model.ProtocolVersion != nil &&
-				*isvc.Spec.Predictor.Model.ProtocolVersion != r.ProtocolVersion {
+				!r.IsProtocolVersionSupported(*isvc.Spec.Predictor.Model.ProtocolVersion) {
 				return fmt.Errorf("specified runtime %s does not support specified protocol version", *isvc.Spec.Predictor.Model.Runtime)
 			}
 

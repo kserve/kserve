@@ -21,7 +21,8 @@ spec:
     - name: triton
       version: "2"
       autoSelect: true
-  protocolVersion: "v2"
+  protocolVersions:
+    - v2
   containers:
     - name: kserve-container
       image: kserve-tritonserver:replace
