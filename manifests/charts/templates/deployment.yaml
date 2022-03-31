@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: kserve-controller-manager
-  namespace: {{ .Release.Namespace }} 
+  namespace: {{ .Release.Namespace }}
   labels:
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
@@ -19,6 +19,8 @@ spec:
       labels:
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
     spec:
       serviceAccountName: kserve-controller-manager
       containers:
