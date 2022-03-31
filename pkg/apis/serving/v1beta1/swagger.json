@@ -10,6 +10,14 @@
     "v1alpha1.BuiltInAdapter": {
       "type": "object",
       "properties": {
+        "env": {
+          "description": "Environment variables used to control other aspects of the built-in adapter's behaviour (uncommon)",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.EnvVar"
+          }
+        },
         "memBufferBytes": {
           "description": "Fixed memory overhead to subtract from runtime container's memory allocation to determine model capacity",
           "type": "integer",

@@ -1,3 +1,4 @@
+API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,BuiltInAdapter,Env
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Containers
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Tolerations
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimeSpec,SupportedModelFormats
