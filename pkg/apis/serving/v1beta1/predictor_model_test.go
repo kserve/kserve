@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -46,7 +47,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1alpha1.Container{
+				Containers: []v1.Container{
 					{
 						Name:  "kserve-container",
 						Image: tfRuntime + "-image:latest",
@@ -64,7 +65,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1alpha1.Container{
+				Containers: []v1.Container{
 					{
 						Name:  "kserve-container",
 						Image: sklearnRuntime + "-image:latest",
@@ -81,7 +82,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1alpha1.Container{
+				Containers: []v1.Container{
 					{
 						Name:  "kserve-container",
 						Image: pmmlRuntime + "-image:latest",
@@ -107,7 +108,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1alpha1.Container{
+				Containers: []v1.Container{
 					{
 						Name:  "kserve-container",
 						Image: pmmlRuntime + "-image:latest",

@@ -1,6 +1,3 @@
-API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,Container,Args
-API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,Container,Command
-API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,Container,Env
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Containers
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Tolerations
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimeSpec,SupportedModelFormats
@@ -19,6 +16,8 @@ API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PredictorConfig
 API rule violation: names_match,./pkg/apis/serving/v1alpha1,ModelSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1alpha1,ServingRuntimeSpec,GrpcMultiModelManagementEndpoint
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ComponentExtensionSpec,TimeoutSeconds
+API rule violation: names_match,./pkg/apis/serving/v1beta1,ComponentStatusSpec,GrpcURL
+API rule violation: names_match,./pkg/apis/serving/v1beta1,ComponentStatusSpec,RestURL
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainerConfig,ContainerImage
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainerExtensionSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,AIXExplainer
@@ -26,6 +25,8 @@ API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,ARTE
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,AlibiExplainer
 API rule violation: names_match,./pkg/apis/serving/v1beta1,IngressConfig,IngressServiceName
 API rule violation: names_match,./pkg/apis/serving/v1beta1,IngressConfig,LocalGatewayServiceName
+API rule violation: names_match,./pkg/apis/serving/v1beta1,ModelStatus,ModelCopies
+API rule violation: names_match,./pkg/apis/serving/v1beta1,ModelStatus,ModelRevisionStates
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PodSpec,DeprecatedServiceAccount
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorConfig,ContainerImage
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorExtensionSpec,StorageURI

@@ -19,6 +19,7 @@ package v1beta1
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -42,6 +43,8 @@ type InferenceServiceStatus struct {
 	URL *apis.URL `json:"url,omitempty"`
 	// Statuses for the components of the InferenceService
 	Components map[ComponentType]ComponentStatusSpec `json:"components,omitempty"`
+	// Model related statuses
+	ModelStatus ModelStatus `json:"modelStatus,omitempty"`
 }
 
 // ComponentStatusSpec describes the state of the component
@@ -61,10 +64,17 @@ type ComponentStatusSpec struct {
 	// Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.
 	// +optional
 	Traffic []knservingv1.TrafficTarget `json:"traffic,omitempty"`
-	// URL holds the url that will distribute traffic over the provided traffic targets.
+	// URL holds the primary url that will distribute traffic over the provided traffic targets.
+	// This will be one the REST or gRPC endpoints that are available.
 	// It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
+	// REST endpoint of the component if available.
+	// +optional
+	RestURL *apis.URL `json:"restUrl,omitempty"`
+	// gRPC endpoint of the component if available.
+	// +optional
+	GrpcURL *apis.URL `json:"grpcUrl,omitempty"`
 	// Addressable endpoint for the InferenceService
 	// +optional
 	Address *duckv1.Addressable `json:"address,omitempty"`
@@ -104,6 +114,111 @@ const (
 	// IngressReady is set when Ingress is created
 	IngressReady apis.ConditionType = "IngressReady"
 )
+
+type ModelStatus struct {
+	// Whether the available predictor endpoints reflect the current Spec or is in transition
+	// +kubebuilder:default=UpToDate
+	TransitionStatus TransitionStatus `json:"transitionStatus"`
+
+	// State information of the predictor's model.
+	// +optional
+	ModelRevisionStates *ModelRevisionStates `json:"states,omitempty"`
+
+	// Details of last failure, when load of target model is failed or blocked.
+	// +optional
+	LastFailureInfo *FailureInfo `json:"lastFailureInfo,omitempty"`
+
+	// Model copy information of the predictor's model.
+	// +optional
+	ModelCopies *ModelCopies `json:"copies,omitempty"`
+}
+
+type ModelRevisionStates struct {
+	// High level state string: Pending, Standby, Loading, Loaded, FailedToLoad
+	// +kubebuilder:default=Pending
+	ActiveModelState ModelState `json:"activeModelState"`
+	// +kubebuilder:default=""
+	TargetModelState ModelState `json:"targetModelState,omitempty"`
+}
+
+type ModelCopies struct {
+	// How many copies of this predictor's models failed to load recently
+	// +kubebuilder:default=0
+	FailedCopies int `json:"failedCopies"`
+	// Total number copies of this predictor's models that are currently loaded
+	// +optional
+	TotalCopies int `json:"totalCopies,omitempty"`
+}
+
+// TransitionStatus enum
+// +kubebuilder:validation:Enum="";UpToDate;InProgress;BlockedByFailedLoad;InvalidSpec
+type TransitionStatus string
+
+// TransitionStatus Enum values
+const (
+	// Predictor is up-to-date (reflects current spec)
+	UpToDate TransitionStatus = "UpToDate"
+	// Waiting for target model to reach state of active model
+	InProgress TransitionStatus = "InProgress"
+	// Target model failed to load
+	BlockedByFailedLoad TransitionStatus = "BlockedByFailedLoad"
+	// Target predictor spec failed validation
+	InvalidSpec TransitionStatus = "InvalidSpec"
+)
+
+// ModelState enum
+// +kubebuilder:validation:Enum="";Pending;Standby;Loading;Loaded;FailedToLoad
+type ModelState string
+
+// ModelState Enum values
+const (
+	// Model is not yet registered
+	Pending ModelState = "Pending"
+	// Model is available but not loaded (will load when used)
+	Standby ModelState = "Standby"
+	// Model is loading
+	Loading ModelState = "Loading"
+	// At least one copy of the model is loaded
+	Loaded ModelState = "Loaded"
+	// All copies of the model failed to load
+	FailedToLoad ModelState = "FailedToLoad"
+)
+
+// FailureReason enum
+// +kubebuilder:validation:Enum=ModelLoadFailed;RuntimeUnhealthy;NoSupportingRuntime;RuntimeNotRecognized;InvalidPredictorSpec
+type FailureReason string
+
+// FailureReason enum values
+const (
+	// The model failed to load within a ServingRuntime container
+	ModelLoadFailed FailureReason = "ModelLoadFailed"
+	// Corresponding ServingRuntime containers failed to start or are unhealthy
+	RuntimeUnhealthy FailureReason = "RuntimeUnhealthy"
+	// There are no ServingRuntime which support the specified model type
+	NoSupportingRuntime FailureReason = "NoSupportingRuntime"
+	// There is no ServingRuntime defined with the specified runtime name
+	RuntimeNotRecognized FailureReason = "RuntimeNotRecognized"
+	// The current Predictor Spec is invalid or unsupported
+	InvalidPredictorSpec FailureReason = "InvalidPredictorSpec"
+)
+
+type FailureInfo struct {
+	// Name of component to which the failure relates (usually Pod name)
+	//+optional
+	Location string `json:"location,omitempty"`
+	// High level class of failure
+	//+optional
+	Reason FailureReason `json:"reason,omitempty"`
+	// Detailed error message
+	//+optional
+	Message string `json:"message,omitempty"`
+	// Internal Revision/ID of model, tied to specific Spec contents
+	//+optional
+	ModelRevisionName string `json:"modelRevisionName,omitempty"`
+	// Time failure occurred or was discovered
+	//+optional
+	Time *metav1.Time `json:"time,omitempty"`
+}
 
 var conditionsMap = map[ComponentType]apis.ConditionType{
 	PredictorComponent:   PredictorReady,
