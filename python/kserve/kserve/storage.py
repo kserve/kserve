@@ -23,6 +23,7 @@ import shutil
 import tarfile
 import tempfile
 import zipfile
+import oss2
 from urllib.parse import urlparse
 import requests
 from pathlib import Path
@@ -39,6 +40,7 @@ from kserve.model_repository import MODEL_MOUNT_DIRS
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
+_OSS_PREFIX = "oss://"
 _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _ACCOUNT_RE = "https://(.+?).blob.core.windows.net"
 _LOCAL_PREFIX = "file://"
@@ -73,6 +75,8 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             Storage._download_gcs(uri, out_dir)
         elif uri.startswith(_S3_PREFIX):
             Storage._download_s3(uri, out_dir)
+        elif uri.startswith(_OSS_PREFIX):
+            Storage._download_oss(uri, out_dir)
         elif re.search(_BLOB_RE, uri):
             Storage._download_blob(uri, out_dir)
         elif is_local:
@@ -168,6 +172,50 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 "Failed to fetch model. No model found in %s." % bucket_path)
 
         # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
+        if count == 1:
+            mimetype, _ = mimetypes.guess_type(target)
+            if mimetype in ["application/x-tar", "application/zip"]:
+                Storage._unpack_archive_file(target, mimetype, temp_dir)
+
+    @staticmethod
+    def _download_oss(uri, temp_dir: str):
+        access_key_id = os.getenv("OSS_ACCESS_KEY_ID", "")
+        access_key_secret = os.getenv("OSS_ACCESS_KEY_SECRET", "")
+        endpoint = os.getenv("OSS_ENDPOINT", "")
+        
+        if access_key_id == "" or access_key_secret == "" or endpoint == "":
+            logging.error("Couldn't find OSS Env variables")
+            return None
+        
+        parsed = urlparse(uri, scheme='oss')
+        bucket_name = parsed.netloc
+        bucket_path = parsed.path.lstrip('/')
+
+        count = 0
+        bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
+
+        for obj in oss2.ObjectIterator(bucket):
+            if obj.key.endswith("/"):
+                continue
+
+            target_key = (
+                obj.key.rsplit("/", 1)[-1]
+                if bucket_path == obj.key
+                else obj.key.replace(bucket_path, "", 1).lstrip("/")
+            )
+
+            target = f"{temp_dir}/{target_key}"
+
+            if not os.path.exists(os.path.dirname(target)):
+                os.makedirs(os.path.dirname(target), exists_ok=True)
+            
+            bucket.get_object_to_file(obj.key, target)
+            logging.info('Downloaded object %s to %s' % (obj.key, target))
+            count = count + 1
+        if count == 0:
+            raise RuntimeError("Failed to fetch model. No model found in %s." % bucket_path)
+
+        # Unpack if a file is compressed.
         if count == 1:
             mimetype, _ = mimetypes.guess_type(target)
             if mimetype in ["application/x-tar", "application/zip"]:
