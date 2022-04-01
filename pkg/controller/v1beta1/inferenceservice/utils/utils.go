@@ -202,3 +202,17 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig 
 		}
 	}
 }
+
+// ListPodsByLabel Get a PodList by label.
+func ListPodsByLabel(cl client.Client, namespace string, labelKey string, labelVal string) (*v1.PodList, error) {
+	podList := &v1.PodList{}
+	opts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels{labelKey: labelVal},
+	}
+	err := cl.List(context.TODO(), podList, opts...)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	return podList, nil
+}

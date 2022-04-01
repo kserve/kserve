@@ -237,7 +237,8 @@ const (
 
 // InferenceService container name
 const (
-	InferenceServiceContainerName = "kserve-container"
+	InferenceServiceContainerName   = "kserve-container"
+	StorageInitializerContainerName = "storage-initializer"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
@@ -337,6 +338,20 @@ const (
 	GRPCV1
 	GRPCV2
 	Unknown
+)
+
+// revision label
+const (
+	RevisionLabel         = "serving.knative.dev/revision"
+	RawDeploymentAppLabel = "app"
+)
+
+// container state reason
+const (
+	StateReasonRunning          = "Running"
+	StateReasonCompleted        = "Completed"
+	StateReasonError            = "Error"
+	StateReasonCrashLoopBackOff = "CrashLoopBackOff"
 )
 
 // GetRawServiceLabel generate native service label

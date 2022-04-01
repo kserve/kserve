@@ -512,6 +512,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						URL:                   transformerUrl,
 					},
 				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus: v1beta1.InProgress,
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{
+						ActiveModelState: v1beta1.Pending,
+					},
+				},
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -730,6 +736,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestReadyRevision:   "exp-revision-v1",
 						LatestCreatedRevision: "exp-revision-v1",
 						URL:                   explainerUrl,
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus: v1beta1.InProgress,
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{
+						ActiveModelState: v1beta1.Pending,
 					},
 				},
 			}
