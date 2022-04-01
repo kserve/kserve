@@ -207,7 +207,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             target = f"{temp_dir}/{target_key}"
 
             if not os.path.exists(os.path.dirname(target)):
-                os.makedirs(os.path.dirname(target), exists_ok=True)
+                os.makedirs(os.path.dirname(target), exist_ok=True)
             
             bucket.get_object_to_file(obj.key, target)
             logging.info('Downloaded object %s to %s' % (obj.key, target))
