@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/kserve/kserve/pkg/credentials/https"
+	"github.com/kserve/kserve/pkg/credentials/oss"
 
 	"github.com/kserve/kserve/pkg/credentials/azure"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
@@ -195,6 +196,10 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		} else if _, ok := secret.Data[azure.AzureClientSecret]; ok {
 			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
 			envs := azure.BuildSecretEnvs(secret)
+			container.Env = append(container.Env, envs...)
+		} else if _, ok := secret.Data[oss.OSSAccessKeySecret]; ok {
+			log.Info("Setting secret envs for oss", "OSSSecret", secret.Name)
+			envs := oss.BuildSecretEnvs(secret)
 			container.Env = append(container.Env, envs...)
 		} else if _, ok := secret.Data[https.HTTPSHost]; ok {
 			log.Info("Setting secret volume from uri", "HTTP(S)Secret", secret.Name)
