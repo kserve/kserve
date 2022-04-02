@@ -250,11 +250,11 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                      account_name,
                      share_name,
                      prefix)
-        token = Storage._get_azure_storage_token()
-        if token is None:
-            logging.warning("Azure credentials not found, retrying anonymous access")
+        access_key = Storage._get_azure_storage_access_key()
+        if access_key is None:
+            logging.warning("Azure storage access key not found, retrying anonymous access")
 
-        share_service_client = ShareServiceClient(account_url, credential=token)
+        share_service_client = ShareServiceClient(account_url, credential=access_key)
         share_client = share_service_client.get_share_client(share_name)
         count = 0
         share_files = []
@@ -319,6 +319,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         logging.info("Retrieved SP token credential for client_id: %s",
                      client_id)
         return token_credential
+
+    @staticmethod
+    def _get_azure_storage_access_key():
+        return os.getenv("AZURE_STORAGE_ACCESS_KEY")
 
     @staticmethod
     def _download_local(uri, out_dir=None):
