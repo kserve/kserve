@@ -25,15 +25,16 @@ import (
 
 	"github.com/kserve/kserve/pkg/credentials/https"
 
-	"github.com/kserve/kserve/pkg/credentials/azure"
-	"github.com/kserve/kserve/pkg/credentials/gcs"
-	"github.com/kserve/kserve/pkg/credentials/s3"
-	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/credentials/azure"
+	"github.com/kserve/kserve/pkg/credentials/gcs"
+	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
@@ -193,6 +194,10 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
 				})
 		} else if _, ok := secret.Data[azure.AzureClientSecret]; ok {
+			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
+			envs := azure.BuildSecretEnvs(secret)
+			container.Env = append(container.Env, envs...)
+		} else if _, ok := secret.Data[azure.AzureStorageAccessKey]; ok {
 			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
 			envs := azure.BuildSecretEnvs(secret)
 			container.Env = append(container.Env, envs...)
