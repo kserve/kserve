@@ -204,13 +204,13 @@ def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-
 
 
 @mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.Storage._get_azure_storage_token')
+@mock.patch('kserve.storage.Storage._get_azure_storage_access_key')
 @mock.patch('kserve.storage.ShareServiceClient')
-def test_file_share(mock_storage, mock_get_token, mock_makedirs):  # pylint: disable=unused-argument
+def test_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
     file_share_path = 'https://kfserving.file.core.windows.net/triton/simple_string/'
-    mock_get_token.return_value = "some_token"
+    mock_get_access_key.return_value = "some_token"
 
     mock_file_share, mock_file, mock_data = create_mock_objects_for_file_share(
         mock_storage, [[create_mock_dir('1'), create_mock_file('config.pbtxt')],
@@ -226,21 +226,21 @@ def test_file_share(mock_storage, mock_get_token, mock_makedirs):  # pylint: dis
                                  ('simple_string/config.pbtxt',)])
 
     # then
-    mock_get_token.assert_called()
+    mock_get_access_key.assert_called()
     mock_storage.assert_called_with('https://kfserving.file.core.windows.net',
                                     credential='some_token')
 
 
 @mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.Storage._get_azure_storage_token')
+@mock.patch('kserve.storage.Storage._get_azure_storage_access_key')
 @mock.patch('kserve.storage.ShareServiceClient')
-def test_deep_file_share(mock_storage, mock_get_token, mock_makedirs):  # pylint: disable=unused-argument
+def test_deep_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # pylint: disable=unused-argument
 
     file_share_path = 'https://accountname.file.core.windows.net/container/some/deep/blob/path'
     paths = ['f1', 'f2', 'd1/f11', 'd1/d2/f21', 'd1/d2/d3/f1231', 'd4/f41']
     fq_item_paths = ['some/deep/blob/path/' + p for p in paths]
     expected_calls = [(f,) for f in fq_item_paths]
-    mock_get_token.return_value = "some_token"
+    mock_get_access_key.return_value = "some_token"
 
     # when
     mock_file_share, mock_file, mock_data = create_mock_objects_for_file_share(
@@ -260,15 +260,15 @@ def test_deep_file_share(mock_storage, mock_get_token, mock_makedirs):  # pylint
     assert set(actual_calls) == set(expected_calls)
 
     # then
-    mock_get_token.assert_called()
+    mock_get_access_key.assert_called()
     mock_storage.assert_called_with('https://accountname.file.core.windows.net',
                                     credential='some_token')
 
 
 @mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.Storage._get_azure_storage_token')
+@mock.patch('kserve.storage.Storage._get_azure_storage_access_key')
 @mock.patch('kserve.storage.ShareServiceClient')
-def test_file_share_fq_file(mock_storage, mock_get_token, mock_makedirs):  # pylint: disable=unused-argument
+def test_file_share_fq_file(mock_storage, mock_get_access_key, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
     file_share_path = 'https://accountname.file.core.windows.net/container/folder/'
@@ -277,7 +277,7 @@ def test_file_share_fq_file(mock_storage, mock_get_token, mock_makedirs):  # pyl
     expected_calls = [(f,) for f in fq_item_paths]
 
     # when
-    mock_get_token.return_value = "some_token"
+    mock_get_access_key.return_value = "some_token"
     mock_file_share, mock_file, mock_data = create_mock_objects_for_file_share(
         mock_storage, [[create_mock_file('somefile.text')],
                        []])
@@ -288,15 +288,15 @@ def test_file_share_fq_file(mock_storage, mock_get_token, mock_makedirs):  # pyl
     assert actual_calls == expected_calls
 
     # then
-    mock_get_token.assert_called()
+    mock_get_access_key.assert_called()
     mock_storage.assert_called_with('https://accountname.file.core.windows.net',
                                     credential='some_token')
 
 
 @mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.Storage._get_azure_storage_token')
+@mock.patch('kserve.storage.Storage._get_azure_storage_access_key')
 @mock.patch('kserve.storage.ShareServiceClient')
-def test_file_share_no_prefix(mock_storage, mock_get_token, mock_makedirs):  # pylint: disable=unused-argument
+def test_file_share_no_prefix(mock_storage, mock_get_access_key, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
     file_share_path = 'https://accountname.file.core.windows.net/container/'
@@ -305,7 +305,7 @@ def test_file_share_no_prefix(mock_storage, mock_get_token, mock_makedirs):  # p
     expected_calls = [(f,) for f in fq_item_paths]
 
     # when
-    mock_get_token.return_value = "some_token"
+    mock_get_access_key.return_value = "some_token"
     mock_file_share, mock_file, mock_data = create_mock_objects_for_file_share(
         mock_storage, [[create_mock_dir('somefolder'), create_mock_file('somefile.text')],
                        [create_mock_file('somefile.text')],
@@ -317,6 +317,6 @@ def test_file_share_no_prefix(mock_storage, mock_get_token, mock_makedirs):  # p
     assert set(arg_list) == set(expected_calls)
 
     # then
-    mock_get_token.assert_called()
+    mock_get_access_key.assert_called()
     mock_storage.assert_called_with('https://accountname.file.core.windows.net',
                                     credential='some_token')
