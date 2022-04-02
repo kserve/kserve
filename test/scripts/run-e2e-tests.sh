@@ -54,6 +54,17 @@ popd
 echo "Waiting for istio started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n istio-system
 
+# Necessary since istio is the default ingressClassName in kserve.yaml
+echo "Creating istio ingress class"
+cat <<EOF | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/ingress-controller
+EOF
+
 echo "Installing knative serving ..."
 kubectl apply -f https://github.com/knative/operator/releases/download/${KNATIVE_VERSION}/operator.yaml
 cat <<EOF | kubectl apply -f -
@@ -103,8 +114,15 @@ echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A
 
+echo "Add testing models to minio stroage ..."
+kubectl apply -f config/overlays/test/minio/minio-init-job.yaml -n kserve
+kubectl wait --for=condition=complete --timeout=30s job/minio-init -n kserve
+
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
+
+echo "Add storageSpec testing secrets ..."
+kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
 
 echo "Istio, Knative and KServe have been installed and started."
 

@@ -70,48 +70,6 @@ func TestTransformerValidation(t *testing.T) {
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
-		"InvalidReplica": {
-			spec: TransformerSpec{
-				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas: GetIntReference(3),
-					MaxReplicas: 2,
-				},
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "hdfs://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
-		"InvalidContainerConcurrency": {
-			spec: TransformerSpec{
-				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          GetIntReference(3),
-					ContainerConcurrency: proto.Int64(-1),
-				},
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "hdfs://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
 	}
 
 	for name, scenario := range scenarios {

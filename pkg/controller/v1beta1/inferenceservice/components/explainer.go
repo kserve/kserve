@@ -68,6 +68,8 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
+	// Add StorageSpec annotations so mutator will mount storage credentials to InferenceService's explainer
+	addStorageSpecAnnotations(explainer.GetStorageSpec(), annotations)
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultExplainerServiceName(isvc.Name),
 		Namespace: isvc.Namespace,

@@ -75,34 +75,6 @@ func TestAlibiValidation(t *testing.T) {
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
-		"InvalidReplica": {
-			spec: ExplainerSpec{
-				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas: GetIntReference(3),
-					MaxReplicas: 2,
-				},
-				Alibi: &AlibiExplainerSpec{
-					ExplainerExtensionSpec: ExplainerExtensionSpec{
-						StorageURI: "hdfs://modelzoo",
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
-		"InvalidContainerConcurrency": {
-			spec: ExplainerSpec{
-				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          GetIntReference(3),
-					ContainerConcurrency: proto.Int64(-1),
-				},
-				Alibi: &AlibiExplainerSpec{
-					ExplainerExtensionSpec: ExplainerExtensionSpec{
-						StorageURI: "hdfs://modelzoo",
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
 	}
 
 	for name, scenario := range scenarios {

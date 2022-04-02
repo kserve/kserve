@@ -478,10 +478,134 @@ spec:
                         - name
                         type: object
                       type: array
+                    envFrom:
+                      items:
+                        properties:
+                          configMapRef:
+                            properties:
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            type: object
+                          prefix:
+                            type: string
+                          secretRef:
+                            properties:
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            type: object
+                        type: object
+                      type: array
                     image:
                       type: string
                     imagePullPolicy:
                       type: string
+                    lifecycle:
+                      properties:
+                        postStart:
+                          properties:
+                            exec:
+                              properties:
+                                command:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            httpGet:
+                              properties:
+                                host:
+                                  type: string
+                                httpHeaders:
+                                  items:
+                                    properties:
+                                      name:
+                                        type: string
+                                      value:
+                                        type: string
+                                    required:
+                                    - name
+                                    - value
+                                    type: object
+                                  type: array
+                                path:
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  x-kubernetes-int-or-string: true
+                                scheme:
+                                  type: string
+                              required:
+                              - port
+                              type: object
+                            tcpSocket:
+                              properties:
+                                host:
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - port
+                              type: object
+                          type: object
+                        preStop:
+                          properties:
+                            exec:
+                              properties:
+                                command:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            httpGet:
+                              properties:
+                                host:
+                                  type: string
+                                httpHeaders:
+                                  items:
+                                    properties:
+                                      name:
+                                        type: string
+                                      value:
+                                        type: string
+                                    required:
+                                    - name
+                                    - value
+                                    type: object
+                                  type: array
+                                path:
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  x-kubernetes-int-or-string: true
+                                scheme:
+                                  type: string
+                              required:
+                              - port
+                              type: object
+                            tcpSocket:
+                              properties:
+                                host:
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - port
+                              type: object
+                          type: object
+                      type: object
                     livenessProbe:
                       properties:
                         exec:
@@ -552,6 +676,30 @@ spec:
                       type: object
                     name:
                       type: string
+                    ports:
+                      items:
+                        properties:
+                          containerPort:
+                            format: int32
+                            type: integer
+                          hostIP:
+                            type: string
+                          hostPort:
+                            format: int32
+                            type: integer
+                          name:
+                            type: string
+                          protocol:
+                            default: TCP
+                            type: string
+                        required:
+                        - containerPort
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - containerPort
+                      - protocol
+                      x-kubernetes-list-type: map
                     readinessProbe:
                       properties:
                         exec:
@@ -639,8 +787,181 @@ spec:
                             x-kubernetes-int-or-string: true
                           type: object
                       type: object
+                    securityContext:
+                      properties:
+                        allowPrivilegeEscalation:
+                          type: boolean
+                        capabilities:
+                          properties:
+                            add:
+                              items:
+                                type: string
+                              type: array
+                            drop:
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        privileged:
+                          type: boolean
+                        procMount:
+                          type: string
+                        readOnlyRootFilesystem:
+                          type: boolean
+                        runAsGroup:
+                          format: int64
+                          type: integer
+                        runAsNonRoot:
+                          type: boolean
+                        runAsUser:
+                          format: int64
+                          type: integer
+                        seLinuxOptions:
+                          properties:
+                            level:
+                              type: string
+                            role:
+                              type: string
+                            type:
+                              type: string
+                            user:
+                              type: string
+                          type: object
+                        seccompProfile:
+                          properties:
+                            localhostProfile:
+                              type: string
+                            type:
+                              type: string
+                          required:
+                          - type
+                          type: object
+                        windowsOptions:
+                          properties:
+                            gmsaCredentialSpec:
+                              type: string
+                            gmsaCredentialSpecName:
+                              type: string
+                            hostProcess:
+                              type: boolean
+                            runAsUserName:
+                              type: string
+                          type: object
+                      type: object
+                    startupProbe:
+                      properties:
+                        exec:
+                          properties:
+                            command:
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        failureThreshold:
+                          format: int32
+                          type: integer
+                        httpGet:
+                          properties:
+                            host:
+                              type: string
+                            httpHeaders:
+                              items:
+                                properties:
+                                  name:
+                                    type: string
+                                  value:
+                                    type: string
+                                required:
+                                - name
+                                - value
+                                type: object
+                              type: array
+                            path:
+                              type: string
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            scheme:
+                              type: string
+                          required:
+                          - port
+                          type: object
+                        initialDelaySeconds:
+                          format: int32
+                          type: integer
+                        periodSeconds:
+                          format: int32
+                          type: integer
+                        successThreshold:
+                          format: int32
+                          type: integer
+                        tcpSocket:
+                          properties:
+                            host:
+                              type: string
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                          required:
+                          - port
+                          type: object
+                        terminationGracePeriodSeconds:
+                          format: int64
+                          type: integer
+                        timeoutSeconds:
+                          format: int32
+                          type: integer
+                      type: object
+                    stdin:
+                      type: boolean
+                    stdinOnce:
+                      type: boolean
+                    terminationMessagePath:
+                      type: string
+                    terminationMessagePolicy:
+                      type: string
+                    tty:
+                      type: boolean
+                    volumeDevices:
+                      items:
+                        properties:
+                          devicePath:
+                            type: string
+                          name:
+                            type: string
+                        required:
+                        - devicePath
+                        - name
+                        type: object
+                      type: array
+                    volumeMounts:
+                      items:
+                        properties:
+                          mountPath:
+                            type: string
+                          mountPropagation:
+                            type: string
+                          name:
+                            type: string
+                          readOnly:
+                            type: boolean
+                          subPath:
+                            type: string
+                          subPathExpr:
+                            type: string
+                        required:
+                        - mountPath
+                        - name
+                        type: object
+                      type: array
                     workingDir:
                       type: string
+                  required:
+                  - name
                   type: object
                 type: array
               disabled:
@@ -1630,6 +1951,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -2185,6 +2519,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -2740,6 +3087,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -5763,6 +6123,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -6340,6 +6713,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -6897,6 +7283,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -7456,6 +7855,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -8007,6 +8419,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -8565,6 +8990,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -9203,6 +9641,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -9756,6 +10207,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -10372,6 +10836,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -11603,6 +12080,19 @@ spec:
                         type: boolean
                       stdinOnce:
                         type: boolean
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          schemaPath:
+                            type: string
+                        type: object
                       storageUri:
                         type: string
                       terminationMessagePath:
@@ -13519,6 +14009,8 @@ spec:
                         url:
                           type: string
                       type: object
+                    grpcUrl:
+                      type: string
                     latestCreatedRevision:
                       type: string
                     latestReadyRevision:
@@ -13526,6 +14018,8 @@ spec:
                     latestRolledoutRevision:
                       type: string
                     previousRolledoutRevision:
+                      type: string
+                    restUrl:
                       type: string
                     traffic:
                       items:
@@ -13569,6 +14063,75 @@ spec:
                   - type
                   type: object
                 type: array
+              modelStatus:
+                properties:
+                  copies:
+                    properties:
+                      failedCopies:
+                        default: 0
+                        type: integer
+                      totalCopies:
+                        type: integer
+                    required:
+                    - failedCopies
+                    type: object
+                  lastFailureInfo:
+                    properties:
+                      location:
+                        type: string
+                      message:
+                        type: string
+                      modelRevisionName:
+                        type: string
+                      reason:
+                        enum:
+                        - ModelLoadFailed
+                        - RuntimeUnhealthy
+                        - NoSupportingRuntime
+                        - RuntimeNotRecognized
+                        - InvalidPredictorSpec
+                        type: string
+                      time:
+                        format: date-time
+                        type: string
+                    type: object
+                  states:
+                    properties:
+                      activeModelState:
+                        default: Pending
+                        enum:
+                        - ""
+                        - Pending
+                        - Standby
+                        - Loading
+                        - Loaded
+                        - FailedToLoad
+                        type: string
+                      targetModelState:
+                        default: ""
+                        enum:
+                        - ""
+                        - Pending
+                        - Standby
+                        - Loading
+                        - Loaded
+                        - FailedToLoad
+                        type: string
+                    required:
+                    - activeModelState
+                    type: object
+                  transitionStatus:
+                    default: UpToDate
+                    enum:
+                    - ""
+                    - UpToDate
+                    - InProgress
+                    - BlockedByFailedLoad
+                    - InvalidSpec
+                    type: string
+                required:
+                - transitionStatus
+                type: object
               observedGeneration:
                 format: int64
                 type: integer
@@ -14068,10 +14631,134 @@ spec:
                         - name
                         type: object
                       type: array
+                    envFrom:
+                      items:
+                        properties:
+                          configMapRef:
+                            properties:
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            type: object
+                          prefix:
+                            type: string
+                          secretRef:
+                            properties:
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            type: object
+                        type: object
+                      type: array
                     image:
                       type: string
                     imagePullPolicy:
                       type: string
+                    lifecycle:
+                      properties:
+                        postStart:
+                          properties:
+                            exec:
+                              properties:
+                                command:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            httpGet:
+                              properties:
+                                host:
+                                  type: string
+                                httpHeaders:
+                                  items:
+                                    properties:
+                                      name:
+                                        type: string
+                                      value:
+                                        type: string
+                                    required:
+                                    - name
+                                    - value
+                                    type: object
+                                  type: array
+                                path:
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  x-kubernetes-int-or-string: true
+                                scheme:
+                                  type: string
+                              required:
+                              - port
+                              type: object
+                            tcpSocket:
+                              properties:
+                                host:
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - port
+                              type: object
+                          type: object
+                        preStop:
+                          properties:
+                            exec:
+                              properties:
+                                command:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            httpGet:
+                              properties:
+                                host:
+                                  type: string
+                                httpHeaders:
+                                  items:
+                                    properties:
+                                      name:
+                                        type: string
+                                      value:
+                                        type: string
+                                    required:
+                                    - name
+                                    - value
+                                    type: object
+                                  type: array
+                                path:
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  x-kubernetes-int-or-string: true
+                                scheme:
+                                  type: string
+                              required:
+                              - port
+                              type: object
+                            tcpSocket:
+                              properties:
+                                host:
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - port
+                              type: object
+                          type: object
+                      type: object
                     livenessProbe:
                       properties:
                         exec:
@@ -14142,6 +14829,30 @@ spec:
                       type: object
                     name:
                       type: string
+                    ports:
+                      items:
+                        properties:
+                          containerPort:
+                            format: int32
+                            type: integer
+                          hostIP:
+                            type: string
+                          hostPort:
+                            format: int32
+                            type: integer
+                          name:
+                            type: string
+                          protocol:
+                            default: TCP
+                            type: string
+                        required:
+                        - containerPort
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - containerPort
+                      - protocol
+                      x-kubernetes-list-type: map
                     readinessProbe:
                       properties:
                         exec:
@@ -14229,8 +14940,181 @@ spec:
                             x-kubernetes-int-or-string: true
                           type: object
                       type: object
+                    securityContext:
+                      properties:
+                        allowPrivilegeEscalation:
+                          type: boolean
+                        capabilities:
+                          properties:
+                            add:
+                              items:
+                                type: string
+                              type: array
+                            drop:
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        privileged:
+                          type: boolean
+                        procMount:
+                          type: string
+                        readOnlyRootFilesystem:
+                          type: boolean
+                        runAsGroup:
+                          format: int64
+                          type: integer
+                        runAsNonRoot:
+                          type: boolean
+                        runAsUser:
+                          format: int64
+                          type: integer
+                        seLinuxOptions:
+                          properties:
+                            level:
+                              type: string
+                            role:
+                              type: string
+                            type:
+                              type: string
+                            user:
+                              type: string
+                          type: object
+                        seccompProfile:
+                          properties:
+                            localhostProfile:
+                              type: string
+                            type:
+                              type: string
+                          required:
+                          - type
+                          type: object
+                        windowsOptions:
+                          properties:
+                            gmsaCredentialSpec:
+                              type: string
+                            gmsaCredentialSpecName:
+                              type: string
+                            hostProcess:
+                              type: boolean
+                            runAsUserName:
+                              type: string
+                          type: object
+                      type: object
+                    startupProbe:
+                      properties:
+                        exec:
+                          properties:
+                            command:
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        failureThreshold:
+                          format: int32
+                          type: integer
+                        httpGet:
+                          properties:
+                            host:
+                              type: string
+                            httpHeaders:
+                              items:
+                                properties:
+                                  name:
+                                    type: string
+                                  value:
+                                    type: string
+                                required:
+                                - name
+                                - value
+                                type: object
+                              type: array
+                            path:
+                              type: string
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            scheme:
+                              type: string
+                          required:
+                          - port
+                          type: object
+                        initialDelaySeconds:
+                          format: int32
+                          type: integer
+                        periodSeconds:
+                          format: int32
+                          type: integer
+                        successThreshold:
+                          format: int32
+                          type: integer
+                        tcpSocket:
+                          properties:
+                            host:
+                              type: string
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                          required:
+                          - port
+                          type: object
+                        terminationGracePeriodSeconds:
+                          format: int64
+                          type: integer
+                        timeoutSeconds:
+                          format: int32
+                          type: integer
+                      type: object
+                    stdin:
+                      type: boolean
+                    stdinOnce:
+                      type: boolean
+                    terminationMessagePath:
+                      type: string
+                    terminationMessagePolicy:
+                      type: string
+                    tty:
+                      type: boolean
+                    volumeDevices:
+                      items:
+                        properties:
+                          devicePath:
+                            type: string
+                          name:
+                            type: string
+                        required:
+                        - devicePath
+                        - name
+                        type: object
+                      type: array
+                    volumeMounts:
+                      items:
+                        properties:
+                          mountPath:
+                            type: string
+                          mountPropagation:
+                            type: string
+                          name:
+                            type: string
+                          readOnly:
+                            type: boolean
+                          subPath:
+                            type: string
+                          subPathExpr:
+                            type: string
+                        required:
+                        - mountPath
+                        - name
+                        type: object
+                      type: array
                     workingDir:
                       type: string
+                  required:
+                  - name
                   type: object
                 type: array
               disabled:

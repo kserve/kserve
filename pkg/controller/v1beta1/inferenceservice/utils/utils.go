@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"regexp"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -36,9 +37,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
+// IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
+// storage uri nor storage spec is set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
-	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
+	return predictor.GetImplementation().IsMMS(isvcConfig) &&
+		predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
 }
 
 func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
@@ -71,7 +74,7 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 
 // MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
-func MergeRuntimeContainers(runtimeContainer *v1alpha1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
+func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
 	// Default container configuration from the runtime.
 	coreContainer := v1.Container{
 		Args:            runtimeContainer.Args,
@@ -183,8 +186,13 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
 func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
 	image := container.Image
-	if runtimeVersion != nil && len(strings.Split(image, ":")) > 0 {
-		container.Image = strings.Split(image, ":")[0] + ":" + *runtimeVersion
+	if runtimeVersion != nil {
+		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+		if len(re.FindString(image)) == 0 {
+			container.Image = image + ":" + *runtimeVersion
+		} else {
+			container.Image = re.ReplaceAllString(image, ":" + *runtimeVersion)
+		}
 		return
 	}
 	if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {

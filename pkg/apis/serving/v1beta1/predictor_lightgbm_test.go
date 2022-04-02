@@ -66,34 +66,6 @@ func TestLightGBMValidation(t *testing.T) {
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
-		"InvalidReplica": {
-			spec: PredictorSpec{
-				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas: GetIntReference(3),
-					MaxReplicas: 2,
-				},
-				LightGBM: &LightGBMSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
-		"InvalidContainerConcurrency": {
-			spec: PredictorSpec{
-				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          GetIntReference(3),
-					ContainerConcurrency: proto.Int64(-1),
-				},
-				LightGBM: &LightGBMSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
 	}
 
 	for name, scenario := range scenarios {

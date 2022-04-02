@@ -31,13 +31,6 @@ type PaddleServerSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-func (p *PaddleServerSpec) Validate() error {
-	// TODO: add GPU support
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(p.GetStorageUri()),
-	})
-}
-
 func (p *PaddleServerSpec) Default(config *InferenceServicesConfig) {
 	// TODO: add GPU support
 	p.Container.Name = constants.InferenceServiceContainerName
@@ -66,10 +59,6 @@ func (p *PaddleServerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 	p.Container.Name = constants.InferenceServiceContainerName
 	p.Args = append(arguments, p.Args...)
 	return &p.Container
-}
-
-func (p *PaddleServerSpec) GetStorageUri() *string {
-	return p.StorageURI
 }
 
 func (p *PaddleServerSpec) GetProtocol() constants.InferenceServiceProtocol {

@@ -35,7 +35,7 @@ setup(
     install_requires=[
         "kserve>=0.7.0",
         "lightgbm == 3.3.2",
-        "pandas == 0.25.3",
+        "pandas == 1.3.5",
         "argparse >= 1.4.0",
     ],
     tests_require=tests_require,

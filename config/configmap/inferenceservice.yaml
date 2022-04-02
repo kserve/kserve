@@ -140,7 +140,8 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "storageSpecSecretName": "storage-config"
     }
   credentials: |-
     {
@@ -158,7 +159,9 @@ data:
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
         "localGateway" : "knative-serving/knative-local-gateway",
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
-        "ingressDomain"  : "example.com"
+        "ingressDomain"  : "example.com",
+        "ingressClassName" : "istio",
+        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
     }
   logger: |-
     {

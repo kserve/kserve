@@ -34,7 +34,7 @@ setup(
     install_requires=[
         "kserve>=0.7.0",
         "nest_asyncio>=1.4.0",
-        "alibi==0.6.2",
+        "alibi==0.6.4",
         "joblib>=0.13.2",
         "xgboost==1.5.0",
         "shap==0.39.0",
