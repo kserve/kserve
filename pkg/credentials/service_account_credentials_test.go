@@ -23,12 +23,13 @@ import (
 	"github.com/kserve/kserve/pkg/credentials/azure"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/credentials/gcs"
-	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+
+	"github.com/kserve/kserve/pkg/credentials/gcs"
+	"github.com/kserve/kserve/pkg/credentials/s3"
 )
 
 var configMap = &v1.ConfigMap{
@@ -300,10 +301,11 @@ func TestAzureCredentialBuilder(t *testing.T) {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			"AZ_SUBSCRIPTION_ID": {},
-			"AZ_TENANT_ID":       {},
-			"AZ_CLIENT_ID":       {},
-			"AZ_CLIENT_SECRET":   {},
+			"AZ_SUBSCRIPTION_ID":       {},
+			"AZ_TENANT_ID":             {},
+			"AZ_CLIENT_ID":             {},
+			"AZ_CLIENT_SECRET":         {},
+			"AZURE_STORAGE_ACCESS_KEY": {},
 		},
 	}
 
@@ -377,6 +379,17 @@ func TestAzureCredentialBuilder(t *testing.T) {
 															Name: "az-custom-secret",
 														},
 														Key: azure.AzureClientSecret,
+													},
+												},
+											},
+											{
+												Name: azure.AzureStorageAccessKey,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureStorageAccessKey,
 													},
 												},
 											},

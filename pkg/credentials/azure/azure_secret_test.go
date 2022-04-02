@@ -80,6 +80,17 @@ func TestAzureSecret(t *testing.T) {
 						},
 					},
 				},
+				{
+					Name: AzureStorageAccessKey,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureStorageAccessKey,
+						},
+					},
+				},
 			},
 		},
 	}
