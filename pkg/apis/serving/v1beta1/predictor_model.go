@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"sort"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -100,9 +101,9 @@ func (ss stringSet) contains(s string) bool {
 // GetSupportingRuntimes Get a list of ServingRuntimeSpecs that correspond to ServingRuntimes and ClusterServingRuntimes that
 // support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
-func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) (map[string]v1alpha1.ServingRuntimeSpec, error) {
+func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.SupportedRuntime, error) {
 
-	modelProtcolVersion := constants.ProtocolV1
+	var modelProtcolVersion constants.InferenceServiceProtocol
 	if m.ProtocolVersion != nil {
 		modelProtcolVersion = *m.ProtocolVersion
 	}
@@ -112,19 +113,23 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 	if err := cl.List(context.TODO(), runtimes, client.InNamespace(namespace)); err != nil {
 		return nil, err
 	}
+	// Sort namespace-scoped runtimes by created timestamp desc and name asc.
+	sortServingRuntimeList(runtimes)
 
 	// List all cluster-scoped runtimes.
 	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{}
 	if err := cl.List(context.TODO(), clusterRuntimes); err != nil {
 		return nil, err
 	}
+	// Sort cluster-scoped runtimes by created timestamp desc and name asc.
+	sortClusterServingRuntimeList(clusterRuntimes)
 
-	srSpecs := make(map[string]v1alpha1.ServingRuntimeSpec, len(runtimes.Items)+len(clusterRuntimes.Items))
+	srSpecs := []v1alpha1.SupportedRuntime{}
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
 		if !rt.Spec.IsDisabled() && rt.Spec.IsMultiModelRuntime() == isMMS &&
 			m.RuntimeSupportsModel(&rt.Spec) && rt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
-			srSpecs[rt.GetName()] = rt.Spec
+			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: rt.GetName(), Spec: rt.Spec})
 		}
 	}
 
@@ -132,7 +137,7 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 		crt := &clusterRuntimes.Items[i]
 		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
 			m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
-			srSpecs[crt.GetName()] = crt.Spec
+			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
 		}
 	}
 	return srSpecs, nil
@@ -204,4 +209,53 @@ func (m *ModelSpec) getPredictorConfig(config *InferenceServicesConfig) *Predict
 		return &config.Predictors.Triton
 	}
 	return nil
+}
+
+func sortServingRuntimeList(runtimes *v1alpha1.ServingRuntimeList) {
+	sort.Slice(runtimes.Items, func(i, j int) bool {
+		if !hasProtocolV1(runtimes.Items[i].Spec.ProtocolVersions) &&
+			hasProtocolV1(runtimes.Items[j].Spec.ProtocolVersions) {
+			return false
+		}
+		if hasProtocolV1(runtimes.Items[i].Spec.ProtocolVersions) &&
+			!hasProtocolV1(runtimes.Items[j].Spec.ProtocolVersions) {
+			return true
+		}
+		if runtimes.Items[i].CreationTimestamp.Before(&runtimes.Items[j].CreationTimestamp) {
+			return false
+		}
+		if runtimes.Items[j].CreationTimestamp.Before(&runtimes.Items[i].CreationTimestamp) {
+			return true
+		}
+		return runtimes.Items[i].Name < runtimes.Items[j].Name
+	})
+}
+
+func sortClusterServingRuntimeList(runtimes *v1alpha1.ClusterServingRuntimeList) {
+	sort.Slice(runtimes.Items, func(i, j int) bool {
+		if !hasProtocolV1(runtimes.Items[i].Spec.ProtocolVersions) &&
+			hasProtocolV1(runtimes.Items[j].Spec.ProtocolVersions) {
+			return false
+		}
+		if hasProtocolV1(runtimes.Items[i].Spec.ProtocolVersions) &&
+			!hasProtocolV1(runtimes.Items[j].Spec.ProtocolVersions) {
+			return true
+		}
+		if runtimes.Items[i].CreationTimestamp.Before(&runtimes.Items[j].CreationTimestamp) {
+			return false
+		}
+		if runtimes.Items[j].CreationTimestamp.Before(&runtimes.Items[i].CreationTimestamp) {
+			return true
+		}
+		return runtimes.Items[i].Name < runtimes.Items[j].Name
+	})
+}
+
+func hasProtocolV1(protocols []constants.InferenceServiceProtocol) bool {
+	for _, protocol := range protocols {
+		if protocol == constants.ProtocolV1 {
+			return true
+		}
+	}
+	return false
 }

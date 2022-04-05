@@ -205,6 +205,12 @@ type ClusterServingRuntimeList struct {
 	Items           []ClusterServingRuntime `json:"items"`
 }
 
+// SupportedRuntime is the schema for supported runtime result of automaic selection
+type SupportedRuntime struct {
+	Name string
+	Spec ServingRuntimeSpec
+}
+
 func init() {
 	SchemeBuilder.Register(&ServingRuntime{}, &ServingRuntimeList{})
 	SchemeBuilder.Register(&ClusterServingRuntime{}, &ClusterServingRuntimeList{})
@@ -219,7 +225,7 @@ func (srSpec *ServingRuntimeSpec) IsMultiModelRuntime() bool {
 }
 
 func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersion constants.InferenceServiceProtocol) bool {
-	if srSpec.ProtocolVersions == nil || len(srSpec.ProtocolVersions) == 0 {
+	if len(modelProtocolVersion) == 0 || srSpec.ProtocolVersions == nil || len(srSpec.ProtocolVersions) == 0 {
 		return true
 	}
 	for _, srProtocolVersion := range srSpec.ProtocolVersions {

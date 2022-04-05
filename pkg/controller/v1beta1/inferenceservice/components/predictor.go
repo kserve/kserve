@@ -120,11 +120,9 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 				return fmt.Errorf("no runtime found to support predictor with model type: %v", isvc.Spec.Predictor.Model.ModelFormat)
 			}
 			// Get first supporting runtime.
-			for rtName, rtSpec := range runtimes {
-				sRuntime = rtSpec
-				isvc.Spec.Predictor.Model.Runtime = &rtName
-				break
-			}
+			sRuntime = runtimes[0].Spec
+			isvc.Spec.Predictor.Model.Runtime = &runtimes[0].Name
+
 			// set runtime defaults
 			isvc.SetRuntimeDefaults()
 		}

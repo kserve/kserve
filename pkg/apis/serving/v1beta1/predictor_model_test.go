@@ -38,7 +38,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	pmmlRuntime := "pmml-runtime"
 	mlserverRuntime := "mlserver-runtime"
 	xgboostRuntime := "xgboost-runtime"
-	clusterPrefix := "cluster-"
+	clusterServingRuntimePrefix := "cluster-"
 
 	protocolV2 := constants.ProtocolV2
 	protocolV1 := constants.ProtocolV1
@@ -182,19 +182,19 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		Items: []v1alpha1.ClusterServingRuntime{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterPrefix + mlserverRuntime,
+					Name: clusterServingRuntimePrefix + mlserverRuntime,
 				},
 				Spec: servingRuntimeSpecs[mlserverRuntime],
 			},
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterPrefix + tfRuntime,
+					Name: clusterServingRuntimePrefix + tfRuntime,
 				},
 				Spec: servingRuntimeSpecs[tfRuntime],
 			},
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterPrefix + xgboostRuntime,
+					Name: clusterServingRuntimePrefix + xgboostRuntime,
 				},
 				Spec: servingRuntimeSpecs[xgboostRuntime],
 			},
@@ -205,7 +205,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	scenarios := map[string]struct {
 		spec     *ModelSpec
 		isMMS    bool
-		expected map[string]v1alpha1.ServingRuntimeSpec
+		expected []v1alpha1.SupportedRuntime
 	}{
 		"BothClusterAndNamespaceRuntimesSupportModel": {
 			spec: &ModelSpec{
@@ -217,7 +217,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: map[string]v1alpha1.ServingRuntimeSpec{tfRuntime: servingRuntimeSpecs[tfRuntime], clusterPrefix + tfRuntime: servingRuntimeSpecs[tfRuntime]},
+			expected: []v1alpha1.SupportedRuntime{{Name: tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}, {Name: clusterServingRuntimePrefix + tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}},
 		},
 		"RuntimeNotFound": {
 			spec: &ModelSpec{
@@ -229,7 +229,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: make(map[string]v1alpha1.ServingRuntimeSpec),
+			expected: []v1alpha1.SupportedRuntime{},
 		},
 		"ModelFormatWithDisabledRuntimeSpecified": {
 			spec: &ModelSpec{
@@ -241,7 +241,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: make(map[string]v1alpha1.ServingRuntimeSpec),
+			expected: []v1alpha1.SupportedRuntime{},
 		},
 		"ModelMeshCompatibleRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
@@ -254,7 +254,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    true,
-			expected: map[string]v1alpha1.ServingRuntimeSpec{clusterPrefix + mlserverRuntime: servingRuntimeSpecs[mlserverRuntime]},
+			expected: []v1alpha1.SupportedRuntime{{Name: clusterServingRuntimePrefix + mlserverRuntime, Spec: servingRuntimeSpecs[mlserverRuntime]}},
 		},
 		"SMSRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
@@ -266,7 +266,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: map[string]v1alpha1.ServingRuntimeSpec{sklearnRuntime: servingRuntimeSpecs[sklearnRuntime]},
+			expected: []v1alpha1.SupportedRuntime{{Name: sklearnRuntime, Spec: servingRuntimeSpecs[sklearnRuntime]}},
 		},
 		"RuntimeV2ProtocolSpecified": {
 			spec: &ModelSpec{
@@ -279,7 +279,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: map[string]v1alpha1.ServingRuntimeSpec{clusterPrefix + xgboostRuntime: servingRuntimeSpecs[xgboostRuntime]},
+			expected: []v1alpha1.SupportedRuntime{{Name: clusterServingRuntimePrefix + xgboostRuntime, Spec: servingRuntimeSpecs[xgboostRuntime]}},
 		},
 		"RuntimeV1ProtocolNotFound": {
 			spec: &ModelSpec{
@@ -292,7 +292,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: make(map[string]v1alpha1.ServingRuntimeSpec),
+			expected: []v1alpha1.SupportedRuntime{},
 		},
 	}
 
