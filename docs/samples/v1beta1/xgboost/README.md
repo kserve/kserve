@@ -107,14 +107,14 @@ spec:
   predictor:
     xgboost:
       protocolVersion: "v2"
-      storageUri: "gs://kfserving-samples/models/xgboost/iris"
+      storageUri: "gs://kfserving-examples/models/xgboost/iris"
 ```
 
 Note that this makes the following assumptions:
 
 - Your model weights (i.e. your `model.bst` file) have already been uploaded
   to a "model repository" (GCS in this example) and can be accessed as
-  `gs://kfserving-samples/models/xgboost/iris`.
+  `gs://kfserving-examples/models/xgboost/iris`.
 - There is a K8s cluster available, accessible through `kubectl`.
 - KServe has already been [installed in your
   cluster](https://github.com/kserve/kserve#installation).
