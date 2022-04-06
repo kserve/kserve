@@ -7,7 +7,7 @@ spec:
   default:
     predictor:
       tensorflow:
-        storageUri: "gs://kfserving-samples/tfserving/cifar10/resnet32"
+        storageUri: "gs://kfserving-examples/tfserving/cifar10/resnet32"
       logger:
         mode: all
         url: http://broker-ingress.knative-eventing.svc.cluster.local/cifar10/default

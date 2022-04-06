@@ -43,7 +43,7 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
 ```
 
 ```
@@ -235,7 +235,7 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
       runtimeVersion: "1.14.0-gpu"
       resources:
         limits:
@@ -317,7 +317,7 @@ spec:
   predictor:
     containerConcurrency: 10
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
 ```
 
 ```bash
@@ -337,5 +337,5 @@ spec:
   predictor:
     minReplicas: 0
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
 ```

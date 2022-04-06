@@ -28,7 +28,7 @@ kserve_op = components.load_component_from_url('https://raw.githubusercontent.co
 def kservePipeline(
         action='apply',
         model_name='tensorflow-sample',
-        model_uri='gs://kfserving-samples/models/tensorflow/flowers',
+        model_uri='gs://kfserving-examples/models/tensorflow/flowers',
         namespace='anonymous',
         framework='tensorflow'):
     kserve_op(action=action,
