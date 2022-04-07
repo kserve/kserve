@@ -63,7 +63,7 @@ def test_xgboost_v2_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
-            storage_uri="gs://kfserving-samples/models/xgboost/iris",
+            storage_uri="gs://kfserving-examples/models/xgboost/iris",
             env=[V1EnvVar(name="MLSERVER_MODEL_PARALLEL_WORKERS", value="0")],
             protocol_version="v2",
             resources=V1ResourceRequirements(
