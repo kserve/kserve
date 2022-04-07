@@ -90,7 +90,7 @@ type ServingRuntimeSpec struct {
 
 	// The following fields apply to ModelMesh deployments.
 
-	// Name for each of the Endpoint fields is either like "port:1234" or "unix:/tmp/mserve/grpc.sock"
+	// Name for each of the Endpoint fields is either like "port:1234" or "unix:/tmp/kserve/grpc.sock"
 
 	// Grpc endpoint for internal model-management (implementing mmesh.ModelRuntime gRPC service)
 	// Assumed to be single-model runtime if omitted
@@ -147,6 +147,8 @@ type BuiltInAdapter struct {
 	MemBufferBytes int `json:"memBufferBytes,omitempty"`
 	// Timeout for model loading operations in milliseconds
 	ModelLoadingTimeoutMillis int `json:"modelLoadingTimeoutMillis,omitempty"`
+	// Environment variables used to control other aspects of the built-in adapter's behaviour (uncommon)
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // ServingRuntime is the Schema for the servingruntimes API
