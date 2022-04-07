@@ -188,7 +188,7 @@ const (
 )
 
 // FailureReason enum
-// +kubebuilder:validation:Enum=ModelLoadFailed;RuntimeUnhealthy;NoSupportingRuntime;RuntimeNotRecognized;InvalidPredictorSpec
+// +kubebuilder:validation:Enum=ModelLoadFailed;RuntimeUnhealthy;RuntimeDisabled;NoSupportingRuntime;RuntimeNotRecognized;InvalidPredictorSpec
 type FailureReason string
 
 // FailureReason enum values
@@ -423,7 +423,14 @@ func (ss *InferenceServiceStatus) UpdateModelTransitionStatus(status TransitionS
 	ss.ModelStatus.TransitionStatus = status
 	// Update model state to 'FailedToLoad' in case of invalid spec provided
 	if ss.ModelStatus.TransitionStatus == InvalidSpec {
-		ss.UpdateModelRevisionStates(FailedToLoad, info)
+		if ss.ModelStatus.ModelRevisionStates == nil {
+			ss.ModelStatus.ModelRevisionStates = &ModelRevisionStates{ActiveModelState: FailedToLoad}
+		} else {
+			ss.ModelStatus.ModelRevisionStates.ActiveModelState = FailedToLoad
+		}
+	}
+	if info != nil {
+		ss.SetModelFailureInfo(info)
 	}
 }
 

@@ -512,12 +512,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						URL:                   transformerUrl,
 					},
 				},
-				ModelStatus: v1beta1.ModelStatus{
-					TransitionStatus: v1beta1.InProgress,
-					ModelRevisionStates: &v1beta1.ModelRevisionStates{
-						ActiveModelState: v1beta1.Pending,
-					},
-				},
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -736,12 +730,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestReadyRevision:   "exp-revision-v1",
 						LatestCreatedRevision: "exp-revision-v1",
 						URL:                   explainerUrl,
-					},
-				},
-				ModelStatus: v1beta1.ModelStatus{
-					TransitionStatus: v1beta1.InProgress,
-					ModelRevisionStates: &v1beta1.ModelRevisionStates{
-						ActiveModelState: v1beta1.Pending,
 					},
 				},
 			}
@@ -1179,4 +1167,275 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		})
 	})
+
+	Context("When creating an inference service with a ServingRuntime which does not exists", func() {
+		It("Should fail with reason RuntimeNotRecognized", func() {
+			serviceName := "svc-with-unknown-servingruntime"
+			servingRuntimeName := "tf-serving-unknown"
+			namespace := "default"
+
+			var predictorServiceKey = types.NamespacedName{Name: serviceName, Namespace: namespace}
+
+			var isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "tensorflow",
+							},
+							Runtime: &servingRuntimeName,
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test/mnist/export"),
+							},
+						},
+					},
+				},
+			}
+
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create the InferenceService object and expect the Reconcile and knative service to be created
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), isvc)
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, predictorServiceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			var failureInfo = v1beta1.FailureInfo{
+				Reason:  v1beta1.RuntimeNotRecognized,
+				Message: "Waiting for runtime to become available",
+			}
+			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
+			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.ActiveModelState).To(Equal(v1beta1.FailedToLoad))
+			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
+		})
+	})
+
+	Context("When creating an inference service with a ServingRuntime which is disabled", func() {
+		It("Should fail with reason RuntimeDisabled", func() {
+			serviceName := "svc-with-disabled-servingruntime"
+			servingRuntimeName := "tf-serving-disabled"
+			namespace := "default"
+
+			var predictorServiceKey = types.NamespacedName{Name: serviceName, Namespace: namespace}
+
+			var servingRuntime = &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      servingRuntimeName,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(true),
+				},
+			}
+
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+
+			var isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "tensorflow",
+							},
+							Runtime: &servingRuntimeName,
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test/mnist/export"),
+							},
+						},
+					},
+				},
+			}
+
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create the InferenceService object and expect the Reconcile and knative service to be created
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), isvc)
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, predictorServiceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			var failureInfo = v1beta1.FailureInfo{
+				Reason:  v1beta1.RuntimeDisabled,
+				Message: "Specified runtime is disabled",
+			}
+			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
+			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.ActiveModelState).To(Equal(v1beta1.FailedToLoad))
+			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
+		})
+	})
+
+	Context("When creating an inference service with a ServingRuntime which does not support specified model format", func() {
+		It("Should fail with reason NoSupportingRuntime", func() {
+			serviceName := "svc-with-unsupported-servingruntime"
+			servingRuntimeName := "tf-serving-unsupported"
+			namespace := "default"
+
+			var predictorServiceKey = types.NamespacedName{Name: serviceName, Namespace: namespace}
+
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			var servingRuntime = &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      servingRuntimeName,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+
+			var isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "sklearn",
+							},
+							Runtime: &servingRuntimeName,
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test/mnist/export"),
+							},
+						},
+					},
+				},
+			}
+
+			// Create the InferenceService object and expect the Reconcile and knative service to be created
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), isvc)
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, predictorServiceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			var failureInfo = v1beta1.FailureInfo{
+				Reason:  v1beta1.NoSupportingRuntime,
+				Message: "Specified runtime does not support specified framework/version",
+			}
+			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
+			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.ActiveModelState).To(Equal(v1beta1.FailedToLoad))
+			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
+		})
+	})
+
 })

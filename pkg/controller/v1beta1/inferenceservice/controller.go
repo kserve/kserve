@@ -180,6 +180,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
 			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+			r.updateStatus(isvc)
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
 		}
 		if result.Requeue || result.RequeueAfter > 0 {

@@ -13019,6 +13019,13 @@ spec:
                       message:
                         type: string
                       reason:
+                        enum:
+                        - ModelLoadFailed
+                        - RuntimeUnhealthy
+                        - RuntimeDisabled
+                        - NoSupportingRuntime
+                        - RuntimeNotRecognized
+                        - InvalidPredictorSpec
                         type: string
                       severity:
                         type: string

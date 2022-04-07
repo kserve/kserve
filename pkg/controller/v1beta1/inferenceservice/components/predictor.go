@@ -64,9 +64,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	var container *v1.Container
 	var podSpec v1.PodSpec
 
-	// inferenceservice modelstatus set to 'Pending'
-	isvc.Status.UpdateModelRevisionStates(v1beta1.Pending, nil)
-
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
