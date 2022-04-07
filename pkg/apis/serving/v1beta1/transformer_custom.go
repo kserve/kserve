@@ -24,13 +24,18 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	pkglogging "knative.dev/pkg/logging"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // CustomTransformer defines arguments for configuring a custom transformer.
 type CustomTransformer struct {
 	v1.PodSpec `json:",inline"`
 }
+
+var (
+	// logger for the custom transformer
+	customTransformerLogger = logf.Log.WithName("inferenceservice-v1beta1-custom-transformer")
+)
 
 var _ ComponentImplementation = &CustomTransformer{}
 
@@ -74,21 +79,15 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 	argumentPredictorHost := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
 
 	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]
-	logger, _ := pkglogging.NewLogger("", "INFO")
-	logger.Infof("========isvc deploymentMode========>> %s", deploymentMode)
+
 	if ok && (deploymentMode == string(constants.ModelMeshDeployment)) {
-		mm_service_name := config.ModelMesh.ModelMeshServiceName
-		mm_http_port := config.ModelMesh.ModelMeshHTTPPort
-		argumentPredictorHost = fmt.Sprintf("%s.%s:%d", mm_service_name, metadata.Namespace, mm_http_port)
+		// Get predictor host and protocol from annotations in modelmesh deployment mode
 		argumentPredictorHost = metadata.Annotations["predictor-host"]
 		argumentPredictorProtocol := metadata.Annotations["predictor-protocol"]
 
-		if utils.IncludesArg(container.Args, "--protocol") {
-			for i := range container.Args {
-				logger.Infof("========container.Args[i]========>> %s", container.Args[i])
-			}
-		} else {
-			logger.Infof("========argumentPredictorProtocol========>> %s", argumentPredictorProtocol)
+		// Set predictor protocol if not provided in container arguments
+		if !utils.IncludesArg(container.Args, "--protocol") {
+			customTransformerLogger.Info("Set predictor protocol based on ModelMesh predictor URL", "protocol", argumentPredictorProtocol)
 			container.Args = append(container.Args, []string{
 				"--protocol",
 				argumentPredictorProtocol,
@@ -102,7 +101,6 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 			metadata.Name,
 		}...)
 	}
-	logger.Infof("========isvc argumentPredictorHost========>> %s", argumentPredictorHost)
 	if !utils.IncludesArg(container.Args, constants.ArgumentPredictorHost) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentPredictorHost,

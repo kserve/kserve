@@ -114,10 +114,15 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 
 	if deploymentMode == constants.ModelMeshDeployment {
-		r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+		if isvc.Spec.Transformer == nil {
+			// Skip if no transformers
+			r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+				"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+			return ctrl.Result{}, nil
+		}
+		// Continue to reconcile when there is a transformer
+		r.Log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
-		r.Log.Info("=========================== continue...")
-		//return ctrl.Result{}, nil
 	}
 	// name of our custom finalizer
 	finalizerName := "inferenceservice.finalizers"
@@ -155,17 +160,14 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
-	r.Log.Info("=============================", "apiVersion", isvc.APIVersion, "pred", isvc.Spec.Predictor)
-        r.Log.Info("=============================", "apiVersion", isvc.APIVersion, "tran", isvc.Spec.Transformer)
-
 	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
 	}
 	reconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
-	        reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Scheme, isvcConfig))
-        }
+		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Scheme, isvcConfig))
+	}
 	if isvc.Spec.Transformer != nil {
 		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Scheme, isvcConfig))
 	}
