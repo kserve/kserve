@@ -23,6 +23,7 @@ spec:
       autoSelect: true
   protocolVersions:
     - v2
+    - grpc-v2
   containers:
     - name: kserve-container
       image: kserve-tritonserver:replace

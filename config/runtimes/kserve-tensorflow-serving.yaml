@@ -12,6 +12,7 @@ spec:
       autoSelect: true
   protocolVersions:
     - v1
+    - grpc-v1
   containers:
     - name: kserve-container
       image: tensorflow-serving:replace

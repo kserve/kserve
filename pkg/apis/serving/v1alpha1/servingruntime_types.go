@@ -87,7 +87,7 @@ type ServingRuntimeSpec struct {
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
 
-	// Supported protocol versions (i.e. v1, v2).
+	// Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)
 	// +optional
 	ProtocolVersions []constants.InferenceServiceProtocol `json:"protocolVersions,omitempty"`
 
@@ -205,7 +205,7 @@ type ClusterServingRuntimeList struct {
 	Items           []ClusterServingRuntime `json:"items"`
 }
 
-// SupportedRuntime is the schema for supported runtime result of automaic selection
+// SupportedRuntime is the schema for supported runtime result of automatic selection
 type SupportedRuntime struct {
 	Name string
 	Spec ServingRuntimeSpec

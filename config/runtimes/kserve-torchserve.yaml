@@ -10,6 +10,7 @@ spec:
   protocolVersions:
     - v1
     - v2
+    - grpc-v1
   containers:
     - name: kserve-container
       image: kserve-torchserve:replace

@@ -26,7 +26,7 @@ import (
 
 	"knative.dev/pkg/network"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // KServe Constants
@@ -191,8 +191,10 @@ const (
 
 // InferenceService protocol enums
 const (
-	ProtocolV1 InferenceServiceProtocol = "v1"
-	ProtocolV2 InferenceServiceProtocol = "v2"
+	ProtocolV1     InferenceServiceProtocol = "v1"
+	ProtocolV2     InferenceServiceProtocol = "v2"
+	ProtocolGRPCV1 InferenceServiceProtocol = "grpc-v1"
+	ProtocolGRPCV2 InferenceServiceProtocol = "grpc-v2"
 )
 
 // InferenceService Endpoint Ports
@@ -325,6 +327,17 @@ const (
 	SupportedModelMLFlow     = "mlflow"
 )
 
+type ProtocolVersion int
+
+const (
+	_ = iota
+	V1
+	V2
+	GRPCV1
+	GRPCV2
+	Unknown
+)
+
 // GetRawServiceLabel generate native service label
 func GetRawServiceLabel(service string) string {
 	return "isvc." + service
@@ -422,7 +435,7 @@ func VirtualServiceHostname(name string, predictorHostName string) string {
 	return name + predictorHostName[index:]
 }
 
-func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
+func PredictorURL(metadata metav1.ObjectMeta, isCanary bool) string {
 	serviceName := DefaultPredictorServiceName(metadata.Name)
 	if isCanary {
 		serviceName = CanaryPredictorServiceName(metadata.Name)
@@ -430,7 +443,7 @@ func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
 	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
 }
 
-func TransformerURL(metadata v1.ObjectMeta, isCanary bool) string {
+func TransformerURL(metadata metav1.ObjectMeta, isCanary bool) string {
 	serviceName := DefaultTransformerServiceName(metadata.Name)
 	if isCanary {
 		serviceName = CanaryTransformerServiceName(metadata.Name)
@@ -460,4 +473,19 @@ func exact(regexp string) string {
 
 func optional(regexp string) string {
 	return "(" + regexp + ")?"
+}
+
+func GetProtocolVersionInt(protocol InferenceServiceProtocol) ProtocolVersion {
+	switch protocol {
+	case ProtocolV1:
+		return V1
+	case ProtocolV2:
+		return V2
+	case ProtocolGRPCV1:
+		return GRPCV1
+	case ProtocolGRPCV2:
+		return GRPCV2
+	default:
+		return Unknown
+	}
 }
