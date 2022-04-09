@@ -19,8 +19,6 @@ package knative
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -88,17 +86,8 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	}
 	lastRolledoutRevision := componentStatus.LatestRolledoutRevision
 
-	// This is to handle case when the first revision rolled out.
-	if strings.HasSuffix(componentStatus.LatestRolledoutRevision, "-00001") {
-		lastRolledoutRevision = componentStatus.PreviousRolledoutRevision
-	}
-
 	// Log component status and canary traffic percent
-	if componentExtension.CanaryTrafficPercent != nil {
-		log.Info("revision status:", "LatestRolledoutRevision", componentStatus.LatestRolledoutRevision, "LatestReadyRevision", componentStatus.LatestReadyRevision, "LatestCreatedRevision", componentStatus.LatestCreatedRevision, "PreviousRolledoutRevision", componentStatus.PreviousRolledoutRevision, "CanaryTrafficPercent", *componentExtension.CanaryTrafficPercent)
-	} else {
-		log.Info("revision status:", "LatestRolledoutRevision", componentStatus.LatestRolledoutRevision, "LatestReadyRevision", componentStatus.LatestReadyRevision, "LatestCreatedRevision", componentStatus.LatestCreatedRevision, "PreviousRolledoutRevision", componentStatus.PreviousRolledoutRevision, "CanaryTrafficPercent", "nil")
-	}
+        log.Info("revision status:", "LatestRolledoutRevision", componentStatus.LatestRolledoutRevision, "LatestReadyRevision", componentStatus.LatestReadyRevision, "LatestCreatedRevision", componentStatus.LatestCreatedRevision, "PreviousRolledoutRevision", componentStatus.PreviousRolledoutRevision, "CanaryTrafficPercent", componentExtension.CanaryTrafficPercent)
 
 	trafficTargets := []knservingv1.TrafficTarget{}
 	// Split traffic when canary traffic percent is specified
