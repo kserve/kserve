@@ -12,7 +12,6 @@
 
 import os
 import json
-import time
 from kubernetes import client
 
 from kserve import KServeClient
@@ -66,7 +65,6 @@ def test_batcher_raw():
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-        time.sleep(25)
     except RuntimeError as e:
         print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
                                                                       KSERVE_TEST_NAMESPACE,
