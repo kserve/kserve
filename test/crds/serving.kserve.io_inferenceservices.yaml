@@ -1038,6 +1038,10 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              protocolVersions:
+                items:
+                  type: string
+                type: array
               replicas:
                 type: integer
               storageHelper:
@@ -15251,6 +15255,10 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              protocolVersions:
+                items:
+                  type: string
+                type: array
               replicas:
                 type: integer
               storageHelper:

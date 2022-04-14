@@ -84,7 +84,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
 	isvc.DefaultInferenceService(config)
-	g.Expect(*isvc.Spec.Predictor.Model.Runtime).To(gomega.Equal("kserve-tensorflow-serving"))
+	g.Expect(*&isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
+	g.Expect(*&isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
 
 	g.Expect(isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
 

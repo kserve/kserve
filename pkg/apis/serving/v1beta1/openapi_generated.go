@@ -486,6 +486,21 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"protocolVersions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"containers": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -649,6 +664,7 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -3324,6 +3340,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -4201,7 +4218,7 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -4443,6 +4460,7 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -4527,6 +4545,7 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -4595,7 +4614,7 @@ func schema_pkg_apis_serving_v1beta1_ModelSpec(ref common.ReferenceCallback) com
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -4909,7 +4928,7 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -5151,6 +5170,7 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5181,7 +5201,7 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -5423,6 +5443,7 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5452,7 +5473,7 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -5694,6 +5715,7 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6174,7 +6196,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -6416,6 +6438,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7029,7 +7052,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -7271,6 +7294,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7350,7 +7374,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -7592,6 +7616,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7622,7 +7647,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -7864,6 +7889,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -8374,7 +8400,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -8616,6 +8642,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -8646,7 +8673,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 					},
 					"protocolVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Protocol version to use by the predictor (i.e. v1 or v2)",
+							Description: "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -8888,6 +8915,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{

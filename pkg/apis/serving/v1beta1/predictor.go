@@ -75,7 +75,7 @@ type PredictorExtensionSpec struct {
 	// Runtime version of the predictor docker image
 	// +optional
 	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
-	// Protocol version to use by the predictor (i.e. v1 or v2)
+	// Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)
 	// +optional
 	ProtocolVersion *constants.InferenceServiceProtocol `json:"protocolVersion,omitempty"`
 	// Container enables overrides for the predictor.

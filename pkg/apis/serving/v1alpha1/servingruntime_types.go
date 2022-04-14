@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/kserve/kserve/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -85,6 +86,10 @@ type ServingRuntimeSpec struct {
 	// Set to true to disable use of this runtime
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
+
+	// Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)
+	// +optional
+	ProtocolVersions []constants.InferenceServiceProtocol `json:"protocolVersions,omitempty"`
 
 	ServingRuntimePodSpec `json:",inline"`
 
@@ -200,6 +205,12 @@ type ClusterServingRuntimeList struct {
 	Items           []ClusterServingRuntime `json:"items"`
 }
 
+// SupportedRuntime is the schema for supported runtime result of automatic selection
+type SupportedRuntime struct {
+	Name string
+	Spec ServingRuntimeSpec
+}
+
 func init() {
 	SchemeBuilder.Register(&ServingRuntime{}, &ServingRuntimeList{})
 	SchemeBuilder.Register(&ClusterServingRuntime{}, &ClusterServingRuntimeList{})
@@ -211,4 +222,16 @@ func (srSpec *ServingRuntimeSpec) IsDisabled() bool {
 
 func (srSpec *ServingRuntimeSpec) IsMultiModelRuntime() bool {
 	return srSpec.MultiModel != nil && *srSpec.MultiModel
+}
+
+func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersion constants.InferenceServiceProtocol) bool {
+	if len(modelProtocolVersion) == 0 || srSpec.ProtocolVersions == nil || len(srSpec.ProtocolVersions) == 0 {
+		return true
+	}
+	for _, srProtocolVersion := range srSpec.ProtocolVersions {
+		if srProtocolVersion == modelProtocolVersion {
+			return true
+		}
+	}
+	return false
 }

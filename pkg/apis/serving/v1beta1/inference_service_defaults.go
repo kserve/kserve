@@ -98,20 +98,6 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 }
 
 func (isvc *InferenceService) setPredictorModelDefaults() {
-	if isvc.Spec.Predictor.Model != nil {
-		// add mlserver specific default values
-		if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelMLFlow ||
-			(isvc.Spec.Predictor.Model.Runtime != nil &&
-				*isvc.Spec.Predictor.Model.Runtime == constants.MLServer) {
-			isvc.setMlServerDefaults()
-		}
-		// add torchserve specific default values
-		if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelPyTorch &&
-			(isvc.Spec.Predictor.Model.Runtime == nil ||
-				*isvc.Spec.Predictor.Model.Runtime == constants.TorchServe) {
-			isvc.setTorchServeDefaults()
-		}
-	}
 	switch {
 	case isvc.Spec.Predictor.SKLearn != nil:
 		isvc.assignSKLearnRuntime()
@@ -143,211 +129,117 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 }
 
 func (isvc *InferenceService) assignSKLearnRuntime() {
-	// assign built-in runtime based on protocol version
-	if isvc.Spec.Predictor.SKLearn.ProtocolVersion == nil {
-		defaultProtocol := constants.ProtocolV1
-		isvc.Spec.Predictor.SKLearn.ProtocolVersion = &defaultProtocol
-	}
-	var runtime = constants.SKLearnServer
-	if isvc.Spec.Predictor.SKLearn.ProtocolVersion != nil &&
-		constants.ProtocolV2 == *isvc.Spec.Predictor.SKLearn.ProtocolVersion {
-		runtime = constants.MLServer
-
-		if isvc.Spec.Predictor.SKLearn.StorageURI == nil {
-			isvc.Spec.Predictor.SKLearn.Env = append(isvc.Spec.Predictor.SKLearn.Env,
-				v1.EnvVar{
-					Name:  constants.MLServerLoadModelsStartupEnv,
-					Value: strconv.FormatBool(false),
-				},
-			)
-		} else {
-			isvc.Spec.Predictor.SKLearn.Env = append(isvc.Spec.Predictor.SKLearn.Env,
-				v1.EnvVar{
-					Name:  constants.MLServerModelNameEnv,
-					Value: isvc.Name,
-				},
-				v1.EnvVar{
-					Name:  constants.MLServerModelURIEnv,
-					Value: constants.DefaultModelLocalMountPath,
-				},
-			)
-		}
-
-		if isvc.ObjectMeta.Labels == nil {
-			isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: constants.MLServerModelClassSKLearn}
-		} else {
-			isvc.ObjectMeta.Labels[constants.ModelClassLabel] = constants.MLServerModelClassSKLearn
-		}
-	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelSKLearn},
 		PredictorExtensionSpec: isvc.Spec.Predictor.SKLearn.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove sklearn spec
 	isvc.Spec.Predictor.SKLearn = nil
 }
 
 func (isvc *InferenceService) assignTensorflowRuntime() {
-	// assign built-in runtime based on gpu config
-	if isvc.Spec.Predictor.Tensorflow.ProtocolVersion == nil {
-		defaultProtocol := constants.ProtocolV1
-		isvc.Spec.Predictor.Tensorflow.ProtocolVersion = &defaultProtocol
-	}
-	var runtime = constants.TFServing
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelTensorflow},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Tensorflow.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove tensorflow spec
 	isvc.Spec.Predictor.Tensorflow = nil
 }
 
 func (isvc *InferenceService) assignXGBoostRuntime() {
-	// assign built-in runtime based on protocol version
-	if isvc.Spec.Predictor.XGBoost.ProtocolVersion == nil {
-		defaultProtocol := constants.ProtocolV1
-		isvc.Spec.Predictor.XGBoost.ProtocolVersion = &defaultProtocol
-	}
-	var runtime = constants.XGBServer
-	if isvc.Spec.Predictor.XGBoost.ProtocolVersion != nil &&
-		constants.ProtocolV2 == *isvc.Spec.Predictor.XGBoost.ProtocolVersion {
-		runtime = constants.MLServer
-
-		if isvc.Spec.Predictor.XGBoost.StorageURI == nil {
-			isvc.Spec.Predictor.XGBoost.Env = append(isvc.Spec.Predictor.XGBoost.Env,
-				v1.EnvVar{
-					Name:  constants.MLServerLoadModelsStartupEnv,
-					Value: strconv.FormatBool(false),
-				},
-			)
-		} else {
-			isvc.Spec.Predictor.XGBoost.Env = append(isvc.Spec.Predictor.XGBoost.Env,
-				v1.EnvVar{
-					Name:  constants.MLServerModelNameEnv,
-					Value: isvc.Name,
-				},
-				v1.EnvVar{
-					Name:  constants.MLServerModelURIEnv,
-					Value: constants.DefaultModelLocalMountPath,
-				},
-			)
-		}
-
-		if isvc.ObjectMeta.Labels == nil {
-			isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: constants.MLServerModelClassXGBoost}
-		} else {
-			isvc.ObjectMeta.Labels[constants.ModelClassLabel] = constants.MLServerModelClassXGBoost
-		}
-	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelXGBoost},
 		PredictorExtensionSpec: isvc.Spec.Predictor.XGBoost.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove xgboost spec
 	isvc.Spec.Predictor.XGBoost = nil
 }
 
 func (isvc *InferenceService) assignPyTorchRuntime() {
-	// assign built-in runtime based on gpu config
-	if isvc.ObjectMeta.Labels == nil {
-		isvc.ObjectMeta.Labels = map[string]string{constants.ServiceEnvelope: constants.ServiceEnvelopeKServe}
-	} else {
-		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
-	}
-	if isvc.Spec.Predictor.PyTorch.ProtocolVersion != nil &&
-		constants.ProtocolV2 == *isvc.Spec.Predictor.PyTorch.ProtocolVersion {
-		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
-	}
-	runtime := constants.TorchServe
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelPyTorch},
 		PredictorExtensionSpec: isvc.Spec.Predictor.PyTorch.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove pytorch spec
 	isvc.Spec.Predictor.PyTorch = nil
 }
 
 func (isvc *InferenceService) assignTritonRuntime() {
-	// assign built-in runtime
-	var runtime = constants.TritonServer
-	if isvc.Spec.Predictor.Triton.StorageURI == nil {
-		isvc.Spec.Predictor.Triton.Args = append(isvc.Spec.Predictor.Triton.Args,
-			fmt.Sprintf("%s=%s", "--model-control-mode", "explicit"))
+	// assign protocol version 'v2' if not provided for backward compatibility
+	if isvc.Spec.Predictor.Triton.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.Triton.ProtocolVersion = &protocolV2
 	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelTriton},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Triton.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove triton spec
 	isvc.Spec.Predictor.Triton = nil
 }
 
 func (isvc *InferenceService) assignONNXRuntime() {
-	// assign built-in runtime
-	var runtime = constants.TritonServer
+	// assign protocol version 'v2' if not provided for backward compatibility
+	if isvc.Spec.Predictor.ONNX.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.ONNX.ProtocolVersion = &protocolV2
+	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelONNX},
 		PredictorExtensionSpec: isvc.Spec.Predictor.ONNX.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove onnx spec
 	isvc.Spec.Predictor.ONNX = nil
 }
 
 func (isvc *InferenceService) assignPMMLRuntime() {
-	// assign built-in runtime
-	if isvc.Spec.Predictor.PMML.ProtocolVersion == nil {
-		defaultProtocol := constants.ProtocolV1
-		isvc.Spec.Predictor.PMML.ProtocolVersion = &defaultProtocol
-	}
-	var runtime = constants.PMMLServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelPMML},
 		PredictorExtensionSpec: isvc.Spec.Predictor.PMML.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove pmml spec
 	isvc.Spec.Predictor.PMML = nil
 }
 
 func (isvc *InferenceService) assignLightGBMRuntime() {
-	// assign built-in runtime
-	if isvc.Spec.Predictor.LightGBM.ProtocolVersion == nil {
-		defaultProtocol := constants.ProtocolV1
-		isvc.Spec.Predictor.LightGBM.ProtocolVersion = &defaultProtocol
-	}
-	var runtime = constants.LGBServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelLightGBM},
 		PredictorExtensionSpec: isvc.Spec.Predictor.LightGBM.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove lightgbm spec
 	isvc.Spec.Predictor.LightGBM = nil
 }
 
 func (isvc *InferenceService) assignPaddleRuntime() {
-	// assign built-in runtime
-	if isvc.Spec.Predictor.Paddle.ProtocolVersion == nil {
-		defaultProtocol := constants.ProtocolV1
-		isvc.Spec.Predictor.Paddle.ProtocolVersion = &defaultProtocol
-	}
-	var runtime = constants.PaddleServer
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelPaddle},
 		PredictorExtensionSpec: isvc.Spec.Predictor.Paddle.PredictorExtensionSpec,
-		Runtime:                &runtime,
 	}
 	// remove paddle spec
 	isvc.Spec.Predictor.Paddle = nil
 }
 
-func (isvc *InferenceService) setMlServerDefaults() {
+func (isvc *InferenceService) SetRuntimeDefaults() {
+	// add mlserver specific default values
+	if *isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
+		isvc.SetMlServerDefaults()
+	}
+	// add torchserve specific default values
+	if *isvc.Spec.Predictor.Model.Runtime == constants.TorchServe {
+		isvc.SetTorchServeDefaults()
+	}
+	// add triton specific default values
+	if *isvc.Spec.Predictor.Model.Runtime == constants.TritonServer {
+		isvc.SetTritonDefaults()
+	}
+}
+
+func (isvc *InferenceService) SetMlServerDefaults() {
+	// set 'v2' as default protocol version for mlserver
+	if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
+	}
 	// set environment variables based on storage uri
 	if isvc.Spec.Predictor.Model.StorageURI == nil {
 		isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
@@ -384,15 +276,32 @@ func (isvc *InferenceService) setMlServerDefaults() {
 	}
 }
 
-func (isvc *InferenceService) setTorchServeDefaults() {
+func (isvc *InferenceService) SetTorchServeDefaults() {
+	// set 'v1' as default protocol version for torchserve
+	if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
+		protocolV1 := constants.ProtocolV1
+		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV1
+	}
 	// set torchserve service envelope based on protocol version
 	if isvc.ObjectMeta.Labels == nil {
 		isvc.ObjectMeta.Labels = map[string]string{constants.ServiceEnvelope: constants.ServiceEnvelopeKServe}
 	} else {
 		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
 	}
-	if isvc.Spec.Predictor.Model.ProtocolVersion != nil &&
-		constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion {
+	if constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion {
 		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
+	}
+}
+
+func (isvc *InferenceService) SetTritonDefaults() {
+	// set 'v2' as default protocol version for triton server
+	if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
+	}
+	// set model-control-model arg to 'explicit' if storage uri is nil
+	if isvc.Spec.Predictor.Model.StorageURI == nil {
+		isvc.Spec.Predictor.Model.Args = append(isvc.Spec.Predictor.Model.Args,
+			fmt.Sprintf("%s=%s", "--model-control-mode", "explicit"))
 	}
 }

@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"sort"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -100,32 +101,43 @@ func (ss stringSet) contains(s string) bool {
 // GetSupportingRuntimes Get a list of ServingRuntimeSpecs that correspond to ServingRuntimes and ClusterServingRuntimes that
 // support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
-func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.ServingRuntimeSpec, error) {
+func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.SupportedRuntime, error) {
+
+	var modelProtcolVersion constants.InferenceServiceProtocol
+	if m.ProtocolVersion != nil {
+		modelProtcolVersion = *m.ProtocolVersion
+	}
 
 	// List all namespace-scoped runtimes.
 	runtimes := &v1alpha1.ServingRuntimeList{}
 	if err := cl.List(context.TODO(), runtimes, client.InNamespace(namespace)); err != nil {
 		return nil, err
 	}
+	// Sort namespace-scoped runtimes by created timestamp desc and name asc.
+	sortServingRuntimeList(runtimes)
 
 	// List all cluster-scoped runtimes.
 	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{}
 	if err := cl.List(context.TODO(), clusterRuntimes); err != nil {
 		return nil, err
 	}
+	// Sort cluster-scoped runtimes by created timestamp desc and name asc.
+	sortClusterServingRuntimeList(clusterRuntimes)
 
-	srSpecs := make([]v1alpha1.ServingRuntimeSpec, 0, len(runtimes.Items)+len(clusterRuntimes.Items))
+	srSpecs := []v1alpha1.SupportedRuntime{}
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
-		if !rt.Spec.IsDisabled() && rt.Spec.IsMultiModelRuntime() == isMMS && m.RuntimeSupportsModel(&rt.Spec) {
-			srSpecs = append(srSpecs, rt.Spec)
+		if !rt.Spec.IsDisabled() && rt.Spec.IsMultiModelRuntime() == isMMS &&
+			m.RuntimeSupportsModel(&rt.Spec) && rt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
+			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: rt.GetName(), Spec: rt.Spec})
 		}
 	}
 
 	for i := range clusterRuntimes.Items {
 		crt := &clusterRuntimes.Items[i]
-		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS && m.RuntimeSupportsModel(&crt.Spec) {
-			srSpecs = append(srSpecs, crt.Spec)
+		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
+			m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
+			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
 		}
 	}
 	return srSpecs, nil
@@ -197,4 +209,56 @@ func (m *ModelSpec) getPredictorConfig(config *InferenceServicesConfig) *Predict
 		return &config.Predictors.Triton
 	}
 	return nil
+}
+
+func sortServingRuntimeList(runtimes *v1alpha1.ServingRuntimeList) {
+	sort.Slice(runtimes.Items, func(i, j int) bool {
+		if getProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) <
+			getProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+			return true
+		}
+		if getProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) >
+			getProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+			return false
+		}
+		if runtimes.Items[i].CreationTimestamp.Before(&runtimes.Items[j].CreationTimestamp) {
+			return false
+		}
+		if runtimes.Items[j].CreationTimestamp.Before(&runtimes.Items[i].CreationTimestamp) {
+			return true
+		}
+		return runtimes.Items[i].Name < runtimes.Items[j].Name
+	})
+}
+
+func sortClusterServingRuntimeList(runtimes *v1alpha1.ClusterServingRuntimeList) {
+	sort.Slice(runtimes.Items, func(i, j int) bool {
+		if getProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) <
+			getProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+			return true
+		}
+		if getProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) >
+			getProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+			return false
+		}
+		if runtimes.Items[i].CreationTimestamp.Before(&runtimes.Items[j].CreationTimestamp) {
+			return false
+		}
+		if runtimes.Items[j].CreationTimestamp.Before(&runtimes.Items[i].CreationTimestamp) {
+			return true
+		}
+		return runtimes.Items[i].Name < runtimes.Items[j].Name
+	})
+}
+
+func getProtocolVersionPriority(protocols []constants.InferenceServiceProtocol) int {
+	if protocols == nil || len(protocols) == 0 {
+		return int(constants.Unknown)
+	}
+	protocolVersions := []int{}
+	for _, protocol := range protocols {
+		protocolVersions = append(protocolVersions, int(constants.GetProtocolVersionInt(protocol)))
+	}
+	sort.Ints(protocolVersions)
+	return protocolVersions[0]
 }
