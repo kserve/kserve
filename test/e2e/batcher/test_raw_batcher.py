@@ -34,8 +34,11 @@ input_file = open('./data/iris_batch_input.json')
 json_array = json.load(input_file)
 
 
-def test_batcher():
-    service_name = 'isvc-sklearn-batcher'
+def test_batcher_raw():
+    service_name = 'isvc-raw-sklearn-batcher'
+
+    annotations = dict()
+    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
 
     predictor = V1beta1PredictorSpec(
         batcher=V1beta1Batcher(
@@ -55,7 +58,8 @@ def test_batcher():
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE
+                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE,
+                                       annotations=annotations,
                                    ), spec=V1beta1InferenceServiceSpec(predictor=predictor),
                                    )
     kserve_client.create(isvc)
