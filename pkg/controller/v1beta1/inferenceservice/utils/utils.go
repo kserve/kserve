@@ -77,9 +77,7 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
 	// Default container configuration from the runtime.
 	coreContainer := v1.Container{
-		Args:            runtimeContainer.Args,
 		Command:         runtimeContainer.Command,
-		Env:             runtimeContainer.Env,
 		Image:           runtimeContainer.Image,
 		Name:            runtimeContainer.Name,
 		Resources:       runtimeContainer.Resources,
@@ -90,13 +88,6 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
 	// since the Name field does not have the 'omitempty' struct tag.
 	runtimeContainerName := runtimeContainer.Name
-
-	// Args and Env will be combined instead of overridden.
-	argCopy := make([]string, len(coreContainer.Args))
-	copy(argCopy, coreContainer.Args)
-
-	envCopy := make([]v1.EnvVar, len(coreContainer.Env))
-	copy(envCopy, coreContainer.Env)
 
 	// Use JSON Marshal/Unmarshal to merge Container structs.
 	overrides, err := json.Marshal(predictorContainer)
@@ -112,14 +103,57 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 		coreContainer.Name = runtimeContainerName
 	}
 
-	argCopy = append(argCopy, predictorContainer.Args...)
-	envCopy = append(envCopy, predictorContainer.Env...)
-
-	coreContainer.Args = argCopy
-	coreContainer.Env = envCopy
+	// Args and Env will be combined instead of overridden
+	argCopy := make([]string, len(runtimeContainer.Args))
+	copy(argCopy, runtimeContainer.Args)
+	coreContainer.Args = append(argCopy, predictorContainer.Args...)
+	coreContainer.Env = MergeEnvs(runtimeContainer.Env, predictorContainer.Env)
 
 	return &coreContainer, nil
+}
 
+// MergeRuntimeVolumes Merge the predictor Volumes list with the runtime Volumes list, allowing users
+// to override/augment runtime volume settings from the predictor spec.
+func MergeRuntimeVolumes(runtimeVolumes []v1.Volume, predictorVolumes []v1.Volume) []v1.Volume {
+	if len(runtimeVolumes) == 0 {
+		return predictorVolumes
+	} else if len(predictorVolumes) == 0 {
+		return runtimeVolumes
+	}
+	vols := append(([]v1.Volume)(nil), runtimeVolumes...)
+outer:
+	for ip, _ := range predictorVolumes {
+		for ir, _ := range vols {
+			if predictorVolumes[ip].Name == vols[ir].Name {
+				vols[ir] = predictorVolumes[ip]
+				continue outer
+			}
+		}
+		vols = append(vols, predictorVolumes[ip])
+	}
+	return vols
+}
+
+// MergeEnvs Merge the predictor Env list with the runtime Env list, allowing users
+// to override/augment environment variables from the predictor spec.
+func MergeEnvs(runtimeEnv []v1.EnvVar, predictorEnv []v1.EnvVar) []v1.EnvVar {
+	if len(runtimeEnv) == 0 {
+		return predictorEnv
+	} else if len(predictorEnv) == 0 {
+		return runtimeEnv
+	}
+	env := append(([]v1.EnvVar)(nil), runtimeEnv...)
+outer:
+	for ip, _ := range predictorEnv {
+		for ir, _ := range env {
+			if predictorEnv[ip].Name == env[ir].Name {
+				env[ir] = predictorEnv[ip]
+				continue outer
+			}
+		}
+		env = append(env, predictorEnv[ip])
+	}
+	return env
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
@@ -143,7 +177,6 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 	}
 
 	return &corePodSpec, nil
-
 }
 
 // GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.

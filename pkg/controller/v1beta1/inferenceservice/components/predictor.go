@@ -155,6 +155,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		podSpec.Containers = []v1.Container{
 			*container,
 		}
+		podSpec.Volumes = isvcutils.MergeRuntimeVolumes(sRuntime.Volumes, isvc.Spec.Predictor.Volumes)
 
 	} else {
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)

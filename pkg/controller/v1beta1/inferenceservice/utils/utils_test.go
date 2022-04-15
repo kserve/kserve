@@ -1191,6 +1191,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				},
 				Env: []v1.EnvVar{
 					{Name: "PORT", Value: "8080"},
+					{Name: "PORT2", Value: "8081"},
 				},
 				Resources: v1.ResourceRequirements{
 					Limits: v1.ResourceList{
@@ -1208,6 +1209,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 					"--new-arg=baz",
 				},
 				Env: []v1.EnvVar{
+					{Name: "PORT2", Value: "8082"},
 					{Name: "Some", Value: "Var"},
 				},
 				Resources: v1.ResourceRequirements{
@@ -1227,6 +1229,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				},
 				Env: []v1.EnvVar{
 					{Name: "PORT", Value: "8080"},
+					{Name: "PORT2", Value: "8082"},
 					{Name: "Some", Value: "Var"},
 				},
 				Resources: v1.ResourceRequirements{
@@ -1246,6 +1249,90 @@ func TestMergeRuntimeContainers(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			res, _ := MergeRuntimeContainers(scenario.containerBase, scenario.containerOverride)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", res, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestMergeRuntimeVolumes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		volumeBase     []v1.Volume
+		volumeOverride []v1.Volume
+		expected       []v1.Volume
+	}{
+		"BasicMerge": {
+			volumeBase: []v1.Volume{
+				{
+					Name: "foo",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "bar",
+						},
+					},
+				},
+				{
+					Name: "aaa",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "bbb",
+						},
+					},
+				},
+			},
+			volumeOverride: []v1.Volume{
+				{
+					Name: "foo",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "baz",
+						},
+					},
+				},
+				{
+					Name: "xxx",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "yyy",
+						},
+					},
+				},
+			},
+			expected: []v1.Volume{
+				{
+					Name: "foo",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "baz",
+						},
+					},
+				},
+				{
+					Name: "aaa",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "bbb",
+						},
+					},
+				},
+				{
+					Name: "xxx",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "yyy",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := MergeRuntimeVolumes(scenario.volumeBase, scenario.volumeOverride)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", res, scenario.expected)
 			}
