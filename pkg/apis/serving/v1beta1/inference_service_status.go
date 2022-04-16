@@ -335,7 +335,7 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 					if traffic.Percent != nil && *traffic.Percent < 100 {
 						// check the possibility that the traffic is split over the same revision
 						if val, ok := revisionTraffic[traffic.RevisionName]; ok {
-							if val == 100 {
+							if val == 100 && statusSpec.PreviousRolledoutRevision != "" {
 								statusSpec.LatestRolledoutRevision = statusSpec.PreviousRolledoutRevision
 							}
 						}
