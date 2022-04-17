@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferencegraphs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferencegraphs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -10,23 +26,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-logr/logr"
-	"github.com/golang/protobuf/proto"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmp"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,54 +124,17 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	existing := &knservingv1.Service{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
+	knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, graph.ObjectMeta, graph, routerConfig)
+    existing, err := knativeReconciler.Reconcile()
 	if err != nil {
-		if apierr.IsNotFound(err) {
-			r.Log.Info("Creating knative service for inference graph", "namespace", desired.Namespace, "name", desired.Name)
-			err = r.Client.Create(context.TODO(), desired)
-			if err != nil {
-				return reconcile.Result{}, err
-			} else {
-				return reconcile.Result{}, nil
-			}
-		} else {
-			return reconcile.Result{}, err
-		}
-	}
-	// Return if no differences to reconcile.
-	if semanticEquals(desired, existing) {
-		return reconcile.Result{}, nil
-	}
-
-	// Reconcile differences and update
-	// knative mutator defaults the enableServiceLinks to false which would generate a diff despite no changes on desired knative service
-	// https://github.com/knative/serving/blob/main/pkg/apis/serving/v1/revision_defaults.go#L134
-	if desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == nil &&
-		existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks != nil &&
-		*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == false {
-		desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks = proto.Bool(false)
-	}
-	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	r.Log.Info("inference graph knative service configuration diff (-desired, +observed):", "diff", diff)
-	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
-	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
-	existing.Spec.Traffic = desired.Spec.Traffic
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		r.Log.Info("Updating inference graph knative service", "namespace", desired.Namespace, "name", desired.Name)
-		return r.Client.Update(context.TODO(), existing)
-	})
-	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph")
 	}
 	graph.Status.Conditions = existing.Status.Conditions
+	//@TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status
 	for _, con := range existing.Status.Conditions {
 		if con.Type == apis.ConditionReady {
 			if con.Status == "True" {
-				graph.Status.URL = existing.Status.URL
+				graph.Status.URL = existing.URL
 			} else {
 				graph.Status.URL = nil
 			}
@@ -173,68 +146,6 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func semanticEquals(desiredService, service *knservingv1.Service) bool {
-	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
-}
-
-func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.InferenceGraph, config *RouterConfig) *knservingv1.Service {
-	bytes, err := json.Marshal(graph.Spec)
-	if err != nil {
-		return nil
-	}
-	annotations := componentMeta.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
-		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
-	}
-
-	annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
-
-	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
-		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
-	})
-	service := &knservingv1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      componentMeta.Name,
-			Namespace: componentMeta.Namespace,
-			Labels:    componentMeta.Labels,
-		},
-		Spec: knservingv1.ServiceSpec{
-			ConfigurationSpec: knservingv1.ConfigurationSpec{
-				Template: knservingv1.RevisionTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels:      labels,
-						Annotations: annotations,
-					},
-					Spec: knservingv1.RevisionSpec{
-						PodSpec: v1.PodSpec{
-							Containers: []v1.Container{
-								{
-									Image: config.Image,
-									Args: []string{
-										"--graph-json",
-										string(bytes),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	//Call setDefaults on desired knative service here to avoid diffs generated because knative defaulter webhook is
-	//called when creating or updating the knative service
-	service.SetDefaults(context.TODO())
-	return service
 }
 
 func (r *InferenceGraphReconciler) updateStatus(desiredService *v1alpha1api.InferenceGraph) error {

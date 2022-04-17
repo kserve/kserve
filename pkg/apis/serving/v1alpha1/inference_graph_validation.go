@@ -27,12 +27,12 @@ import (
 )
 
 const (
-	//InvalideGraphNameFormatError defines the error message for invalid inference graph name
+	// InvalidGraphNameFormatError defines the error message for invalid inference graph name
 	InvalidGraphNameFormatError = "The InferenceGraph \"%s\" is invalid: a InferenceGraph name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 )
 
-// regular expressions for validation of isvc name
 const (
+	// GraphNameFmt regular expressions for validation of isvc name
 	GraphNameFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
 )
 

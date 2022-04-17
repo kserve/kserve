@@ -1,0 +1,30 @@
+---
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iris"
+spec:
+  predictor:
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
+---
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "xgboost-iris"
+spec:
+  predictor:
+    xgboost:
+      storageUri: "gs://kfserving-examples/models/xgboost/iris"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceGraph
+metadata:
+  name: ensemble-model
+spec:
+  nodes:
+    ensembleModel:
+      routerType: Ensemble
+      routes:
+        - serviceUrl: http://sklearn-iris.default.svc.cluster.local/v1/models/sklearn-iris:predict
+        - serviceUrl: http://xgboost-iris.default.svc.cluster.local/v1/models/xgboost-iris:predict

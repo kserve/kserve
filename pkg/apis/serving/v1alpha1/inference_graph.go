@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1alpha1
 
 import (
@@ -28,8 +44,12 @@ type InferenceGraphSpec struct {
 	Nodes map[string]InferenceRouter `json:"nodes"`
 }
 
+// InferenceRouterType constant for inference routing types
+// +k8s:openapi-gen=true
+// +kubebuilder:validation:Enum=Single;Splitter;Ensemble;Switch
 type InferenceRouterType string
 
+// InferenceRouterType Enum
 const (
 	// Single Default type only route to one destination
 	Single InferenceRouterType = "Single"
@@ -150,11 +170,13 @@ const (
 type InferenceRouter struct {
 	// RouterType
 	//
-	// - `Splitter:` randomly routes to the named service according to the weight, the default router type
+	// - `Single:`: routes to a single service, the default router type
+	//
+	// - `Splitter:` randomly routes to the named service according to the weight
 	//
 	// - `Ensemble:` routes the request to multiple models and then merge the responses
 	//
-	// - `ABNTest:` routes the request to two or more services with specified routing rule
+	// - `Switch:` routes the request to two or more services with specified routing rule
 	//
 	RouterType InferenceRouterType `json:"routerType"`
 
