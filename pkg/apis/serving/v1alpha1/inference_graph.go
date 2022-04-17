@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
@@ -205,6 +206,9 @@ type InferenceRoute struct {
 type InferenceGraphStatus struct {
 	// Conditions for InferenceGraph
 	duckv1.Status `json:",inline"`
+	// Url for the InferenceGraph
+	// +optional
+	URL *apis.URL `json:"url,omitempty"`
 }
 
 // InferenceGraphList contains a list of InferenceGraph
@@ -215,4 +219,8 @@ type InferenceGraphList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	// +listType=set
 	Items []InferenceGraph `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&InferenceGraph{}, &InferenceGraphList{})
 }
