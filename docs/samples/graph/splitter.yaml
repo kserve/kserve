@@ -20,11 +20,13 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: InferenceGraph
 metadata:
-  name: ensemble-model
+  name: splitter-model
 spec:
   nodes:
-    ensembleModel:
-      routerType: Ensemble
+    TrafficSplit:
+      routerType: Splitter 
       routes:
         - service: sklearn-iris
+          weight: 20
         - service: xgboost-iris
+          weight: 80

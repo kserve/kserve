@@ -43,9 +43,9 @@ import (
 var log = logf.Log.WithName("GraphKsvcReconciler")
 
 type GraphKnativeServiceReconciler struct {
-	client          client.Client
-	scheme          *runtime.Scheme
-	Service         *knservingv1.Service
+	client  client.Client
+	scheme  *runtime.Scheme
+	Service *knservingv1.Service
 }
 
 func NewGraphKnativeServiceReconciler(client client.Client,
@@ -54,9 +54,9 @@ func NewGraphKnativeServiceReconciler(client client.Client,
 	graph *v1alpha1api.InferenceGraph,
 	config *RouterConfig) *GraphKnativeServiceReconciler {
 	return &GraphKnativeServiceReconciler{
-		client:          client,
-		scheme:          scheme,
-		Service:         createKnativeService(componentMeta, graph, config),
+		client:  client,
+		scheme:  scheme,
+		Service: createKnativeService(componentMeta, graph, config),
 	}
 }
 
@@ -117,6 +117,10 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
+	labels := componentMeta.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
 
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
@@ -125,7 +129,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 
 	annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
 
-	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
+	labels = utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
 	})
 	service := &knservingv1.Service{
@@ -152,11 +156,11 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 									},
 									Resources: v1.ResourceRequirements{
 										Limits: v1.ResourceList{
-											v1.ResourceCPU: resource.MustParse(config.CpuLimit),
+											v1.ResourceCPU:    resource.MustParse(config.CpuLimit),
 											v1.ResourceMemory: resource.MustParse(config.MemoryLimit),
 										},
 										Requests: v1.ResourceList{
-											v1.ResourceCPU: resource.MustParse(config.CpuRequest),
+											v1.ResourceCPU:    resource.MustParse(config.CpuRequest),
 											v1.ResourceMemory: resource.MustParse(config.MemoryRequest),
 										},
 									},
@@ -173,4 +177,3 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	service.SetDefaults(context.TODO())
 	return service
 }
-

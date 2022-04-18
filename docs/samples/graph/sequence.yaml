@@ -20,11 +20,18 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: InferenceGraph
 metadata:
-  name: ensemble-model
+  name: model-chainer
 spec:
   nodes:
-    ensembleModel:
-      routerType: Ensemble
+    root:
+      routerType: Single 
       routes:
         - service: sklearn-iris
+      nextRoutes:
+        - nodeName: treeModel
+          data: $request
+    treeModel:
+      routerType: Single
+      routes:
         - service: xgboost-iris
+

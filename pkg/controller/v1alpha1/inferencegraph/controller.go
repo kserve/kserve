@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -124,17 +125,38 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	// resolve service urls
+	for node, router := range graph.Spec.Nodes {
+		for i, route := range router.Routes {
+			isvc := v1beta1.InferenceService{}
+			err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: graph.Namespace, Name: route.Service}, &isvc)
+			if err == nil {
+				if isvc.Status.Address != nil && isvc.Status.Address.URL != nil {
+					graph.Spec.Nodes[node].Routes[i].ServiceUrl = isvc.Status.Address.URL.String()
+				} else {
+					r.Log.Info("inference service is not ready", "name", route.Service)
+					return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.Service)
+				}
+
+			} else {
+				r.Log.Info("inference service is not found", "name", route.Service)
+				return reconcile.Result{Requeue: true}, errors.Wrapf(err, "Failed to find graph service %s", route.Service)
+			}
+		}
+	}
 	knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, graph.ObjectMeta, graph, routerConfig)
-    existing, err := knativeReconciler.Reconcile()
+	ksvcStatus, err := knativeReconciler.Reconcile()
 	if err != nil {
+		r.Log.Error(err, "failed to reconcile inference graph", "name", graph.GetName())
 		return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph")
 	}
-	graph.Status.Conditions = existing.Status.Conditions
+	r.Log.Info("updating inference graph status", "status", ksvcStatus)
+	graph.Status.Conditions = ksvcStatus.Status.Conditions
 	//@TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status
-	for _, con := range existing.Status.Conditions {
+	for _, con := range ksvcStatus.Status.Conditions {
 		if con.Type == apis.ConditionReady {
 			if con.Status == "True" {
-				graph.Status.URL = existing.URL
+				graph.Status.URL = ksvcStatus.URL
 			} else {
 				graph.Status.URL = nil
 			}
@@ -148,33 +170,34 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
-func (r *InferenceGraphReconciler) updateStatus(desiredService *v1alpha1api.InferenceGraph) error {
-	existingService := &v1alpha1api.InferenceGraph{}
-	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
-	if err := r.Get(context.TODO(), namespacedName, existingService); err != nil {
+func (r *InferenceGraphReconciler) updateStatus(desiredGraph *v1alpha1api.InferenceGraph) error {
+	graph := &v1alpha1api.InferenceGraph{}
+	namespacedName := types.NamespacedName{Name: desiredGraph.Name, Namespace: desiredGraph.Namespace}
+	if err := r.Get(context.TODO(), namespacedName, graph); err != nil {
 		return err
 	}
 
-	wasReady := inferenceGraphReadiness(existingService.Status)
-	if equality.Semantic.DeepEqual(existingService.Status, desiredService.Status) {
+	wasReady := inferenceGraphReadiness(graph.Status)
+	if equality.Semantic.DeepEqual(graph.Status, desiredGraph.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err := r.Status().Update(context.TODO(), desiredService); err != nil {
-		r.Log.Error(err, "Failed to update InferenceGraph status", "InferenceGraph", desiredService.Name)
-		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for InferenceGraph %q: %v", desiredService.Name, err)
+	} else if err := r.Status().Update(context.TODO(), desiredGraph); err != nil {
+		r.Log.Error(err, "Failed to update InferenceGraph status", "InferenceGraph", desiredGraph.Name)
+		r.Recorder.Eventf(desiredGraph, v1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for InferenceGraph %q: %v", desiredGraph.Name, err)
 		return errors.Wrapf(err, "fails to update InferenceGraph status")
 	} else {
+		r.Log.Info("updated InferenceGraph status", "InferenceGraph", desiredGraph.Name)
 		// If there was a difference and there was no error.
-		isReady := inferenceGraphReadiness(desiredService.Status)
+		isReady := inferenceGraphReadiness(desiredGraph.Status)
 		if wasReady && !isReady { // Moved to NotReady State
-			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceGraphNotReadyState),
-				fmt.Sprintf("InferenceGraph [%v] is no longer Ready", desiredService.GetName()))
+			r.Recorder.Eventf(desiredGraph, v1.EventTypeWarning, string(InferenceGraphNotReadyState),
+				fmt.Sprintf("InferenceGraph [%v] is no longer Ready", desiredGraph.GetName()))
 		} else if !wasReady && isReady { // Moved to Ready State
-			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(InferenceGraphReadyState),
-				fmt.Sprintf("InferenceGraph [%v] is Ready", desiredService.GetName()))
+			r.Recorder.Eventf(desiredGraph, v1.EventTypeNormal, string(InferenceGraphReadyState),
+				fmt.Sprintf("InferenceGraph [%v] is Ready", desiredGraph.GetName()))
 		}
 	}
 	return nil
