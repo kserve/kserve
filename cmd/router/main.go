@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
@@ -5,9 +21,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"time"
 
 	"math/rand"
@@ -16,16 +33,18 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
+var log = logf.Log.WithName("InferenceGraphRouter")
+
 func callService(serviceUrl string, input []byte, res chan<- []byte) error {
 	resp, err := http.Post(serviceUrl, "application/json", bytes.NewBuffer(input))
 	if err != nil {
-		log.Fatalf("An error has occured %v", err)
+		log.Error(err, "An error has occurred for service %s", serviceUrl)
 		return err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("error while reading the response %v", err)
+		log.Error(err, "error while reading the response")
 		return err
 	}
 	res <- body
@@ -48,8 +67,14 @@ func pickupRoute(routes []v1alpha1.InferenceRoute) *v1alpha1.InferenceRoute {
 	return nil
 }
 
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Info("elapsed time", "node", name, "time", elapsed)
+}
+
 func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1alpha1.InferenceGraphSpec, input []byte, res chan<- []byte) error {
-	log.Printf("current step %v", nodeName)
+	log.Info("current step", "nodeName", nodeName)
+	defer timeTrack(time.Now(), nodeName)
 	response := map[string]interface{}{}
 	//For splitter and ABNTest call virtual service
 	if currentStep.RouterType == v1alpha1.Splitter {
@@ -78,7 +103,6 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 
 			var res map[string]interface{}
 			json.Unmarshal(responseBytes, &res)
-			log.Printf("getting response back %v", res)
 			response[name] = res
 		}
 	} else { //routeType == Single
@@ -95,7 +119,6 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 	}
 
 	if len(currentStep.NextRoutes) == 0 {
-		log.Printf("no next routes")
 		res <- jsonRes
 		return nil
 	}
@@ -117,7 +140,7 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 		responseBytes := <-result
 		var res map[string]interface{}
 		json.Unmarshal(responseBytes, &res)
-		log.Printf("getting response back for %s: %v", name, res)
+		log.Info("getting response back", "nodeName", name)
 
 		responseForNextRoutes[name] = res
 	}
@@ -127,8 +150,6 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 		return err
 	}
 	res <- jsonResNext
-	log.Printf("returning response %v", string(jsonResNext))
-
 	return nil
 }
 
@@ -152,14 +173,19 @@ var (
 
 func main() {
 	flag.Parse()
+	logf.SetLogger(zap.New())
 	inferenceGraph = &v1alpha1.InferenceGraphSpec{}
 	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
 	if err != nil {
-		log.Fatalf("failed to unmarshall inference graph json %v", err)
+		log.Error(err, "failed to unmarshall inference graph json")
 		os.Exit(1)
 	}
 
 	http.HandleFunc("/", graphHandler)
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	err = http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Error(err, "failed to listen on 8080")
+		os.Exit(1)
+	}
 }

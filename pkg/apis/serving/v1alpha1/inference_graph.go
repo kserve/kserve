@@ -208,12 +208,11 @@ type RouteTo struct {
 
 type InferenceRoute struct {
 	// named reference for InferenceService
-	// +optional
-	Service string `json:"service"`
+	Service string `json:"service,omitempty"`
 
 	// InferenceService URL, mutually exclusive with Service
 	// +optional
-	ServiceUrl string `json:"serviceUrl"`
+	ServiceUrl string `json:"serviceUrl,omitempty"`
 
 	// the weight for split of the traffic, only used for Split Router
 	// when weight is specified all the routing targets should be sum to 100

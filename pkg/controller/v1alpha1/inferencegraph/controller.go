@@ -120,36 +120,40 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	// resolve service urls
+	for node, router := range graph.Spec.Nodes {
+		for i, route := range router.Routes {
+			isvc := v1beta1.InferenceService{}
+			if route.Service != "" {
+				err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: graph.Namespace, Name: route.Service}, &isvc)
+				if err == nil {
+					if isvc.Status.Address != nil && isvc.Status.Address.URL != nil {
+						graph.Spec.Nodes[node].Routes[i].ServiceUrl = isvc.Status.Address.URL.String()
+					} else {
+						r.Log.Info("inference service is not ready", "name", route.Service)
+						return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.Service)
+					}
+
+				} else {
+					r.Log.Info("inference service is not found", "name", route.Service)
+					return reconcile.Result{Requeue: true}, errors.Wrapf(err, "Failed to find graph service %s", route.Service)
+				}
+			}
+		}
+	}
+	//@TODO check raw deployment mode
 	desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
 	err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	// resolve service urls
-	for node, router := range graph.Spec.Nodes {
-		for i, route := range router.Routes {
-			isvc := v1beta1.InferenceService{}
-			err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: graph.Namespace, Name: route.Service}, &isvc)
-			if err == nil {
-				if isvc.Status.Address != nil && isvc.Status.Address.URL != nil {
-					graph.Spec.Nodes[node].Routes[i].ServiceUrl = isvc.Status.Address.URL.String()
-				} else {
-					r.Log.Info("inference service is not ready", "name", route.Service)
-					return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.Service)
-				}
-
-			} else {
-				r.Log.Info("inference service is not found", "name", route.Service)
-				return reconcile.Result{Requeue: true}, errors.Wrapf(err, "Failed to find graph service %s", route.Service)
-			}
-		}
-	}
-	knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, graph.ObjectMeta, graph, routerConfig)
+	knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, desired)
 	ksvcStatus, err := knativeReconciler.Reconcile()
 	if err != nil {
-		r.Log.Error(err, "failed to reconcile inference graph", "name", graph.GetName())
-		return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph")
+		r.Log.Error(err, "failed to reconcile inference graph ksvc", "name", graph.GetName())
+		return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph ksvc")
 	}
+
 	r.Log.Info("updating inference graph status", "status", ksvcStatus)
 	graph.Status.Conditions = ksvcStatus.Status.Conditions
 	//@TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status

@@ -50,13 +50,11 @@ type GraphKnativeServiceReconciler struct {
 
 func NewGraphKnativeServiceReconciler(client client.Client,
 	scheme *runtime.Scheme,
-	componentMeta metav1.ObjectMeta,
-	graph *v1alpha1api.InferenceGraph,
-	config *RouterConfig) *GraphKnativeServiceReconciler {
+	ksvc *knservingv1.Service) *GraphKnativeServiceReconciler {
 	return &GraphKnativeServiceReconciler{
 		client:  client,
 		scheme:  scheme,
-		Service: createKnativeService(componentMeta, graph, config),
+		Service: ksvc,
 	}
 }
 
