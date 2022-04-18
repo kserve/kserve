@@ -313,6 +313,12 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 		ss.Components[component] = ComponentStatusSpec{}
 	}
 	statusSpec.LatestCreatedRevision = serviceStatus.LatestCreatedRevisionName
+	revisionTraffic := map[string]int64{}
+	for _, traffic := range serviceStatus.Traffic {
+		if traffic.Percent != nil {
+			revisionTraffic[traffic.RevisionName] += *traffic.Percent
+		}
+	}
 	for _, traffic := range serviceStatus.Traffic {
 		if traffic.RevisionName == serviceStatus.LatestReadyRevisionName && traffic.LatestRevision != nil &&
 			*traffic.LatestRevision {
@@ -327,7 +333,12 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 				// so here we need to rollback the LatestRolledoutRevision to PreviousRolledoutRevision
 				if serviceStatus.LatestReadyRevisionName == serviceStatus.LatestCreatedRevisionName {
 					if traffic.Percent != nil && *traffic.Percent < 100 {
-						statusSpec.LatestRolledoutRevision = statusSpec.PreviousRolledoutRevision
+						// check the possibility that the traffic is split over the same revision
+						if val, ok := revisionTraffic[traffic.RevisionName]; ok {
+							if val == 100 && statusSpec.PreviousRolledoutRevision != "" {
+								statusSpec.LatestRolledoutRevision = statusSpec.PreviousRolledoutRevision
+							}
+						}
 					}
 				}
 			}
