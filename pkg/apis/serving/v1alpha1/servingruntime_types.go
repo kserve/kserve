@@ -146,11 +146,14 @@ const (
 	Triton ServerType = "triton"
 	// Model server is MLServer
 	MLServer ServerType = "mlserver"
+	// Model server is OpenVino Model Server
+	OVMS ServerType = "ovms"
 )
 
 // +k8s:openapi-gen=true
 type BuiltInAdapter struct {
-	// ServerType can be one of triton/mlserver and the runtime's container must have the same name
+	// ServerType must be one of the supported built-in types such as "triton" or "mlserver",
+	// and the runtime's container must have the same name
 	ServerType ServerType `json:"serverType,omitempty"`
 	// Port which the runtime server listens for model management requests
 	RuntimeManagementPort int `json:"runtimeManagementPort,omitempty"`

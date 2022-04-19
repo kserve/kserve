@@ -1248,9 +1248,10 @@ func TestMergeRuntimeContainers(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := MergeRuntimeContainers(scenario.containerBase, scenario.containerOverride)
-			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %v, want %v", res, scenario.expected)
+			c := scenario.containerBase.DeepCopy()
+			MergeRuntimeContainers(c, scenario.containerOverride)
+			if !g.Expect(c).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", c, scenario.expected)
 			}
 		})
 	}
@@ -1332,7 +1333,7 @@ func TestMergeRuntimeVolumes(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res := MergeRuntimeVolumes(scenario.volumeBase, scenario.volumeOverride)
+			res := mergeRuntimeVolumes(scenario.volumeBase, scenario.volumeOverride)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", res, scenario.expected)
 			}

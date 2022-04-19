@@ -34,7 +34,7 @@
           "format": "int32"
         },
         "serverType": {
-          "description": "ServerType can be one of triton/mlserver and the runtime's container must have the same name",
+          "description": "ServerType must be one of the supported built-in types such as \"triton\" or \"mlserver\", and the runtime's container must have the same name",
           "type": "string"
         }
       }
@@ -208,6 +208,16 @@
             "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
+        },
+        "volumes": {
+          "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Volume"
+          },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge,retainKeys"
         }
       }
     },
@@ -296,6 +306,16 @@
             "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
+        },
+        "volumes": {
+          "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Volume"
+          },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge,retainKeys"
         }
       }
     },

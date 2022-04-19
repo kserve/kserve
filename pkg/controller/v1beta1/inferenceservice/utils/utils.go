@@ -72,49 +72,41 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
 }
 
-// MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
+// MergeRuntimeContainers Merge the predictor Container struct into a runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
-func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
-	// Default container configuration from the runtime.
-	coreContainer := v1.Container{
-		Command:         runtimeContainer.Command,
-		Image:           runtimeContainer.Image,
-		Name:            runtimeContainer.Name,
-		Resources:       runtimeContainer.Resources,
-		ImagePullPolicy: runtimeContainer.ImagePullPolicy,
-		WorkingDir:      runtimeContainer.WorkingDir,
-		LivenessProbe:   runtimeContainer.LivenessProbe,
-	}
+func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) error {
 	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
 	// since the Name field does not have the 'omitempty' struct tag.
 	runtimeContainerName := runtimeContainer.Name
+	// Args and Env will be combined instead of overridden
+	newArgs := make([]string, len(runtimeContainer.Args), len(runtimeContainer.Args)+len(predictorContainer.Args))
+	copy(newArgs, runtimeContainer.Args)
+	newArgs = append(newArgs, predictorContainer.Args...)
+	newEnv := mergeEnvs(runtimeContainer.Env, predictorContainer.Env)
 
 	// Use JSON Marshal/Unmarshal to merge Container structs.
 	overrides, err := json.Marshal(predictorContainer)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if err := json.Unmarshal(overrides, &coreContainer); err != nil {
-		return nil, err
+	if err := json.Unmarshal(overrides, runtimeContainer); err != nil {
+		return err
 	}
 
-	if coreContainer.Name == "" {
-		coreContainer.Name = runtimeContainerName
+	if runtimeContainer.Name == "" {
+		runtimeContainer.Name = runtimeContainerName
 	}
 
-	// Args and Env will be combined instead of overridden
-	argCopy := make([]string, len(runtimeContainer.Args))
-	copy(argCopy, runtimeContainer.Args)
-	coreContainer.Args = append(argCopy, predictorContainer.Args...)
-	coreContainer.Env = MergeEnvs(runtimeContainer.Env, predictorContainer.Env)
+	runtimeContainer.Args = newArgs
+	runtimeContainer.Env = newEnv
 
-	return &coreContainer, nil
+	return nil
 }
 
-// MergeRuntimeVolumes Merge the predictor Volumes list with the runtime Volumes list, allowing users
+// mergeRuntimeVolumes Merge the predictor Volumes list with the runtime Volumes list, allowing users
 // to override/augment runtime volume settings from the predictor spec.
-func MergeRuntimeVolumes(runtimeVolumes []v1.Volume, predictorVolumes []v1.Volume) []v1.Volume {
+func mergeRuntimeVolumes(runtimeVolumes []v1.Volume, predictorVolumes []v1.Volume) []v1.Volume {
 	if len(runtimeVolumes) == 0 {
 		return predictorVolumes
 	} else if len(predictorVolumes) == 0 {
@@ -134,9 +126,9 @@ outer:
 	return vols
 }
 
-// MergeEnvs Merge the predictor Env list with the runtime Env list, allowing users
+// mergeEnvs Merge the predictor Env list with the runtime Env list, allowing users
 // to override/augment environment variables from the predictor spec.
-func MergeEnvs(runtimeEnv []v1.EnvVar, predictorEnv []v1.EnvVar) []v1.EnvVar {
+func mergeEnvs(runtimeEnv []v1.EnvVar, predictorEnv []v1.EnvVar) []v1.EnvVar {
 	if len(runtimeEnv) == 0 {
 		return predictorEnv
 	} else if len(predictorEnv) == 0 {
@@ -175,6 +167,8 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 	if err := json.Unmarshal(overrides, &corePodSpec); err != nil {
 		return nil, err
 	}
+
+	corePodSpec.Volumes = mergeRuntimeVolumes(runtimePodSpec.Volumes, predictorPodSpec.Volumes)
 
 	return &corePodSpec, nil
 }
@@ -224,7 +218,7 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig 
 		if len(re.FindString(image)) == 0 {
 			container.Image = image + ":" + *runtimeVersion
 		} else {
-			container.Image = re.ReplaceAllString(image, ":" + *runtimeVersion)
+			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
 		}
 		return
 	}
