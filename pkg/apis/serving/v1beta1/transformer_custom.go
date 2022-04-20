@@ -88,10 +88,7 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 		// Set predictor protocol if not provided in container arguments
 		if !utils.IncludesArg(container.Args, "--protocol") {
 			customTransformerLogger.Info("Set predictor protocol based on ModelMesh predictor URL", "protocol", argumentPredictorProtocol)
-			container.Args = append(container.Args, []string{
-				"--protocol",
-				argumentPredictorProtocol,
-			}...)
+			container.Args = append(container.Args, "--protocol", argumentPredictorProtocol)
 		}
 	}
 

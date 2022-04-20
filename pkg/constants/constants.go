@@ -109,13 +109,6 @@ var (
 	DefaultMinReplicas  = 1
 )
 
-// Predictor Protocol Constants
-var (
-	RESTV1 = "v1"
-	RESTV2 = "v2"
-	GRPCV2 = "grpc-v2"
-)
-
 type AutoscalerClassType string
 type AutoscalerMetricsType string
 
