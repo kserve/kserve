@@ -134,6 +134,14 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
         count = 0
         bucket = s3.Bucket(bucket_name)
+
+        # check if the object exists, if it doesn't we need to return an error in the storage initializer
+        try:
+            s3.head_object(Bucket=bucket_name, Key=bucket_path)
+        except s3.meta.client.exceptions.NoSuchKey as err:
+            print("s3 object at %s does not exist" % uri)
+            raise err
+        
         for obj in bucket.objects.filter(Prefix=bucket_path):
             # Skip where boto3 lists the directory as an object
             if obj.key.endswith("/"):
