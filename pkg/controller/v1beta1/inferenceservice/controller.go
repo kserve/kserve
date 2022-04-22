@@ -175,7 +175,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Scheme, isvcConfig))
 	}
 	for _, reconciler := range reconcilers {
-		if err := reconciler.Reconcile(isvc); err != nil {
+		if _, err := reconciler.Reconcile(isvc); err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
 			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
