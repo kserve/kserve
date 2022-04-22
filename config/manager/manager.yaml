@@ -17,6 +17,8 @@ spec:
       labels:
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
     spec:
       serviceAccountName: kserve-controller-manager
       securityContext:
