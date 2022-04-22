@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"regexp"
 	"strings"
 
@@ -72,90 +73,53 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
 }
 
-// MergeRuntimeContainers Merge the predictor Container struct into a runtime Container struct, allowing users
+// MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
-func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) error {
+func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
 	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
 	// since the Name field does not have the 'omitempty' struct tag.
 	runtimeContainerName := runtimeContainer.Name
-	// Args and Env will be combined instead of overridden
-	newArgs := make([]string, len(runtimeContainer.Args), len(runtimeContainer.Args)+len(predictorContainer.Args))
-	copy(newArgs, runtimeContainer.Args)
-	newArgs = append(newArgs, predictorContainer.Args...)
-	newEnv := mergeEnvs(runtimeContainer.Env, predictorContainer.Env)
 
-	// Use JSON Marshal/Unmarshal to merge Container structs.
+	// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch
+	runtimeContainerJson, err := json.Marshal(runtimeContainer)
+	if err != nil {
+		return nil, err
+	}
+
 	overrides, err := json.Marshal(predictorContainer)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := json.Unmarshal(overrides, runtimeContainer); err != nil {
-		return err
+	coreContainer := v1.Container{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(runtimeContainerJson, overrides, coreContainer)
+	if err != nil {
+		return nil, err
 	}
 
-	if runtimeContainer.Name == "" {
-		runtimeContainer.Name = runtimeContainerName
+	if err := json.Unmarshal(jsonResult, &coreContainer); err != nil {
+		return nil, err
 	}
 
-	runtimeContainer.Args = newArgs
-	runtimeContainer.Env = newEnv
+	if coreContainer.Name == "" {
+		coreContainer.Name = runtimeContainerName
+	}
 
-	return nil
-}
-
-// mergeRuntimeVolumes Merge the predictor Volumes list with the runtime Volumes list, allowing users
-// to override/augment runtime volume settings from the predictor spec.
-func mergeRuntimeVolumes(runtimeVolumes []v1.Volume, predictorVolumes []v1.Volume) []v1.Volume {
-	if len(runtimeVolumes) == 0 {
-		return predictorVolumes
-	} else if len(predictorVolumes) == 0 {
-		return runtimeVolumes
-	}
-	vols := append(([]v1.Volume)(nil), runtimeVolumes...)
-outer:
-	for ip, _ := range predictorVolumes {
-		for ir, _ := range vols {
-			if predictorVolumes[ip].Name == vols[ir].Name {
-				vols[ir] = predictorVolumes[ip]
-				continue outer
-			}
-		}
-		vols = append(vols, predictorVolumes[ip])
-	}
-	return vols
-}
-
-// mergeEnvs Merge the predictor Env list with the runtime Env list, allowing users
-// to override/augment environment variables from the predictor spec.
-func mergeEnvs(runtimeEnv []v1.EnvVar, predictorEnv []v1.EnvVar) []v1.EnvVar {
-	if len(runtimeEnv) == 0 {
-		return predictorEnv
-	} else if len(predictorEnv) == 0 {
-		return runtimeEnv
-	}
-	env := append(([]v1.EnvVar)(nil), runtimeEnv...)
-outer:
-	for ip, _ := range predictorEnv {
-		for ir, _ := range env {
-			if predictorEnv[ip].Name == env[ir].Name {
-				env[ir] = predictorEnv[ip]
-				continue outer
-			}
-		}
-		env = append(env, predictorEnv[ip])
-	}
-	return env
+	return &coreContainer, nil
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
 // to override runtime PodSpec settings from the predictor spec.
 func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
 
-	corePodSpec := v1.PodSpec{
+	runtimePodSpecJson, err := json.Marshal(v1.PodSpec{
 		NodeSelector: runtimePodSpec.NodeSelector,
 		Affinity:     runtimePodSpec.Affinity,
 		Tolerations:  runtimePodSpec.Tolerations,
+		Volumes:      runtimePodSpec.Volumes,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Use JSON Marshal/Unmarshal to merge PodSpec structs.
@@ -164,11 +128,15 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 		return nil, err
 	}
 
-	if err := json.Unmarshal(overrides, &corePodSpec); err != nil {
+	corePodSpec := v1.PodSpec{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(runtimePodSpecJson, overrides, corePodSpec)
+	if err != nil {
 		return nil, err
 	}
 
-	corePodSpec.Volumes = mergeRuntimeVolumes(runtimePodSpec.Volumes, predictorPodSpec.Volumes)
+	if err := json.Unmarshal(jsonResult, &corePodSpec); err != nil {
+		return nil, err
+	}
 
 	return &corePodSpec, nil
 }

@@ -1223,8 +1223,6 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				Name:  "kserve-container",
 				Image: "default-image",
 				Args: []string{
-					"--foo=bar",
-					"--test=dummy",
 					"--new-arg=baz",
 				},
 				Env: []v1.EnvVar{
@@ -1248,92 +1246,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			c := scenario.containerBase.DeepCopy()
-			MergeRuntimeContainers(c, scenario.containerOverride)
-			if !g.Expect(c).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %v, want %v", c, scenario.expected)
-			}
-		})
-	}
-}
-
-func TestMergeRuntimeVolumes(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	scenarios := map[string]struct {
-		volumeBase     []v1.Volume
-		volumeOverride []v1.Volume
-		expected       []v1.Volume
-	}{
-		"BasicMerge": {
-			volumeBase: []v1.Volume{
-				{
-					Name: "foo",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "bar",
-						},
-					},
-				},
-				{
-					Name: "aaa",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "bbb",
-						},
-					},
-				},
-			},
-			volumeOverride: []v1.Volume{
-				{
-					Name: "foo",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "baz",
-						},
-					},
-				},
-				{
-					Name: "xxx",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "yyy",
-						},
-					},
-				},
-			},
-			expected: []v1.Volume{
-				{
-					Name: "foo",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "baz",
-						},
-					},
-				},
-				{
-					Name: "aaa",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "bbb",
-						},
-					},
-				},
-				{
-					Name: "xxx",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "yyy",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for name, scenario := range scenarios {
-		t.Run(name, func(t *testing.T) {
-			res := mergeRuntimeVolumes(scenario.volumeBase, scenario.volumeOverride)
+			res, _ := MergeRuntimeContainers(scenario.containerBase, scenario.containerOverride)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", res, scenario.expected)
 			}
@@ -1358,6 +1271,24 @@ func TestMergePodSpec(t *testing.T) {
 				Tolerations: []v1.Toleration{
 					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
 				},
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bar",
+							},
+						},
+					},
+					{
+						Name: "aaa",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bbb",
+							},
+						},
+					},
+				},
 			},
 			podSpecOverride: &v1beta1.PodSpec{
 				NodeSelector: map[string]string{
@@ -1365,6 +1296,24 @@ func TestMergePodSpec(t *testing.T) {
 					"xxx": "yyy",
 				},
 				ServiceAccountName: "testAccount",
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "baz",
+							},
+						},
+					},
+					{
+						Name: "xxx",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "yyy",
+							},
+						},
+					},
+				},
 			},
 			expected: &v1.PodSpec{
 				NodeSelector: map[string]string{
@@ -1376,6 +1325,32 @@ func TestMergePodSpec(t *testing.T) {
 					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
 				},
 				ServiceAccountName: "testAccount",
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "baz",
+							},
+						},
+					},
+					{
+						Name: "xxx",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "yyy",
+							},
+						},
+					},
+					{
+						Name: "aaa",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bbb",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
