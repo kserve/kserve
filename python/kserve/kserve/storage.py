@@ -190,14 +190,14 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         count = 0
         for blob in blobs:
             # Replace any prefix from the object key with temp_dir
-            subdir_object_key = blob.name.replace(bucket_path, "", 1).strip("/")
+            subdir_object_key = blob.name.replace(bucket_path, "", 1).lstrip("/")
 
             # Create necessary subdirectory to store the object locally
             if "/" in subdir_object_key:
                 local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
                 if not os.path.isdir(local_object_dir):
                     os.makedirs(local_object_dir, exist_ok=True)
-            if subdir_object_key.strip() != "":
+            if subdir_object_key.strip() != "" and not subdir_object_key.endswith("/"):
                 dest_path = os.path.join(temp_dir, subdir_object_key)
                 logging.info("Downloading: %s", dest_path)
                 blob.download_to_filename(dest_path)
