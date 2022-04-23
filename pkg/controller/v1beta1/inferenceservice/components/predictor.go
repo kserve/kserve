@@ -126,6 +126,16 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			// set runtime defaults
 			isvc.SetRuntimeDefaults()
 		}
+		// assign protocol version to inferenceservice based on runtime selected
+		if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
+			protocolVersion := constants.GetProtocolVersionString(
+				constants.ProtocolVersion(
+					v1beta1.GetProtocolVersionPriority(sRuntime.ProtocolVersions),
+				),
+			)
+			isvc.Spec.Predictor.Model.ProtocolVersion = &protocolVersion
+		}
+
 		if len(sRuntime.Containers) == 0 {
 			return errors.New("no container configuration found in selected serving runtime")
 		}
