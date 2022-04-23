@@ -23,7 +23,7 @@ metadata:
   name: ensemble-model
 spec:
   nodes:
-    ensembleModel:
+    root:
       routerType: Ensemble
       routes:
         - service: sklearn-iris

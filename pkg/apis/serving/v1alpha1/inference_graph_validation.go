@@ -55,7 +55,7 @@ func (ig *InferenceGraph) ValidateCreate() error {
 		return err
 	}
 
-	if err := validateInferenceGraphRouterType(ig); err != nil {
+	if err := validateInferenceGraphRouterRoot(ig); err != nil {
 		return err
 	}
 
@@ -86,17 +86,15 @@ func validateInferenceGraphName(ig *InferenceGraph) error {
 	return nil
 }
 
-//Validation of inference graph router type
-func validateInferenceGraphRouterType(ig *InferenceGraph) error {
+//Validation of inference graph router root
+func validateInferenceGraphRouterRoot(ig *InferenceGraph) error {
 	nodes := ig.Spec.Nodes
-	for name, node := range nodes {
-		if node.RouterType != Single && node.RouterType != Splitter &&
-			node.RouterType != Ensemble && node.RouterType != Switch {
-			return fmt.Errorf("InferenceGraph[%s] Node[%s] RouterType[%s] is not supported, InferenceGraph supports RouterType List['Single', 'Splitter', 'Ensemble', 'Switch']",
-				ig.Name, name, node.RouterType)
+	for name := range nodes {
+		if name == GraphRootNodeName {
+			return nil
 		}
 	}
-	return nil
+	return fmt.Errorf("Not found 'root' node. InferenceGraph needs a node with name 'root' as the root node of the graph.\n")
 }
 
 //Validation of inference graph router type

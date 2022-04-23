@@ -25,6 +25,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -128,7 +129,9 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: graph.Namespace, Name: route.Service}, &isvc)
 				if err == nil {
 					if isvc.Status.Address != nil && isvc.Status.Address.URL != nil {
-						graph.Spec.Nodes[node].Routes[i].ServiceUrl = isvc.Status.Address.URL.String()
+						if graph.Spec.Nodes[node].Routes[i].ServiceUrl == "" {
+							graph.Spec.Nodes[node].Routes[i].ServiceUrl = isvc.Status.Address.URL.String()
+						}
 					} else {
 						r.Log.Info("inference service is not ready", "name", route.Service)
 						return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.Service)

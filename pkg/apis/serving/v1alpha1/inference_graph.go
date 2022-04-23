@@ -64,6 +64,11 @@ const (
 	Switch InferenceRouterType = "Switch"
 )
 
+const (
+	// GraphRootNodeName is the root node name.
+	GraphRootNodeName string = "root"
+)
+
 // +k8s:openapi-gen=true
 
 // InferenceRouter defines the router for each InferenceGraph node with one or multiple models

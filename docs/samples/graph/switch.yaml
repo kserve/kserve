@@ -1,0 +1,51 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "blue"
+spec:
+  predictor:
+    minReplicas: 1
+    containers:
+    - image: iamlovingit/bgtest:latest
+      name: custom
+      env:
+      - name: "target"
+        value: "blue"
+---
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "green"
+spec:
+  predictor:
+    minReplicas: 1
+    containers:
+    - image: iamlovingit/bgtest:latest
+      name: custom
+      env: 
+      - name: "target"
+        value: "green"
+---
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: InferenceGraph
+metadata: 
+  name: model-switch
+spec:
+  nodes:
+    root:
+      routerType: Single
+      routes:
+      - service: green
+        serviceUrl: http://green.default.10.166.15.29.sslip.io/splitter
+      nextRoutes:
+      - nodeName: mymodel
+        data: $response
+    mymodel:
+      routerType: Switch
+      routes:
+      - service: blue
+        serviceUrl: http://blue.default.10.166.15.29.sslip.io/splitter
+        condition: "{.target == \"blue\"}"
+      - service: green
+        serviceUrl: http://green.default.10.166.15.29.sslip.io/splitter
+        condition: "{.target != \"blue\"}"

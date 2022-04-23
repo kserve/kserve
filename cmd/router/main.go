@@ -23,9 +23,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
+	"time"
+
+	"k8s.io/client-go/util/jsonpath"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"time"
 
 	"math/rand"
 
@@ -67,29 +70,83 @@ func pickupRoute(routes []v1alpha1.InferenceRoute) *v1alpha1.InferenceRoute {
 	return nil
 }
 
+//Input is a struct that can be parse by jsonpath
+type Input struct {
+	Items []interface{} `json:"items"`
+}
+
+func convertInput(input []byte) (interface{}, error) {
+	var inputData interface{}
+	if err := json.Unmarshal(input, &inputData); err != nil {
+		return nil, err
+	}
+	var data Input
+	data.Items = append(data.Items, inputData)
+	return data, nil
+}
+
+func convertCondition(origin string) string {
+	//remove whitespaces
+	str := strings.Replace(origin, " ", "", -1)
+	//remove {}
+	str = str[1 : len(str)-1]
+	return fmt.Sprintf("{@.items[?(%s)]}", str[strings.Index(str, "."):])
+}
+
+func pickupRouteByCondition(input []byte, routes []v1alpha1.InferenceRoute) *v1alpha1.InferenceRoute {
+	//convert input to Input
+	data, err := convertInput(input)
+	if err != nil {
+		log.Error(err, "converInput failed.")
+		return nil
+	}
+	for _, route := range routes {
+		//new jsonpath object
+		j := jsonpath.New("Parser")
+		//j.AllowMissingKeys(true)
+		cond := convertCondition(route.Condition)
+		if err := j.Parse(cond); err != nil {
+			log.Error(err, "jsonpath.Parse failed")
+			continue
+		}
+		buf := new(bytes.Buffer)
+		if err := j.Execute(buf, data); err != nil {
+			log.Error(err, "jsonpath.Execute failed")
+		}
+		if buf.Len() > 0 { // find the target
+			return &route
+		}
+	}
+	return nil
+}
+
 func timeTrack(start time.Time, name string) {
 	elapsed := time.Since(start)
 	log.Info("elapsed time", "node", name, "time", elapsed)
 }
 
 func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1alpha1.InferenceGraphSpec, input []byte, res chan<- []byte) error {
-	log.Info("current step", "nodeName", nodeName)
+	log.Info("current step", "nodeName", nodeName, "URL", currentStep.Routes[0].ServiceUrl)
 	defer timeTrack(time.Now(), nodeName)
 	response := map[string]interface{}{}
 	//For splitter and ABNTest call virtual service
 	if currentStep.RouterType == v1alpha1.Splitter {
-		route := pickupRoute(currentStep.Routes)
-		if route == nil {
-			return fmt.Errorf("The pickuped servcie is nil.")
-		}
 		result := make(chan []byte)
-		go callService(route.ServiceUrl, input, result)
+		go callService(pickupRoute(currentStep.Routes).ServiceUrl, input, result)
 		responseBytes := <-result
 		var res map[string]interface{}
 		json.Unmarshal(responseBytes, &res)
 		response = res
 	} else if currentStep.RouterType == v1alpha1.Switch {
-
+		route := pickupRouteByCondition(input, currentStep.Routes)
+		if route != nil {
+			result := make(chan []byte)
+			var res map[string]interface{}
+			go callService(route.ServiceUrl, input, result)
+			responseBytes := <-result
+			json.Unmarshal(responseBytes, &res)
+			response = res
+		}
 	} else if currentStep.RouterType == v1alpha1.Ensemble {
 		ensembleRes := map[string]chan []byte{}
 		for i := range currentStep.Routes {
@@ -162,7 +219,7 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 	for name, _ := range inferenceGraph.Nodes {
 		rootNodes = append(rootNodes, name)
 	}
-	go routeStep(rootNodes[0], inferenceGraph.Nodes[rootNodes[0]], *inferenceGraph, inputBytes, res)
+	go routeStep(v1alpha1.GraphRootNodeName, inferenceGraph.Nodes[v1alpha1.GraphRootNodeName], *inferenceGraph, inputBytes, res)
 	response := <-res
 	w.Write(response)
 }

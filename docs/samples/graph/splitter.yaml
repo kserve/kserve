@@ -23,7 +23,7 @@ metadata:
   name: splitter-model
 spec:
   nodes:
-    TrafficSplit:
+    root:
       routerType: Splitter 
       routes:
         - service: sklearn-iris
