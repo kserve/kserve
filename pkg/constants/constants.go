@@ -191,10 +191,11 @@ const (
 
 // InferenceService protocol enums
 const (
-	ProtocolV1     InferenceServiceProtocol = "v1"
-	ProtocolV2     InferenceServiceProtocol = "v2"
-	ProtocolGRPCV1 InferenceServiceProtocol = "grpc-v1"
-	ProtocolGRPCV2 InferenceServiceProtocol = "grpc-v2"
+	ProtocolV1      InferenceServiceProtocol = "v1"
+	ProtocolV2      InferenceServiceProtocol = "v2"
+	ProtocolGRPCV1  InferenceServiceProtocol = "grpc-v1"
+	ProtocolGRPCV2  InferenceServiceProtocol = "grpc-v2"
+	ProtocolUnknown InferenceServiceProtocol = ""
 )
 
 // InferenceService Endpoint Ports
@@ -330,7 +331,7 @@ const (
 type ProtocolVersion int
 
 const (
-	_ = iota
+	_ ProtocolVersion = iota
 	V1
 	V2
 	GRPCV1
@@ -411,11 +412,13 @@ func InferenceServicePrefix(name string) string {
 }
 
 func PredictPath(name string, protocol InferenceServiceProtocol) string {
-	if protocol == ProtocolV2 {
-		return fmt.Sprintf("/v2/models/%s/infer", name)
-	} else {
-		return fmt.Sprintf("/v1/models/%s:predict", name)
+	path := ""
+	if protocol == ProtocolV1 {
+		path = fmt.Sprintf("/v1/models/%s:predict", name)
+	} else if protocol == ProtocolV2 {
+		path = fmt.Sprintf("/v2/models/%s/infer", name)
 	}
+	return path
 }
 
 func ExplainPath(name string) string {
@@ -487,5 +490,20 @@ func GetProtocolVersionInt(protocol InferenceServiceProtocol) ProtocolVersion {
 		return GRPCV2
 	default:
 		return Unknown
+	}
+}
+
+func GetProtocolVersionString(protocol ProtocolVersion) InferenceServiceProtocol {
+	switch protocol {
+	case V1:
+		return ProtocolV1
+	case V2:
+		return ProtocolV2
+	case GRPCV1:
+		return ProtocolGRPCV1
+	case GRPCV2:
+		return ProtocolGRPCV2
+	default:
+		return ProtocolUnknown
 	}
 }

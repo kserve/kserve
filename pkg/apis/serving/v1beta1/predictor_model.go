@@ -67,7 +67,7 @@ func (m *ModelSpec) GetProtocol() constants.InferenceServiceProtocol {
 	if m.ProtocolVersion != nil {
 		return *m.ProtocolVersion
 	}
-	return constants.ProtocolV2
+	return constants.ProtocolV1
 }
 
 func (m *ModelSpec) IsMMS(config *InferenceServicesConfig) bool {
@@ -213,12 +213,12 @@ func (m *ModelSpec) getPredictorConfig(config *InferenceServicesConfig) *Predict
 
 func sortServingRuntimeList(runtimes *v1alpha1.ServingRuntimeList) {
 	sort.Slice(runtimes.Items, func(i, j int) bool {
-		if getProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) <
-			getProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+		if GetProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) <
+			GetProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
 			return true
 		}
-		if getProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) >
-			getProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+		if GetProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) >
+			GetProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
 			return false
 		}
 		if runtimes.Items[i].CreationTimestamp.Before(&runtimes.Items[j].CreationTimestamp) {
@@ -233,12 +233,12 @@ func sortServingRuntimeList(runtimes *v1alpha1.ServingRuntimeList) {
 
 func sortClusterServingRuntimeList(runtimes *v1alpha1.ClusterServingRuntimeList) {
 	sort.Slice(runtimes.Items, func(i, j int) bool {
-		if getProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) <
-			getProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+		if GetProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) <
+			GetProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
 			return true
 		}
-		if getProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) >
-			getProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+		if GetProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) >
+			GetProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
 			return false
 		}
 		if runtimes.Items[i].CreationTimestamp.Before(&runtimes.Items[j].CreationTimestamp) {
@@ -251,7 +251,7 @@ func sortClusterServingRuntimeList(runtimes *v1alpha1.ClusterServingRuntimeList)
 	})
 }
 
-func getProtocolVersionPriority(protocols []constants.InferenceServiceProtocol) int {
+func GetProtocolVersionPriority(protocols []constants.InferenceServiceProtocol) int {
 	if protocols == nil || len(protocols) == 0 {
 		return int(constants.Unknown)
 	}
