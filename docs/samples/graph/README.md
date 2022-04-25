@@ -14,18 +14,18 @@
 # **Inference Graph**
 ## **1. Problem** 
 
-Often the time on a production inference pipeline, it is not a single inference service, models need to be chained together to produce the final prediction result. For example a face recognition pipeline may need to find the face area first and then compute the features of the faces to match the face database, these two models are depending on each other and the first model’s output is the second model’s input. Another example is the NLP pipeline, it is very common that you would need to do some document classification first followed by downstream named entity detection or text summary tasks.[[...]](https://docs.google.com/document/d/13VHfOxa72pgoy5Eg5c-gGHZfEL7uBDc7rTLa2pAi4Ko/edit#heading=h.x9snb54sjlu9)
+Production inference pipelines are often composed of multiple inference services, and models need to be chained together to produce the final prediction result. For example, a face recognition pipeline may need to find the face area first and then compute the features of the faces to match the face database. These two models depend on each other, and the first model’s output is the second model’s input. Another example is the NLP pipeline. It is very common to do some document classification and then have downstream tasks for named entity detection or text summary.[[...]](https://docs.google.com/document/d/13VHfOxa72pgoy5Eg5c-gGHZfEL7uBDc7rTLa2pAi4Ko/edit#heading=h.x9snb54sjlu9)
 
 KServe inference graph is designed for this.
 
 ## **2. KServe Inference Graph** 
 ![image](graph.png)
 ### **2.1 Inference Graph**
-As above image shows, inference graph is made up of a list of `nodes` , and each `node` consists of several `isvcs`. Every graph must have a root node named `root`. When an inference request hits the graph it excutes the `root` node from the DFS, if the graph has other `nodes`, it will pass the `$request` or `$response` of the root service as input data to the `next node`. There are four types of `node` are supported: ***Single***, ***Switch***, ***Ensemble***, ***Splitter***.
+As the above image shows, an inference graph is made up of a list of `nodes`, and each `node` consists of several `isvcs`. Every graph must have a root node named `root`. When an inference request hits the graph, it executes the `root` node from the DAG. If the graph has other `nodes`, it will pass the `$request` or `$response` of the root service as input data to the `next node`. There are four `node` types that are supported: ***Single***, ***Switch***, ***Ensemble***, ***Splitter***.
 
 
 ### **2.2 Single Node**
-**Single Node** makes user can connect 2 isvcs in a sequence relationship. The
+**Single Node** allows users to connect two `isvcs` in a sequence relationship. The
 `routes` field defines the first `isvc`, and if this node is not the tail node of the graph, it will have one `nextRoute` as the second `isvc`. User can choose `$request` or `$response` from the first `isvc` as the input data to send to the second `isvc`.
 
 ![image](singleNode.png)
@@ -58,7 +58,7 @@ mymodel:
   - nodeName: isvcM
     data: $response
 ```
-We use `k8s.io/client-go/util/jsonpath` to parse the condition, Because of the kubernetes jsonpath can not support `map` fillter, so we make a little changes on the input data and `condition`:
+We use `k8s.io/client-go/util/jsonpath` to parse the condition, because the kubernetes jsonpath can not support `map` input, we make a change on the input data and `condition`:
 * wrap the input data up to an `array`, for example: 
 
 **origin input data:**
