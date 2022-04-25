@@ -87,7 +87,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	lastRolledoutRevision := componentStatus.LatestRolledoutRevision
 
 	// Log component status and canary traffic percent
-        log.Info("revision status:", "LatestRolledoutRevision", componentStatus.LatestRolledoutRevision, "LatestReadyRevision", componentStatus.LatestReadyRevision, "LatestCreatedRevision", componentStatus.LatestCreatedRevision, "PreviousRolledoutRevision", componentStatus.PreviousRolledoutRevision, "CanaryTrafficPercent", componentExtension.CanaryTrafficPercent)
+	log.Info("revision status:", "LatestRolledoutRevision", componentStatus.LatestRolledoutRevision, "LatestReadyRevision", componentStatus.LatestReadyRevision, "LatestCreatedRevision", componentStatus.LatestCreatedRevision, "PreviousRolledoutRevision", componentStatus.PreviousRolledoutRevision, "CanaryTrafficPercent", componentExtension.CanaryTrafficPercent)
 
 	trafficTargets := []knservingv1.TrafficTarget{}
 	// Split traffic when canary traffic percent is specified

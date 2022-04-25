@@ -191,7 +191,7 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig 
 		if len(re.FindString(image)) == 0 {
 			container.Image = image + ":" + *runtimeVersion
 		} else {
-			container.Image = re.ReplaceAllString(image, ":" + *runtimeVersion)
+			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
 		}
 		return
 	}
