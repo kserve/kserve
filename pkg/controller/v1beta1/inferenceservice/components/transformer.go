@@ -92,18 +92,14 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	// Need to wait for predictor URL in modelmesh deployment mode
 	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.ModelMeshDeployment {
 		// check if predictor URL is populated
-		if isvc.Status.Components["predictor"].URL == nil {
-			// tansformer reconcile will retry every 3 second until predictor URL is populated
+		predictorURL := (*url.URL)(isvc.Status.Components["predictor"].URL)
+		if predictorURL == nil {
+			// transformer reconcile will retry every 3 second until predictor URL is populated
 			p.Log.Info("Transformer reconciliation is waiting for predictor URL to be populated")
 			return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
 		}
 
 		// add predictor host and protocol to metadata
-		predictorURL, err := url.Parse(isvc.Status.Components["predictor"].URL.String())
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("unable to parse predictor URL: %v", err)
-		}
-
 		isvc.ObjectMeta.Annotations["predictor-host"] = predictorURL.Host
 		if predictorURL.Scheme == "grpc" {
 			isvc.ObjectMeta.Annotations["predictor-protocol"] = string(constants.ProtocolGRPCV2)
