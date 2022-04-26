@@ -142,6 +142,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
 			inferenceService := &v1beta1.InferenceService{}
 
 			Eventually(func() bool {
@@ -512,6 +513,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						URL:                   transformerUrl,
 					},
 				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+				},
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -731,6 +736,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "exp-revision-v1",
 						URL:                   explainerUrl,
 					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
 			}
 			Eventually(func() string {
@@ -1221,6 +1230,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err != nil {
 					return false
 				}
+				if inferenceService.Status.ModelStatus.LastFailureInfo == nil {
+					return false
+				}
 				return true
 			}, timeout, interval).Should(BeTrue())
 
@@ -1229,7 +1241,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Message: "Waiting for runtime to become available",
 			}
 			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
-			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.ActiveModelState).To(Equal(v1beta1.FailedToLoad))
+			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.TargetModelState).To(Equal(v1beta1.FailedToLoad))
 			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
 		})
 	})
@@ -1323,6 +1335,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err != nil {
 					return false
 				}
+				if inferenceService.Status.ModelStatus.LastFailureInfo == nil {
+					return false
+				}
 				return true
 			}, timeout, interval).Should(BeTrue())
 
@@ -1331,7 +1346,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Message: "Specified runtime is disabled",
 			}
 			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
-			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.ActiveModelState).To(Equal(v1beta1.FailedToLoad))
+			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.TargetModelState).To(Equal(v1beta1.FailedToLoad))
 			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
 		})
 	})
@@ -1425,6 +1440,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err != nil {
 					return false
 				}
+				if inferenceService.Status.ModelStatus.LastFailureInfo == nil {
+					return false
+				}
 				return true
 			}, timeout, interval).Should(BeTrue())
 
@@ -1433,7 +1451,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Message: "Specified runtime does not support specified framework/version",
 			}
 			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
-			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.ActiveModelState).To(Equal(v1beta1.FailedToLoad))
+			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.TargetModelState).To(Equal(v1beta1.FailedToLoad))
 			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
 		})
 	})

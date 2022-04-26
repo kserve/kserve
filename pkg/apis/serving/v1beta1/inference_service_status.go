@@ -400,11 +400,11 @@ func (ss *InferenceServiceStatus) ClearCondition(conditionType apis.ConditionTyp
 	}
 }
 
-func (ss *InferenceServiceStatus) UpdateModelRevisionStates(modelState ModelState, info *FailureInfo) {
+func (ss *InferenceServiceStatus) UpdateModelRevisionStates(modelState ModelState, totalCopies int, info *FailureInfo) {
 	if ss.ModelStatus.ModelRevisionStates == nil {
-		ss.ModelStatus.ModelRevisionStates = &ModelRevisionStates{ActiveModelState: modelState}
+		ss.ModelStatus.ModelRevisionStates = &ModelRevisionStates{TargetModelState: modelState}
 	} else {
-		ss.ModelStatus.ModelRevisionStates.ActiveModelState = modelState
+		ss.ModelStatus.ModelRevisionStates.TargetModelState = modelState
 	}
 	// Update transition status, failure info based on new model state
 	if modelState == Pending || modelState == Loading {
@@ -413,6 +413,9 @@ func (ss *InferenceServiceStatus) UpdateModelRevisionStates(modelState ModelStat
 		ss.ModelStatus.TransitionStatus = UpToDate
 	} else if modelState == FailedToLoad {
 		ss.ModelStatus.TransitionStatus = BlockedByFailedLoad
+	} else if modelState == Loaded {
+		ss.ModelStatus.ModelCopies = &ModelCopies{TotalCopies: totalCopies}
+		ss.ModelStatus.ModelRevisionStates.ActiveModelState = Loaded
 	}
 	if info != nil {
 		ss.SetModelFailureInfo(info)
@@ -424,9 +427,9 @@ func (ss *InferenceServiceStatus) UpdateModelTransitionStatus(status TransitionS
 	// Update model state to 'FailedToLoad' in case of invalid spec provided
 	if ss.ModelStatus.TransitionStatus == InvalidSpec {
 		if ss.ModelStatus.ModelRevisionStates == nil {
-			ss.ModelStatus.ModelRevisionStates = &ModelRevisionStates{ActiveModelState: FailedToLoad}
+			ss.ModelStatus.ModelRevisionStates = &ModelRevisionStates{TargetModelState: FailedToLoad}
 		} else {
-			ss.ModelStatus.ModelRevisionStates.ActiveModelState = FailedToLoad
+			ss.ModelStatus.ModelRevisionStates.TargetModelState = FailedToLoad
 		}
 	}
 	if info != nil {
@@ -444,17 +447,19 @@ func (ss *InferenceServiceStatus) SetModelFailureInfo(info *FailureInfo) bool {
 
 func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatusSpec, podList *v1.PodList, rawDeplyment bool) {
 	// Check at least one pod is running for the latest revision of inferenceservice
-	if len(podList.Items) == 0 {
+	totalCopies := len(podList.Items)
+	if totalCopies == 0 {
+		ss.UpdateModelRevisionStates(Pending, totalCopies, nil)
 		return
 	}
 	// Update model state to 'Loaded' if inferenceservice status is ready.
 	// For serverless deployment, the latest created revision and the latest ready revision should be equal
 	if ss.IsReady() {
 		if rawDeplyment {
-			ss.UpdateModelRevisionStates(Loaded, nil)
+			ss.UpdateModelRevisionStates(Loaded, totalCopies, nil)
 			return
 		} else if statusSpec.LatestCreatedRevision == statusSpec.LatestReadyRevision {
-			ss.UpdateModelRevisionStates(Loaded, nil)
+			ss.UpdateModelRevisionStates(Loaded, totalCopies, nil)
 			return
 		}
 	}
@@ -464,18 +469,18 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 	for _, cs := range podList.Items[0].Status.InitContainerStatuses {
 		if cs.Name == constants.StorageInitializerContainerName {
 			if cs.State.Running != nil {
-				ss.UpdateModelRevisionStates(Loading, nil)
+				ss.UpdateModelRevisionStates(Loading, totalCopies, nil)
 				return
 			} else if cs.State.Terminated != nil &&
 				cs.State.Terminated.Reason == constants.StateReasonError {
-				ss.UpdateModelRevisionStates(FailedToLoad, &FailureInfo{
+				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
 					Reason:  ModelLoadFailed,
 					Message: cs.State.Terminated.Message,
 				})
 				return
 			} else if cs.State.Waiting != nil &&
 				cs.State.Waiting.Reason == constants.StateReasonCrashLoopBackOff {
-				ss.UpdateModelRevisionStates(FailedToLoad, &FailureInfo{
+				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
 					Reason:  ModelLoadFailed,
 					Message: cs.LastTerminationState.Terminated.Message,
 				})
@@ -489,18 +494,18 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 		if cs.Name == constants.InferenceServiceContainerName {
 			if cs.State.Terminated != nil &&
 				cs.State.Terminated.Reason == constants.StateReasonError {
-				ss.UpdateModelRevisionStates(FailedToLoad, &FailureInfo{
+				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
 					Reason:  ModelLoadFailed,
 					Message: cs.State.Terminated.Message,
 				})
 			} else if cs.State.Waiting != nil &&
 				cs.State.Waiting.Reason == constants.StateReasonCrashLoopBackOff {
-				ss.UpdateModelRevisionStates(FailedToLoad, &FailureInfo{
+				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
 					Reason:  ModelLoadFailed,
 					Message: cs.LastTerminationState.Terminated.Message,
 				})
 			} else {
-				ss.UpdateModelRevisionStates(Pending, nil)
+				ss.UpdateModelRevisionStates(Pending, totalCopies, nil)
 			}
 		}
 	}

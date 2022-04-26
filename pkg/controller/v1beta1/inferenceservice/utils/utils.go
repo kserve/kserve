@@ -23,6 +23,7 @@ import (
 	"html/template"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -214,5 +215,12 @@ func ListPodsByLabel(cl client.Client, namespace string, labelKey string, labelV
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
+	sortPodsByCreatedTimestampDesc(podList)
 	return podList, nil
+}
+
+func sortPodsByCreatedTimestampDesc(pods *v1.PodList) {
+	sort.Slice(pods.Items, func(i, j int) bool {
+		return pods.Items[j].ObjectMeta.CreationTimestamp.Before(&pods.Items[i].ObjectMeta.CreationTimestamp)
+	})
 }
