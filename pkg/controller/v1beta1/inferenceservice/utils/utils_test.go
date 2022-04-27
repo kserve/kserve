@@ -1223,6 +1223,8 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				Name:  "kserve-container",
 				Image: "default-image",
 				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
 					"--new-arg=baz",
 				},
 				Env: []v1.EnvVar{

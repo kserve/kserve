@@ -91,21 +91,24 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 		return nil, err
 	}
 
-	coreContainer := v1.Container{}
-	jsonResult, err := strategicpatch.StrategicMergePatch(runtimeContainerJson, overrides, coreContainer)
+	mergedContainer := v1.Container{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(runtimeContainerJson, overrides, mergedContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(jsonResult, &coreContainer); err != nil {
+	if err := json.Unmarshal(jsonResult, &mergedContainer); err != nil {
 		return nil, err
 	}
 
-	if coreContainer.Name == "" {
-		coreContainer.Name = runtimeContainerName
+	if mergedContainer.Name == "" {
+		mergedContainer.Name = runtimeContainerName
 	}
 
-	return &coreContainer, nil
+	// Strategic merge patch will replace args but more useful behaviour here is to concatenate
+	mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), predictorContainer.Args...)
+
+	return &mergedContainer, nil
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
