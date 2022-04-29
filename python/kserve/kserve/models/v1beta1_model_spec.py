@@ -453,7 +453,7 @@ class V1beta1ModelSpec(object):
     def protocol_version(self):
         """Gets the protocol_version of this V1beta1ModelSpec.  # noqa: E501
 
-        Protocol version to use by the predictor (i.e. v1 or v2)  # noqa: E501
+        Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)  # noqa: E501
 
         :return: The protocol_version of this V1beta1ModelSpec.  # noqa: E501
         :rtype: str
@@ -464,7 +464,7 @@ class V1beta1ModelSpec(object):
     def protocol_version(self, protocol_version):
         """Sets the protocol_version of this V1beta1ModelSpec.
 
-        Protocol version to use by the predictor (i.e. v1 or v2)  # noqa: E501
+        Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)  # noqa: E501
 
         :param protocol_version: The protocol_version of this V1beta1ModelSpec.  # noqa: E501
         :type: str

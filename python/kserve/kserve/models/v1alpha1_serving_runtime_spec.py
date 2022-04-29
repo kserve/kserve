@@ -49,13 +49,14 @@ class V1alpha1ServingRuntimeSpec(object):
     openapi_types = {
         'affinity': 'V1Affinity',
         'built_in_adapter': 'V1alpha1BuiltInAdapter',
-        'containers': 'list[V1alpha1Container]',
+        'containers': 'list[V1Container]',
         'disabled': 'bool',
         'grpc_data_endpoint': 'str',
         'grpc_endpoint': 'str',
         'http_data_endpoint': 'str',
         'multi_model': 'bool',
         'node_selector': 'dict(str, str)',
+        'protocol_versions': 'list[str]',
         'replicas': 'int',
         'storage_helper': 'V1alpha1StorageHelper',
         'supported_model_formats': 'list[V1alpha1SupportedModelFormat]',
@@ -72,13 +73,14 @@ class V1alpha1ServingRuntimeSpec(object):
         'http_data_endpoint': 'httpDataEndpoint',
         'multi_model': 'multiModel',
         'node_selector': 'nodeSelector',
+        'protocol_versions': 'protocolVersions',
         'replicas': 'replicas',
         'storage_helper': 'storageHelper',
         'supported_model_formats': 'supportedModelFormats',
         'tolerations': 'tolerations'
     }
 
-    def __init__(self, affinity=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, http_data_endpoint=None, multi_model=None, node_selector=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, http_data_endpoint=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -93,6 +95,7 @@ class V1alpha1ServingRuntimeSpec(object):
         self._http_data_endpoint = None
         self._multi_model = None
         self._node_selector = None
+        self._protocol_versions = None
         self._replicas = None
         self._storage_helper = None
         self._supported_model_formats = None
@@ -116,6 +119,8 @@ class V1alpha1ServingRuntimeSpec(object):
             self.multi_model = multi_model
         if node_selector is not None:
             self.node_selector = node_selector
+        if protocol_versions is not None:
+            self.protocol_versions = protocol_versions
         if replicas is not None:
             self.replicas = replicas
         if storage_helper is not None:
@@ -174,7 +179,7 @@ class V1alpha1ServingRuntimeSpec(object):
         List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.  # noqa: E501
 
         :return: The containers of this V1alpha1ServingRuntimeSpec.  # noqa: E501
-        :rtype: list[V1alpha1Container]
+        :rtype: list[V1Container]
         """
         return self._containers
 
@@ -185,7 +190,7 @@ class V1alpha1ServingRuntimeSpec(object):
         List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.  # noqa: E501
 
         :param containers: The containers of this V1alpha1ServingRuntimeSpec.  # noqa: E501
-        :type: list[V1alpha1Container]
+        :type: list[V1Container]
         """
         if self.local_vars_configuration.client_side_validation and containers is None:  # noqa: E501
             raise ValueError("Invalid value for `containers`, must not be `None`")  # noqa: E501
@@ -329,6 +334,29 @@ class V1alpha1ServingRuntimeSpec(object):
         """
 
         self._node_selector = node_selector
+
+    @property
+    def protocol_versions(self):
+        """Gets the protocol_versions of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+
+        Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)  # noqa: E501
+
+        :return: The protocol_versions of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._protocol_versions
+
+    @protocol_versions.setter
+    def protocol_versions(self, protocol_versions):
+        """Sets the protocol_versions of this V1alpha1ServingRuntimeSpec.
+
+        Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)  # noqa: E501
+
+        :param protocol_versions: The protocol_versions of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._protocol_versions = protocol_versions
 
     @property
     def replicas(self):

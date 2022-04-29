@@ -3,6 +3,8 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**domain_template** | **str** |  | [optional] 
+**ingress_class_name** | **str** |  | [optional] 
 **ingress_domain** | **str** |  | [optional] 
 **ingress_gateway** | **str** |  | [optional] 
 **ingress_service** | **str** |  | [optional] 
