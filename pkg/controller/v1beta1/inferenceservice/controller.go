@@ -269,7 +269,12 @@ func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.In
 	// Delete all the TrainedModel that uses this InferenceService as parent
 	r.Log.Info("Deleting external resources", "InferenceService", isvc.Name)
 	var trainedModels v1alpha1api.TrainedModelList
-	if err := r.List(context.TODO(), &trainedModels, client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name}); err != nil {
+	if err := r.List(
+		context.TODO(),
+		&trainedModels,
+		client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name},
+		client.InNamespace(isvc.Namespace),
+	); err != nil {
 		r.Log.Error(err, "unable to list trained models", "inferenceservice", isvc.Name)
 		return err
 	}
