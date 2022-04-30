@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: kserve
+Version: 0.9.0
+Summary: KServe Python SDK
+Home-page: https://github.com/kserve/kserve/tree/master/python/kserve
+Author: The KServe Authors
+Author-email: ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net
+License: Apache License Version 2.0
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.7
+Provides-Extra: test
+
+Python SDK for KServe Server and Client.
