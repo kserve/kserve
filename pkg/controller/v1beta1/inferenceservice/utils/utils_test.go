@@ -1191,6 +1191,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				},
 				Env: []v1.EnvVar{
 					{Name: "PORT", Value: "8080"},
+					{Name: "PORT2", Value: "8081"},
 				},
 				Resources: v1.ResourceRequirements{
 					Limits: v1.ResourceList{
@@ -1208,6 +1209,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 					"--new-arg=baz",
 				},
 				Env: []v1.EnvVar{
+					{Name: "PORT2", Value: "8082"},
 					{Name: "Some", Value: "Var"},
 				},
 				Resources: v1.ResourceRequirements{
@@ -1227,6 +1229,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				},
 				Env: []v1.EnvVar{
 					{Name: "PORT", Value: "8080"},
+					{Name: "PORT2", Value: "8082"},
 					{Name: "Some", Value: "Var"},
 				},
 				Resources: v1.ResourceRequirements{
@@ -1270,6 +1273,24 @@ func TestMergePodSpec(t *testing.T) {
 				Tolerations: []v1.Toleration{
 					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
 				},
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bar",
+							},
+						},
+					},
+					{
+						Name: "aaa",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bbb",
+							},
+						},
+					},
+				},
 			},
 			podSpecOverride: &v1beta1.PodSpec{
 				NodeSelector: map[string]string{
@@ -1277,6 +1298,24 @@ func TestMergePodSpec(t *testing.T) {
 					"xxx": "yyy",
 				},
 				ServiceAccountName: "testAccount",
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "baz",
+							},
+						},
+					},
+					{
+						Name: "xxx",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "yyy",
+							},
+						},
+					},
+				},
 			},
 			expected: &v1.PodSpec{
 				NodeSelector: map[string]string{
@@ -1288,6 +1327,32 @@ func TestMergePodSpec(t *testing.T) {
 					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
 				},
 				ServiceAccountName: "testAccount",
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "baz",
+							},
+						},
+					},
+					{
+						Name: "xxx",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "yyy",
+							},
+						},
+					},
+					{
+						Name: "aaa",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bbb",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
