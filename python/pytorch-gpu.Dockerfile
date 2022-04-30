@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 AS BUILD
+FROM nvidia/cuda:11.4.3-cudnn8-devel-ubuntu18.04 AS BUILD
 
 ARG PYTHON_VERSION=3.7
 ARG CONDA_PYTHON_VERSION=3
@@ -27,7 +27,7 @@ RUN conda install -y python=$PYTHON_VERSION && \
     conda clean -tipsy
 
 # Runtime image
-FROM nvidia/cuda:10.0-base
+FROM nvidia/cuda:11.4.3-base-ubuntu18.04
 
 ARG CONDA_DIR=/opt/conda
 
