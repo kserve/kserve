@@ -29,5 +29,4 @@ kubectl describe pods -n kserve-ci-e2e-test
 kubectl get events -n kserve-ci-e2e-test
 
 # Print controller logs
-kubectl logs kserve-controller-manager-0 -n kserve manager
-
+kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager
