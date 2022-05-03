@@ -51,6 +51,7 @@ class V1beta1InferenceServiceStatus(object):
         'annotations': 'dict(str, str)',
         'components': 'dict(str, V1beta1ComponentStatusSpec)',
         'conditions': 'list[KnativeCondition]',
+        'model_status': 'V1beta1ModelStatus',
         'observed_generation': 'int',
         'url': 'KnativeURL'
     }
@@ -60,11 +61,12 @@ class V1beta1InferenceServiceStatus(object):
         'annotations': 'annotations',
         'components': 'components',
         'conditions': 'conditions',
+        'model_status': 'modelStatus',
         'observed_generation': 'observedGeneration',
         'url': 'url'
     }
 
-    def __init__(self, address=None, annotations=None, components=None, conditions=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, address=None, annotations=None, components=None, conditions=None, model_status=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -74,6 +76,7 @@ class V1beta1InferenceServiceStatus(object):
         self._annotations = None
         self._components = None
         self._conditions = None
+        self._model_status = None
         self._observed_generation = None
         self._url = None
         self.discriminator = None
@@ -86,6 +89,8 @@ class V1beta1InferenceServiceStatus(object):
             self.components = components
         if conditions is not None:
             self.conditions = conditions
+        if model_status is not None:
+            self.model_status = model_status
         if observed_generation is not None:
             self.observed_generation = observed_generation
         if url is not None:
@@ -180,6 +185,27 @@ class V1beta1InferenceServiceStatus(object):
         """
 
         self._conditions = conditions
+
+    @property
+    def model_status(self):
+        """Gets the model_status of this V1beta1InferenceServiceStatus.  # noqa: E501
+
+
+        :return: The model_status of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :rtype: V1beta1ModelStatus
+        """
+        return self._model_status
+
+    @model_status.setter
+    def model_status(self, model_status):
+        """Sets the model_status of this V1beta1InferenceServiceStatus.
+
+
+        :param model_status: The model_status of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :type: V1beta1ModelStatus
+        """
+
+        self._model_status = model_status
 
     @property
     def observed_generation(self):

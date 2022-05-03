@@ -47,6 +47,8 @@ class V1beta1IngressConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'domain_template': 'str',
+        'ingress_class_name': 'str',
         'ingress_domain': 'str',
         'ingress_gateway': 'str',
         'ingress_service': 'str',
@@ -55,6 +57,8 @@ class V1beta1IngressConfig(object):
     }
 
     attribute_map = {
+        'domain_template': 'domainTemplate',
+        'ingress_class_name': 'ingressClassName',
         'ingress_domain': 'ingressDomain',
         'ingress_gateway': 'ingressGateway',
         'ingress_service': 'ingressService',
@@ -62,12 +66,14 @@ class V1beta1IngressConfig(object):
         'local_gateway_service': 'localGatewayService'
     }
 
-    def __init__(self, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._domain_template = None
+        self._ingress_class_name = None
         self._ingress_domain = None
         self._ingress_gateway = None
         self._ingress_service = None
@@ -75,6 +81,10 @@ class V1beta1IngressConfig(object):
         self._local_gateway_service = None
         self.discriminator = None
 
+        if domain_template is not None:
+            self.domain_template = domain_template
+        if ingress_class_name is not None:
+            self.ingress_class_name = ingress_class_name
         if ingress_domain is not None:
             self.ingress_domain = ingress_domain
         if ingress_gateway is not None:
@@ -85,6 +95,48 @@ class V1beta1IngressConfig(object):
             self.local_gateway = local_gateway
         if local_gateway_service is not None:
             self.local_gateway_service = local_gateway_service
+
+    @property
+    def domain_template(self):
+        """Gets the domain_template of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The domain_template of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._domain_template
+
+    @domain_template.setter
+    def domain_template(self, domain_template):
+        """Sets the domain_template of this V1beta1IngressConfig.
+
+
+        :param domain_template: The domain_template of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._domain_template = domain_template
+
+    @property
+    def ingress_class_name(self):
+        """Gets the ingress_class_name of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The ingress_class_name of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._ingress_class_name
+
+    @ingress_class_name.setter
+    def ingress_class_name(self, ingress_class_name):
+        """Sets the ingress_class_name of this V1beta1IngressConfig.
+
+
+        :param ingress_class_name: The ingress_class_name of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._ingress_class_name = ingress_class_name
 
     @property
     def ingress_domain(self):
