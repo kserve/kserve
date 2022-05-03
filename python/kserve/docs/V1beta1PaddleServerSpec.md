@@ -13,7 +13,7 @@ Name | Type | Description | Notes
 **liveness_probe** | [**V1Probe**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Probe.md) |  | [optional] 
 **name** | **str** | Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL). Cannot be updated. | [optional] [default to '']
 **ports** | [**list[V1ContainerPort]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ContainerPort.md) | List of ports to expose from the container. Exposing a port here gives the system additional information about the network connections a container uses, but is primarily informational. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \&quot;0.0.0.0\&quot; address inside a container will be accessible from the network. Cannot be updated. | [optional] 
-**protocol_version** | **str** | Protocol version to use by the predictor (i.e. v1 or v2) | [optional] 
+**protocol_version** | **str** | Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2) | [optional] 
 **readiness_probe** | [**V1Probe**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Probe.md) |  | [optional] 
 **resources** | [**V1ResourceRequirements**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ResourceRequirements.md) |  | [optional] 
 **runtime_version** | **str** | Runtime version of the predictor docker image | [optional] 
