@@ -10,7 +10,7 @@ PYTORCH_IMG ?= pytorchserver
 PMML_IMG ?= pmmlserver
 PADDLE_IMG ?= paddleserver
 ALIBI_IMG ?= alibi-explainer
-AIX_IMG ?= aix-explainer				# change this line
+AIX_IMG ?= aix-explainer				
 STORAGE_INIT_IMG ?= storage-initializer
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
