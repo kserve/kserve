@@ -36,7 +36,6 @@ spec:
       routerType: Single
       routes:
       - service: green
-        serviceUrl: http://green.default.10.166.15.29.sslip.io/splitter
       nextRoutes:
       - nodeName: mymodel
         data: $response
@@ -44,8 +43,6 @@ spec:
       routerType: Switch
       routes:
       - service: blue
-        serviceUrl: http://blue.default.10.166.15.29.sslip.io/splitter
         condition: "{.target == \"blue\"}"
       - service: green
-        serviceUrl: http://green.default.10.166.15.29.sslip.io/splitter
         condition: "{.target != \"blue\"}"

@@ -112,7 +112,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	r.Log.Info("Reconciling inference graph", "apiVersion", graph.APIVersion, "graph", graph.Name)
 	configMap := &v1.ConfigMap{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 	if err != nil {
 		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return reconcile.Result{}, err
@@ -126,7 +126,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		for i, route := range router.Routes {
 			isvc := v1beta1.InferenceService{}
 			if route.Service != "" {
-				err := r.Client.Get(context.Background(), types.NamespacedName{Namespace: graph.Namespace, Name: route.Service}, &isvc)
+				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.Service}, &isvc)
 				if err == nil {
 					if isvc.Status.Address != nil && isvc.Status.Address.URL != nil {
 						if graph.Spec.Nodes[node].Routes[i].ServiceUrl == "" {

@@ -41,7 +41,7 @@ root:
 ...
 ```
 ### **2.3 Switch Node**
-**Switch Node** makes user can select an `isvc` to handle the request by setting the `condition`. Usually, user doesn't need to set the `serviceURL`, kserve will fill it with `isvc.status.address.URL` of `isvc`, but if you want to specified the `serviceURL`, you can set it manually. 
+**Switch Node** allows users to select an `isvc` to handle the request by setting the `condition`. Usually, users don't need to set the `serviceURL` as KServe will fill it in with `isvc.status.address.URL` of the `isvc`, but if desired, `serviceURL` can be specified explicitly.
 
 ![image](switchNode.png)
 ```yaml
@@ -103,7 +103,7 @@ root:
   - service: xgboost-iris
 ```
 ### **2.5 Splitter Node**
-**Splitter Node** make user can  
+**Splitter Node** allows users to split traffic to multiple isvcs using a weighted distribution
 
 ![image](splitterNode.png)
 ```yaml
@@ -141,7 +141,7 @@ kubectl get ig
 NAME            URL                                                  READY   AGE
 model-chainer   http://model-chainer.default.10.166.15.29.sslip.io   True    5s
 ```
-3. Tesing `graph`.
+3. Testing `graph`.
 ```shell
 curl http://model-chainer.default.10.166.15.29.sslip.io -d @./iris-input.json
 ``` 
@@ -174,7 +174,7 @@ kubectl get ig
 NAME            URL                                                  READY   AGE
 model-switch     http://model-switch.default.10.166.15.29.sslip.io     True    35s
 ```
-3. Tesing `graph`.
+3. Testing `graph`.
 ```shell
 curl http://model-switch.default.10.166.15.29.sslip.io
 ``` 
@@ -190,7 +190,7 @@ curl http://model-switch.default.10.166.15.29.sslip.io
 ```shell 
 kubectl apply -f splitter.yaml
 ```
-2. Waiting for `isvc` and `graph` up.
+2. Waiting for `isvc` and `graph` to come up.
 ```shell
 kubectl get pods
 NAME                                                              READY   STATUS    RESTARTS   AGE
@@ -207,7 +207,7 @@ kubectl get ig
 NAME            URL                                                  READY   AGE
 splitter-model   http://splitter-model.default.10.166.15.29.sslip.io   True    15m
 ```
-3. Tesing `graph`.
+3. Testing `graph`.
 ```shell
 curl http://splitter-model.default.10.166.15.29.sslip.io -d @./iris-input.json
 ``` 
@@ -240,7 +240,7 @@ kubectl get ig
 NAME            URL                                                  READY   AGE
 ensemble-model   http://ensemble-model.default.10.166.15.29.sslip.io   True    15m
 ```
-3. Tesing `graph`.
+3. Testing `graph`.
 ```shell
 curl http://ensemble-model.default.10.166.15.29.sslip.io -d @./iris-input.json
 ``` 

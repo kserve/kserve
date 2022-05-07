@@ -67,7 +67,7 @@ func (ig *InferenceGraph) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (ig *InferenceGraph) ValidateUpdate(old runtime.Object) error {
-	validatorLogger.Info("validate update", "name:", ig.Name)
+	validatorLogger.Info("validate update", "name", ig.Name)
 
 	return ig.ValidateCreate()
 }

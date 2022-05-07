@@ -70,7 +70,7 @@ func pickupRoute(routes []v1alpha1.InferenceRoute) *v1alpha1.InferenceRoute {
 	return nil
 }
 
-//Input is a struct that can be parse by jsonpath
+//Input is a struct that can be parsed by jsonpath
 type Input struct {
 	Items []interface{} `json:"items"`
 }
@@ -97,11 +97,10 @@ func pickupRouteByCondition(input []byte, routes []v1alpha1.InferenceRoute) *v1a
 	//convert input to Input
 	data, err := convertInput(input)
 	if err != nil {
-		log.Error(err, "converInput failed.")
+		log.Error(err, "convertInput failed.")
 		return nil
 	}
 	for _, route := range routes {
-		//new jsonpath object
 		j := jsonpath.New("Parser")
 		//j.AllowMissingKeys(true)
 		cond := convertCondition(route.Condition)
@@ -129,7 +128,6 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 	log.Info("current step", "nodeName", nodeName, "URL", currentStep.Routes[0].ServiceUrl)
 	defer timeTrack(time.Now(), nodeName)
 	response := map[string]interface{}{}
-	//For splitter and ABNTest call virtual service
 	if currentStep.RouterType == v1alpha1.Splitter {
 		result := make(chan []byte)
 		go callService(pickupRoute(currentStep.Routes).ServiceUrl, input, result)
@@ -149,6 +147,7 @@ func routeStep(nodeName string, currentStep v1alpha1.InferenceRouter, graph v1al
 		}
 	} else if currentStep.RouterType == v1alpha1.Ensemble {
 		ensembleRes := map[string]chan []byte{}
+
 		for i := range currentStep.Routes {
 			res := make(chan []byte)
 			ensembleRes[currentStep.Routes[i].ServiceUrl] = res
@@ -219,7 +218,12 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 	for name, _ := range inferenceGraph.Nodes {
 		rootNodes = append(rootNodes, name)
 	}
-	go routeStep(v1alpha1.GraphRootNodeName, inferenceGraph.Nodes[v1alpha1.GraphRootNodeName], *inferenceGraph, inputBytes, res)
+	go func() {
+		err := routeStep(v1alpha1.GraphRootNodeName, inferenceGraph.Nodes[v1alpha1.GraphRootNodeName], *inferenceGraph, inputBytes, res)
+		if err != nil {
+			log.Error(err, "failed to process request")
+		}
+	}()
 	response := <-res
 	w.Write(response)
 }
