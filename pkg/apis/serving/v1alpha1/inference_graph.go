@@ -46,13 +46,13 @@ type InferenceGraphSpec struct {
 
 // InferenceRouterType constant for inference routing types
 // +k8s:openapi-gen=true
-// +kubebuilder:validation:Enum=Single;Splitter;Ensemble;Switch
+// +kubebuilder:validation:Enum=Sequence;Splitter;Ensemble;Switch
 type InferenceRouterType string
 
 // InferenceRouterType Enum
 const (
-	// Single Default type only route to one destination
-	Single InferenceRouterType = "Single"
+	// Sequence Default type only route to one destination
+	Sequence InferenceRouterType = "Sequence"
 
 	// Splitter router randomly routes the requests to the named service according to the weight
 	Splitter InferenceRouterType = "Splitter"
@@ -99,9 +99,9 @@ const (
 //       routerType: Switch
 //       routes:
 //       - service: mymodel1
-//         condition: "{ $input.userId == 1 }"
+//         condition: "{ .input.userId == 1 }"
 //       - service: mymodel2
-//         condition: "{ $input.userId == 2 }"
+//         condition: "{ .input.userId == 2 }"
 // ```
 //
 // Scoring a case using a model ensemble consists of scoring it using each model separately,
@@ -118,11 +118,11 @@ const (
 // spec:
 //   nodes:
 //     transformer:
+//       routerType: Sequence
 //       routes:
 //       - service: feast
-//       nextRoutes:
 //       - nodeName: ensembleModel
-//         data: "{ $output }"
+//         data: $response
 //     ensembleModel:
 //       routerType: Ensemble
 //       routes:
@@ -138,14 +138,13 @@ const (
 // spec:
 //   nodes:
 //     mymodel-s1:
+//       routerType: Sequence
 //       routes:
 //       - service: mymodel-s1
-//       nextRoutes:
-//       - nodeName: mymodel-s2
-//         data: "{ $output }"
-//     mymodel-s2:
-//       routes:
 //       - service: mymodel-s2
+//         data: $response
+//       - service: mymodel-s3
+//         data: $response
 // ```
 //
 // In the flow described below, the pre_processing node base64 encodes the image and passes it to two model nodes in the flow.
@@ -159,23 +158,23 @@ const (
 // spec:
 //   nodes:
 //     top-level-classifier:
+//       routerType: Sequence
 //       routes:
 //       - service: cat-dog-classifier
-//       nextRoutes:
-//         nodeName: breed-classifier
-//         data: "{ $input }"
+//       - nodeName: breed-classifier
+//         data: $response
 //     breed-classifier:
 //       routerType: Switch
 //       routes:
 //       - service: dog-breed-classifier
-//         condition: { $output.predictions.class == "dog" }
+//         condition: { .predictions.class == "dog" }
 //       - service: cat-breed-classifier
-//         condition: { $output.predictions.class == "cat" }
+//         condition: { .predictions.class == "cat" }
 // ```
 type InferenceRouter struct {
 	// RouterType
 	//
-	// - `Single:`: routes to a single service, the default router type
+	// - `Sequence:` chain multiple inference steps with input/output from previous step
 	//
 	// - `Splitter:` randomly routes to the named service according to the weight
 	//
@@ -187,37 +186,39 @@ type InferenceRouter struct {
 
 	// Routes defines destinations for the current router node
 	// +optional
-	Routes []InferenceRoute `json:"routes,omitempty"`
-
-	// nextRoute defines where to route to as next step
-	// +optional
-	NextRoutes []RouteTo `json:"nextRoutes,omitempty"`
+	Routes []InferenceStep `json:"routes,omitempty"`
 }
 
 // +k8s:openapi-gen=true
 
-type RouteTo struct {
+type InferenceTarget struct {
 	// The node name for routing as next step
 	// +optional
-	NodeName string `json:"nodeName"`
+	NodeName string `json:"nodeName,omitempty"`
 
-	// request data sent to the next route specified with jsonpath of the request or response json data
-	// from the current step
-	// $request
-	// $response.predictions
-	// +required
-	Data string `json:"data"`
-}
-
-// +k8s:openapi-gen=true
-
-type InferenceRoute struct {
 	// named reference for InferenceService
 	Service string `json:"service,omitempty"`
 
 	// InferenceService URL, mutually exclusive with Service
 	// +optional
 	ServiceUrl string `json:"serviceUrl,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+
+type InferenceStep struct {
+	// Unique name for the step within this node
+	// +optional
+	StepName string `json:"name"`
+
+	// Node or service used to process this step
+	InferenceTarget `json:",inline"`
+
+	// request data sent to the next route with input/output from the previous step
+	// $request
+	// $response.predictions
+	// +optional
+	Data string `json:"data,omitempty"`
 
 	// the weight for split of the traffic, only used for Split Router
 	// when weight is specified all the routing targets should be sum to 100

@@ -45,24 +45,20 @@ func TestSimpleModelChainer(t *testing.T) {
 	graphSpec := v1alpha1.InferenceGraphSpec{
 		Nodes: map[string]v1alpha1.InferenceRouter{
 			"root": {
-				RouterType: v1alpha1.Single,
-				Routes: []v1alpha1.InferenceRoute{
+				RouterType: v1alpha1.Sequence,
+				Routes: []v1alpha1.InferenceStep{
 					{
-						ServiceUrl: model1Url.String(),
+						StepName: "model1",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceUrl: model1Url.String(),
+						},
 					},
-				},
-				NextRoutes: []v1alpha1.RouteTo{
 					{
-						NodeName: "model2",
-						Data:     "$response",
-					},
-				},
-			},
-			"model2": {
-				RouterType: v1alpha1.Single,
-				Routes: []v1alpha1.InferenceRoute{
-					{
-						ServiceUrl: model2Url.String(),
+						StepName: "model2",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceUrl: model2Url.String(),
+						},
+						Data: "$response",
 					},
 				},
 			},
@@ -118,12 +114,18 @@ func TestSimpleModelEnsemble(t *testing.T) {
 		Nodes: map[string]v1alpha1.InferenceRouter{
 			"root": {
 				RouterType: v1alpha1.Ensemble,
-				Routes: []v1alpha1.InferenceRoute{
+				Routes: []v1alpha1.InferenceStep{
 					{
-						ServiceUrl: model1Url.String(),
+						StepName: "model1",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceUrl: model1Url.String(),
+						},
 					},
 					{
-						ServiceUrl: model2Url.String(),
+						StepName: "model2",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceUrl: model2Url.String(),
+						},
 					},
 				},
 			},

@@ -24,10 +24,9 @@ metadata:
 spec:
   nodes:
     root:
-      routerType: Single 
+      routerType: Sequence 
       routes:
         - service: sklearn-iris
-      nextRoutes:
         - nodeName: treeModel
           data: $request
     treeModel:

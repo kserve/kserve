@@ -1814,20 +1814,9 @@ spec:
               nodes:
                 additionalProperties:
                   properties:
-                    nextRoutes:
-                      items:
-                        properties:
-                          data:
-                            type: string
-                          nodeName:
-                            type: string
-                        required:
-                        - data
-                        type: object
-                      type: array
                     routerType:
                       enum:
-                      - Single
+                      - Sequence
                       - Splitter
                       - Ensemble
                       - Switch
@@ -1836,6 +1825,12 @@ spec:
                       items:
                         properties:
                           condition:
+                            type: string
+                          data:
+                            type: string
+                          name:
+                            type: string
+                          nodeName:
                             type: string
                           service:
                             type: string

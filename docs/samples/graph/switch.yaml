@@ -36,7 +36,6 @@ spec:
       routerType: Single
       routes:
       - service: green
-      nextRoutes:
       - nodeName: mymodel
         data: $response
     mymodel:
