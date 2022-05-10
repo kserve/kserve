@@ -20,7 +20,11 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-echo "Configuring kubectl ..."
+KUBECTL_VERSION="v1.20.2"
+echo "Upgrading kubectl ..."
+wget -q -O /usr/local/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+chmod a+x /usr/local/bin/kubectl
+
 pip3 install awscli --upgrade --user
 aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
 
