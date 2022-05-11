@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/tidwall/gjson"
@@ -37,32 +38,30 @@ import (
 
 var log = logf.Log.WithName("InferenceGraphRouter")
 
-func callService(serviceUrl string, input []byte, res chan<- []byte) error {
+func callService(serviceUrl string, input []byte) ([]byte, error) {
 	resp, err := http.Post(serviceUrl, "application/json", bytes.NewBuffer(input))
 	if err != nil {
-		log.Error(err, "An error has occurred for service %s", serviceUrl)
-		return err
+		log.Error(err, "An error has occurred from service", "service", serviceUrl)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Error(err, "error while reading the response")
-		return err
 	}
-	res <- body
-	return nil
+	return body, err
 }
 
 func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	//generate num [0,100)
 	point := r.Intn(99)
-	edge := 0
+	end := 0
 	for _, route := range routes {
-		if point >= edge && point < edge+int(*route.Weight) {
+		end += int(*route.Weight)
+		if point < end {
 			return &route
 		}
-		edge += int(*route.Weight)
 	}
 	return nil
 }
@@ -84,105 +83,93 @@ func timeTrack(start time.Time, name string) {
 	log.Info("elapsed time", "node", name, "time", elapsed)
 }
 
-func routeStep(nodeName string, currentNode v1alpha1.InferenceRouter, graph v1alpha1.InferenceGraphSpec, input []byte, res chan<- []byte) error {
+func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte) ([]byte, error) {
 	log.Info("current step", "nodeName", nodeName)
 	defer timeTrack(time.Now(), nodeName)
-	response := map[string]interface{}{}
-	if currentNode.RouterType == v1alpha1.Splitter {
-		result := make(chan []byte)
-		route := pickupRoute(currentNode.Routes)
-		if route.NodeName != "" {
-			go routeStep(route.NodeName, graph.Nodes[route.NodeName], graph, input, result)
-		} else {
-			go callService(pickupRoute(currentNode.Routes).ServiceUrl, input, result)
-		}
-		responseBytes := <-result
-		var res map[string]interface{}
-		json.Unmarshal(responseBytes, &res)
-		response = res
-	} else if currentNode.RouterType == v1alpha1.Switch {
-		route := pickupRouteByCondition(input, currentNode.Routes)
-		if route != nil {
-			result := make(chan []byte)
-			var res map[string]interface{}
-			if route.NodeName != "" {
-				go routeStep(route.NodeName, graph.Nodes[route.NodeName], graph, input, result)
-			} else {
-				go callService(route.ServiceUrl, input, result)
-			}
-			responseBytes := <-result
-			json.Unmarshal(responseBytes, &res)
-			response = res
-		}
-	} else if currentNode.RouterType == v1alpha1.Ensemble {
-		ensembleRes := map[string]chan []byte{}
+	currentNode := graph.Nodes[nodeName]
 
+	if currentNode.RouterType == v1alpha1.Splitter {
+		return executeStep(pickupRoute(currentNode.Routes), graph, input)
+	}
+	if currentNode.RouterType == v1alpha1.Switch {
+		route := pickupRouteByCondition(input, currentNode.Routes)
+		if route == nil {
+			return input, nil //TODO maybe should fail in this case?
+		}
+		return executeStep(route, graph, input)
+	}
+	if currentNode.RouterType == v1alpha1.Ensemble {
+		ensembleRes := make([]chan map[string]interface{}, len(currentNode.Routes))
+		errChan := make(chan error)
 		for i := range currentNode.Routes {
-			step := currentNode.Routes[i]
-			res := make(chan []byte)
-			ensembleRes[step.StepName] = res
-			if step.NodeName != "" {
-				go routeStep(step.NodeName, graph.Nodes[step.NodeName], graph, input, res)
-			} else {
-				go callService(step.ServiceUrl, input, res)
-			}
+			step := &currentNode.Routes[i]
+			resultChan := make(chan map[string]interface{})
+			ensembleRes[i] = resultChan
+			go func() {
+				output, err := executeStep(step, graph, input)
+				if err == nil {
+					var res map[string]interface{}
+					if err = json.Unmarshal(output, &res); err == nil {
+						resultChan <- res
+						return
+					}
+				}
+				errChan <- err
+			}()
 		}
 		// merge responses from parallel steps
-		for name, result := range ensembleRes {
-			responseBytes := <-result
-			var res map[string]interface{}
-			json.Unmarshal(responseBytes, &res)
-			response[name] = res
+		response := map[string]interface{}{}
+		for i, resultChan := range ensembleRes {
+			key := currentNode.Routes[i].StepName
+			if key == "" {
+				key = strconv.Itoa(i) // Use index if no step name
+			}
+			select {
+			case response[key] = <-resultChan:
+			case err := <-errChan:
+				return nil, err
+			}
 		}
-	} else if currentNode.RouterType == v1alpha1.Sequence {
-		request := input
+		return json.Marshal(response)
+	}
+	if currentNode.RouterType == v1alpha1.Sequence {
 		var responseBytes []byte
+		var err error
 		for i := range currentNode.Routes {
-			step := currentNode.Routes[i]
-			result := make(chan []byte)
+			step := &currentNode.Routes[i]
+			request := input
 			if step.Data == "$response" && i > 0 {
 				request = responseBytes
 			}
-			// when nodeName is specified make a recursive call for routing to next step
-			if step.NodeName != "" {
-				go routeStep(step.NodeName, graph.Nodes[step.NodeName], graph, request, result)
-			} else {
-				go callService(step.ServiceUrl, request, result)
+			if responseBytes, err = executeStep(step, graph, request); err != nil {
+				return nil, err
 			}
-			responseBytes = <-result
 		}
-		var res map[string]interface{}
-		json.Unmarshal(responseBytes, &res)
-		response = res
-	} else {
-		log.Error(fmt.Errorf("invalid route type"), "invalid route type")
+		return responseBytes, nil
 	}
-	jsonRes, err := json.Marshal(response)
-	if err != nil {
-		return err
-	} else {
-		res <- jsonRes
-		return nil
+	log.Error(nil, "invalid route type", "type", currentNode.RouterType)
+	return nil, fmt.Errorf("invalid route type: %v", currentNode.RouterType)
+}
+
+func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec, input []byte) ([]byte, error) {
+	if step.NodeName != "" {
+		// when nodeName is specified make a recursive call for routing to next step
+		return routeStep(step.NodeName, graph, input)
 	}
+	return callService(step.ServiceUrl, input)
 }
 
 var inferenceGraph *v1alpha1.InferenceGraphSpec
 
 func graphHandler(w http.ResponseWriter, req *http.Request) {
 	inputBytes, _ := ioutil.ReadAll(req.Body)
-	res := make(chan []byte)
-	rootNodes := []string{}
-	for name, _ := range inferenceGraph.Nodes {
-		rootNodes = append(rootNodes, name)
+	if response, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes); err != nil {
+		log.Error(err, "failed to process request")
+		w.WriteHeader(500) //TODO status code tbd
+		w.Write([]byte(fmt.Sprintf("Failed to process request: %v", err)))
+	} else {
+		w.Write(response)
 	}
-	go func() {
-		err := routeStep(v1alpha1.GraphRootNodeName, inferenceGraph.Nodes[v1alpha1.GraphRootNodeName], *inferenceGraph, inputBytes, res)
-		if err != nil {
-			log.Error(err, "failed to process request")
-		}
-	}()
-	response := <-res
-	w.Write(response)
 }
 
 var (

@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"regexp"
 
@@ -59,6 +60,14 @@ func (ig *InferenceGraph) ValidateCreate() error {
 		return err
 	}
 
+	if err := validateInferenceGraphStepNameUniqueness(ig); err != nil {
+		return err
+	}
+
+	if err := validateInferenceGraphSingleStepTargets(ig); err != nil {
+		return err
+	}
+
 	if err := validateInferenceGraphSplitterWeight(ig); err != nil {
 		return err
 	}
@@ -78,6 +87,53 @@ func (ig *InferenceGraph) ValidateDelete() error {
 	return nil
 }
 
+// Validation of unique step names
+func validateInferenceGraphStepNameUniqueness(ig *InferenceGraph) error {
+	nodes := ig.Spec.Nodes
+	for nodeName, node := range nodes {
+		nameSet := sets.NewString()
+		for _, route := range node.Routes {
+			if route.StepName != "" {
+				if nameSet.Has(route.StepName) {
+					return fmt.Errorf("Node \"%s\" of InferenceGraph \"%s\" contains more than one step with name \"%s\"",
+						nodeName, ig.Name, route.StepName)
+				}
+				nameSet.Insert(route.StepName)
+			}
+		}
+	}
+	return nil
+}
+
+// Validation of single step inference targets
+func validateInferenceGraphSingleStepTargets(ig *InferenceGraph) error {
+	nodes := ig.Spec.Nodes
+	for nodeName, node := range nodes {
+		for i, route := range node.Routes {
+			target := route.InferenceTarget
+			count := 0
+			if target.NodeName != "" {
+				count += 1
+			}
+			if target.Service != "" {
+				count += 1
+			}
+			if target.ServiceUrl != "" {
+				count += 1
+			}
+			if count == 0 {
+				return fmt.Errorf("Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" does not specify an inference target",
+					i, route.StepName, nodeName, ig.Name)
+			}
+			if count != 1 {
+				return fmt.Errorf("Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" specifies more than one of nodeName, service, serviceUrl",
+					i, route.StepName, nodeName, ig.Name)
+			}
+		}
+	}
+	return nil
+}
+
 // Validation of inference graph name
 func validateInferenceGraphName(ig *InferenceGraph) error {
 	if !GraphRegexp.MatchString(ig.Name) {
@@ -94,7 +150,7 @@ func validateInferenceGraphRouterRoot(ig *InferenceGraph) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("Not found 'root' node. InferenceGraph needs a node with name 'root' as the root node of the graph.\n")
+	return fmt.Errorf("Not found 'root' node. InferenceGraph needs a node with name 'root' as the root node of the graph.")
 }
 
 //Validation of inference graph router type

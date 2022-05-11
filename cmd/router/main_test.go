@@ -71,9 +71,7 @@ func TestSimpleModelChainer(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(input)
-	result := make(chan []byte)
-	go routeStep("root", graphSpec.Nodes["root"], graphSpec, jsonBytes, result)
-	res := <-result
+	res, err := routeStep("root", graphSpec, jsonBytes)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	fmt.Printf("%v", response)
@@ -138,9 +136,7 @@ func TestSimpleModelEnsemble(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(input)
-	result := make(chan []byte)
-	go routeStep("root", graphSpec.Nodes["root"], graphSpec, jsonBytes, result)
-	res := <-result
+	res, err := routeStep("root", graphSpec, jsonBytes)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	fmt.Printf("final response:%v", response)
