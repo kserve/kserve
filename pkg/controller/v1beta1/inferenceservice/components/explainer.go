@@ -56,7 +56,7 @@ func NewExplainer(client client.Client, scheme *runtime.Scheme, inferenceService
 }
 
 // Reconcile observes the explainer and attempts to drive the status towards the desired state.
-func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
+func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	e.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
 	explainer := isvc.Spec.Explainer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
@@ -91,7 +91,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)
 	deployConfig, err := v1beta1.NewDeployConfig(e.client)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 
 	// Here we allow switch between knative and vanilla deployment
@@ -99,26 +99,26 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		r, err := raw.NewRawKubeReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
 			&podSpec)
 		if err != nil {
-			return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 		}
 		//set Deployment Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, e.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set deployment owner reference for explainer")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for explainer")
 		}
 		//set Service Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, e.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set service owner reference for explainer")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for explainer")
 		}
 		//set autoscaler Controller
 		if r.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
 			if err := controllerutil.SetControllerReference(isvc, r.Scaler.Autoscaler.HPA.HPA, e.scheme); err != nil {
-				return errors.Wrapf(err, "fails to set HPA owner reference for explainer")
+				return ctrl.Result{}, errors.Wrapf(err, "fails to set HPA owner reference for explainer")
 			}
 		}
 
 		deployment, err := r.Reconcile()
 		if err != nil {
-			return errors.Wrapf(err, "fails to reconcile explainer")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile explainer")
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.ExplainerComponent, deployment, r.URL)
 	} else {
@@ -126,13 +126,13 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 			&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent])
 
 		if err := controllerutil.SetControllerReference(isvc, r.Service, e.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set owner reference for explainer")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for explainer")
 		}
 		status, err := r.Reconcile()
 		if err != nil {
-			return errors.Wrapf(err, "fails to reconcile explainer")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile explainer")
 		}
 		isvc.Status.PropagateStatus(v1beta1.ExplainerComponent, status)
 	}
-	return nil
+	return ctrl.Result{}, nil
 }
