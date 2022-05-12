@@ -198,8 +198,8 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 			envs := azure.BuildSecretEnvs(secret)
 			container.Env = append(container.Env, envs...)
 		} else if _, ok := secret.Data[azure.AzureStorageAccessKey]; ok {
-			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
-			envs := azure.BuildSecretEnvs(secret)
+			log.Info("Setting secret envs with azure storage access key for azure", "AzureSecret", secret.Name)
+			envs := azure.BuildStorageAccessKeySecretEnv(secret)
 			container.Env = append(container.Env, envs...)
 		} else if _, ok := secret.Data[https.HTTPSHost]; ok {
 			log.Info("Setting secret volume from uri", "HTTP(S)Secret", secret.Name)

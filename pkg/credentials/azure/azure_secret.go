@@ -74,6 +74,13 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 				},
 			},
 		},
+	}
+
+	return envs
+}
+
+func BuildStorageAccessKeySecretEnv(secret *v1.Secret) []v1.EnvVar {
+	envs := []v1.EnvVar{
 		{
 			Name: AzureStorageAccessKey,
 			ValueFrom: &v1.EnvVarSource{
