@@ -132,6 +132,9 @@ pushd python/kserve >/dev/null
     pip3 install -e .[test] --user
 popd
 
+INGRESS_GATEWAY_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
+kubectl port-forward --namespace istio-system svc/${INGRESS_GATEWAY_SERVICE} 8080:80 &
+export KSERVE_INGRESS_HOST_PORT=localhost:8080
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
   pytest predictor/test_sklearn.py
