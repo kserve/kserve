@@ -162,7 +162,7 @@ const (
 //       routes:
 //       - service: cat-dog-classifier
 //       - nodeName: breed-classifier
-//         data: $response
+//         data: $request
 //     breed-classifier:
 //       routerType: Switch
 //       routes:
@@ -176,20 +176,21 @@ type InferenceRouter struct {
 	//
 	// - `Sequence:` chain multiple inference steps with input/output from previous step
 	//
-	// - `Splitter:` randomly routes to the named service according to the weight
+	// - `Splitter:` randomly routes to the target service according to the weight
 	//
 	// - `Ensemble:` routes the request to multiple models and then merge the responses
 	//
-	// - `Switch:` routes the request to two or more services with specified routing rule
+	// - `Switch:` routes the request to one of the steps based on condition
 	//
 	RouterType InferenceRouterType `json:"routerType"`
 
-	// Routes defines destinations for the current router node
+	// Steps defines destinations for the current router node
 	// +optional
-	Routes []InferenceStep `json:"routes,omitempty"`
+	Steps []InferenceStep `json:"steps,omitempty"`
 }
 
 // +k8s:openapi-gen=true
+//
 
 type InferenceTarget struct {
 	// The node name for routing as next step
@@ -197,11 +198,11 @@ type InferenceTarget struct {
 	NodeName string `json:"nodeName,omitempty"`
 
 	// named reference for InferenceService
-	Service string `json:"service,omitempty"`
+	ServiceName string `json:"serviceName,omitempty"`
 
-	// InferenceService URL, mutually exclusive with Service
+	// InferenceService URL, mutually exclusive with ServiceName
 	// +optional
-	ServiceUrl string `json:"serviceUrl,omitempty"`
+	ServiceURL string `json:"serviceUrl,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -209,7 +210,7 @@ type InferenceTarget struct {
 type InferenceStep struct {
 	// Unique name for the step within this node
 	// +optional
-	StepName string `json:"name"`
+	StepName string `json:"name,omitempty"`
 
 	// Node or service used to process this step
 	InferenceTarget `json:",inline"`
