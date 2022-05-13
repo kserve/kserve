@@ -132,6 +132,30 @@ pushd python/kserve >/dev/null
     pip3 install -e .[test] --user
 popd
 eksctl get clusters -ojson | jq -r '.[] | .Name'
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-0cde85f-2880-ddf1
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-24da27a-4000-f5d8
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-2a49255-6896-4e03
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-3286b70-6656-4913
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-5600c53-7632-cddf
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-7f5ab9b-7760-8737
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-d038166-0240-1bae
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-e153849-8368-5a5c
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-fb13c0c-8224-1c64
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-fc87b0a-2368-09b3
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-0868edc-1776-095a
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-25e4fcc-8544-9e22
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-30b2adc-7440-cc9d
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-30b2adc-8784-43c5
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-3202cb3-9792-2846
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-99f0744-2064-83f8
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-a308021-3216-a5d7
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-a308021-8368-0dc8
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-c5ab86f-5616-9d0f
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2082-dcccbfd-0800-29a4
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2174-9c93fd4-1232-5f7a
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2174-9c93fd4-5072-97ec
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2174-9c93fd4-7664-2cb3
+eksctl delete cluster kubeflow-kserve-presubmit-e2e-2178-358fe65-5552-8604
 INGRESS_GATEWAY_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
 kubectl port-forward --namespace istio-system svc/${INGRESS_GATEWAY_SERVICE} 8080:80 &
 export KSERVE_INGRESS_HOST_PORT=localhost:8080
