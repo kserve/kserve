@@ -131,7 +131,6 @@ python3 -m pip install --upgrade pip
 pushd python/kserve >/dev/null
     pip3 install -e .[test] --user
 popd
-eksctl get clusters -ojson | jq -r '.[] | .Name'
 eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-0cde85f-2880-ddf1
 eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-24da27a-4000-f5d8
 eksctl delete cluster kubeflow-kserve-presubmit-e2e-1910-2a49255-6896-4e03
