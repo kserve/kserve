@@ -24,8 +24,8 @@ metadata:
 spec:
   nodes:
     root:
-      routerType: Splitter 
-      routes:
+      routerType: Splitter
+      steps:
         - service: sklearn-iris
           weight: 20
         - service: xgboost-iris

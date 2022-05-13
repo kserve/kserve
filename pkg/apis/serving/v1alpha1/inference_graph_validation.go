@@ -92,7 +92,7 @@ func validateInferenceGraphStepNameUniqueness(ig *InferenceGraph) error {
 	nodes := ig.Spec.Nodes
 	for nodeName, node := range nodes {
 		nameSet := sets.NewString()
-		for _, route := range node.Routes {
+		for _, route := range node.Steps {
 			if route.StepName != "" {
 				if nameSet.Has(route.StepName) {
 					return fmt.Errorf("Node \"%s\" of InferenceGraph \"%s\" contains more than one step with name \"%s\"",
@@ -109,16 +109,16 @@ func validateInferenceGraphStepNameUniqueness(ig *InferenceGraph) error {
 func validateInferenceGraphSingleStepTargets(ig *InferenceGraph) error {
 	nodes := ig.Spec.Nodes
 	for nodeName, node := range nodes {
-		for i, route := range node.Routes {
+		for i, route := range node.Steps {
 			target := route.InferenceTarget
 			count := 0
 			if target.NodeName != "" {
 				count += 1
 			}
-			if target.Service != "" {
+			if target.ServiceName != "" {
 				count += 1
 			}
-			if target.ServiceUrl != "" {
+			if target.ServiceURL != "" {
 				count += 1
 			}
 			if count == 0 {
@@ -150,7 +150,7 @@ func validateInferenceGraphRouterRoot(ig *InferenceGraph) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("Not found 'root' node. InferenceGraph needs a node with name 'root' as the root node of the graph.")
+	return fmt.Errorf("root node not found, InferenceGraph needs a node with name 'root' as the root node of the graph")
 }
 
 //Validation of inference graph router type
@@ -159,9 +159,9 @@ func validateInferenceGraphSplitterWeight(ig *InferenceGraph) error {
 	for name, node := range nodes {
 		weight := 0
 		if node.RouterType == Splitter {
-			for _, route := range node.Routes {
+			for _, route := range node.Steps {
 				if route.Weight == nil {
-					return fmt.Errorf("InferenceGraph[%s] Node[%s] Route[%s] missing the 'Weight'.", ig.Name, name, route.Service)
+					return fmt.Errorf("InferenceGraph[%s] Node[%s] Route[%s] missing the 'Weight'", ig.Name, name, route.ServiceName)
 				}
 				weight += int(*route.Weight)
 			}

@@ -25,6 +25,6 @@ spec:
   nodes:
     root:
       routerType: Ensemble
-      routes:
+      steps:
         - service: sklearn-iris
         - service: xgboost-iris

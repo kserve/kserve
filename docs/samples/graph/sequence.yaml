@@ -24,13 +24,13 @@ metadata:
 spec:
   nodes:
     root:
-      routerType: Sequence 
-      routes:
+      routerType: Sequence
+      steps:
         - service: sklearn-iris
         - nodeName: treeModel
           data: $request
     treeModel:
       routerType: Single
-      routes:
+      steps:
         - service: xgboost-iris
 

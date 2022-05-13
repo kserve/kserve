@@ -40,7 +40,7 @@ type InferenceGraph struct {
 // InferenceGraphSpec defines the InferenceGraph spec
 type InferenceGraphSpec struct {
 	// Map of InferenceGraph router nodes
-	// Each node defines the routes for the current node and next routes
+	// Each node defines the router which can be different routing types
 	Nodes map[string]InferenceRouter `json:"nodes"`
 }
 
@@ -71,8 +71,7 @@ const (
 
 // +k8s:openapi-gen=true
 
-// InferenceRouter defines the router for each InferenceGraph node with one or multiple models
-// and where it routes to as next step
+// InferenceRouter defines the router for each InferenceGraph node with one or multiple steps
 //
 // ```yaml
 // kind: InferenceGraph
@@ -80,7 +79,7 @@ const (
 //   name: canary-route
 // spec:
 //   nodes:
-//     mymodel:
+//     root:
 //       routerType: Splitter
 //       routes:
 //       - service: mymodel1
@@ -117,7 +116,7 @@ const (
 //   name: ensemble
 // spec:
 //   nodes:
-//     transformer:
+//     root:
 //       routerType: Sequence
 //       routes:
 //       - service: feast
@@ -130,14 +129,14 @@ const (
 //       - service: xgboost-model
 // ```
 //
-// Scoring a case using a sequence, or chain, of models allows the output of one model to be passed in as input to subsequent models.
+// Scoring a case using a sequence, or chain of models allows the output of one model to be passed in as input to the subsequent models.
 // ```yaml
 // kind: InferenceGraph
 // metadata:
 //   name: model-chainer
 // spec:
 //   nodes:
-//     mymodel-s1:
+//     root:
 //       routerType: Sequence
 //       routes:
 //       - service: mymodel-s1
@@ -157,7 +156,7 @@ const (
 //   name: dog-breed-classification
 // spec:
 //   nodes:
-//     top-level-classifier:
+//     root:
 //       routerType: Sequence
 //       routes:
 //       - service: cat-dog-classifier
@@ -190,7 +189,7 @@ type InferenceRouter struct {
 }
 
 // +k8s:openapi-gen=true
-//
+// Exactly one InferenceTarget field must be specified
 
 type InferenceTarget struct {
 	// The node name for routing as next step
@@ -205,6 +204,7 @@ type InferenceTarget struct {
 	ServiceURL string `json:"serviceUrl,omitempty"`
 }
 
+// InferenceStep defines the inference target of the current step with condition, weights and data.
 // +k8s:openapi-gen=true
 
 type InferenceStep struct {
@@ -230,6 +230,9 @@ type InferenceStep struct {
 	// +optional
 	Condition string `json:"condition,omitempty"`
 }
+
+// InferenceGraphStatus defines the InferenceGraph conditions and status
+// +k8s:openapi-gen=true
 
 type InferenceGraphStatus struct {
 	// Conditions for InferenceGraph

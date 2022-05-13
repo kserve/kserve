@@ -89,20 +89,20 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte)
 	currentNode := graph.Nodes[nodeName]
 
 	if currentNode.RouterType == v1alpha1.Splitter {
-		return executeStep(pickupRoute(currentNode.Routes), graph, input)
+		return executeStep(pickupRoute(currentNode.Steps), graph, input)
 	}
 	if currentNode.RouterType == v1alpha1.Switch {
-		route := pickupRouteByCondition(input, currentNode.Routes)
+		route := pickupRouteByCondition(input, currentNode.Steps)
 		if route == nil {
 			return input, nil //TODO maybe should fail in this case?
 		}
 		return executeStep(route, graph, input)
 	}
 	if currentNode.RouterType == v1alpha1.Ensemble {
-		ensembleRes := make([]chan map[string]interface{}, len(currentNode.Routes))
+		ensembleRes := make([]chan map[string]interface{}, len(currentNode.Steps))
 		errChan := make(chan error)
-		for i := range currentNode.Routes {
-			step := &currentNode.Routes[i]
+		for i := range currentNode.Steps {
+			step := &currentNode.Steps[i]
 			resultChan := make(chan map[string]interface{})
 			ensembleRes[i] = resultChan
 			go func() {
@@ -120,7 +120,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte)
 		// merge responses from parallel steps
 		response := map[string]interface{}{}
 		for i, resultChan := range ensembleRes {
-			key := currentNode.Routes[i].StepName
+			key := currentNode.Steps[i].StepName
 			if key == "" {
 				key = strconv.Itoa(i) // Use index if no step name
 			}
@@ -135,11 +135,21 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte)
 	if currentNode.RouterType == v1alpha1.Sequence {
 		var responseBytes []byte
 		var err error
-		for i := range currentNode.Routes {
-			step := &currentNode.Routes[i]
+		for i := range currentNode.Steps {
+			step := &currentNode.Steps[i]
 			request := input
 			if step.Data == "$response" && i > 0 {
 				request = responseBytes
+			}
+
+			if step.Condition != "" {
+				if !gjson.ValidBytes(responseBytes) {
+					return nil, fmt.Errorf("invalid response")
+				}
+				// if the condition does not match for the step in the sequence we stop and return the response
+				if !gjson.GetBytes(responseBytes, step.Condition).Exists() {
+					return responseBytes, nil
+				}
 			}
 			if responseBytes, err = executeStep(step, graph, request); err != nil {
 				return nil, err
@@ -156,7 +166,7 @@ func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec
 		// when nodeName is specified make a recursive call for routing to next step
 		return routeStep(step.NodeName, graph, input)
 	}
-	return callService(step.ServiceUrl, input)
+	return callService(step.ServiceURL, input)
 }
 
 var inferenceGraph *v1alpha1.InferenceGraphSpec

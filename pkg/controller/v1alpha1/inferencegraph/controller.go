@@ -123,23 +123,23 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	// resolve service urls
 	for node, router := range graph.Spec.Nodes {
-		for i, route := range router.Routes {
+		for i, route := range router.Steps {
 			isvc := v1beta1.InferenceService{}
-			if route.Service != "" {
-				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.Service}, &isvc)
+			if route.ServiceName != "" {
+				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.ServiceName}, &isvc)
 				if err == nil {
 					if isvc.Status.Address != nil && isvc.Status.Address.URL != nil {
-						if graph.Spec.Nodes[node].Routes[i].ServiceUrl == "" {
-							graph.Spec.Nodes[node].Routes[i].ServiceUrl = isvc.Status.Address.URL.String()
+						if graph.Spec.Nodes[node].Steps[i].ServiceURL == "" {
+							graph.Spec.Nodes[node].Steps[i].ServiceURL = isvc.Status.Address.URL.String()
 						}
 					} else {
-						r.Log.Info("inference service is not ready", "name", route.Service)
-						return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.Service)
+						r.Log.Info("inference service is not ready", "name", route.ServiceName)
+						return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.ServiceName)
 					}
 
 				} else {
-					r.Log.Info("inference service is not found", "name", route.Service)
-					return reconcile.Result{Requeue: true}, errors.Wrapf(err, "Failed to find graph service %s", route.Service)
+					r.Log.Info("inference service is not found", "name", route.ServiceName)
+					return reconcile.Result{Requeue: true}, errors.Wrapf(err, "Failed to find graph service %s", route.ServiceName)
 				}
 			}
 		}

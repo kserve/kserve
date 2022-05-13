@@ -11,7 +11,7 @@ PYTORCH_IMG ?= pytorchserver
 PMML_IMG ?= pmmlserver
 PADDLE_IMG ?= paddleserver
 ALIBI_IMG ?= alibi-explainer
-AIX_IMG ?= aix-explainer				
+AIX_IMG ?= aix-explainer
 STORAGE_INIT_IMG ?= storage-initializer
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
@@ -95,8 +95,8 @@ deploy-dev-alibi: docker-push-alibi
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
-deploy-dev-aix: docker-push-aix												
-	./hack/aix_patch_dev.sh ${KO_DOCKER_REPO}/${AIX_IMG}					
+deploy-dev-aix: docker-push-aix
+	./hack/aix_patch_dev.sh ${KO_DOCKER_REPO}/${AIX_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-storageInitializer: docker-push-storageInitializer

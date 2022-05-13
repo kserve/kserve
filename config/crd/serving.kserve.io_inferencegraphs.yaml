@@ -50,7 +50,7 @@ spec:
                       - Ensemble
                       - Switch
                       type: string
-                    routes:
+                    steps:
                       items:
                         properties:
                           condition:
@@ -61,7 +61,7 @@ spec:
                             type: string
                           nodeName:
                             type: string
-                          service:
+                          serviceName:
                             type: string
                           serviceUrl:
                             type: string
