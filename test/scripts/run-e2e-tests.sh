@@ -131,7 +131,7 @@ python3 -m pip install --upgrade pip
 pushd python/kserve >/dev/null
     pip3 install -e .[test] --user
 popd
-
+eksctl get clusters -ojson | jq -r '.[] | .Name'
 INGRESS_GATEWAY_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
 kubectl port-forward --namespace istio-system svc/${INGRESS_GATEWAY_SERVICE} 8080:80 &
 export KSERVE_INGRESS_HOST_PORT=localhost:8080
