@@ -18,6 +18,7 @@ package inferenceservice
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"knative.dev/pkg/kmp"
@@ -42,6 +43,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -1453,6 +1455,201 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
 			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.TargetModelState).To(Equal(v1beta1.FailedToLoad))
 			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
+		})
+	})
+
+	Context("When creating an inference service with invalid Storage URI", func() {
+		It("Should fail with reason ModelLoadFailed", func() {
+			serviceName := "svc-with-servingruntime"
+			servingRuntimeName := "tf-serving"
+			namespace := "default"
+			var inferenceServiceKey = types.NamespacedName{Name: serviceName, Namespace: namespace}
+
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			var servingRuntime = &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      servingRuntimeName,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+
+			var isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "tensorflow",
+							},
+							Runtime: &servingRuntimeName,
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test/mnist/invalid"),
+							},
+						},
+					},
+				},
+			}
+
+			// Create the InferenceService object and expect the Reconcile and knative service to be created
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(gomega.HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), isvc)
+
+			pod := &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName + "-predictor-" + namespace + "-00001-deployment-76464ds2zpv",
+					Namespace: namespace,
+					Labels:    map[string]string{"serving.knative.dev/revision": serviceName + "-predictor-" + namespace + "-00001"},
+				},
+				Spec: v1.PodSpec{
+					InitContainers: []v1.Container{
+						{
+							Name:  "storage-initializer",
+							Image: "kserve/storage-initializer:latest",
+							Args: []string{
+								"gs://kfserving-invalid/models/sklearn/1.0/model",
+								"/mnt/models",
+							},
+							Resources: defaultResource,
+						},
+					},
+					Containers: []v1.Container{
+						{
+							Name:    "kserve-container",
+							Image:   "tensorflow/serving:1.14.0",
+							Command: []string{"/usr/bin/tensorflow_model_server"},
+							Args: []string{
+								"--port=9000",
+								"--rest_api_port=8080",
+								"--model_base_path=/mnt/models",
+								"--rest_api_timeout_in_ms=60000",
+							},
+							Env: []v1.EnvVar{
+								{
+									Name:  "PORT",
+									Value: "8080",
+								},
+								{
+									Name:  "K_REVISION",
+									Value: serviceName + "-predictor-" + namespace + "-00001",
+								},
+								{
+									Name:  "K_CONFIGURATION",
+									Value: serviceName + "-predictor-" + namespace,
+								},
+								{
+									Name:  "K_SERVICE",
+									Value: serviceName + "-predictor-" + namespace,
+								},
+							},
+							Resources: defaultResource,
+						},
+					},
+				},
+			}
+			Eventually(func() bool {
+				err := k8sClient.Create(context.TODO(), pod)
+				if err != nil {
+					fmt.Printf("Error #%v\n", err)
+					return false
+				}
+				return true
+			}, timeout).Should(BeTrue())
+			defer k8sClient.Delete(context.TODO(), pod)
+
+			podStatusPatch := []byte(`{"status":{"containerStatuses":[{"image":"tensorflow/serving:1.14.0","name":"kserve-container","lastState":{},"state":{"waiting":{"reason":"PodInitializing"}}}],"initContainerStatuses":[{"image":"kserve/storage-initializer:latest","name":"storage-initializer","lastState":{"terminated":{"exitCode":1,"message":"Invalid Storage URI provided","reason":"Error"}},"state":{"waiting":{"reason":"CrashLoopBackOff"}}}]}}`)
+			Eventually(func() bool {
+				err := k8sClient.Status().Patch(context.TODO(), pod, client.RawPatch(types.StrategicMergePatchType, podStatusPatch))
+				if err != nil {
+					fmt.Printf("Error #%v\n", err)
+					return false
+				}
+				return true
+			}, timeout).Should(BeTrue())
+
+			actualService := &knservingv1.Service{}
+			predictorServiceKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
+				Namespace: namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+				Should(Succeed())
+
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain))
+			// update predictor status
+			updatedService := actualService.DeepCopy()
+			updatedService.Status.LatestCreatedRevisionName = serviceName + "-predictor-" + namespace + "-00001"
+			updatedService.Status.URL = predictorUrl
+			updatedService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "False",
+				},
+			}
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				return k8sClient.Status().Update(context.TODO(), updatedService)
+			})).NotTo(gomega.HaveOccurred())
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, inferenceServiceKey, inferenceService)
+				if err != nil {
+					fmt.Printf("Error %#v\n", err)
+					return false
+				}
+				if inferenceService.Status.ModelStatus.LastFailureInfo == nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.BlockedByFailedLoad))
+			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.TargetModelState).To(Equal(v1beta1.FailedToLoad))
+			Expect(inferenceService.Status.ModelStatus.LastFailureInfo.Reason).To(Equal(v1beta1.ModelLoadFailed))
+			Expect(inferenceService.Status.ModelStatus.LastFailureInfo.Message).To(Equal("Invalid Storage URI provided"))
 		})
 	})
 

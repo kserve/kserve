@@ -411,11 +411,10 @@ func (ss *InferenceServiceStatus) UpdateModelRevisionStates(modelState ModelStat
 		ss.ModelStatus.TransitionStatus = InProgress
 	} else if modelState == Loaded {
 		ss.ModelStatus.TransitionStatus = UpToDate
-	} else if modelState == FailedToLoad {
-		ss.ModelStatus.TransitionStatus = BlockedByFailedLoad
-	} else if modelState == Loaded {
 		ss.ModelStatus.ModelCopies = &ModelCopies{TotalCopies: totalCopies}
 		ss.ModelStatus.ModelRevisionStates.ActiveModelState = Loaded
+	} else if modelState == FailedToLoad {
+		ss.ModelStatus.TransitionStatus = BlockedByFailedLoad
 	}
 	if info != nil {
 		ss.SetModelFailureInfo(info)
