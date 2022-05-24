@@ -92,3 +92,39 @@ func TestAzureSecret(t *testing.T) {
 		}
 	}
 }
+
+func TestAzureStrorageAccessSecret(t *testing.T) {
+	scenarios := map[string]struct {
+		secret   *v1.Secret
+		expected []v1.EnvVar
+	}{
+		"AzureSecretEnvs": {
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "azcreds",
+				},
+			},
+			expected: []v1.EnvVar{
+				{
+					Name: AzureStorageAccessKey,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureStorageAccessKey,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		envs := BuildStorageAccessKeySecretEnv(scenario.secret)
+
+		if diff := cmp.Diff(scenario.expected, envs); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}
