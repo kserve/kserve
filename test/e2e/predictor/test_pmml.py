@@ -34,7 +34,7 @@ def test_pmml_kserve():
         pmml=V1beta1PMMLSpec(
             storage_uri='gs://kfserving-examples/models/pmml',
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '256Mi'},
+                requests={'cpu': '10m', 'memory': '128Mi'},
                 limits={'cpu': '100m', 'memory': '256Mi'}
             )
         )
@@ -68,7 +68,7 @@ def test_pmml_runtime_kserve():
             ),
             storage_uri='gs://kfserving-examples/models/pmml',
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '256Mi'},
+                requests={'cpu': '10m', 'memory': '128Mi'},
                 limits={'cpu': '100m', 'memory': '256Mi'}
             )
         )

@@ -42,7 +42,7 @@ def test_torchserve_kserve():
             resources=V1ResourceRequirements(
                 requests={
                     "cpu": "100m",
-                    "memory": "1Gi"
+                    "memory": "256Mi"
                 },
                 limits={
                     "cpu": "1",
@@ -78,7 +78,7 @@ def test_torchserve_v2_kserve():
             resources=V1ResourceRequirements(
                 requests={
                     "cpu": "100m",
-                    "memory": "1Gi"
+                    "memory": "256Mi"
                 },
                 limits={
                     "cpu": "1",
@@ -115,7 +115,7 @@ def test_torchserve_grpc():
             resources=V1ResourceRequirements(
                 requests={
                     "cpu": "100m",
-                    "memory": "1Gi"
+                    "memory": "256Mi"
                 },
                 limits={
                     "cpu": "1",

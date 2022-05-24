@@ -24,6 +24,7 @@ from kserve import V1beta1ExplainerSpec
 from kserve import V1beta1ARTExplainerSpec
 from kserve import V1beta1InferenceService
 from kubernetes.client import V1Container
+from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import predict
 from ..common.utils import explain_art
@@ -35,27 +36,37 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 def test_tabular_explainer():
     service_name = 'art-explainer'
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(
-                                       predictor=V1beta1PredictorSpec(
-                                           containers=[V1Container(
-                                               name="predictor",
-                                               # Update the image below to the aipipeline org.
-                                               image='aipipeline/art-server:mnist-predictor',
-                                               command=["python", "-m", "sklearnserver", "--model_name",
-                                                        "art-explainer", "--model_dir",
-                                                        "file://sklearnserver/sklearnserver/example_model"])]
-                                       ),
-                                       explainer=V1beta1ExplainerSpec(
-                                           min_replicas=1,
-                                           art=V1beta1ARTExplainerSpec(
-                                               type='SquareAttack',
-                                               name='explainer',
-                                               config={"nb_classes": "10"})))
-                                   )
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        spec=V1beta1InferenceServiceSpec(
+            predictor=V1beta1PredictorSpec(
+                containers=[V1Container(
+                    name="predictor",
+                    # Update the image below to the aipipeline org.
+                    image='aipipeline/art-server:mnist-predictor',
+                    command=["python", "-m", "sklearnserver", "--model_name",
+                             "art-explainer", "--model_dir",
+                             "file://sklearnserver/sklearnserver/example_model"],
+                    resources=V1ResourceRequirements(
+                        requests={'cpu': '10m', 'memory': '128Mi'},
+                        limits={'cpu': '100m', 'memory': '256Mi'}
+                    )
+                )]
+            ),
+            explainer=V1beta1ExplainerSpec(
+                min_replicas=1,
+                art=V1beta1ARTExplainerSpec(
+                    type='SquareAttack',
+                    name='explainer',
+                    resources=V1ResourceRequirements(
+                        requests={'cpu': '10m', 'memory': '128Mi'},
+                        limits={'cpu': '100m', 'memory': '256Mi'}
+                    ),
+                    config={"nb_classes": "10"})))
+    )
 
     kserve_client.create(isvc)
     try:

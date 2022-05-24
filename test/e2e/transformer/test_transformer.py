@@ -36,7 +36,7 @@ def test_transformer():
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             protocol_version="v1",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "1Gi"},
+                requests={"cpu": "10m", "memory": "128Mi"},
                 limits={"cpu": "1", "memory": "1Gi"},
             ),
         ),
@@ -44,11 +44,11 @@ def test_transformer():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:'
-                            + os.environ.get("PULL_BASE_SHA"),
+                      image='kserve/image-transformer:'
+                            + 'latest',  # os.environ.get("GITHUB_SHA"),
                       name='kserve-container',
                       resources=V1ResourceRequirements(
-                          requests={'cpu': '100m', 'memory': '1Gi'},
+                          requests={'cpu': '10m', 'memory': '128Mi'},
                           limits={'cpu': '100m', 'memory': '1Gi'}),
                       args=["--model_name", "mnist"],
                       env=[V1EnvVar(name="STORAGE_URI",

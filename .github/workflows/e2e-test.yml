@@ -1,0 +1,65 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - '**'
+      - '!.github/**'
+      - '!docs/**'
+      - '!**.md'
+      - '.github/workflows/e2e-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.3'
+      - name: Setup Minikube
+        run: |
+          wget --no-verbose https://github.com/kubernetes/minikube/releases/download/v1.21.0/minikube-linux-amd64
+          sudo cp minikube-linux-amd64 /usr/local/bin/minikube
+          sudo chmod 755 /usr/local/bin/minikube
+          sudo apt-get install -y conntrack socat
+          minikube start --driver=none --kubernetes-version v1.21.0
+      - name: Check Kubernetes pods
+        run: |
+          sleep 40
+          kubectl get pods -n kube-system
+      - name: Setup KServe dependencies
+        run: |
+          ./test/scripts/gh-actions/setup-deps.sh
+
+          kubectl get pods -n istio-system
+          kubectl get pods -n knative-serving
+          kubectl get pods -n cert-manager
+      - name: Build KServe images
+        run: |
+          ./test/scripts/gh-actions/build-images.sh
+          docker image ls
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+      - name: Run E2E tests
+        timeout-minutes: 90
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh
+
+          kubectl get pods -n kserve
+      - name: Check system status
+        if: always()
+        run: |
+          sleep 10
+          df -T
+          docker image ls
+          kubectl get pods -n kserve
+          kubectl get pods -n kserve-ci-e2e-test
+
+          kubectl describe pods -n kserve-ci-e2e-test
+          kubectl get events -n kserve-ci-e2e-test
+          kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager
