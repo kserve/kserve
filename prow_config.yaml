@@ -1,6 +1,6 @@
 # # This file configures the workflows to trigger in our Prow jobs.
 # # see https://github.com/kubeflow/testing/blob/master/py/kubeflow/testing/run_e2e_workflow.py
-# workflows:
+workflows: []
 #   - app_dir: kserve/kserve/test/workflows
 #     component: workflows
 #     name: e2e
