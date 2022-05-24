@@ -1,34 +1,34 @@
 # This file configures the workflows to trigger in our Prow jobs.
 # see https://github.com/kubeflow/testing/blob/master/py/kubeflow/testing/run_e2e_workflow.py
-workflows:
-  - app_dir: kserve/kserve/test/workflows
-    component: workflows
-    name: e2e
-    job_types:
-      - presubmit
-    include_dirs:
-    - pkg/*
-    - cmd/*
-    - config/*
-    - test/*
-    - hack/*
-    - Dockerfile
-    - Makefile
-    - python/*
-    - vendor/*
-    params:
-      registry: "gcr.io/kubeflow-ci"
-  # The postsubmit run publishes the docker images to gcr.io/kubeflow-images-public      
-  - app_dir: kserve/kserve/test/workflows
-    component: workflows
-    name: e2e-release
-    job_types:      
-      - postsubmit
-    include_dirs:
-    - pkg/*
-    - cmd/*
-    - Dockerfile
-    - python/*
-    - vendor/*
-    params:
-      registry: "gcr.io/kubeflow-images-public"
+workflows: []
+  # - app_dir: kserve/kserve/test/workflows
+  #   component: workflows
+  #   name: e2e
+  #   job_types:
+  #     - presubmit
+  #   include_dirs:
+  #   - pkg/*
+  #   - cmd/*
+  #   - config/*
+  #   - test/*
+  #   - hack/*
+  #   - Dockerfile
+  #   - Makefile
+  #   - python/*
+  #   - vendor/*
+  #   params:
+  #     registry: "gcr.io/kubeflow-ci"
+  # # The postsubmit run publishes the docker images to gcr.io/kubeflow-images-public      
+  # - app_dir: kserve/kserve/test/workflows
+  #   component: workflows
+  #   name: e2e-release
+  #   job_types:      
+  #     - postsubmit
+  #   include_dirs:
+  #   - pkg/*
+  #   - cmd/*
+  #   - Dockerfile
+  #   - python/*
+  #   - vendor/*
+  #   params:
+  #     registry: "gcr.io/kubeflow-images-public"
