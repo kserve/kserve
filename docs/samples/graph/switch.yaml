@@ -33,7 +33,7 @@ metadata:
 spec:
   nodes:
     root:
-      routerType: Single
+      routerType: Sequence
       steps:
       - service: green
       - nodeName: mymodel
@@ -42,6 +42,6 @@ spec:
       routerType: Switch
       steps:
       - service: blue
-        condition: "{.target == \"blue\"}"
+        condition: "target == \"blue\""
       - service: green
-        condition: "{.target != \"blue\"}"
+        condition: "target == \"green\""
