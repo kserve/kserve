@@ -323,17 +323,16 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 session=s
             )
 
-        # Check path exists
+        # Check path exists and get path status
         # Raises HdfsError when path does not exist
-        client.status(path)
+        status = client.status(path)
 
-        try:
+        if status["type"] == "FILE":
+            client.download(path, out_dir, n_threads=1)
+        else:
             files = client.list(path)
             for f in files:
                 client.download(f"{path}/{f}", out_dir, n_threads=int(config["N_THREADS"]))
-        except HdfsError:
-            # client.list raises exception when path is a file
-            client.download(path, out_dir, n_threads=1)
 
     @staticmethod
     def _download_azure_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
