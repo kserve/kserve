@@ -43,8 +43,6 @@ from kserve.model_repository import MODEL_MOUNT_DIRS
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _HDFS_PREFIX = "hdfs://"
-_BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
-_ACCOUNT_RE = "https://(.+?).blob.core.windows.net"
 _AZURE_BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _AZURE_FILE_RE = "https://(.+?).file.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
@@ -84,8 +82,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             Storage._download_s3(uri, out_dir)
         elif uri.startswith(_HDFS_PREFIX):
             Storage._download_hdfs(uri, out_dir)
-        elif re.search(_BLOB_RE, uri):
-            Storage._download_blob(uri, out_dir)
         elif re.search(_AZURE_BLOB_RE, uri):
             Storage._download_azure_blob(uri, out_dir)
         elif re.search(_AZURE_FILE_RE, uri):
@@ -340,13 +336,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             client.download(path, out_dir, n_threads=1)
 
     @staticmethod
-    def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
-        match = re.search(_BLOB_RE, uri)
-        account_url = re.search(_ACCOUNT_RE, uri).group(0)
-        account_name = match.group(1)
-        storage_url = match.group(2)
-        container_name, prefix = storage_url.split("/", 1)
-
     def _download_azure_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
         account_name, account_url, container_name, prefix = Storage._parse_azure_uri(uri)
         logging.info("Connecting to BLOB account: [%s], container: [%s], prefix: [%s]",
