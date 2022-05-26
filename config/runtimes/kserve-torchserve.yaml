@@ -7,6 +7,10 @@ spec:
     - name: pytorch
       version: "1"
       autoSelect: true
+  protocolVersions:
+    - v1
+    - v2
+    - grpc-v1
   containers:
     - name: kserve-container
       image: kserve-torchserve:replace

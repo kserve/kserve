@@ -10,4 +10,4 @@ metadata:
 spec:
   predictor:
     sklearn:
-      storageUri: "gs://kfserving-samples/models/sklearn/iris"
+      storageUri: "gs://kfserving-examples/models/sklearn/iris"

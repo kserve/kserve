@@ -27,11 +27,12 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Component can be reconciled to create underlying resources for an InferenceService
 type Component interface {
-	Reconcile(isvc *v1beta1.InferenceService) error
+	Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error)
 }
 
 func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map[string]string) bool {

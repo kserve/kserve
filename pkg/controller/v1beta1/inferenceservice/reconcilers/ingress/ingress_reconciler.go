@@ -368,10 +368,11 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			return err
 		}
 		if !isvcutils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
-			if isvc.Spec.Predictor.GetImplementation().GetProtocol() == constants.ProtocolV2 {
-				path = constants.PredictPath(isvc.Name, constants.ProtocolV2)
-			} else {
+			protocol := isvc.Spec.Predictor.GetImplementation().GetProtocol()
+			if protocol == constants.ProtocolV1 {
 				path = constants.PredictPath(isvc.Name, constants.ProtocolV1)
+			} else if protocol == constants.ProtocolV2 {
+				path = constants.PredictPath(isvc.Name, constants.ProtocolV2)
 			}
 		}
 		isvc.Status.Address = &duckv1.Addressable{

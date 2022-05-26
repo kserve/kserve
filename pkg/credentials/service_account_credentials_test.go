@@ -22,7 +22,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/credentials/azure"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
-	"github.com/kserve/kserve/pkg/credentials/hdfs"
+  "github.com/kserve/kserve/pkg/credentials/hdfs"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 
 	"github.com/google/go-cmp/cmp"
@@ -529,5 +529,109 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 	}
 
 	g.Expect(c.Delete(context.TODO(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+}
+
+func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	customOnlyServiceAccount := &v1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "custom-sa",
+			Namespace: "default",
+		},
+		Secrets: []v1.ObjectReference{
+			{
+				Name:      "az-custom-secret",
+				Namespace: "default",
+			},
+		},
+	}
+	customAzureSecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "az-custom-secret",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"AZURE_STORAGE_ACCESS_KEY": {},
+		},
+	}
+
+	scenarios := map[string]struct {
+		serviceAccount        *v1.ServiceAccount
+		inputConfiguration    *knservingv1.Configuration
+		expectedConfiguration *knservingv1.Configuration
+		shouldFail            bool
+	}{
+		"Custom Azure Secret": {
+			serviceAccount: customOnlyServiceAccount,
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Env: []v1.EnvVar{
+											{
+												Name: azure.AzureStorageAccessKey,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureStorageAccessKey,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
+	}
+
+	g.Expect(c.Create(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+
+	builder := NewCredentialBulder(c, configMap)
+	for name, scenario := range scenarios {
+
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
+			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+		)
+		if scenario.shouldFail && err == nil {
+			t.Errorf("Test %q failed: returned success but expected error", name)
+		}
+		// Validate
+		if !scenario.shouldFail {
+			if err != nil {
+				t.Errorf("Test %q failed: returned error: %v", name, err)
+			}
+			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
+			}
+		}
+	}
+
+	g.Expect(c.Delete(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }

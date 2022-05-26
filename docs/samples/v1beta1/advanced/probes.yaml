@@ -5,7 +5,7 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
       readinessProbe:
         httpGet:
           path: /v1/models/flowers

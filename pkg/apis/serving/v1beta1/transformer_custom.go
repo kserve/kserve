@@ -24,12 +24,18 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // CustomTransformer defines arguments for configuring a custom transformer.
 type CustomTransformer struct {
 	v1.PodSpec `json:",inline"`
 }
+
+var (
+	// logger for the custom transformer
+	customTransformerLogger = logf.Log.WithName("inferenceservice-v1beta1-custom-transformer")
+)
 
 var _ ComponentImplementation = &CustomTransformer{}
 
@@ -71,6 +77,20 @@ func (c *CustomTransformer) GetStorageSpec() *StorageSpec {
 func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Containers[0]
 	argumentPredictorHost := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
+
+	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]
+
+	if ok && (deploymentMode == string(constants.ModelMeshDeployment)) {
+		// Get predictor host and protocol from annotations in modelmesh deployment mode
+		argumentPredictorHost = metadata.Annotations["predictor-host"]
+		argumentPredictorProtocol := metadata.Annotations["predictor-protocol"]
+
+		// Set predictor protocol if not provided in container arguments
+		if !utils.IncludesArg(container.Args, "--protocol") {
+			customTransformerLogger.Info("Set predictor protocol based on ModelMesh predictor URL", "protocol", argumentPredictorProtocol)
+			container.Args = append(container.Args, "--protocol", argumentPredictorProtocol)
+		}
+	}
 
 	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{

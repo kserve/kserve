@@ -7,6 +7,8 @@ spec:
     - name: paddle
       version: "2"
       autoSelect: true
+  protocolVersions:
+    - v1
   containers:
     - name: kserve-container
       image: kserve-paddleserver:replace

@@ -20,7 +20,7 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
 ```
 Apply the CR:
 ```
@@ -45,7 +45,7 @@ spec:
     # 10% of traffic is sent to this model
     canaryTrafficPercent: 10
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers-2"
 ```
 
 Now you update the `storageUri` for the new model and apply the CR:
@@ -125,7 +125,7 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers-2"
 ```
 
 Apply the CR:
@@ -159,7 +159,7 @@ spec:
   predictor:
     canaryTrafficPercent: 0
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers-2"
 ```
 
 Applying this CR essentially rolls back the new model to the previous good model which was rolled out with 100% traffic.
@@ -196,7 +196,7 @@ spec:
   predictor:
     canaryTrafficPercent: 10
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers-2"
 ```
 
 Check the InferenceService status to get the canary and previous model URL.

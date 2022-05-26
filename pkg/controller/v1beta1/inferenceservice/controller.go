@@ -114,9 +114,15 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 
 	if deploymentMode == constants.ModelMeshDeployment {
-		r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+		if isvc.Spec.Transformer == nil {
+			// Skip if no transformers
+			r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+				"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+			return ctrl.Result{}, nil
+		}
+		// Continue to reconcile when there is a transformer
+		r.Log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
-		return ctrl.Result{}, nil
 	}
 	// name of our custom finalizer
 	finalizerName := "inferenceservice.finalizers"
@@ -158,8 +164,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
 	}
-	reconcilers := []components.Component{
-		components.NewPredictor(r.Client, r.Scheme, isvcConfig),
+	reconcilers := []components.Component{}
+	if deploymentMode != constants.ModelMeshDeployment {
+		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Scheme, isvcConfig))
 	}
 	if isvc.Spec.Transformer != nil {
 		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Scheme, isvcConfig))
@@ -168,10 +175,14 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Scheme, isvcConfig))
 	}
 	for _, reconciler := range reconcilers {
-		if err := reconciler.Reconcile(isvc); err != nil {
+		result, err := reconciler.Reconcile(isvc)
+		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
 			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
+		}
+		if result.Requeue || result.RequeueAfter > 0 {
+			return result, nil
 		}
 	}
 	//Reconcile ingress
@@ -203,7 +214,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	if err = r.updateStatus(isvc); err != nil {
+	if err = r.updateStatus(isvc, deploymentMode); err != nil {
 		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
@@ -211,14 +222,14 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.InferenceService) error {
+func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.InferenceService, deploymentMode constants.DeploymentModeType) error {
 	existingService := &v1beta1api.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(context.TODO(), namespacedName, existingService); err != nil {
 		return err
 	}
 	wasReady := inferenceServiceReadiness(existingService.Status)
-	if equality.Semantic.DeepEqual(existingService.Status, desiredService.Status) {
+	if inferenceServiceStatusEqual(existingService.Status, desiredService.Status, deploymentMode) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
@@ -248,6 +259,19 @@ func inferenceServiceReadiness(status v1beta1api.InferenceServiceStatus) bool {
 		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 }
 
+func inferenceServiceStatusEqual(s1, s2 v1beta1api.InferenceServiceStatus, deploymentMode constants.DeploymentModeType) bool {
+	if deploymentMode == constants.ModelMeshDeployment {
+		// If the deployment mode is ModelMesh, reduce the status scope to compare.
+		// Exclude Predictor and ModelStatus which are mananged by ModelMesh controllers
+		return equality.Semantic.DeepEqual(s1.Address, s2.Address) &&
+			equality.Semantic.DeepEqual(s1.URL, s2.URL) &&
+			equality.Semantic.DeepEqual(s1.Status, s2.Status) &&
+			equality.Semantic.DeepEqual(s1.Components[v1beta1api.TransformerComponent], s2.Components[v1beta1api.TransformerComponent]) &&
+			equality.Semantic.DeepEqual(s1.Components[v1beta1api.ExplainerComponent], s2.Components[v1beta1api.ExplainerComponent])
+	}
+	return equality.Semantic.DeepEqual(s1, s2)
+}
+
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig) error {
 	if deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
 		return ctrl.NewControllerManagedBy(mgr).
@@ -269,7 +293,11 @@ func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.In
 	// Delete all the TrainedModel that uses this InferenceService as parent
 	r.Log.Info("Deleting external resources", "InferenceService", isvc.Name)
 	var trainedModels v1alpha1api.TrainedModelList
-	if err := r.List(context.TODO(), &trainedModels, client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name}); err != nil {
+	if err := r.List(context.TODO(),
+		&trainedModels,
+		client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name},
+		client.InNamespace(isvc.Namespace),
+	); err != nil {
 		r.Log.Error(err, "unable to list trained models", "inferenceservice", isvc.Name)
 		return err
 	}

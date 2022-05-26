@@ -16,7 +16,7 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
 ```
 
 Apply the `tensorflow.yaml` to create the `InferenceService`.
@@ -89,7 +89,7 @@ spec:
   predictor:
     canaryTrafficPercent: 20
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers-2"
 ```
 
 ```
@@ -118,7 +118,7 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
       ports:
         - containerPort: 9000
           name: h2c

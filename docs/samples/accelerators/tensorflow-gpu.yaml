@@ -1,15 +1,14 @@
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "tensorflow-gpu"
   annotations:
     "serving.kserve.io/gke-accelerator": "nvidia-tesla-t4"
 spec:
-  default:
-    predictor:
-      tensorflow:
-        storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
-        runtimeVersion: "1.11.0-gpu"
-        resources:
-          limits:
-            nvidia.com/gpu: 1
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
+      runtimeVersion: "1.11.0-gpu"
+      resources:
+        limits:
+          nvidia.com/gpu: 1

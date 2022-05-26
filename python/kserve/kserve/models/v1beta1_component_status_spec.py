@@ -48,41 +48,49 @@ class V1beta1ComponentStatusSpec(object):
     """
     openapi_types = {
         'address': 'KnativeAddressable',
+        'grpc_url': 'KnativeURL',
         'latest_created_revision': 'str',
         'latest_ready_revision': 'str',
         'latest_rolledout_revision': 'str',
         'previous_rolledout_revision': 'str',
+        'rest_url': 'KnativeURL',
         'traffic': 'list[KnativeDevServingPkgApisServingV1TrafficTarget]',
         'url': 'KnativeURL'
     }
 
     attribute_map = {
         'address': 'address',
+        'grpc_url': 'grpcUrl',
         'latest_created_revision': 'latestCreatedRevision',
         'latest_ready_revision': 'latestReadyRevision',
         'latest_rolledout_revision': 'latestRolledoutRevision',
         'previous_rolledout_revision': 'previousRolledoutRevision',
+        'rest_url': 'restUrl',
         'traffic': 'traffic',
         'url': 'url'
     }
 
-    def __init__(self, address=None, latest_created_revision=None, latest_ready_revision=None, latest_rolledout_revision=None, previous_rolledout_revision=None, traffic=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, address=None, grpc_url=None, latest_created_revision=None, latest_ready_revision=None, latest_rolledout_revision=None, previous_rolledout_revision=None, rest_url=None, traffic=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentStatusSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._address = None
+        self._grpc_url = None
         self._latest_created_revision = None
         self._latest_ready_revision = None
         self._latest_rolledout_revision = None
         self._previous_rolledout_revision = None
+        self._rest_url = None
         self._traffic = None
         self._url = None
         self.discriminator = None
 
         if address is not None:
             self.address = address
+        if grpc_url is not None:
+            self.grpc_url = grpc_url
         if latest_created_revision is not None:
             self.latest_created_revision = latest_created_revision
         if latest_ready_revision is not None:
@@ -91,6 +99,8 @@ class V1beta1ComponentStatusSpec(object):
             self.latest_rolledout_revision = latest_rolledout_revision
         if previous_rolledout_revision is not None:
             self.previous_rolledout_revision = previous_rolledout_revision
+        if rest_url is not None:
+            self.rest_url = rest_url
         if traffic is not None:
             self.traffic = traffic
         if url is not None:
@@ -116,6 +126,27 @@ class V1beta1ComponentStatusSpec(object):
         """
 
         self._address = address
+
+    @property
+    def grpc_url(self):
+        """Gets the grpc_url of this V1beta1ComponentStatusSpec.  # noqa: E501
+
+
+        :return: The grpc_url of this V1beta1ComponentStatusSpec.  # noqa: E501
+        :rtype: KnativeURL
+        """
+        return self._grpc_url
+
+    @grpc_url.setter
+    def grpc_url(self, grpc_url):
+        """Sets the grpc_url of this V1beta1ComponentStatusSpec.
+
+
+        :param grpc_url: The grpc_url of this V1beta1ComponentStatusSpec.  # noqa: E501
+        :type: KnativeURL
+        """
+
+        self._grpc_url = grpc_url
 
     @property
     def latest_created_revision(self):
@@ -208,6 +239,27 @@ class V1beta1ComponentStatusSpec(object):
         """
 
         self._previous_rolledout_revision = previous_rolledout_revision
+
+    @property
+    def rest_url(self):
+        """Gets the rest_url of this V1beta1ComponentStatusSpec.  # noqa: E501
+
+
+        :return: The rest_url of this V1beta1ComponentStatusSpec.  # noqa: E501
+        :rtype: KnativeURL
+        """
+        return self._rest_url
+
+    @rest_url.setter
+    def rest_url(self, rest_url):
+        """Sets the rest_url of this V1beta1ComponentStatusSpec.
+
+
+        :param rest_url: The rest_url of this V1beta1ComponentStatusSpec.  # noqa: E501
+        :type: KnativeURL
+        """
+
+        self._rest_url = rest_url
 
     @property
     def traffic(self):

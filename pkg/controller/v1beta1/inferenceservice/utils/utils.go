@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"regexp"
 	"strings"
 
@@ -75,61 +76,53 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 // MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
 func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
-	// Default container configuration from the runtime.
-	coreContainer := v1.Container{
-		Args:            runtimeContainer.Args,
-		Command:         runtimeContainer.Command,
-		Env:             runtimeContainer.Env,
-		Image:           runtimeContainer.Image,
-		Name:            runtimeContainer.Name,
-		Resources:       runtimeContainer.Resources,
-		ImagePullPolicy: runtimeContainer.ImagePullPolicy,
-		WorkingDir:      runtimeContainer.WorkingDir,
-		LivenessProbe:   runtimeContainer.LivenessProbe,
-	}
 	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
 	// since the Name field does not have the 'omitempty' struct tag.
 	runtimeContainerName := runtimeContainer.Name
 
-	// Args and Env will be combined instead of overridden.
-	argCopy := make([]string, len(coreContainer.Args))
-	copy(argCopy, coreContainer.Args)
+	// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch
+	runtimeContainerJson, err := json.Marshal(runtimeContainer)
+	if err != nil {
+		return nil, err
+	}
 
-	envCopy := make([]v1.EnvVar, len(coreContainer.Env))
-	copy(envCopy, coreContainer.Env)
-
-	// Use JSON Marshal/Unmarshal to merge Container structs.
 	overrides, err := json.Marshal(predictorContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(overrides, &coreContainer); err != nil {
+	mergedContainer := v1.Container{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(runtimeContainerJson, overrides, mergedContainer)
+	if err != nil {
 		return nil, err
 	}
 
-	if coreContainer.Name == "" {
-		coreContainer.Name = runtimeContainerName
+	if err := json.Unmarshal(jsonResult, &mergedContainer); err != nil {
+		return nil, err
 	}
 
-	argCopy = append(argCopy, predictorContainer.Args...)
-	envCopy = append(envCopy, predictorContainer.Env...)
+	if mergedContainer.Name == "" {
+		mergedContainer.Name = runtimeContainerName
+	}
 
-	coreContainer.Args = argCopy
-	coreContainer.Env = envCopy
+	// Strategic merge patch will replace args but more useful behaviour here is to concatenate
+	mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), predictorContainer.Args...)
 
-	return &coreContainer, nil
-
+	return &mergedContainer, nil
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
 // to override runtime PodSpec settings from the predictor spec.
 func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
 
-	corePodSpec := v1.PodSpec{
+	runtimePodSpecJson, err := json.Marshal(v1.PodSpec{
 		NodeSelector: runtimePodSpec.NodeSelector,
 		Affinity:     runtimePodSpec.Affinity,
 		Tolerations:  runtimePodSpec.Tolerations,
+		Volumes:      runtimePodSpec.Volumes,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Use JSON Marshal/Unmarshal to merge PodSpec structs.
@@ -138,12 +131,17 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 		return nil, err
 	}
 
-	if err := json.Unmarshal(overrides, &corePodSpec); err != nil {
+	corePodSpec := v1.PodSpec{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(runtimePodSpecJson, overrides, corePodSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(jsonResult, &corePodSpec); err != nil {
 		return nil, err
 	}
 
 	return &corePodSpec, nil
-
 }
 
 // GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
@@ -191,7 +189,7 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig 
 		if len(re.FindString(image)) == 0 {
 			container.Image = image + ":" + *runtimeVersion
 		} else {
-			container.Image = re.ReplaceAllString(image, ":" + *runtimeVersion)
+			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
 		}
 		return
 	}

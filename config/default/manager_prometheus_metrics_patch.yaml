@@ -17,3 +17,22 @@ spec:
         - containerPort: 8080
           name: metrics
           protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kserve-controller-manager
+  namespace: kserve
+spec:
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: 'true'
+    spec:
+      containers:
+      # Expose the prometheus metrics on default port
+      - name: manager
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP

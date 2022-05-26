@@ -6,4 +6,4 @@ spec:
   predictor:
     xgboost:
       protocolVersion: "v2"
-      storageUri: "gs://kfserving-samples/models/xgboost/iris"
+      storageUri: "gs://kfserving-examples/models/xgboost/iris"

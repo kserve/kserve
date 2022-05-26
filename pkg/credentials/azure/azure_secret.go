@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	AzureSubscriptionId = "AZ_SUBSCRIPTION_ID"
-	AzureTenantId       = "AZ_TENANT_ID"
-	AzureClientId       = "AZ_CLIENT_ID"
-	AzureClientSecret   = "AZ_CLIENT_SECRET"
+	AzureSubscriptionId   = "AZ_SUBSCRIPTION_ID"
+	AzureTenantId         = "AZ_TENANT_ID"
+	AzureClientId         = "AZ_CLIENT_ID"
+	AzureClientSecret     = "AZ_CLIENT_SECRET"
+	AzureStorageAccessKey = "AZURE_STORAGE_ACCESS_KEY"
 )
 
 func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
@@ -70,6 +71,24 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 						Name: secret.Name,
 					},
 					Key: AzureClientSecret,
+				},
+			},
+		},
+	}
+
+	return envs
+}
+
+func BuildStorageAccessKeySecretEnv(secret *v1.Secret) []v1.EnvVar {
+	envs := []v1.EnvVar{
+		{
+			Name: AzureStorageAccessKey,
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: secret.Name,
+					},
+					Key: AzureStorageAccessKey,
 				},
 			},
 		},
