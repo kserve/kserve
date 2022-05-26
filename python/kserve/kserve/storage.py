@@ -276,7 +276,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
     def _download_hdfs(uri, out_dir: str):
         from krbcontext.context import krbContext
         from hdfs.ext.kerberos import Client, KerberosClient
-        from hdfs.util import HdfsError
 
         config = Storage._load_hdfs_configuration()
 
