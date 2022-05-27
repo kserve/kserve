@@ -89,7 +89,7 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	}
 }
 
-func getServiceUrl(isvc *v1beta1.InferenceService) string {
+func getServiceUrl(isvc *v1beta1.InferenceService, urlScheme string) string {
 	if isvc.Status.Components == nil {
 		return ""
 	}
@@ -100,7 +100,9 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 		} else if transformerStatus.URL == nil {
 			return ""
 		} else {
-			return strings.Replace(transformerStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
+			url := transformerStatus.URL
+			url.Scheme = urlScheme
+			return strings.Replace(url.String(), fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
 		}
 	}
 
@@ -109,7 +111,9 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 	} else if predictorStatus.URL == nil {
 		return ""
 	} else {
-		return strings.Replace(predictorStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
+		url := predictorStatus.URL
+		url.Scheme = urlScheme
+		return strings.Replace(url.String(), fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
 	}
 }
 
@@ -321,7 +325,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 
 func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	serviceHost := getServiceHost(isvc)
-	serviceUrl := getServiceUrl(isvc)
+	serviceUrl := getServiceUrl(isvc, ir.ingressConfig.UrlScheme)
 	if serviceHost == "" || serviceUrl == "" {
 		return nil
 	}
