@@ -387,18 +387,6 @@
               "--context=dir://" + srcDir + "/python",
               "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:$(PULL_BASE_SHA)",
             ]),  // build-custom-image-transformer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", kanikoExecutorImage, [
-              "/kaniko/executor",
-              "--dockerfile=" + srcDir + "/python/pytorch.Dockerfile",
-              "--context=dir://" + srcDir + "/python",
-              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/pytorchserver:$(PULL_BASE_SHA)",
-            ]),  // build-pytorchserver
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver-gpu", kanikoExecutorImage, [
-              "/kaniko/executor",
-              "--dockerfile=" + srcDir + "/python/pytorch-gpu.Dockerfile",
-              "--context=dir://" + srcDir + "/python",
-              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/pytorchserver:$(PULL_BASE_SHA)-gpu",
-            ]),  // build-pytorchserver-gpu
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-paddleserver", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/paddle.Dockerfile",

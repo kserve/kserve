@@ -10,3 +10,16 @@ spec:
         - name: manager
           command:
           image: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/kserve-controller:latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kserve-controller-manager
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          command:
+          image: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/kserve-controller:latest
