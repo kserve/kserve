@@ -27,3 +27,4 @@ idna==3.3
 certifi==2021.10.8
 tritonclient==2.18.0
 prometheus-client
+protobuf~=3.19.0
