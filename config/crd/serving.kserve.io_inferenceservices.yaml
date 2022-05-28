@@ -13055,6 +13055,7 @@ spec:
                           enum:
                             - ModelLoadFailed
                             - RuntimeUnhealthy
+                            - RuntimeDisabled
                             - NoSupportingRuntime
                             - RuntimeNotRecognized
                             - InvalidPredictorSpec

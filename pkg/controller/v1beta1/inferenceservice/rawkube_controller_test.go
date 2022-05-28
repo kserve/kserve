@@ -402,6 +402,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+				},
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -814,6 +818,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Host:   fmt.Sprintf("%s-predictor-default-default.example.com", serviceName),
 						},
 					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
 			}
 			Eventually(func() string {
@@ -1228,6 +1236,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Host:   fmt.Sprintf("%s-predictor-default.%s.%s", serviceName, serviceKey.Namespace, domain),
 						},
 					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
 			}
 			Eventually(func() string {
