@@ -82,8 +82,8 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 
 	if ok && (deploymentMode == string(constants.ModelMeshDeployment)) {
 		// Get predictor host and protocol from annotations in modelmesh deployment mode
-		argumentPredictorHost = metadata.Annotations["predictor-host"]
-		argumentPredictorProtocol := metadata.Annotations["predictor-protocol"]
+		argumentPredictorHost = metadata.Annotations[constants.PredictorHostAnnotationKey]
+		argumentPredictorProtocol := metadata.Annotations[constants.PredictorProtocolAnnotationKey]
 
 		// Set predictor protocol if not provided in container arguments
 		if !utils.IncludesArg(container.Args, "--protocol") {
