@@ -106,6 +106,12 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				},
 			},
 		}
+		modelStatus = v1beta1.ModelStatus{
+			TransitionStatus: v1beta1.UpToDate,
+			ModelRevisionStates: &v1beta1.ModelRevisionStates{
+				ActiveModelState: v1beta1.Loaded,
+			},
+		}
 	)
 
 	Context("When creating a new TrainedModel with an unready InferenceService", func() {
@@ -234,6 +240,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			inferenceService.Status.Status = readyConditions
+			inferenceService.Status.ModelStatus = modelStatus
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			// Create modelConfig
@@ -349,6 +356,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				URL: clusterURL,
 			}
 			inferenceService.Status.Status = readyConditions
+			inferenceService.Status.ModelStatus = modelStatus
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			tmInstance := &v1alpha1api.TrainedModel{
@@ -496,6 +504,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			inferenceService.Status.Status = readyConditions
+			inferenceService.Status.ModelStatus = modelStatus
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			tmInstance := &v1alpha1api.TrainedModel{
@@ -624,6 +633,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			inferenceService.Status.Status = readyConditions
+			inferenceService.Status.ModelStatus = modelStatus
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			// Create modelConfig
@@ -755,6 +765,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			inferenceService.Status.Status = readyConditions
+			inferenceService.Status.ModelStatus = modelStatus
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			// Create modelConfig
@@ -885,6 +896,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			inferenceService.Status.Status = readyConditions
+			inferenceService.Status.ModelStatus = modelStatus
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			// Create modelConfig
