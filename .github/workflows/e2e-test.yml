@@ -1,6 +1,9 @@
 name: E2E Tests
 
 on:
+  push:
+    branches: [pv-test]
+
   pull_request:
     branches: [master]
     paths:
@@ -34,12 +37,14 @@ jobs:
           ./test/scripts/gh-actions/setup-deps.sh
 
           kubectl get pods -n istio-system
+          kubectl describe svc -n istio-system istio-ingressgateway
           kubectl get pods -n knative-serving
           kubectl get pods -n cert-manager
       - name: Build KServe images
         run: |
           ./test/scripts/gh-actions/build-images.sh
           docker image ls
+          cat ./config/overlays/test/configmap/inferenceservice.yaml
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh

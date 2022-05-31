@@ -22,5 +22,6 @@ set -o pipefail
 
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
-  pytest --ignore=credentials/test_set_creds.py --ignore=explainer/ --ignore=predictor/test_paddle.py --ignore=predictor/test_triton.py
+  # pytest --ignore=credentials/test_set_creds.py --ignore=explainer/ --ignore=predictor/test_paddle.py --ignore=predictor/test_triton.py
+  pytest batcher/test_batcher.py
 popd

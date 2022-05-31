@@ -40,34 +40,34 @@ IMAGE_TRANSFORMER_IMG=kserve/image-transformer:${GITHUB_SHA}
 
 
 docker build . -t ${CONTROLLER_IMG}
-# docker build -f agent.Dockerfile . -t ${AGENT_IMG}
+docker build -f agent.Dockerfile . -t ${AGENT_IMG}
 
 pushd python >/dev/null
-  # docker build -t ${SKLEARN_IMG} -f sklearn.Dockerfile .
-  # docker build -t ${XGB_IMG} -f xgb.Dockerfile .
-  # docker build -t ${LGB_IMG} -f lgb.Dockerfile .
-  # docker build -t ${PMML_IMG} -f pmml.Dockerfile .
+  docker build -t ${SKLEARN_IMG} -f sklearn.Dockerfile .
+  docker build -t ${XGB_IMG} -f xgb.Dockerfile .
+  docker build -t ${LGB_IMG} -f lgb.Dockerfile .
+  docker build -t ${PMML_IMG} -f pmml.Dockerfile .
   # docker build -t ${PADDLE_IMG} -f paddle.Dockerfile .
 
   # docker build -t ${ALIBI_IMG} -f alibiexplainer.Dockerfile .
   # docker build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
 
-  # docker build -t ${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+  docker build -t ${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
 
   docker build -t ${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
 popd
 
 # Update KServe configurations to use the correct tag.
-# sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
 
 # Update agent tag
-# sed -i -e "s/kserve\/agent:latest/kserve\/agent:${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
+sed -i -e "s/kserve\/agent:latest/kserve\/agent:${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
 
 # Update storage init tag
 sed -i -e "s/kserve\/storage-initializer:latest/kserve\/storage-initializer:${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
 
 # Update runtimes
-# sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/runtimes/kustomization.yaml
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/runtimes/kustomization.yaml
 
 # Update controller image tag
 sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/manager_image_patch.yaml
