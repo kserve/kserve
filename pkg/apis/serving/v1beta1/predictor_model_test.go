@@ -23,6 +23,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -309,4 +310,436 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		})
 	}
 
+}
+
+func TestModelPredictorGetContainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	var storageUri = "s3://test/model"
+	isvcConfig := &InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			Tensorflow: PredictorConfig{
+				ContainerImage:         "tfserving",
+				DefaultImageVersion:    "1.14.0",
+				DefaultGpuImageVersion: "1.14.0-gpu",
+				MultiModelServer:       false,
+			},
+		},
+	}
+	objectMeta := metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "default",
+	}
+	componentSpec := &ComponentExtensionSpec{
+		MinReplicas: GetIntReference(3),
+		MaxReplicas: 2,
+	}
+	scenarios := map[string]struct {
+		spec     *ModelSpec
+		expected v1.Container
+	}{
+		"ContainerSpecified": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "tensorflow",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					StorageURI: &storageUri,
+					Container: v1.Container{
+						Name: "foo",
+						Env: []v1.EnvVar{
+							{
+								Name:  "STORAGE_URI",
+								Value: storageUri,
+							},
+						},
+					},
+				},
+			},
+			expected: v1.Container{
+				Name: "foo",
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_URI",
+						Value: storageUri,
+					},
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			container := scenario.spec.GetContainer(objectMeta, componentSpec, isvcConfig)
+			g.Expect(*container).To(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
+func TestModelPredictorGetProtocol(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		spec    *ModelSpec
+		matcher types.GomegaMatcher
+	}{
+		"DefaultProtocol": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "tensorflow",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					StorageURI: proto.String("s3://test/model"),
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV1),
+		},
+		"ProtocolV2Specified": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "tensorflow",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					StorageURI:      proto.String("s3://test/model"),
+					ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV2),
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			protocol := scenario.spec.GetProtocol()
+			g.Expect(protocol).To(scenario.matcher)
+		})
+	}
+}
+
+func TestModelPredictorIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	multiModelServerCases := [2]bool{true, false}
+
+	for _, mmsCase := range multiModelServerCases {
+
+		scenarios := map[string]struct {
+			config   *InferenceServicesConfig
+			spec     *ModelSpec
+			expected bool
+		}{
+			"Tersorflow": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						Tensorflow: PredictorConfig{
+							ContainerImage:         "tfserving",
+							DefaultImageVersion:    "1.14.0",
+							DefaultGpuImageVersion: "1.14.0-gpu",
+							MultiModelServer:       mmsCase,
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelTensorflow,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: mmsCase,
+			},
+			"SKLearn": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						SKlearn: PredictorProtocols{
+							V1: &PredictorConfig{
+								ContainerImage:      "sklearnserver",
+								DefaultImageVersion: "v0.4.0",
+								MultiModelServer:    mmsCase,
+							},
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelSKLearn,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: mmsCase,
+			},
+			"SKLearnProtocolV2": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						SKlearn: PredictorProtocols{
+							V2: &PredictorConfig{
+								ContainerImage:      "sklearnserver",
+								DefaultImageVersion: "v0.4.0",
+								MultiModelServer:    mmsCase,
+							},
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelSKLearn,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI:      proto.String("s3://test/model"),
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+					},
+				},
+				expected: mmsCase,
+			},
+			"PyTorch": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						PyTorch: PredictorConfig{
+							ContainerImage:      "pytorch/torchserve-kfs",
+							DefaultImageVersion: "0.4.1",
+							MultiModelServer:    mmsCase,
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelPyTorch,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: mmsCase,
+			},
+			"Triton": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						Triton: PredictorConfig{
+							ContainerImage:      "tritonserver",
+							DefaultImageVersion: "20.03-py3",
+							MultiModelServer:    mmsCase,
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelTriton,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: mmsCase,
+			},
+			"XGBoost": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						XGBoost: PredictorProtocols{
+							V1: &PredictorConfig{
+								ContainerImage:      "xgboost",
+								DefaultImageVersion: "v0.4.0",
+								MultiModelServer:    mmsCase,
+							},
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelXGBoost,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: mmsCase,
+			},
+			"XGBoostProtocolV2": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						XGBoost: PredictorProtocols{
+							V2: &PredictorConfig{
+								ContainerImage:      "xgboost",
+								DefaultImageVersion: "v0.4.0",
+								MultiModelServer:    mmsCase,
+							},
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelXGBoost,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI:      proto.String("s3://test/model"),
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+					},
+				},
+				expected: mmsCase,
+			},
+			"ONNX": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						ONNX: PredictorConfig{
+							ContainerImage:      "onnxruntime",
+							DefaultImageVersion: "v1.0.0",
+							MultiModelServer:    mmsCase,
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelONNX,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: mmsCase,
+			},
+			"PMML": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						PMML: PredictorConfig{
+							ContainerImage:      "pmmlserver",
+							DefaultImageVersion: "v0.4.0",
+							MultiModelServer:    mmsCase,
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelPMML,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: mmsCase,
+			},
+			"LightGBM": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						LightGBM: PredictorConfig{
+							ContainerImage:      "lightgbm",
+							DefaultImageVersion: "v0.4.0",
+							MultiModelServer:    mmsCase,
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelLightGBM,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: mmsCase,
+			},
+			"Paddle": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						Paddle: PredictorConfig{
+							ContainerImage:      "paddleserver",
+							DefaultImageVersion: "latest",
+							MultiModelServer:    mmsCase,
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: constants.SupportedModelPaddle,
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: mmsCase,
+			},
+			"UnsupportedModel": {
+				config: &InferenceServicesConfig{
+					Predictors: PredictorsConfig{
+						Paddle: PredictorConfig{
+							ContainerImage:      "paddleserver",
+							DefaultImageVersion: "latest",
+							MultiModelServer:    mmsCase,
+						},
+					},
+				},
+				spec: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: "unSupportedModel",
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://test/model"),
+					},
+				},
+				expected: false,
+			},
+		}
+		for name, scenario := range scenarios {
+			t.Run(name, func(t *testing.T) {
+				res := scenario.spec.IsMMS(scenario.config)
+				g.Expect(res).To(gomega.Equal(scenario.expected))
+			})
+		}
+	}
+}
+
+func TestModelPredictorIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	lightgbm := "lightgbm"
+	unsupportedFramework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			LightGBM: PredictorConfig{
+				ContainerImage:      "lightgbm",
+				DefaultImageVersion: "v0.4.0",
+				SupportedFrameworks: []string{"lightgbm"},
+			},
+		},
+	}
+	scenarios := map[string]struct {
+		spec      *ModelSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFramework": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "lightgbm",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{},
+			},
+			framework: lightgbm,
+			expected:  true,
+		},
+		"UnsupportedFramework": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "lightgbm",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+		"UnsupportedModelFormat": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "model",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{},
+			},
+			framework: lightgbm,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
 }
