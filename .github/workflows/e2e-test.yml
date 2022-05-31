@@ -1,9 +1,6 @@
 name: E2E Tests
 
 on:
-  push:
-    branches: [pv-test]
-
   pull_request:
     branches: [master]
     paths:
@@ -50,6 +47,7 @@ jobs:
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
+          kubectl describe pods -n kserve
       - name: Run E2E tests
         timeout-minutes: 90
         run: |
