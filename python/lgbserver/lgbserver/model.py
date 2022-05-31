@@ -16,7 +16,7 @@ import kserve
 import lightgbm as lgb
 from lightgbm import Booster
 import os
-from typing import Dict
+from typing import Dict, List, Optional
 import pandas as pd
 from kserve.model import ModelMissingError, InferenceError
 
@@ -42,8 +42,36 @@ class LightGBMModel(kserve.Model):
             raise ModelMissingError(model_file)
         self._booster = lgb.Booster(params={"nthread": self.nthread},
                                     model_file=model_file)
+        self._categorical_columns = self._load_categorical(self._booster, model_file)
         self.ready = True
         return self.ready
+
+    def _load_categorical(
+        self, booster: Booster, model_file: str
+    ) -> Optional[List[str]]:
+        # LightGBM does not currently force trained categorical columns to
+        # categorical during predict, so pull the `categorical_feature` from the
+        # saved model
+        # https://github.com/microsoft/LightGBM/issues/5244
+        categorical_feature = None
+        with open(model_file) as f:
+            for line in f:
+                if line.startswith("[categorical_feature: "):
+                    content = (
+                        line.replace("[categorical_feature: ", "")
+                        .replace("]", "")
+                        .strip()
+                        .split(",")
+                    )
+                    categorical_feature = [
+                        int(value) for value in content if value != ""
+                    ]
+
+        if categorical_feature is None:
+            return None
+
+        feature_name = booster.feature_name()
+        return [feature_name[i] for i in categorical_feature]
 
     def predict(self, request: Dict) -> Dict:
         try:
@@ -51,6 +79,10 @@ class LightGBMModel(kserve.Model):
             for input in request['inputs']:
                 dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
             inputs = pd.concat(dfs, axis=0)
+
+            if self._categorical_columns:
+                overlap = set(self._categorical_columns) & set(inputs.columns)
+                inputs = inputs.astype({column: "category" for column in overlap})
 
             result = self._booster.predict(inputs)
             return {"predictions": result.tolist()}
