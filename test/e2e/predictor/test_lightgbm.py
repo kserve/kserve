@@ -35,7 +35,7 @@ def test_lightgbm_kserve():
         lightgbm=V1beta1LightGBMSpec(
             storage_uri="gs://kfserving-examples/models/lightgbm/iris",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
         ),
@@ -69,7 +69,7 @@ def test_lightgbm_runtime_kserve():
             ),
             storage_uri="gs://kfserving-examples/models/lightgbm/iris",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
         ),
@@ -106,7 +106,7 @@ def test_lightgbm_v2_runtime_kserve():
             storage_uri="gs://kfserving-examples/models/lightgbm/v2/iris",
             protocol_version="v2",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "1", "memory": "1Gi"},
             ),
         ),

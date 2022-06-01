@@ -39,7 +39,7 @@ def test_sklearn_s3_storagespec_kserve():
                 parameters={"bucket": "example-models"}
             ),
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
         ),
