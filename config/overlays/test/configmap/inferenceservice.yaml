@@ -26,7 +26,7 @@ data:
         },
         "sklearn": {
           "v1": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/sklearnserver",
+            "image": "kserve/sklearnserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "sklearn"
@@ -44,7 +44,7 @@ data:
         },
         "xgboost": {
           "v1": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/xgbserver",
+            "image": "kserve/xgbserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "xgboost"
@@ -93,7 +93,7 @@ data:
             "multiModelServer": true
         },
         "pmml": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/pmmlserver",
+            "image": "kserve/pmmlserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "pmml"
@@ -101,7 +101,7 @@ data:
             "multiModelServer": false
         },
         "lightgbm": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/lgbserver",
+            "image": "kserve/lgbserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "lightgbm"
@@ -109,7 +109,7 @@ data:
             "multiModelServer": false
         },
         "paddle": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/paddleserver",
+            "image": "kserve/paddleserver",
             "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "paddle"
@@ -123,21 +123,21 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/alibi-explainer",
+            "image" : "kserve/alibi-explainer",
             "defaultImageVersion": "latest"
         },
         "aix": {
-            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/aix-explainer",
+            "image" : "kserve/aix-explainer",
             "defaultImageVersion": "latest"
         },
         "art": {
-            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/art-explainer",
+            "image" : "kserve/art-explainer",
             "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/storage-initializer:latest",
+        "image" : "kserve/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -164,7 +164,7 @@ data:
     }
   logger: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/agent:latest",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -173,7 +173,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/batcher:latest",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",
@@ -181,7 +181,7 @@ data:
     }
   agent: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/agent:latest",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",

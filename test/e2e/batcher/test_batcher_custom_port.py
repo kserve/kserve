@@ -48,7 +48,7 @@ def test_batcher_custom_port():
             args=["--http_port=5000"],
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
             ports=[V1ContainerPort(container_port=5000, protocol='TCP')]

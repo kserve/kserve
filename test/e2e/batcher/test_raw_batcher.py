@@ -49,7 +49,7 @@ def test_batcher_raw():
         sklearn=V1beta1SKLearnSpec(
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
         ),

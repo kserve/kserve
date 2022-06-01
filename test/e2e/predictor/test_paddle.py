@@ -41,8 +41,8 @@ def test_paddle():
         paddle=V1beta1PaddleServerSpec(
             storage_uri="https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz",
             resources=V1ResourceRequirements(
-                requests={"cpu": "200m", "memory": "4Gi"},
-                limits={"cpu": "200m", "memory": "4Gi"},
+                requests={"cpu": "200m", "memory": "256Mi"},
+                limits={"cpu": "200m", "memory": "1Gi"},
             )
         )
     )
@@ -84,8 +84,8 @@ def test_paddle_runtime():
             ),
             storage_uri="https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz",
             resources=V1ResourceRequirements(
-                requests={"cpu": "200m", "memory": "4Gi"},
-                limits={"cpu": "200m", "memory": "4Gi"},
+                requests={"cpu": "200m", "memory": "256Mi"},
+                limits={"cpu": "200m", "memory": "1Gi"},
             )
         )
     )
