@@ -33,7 +33,7 @@ def test_pytorch():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
+            storage_uri='gs://kfserving-examples/models/pytorch/cifar10',
             model_class_name="Net",
             resources=V1ResourceRequirements(
                 requests={'cpu': '10m', 'memory': '128Mi'},
