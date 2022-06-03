@@ -110,7 +110,7 @@ spec:
           - "bert_transformer_v2"
         env:
           - name: STORAGE_URI
-            value: "gs://kfserving-samples/models/triton/bert-transformer"
+            value: "gs://kfserving-examples/models/triton/bert-transformer"
   predictor:
     triton:
       runtimeVersion: 20.10-py3
