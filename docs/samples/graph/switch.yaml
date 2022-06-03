@@ -35,13 +35,13 @@ spec:
     root:
       routerType: Sequence
       steps:
-      - service: green
+      - serviceName: green
       - nodeName: mymodel
         data: $response
     mymodel:
       routerType: Switch
       steps:
-      - service: blue
+      - serviceName: blue
         condition: "target == \"blue\""
-      - service: green
+      - serviceName: green
         condition: "target == \"green\""

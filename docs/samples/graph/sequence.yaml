@@ -26,6 +26,6 @@ spec:
     root:
       routerType: Sequence
       steps:
-        - service: sklearn-iris
-        - service: xgboost-iris
+        - serviceName: sklearn-iris
+        - serviceName: xgboost-iris
           data: $request

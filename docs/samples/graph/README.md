@@ -36,8 +36,8 @@ User can choose to pass `$request` or `$response` from each step as the input da
 root:
   routerType: Sequence 
   steps:
-  - service: isvc1
-  - nodeName: isvc2
+  - serviceName: isvc1
+  - serviceName: isvc2
     data: $request
 ...
 ```
@@ -84,9 +84,9 @@ in order.
 mymodel:
   routerType: Switch
   steps:
-  - service: isvc1
+  - serviceName: isvc1
     condition: "target == \"blue\""
-  - service: isvc2
+  - serviceName: isvc2
     condition: "target == \"green\""
 ```
 We use `https://github.com/tidwall/gjson` to parse and match the condition and [here](https://github.com/tidwall/gjson/blob/master/SYNTAX.md) is the `GJSON` syntax reference.
@@ -134,8 +134,8 @@ Multiple classification trees, for example, are commonly combined using a "major
 root:
   routerType: Ensemble
   routes:
-  - service: sklearn-iris
-  - service: xgboost-iris
+  - serviceName: sklearn-iris
+  - serviceName: xgboost-iris
 ```
 
 ***Test steps***
@@ -178,9 +178,9 @@ curl http://ensemble-model.default.10.166.15.29.sslip.io -d @./iris-input.json
 root:
   routerType: Splitter 
   routes:
-  - service: sklearn-iris
+  - serviceName: sklearn-iris
     weight: 20
-  - service: xgboost-iris
+  - serviceName: xgboost-iris
     weight: 80
 ```
 

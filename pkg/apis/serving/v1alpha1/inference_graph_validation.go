@@ -126,7 +126,7 @@ func validateInferenceGraphSingleStepTargets(ig *InferenceGraph) error {
 					i, route.StepName, nodeName, ig.Name)
 			}
 			if count != 1 {
-				return fmt.Errorf("Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" specifies more than one of nodeName, service, serviceUrl",
+				return fmt.Errorf("Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" specifies more than one of nodeName, serviceName, serviceUrl",
 					i, route.StepName, nodeName, ig.Name)
 			}
 		}
