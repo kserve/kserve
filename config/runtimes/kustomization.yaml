@@ -44,5 +44,5 @@ images:
     newTag: latest
 
   - name: kserve-torchserve
-    newName: kserve/torchserve-kfs
-    newTag: 0.5.3
+    newName: pytorch/torchserve-kfs
+    newTag: 0.6.0
