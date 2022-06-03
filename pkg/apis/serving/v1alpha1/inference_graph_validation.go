@@ -1,0 +1,174 @@
+/*
+Copyright 2022 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1alpha1
+
+import (
+	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"regexp"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+)
+
+const (
+	// InvalidGraphNameFormatError defines the error message for invalid inference graph name
+	InvalidGraphNameFormatError = "The InferenceGraph \"%s\" is invalid: a InferenceGraph name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+)
+
+const (
+	// GraphNameFmt regular expressions for validation of isvc name
+	GraphNameFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+)
+
+var (
+	// logger for the validation webhook.
+	validatorLogger = logf.Log.WithName("inferencegraph-v1alpha1-validation-webhook")
+	//GraphRegexp regular expressions for validation of graph name
+	GraphRegexp = regexp.MustCompile("^" + GraphNameFmt + "$")
+)
+
+// +kubebuilder:webhook:verbs=create;update,path=/validate-inferencegraph,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=pods,versions=v1alpha1,name=inferencegraph.kserve-webhook-server.validator
+
+var _ webhook.Validator = &InferenceGraph{}
+
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
+func (ig *InferenceGraph) ValidateCreate() error {
+	validatorLogger.Info("validate create", "name", ig.Name)
+
+	if err := validateInferenceGraphName(ig); err != nil {
+		return err
+	}
+
+	if err := validateInferenceGraphRouterRoot(ig); err != nil {
+		return err
+	}
+
+	if err := validateInferenceGraphStepNameUniqueness(ig); err != nil {
+		return err
+	}
+
+	if err := validateInferenceGraphSingleStepTargets(ig); err != nil {
+		return err
+	}
+
+	if err := validateInferenceGraphSplitterWeight(ig); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+func (ig *InferenceGraph) ValidateUpdate(old runtime.Object) error {
+	validatorLogger.Info("validate update", "name", ig.Name)
+
+	return ig.ValidateCreate()
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (ig *InferenceGraph) ValidateDelete() error {
+	validatorLogger.Info("validate delete", "name", ig.Name)
+	return nil
+}
+
+// Validation of unique step names
+func validateInferenceGraphStepNameUniqueness(ig *InferenceGraph) error {
+	nodes := ig.Spec.Nodes
+	for nodeName, node := range nodes {
+		nameSet := sets.NewString()
+		for _, route := range node.Steps {
+			if route.StepName != "" {
+				if nameSet.Has(route.StepName) {
+					return fmt.Errorf("Node \"%s\" of InferenceGraph \"%s\" contains more than one step with name \"%s\"",
+						nodeName, ig.Name, route.StepName)
+				}
+				nameSet.Insert(route.StepName)
+			}
+		}
+	}
+	return nil
+}
+
+// Validation of single step inference targets
+func validateInferenceGraphSingleStepTargets(ig *InferenceGraph) error {
+	nodes := ig.Spec.Nodes
+	for nodeName, node := range nodes {
+		for i, route := range node.Steps {
+			target := route.InferenceTarget
+			count := 0
+			if target.NodeName != "" {
+				count += 1
+			}
+			if target.ServiceName != "" {
+				count += 1
+			}
+			if target.ServiceURL != "" {
+				count += 1
+			}
+			if count == 0 {
+				return fmt.Errorf("Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" does not specify an inference target",
+					i, route.StepName, nodeName, ig.Name)
+			}
+			if count != 1 {
+				return fmt.Errorf("Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" specifies more than one of nodeName, serviceName, serviceUrl",
+					i, route.StepName, nodeName, ig.Name)
+			}
+		}
+	}
+	return nil
+}
+
+// Validation of inference graph name
+func validateInferenceGraphName(ig *InferenceGraph) error {
+	if !GraphRegexp.MatchString(ig.Name) {
+		return fmt.Errorf(InvalidGraphNameFormatError, ig.Name, GraphNameFmt)
+	}
+	return nil
+}
+
+//Validation of inference graph router root
+func validateInferenceGraphRouterRoot(ig *InferenceGraph) error {
+	nodes := ig.Spec.Nodes
+	for name := range nodes {
+		if name == GraphRootNodeName {
+			return nil
+		}
+	}
+	return fmt.Errorf("root node not found, InferenceGraph needs a node with name 'root' as the root node of the graph")
+}
+
+//Validation of inference graph router type
+func validateInferenceGraphSplitterWeight(ig *InferenceGraph) error {
+	nodes := ig.Spec.Nodes
+	for name, node := range nodes {
+		weight := 0
+		if node.RouterType == Splitter {
+			for _, route := range node.Steps {
+				if route.Weight == nil {
+					return fmt.Errorf("InferenceGraph[%s] Node[%s] Route[%s] missing the 'Weight'", ig.Name, name, route.ServiceName)
+				}
+				weight += int(*route.Weight)
+			}
+			if weight != 100 {
+				return fmt.Errorf("InferenceGraph[%s] Node[%s] splitter node: the sum of traffic weights for all routing targets should be 100", ig.Name, name)
+			}
+		}
+	}
+	return nil
+}
