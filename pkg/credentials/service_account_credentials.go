@@ -33,7 +33,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/credentials/azure"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
-  "github.com/kserve/kserve/pkg/credentials/hdfs"
+	"github.com/kserve/kserve/pkg/credentials/hdfs"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -49,7 +49,7 @@ const (
 )
 
 var (
-	SupportedStorageSpecTypes = []string{"s3", "hdfs"}
+	SupportedStorageSpecTypes = []string{"s3", "hdfs", "webhdfs"}
 	StorageBucketTypes        = []string{"s3"}
 )
 

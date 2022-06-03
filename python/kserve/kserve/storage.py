@@ -43,6 +43,7 @@ from kserve.model_repository import MODEL_MOUNT_DIRS
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _HDFS_PREFIX = "hdfs://"
+_WEBHDFS_PREFIX = "webhdfs://"
 _AZURE_BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _AZURE_FILE_RE = "https://(.+?).file.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
@@ -80,7 +81,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             Storage._download_gcs(uri, out_dir)
         elif uri.startswith(_S3_PREFIX):
             Storage._download_s3(uri, out_dir)
-        elif uri.startswith(_HDFS_PREFIX):
+        elif uri.startswith(_HDFS_PREFIX) or uri.startswith(_WEBHDFS_PREFIX):
             Storage._download_hdfs(uri, out_dir)
         elif re.search(_AZURE_BLOB_RE, uri):
             Storage._download_azure_blob(uri, out_dir)
@@ -118,7 +119,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             os.environ["AWS_CA_BUNDLE"] = storage_secret_json.get("certificate", "")
             os.environ["awsAnonymousCredential"] = storage_secret_json.get("anonymous", "")
 
-        if storage_secret_json.get("type", "") == "hdfs":
+        if storage_secret_json.get("type", "") == "hdfs" or storage_secret_json.get("type", "") == "webhdfs":
             temp_dir = tempfile.mkdtemp()
             os.environ["HDFS_SECRET_DIR"] = temp_dir
             for key, value in storage_secret_json.items():
@@ -281,9 +282,13 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
         logging.info(f"Using the following hdfs config\n{config}")
 
-        # Remove hdfs:// from the uri to get just the path
-        # hdfs://user/me/model -> user/me/model
-        path = uri[len(_HDFS_PREFIX):]
+        # Remove hdfs:// or webhdfs:// from the uri to get just the path
+        # e.g. hdfs://user/me/model -> user/me/model
+        if uri.startswith(_HDFS_PREFIX):
+            path = uri[len(_HDFS_PREFIX):]
+        else:
+            path = uri[len(_WEBHDFS_PREFIX):]
+
         if not config["HDFS_ROOTPATH"]:
             path = "/" + path
 

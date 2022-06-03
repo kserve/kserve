@@ -80,6 +80,8 @@ secrets:
 
 You can then specify to use this new service account in the `InferenceService` YAML.
 
+In the `storageUri` you can then give a `hdfs://` or `webhdfs://` path to your model file(s).
+
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -102,6 +104,8 @@ Create a secret called `storage-config` in the namespace that the `InferenceServ
 
 The json config keys are the same as the variables above for storageUri. The difference is that the values of variables which reference files should be encoded to base64 so that they can be safely
 used in the json. This applies to: `TLS_CERT` `TLS_KEY` `TLS_CA` `KERBEROS_KEYTAB`
+
+For the type you can specify `hdfs` or `webhdfs`
 
 ```YAML
 apiVersion: v1
