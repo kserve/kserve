@@ -60,7 +60,7 @@ func createRawURL(isvc *v1beta1api.InferenceService,
 	ingressConfig *v1beta1api.IngressConfig) (*knapis.URL, error) {
 	var err error
 	url := &knapis.URL{}
-	url.Scheme = "http"
+	url.Scheme = ingressConfig.UrlScheme
 	url.Host, err = GenerateDomainName(isvc.Name, isvc.ObjectMeta, ingressConfig)
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1api.InferenceService) erro
 	isvc.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
 			Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
-			Scheme: "http",
+			Scheme: r.ingressConfig.UrlScheme,
 			Path:   "",
 		},
 	}

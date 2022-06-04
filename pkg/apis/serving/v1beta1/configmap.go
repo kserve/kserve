@@ -40,6 +40,8 @@ const (
 
 	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
 	DefaultIngressDomain  = "example.com"
+
+	DefaultUrlScheme = "http"
 )
 
 // +kubebuilder:object:generate=false
@@ -124,6 +126,7 @@ type IngressConfig struct {
 	IngressDomain           string  `json:"ingressDomain,omitempty"`
 	IngressClassName        *string `json:"ingressClassName,omitempty"`
 	DomainTemplate          string  `json:"domainTemplate,omitempty"`
+	UrlScheme               string  `json:"urlScheme,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -174,6 +177,10 @@ func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 
 	if ingressConfig.IngressDomain == "" {
 		ingressConfig.IngressDomain = DefaultIngressDomain
+	}
+
+	if ingressConfig.UrlScheme == "" {
+		ingressConfig.UrlScheme = DefaultUrlScheme
 	}
 
 	return ingressConfig, nil
