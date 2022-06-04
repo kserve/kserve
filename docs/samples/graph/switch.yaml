@@ -1,0 +1,47 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "blue"
+spec:
+  predictor:
+    minReplicas: 1
+    containers:
+    - image: iamlovingit/bgtest:latest
+      name: custom
+      env:
+      - name: "target"
+        value: "blue"
+---
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "green"
+spec:
+  predictor:
+    minReplicas: 1
+    containers:
+    - image: iamlovingit/bgtest:latest
+      name: custom
+      env: 
+      - name: "target"
+        value: "green"
+---
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: InferenceGraph
+metadata: 
+  name: model-switch
+spec:
+  nodes:
+    root:
+      routerType: Sequence
+      steps:
+      - serviceName: green
+      - nodeName: mymodel
+        data: $response
+    mymodel:
+      routerType: Switch
+      steps:
+      - serviceName: blue
+        condition: "target == \"blue\""
+      - serviceName: green
+        condition: "target == \"green\""

@@ -34,20 +34,20 @@ def test_triton():
             storage_uri='gs://kfserving-examples/models/torchscript',
             ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)],
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '1Gi'},
-                limits={'cpu': '1', 'memory': '1Gi'},
+                requests={'cpu': '10m', 'memory': '128Mi'},
+                limits={'cpu': '100m', 'memory': '512Mi'},
             ),
         )
     )
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:'
-                            + os.environ.get("PULL_BASE_SHA"),
+                      image='kserve/image-transformer:'
+                            + os.environ.get("GITHUB_SHA"),
                       name='kserve-container',
                       resources=V1ResourceRequirements(
-                          requests={'cpu': '100m', 'memory': '1Gi'},
-                          limits={'cpu': '100m', 'memory': '1Gi'}),
+                          requests={'cpu': '10m', 'memory': '128Mi'},
+                          limits={'cpu': '100m', 'memory': '512Mi'}),
                       args=["--model_name", "cifar10", "--protocol", "grpc-v2"])]
     )
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
@@ -93,12 +93,12 @@ def test_triton_runtime():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:'
-                            + os.environ.get("PULL_BASE_SHA"),
+                      image='kserve/image-transformer:'
+                            + os.environ.get("GITHUB_SHA"),
                       name='kserve-container',
                       resources=V1ResourceRequirements(
-                          requests={'cpu': '100m', 'memory': '1Gi'},
-                          limits={'cpu': '100m', 'memory': '1Gi'}),
+                          requests={'cpu': '10m', 'memory': '128Mi'},
+                          limits={'cpu': '100m', 'memory': '512Mi'}),
                       args=["--model_name", "cifar10", "--protocol", "grpc-v2"])]
     )
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,

@@ -44,8 +44,9 @@ def test_tabular_explainer():
                     image='aipipeline/rf-predictor:0.4.0',
                     command=["python", "-m", "rfserver", "--model_name", "aix-explainer"],
                     resources=V1ResourceRequirements(
-                        requests={'cpu': '500m', 'memory': '1Gi'},
-                        limits={'cpu': '500m', 'memory': '1Gi'}))]
+                        requests={'cpu': '10m', 'memory': '128Mi'},
+                        limits={'cpu': '100m', 'memory': '256Mi'}
+                    ))]
     )
     explainer = V1beta1ExplainerSpec(
         min_replicas=1,
@@ -53,8 +54,9 @@ def test_tabular_explainer():
             name='explainer',
             type='LimeImages',
             resources=V1ResourceRequirements(
-                requests={'cpu': '500m', 'memory': '1Gi'},
-                limits={'cpu': '500m', 'memory': '1Gi'})
+                requests={'cpu': '10m', 'memory': '128Mi'},
+                limits={'cpu': '100m', 'memory': '256Mi'}
+            )
         )
     )
 

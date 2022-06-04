@@ -145,7 +145,7 @@ func TestGenerateOpenAPISpecGenerationErr(t *testing.T) {
 }
 
 func TestGenerateOpenAPIForRowFmtMultipleTensors(t *testing.T) {
-	// model src: gs://kfserving-samples/models/tensorflow/flowers
+	// model src: gs://kfserving-examples/models/tensorflow/flowers
 	g := gomega.NewGomegaWithT(t)
 	model := model(t, "TestRowFmtMultipleTensors")
 	generator := defaultGenerator()
