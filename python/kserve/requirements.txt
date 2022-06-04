@@ -19,11 +19,5 @@ boto3==1.21.0
 psutil>=5.9.0
 ray[serve]==1.9.2
 grpcio>=1.34.0
-jmespath==0.10.0
-googleapis_common_protos==1.54.0
-cachetools==5.0.0
-cffi==1.15.0
-idna==3.3
-certifi==2021.10.8
 tritonclient==2.18.0
 protobuf~=3.19.0
