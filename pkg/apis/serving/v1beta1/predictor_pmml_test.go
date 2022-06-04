@@ -60,7 +60,7 @@ func TestPMMLValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PMML: &PMMLSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
+						StorageURI: proto.String("invaliduri://modelzoo"),
 					},
 				},
 			},
