@@ -36,7 +36,7 @@ func TestTorchServeValidation(t *testing.T) {
 		Predictors: PredictorsConfig{
 			PyTorch: PredictorConfig{
 				ContainerImage:      "pytorch/torchserve-kfs",
-				DefaultImageVersion: "0.4.1",
+				DefaultImageVersion: "0.6.0",
 				MultiModelServer:    false,
 			},
 		},
@@ -49,7 +49,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.4.1"),
+						RuntimeVersion: proto.String("0.6.0"),
 					},
 				},
 			},
@@ -59,7 +59,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.4.1-gpu"),
+						RuntimeVersion: proto.String("0.6.0-gpu"),
 					},
 				},
 			},
@@ -69,7 +69,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.4.1"),
+						RuntimeVersion: proto.String("0.6.0"),
 						Container: v1.Container{
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
@@ -119,7 +119,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 		Predictors: PredictorsConfig{
 			PyTorch: PredictorConfig{
 				ContainerImage:      "pytorch/torchserve-kfs",
-				DefaultImageVersion: "0.4.1",
+				DefaultImageVersion: "0.6.0",
 				MultiModelServer:    false,
 			},
 		},
@@ -146,7 +146,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("0.4.1"),
+						RuntimeVersion:  proto.String("0.6.0"),
 						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -168,7 +168,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("0.4.1"),
+						RuntimeVersion:  proto.String("0.6.0"),
 						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -186,14 +186,14 @@ func TestTorchServeDefaulter(t *testing.T) {
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						ProtocolVersion: &protocolV1,
-						RuntimeVersion:  proto.String("0.4.1"),
+						RuntimeVersion:  proto.String("0.6.0"),
 					},
 				},
 			},
 			expected: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("0.4.1"),
+						RuntimeVersion:  proto.String("0.6.0"),
 						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -497,7 +497,7 @@ func TestTorchServeIsMMS(t *testing.T) {
 			Predictors: PredictorsConfig{
 				PyTorch: PredictorConfig{
 					ContainerImage:      "pytorch/torchserve-kfs",
-					DefaultImageVersion: "0.4.1",
+					DefaultImageVersion: "0.6.0",
 					MultiModelServer:    mmsCase,
 				},
 			},
@@ -564,7 +564,7 @@ func TestTorchServeIsFrameworkSupported(t *testing.T) {
 		Predictors: PredictorsConfig{
 			PyTorch: PredictorConfig{
 				ContainerImage:      "pytorch/torchserve-kfs",
-				DefaultImageVersion: "0.4.1",
+				DefaultImageVersion: "0.6.0",
 				SupportedFrameworks: []string{pytorch},
 			},
 		},
