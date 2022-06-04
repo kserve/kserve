@@ -63,7 +63,7 @@ func TestCustomExplainerValidation(t *testing.T) {
 							Env: []v1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
-									Value: "hdfs://modelzoo",
+									Value: "invaliduri://modelzoo",
 								},
 							},
 						},

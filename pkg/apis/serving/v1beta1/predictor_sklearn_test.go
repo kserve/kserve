@@ -61,7 +61,7 @@ func TestSKLearnValidation(t *testing.T) {
 			spec: PredictorSpec{
 				SKLearn: &SKLearnSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
+						StorageURI: proto.String("invaliduri://modelzoo"),
 					},
 				},
 			},

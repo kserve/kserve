@@ -69,7 +69,7 @@ func TestAlibiValidation(t *testing.T) {
 			spec: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
 					ExplainerExtensionSpec: ExplainerExtensionSpec{
-						StorageURI: "hdfs://modelzoo",
+						StorageURI: "invaliduri://modelzoo",
 					},
 				},
 			},

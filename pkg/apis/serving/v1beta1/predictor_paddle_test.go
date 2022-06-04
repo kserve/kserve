@@ -59,7 +59,7 @@ func TestPaddleValidation(t *testing.T) {
 			spec: PredictorSpec{
 				Paddle: &PaddleServerSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
+						StorageURI: proto.String("invaliduri://modelzoo"),
 					},
 				},
 			},

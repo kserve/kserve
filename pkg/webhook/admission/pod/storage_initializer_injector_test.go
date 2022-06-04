@@ -276,7 +276,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://<bucket-placeholder>/foo/bar",
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://foo/bar",
 						constants.StorageSpecAnnotationKey:                         "true",
 						constants.StorageSpecParamAnnotationKey:                    `{"type": "s3", "bucket": "my-bucket"}`,
 					},
@@ -292,7 +292,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 			expected: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://<bucket-placeholder>/foo/bar",
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://foo/bar",
 						constants.StorageSpecAnnotationKey:                         "true",
 						constants.StorageSpecParamAnnotationKey:                    `{"type": "s3", "bucket": "my-bucket"}`,
 					},
@@ -314,7 +314,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"s3://<bucket-placeholder>/foo/bar", constants.DefaultModelLocalMountPath},
+							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name:  credentials.StorageOverrideConfigEnvKey,
@@ -739,14 +739,14 @@ func TestCredentialInjection(t *testing.T) {
 					Namespace: "default",
 				},
 				StringData: map[string]string{
-					"my-storage": `{"type": "s3", "bucket": "my-bucket"}`,
+					"my-storage": `{"type": "s3", "bucket": "my-bucket", "region": "na"}`,
 				},
 			},
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://<bucket-placeholder>/foo/bar",
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://foo/bar",
 						constants.StorageSpecAnnotationKey:                         "true",
 						constants.StorageSpecParamAnnotationKey:                    `{"some-param": "some-val"}`,
 						constants.StorageSpecKeyAnnotationKey:                      "my-storage",
@@ -763,7 +763,7 @@ func TestCredentialInjection(t *testing.T) {
 			expected: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://<bucket-placeholder>/foo/bar",
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://foo/bar",
 						constants.StorageSpecAnnotationKey:                         "true",
 						constants.StorageSpecParamAnnotationKey:                    `{"some-param":"some-val"}`,
 						constants.StorageSpecKeyAnnotationKey:                      "my-storage",
@@ -786,7 +786,7 @@ func TestCredentialInjection(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"s3://<bucket-placeholder>/foo/bar", constants.DefaultModelLocalMountPath},
+							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: credentials.StorageConfigEnvKey,
@@ -836,14 +836,14 @@ func TestCredentialInjection(t *testing.T) {
 					Namespace: "default",
 				},
 				StringData: map[string]string{
-					credentials.DefaultStorageSecretKey: `{"type": "s3", "bucket": "my-bucket"}`,
+					credentials.DefaultStorageSecretKey: `{"type": "s3", "bucket": "my-bucket", "region": "na"}`,
 				},
 			},
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://<bucket-placeholder>/foo/bar",
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://foo/bar",
 						constants.StorageSpecAnnotationKey:                         "true",
 						constants.StorageSpecParamAnnotationKey:                    `{"some-param": "some-val"}`,
 					},
@@ -859,7 +859,7 @@ func TestCredentialInjection(t *testing.T) {
 			expected: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://<bucket-placeholder>/foo/bar",
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://foo/bar",
 						constants.StorageSpecAnnotationKey:                         "true",
 						constants.StorageSpecParamAnnotationKey:                    `{"some-param":"some-val"}`,
 					},
@@ -881,7 +881,7 @@ func TestCredentialInjection(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"s3://<bucket-placeholder>/foo/bar", constants.DefaultModelLocalMountPath},
+							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: credentials.StorageConfigEnvKey,

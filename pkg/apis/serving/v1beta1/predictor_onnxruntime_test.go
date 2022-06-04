@@ -60,7 +60,7 @@ func TestOnnxRuntimeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				ONNX: &ONNXRuntimeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
+						StorageURI: proto.String("invaliduri://modelzoo"),
 					},
 				},
 			},
