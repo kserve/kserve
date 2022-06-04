@@ -28,14 +28,14 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name='kserve',
-    version='0.8.0',
+    version='0.9.0rc0',
     author="The KServe Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net',
     license="Apache License Version 2.0",
     url="https://github.com/kserve/kserve/tree/master/python/kserve",
     description="KServe Python SDK",
     long_description="Python SDK for KServe Server and Client.",
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     packages=[
         'kserve',
         'kserve.api',
@@ -52,8 +52,9 @@ setuptools.setup(
         'Intended Audience :: Education',
         'Intended Audience :: Science/Research',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         'Topic :: Scientific/Engineering',
