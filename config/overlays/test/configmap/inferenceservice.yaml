@@ -62,18 +62,18 @@ data:
         },
         "pytorch": {
           "v1" : {
-            "image": "kserve/torchserve-kfs",
-            "defaultImageVersion": "0.5.3",
-            "defaultGpuImageVersion": "0.5.3-gpu",
+            "image": "pytorch/torchserve-kfs",
+            "defaultImageVersion": "0.6.0",
+            "defaultGpuImageVersion": "0.6.0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
             "multiModelServer": false
           },
           "v2" : {
-            "image": "kserve/torchserve-kfs",
-            "defaultImageVersion": "0.5.3",
-            "defaultGpuImageVersion": "0.5.3-gpu",
+            "image": "pytorch/torchserve-kfs",
+            "defaultImageVersion": "0.6.0",
+            "defaultGpuImageVersion": "0.6.0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
