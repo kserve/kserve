@@ -17,6 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+
+	"github.com/kserve/kserve/pkg/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -185,7 +188,7 @@ const (
 )
 
 // FailureReason enum
-// +kubebuilder:validation:Enum=ModelLoadFailed;RuntimeUnhealthy;NoSupportingRuntime;RuntimeNotRecognized;InvalidPredictorSpec
+// +kubebuilder:validation:Enum=ModelLoadFailed;RuntimeUnhealthy;RuntimeDisabled;NoSupportingRuntime;RuntimeNotRecognized;InvalidPredictorSpec
 type FailureReason string
 
 // FailureReason enum values
@@ -194,6 +197,8 @@ const (
 	ModelLoadFailed FailureReason = "ModelLoadFailed"
 	// Corresponding ServingRuntime containers failed to start or are unhealthy
 	RuntimeUnhealthy FailureReason = "RuntimeUnhealthy"
+	// The ServingRuntime is disabled
+	RuntimeDisabled FailureReason = "RuntimeDisabled"
 	// There are no ServingRuntime which support the specified model type
 	NoSupportingRuntime FailureReason = "NoSupportingRuntime"
 	// There is no ServingRuntime defined with the specified runtime name
@@ -392,5 +397,115 @@ func (ss *InferenceServiceStatus) SetCondition(conditionType apis.ConditionType,
 func (ss *InferenceServiceStatus) ClearCondition(conditionType apis.ConditionType) {
 	if conditionSet.Manage(ss).GetCondition(conditionType) != nil {
 		conditionSet.Manage(ss).ClearCondition(conditionType)
+	}
+}
+
+func (ss *InferenceServiceStatus) UpdateModelRevisionStates(modelState ModelState, totalCopies int, info *FailureInfo) {
+	if ss.ModelStatus.ModelRevisionStates == nil {
+		ss.ModelStatus.ModelRevisionStates = &ModelRevisionStates{TargetModelState: modelState}
+	} else {
+		ss.ModelStatus.ModelRevisionStates.TargetModelState = modelState
+	}
+	// Update transition status, failure info based on new model state
+	if modelState == Pending || modelState == Loading {
+		ss.ModelStatus.TransitionStatus = InProgress
+	} else if modelState == Loaded {
+		ss.ModelStatus.TransitionStatus = UpToDate
+		ss.ModelStatus.ModelCopies = &ModelCopies{TotalCopies: totalCopies}
+		ss.ModelStatus.ModelRevisionStates.ActiveModelState = Loaded
+	} else if modelState == FailedToLoad {
+		ss.ModelStatus.TransitionStatus = BlockedByFailedLoad
+	}
+	if info != nil {
+		ss.SetModelFailureInfo(info)
+	}
+}
+
+func (ss *InferenceServiceStatus) UpdateModelTransitionStatus(status TransitionStatus, info *FailureInfo) {
+	ss.ModelStatus.TransitionStatus = status
+	// Update model state to 'FailedToLoad' in case of invalid spec provided
+	if ss.ModelStatus.TransitionStatus == InvalidSpec {
+		if ss.ModelStatus.ModelRevisionStates == nil {
+			ss.ModelStatus.ModelRevisionStates = &ModelRevisionStates{TargetModelState: FailedToLoad}
+		} else {
+			ss.ModelStatus.ModelRevisionStates.TargetModelState = FailedToLoad
+		}
+	}
+	if info != nil {
+		ss.SetModelFailureInfo(info)
+	}
+}
+
+func (ss *InferenceServiceStatus) SetModelFailureInfo(info *FailureInfo) bool {
+	if reflect.DeepEqual(info, ss.ModelStatus.LastFailureInfo) {
+		return false
+	}
+	ss.ModelStatus.LastFailureInfo = info
+	return true
+}
+
+func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatusSpec, podList *v1.PodList, rawDeplyment bool) {
+	// Check at least one pod is running for the latest revision of inferenceservice
+	totalCopies := len(podList.Items)
+	if totalCopies == 0 {
+		ss.UpdateModelRevisionStates(Pending, totalCopies, nil)
+		return
+	}
+	// Update model state to 'Loaded' if inferenceservice status is ready.
+	// For serverless deployment, the latest created revision and the latest ready revision should be equal
+	if ss.IsReady() {
+		if rawDeplyment {
+			ss.UpdateModelRevisionStates(Loaded, totalCopies, nil)
+			return
+		} else if statusSpec.LatestCreatedRevision == statusSpec.LatestReadyRevision {
+			ss.UpdateModelRevisionStates(Loaded, totalCopies, nil)
+			return
+		}
+	}
+	// Update model state to 'Loading' if storage initializer is running.
+	// If the storage initializer is terminated due to error or crashloopbackoff, update model
+	// state to 'ModelLoadFailed' with failure info.
+	for _, cs := range podList.Items[0].Status.InitContainerStatuses {
+		if cs.Name == constants.StorageInitializerContainerName {
+			if cs.State.Running != nil {
+				ss.UpdateModelRevisionStates(Loading, totalCopies, nil)
+				return
+			} else if cs.State.Terminated != nil &&
+				cs.State.Terminated.Reason == constants.StateReasonError {
+				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
+					Reason:  ModelLoadFailed,
+					Message: cs.State.Terminated.Message,
+				})
+				return
+			} else if cs.State.Waiting != nil &&
+				cs.State.Waiting.Reason == constants.StateReasonCrashLoopBackOff {
+				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
+					Reason:  ModelLoadFailed,
+					Message: cs.LastTerminationState.Terminated.Message,
+				})
+				return
+			}
+		}
+	}
+	// If the kserve container is terminated due to error or crashloopbackoff, update model
+	// state to 'ModelLoadFailed' with failure info.
+	for _, cs := range podList.Items[0].Status.ContainerStatuses {
+		if cs.Name == constants.InferenceServiceContainerName {
+			if cs.State.Terminated != nil &&
+				cs.State.Terminated.Reason == constants.StateReasonError {
+				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
+					Reason:  ModelLoadFailed,
+					Message: cs.State.Terminated.Message,
+				})
+			} else if cs.State.Waiting != nil &&
+				cs.State.Waiting.Reason == constants.StateReasonCrashLoopBackOff {
+				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
+					Reason:  ModelLoadFailed,
+					Message: cs.LastTerminationState.Terminated.Message,
+				})
+			} else {
+				ss.UpdateModelRevisionStates(Pending, totalCopies, nil)
+			}
+		}
 	}
 }

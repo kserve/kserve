@@ -35,9 +35,9 @@ def test_canary_rollout():
         predictor=V1beta1PredictorSpec(
             min_replicas=1,
             tensorflow=V1beta1TFServingSpec(
-                storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
+                storage_uri='gs://kfserving-examples/models/tensorflow/flowers',
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '256Mi'},
+                    requests={'cpu': '10m', 'memory': '128Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))))
 
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
@@ -54,9 +54,9 @@ def test_canary_rollout():
         predictor=V1beta1PredictorSpec(
             canary_traffic_percent=10,
             tensorflow=V1beta1TFServingSpec(
-                storage_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
+                storage_uri='gs://kfserving-examples/models/tensorflow/flowers-2',
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '256Mi'},
+                    requests={'cpu': '10m', 'memory': '128Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))))
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,
@@ -85,9 +85,9 @@ def test_canary_rollout_runtime():
                 model_format=V1beta1ModelFormat(
                     name="tensorflow",
                 ),
-                storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
+                storage_uri='gs://kfserving-examples/models/tensorflow/flowers',
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '256Mi'},
+                    requests={'cpu': '10m', 'memory': '128Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))))
 
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
@@ -107,9 +107,9 @@ def test_canary_rollout_runtime():
                 model_format=V1beta1ModelFormat(
                     name="tensorflow",
                 ),
-                storage_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
+                storage_uri='gs://kfserving-examples/models/tensorflow/flowers-2',
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '256Mi'},
+                    requests={'cpu': '10m', 'memory': '128Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))))
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,

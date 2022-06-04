@@ -51,4 +51,5 @@ func Resource(resource string) schema.GroupResource {
 
 func init() {
 	SchemeBuilder.Register(&TrainedModel{}, &TrainedModelList{})
+	SchemeBuilder.Register(&InferenceGraph{}, &InferenceGraphList{})
 }

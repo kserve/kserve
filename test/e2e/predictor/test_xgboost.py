@@ -35,7 +35,7 @@ def test_xgboost_kserve():
         xgboost=V1beta1XGBoostSpec(
             storage_uri="gs://kfserving-examples/models/xgboost/1.5/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
         ),
@@ -67,7 +67,7 @@ def test_xgboost_v2_kserve():
             env=[V1EnvVar(name="MLSERVER_MODEL_PARALLEL_WORKERS", value="0")],
             protocol_version="v2",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
             ),
         ),
@@ -102,7 +102,7 @@ def test_xgboost_runtime_kserve():
             ),
             storage_uri="gs://kfserving-examples/models/xgboost/1.5/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
         ),
@@ -135,10 +135,10 @@ def test_xgboost_v2_runtime_kserve():
                 name="xgboost",
             ),
             runtime="kserve-mlserver",
-            storage_uri="gs://kfserving-samples/models/xgboost/iris",
+            storage_uri="gs://kfserving-examples/models/xgboost/iris",
             protocol_version="v2",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
             ),
         ),

@@ -189,6 +189,14 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1"
     }
+  router: |-
+    {
+        "image" : "kserve/router:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
   deploy: |-
     {
       "defaultDeploymentMode": "Serverless"

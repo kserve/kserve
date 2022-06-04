@@ -47,6 +47,8 @@ Expected Output
 $ inferenceservice.serving.kubeflow.org/driver-transformer created
 ```
 
+Note if you want to run the predictor in ModelMesh, update the [ModelMesh YAML file](./driver_transformer_modelmesh.yaml) instead, and adjust the kubectl apply command accordingly.
+
 ## Run a prediction
 The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 

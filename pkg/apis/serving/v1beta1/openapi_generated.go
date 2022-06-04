@@ -33,6 +33,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1alpha1.BuiltInAdapter":            schema_pkg_apis_serving_v1alpha1_BuiltInAdapter(ref),
 		"./pkg/apis/serving/v1alpha1.ClusterServingRuntime":     schema_pkg_apis_serving_v1alpha1_ClusterServingRuntime(ref),
 		"./pkg/apis/serving/v1alpha1.ClusterServingRuntimeList": schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref),
+		"./pkg/apis/serving/v1alpha1.InferenceGraph":            schema_pkg_apis_serving_v1alpha1_InferenceGraph(ref),
+		"./pkg/apis/serving/v1alpha1.InferenceGraphList":        schema_pkg_apis_serving_v1alpha1_InferenceGraphList(ref),
 		"./pkg/apis/serving/v1alpha1.ModelSpec":                 schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
 		"./pkg/apis/serving/v1alpha1.ServingRuntime":            schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref),
 		"./pkg/apis/serving/v1alpha1.ServingRuntimeList":        schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref),
@@ -242,6 +244,107 @@ func schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref common.Refer
 		},
 		Dependencies: []string{
 			"./pkg/apis/serving/v1alpha1.ClusterServingRuntime", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_InferenceGraph(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InferenceGraph is the Schema for the InferenceGraph API for multiple models",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("./pkg/apis/serving/v1alpha1.InferenceGraphSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("./pkg/apis/serving/v1alpha1.InferenceGraphStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.InferenceGraphSpec", "./pkg/apis/serving/v1alpha1.InferenceGraphStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_InferenceGraphList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InferenceGraphList contains a list of InferenceGraph",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("./pkg/apis/serving/v1alpha1.InferenceGraph"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.InferenceGraph", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 

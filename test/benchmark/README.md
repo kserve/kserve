@@ -121,7 +121,7 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers
       resources:
         requests:
           cpu: "4"
@@ -154,7 +154,7 @@ spec:
   predictor:
     containerConcurrency: 1 #CC=1
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers
       resources:
         requests:
           cpu: "4"
@@ -189,7 +189,7 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers
       resources:
         requests:
           cpu: "4"

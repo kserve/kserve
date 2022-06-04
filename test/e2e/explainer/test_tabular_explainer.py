@@ -39,8 +39,8 @@ def test_tabular_explainer():
         sklearn=V1beta1SKLearnSpec(
             storage_uri='gs://kfserving-examples/models/sklearn/1.0/income/model',
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '1Gi'},
-                limits={'cpu': '100m', 'memory': '1Gi'}
+                requests={'cpu': '10m', 'memory': '128Mi'},
+                limits={'cpu': '100m', 'memory': '256Mi'}
             )
         )
     )
@@ -51,8 +51,8 @@ def test_tabular_explainer():
             type='AnchorTabular',
             storage_uri='gs://kfserving-examples/models/sklearn/1.0/income/explainer-py37-0.6.2',
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '1Gi'},
-                limits={'cpu': '100m', 'memory': '1Gi'}
+                requests={'cpu': '10m', 'memory': '128Mi'},
+                limits={'cpu': '100m', 'memory': '256Mi'}
             )
         )
     )

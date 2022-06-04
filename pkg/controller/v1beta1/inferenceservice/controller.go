@@ -69,6 +69,7 @@ import (
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 
 // InferenceState describes the Readiness of the InferenceService
 type InferenceServiceState string
@@ -179,6 +180,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
 			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+			r.updateStatus(isvc, deploymentMode)
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
 		}
 		if result.Requeue || result.RequeueAfter > 0 {
