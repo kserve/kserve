@@ -58,6 +58,6 @@ kustomize build config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INST
 kustomize build config/runtimes | sed s/:latest/:$TAG/ >> $RUNTIMES_INSTALL_PATH
 
 # Copy CRD files to charts crds directory
-cp config/crd/serving.kserve.io_clusterservingruntimes.yaml manifests/charts/crds/serving.kserve.io_clusterservingruntimes.yaml
-cp config/crd/serving.kserve.io_inferenceservices.yaml manifests/charts/crds/serving.kserve.io_inferenceservices.yaml
-cp config/crd/serving.kserve.io_trainedmodels.yaml manifests/charts/crds/serving.kserve.io_trainedmodels.yaml
+cp config/crd/serving.kserve.io_clusterservingruntimes.yaml charts/kserve/crds/serving.kserve.io_clusterservingruntimes.yaml
+cp config/crd/serving.kserve.io_inferenceservices.yaml charts/kserve/crds/serving.kserve.io_inferenceservices.yaml
+cp config/crd/serving.kserve.io_trainedmodels.yaml charts/kserve/crds/serving.kserve.io_trainedmodels.yaml
