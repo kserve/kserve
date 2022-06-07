@@ -1,0 +1,29 @@
+name: helm-publish
+
+on:
+  release:
+    types: [prereleased, released]
+
+env:
+  HELM_CHARTS_PATH: charts
+
+jobs:
+  upload-helm-charts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: azure/setup-helm@v1
+
+      - name: Package helm charts
+        run: for dir in ./*/; do helm package $dir; done
+        working-directory: ${{ env.HELM_CHARTS_PATH }}
+
+      - name: Rename helm chart archives
+        run: for filename in *.tgz; do mv "$filename" "helm-chart-$filename"; done
+        working-directory: ${{ env.HELM_CHARTS_PATH }}
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ env.HELM_CHARTS_PATH }}/*.tgz
