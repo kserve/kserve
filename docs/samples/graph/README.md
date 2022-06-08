@@ -18,7 +18,7 @@ first and then run downstream named entity detection or text summary tasks.
 KServe inference graph is designed for this.
 
 ## **2. KServe Inference Graph** 
-![image](graph.png)
+![image](images/graph.png)
 
 ### **2.1 Inference Graph**
 As the above image shows, an inference graph is made up of a list of `routing nodes`, and each `routing node` consists of several steps with `InferenceService` or `Node` as the targets which is highly composable. 
@@ -30,7 +30,7 @@ it will pass the `$request` or `$response` of the root node as input data to the
 **Sequence Node** allows users to connect multiple `InferenceServices` or `Nodes` in a sequence. The `steps` field defines the steps executed in sequence and returns a response after the last step on the sequence.
 User can choose to pass `$request` or `$response` from each step as the input data to the next `InferenceService` or node in the sequence.
 
-![image](sequence.png)
+![image](images/sequence.png)
 ```yaml
 ...
 root:
@@ -79,7 +79,7 @@ curl http://model-chainer.default.10.166.15.29.sslip.io -d @./iris-input.json
 **Switch Node** allows users to select a step to execute the request by matching the `condition`, it returns the response back as soon as it matches the condition for one of the steps
 in order, and if the is no `conditon` matched, `inference graph` will return the `input data` directly. 
 
-![image](switchNode.png)
+![image](images/switchNode.png)
 ```yaml
 ...
 root:
@@ -153,7 +153,7 @@ Scoring a case using a model ensemble consists of scoring it using each model se
 Tree Ensemble constitutes a case where simple algorithms for combining results of either classification or regression trees are well known. 
 Multiple classification trees, for example, are commonly combined using a "majority-vote" method. Multiple regression trees are often combined using various averaging techniques.
 
-![image](ensembleNode.png)
+![image](images/ensembleNode.png)
 
 ```yaml
 ...
