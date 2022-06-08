@@ -143,7 +143,7 @@ Input data:
         }]
 }
 ```
-From the `switch conditions` and `input data`, the matched condition is `"instances.#(strval%*red-server*)"`, so we can get the `response` from `single-3`. BTW, if there are multi matched `conditions`, `inference graph` will pickup the first matched service in order, and if the is no `conditon` matched, `inference graph` will return the `input data` directly. 
+By evaluating the `switch conditions` with `input data`, the condition `"instances.#(strval%*red-server*)"` is matched, so you get the `response` from target service `single-3`. If there are multiple matched `conditions`, `inference graph` pickups the first matched condition in order and routes to the corresponding target service, and if there is no `condition` matched, `inference graph` returns the `input data` back directly.  
 ```shell
 {"source":"single-3","instances":[{"name":"blue","intval":0,"strval":"kserve"},{"name":"green","intval":1,"strval":"1red-server1"}]}
 ```
@@ -200,7 +200,7 @@ curl http://ensemble-model.default.10.166.15.29.sslip.io -d @./iris-input.json
 ### **2.5 Splitter Node**
 **Splitter Node** allows users to split traffic to multiple targets using a weighted distribution.
 
-![image](splitterNode.png)
+![image](images/splitterNode.png)
 ```yaml
 ...
 root:
