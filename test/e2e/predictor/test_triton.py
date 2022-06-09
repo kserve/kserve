@@ -22,10 +22,12 @@ from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
 from kserve import V1beta1ModelSpec, V1beta1ModelFormat
 from kubernetes.client import V1ResourceRequirements, V1Container, V1ContainerPort
+import pytest
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
 
+@pytest.mark.slow
 def test_triton():
     service_name = 'isvc-triton'
     predictor = V1beta1PredictorSpec(
@@ -76,6 +78,7 @@ def test_triton():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.slow
 def test_triton_runtime():
     service_name = 'isvc-triton-runtime'
     predictor = V1beta1PredictorSpec(

@@ -45,6 +45,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
         ),
     ],
 )
+@pytest.mark.slow
 def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
@@ -150,6 +151,7 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
         ),
     ],
 )
+@pytest.mark.slow
 def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
     # Define an inference service
     predictor = V1beta1PredictorSpec(

@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# Copyright 2022 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The script is used to build all the KServe images.
+
+# TODO: Implement selective building and tag replacement based on modified code.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+echo "Github SHA ${GITHUB_SHA}"
+
+# Predictor runtime server images
+SKLEARN_IMG=kserve/sklearnserver:${GITHUB_SHA}
+XGB_IMG=kserve/xgbserver:${GITHUB_SHA}
+LGB_IMG=kserve/lgbserver:${GITHUB_SHA}
+PMML_IMG=kserve/pmmlserver:${GITHUB_SHA}
+PADDLE_IMG=kserve/paddleserver:${GITHUB_SHA}
+# Explainer images
+ALIBI_IMG=kserve/alibi-explainer:${GITHUB_SHA}
+AIX_IMG=kserve/aix-explainer:${GITHUB_SHA}
+# Transformer images
+IMAGE_TRANSFORMER_IMG=kserve/image-transformer:${GITHUB_SHA}
+
+
+pushd python >/dev/null
+  echo "Building Sklearn image"
+  docker build -t ${SKLEARN_IMG} -f sklearn.Dockerfile .
+  echo "Building XGB image"
+  docker build -t ${XGB_IMG} -f xgb.Dockerfile .
+  echo "Building LGB image"
+  docker build -t ${LGB_IMG} -f lgb.Dockerfile .
+  echo "Building PMML image"
+  docker build -t ${PMML_IMG} -f pmml.Dockerfile .
+  echo "Building Paddle image"
+  docker build -t ${PADDLE_IMG} -f paddle.Dockerfile .
+  echo "Building Alibi image"
+  docker build -t ${ALIBI_IMG} -f alibiexplainer.Dockerfile .
+  echo "Building AIX image"
+  docker build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
+  echo "Building Image transformer image"
+  docker build -t ${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+
+popd
+
+echo "Done building images"

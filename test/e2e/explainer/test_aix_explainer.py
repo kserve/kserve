@@ -25,6 +25,7 @@ from kserve import V1beta1AIXExplainerSpec
 from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
+import pytest
 
 from ..common.utils import predict
 from ..common.utils import explain_aix
@@ -36,6 +37,7 @@ logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
+@pytest.mark.slow
 def test_tabular_explainer():
     service_name = 'aix-explainer'
     predictor = V1beta1PredictorSpec(

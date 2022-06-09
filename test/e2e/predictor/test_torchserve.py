@@ -32,6 +32,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common import inference_pb2
 
 
+@pytest.mark.slow
 def test_torchserve_kserve():
     service_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -68,6 +69,7 @@ def test_torchserve_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.slow
 def test_torchserve_v2_kserve():
     service_name = "mnist-v2"
     predictor = V1beta1PredictorSpec(
@@ -151,6 +153,7 @@ def test_torchserve_grpc():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.slow
 def test_torchserve_runtime_kserve():
     service_name = "mnist-runtime"
     predictor = V1beta1PredictorSpec(

@@ -24,10 +24,12 @@ from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 from kubernetes.client import V1EnvVar
+import pytest
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
+@pytest.mark.slow
 def test_transformer():
     service_name = 'isvc-transformer'
     predictor = V1beta1PredictorSpec(

@@ -24,11 +24,13 @@ from kserve import (
     V1beta1ModelFormat,
 )
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
+@pytest.mark.slow
 def test_mlflow_v2_runtime_kserve():
     service_name = "isvc-mlflow-v2-runtime"
 

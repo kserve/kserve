@@ -23,6 +23,7 @@ from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
 
 from kubernetes.client import V1ResourceRequirements
+import pytest
 from ..common.utils import predict_str
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from concurrent import futures
@@ -34,6 +35,7 @@ input_file = open('./data/iris_batch_input.json')
 json_array = json.load(input_file)
 
 
+@pytest.mark.slow
 def test_batcher_raw():
     service_name = 'isvc-raw-sklearn-batcher'
 

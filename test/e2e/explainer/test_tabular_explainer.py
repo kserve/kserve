@@ -24,6 +24,7 @@ from kserve import V1beta1ExplainerSpec
 from kserve import V1beta1AlibiExplainerSpec
 from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import predict
 from ..common.utils import explain
@@ -33,6 +34,7 @@ logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
+@pytest.mark.slow
 def test_tabular_explainer():
     service_name = 'isvc-explainer-tabular'
     predictor = V1beta1PredictorSpec(
