@@ -161,7 +161,9 @@ root:
   routerType: Ensemble
   routes:
   - serviceName: sklearn-iris
+    name: sklearn-iris
   - serviceName: xgboost-iris
+    name: xgboost-iris
 ...
 ``
 
