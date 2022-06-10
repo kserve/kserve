@@ -27,4 +27,6 @@ spec:
       routerType: Ensemble
       steps:
         - serviceName: sklearn-iris
+          name: sklearn-iris
         - serviceName: xgboost-iris
+          name: xgboost-iris

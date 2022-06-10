@@ -1,8 +1,8 @@
 - [**Inference Graph**](#inference-graph)
-  - [**1. Problem Statement**](#1-problem)
+  - [**1. Problem Statement**](#1-problem-statement)
   - [**2. KServe Inference Graph**](#2-kserve-inference-graph)
     - [**2.1 Inference Graph**](#21-inference-graph)
-    - [**2.2 Single Node**](#22-single-node)
+    - [**2.2 Sequence Node**](#22-sequence-node)
     - [**2.3 Switch Node**](#23-switch-node)
     - [**2.4 Ensemble Node**](#24-ensemble-node)
     - [**2.5 Splitter Node**](#25-splitter-node)
@@ -18,10 +18,10 @@ first and then run downstream named entity detection or text summary tasks.
 KServe inference graph is designed for this.
 
 ## **2. KServe Inference Graph** 
-![image](graph.png)
+![image](images/graph.png)
 
 ### **2.1 Inference Graph**
-As the above image shows, an inference graph is made up of a list of `nodes`, and each `node` consists of several steps with `InferenceService` or `Node` as the targets which is highly composable. 
+As the above image shows, an inference graph is made up of a list of `routing nodes`, and each `routing node` consists of several steps with `InferenceService` or `Node` as the targets which is highly composable. 
 Every graph must have a root node named `root`, when an inference request hits the graph, it executes the request starting from the `root` node of the DAG. If the graph has other `nodes` in the `Sequence`,
 it will pass the `$request` or `$response` of the root node as input data to the `next node`. There are four `node` types that are supported: ***Sequence***, ***Switch***, ***Ensemble***, ***Splitter***.
 
@@ -30,7 +30,7 @@ it will pass the `$request` or `$response` of the root node as input data to the
 **Sequence Node** allows users to connect multiple `InferenceServices` or `Nodes` in a sequence. The `steps` field defines the steps executed in sequence and returns a response after the last step on the sequence.
 User can choose to pass `$request` or `$response` from each step as the input data to the next `InferenceService` or node in the sequence.
 
-![image](singleNode.png)
+![image](images/sequence.png)
 ```yaml
 ...
 root:
@@ -77,17 +77,21 @@ curl http://model-chainer.default.10.166.15.29.sslip.io -d @./iris-input.json
 
 ### **2.3 Switch Node**
 **Switch Node** allows users to select a step to execute the request by matching the `condition`, it returns the response back as soon as it matches the condition for one of the steps
-in order.
+in order, and if the is no `conditon` matched, `inference graph` will return the `input data` directly. 
 
-![image](switchNode.png)
+![image](images/switchNode.png)
 ```yaml
-mymodel:
+...
+root:
   routerType: Switch
   steps:
-  - serviceName: isvc1
-    condition: "target == \"blue\""
-  - serviceName: isvc2
-    condition: "target == \"green\""
+  - serviceUrl: http://single-1.default.{$your-domain}/switch
+    condition: "[@this].#(source==client)" #object matching
+  - serviceUrl: http://single-2.default.{$your-domain}/switch
+    condition: "instances.#(intval>10)" #array matching
+  - serviceUrl: http://single-3.default.{$your-domain}/switch 
+    condition: "instances.#(strval%*red-server*)" #pattern matching
+...
 ```
 We use `https://github.com/tidwall/gjson` to parse and match the condition and [here](https://github.com/tidwall/gjson/blob/master/SYNTAX.md) is the `GJSON` syntax reference.
 
@@ -100,15 +104,17 @@ kubectl apply -f switch.yaml
 2. Wait for `InferenceService` and `InferenceGraph` to be ready.
 ```shell
 kubectl get pods
-NAME                                                              READY   STATUS    RESTARTS   AGE
-blue-predictor-default-00002-deployment-855665bc49-m5vxt          2/2     Running   0          3m26s
-green-predictor-default-00002-deployment-7485d64dbd-dgmbx         2/2     Running   0          3m26s
-model-switch-00001-deployment-7ff47cdbb8-vxgp7                    2/2     Running   0          28s
+NAME                                                           READY   STATUS    RESTARTS   AGE
+model-switch-00001-deployment-856876dfc8-d66cn                 2/2     Running   0          13m
+single-1-predictor-default-00001-deployment-9fb5b49d4-9zx4h    2/2     Running   0          66m
+single-2-predictor-default-00001-deployment-f44d84d54-f58t8    2/2     Running   0          66m
+single-3-predictor-default-00001-deployment-6446f55849-tgvpq   2/2     Running   0          66m              
 
 kubectl get isvc
-NAME              URL                                                    READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                       AGE
-blue              http://blue.default.10.166.15.29.sslip.io              True           100                              blue-predictor-default-00002              3d7h
-green             http://green.default.10.166.15.29.sslip.io             True           100                              green-predictor-default-00002             3d7h
+NAME       URL                                             READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                AGE
+single-1   http://single-1.default.10.166.15.29.sslip.io   True           100                              single-1-predictor-default-00001   67m
+single-2   http://single-2.default.10.166.15.29.sslip.io   True           100                              single-2-predictor-default-00001   67m
+single-3   http://single-3.default.10.166.15.29.sslip.io   True           100                              single-3-predictor-default-00001   67m
 
 kubectl get ig
 NAME            URL                                                  READY   AGE
@@ -116,11 +122,30 @@ model-switch     http://model-switch.default.10.166.15.29.sslip.io     True    3
 ```
 3. Test `InferenceGraph`.
 ```shell
-curl http://model-switch.default.10.166.15.29.sslip.io
+curl http://model-switch.default.10.166.15.29.sslip.io -d '{"source":"client1","instances":[{"name":"blue","intval":0,"strval":"kserve"},{"name":"green","intval":1,"strval":"1red-server1"}]}'
 ``` 
 ***Expected result***
+
+Input data:
+```json
+{
+    "source": "client1",
+    "instances": [
+        {
+            "name": "blue",
+            "intval": 0,
+            "strval": "kserve"
+        },
+        {
+            "name": "red",
+            "intval":1,
+            "strval": "1red-server1"
+        }]
+}
+```
+By evaluating the `switch conditions` with `input data`, the condition `"instances.#(strval%*red-server*)"` is matched, so you get the `response` from target service `single-3`. If there are multiple matched `conditions`, `inference graph` pickups the first matched condition in order and routes to the corresponding target service, and if there is no `condition` matched, `inference graph` returns the `input data` back directly.  
 ```shell
-{"mymodel":{"server_counter":0,"target":"green","target_counter":2}}
+{"source":"single-3","instances":[{"name":"blue","intval":0,"strval":"kserve"},{"name":"green","intval":1,"strval":"1red-server1"}]}
 ```
 
 ### **2.4 Ensemble Node**
@@ -128,15 +153,19 @@ Scoring a case using a model ensemble consists of scoring it using each model se
 Tree Ensemble constitutes a case where simple algorithms for combining results of either classification or regression trees are well known. 
 Multiple classification trees, for example, are commonly combined using a "majority-vote" method. Multiple regression trees are often combined using various averaging techniques.
 
-![image](ensembleNode.png)
+![image](images/ensembleNode.png)
 
 ```yaml
+...
 root:
   routerType: Ensemble
   routes:
   - serviceName: sklearn-iris
+    name: sklearn-iris
   - serviceName: xgboost-iris
-```
+    name: xgboost-iris
+...
+``
 
 ***Test steps***
 
@@ -173,8 +202,9 @@ curl http://ensemble-model.default.10.166.15.29.sslip.io -d @./iris-input.json
 ### **2.5 Splitter Node**
 **Splitter Node** allows users to split traffic to multiple targets using a weighted distribution.
 
-![image](splitterNode.png)
+![image](images/splitterNode.png)
 ```yaml
+...
 root:
   routerType: Splitter 
   routes:
@@ -182,6 +212,7 @@ root:
     weight: 20
   - serviceName: xgboost-iris
     weight: 80
+...    
 ```
 
 ***Test steps***
