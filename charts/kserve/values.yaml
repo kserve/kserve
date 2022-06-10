@@ -1,8 +1,8 @@
 kserve:
   agent:
-    image: kserve/agent:v0.8.0
+    image: kserve/agent:v0.9.0-rc0
   storage:
-    image: kserve/storage-initializer:v0.8.0
+    image: kserve/storage-initializer:v0.9.0-rc0
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
@@ -16,7 +16,7 @@ kserve:
       ingressGateway:
         gateway: knative-serving/knative-ingress-gateway
         gatewayService: istio-ingressgateway.istio-system.svc.cluster.local
-    image: kserve/kserve-controller:v0.8.0
+    image: kserve/kserve-controller:v0.9.0-rc0
     resources:
       limits:
         cpu: 100m
@@ -26,12 +26,12 @@ kserve:
         memory: 300Mi
   modelmesh:
     controller:
-      image: kserve/modelmesh-controller:v0.8.0
+      image: kserve/modelmesh-controller:v0.9.0-rc0
     config:
       modelmeshImage: kserve/modelmesh
-      modelmeshImageTag: v0.8.0
+      modelmeshImageTag: v0.9.0-rc0
       modelmeshRuntimeAdapterImage: kserve/modelmesh-runtime-adapter
-      modelmeshRuntimeAdapterImageTag: v0.8.0
+      modelmeshRuntimeAdapterImageTag: v0.9.0-rc0
       restProxyImage: kserve/rest-proxy
       restProxyImageTag: v0.1.1
       podsPerRuntime: 2
@@ -46,32 +46,32 @@ kserve:
       modelClassPlaceholder: '{{.Labels.modelClass}}'
     sklearnserver:
       image: kserve/sklearnserver
-      tag: v0.8.0
+      tag: v0.9.0-rc0
     xgbserver:
       image: kserve/xgbserver
-      tag: v0.8.0
+      tag: v0.9.0-rc0
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 21.09-py3
     pmmlserver:
       image: kserve/pmmlserver
-      tag: v0.8.0
+      tag: v0.9.0-rc0
     paddleserver:
       image: kserve/paddleserver
-      tag: v0.8.0
+      tag: v0.9.0-rc0
     lgbserver:
       image: kserve/lgbserver
-      tag: v0.8.0
+      tag: v0.9.0-rc0
     torchserve:
       image: kserve/torchserve-kfs
       tag: 0.5.2
       serviceEnvelopePlaceholder: '{{.Labels.serviceEnvelope}}'
     alibi:
       image: kserve/alibi-explainer
-      defaultVersion: v0.8.0
+      defaultVersion: v0.9.0-rc0
     art:
       image: kserve/art-explainer
-      defaultVersion: v0.8.0
+      defaultVersion: v0.9.0-rc0
     aix:
       image: kserve/aix-explainer
-      defaultVersion: v0.8.0
+      defaultVersion: v0.9.0-rc0

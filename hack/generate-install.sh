@@ -38,6 +38,7 @@ RELEASES=(
     "v0.7.0"
     "v0.8.0-rc0"
     "v0.8.0"
+    "v0.9.0-rc0"
 )
 
 TAG=$1
@@ -61,3 +62,4 @@ kustomize build config/runtimes | sed s/:latest/:$TAG/ >> $RUNTIMES_INSTALL_PATH
 cp config/crd/serving.kserve.io_clusterservingruntimes.yaml charts/kserve/crds/serving.kserve.io_clusterservingruntimes.yaml
 cp config/crd/serving.kserve.io_inferenceservices.yaml charts/kserve/crds/serving.kserve.io_inferenceservices.yaml
 cp config/crd/serving.kserve.io_trainedmodels.yaml charts/kserve/crds/serving.kserve.io_trainedmodels.yaml
+cp config/crd/serving.kserve.io_inferencegraphs.yaml charts/kserve/crds/serving.kserve.io_inferencegraphs.yaml
