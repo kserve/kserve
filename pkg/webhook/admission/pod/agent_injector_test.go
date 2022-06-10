@@ -21,6 +21,8 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -385,5 +387,145 @@ func TestAgentInjector(t *testing.T) {
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
+	}
+}
+
+func TestGetLoggerConfigs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cases := []struct {
+		name      string
+		configMap *v1.ConfigMap
+		matchers  []types.GomegaMatcher
+	}{
+		{
+			name: "Valid Logger Config",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Invalid Resource Value",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200mc",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200mc",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.HaveOccurred(),
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		loggerConfigs, err := getLoggerConfigs(tc.configMap)
+		g.Expect(err).Should(tc.matchers[1])
+		g.Expect(loggerConfigs).Should(tc.matchers[0])
+	}
+}
+
+func TestGetAgentConfigs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cases := []struct {
+		name      string
+		configMap *v1.ConfigMap
+		matchers  []types.GomegaMatcher
+	}{
+		{
+			name: "Valid Agent Config",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					constants.AgentConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/agent:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&AgentConfig{
+					Image:         "gcr.io/kfserving/agent:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Invalid Resource Value",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					constants.AgentConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/agent:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200mc",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&AgentConfig{
+					Image:         "gcr.io/kfserving/agent:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200mc",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.HaveOccurred(),
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		loggerConfigs, err := getAgentConfigs(tc.configMap)
+		g.Expect(err).Should(tc.matchers[1])
+		g.Expect(loggerConfigs).Should(tc.matchers[0])
 	}
 }
