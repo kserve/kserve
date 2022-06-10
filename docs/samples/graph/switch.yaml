@@ -1,7 +1,7 @@
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "blue"
+  name: "single-1"
 spec:
   predictor:
     minReplicas: 1
@@ -10,21 +10,35 @@ spec:
       name: custom
       env:
       - name: "target"
-        value: "blue"
+        value: "single-1"
 ---
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "green"
+  name: "single-2"
 spec:
   predictor:
     minReplicas: 1
     containers:
     - image: iamlovingit/bgtest:latest
       name: custom
-      env: 
+      env:
       - name: "target"
-        value: "green"
+        value: "single-2"
+---
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "single-3"
+spec:
+  predictor:
+    minReplicas: 1
+    containers:
+    - image: iamlovingit/bgtest:latest
+      name: custom
+      env:
+      - name: "target"
+        value: "single-3"
 ---
 apiVersion: "serving.kserve.io/v1alpha1"
 kind: InferenceGraph
@@ -33,15 +47,11 @@ metadata:
 spec:
   nodes:
     root:
-      routerType: Sequence
-      steps:
-      - serviceName: green
-      - nodeName: mymodel
-        data: $response
-    mymodel:
       routerType: Switch
       steps:
-      - serviceName: blue
-        condition: "target == \"blue\""
-      - serviceName: green
-        condition: "target == \"green\""
+      - serviceUrl: http://single-1.default.{$your-domain}/switch
+        condition: "[@this].#(source==client)" #object matching
+      - serviceUrl: http://single-2.default.{$your-domain}/switch
+        condition: "instances.#(intval>10)" #array matching
+      - serviceUrl: http://single-3.default.{$your-domain}/switch 
+        condition: "instances.#(strval%*red-server*)" #pattern matching
