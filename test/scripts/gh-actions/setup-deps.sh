@@ -77,6 +77,9 @@ for i in 1 2 3 ; do kustomize build test/overlays/knative | kubectl apply -f - &
 echo "Waiting for Knative to be ready ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
 
+echo "Add knative hpa..."
+# kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
+
 # Skip tag resolution for certain domains
 kubectl patch cm config-deployment --patch '{"data":{"registries-skipping-tag-resolving":"nvcr.io,index.docker.io"}}' -n knative-serving
 
