@@ -113,6 +113,12 @@ var (
 
 type AutoscalerClassType string
 type AutoscalerMetricsType string
+type AutoScalerKPAMetricsType string
+
+var (
+	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
+	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
+)
 
 // Autoscaler Default Class
 var (
@@ -129,6 +135,11 @@ var (
 	AutoScalerMetricsCPU AutoscalerMetricsType = "cpu"
 )
 
+// Autoscaler Memory metrics
+var (
+	AutoScalerMetricsMemory AutoscalerMetricsType = "memory"
+)
+
 // Autoscaler Class Allowed List
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
@@ -137,6 +148,13 @@ var AutoscalerAllowedClassList = []AutoscalerClassType{
 // Autoscaler Metrics Allowed List
 var AutoscalerAllowedMetricsList = []AutoscalerMetricsType{
 	AutoScalerMetricsCPU,
+	AutoScalerMetricsMemory,
+}
+
+// Autoscaler KPA Metrics Allowed List
+var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
+	AutoScalerKPAMetricsConcurrency,
+	AutoScalerKPAMetricsRPS,
 }
 
 // Autoscaler Default Metrics Value

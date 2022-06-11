@@ -1869,6 +1869,20 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							Format:      "int32",
 						},
 					},
+					"scaleTarget": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"scaleMetric": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -3897,6 +3911,20 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Format:      "int32",
 						},
 					},
+					"scaleTarget": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"scaleMetric": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -4325,6 +4353,12 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 						},
 					},
 					"domainTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"urlScheme": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -7055,6 +7089,20 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Format:      "int32",
 						},
 					},
+					"scaleTarget": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"scaleMetric": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -8446,6 +8494,20 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Description: "Maximum number of replicas for autoscaling.",
 							Type:        []string{"integer"},
 							Format:      "int32",
+						},
+					},
+					"scaleTarget": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"scaleMetric": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"containerConcurrency": {

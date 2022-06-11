@@ -80,6 +80,8 @@ class V1beta1ExplainerSpec(object):
         'readiness_gates': 'list[V1PodReadinessGate]',
         'restart_policy': 'str',
         'runtime_class_name': 'str',
+        'scale_metric': 'str',
+        'scale_target': 'int',
         'scheduler_name': 'str',
         'security_context': 'V1PodSecurityContext',
         'service_account': 'str',
@@ -128,6 +130,8 @@ class V1beta1ExplainerSpec(object):
         'readiness_gates': 'readinessGates',
         'restart_policy': 'restartPolicy',
         'runtime_class_name': 'runtimeClassName',
+        'scale_metric': 'scaleMetric',
+        'scale_target': 'scaleTarget',
         'scheduler_name': 'schedulerName',
         'security_context': 'securityContext',
         'service_account': 'serviceAccount',
@@ -142,7 +146,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, aix=None, alibi=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, aix=None, alibi=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -181,6 +185,8 @@ class V1beta1ExplainerSpec(object):
         self._readiness_gates = None
         self._restart_policy = None
         self._runtime_class_name = None
+        self._scale_metric = None
+        self._scale_target = None
         self._scheduler_name = None
         self._security_context = None
         self._service_account = None
@@ -261,6 +267,10 @@ class V1beta1ExplainerSpec(object):
             self.restart_policy = restart_policy
         if runtime_class_name is not None:
             self.runtime_class_name = runtime_class_name
+        if scale_metric is not None:
+            self.scale_metric = scale_metric
+        if scale_target is not None:
+            self.scale_target = scale_target
         if scheduler_name is not None:
             self.scheduler_name = scheduler_name
         if security_context is not None:
@@ -1030,6 +1040,52 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._runtime_class_name = runtime_class_name
+
+    @property
+    def scale_metric(self):
+        """Gets the scale_metric of this V1beta1ExplainerSpec.  # noqa: E501
+
+        ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).  # noqa: E501
+
+        :return: The scale_metric of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_metric
+
+    @scale_metric.setter
+    def scale_metric(self, scale_metric):
+        """Sets the scale_metric of this V1beta1ExplainerSpec.
+
+        ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).  # noqa: E501
+
+        :param scale_metric: The scale_metric of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_metric = scale_metric
+
+    @property
+    def scale_target(self):
+        """Gets the scale_target of this V1beta1ExplainerSpec.  # noqa: E501
+
+        ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
+
+        :return: The scale_target of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._scale_target
+
+    @scale_target.setter
+    def scale_target(self, scale_target):
+        """Sets the scale_target of this V1beta1ExplainerSpec.
+
+        ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
+
+        :param scale_target: The scale_target of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._scale_target = scale_target
 
     @property
     def scheduler_name(self):

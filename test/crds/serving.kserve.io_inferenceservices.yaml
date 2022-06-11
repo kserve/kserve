@@ -4676,6 +4676,15 @@ spec:
                     type: string
                   runtimeClassName:
                     type: string
+                  scaleMetric:
+                    enum:
+                    - cpu
+                    - memory
+                    - concurrency
+                    - rps
+                    type: string
+                  scaleTarget:
+                    type: integer
                   schedulerName:
                     type: string
                   securityContext:
@@ -9921,6 +9930,15 @@ spec:
                     type: string
                   runtimeClassName:
                     type: string
+                  scaleMetric:
+                    enum:
+                    - cpu
+                    - memory
+                    - concurrency
+                    - rps
+                    type: string
+                  scaleTarget:
+                    type: integer
                   schedulerName:
                     type: string
                   securityContext:
@@ -14027,6 +14045,15 @@ spec:
                     type: string
                   runtimeClassName:
                     type: string
+                  scaleMetric:
+                    enum:
+                    - cpu
+                    - memory
+                    - concurrency
+                    - rps
+                    type: string
+                  scaleTarget:
+                    type: integer
                   schedulerName:
                     type: string
                   securityContext:

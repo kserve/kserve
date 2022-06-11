@@ -18,6 +18,7 @@ Name | Type | Description | Notes
 **storage_helper** | [**V1alpha1StorageHelper**](V1alpha1StorageHelper.md) |  | [optional] 
 **supported_model_formats** | [**list[V1alpha1SupportedModelFormat]**](V1alpha1SupportedModelFormat.md) | Model formats and version supported by this runtime | [optional] 
 **tolerations** | [**list[V1Toleration]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Toleration.md) | If specified, the pod&#39;s tolerations. | [optional] 
+**volumes** | [**list[V1Volume]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Volume.md) | List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

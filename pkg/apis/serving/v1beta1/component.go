@@ -80,6 +80,16 @@ type ComponentExtensionSpec struct {
 	// Maximum number of replicas for autoscaling.
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
+	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
+	// concurrency and rps targets are supported by Knative Pod Autoscaler
+	//(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
+	// +optional
+	ScaleTarget *int `json:"scaleTarget,omitempty"`
+	// ScaleMetric defines the scaling metric type watched by autoscaler
+	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
+	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
+	// +optional
+	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
 	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
 	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	// +optional
@@ -97,6 +107,17 @@ type ComponentExtensionSpec struct {
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
 }
+
+// ScaleMetric enum
+// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps
+type ScaleMetric string
+
+const (
+	MetricCPU         ScaleMetric = "cpu"
+	MetricMemory      ScaleMetric = "memory"
+	MetricConcurrency ScaleMetric = "concurrency"
+	MetricRPS         ScaleMetric = "rps"
+)
 
 // Default the ComponentExtensionSpec
 func (s *ComponentExtensionSpec) Default(config *InferenceServicesConfig) {}
