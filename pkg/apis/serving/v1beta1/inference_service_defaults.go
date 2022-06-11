@@ -72,10 +72,18 @@ func (isvc *InferenceService) Default() {
 	if err != nil {
 		panic(err)
 	}
-	isvc.DefaultInferenceService(configMap)
+	deployConfig, err := NewDeployConfig(cli)
+	if err != nil {
+		panic(err)
+	}
+	isvc.DefaultInferenceService(configMap, deployConfig)
 }
 
-func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig) {
+	if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
+		deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+		isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
+	}
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 	if !ok || deploymentMode != string(constants.ModelMeshDeployment) {
 		// Only attempt to assign runtimes for non-modelmesh predictors

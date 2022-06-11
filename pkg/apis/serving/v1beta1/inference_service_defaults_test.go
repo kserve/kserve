@@ -45,6 +45,9 @@ func TestInferenceServiceDefaults(t *testing.T) {
 			},
 		},
 	}
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
 	isvc := InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
@@ -83,7 +86,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	}
 	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config)
+	isvc.DefaultInferenceService(config, deployConfig)
 	g.Expect(*&isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
 	g.Expect(*&isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
 
@@ -111,6 +114,9 @@ func TestCustomPredictorDefaults(t *testing.T) {
 			},
 		},
 	}
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
 	isvc := InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
@@ -135,13 +141,16 @@ func TestCustomPredictorDefaults(t *testing.T) {
 	}
 	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config)
+	isvc.DefaultInferenceService(config, deployConfig)
 	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
 }
 
 func TestInferenceServiceDefaultsModelMeshAnnotation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{}
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
 	isvc := InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
@@ -161,7 +170,7 @@ func TestInferenceServiceDefaultsModelMeshAnnotation(t *testing.T) {
 		},
 	}
 	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config)
+	isvc.DefaultInferenceService(config, deployConfig)
 	g.Expect(isvc.Spec.Predictor.Model).To(gomega.BeNil())
 	g.Expect(isvc.Spec.Predictor.Tensorflow).ToNot(gomega.BeNil())
 }

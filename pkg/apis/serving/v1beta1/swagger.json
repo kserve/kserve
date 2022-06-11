@@ -1031,11 +1031,11 @@
           "format": "int32"
         },
         "scaleMetric": {
-          "description": "ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).",
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
         "scaleTarget": {
-          "description": "ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
         },
@@ -2109,11 +2109,11 @@
           "type": "string"
         },
         "scaleMetric": {
-          "description": "ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).",
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
         "scaleTarget": {
-          "description": "ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
         },
@@ -2406,6 +2406,9 @@
           "type": "string"
         },
         "localGatewayService": {
+          "type": "string"
+        },
+        "urlScheme": {
           "type": "string"
         }
       }
@@ -3888,11 +3891,11 @@
           "type": "string"
         },
         "scaleMetric": {
-          "description": "ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).",
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
         "scaleTarget": {
-          "description": "ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
         },
@@ -4702,11 +4705,11 @@
           "type": "string"
         },
         "scaleMetric": {
-          "description": "ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).",
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
         "scaleTarget": {
-          "description": "ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
         },
