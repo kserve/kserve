@@ -216,6 +216,26 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - inferencegraphs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - inferencegraphs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - inferenceservices
   - inferenceservices/finalizers
   verbs:
