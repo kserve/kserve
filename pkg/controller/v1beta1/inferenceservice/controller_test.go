@@ -1460,7 +1460,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 	Context("When creating an inference service with invalid Storage URI", func() {
 		It("Should fail with reason ModelLoadFailed", func() {
-			serviceName := "svc-with-servingruntime"
+			serviceName := "servingruntime-test"
 			servingRuntimeName := "tf-serving"
 			namespace := "default"
 			var inferenceServiceKey = types.NamespacedName{Name: serviceName, Namespace: namespace}
