@@ -1,8 +1,12 @@
 kserve:
+  version: &defaultVersion v0.9.0-rc0
+  modelmeshVersion: &defaultModelMeshVersion latest #TODO update 
   agent:
-    image: kserve/agent:v0.9.0-rc0
+    image: kserve/agent
+    tag: *defaultVersion
   storage:
-    image: kserve/storage-initializer:v0.9.0-rc0
+    image: kserve/storage-initializer
+    tag: *defaultVersion
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
@@ -16,7 +20,8 @@ kserve:
       ingressGateway:
         gateway: knative-serving/knative-ingress-gateway
         gatewayService: istio-ingressgateway.istio-system.svc.cluster.local
-    image: kserve/kserve-controller:v0.9.0-rc0
+    image: kserve/kserve-controller
+    tag: *defaultVersion
     resources:
       limits:
         cpu: 100m
@@ -26,12 +31,13 @@ kserve:
         memory: 300Mi
   modelmesh:
     controller:
-      image: kserve/modelmesh-controller:v0.9.0-rc0
+      image: kserve/modelmesh-controller
+      tag: *defaultModelMeshVersion
     config:
       modelmeshImage: kserve/modelmesh
-      modelmeshImageTag: v0.9.0-rc0
+      modelmeshImageTag: *defaultModelMeshVersion
       modelmeshRuntimeAdapterImage: kserve/modelmesh-runtime-adapter
-      modelmeshRuntimeAdapterImageTag: v0.9.0-rc0
+      modelmeshRuntimeAdapterImageTag: *defaultModelMeshVersion
       restProxyImage: kserve/rest-proxy
       restProxyImageTag: v0.1.1
       podsPerRuntime: 2
@@ -46,32 +52,32 @@ kserve:
       modelClassPlaceholder: '{{.Labels.modelClass}}'
     sklearnserver:
       image: kserve/sklearnserver
-      tag: v0.9.0-rc0
+      tag: *defaultVersion
     xgbserver:
       image: kserve/xgbserver
-      tag: v0.9.0-rc0
+      tag: *defaultVersion
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 21.09-py3
     pmmlserver:
       image: kserve/pmmlserver
-      tag: v0.9.0-rc0
+      tag: *defaultVersion
     paddleserver:
       image: kserve/paddleserver
-      tag: v0.9.0-rc0
+      tag: *defaultVersion
     lgbserver:
       image: kserve/lgbserver
-      tag: v0.9.0-rc0
+      tag: *defaultVersion
     torchserve:
       image: kserve/torchserve-kfs
       tag: 0.5.2
       serviceEnvelopePlaceholder: '{{.Labels.serviceEnvelope}}'
     alibi:
       image: kserve/alibi-explainer
-      defaultVersion: v0.9.0-rc0
+      defaultVersion: *defaultVersion
     art:
       image: kserve/art-explainer
-      defaultVersion: v0.9.0-rc0
+      defaultVersion: *defaultVersion
     aix:
       image: kserve/aix-explainer
-      defaultVersion: v0.9.0-rc0
+      defaultVersion: *defaultVersion

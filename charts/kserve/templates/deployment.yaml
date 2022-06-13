@@ -37,7 +37,7 @@ spec:
           name: https
       - command:
         - /manager
-        image: "{{ .Values.kserve.controller.image }}"
+        image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"
         imagePullPolicy: Always
         name: manager
         args:
@@ -108,7 +108,7 @@ spec:
           name: https
       - command:
         - /manager
-        image: "{{ .Values.kserve.controller.image }}"
+        image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"
         imagePullPolicy: Always
         name: manager
         args:
@@ -187,7 +187,7 @@ spec:
               fieldPath: metadata.name
         - name: ETCD_SECRET_NAME
           value: model-serving-etcd
-        image: {{ .Values.kserve.modelmesh.controller.image }}
+        image: {{ .Values.kserve.modelmesh.controller.image }}:{{ .Values.kserve.modelmesh.controller.tag }}
         livenessProbe:
           httpGet:
             path: /healthz

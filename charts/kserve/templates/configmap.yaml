@@ -53,7 +53,7 @@ apiVersion: v1
 data:
   agent: |-
     {
-        "image" : "{{ .Values.kserve.agent.image }}",
+        "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag }}",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -61,7 +61,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "{{ .Values.kserve.agent.image }}",
+        "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag }}",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -106,7 +106,7 @@ data:
     }
   logger: |-
     {
-        "image" : "{{ .Values.kserve.agent.image }}",
+        "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag }}",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -191,7 +191,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "{{ .Values.kserve.storage.image }}",
+        "image" : "{{ .Values.kserve.storage.image }}:{{ .Values.kserve.storage.tag }}",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
