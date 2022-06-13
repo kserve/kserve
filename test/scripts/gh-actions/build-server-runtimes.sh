@@ -23,6 +23,8 @@ set -o nounset
 set -o pipefail
 echo "Github SHA ${GITHUB_SHA}"
 
+part=$1
+
 # Predictor runtime server images
 SKLEARN_IMG=kserve/sklearnserver:${GITHUB_SHA}
 XGB_IMG=kserve/xgbserver:${GITHUB_SHA}
@@ -37,22 +39,27 @@ IMAGE_TRANSFORMER_IMG=kserve/image-transformer:${GITHUB_SHA}
 
 
 pushd python >/dev/null
-  echo "Building Sklearn image"
-  docker build -t ${SKLEARN_IMG} -f sklearn.Dockerfile .
-  echo "Building XGB image"
-  docker build -t ${XGB_IMG} -f xgb.Dockerfile .
-  echo "Building LGB image"
-  docker build -t ${LGB_IMG} -f lgb.Dockerfile .
-  echo "Building PMML image"
-  docker build -t ${PMML_IMG} -f pmml.Dockerfile .
-  echo "Building Paddle image"
-  docker build -t ${PADDLE_IMG} -f paddle.Dockerfile .
-  echo "Building Alibi image"
-  docker build -t ${ALIBI_IMG} -f alibiexplainer.Dockerfile .
-  echo "Building AIX image"
-  docker build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
-  echo "Building Image transformer image"
-  docker build -t ${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+  if [[ $part == 1 ]]; then
+    echo "Building Sklearn image"
+    docker build -t ${SKLEARN_IMG} -f sklearn.Dockerfile .
+    echo "Building XGB image"
+    docker build -t ${XGB_IMG} -f xgb.Dockerfile .
+    echo "Building LGB image"
+    docker build -t ${LGB_IMG} -f lgb.Dockerfile .
+    echo "Building PMML image"
+    docker build -t ${PMML_IMG} -f pmml.Dockerfile .
+    echo "Building Paddle image"
+    docker build -t ${PADDLE_IMG} -f paddle.Dockerfile .
+  fi
+
+  if [[ $part == 2 ]]; then
+    echo "Building Alibi image"
+    docker build -t ${ALIBI_IMG} -f alibiexplainer.Dockerfile .
+    echo "Building AIX image"
+    docker build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
+    echo "Building Image transformer image"
+    docker build -t ${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+  fi
 
 popd
 

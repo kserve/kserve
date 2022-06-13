@@ -44,7 +44,7 @@ jobs:
 
       - name: Build runtime server images
         run: |
-          ./test/scripts/gh-actions/build-server-runtimes.sh
+          ./test/scripts/gh-actions/build-server-runtimes.sh 1
           docker image ls
           cat ./config/overlays/test/configmap/inferenceservice.yaml
       
@@ -68,6 +68,22 @@ jobs:
         with:
           image: "kserve/pmmlserver:${{ github.sha }}"
       
+      - name: Upload paddle image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/paddleserver:${{ github.sha }}"
+      
+  runtime-image-build-set2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build runtime server images
+        run: |
+          ./test/scripts/gh-actions/build-server-runtimes.sh 2
+          docker image ls
+          cat ./config/overlays/test/configmap/inferenceservice.yaml
+
       - name: Upload image transformer image
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
@@ -83,15 +99,12 @@ jobs:
         with:
           image: "kserve/alibi-explainer:${{ github.sha }}"
       
-      - name: Upload paddle image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "kserve/paddleserver:${{ github.sha }}"
+
 
 
   test-fast:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, runtime-image-build]
+    needs: [kserve-image-build, runtime-image-build, runtime-image-build-set2]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
@@ -179,7 +192,7 @@ jobs:
   
   test-slow:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, runtime-image-build]
+    needs: [kserve-image-build, runtime-image-build, runtime-image-build-set2]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
