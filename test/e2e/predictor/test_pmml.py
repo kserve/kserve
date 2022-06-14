@@ -28,7 +28,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
 
-@pytest.mark.slow
+@pytest.mark.skip
 def test_pmml_kserve():
     service_name = 'isvc-pmml'
     predictor = V1beta1PredictorSpec(
@@ -60,7 +60,7 @@ def test_pmml_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.skip
 def test_pmml_runtime_kserve():
     service_name = 'isvc-pmml-runtime'
     predictor = V1beta1PredictorSpec(
