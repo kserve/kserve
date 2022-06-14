@@ -29,7 +29,7 @@ from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-@pytest.mark.slow
+@pytest.mark.transformer
 def test_transformer():
     service_name = 'isvc-transformer'
     predictor = V1beta1PredictorSpec(
