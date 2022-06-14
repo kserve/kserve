@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-@pytest.mark.slow
+@pytest.mark.skip
 def test_tabular_explainer():
     service_name = 'art-explainer'
     isvc = V1beta1InferenceService(

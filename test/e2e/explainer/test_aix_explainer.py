@@ -37,7 +37,7 @@ logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-@pytest.mark.slow
+@pytest.mark.explainer
 def test_tabular_explainer():
     service_name = 'aix-explainer'
     predictor = V1beta1PredictorSpec(
