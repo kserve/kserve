@@ -19,8 +19,7 @@ import pathlib
 from typing import Dict
 from kserve.model import ModelMissingError, InferenceError
 
-MODEL_BASENAME = "model"
-MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
+MODEL_EXTENSIONS = (".joblib", ".pkl", ".pickle")
 ENV_PREDICT_PROBA = "PREDICT_PROBA"
 
 
@@ -33,14 +32,17 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
 
     def load(self) -> bool:
         model_path = pathlib.Path(kserve.Storage.download(self.model_dir))
-        paths = [model_path / (MODEL_BASENAME + model_extension) for model_extension in MODEL_EXTENSIONS]
-        existing_paths = [path for path in paths if path.exists()]
-        if len(existing_paths) == 0:
+        model_files = []
+        for file in os.listdir(model_path):
+            file_path = os.path.join(model_path, file)
+            if os.path.isfile(file_path) and file.endswith(MODEL_EXTENSIONS):
+                model_files.append(model_path / file)
+        if len(model_files) == 0:
             raise ModelMissingError(model_path)
-        elif len(existing_paths) > 1:
+        elif len(model_files) > 1:
             raise RuntimeError('More than one model file is detected, '
-                               f'Only one is allowed within model_dir: {existing_paths}')
-        self._model = joblib.load(existing_paths[0])
+                               f'Only one is allowed within model_dir: {model_files}')
+        self._model = joblib.load(model_files[0])
         self.ready = True
         return self.ready
 
