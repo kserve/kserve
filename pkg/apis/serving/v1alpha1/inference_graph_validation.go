@@ -30,6 +30,18 @@ import (
 const (
 	// InvalidGraphNameFormatError defines the error message for invalid inference graph name
 	InvalidGraphNameFormatError = "The InferenceGraph \"%s\" is invalid: a InferenceGraph name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	// RootNodeNotFoundError defines the error message for root node not found
+	RootNodeNotFoundError = "root node not found, InferenceGraph needs a node with name 'root' as the root node of the graph"
+	// WeightNotProvidedError defines the error message for traffic weight is nil for inference step
+	WeightNotProvidedError = "InferenceGraph[%s] Node[%s] Route[%s] missing the 'Weight'"
+	// InvalidWeightError defines the error message for sum of traffic weight is not 100
+	InvalidWeightError = "InferenceGraph[%s] Node[%s] splitter node: the sum of traffic weights for all routing targets should be 100"
+	// DuplicateStepNameError defines the error message for more than one step contains same name
+	DuplicateStepNameError = "Node \"%s\" of InferenceGraph \"%s\" contains more than one step with name \"%s\""
+	// TargetNotProvidedError defines the error message for inference graph target not specified
+	TargetNotProvidedError = "Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" does not specify an inference target"
+	// InvalidTargetError defines the error message for inference graph target specifies more than one of nodeName, serviceName, serviceUrl
+	InvalidTargetError = "Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" specifies more than one of nodeName, serviceName, serviceUrl"
 )
 
 const (
@@ -95,7 +107,7 @@ func validateInferenceGraphStepNameUniqueness(ig *InferenceGraph) error {
 		for _, route := range node.Steps {
 			if route.StepName != "" {
 				if nameSet.Has(route.StepName) {
-					return fmt.Errorf("Node \"%s\" of InferenceGraph \"%s\" contains more than one step with name \"%s\"",
+					return fmt.Errorf(DuplicateStepNameError,
 						nodeName, ig.Name, route.StepName)
 				}
 				nameSet.Insert(route.StepName)
@@ -122,12 +134,10 @@ func validateInferenceGraphSingleStepTargets(ig *InferenceGraph) error {
 				count += 1
 			}
 			if count == 0 {
-				return fmt.Errorf("Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" does not specify an inference target",
-					i, route.StepName, nodeName, ig.Name)
+				return fmt.Errorf(TargetNotProvidedError, i, route.StepName, nodeName, ig.Name)
 			}
 			if count != 1 {
-				return fmt.Errorf("Step %d (\"%s\") in node \"%s\" of InferenceGraph \"%s\" specifies more than one of nodeName, serviceName, serviceUrl",
-					i, route.StepName, nodeName, ig.Name)
+				return fmt.Errorf(InvalidTargetError, i, route.StepName, nodeName, ig.Name)
 			}
 		}
 	}
@@ -150,7 +160,7 @@ func validateInferenceGraphRouterRoot(ig *InferenceGraph) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("root node not found, InferenceGraph needs a node with name 'root' as the root node of the graph")
+	return fmt.Errorf(RootNodeNotFoundError)
 }
 
 //Validation of inference graph router type
@@ -161,12 +171,12 @@ func validateInferenceGraphSplitterWeight(ig *InferenceGraph) error {
 		if node.RouterType == Splitter {
 			for _, route := range node.Steps {
 				if route.Weight == nil {
-					return fmt.Errorf("InferenceGraph[%s] Node[%s] Route[%s] missing the 'Weight'", ig.Name, name, route.ServiceName)
+					return fmt.Errorf(WeightNotProvidedError, ig.Name, name, route.ServiceName)
 				}
 				weight += int(*route.Weight)
 			}
 			if weight != 100 {
-				return fmt.Errorf("InferenceGraph[%s] Node[%s] splitter node: the sum of traffic weights for all routing targets should be 100", ig.Name, name)
+				return fmt.Errorf(InvalidWeightError, ig.Name, name)
 			}
 		}
 	}

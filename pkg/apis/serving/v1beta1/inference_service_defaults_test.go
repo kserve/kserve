@@ -38,15 +38,6 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				DefaultImageVersion: "v0.4.0",
 			},
 		},
-	}
-	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
-	}
-	isvc := InferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-		}{
 		"Triton": {
 			predictor: PredictorsConfig{
 				Triton: PredictorConfig{
@@ -146,11 +137,10 @@ func TestInferenceServiceDefaults(t *testing.T) {
 			},
 		},
 	}
-	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
-	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config, deployConfig)
-	g.Expect(*&isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
-	g.Expect(*&isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
+
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
 
 	for name, scenario := range scenarios {
 		config := &InferenceServicesConfig{
@@ -192,9 +182,11 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 		}
+
 		resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 		isvc.Spec.DeepCopy()
-		isvc.DefaultInferenceService(config)
+		isvc.DefaultInferenceService(config, deployConfig)
+
 		switch name {
 		case "Tensorflow":
 			g.Expect(isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
@@ -439,8 +431,12 @@ func TestRuntimeDefaults(t *testing.T) {
 			matcher: gomega.Equal(constants.ProtocolV2),
 		},
 	}
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
+
 	for name, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &scenario.runtime
 		scenario.isvc.SetRuntimeDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -527,8 +523,12 @@ func TestTorchServeDefaults(t *testing.T) {
 		},
 	}
 	runtime := constants.TorchServe
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
+
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetTorchServeDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -571,8 +571,12 @@ func TestSetTritonDefaults(t *testing.T) {
 		},
 	}
 	runtime := constants.TritonServer
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
+
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetTritonDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -746,8 +750,12 @@ func TestMlServerDefaults(t *testing.T) {
 		},
 	}
 	runtime := constants.MLServer
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
+
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetMlServerDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())

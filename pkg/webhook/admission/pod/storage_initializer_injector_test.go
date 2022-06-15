@@ -28,6 +28,7 @@ import (
 	"github.com/kserve/kserve/pkg/credentials/gcs"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -1040,5 +1041,117 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
+	}
+}
+
+func TestGetStorageInitializerConfigs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cases := []struct {
+		name      string
+		configMap *v1.ConfigMap
+		matchers  []types.GomegaMatcher
+	}{
+		{
+			name: "Valid Storage Initializer Config",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					StorageInitializerConfigMapKeyName: `{
+						"Image":        		 "gcr.io/kfserving/storage-initializer:latest",
+						"CpuRequest":   		 "100m",
+						"CpuLimit":      		 "1",
+						"MemoryRequest": 		 "200Mi",
+						"MemoryLimit":   		 "1Gi",
+						"StorageSpecSecretName": "storage-secret"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&StorageInitializerConfig{
+					Image:                 "gcr.io/kfserving/storage-initializer:latest",
+					CpuRequest:            "100m",
+					CpuLimit:              "1",
+					MemoryRequest:         "200Mi",
+					MemoryLimit:           "1Gi",
+					StorageSpecSecretName: "storage-secret",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Invalid Resource Value",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					StorageInitializerConfigMapKeyName: `{
+						"Image":        		 "gcr.io/kfserving/storage-initializer:latest",
+						"CpuRequest":   		 "100m",
+						"CpuLimit":      		 "1",
+						"MemoryRequest": 		 "200MC",
+						"MemoryLimit":   		 "1Gi",
+						"StorageSpecSecretName": "storage-secret"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&StorageInitializerConfig{
+					Image:                 "gcr.io/kfserving/storage-initializer:latest",
+					CpuRequest:            "100m",
+					CpuLimit:              "1",
+					MemoryRequest:         "200MC",
+					MemoryLimit:           "1Gi",
+					StorageSpecSecretName: "storage-secret",
+				}),
+				gomega.HaveOccurred(),
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		loggerConfigs, err := getStorageInitializerConfigs(tc.configMap)
+		g.Expect(err).Should(tc.matchers[1])
+		g.Expect(loggerConfigs).Should(tc.matchers[0])
+	}
+}
+
+func TestParsePvcURI(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cases := []struct {
+		name     string
+		uri      string
+		matchers []types.GomegaMatcher
+	}{
+		{
+			name: "Valid PVC URI",
+			uri:  "pvc://test/model/model1",
+			matchers: []types.GomegaMatcher{
+				gomega.Equal("test"),
+				gomega.Equal("model/model1"),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Valid PVC URI with Shortest Path",
+			uri:  "pvc://test",
+			matchers: []types.GomegaMatcher{
+				gomega.Equal("test"),
+				gomega.Equal(""),
+				gomega.BeNil(),
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pvcName, pvcPath, err := parsePvcURI(tc.uri)
+			g.Expect(pvcName).Should(tc.matchers[0])
+			g.Expect(pvcPath).Should(tc.matchers[1])
+			g.Expect(err).Should(tc.matchers[2])
+		})
+
 	}
 }

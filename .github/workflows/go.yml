@@ -37,3 +37,4 @@ jobs:
         wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64
         chmod +x $GOPATH/bin/yq
         make test
+        ./coverage.sh
