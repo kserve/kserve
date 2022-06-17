@@ -23,6 +23,10 @@ jobs:
           wget --no-verbose https://github.com/kubernetes/minikube/releases/download/v1.21.0/minikube-linux-amd64
           sudo cp minikube-linux-amd64 /usr/local/bin/minikube
           sudo chmod 755 /usr/local/bin/minikube
+          wget --no-verbose https://github.com/mikefarah/yq/releases/download/3.4.1/yq_linux_amd64
+          sudo cp yq_linux_amd64 /usr/local/bin/yq
+          sudo chmod 755 /usr/local/bin/yq
+          yq --version
           sudo apt-get install -y conntrack socat
           minikube start --driver=none --kubernetes-version v1.21.0
       - name: Check Kubernetes pods
