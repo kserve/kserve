@@ -30,16 +30,13 @@ while getopts ":hsr" option; do
    esac
 done
 
-export ISTIO_VERSION=1.9.0
-export KNATIVE_VERSION=knative-v1.0.0
-export KSERVE_VERSION=v0.8.0
+export ISTIO_VERSION=1.14.0
+export KNATIVE_VERSION=knative-v1.4.0
+export KSERVE_VERSION=v0.9.0-rc0
 export CERT_MANAGER_VERSION=v1.3.0
 
 KUBE_VERSION=$(kubectl version --short=true)
-
-echo ${KUBE_VERSION:43:2}
-
-if [ ${KUBE_VERSION:43:2} -gt 20 ]; then export ISTIO_VERSION=1.10.3; fi
+if [ ${KUBE_VERSION:43:2} -lt 22 ]; then exit 1; fi
 
 curl -L https://istio.io/downloadIstio | sh -
 cd istio-${ISTIO_VERSION}
@@ -63,9 +60,6 @@ spec:
       proxy:
         autoInject: disabled
       useMCP: false
-      # The third-party-jwt is not enabled on all k8s.
-      # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
-      jwtPolicy: first-party-jwt
 
   meshConfig:
     accessLogFile: /dev/stdout
@@ -80,12 +74,7 @@ spec:
         enabled: true
 EOF
 
-if [ $(cut -d '.' -f 2,2 <<< $ISTIO_VERSION) -gt 9 ]
-then
-    bin/istioctl install --set profile=demo -y;
-else
-    bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
-fi
+bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
 
 # Install Knative
 if [ $deploymentMode = serverless ]; then
