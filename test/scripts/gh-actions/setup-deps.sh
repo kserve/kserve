@@ -35,7 +35,7 @@ rm -rf ${KUSTOMIZE_PATH}
 curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- ${KUSTOMIZE_VERSION} ${KUSTOMIZE_PATH::-10}
 
 echo "Installing yq ..."
-wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
+wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
 echo "Installing Istio ..."
 mkdir istio_tmp
