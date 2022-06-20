@@ -30,16 +30,18 @@ while getopts ":hsr" option; do
    esac
 done
 
-export ISTIO_VERSION=1.9.0
-export KNATIVE_VERSION=knative-v1.0.0
-export KSERVE_VERSION=v0.8.0
+export ISTIO_VERSION=1.14.0
+export KNATIVE_VERSION=knative-v1.4.0
+export KSERVE_VERSION=v0.9.0-rc0
 export CERT_MANAGER_VERSION=v1.3.0
+export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
 KUBE_VERSION=$(kubectl version --short=true)
-
-echo ${KUBE_VERSION:43:2}
-
-if [ ${KUBE_VERSION:43:2} -gt 20 ]; then export ISTIO_VERSION=1.10.3; fi
+if [ ${KUBE_VERSION:43:2} -lt 22 ];
+then
+   echo "😱 install requires at least Kubernetes 1.22";
+   exit 1;
+fi
 
 curl -L https://istio.io/downloadIstio | sh -
 cd istio-${ISTIO_VERSION}
@@ -63,9 +65,6 @@ spec:
       proxy:
         autoInject: disabled
       useMCP: false
-      # The third-party-jwt is not enabled on all k8s.
-      # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
-      jwtPolicy: first-party-jwt
 
   meshConfig:
     accessLogFile: /dev/stdout
@@ -80,32 +79,35 @@ spec:
         enabled: true
 EOF
 
-if [ $(cut -d '.' -f 2,2 <<< $ISTIO_VERSION) -gt 9 ]
-then
-    bin/istioctl install --set profile=demo -y;
-else
-    bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
-fi
+bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
+
+echo "😀 Successfully installed Istio"
 
 # Install Knative
 if [ $deploymentMode = serverless ]; then
    kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
    kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
    kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+   echo "😀 Successfully installed Knative"
 fi
 
 # Install Cert Manager
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
 kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
 cd ..
-# Install KFServing
+echo "😀 Successfully installed Cert Manager"
+
+# Install KServe
 KSERVE_CONFIG=kfserving.yaml
 if [ ${KSERVE_VERSION:3:1} -gt 6 ]; then KSERVE_CONFIG=kserve.yaml; fi
 
 # Retry inorder to handle that it may take a minute or so for the TLS assets required for the webhook to function to be provisioned
-for i in 1 2 3 4 5 ; do kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/${KSERVE_CONFIG} && break || sleep 15; done
+kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/${KSERVE_CONFIG}
+
 # Install KServe built-in servingruntimes
 kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml
+echo "😀 Successfully installed KServe"
+
 # Clean up
 rm -rf istio-${ISTIO_VERSION}
