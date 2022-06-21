@@ -24,7 +24,9 @@ from cloudevents.http import CloudEvent, to_binary, to_structured
 from kserve import Model
 from kserve import ModelServer
 from kserve import ModelRepository
+from kserve.model import PredictorProtocol
 from tornado.httpclient import HTTPClientError
+from tornado.web import HTTPError
 from ray import serve
 
 
@@ -157,6 +159,26 @@ class DummyModelRepository(ModelRepository):
             return model.ready
         else:
             return False
+
+
+class TestModel:
+
+    async def test_validate(self):
+        model = DummyModel("TestModel")
+        good_request = {"instances": []}
+        validated_request = model.validate(good_request)
+        assert validated_request == good_request
+        bad_request = {"instances": "invalid"}
+        with pytest.raises(HTTPError):
+            model.validate(bad_request)
+
+        model.protocol = PredictorProtocol.REST_V2.value
+        good_request = {"inputs": []}
+        validated_request = model.validate(good_request)
+        assert validated_request == good_request
+        bad_request = {"inputs": "invalid"}
+        with pytest.raises(HTTPError):
+            model.validate(bad_request)
 
 
 class TestTFHttpServer:
