@@ -2,9 +2,6 @@
 import sys
 import kserve
 import logging
-import os
-import time
-import tempfile
 
 if len(sys.argv) != 3:
     print("Usage: initializer-entrypoint src_uri dest_path")
@@ -14,16 +11,4 @@ src_uri = sys.argv[1]
 dest_path = sys.argv[2]
 
 logging.info("Initializing, args: src_uri [%s] dest_path[ [%s]" % (src_uri, dest_path))
-
-with tempfile.TemporaryDirectory(prefix=".", dir=dest_path) as tmp_dir:
-    logging.info(f"Downloading to staging directory: {tmp_dir}")
-    kserve.Storage.download(src_uri, tmp_dir)
-    files = os.listdir(tmp_dir)
-    logging.info(f"Files downloaded: {files}")
-    logging.info(f"Moving to target location: {dest_path}")
-    for file in files:
-        if not os.path.exists(os.path.join(dest_path, file)):
-          os.rename(os.path.join(tmp_dir, file), os.path.join(dest_path, file))
-
-while True:
-    time.sleep(60*60)
+kserve.Storage.download(src_uri, dest_path)
