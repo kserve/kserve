@@ -29,15 +29,15 @@ setup(
     description='Model Explanation Server. \
                  Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
-    python_requires='>=3.6',
+    python_requires='>=3.9',
     packages=find_packages("alibiexplainer"),
     install_requires=[
-        "kserve>=0.7.0",
+        "kserve>=0.8.0",
         "nest_asyncio>=1.4.0",
-        "alibi==0.6.4",
+        "alibi==0.7.0",
         "joblib>=0.13.2",
-        "xgboost==1.5.0",
-        "shap==0.39.0",
+        "xgboost==1.6.1",
+        "shap==0.41.0",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
