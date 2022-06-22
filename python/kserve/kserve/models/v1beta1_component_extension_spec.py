@@ -53,6 +53,8 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
+        'scale_metric': 'str',
+        'scale_target': 'int',
         'timeout': 'int'
     }
 
@@ -63,10 +65,12 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
+        'scale_metric': 'scaleMetric',
+        'scale_target': 'scaleTarget',
         'timeout': 'timeout'
     }
 
-    def __init__(self, batcher=None, canary_traffic_percent=None, container_concurrency=None, logger=None, max_replicas=None, min_replicas=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, batcher=None, canary_traffic_percent=None, container_concurrency=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -78,6 +82,8 @@ class V1beta1ComponentExtensionSpec(object):
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
+        self._scale_metric = None
+        self._scale_target = None
         self._timeout = None
         self.discriminator = None
 
@@ -93,6 +99,10 @@ class V1beta1ComponentExtensionSpec(object):
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
+        if scale_metric is not None:
+            self.scale_metric = scale_metric
+        if scale_target is not None:
+            self.scale_target = scale_target
         if timeout is not None:
             self.timeout = timeout
 
@@ -229,6 +239,52 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._min_replicas = min_replicas
+
+    @property
+    def scale_metric(self):
+        """Gets the scale_metric of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).  # noqa: E501
+
+        :return: The scale_metric of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_metric
+
+    @scale_metric.setter
+    def scale_metric(self, scale_metric):
+        """Sets the scale_metric of this V1beta1ComponentExtensionSpec.
+
+        ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).  # noqa: E501
+
+        :param scale_metric: The scale_metric of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_metric = scale_metric
+
+    @property
+    def scale_target(self):
+        """Gets the scale_target of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
+
+        :return: The scale_target of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._scale_target
+
+    @scale_target.setter
+    def scale_target(self, scale_target):
+        """Sets the scale_target of this V1beta1ComponentExtensionSpec.
+
+        ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
+
+        :param scale_target: The scale_target of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._scale_target = scale_target
 
     @property
     def timeout(self):

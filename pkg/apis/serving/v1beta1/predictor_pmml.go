@@ -42,6 +42,7 @@ func (p *PMMLSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		ValidateMaxArgumentWorkers(p.Container.Args, 1),
 		validateStorageURI(p.GetStorageUri()),
+		validateStorageSpec(p.GetStorageSpec(), p.GetStorageUri()),
 	})
 }
 
@@ -68,10 +69,6 @@ func (p *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Componen
 	p.Container.Name = constants.InferenceServiceContainerName
 	p.Container.Args = append(arguments, p.Container.Args...)
 	return &p.Container
-}
-
-func (p *PMMLSpec) GetStorageUri() *string {
-	return p.StorageURI
 }
 
 func (p *PMMLSpec) GetProtocol() constants.InferenceServiceProtocol {

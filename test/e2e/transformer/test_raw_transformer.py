@@ -37,7 +37,7 @@ def test_transformer():
         pytorch=V1beta1TorchServeSpec(
             storage_uri='gs://kfserving-examples/models/torchserve/image_classifier/v1',
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '1Gi'},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={'cpu': '1', 'memory': '1Gi'}
             )
         ),
@@ -45,11 +45,11 @@ def test_transformer():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-            image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/image-transformer:'
-                  + os.environ.get("PULL_BASE_SHA"),
+            image='kserve/image-transformer:'
+                  + os.environ.get("GITHUB_SHA"),
             name='kserve-container',
             resources=V1ResourceRequirements(
-                requests={'cpu': '100m', 'memory': '1Gi'},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={'cpu': '100m', 'memory': '1Gi'}),
             args=["--model_name", "mnist"],
             env=[V1EnvVar(name="STORAGE_URI", value="gs://kfserving-examples/models/torchserve/image_classifier/v1")])]
@@ -57,7 +57,6 @@ def test_transformer():
 
     annotations = dict()
     annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
-    annotations['kubernetes.io/ingress.class'] = 'istio'
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(

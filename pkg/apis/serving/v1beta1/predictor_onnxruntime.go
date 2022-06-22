@@ -55,6 +55,7 @@ func (o *ONNXRuntimeSpec) Validate() error {
 
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(o.GetStorageUri()),
+		validateStorageSpec(o.GetStorageSpec(), o.GetStorageUri()),
 	})
 }
 
@@ -89,10 +90,6 @@ func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *C
 	o.Name = constants.InferenceServiceContainerName
 	o.Args = append(arguments, o.Args...)
 	return &o.Container
-}
-
-func (o *ONNXRuntimeSpec) GetStorageUri() *string {
-	return o.StorageURI
 }
 
 func (o *ONNXRuntimeSpec) GetProtocol() constants.InferenceServiceProtocol {

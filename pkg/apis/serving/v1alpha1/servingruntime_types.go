@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/kserve/kserve/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -38,25 +39,6 @@ type SupportedModelFormat struct {
 }
 
 // +k8s:openapi-gen=true
-type Container struct {
-	Name            string                      `json:"name,omitempty" validate:"required"`
-	Image           string                      `json:"image,omitempty" validate:"required"`
-	Command         []string                    `json:"command,omitempty"`
-	Args            []string                    `json:"args,omitempty"`
-	Resources       corev1.ResourceRequirements `json:"resources,omitempty"`
-	Env             []corev1.EnvVar             `json:"env,omitempty"`
-	ImagePullPolicy corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
-	WorkingDir      string                      `json:"workingDir,omitempty"`
-
-	// Periodic probe of container liveness.
-	// Container will be restarted if the probe fails.
-	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-	// +optional
-	LivenessProbe  *corev1.Probe `json:"livenessProbe,omitempty"`
-	ReadinessProbe *corev1.Probe `json:"readinessProbe,omitempty"`
-}
-
-// +k8s:openapi-gen=true
 type StorageHelper struct {
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
@@ -70,7 +52,14 @@ type ServingRuntimePodSpec struct {
 	// Cannot be updated.
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	Containers []Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name" validate:"required"`
+	Containers []corev1.Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name" validate:"required"`
+
+	// List of volumes that can be mounted by containers belonging to the pod.
+	// More info: https://kubernetes.io/docs/concepts/storage/volumes
+	// +optional
+	// +patchMergeKey=name
+	// +patchStrategy=merge,retainKeys
+	Volumes []corev1.Volume `json:"volumes,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,1,rep,name=volumes"`
 
 	// NodeSelector is a selector which must be true for the pod to fit on a node.
 	// Selector which must match a node's labels for the pod to be scheduled on that node.
@@ -105,11 +94,15 @@ type ServingRuntimeSpec struct {
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
 
+	// Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)
+	// +optional
+	ProtocolVersions []constants.InferenceServiceProtocol `json:"protocolVersions,omitempty"`
+
 	ServingRuntimePodSpec `json:",inline"`
 
 	// The following fields apply to ModelMesh deployments.
 
-	// Name for each of the Endpoint fields is either like "port:1234" or "unix:/tmp/mserve/grpc.sock"
+	// Name for each of the Endpoint fields is either like "port:1234" or "unix:/tmp/kserve/grpc.sock"
 
 	// Grpc endpoint for internal model-management (implementing mmesh.ModelRuntime gRPC service)
 	// Assumed to be single-model runtime if omitted
@@ -145,20 +138,22 @@ type ServingRuntimeStatus struct {
 
 // ServerType constant for specifying the runtime name
 // +k8s:openapi-gen=true
-// +kubebuilder:validation:Enum=triton;mlserver
 type ServerType string
 
-// ServerType Enum
+// Built-in ServerTypes (others may be supported)
 const (
 	// Model server is Triton
 	Triton ServerType = "triton"
 	// Model server is MLServer
 	MLServer ServerType = "mlserver"
+	// Model server is OpenVino Model Server
+	OVMS ServerType = "ovms"
 )
 
 // +k8s:openapi-gen=true
 type BuiltInAdapter struct {
-	// ServerType can be one of triton/mlserver and the runtime's container must have the same name
+	// ServerType must be one of the supported built-in types such as "triton" or "mlserver",
+	// and the runtime's container must have the same name
 	ServerType ServerType `json:"serverType,omitempty"`
 	// Port which the runtime server listens for model management requests
 	RuntimeManagementPort int `json:"runtimeManagementPort,omitempty"`
@@ -166,6 +161,8 @@ type BuiltInAdapter struct {
 	MemBufferBytes int `json:"memBufferBytes,omitempty"`
 	// Timeout for model loading operations in milliseconds
 	ModelLoadingTimeoutMillis int `json:"modelLoadingTimeoutMillis,omitempty"`
+	// Environment variables used to control other aspects of the built-in adapter's behaviour (uncommon)
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // ServingRuntime is the Schema for the servingruntimes API
@@ -217,6 +214,12 @@ type ClusterServingRuntimeList struct {
 	Items           []ClusterServingRuntime `json:"items"`
 }
 
+// SupportedRuntime is the schema for supported runtime result of automatic selection
+type SupportedRuntime struct {
+	Name string
+	Spec ServingRuntimeSpec
+}
+
 func init() {
 	SchemeBuilder.Register(&ServingRuntime{}, &ServingRuntimeList{})
 	SchemeBuilder.Register(&ClusterServingRuntime{}, &ClusterServingRuntimeList{})
@@ -228,4 +231,16 @@ func (srSpec *ServingRuntimeSpec) IsDisabled() bool {
 
 func (srSpec *ServingRuntimeSpec) IsMultiModelRuntime() bool {
 	return srSpec.MultiModel != nil && *srSpec.MultiModel
+}
+
+func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersion constants.InferenceServiceProtocol) bool {
+	if len(modelProtocolVersion) == 0 || srSpec.ProtocolVersions == nil || len(srSpec.ProtocolVersions) == 0 {
+		return true
+	}
+	for _, srProtocolVersion := range srSpec.ProtocolVersions {
+		if srProtocolVersion == modelProtocolVersion {
+			return true
+		}
+	}
+	return false
 }

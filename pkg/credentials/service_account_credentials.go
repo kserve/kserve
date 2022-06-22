@@ -19,22 +19,38 @@ package credentials
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/credentials/https"
 
-	"github.com/kserve/kserve/pkg/credentials/azure"
-	"github.com/kserve/kserve/pkg/credentials/gcs"
-	"github.com/kserve/kserve/pkg/credentials/s3"
-	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/credentials/azure"
+	"github.com/kserve/kserve/pkg/credentials/gcs"
+	"github.com/kserve/kserve/pkg/credentials/hdfs"
+	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
-	CredentialConfigKeyName = "credentials"
+	CredentialConfigKeyName     = "credentials"
+	UriSchemePlaceholder        = "<scheme-placeholder>"
+	StorageConfigEnvKey         = "STORAGE_CONFIG"
+	StorageOverrideConfigEnvKey = "STORAGE_OVERRIDE_CONFIG"
+	DefaultStorageSecretKey     = "default"
+	UnsupportedStorageSpecType  = "storage type must be one of [%s]. storage type [%s] is not supported"
+	MissingBucket               = "format [%s] requires a bucket but one wasn't found in storage data or parameters"
+)
+
+var (
+	SupportedStorageSpecTypes = []string{"s3", "hdfs", "webhdfs"}
+	StorageBucketTypes        = []string{"s3"}
 )
 
 type CredentialConfig struct {
@@ -61,6 +77,96 @@ func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *Credential
 		client: client,
 		config: credentialConfig,
 	}
+}
+
+func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, storageKey string,
+	storageSecretName string, overrideParams map[string]string, container *v1.Container) error {
+
+	stype, ok := overrideParams["type"]
+
+	bucket := overrideParams["bucket"]
+
+	secret := &v1.Secret{}
+	var storageData []byte
+	if err := c.client.Get(context.TODO(),
+		types.NamespacedName{Name: storageSecretName, Namespace: namespace}, secret); err == nil {
+		if storageKey != "" {
+			if storageData = secret.Data[storageKey]; storageData == nil {
+				return fmt.Errorf("specified storage key %s not found in storage secret %s",
+					storageKey, storageSecretName)
+			}
+		} else {
+			if stype == "" {
+				storageKey = DefaultStorageSecretKey
+			} else {
+				storageKey = fmt.Sprintf("%s_%s", DefaultStorageSecretKey, stype)
+			}
+			// It's ok for the entry not to be found in the default/fallback cases
+			storageData = secret.Data[storageKey]
+		}
+	} else if storageKey != "" || !apierr.IsNotFound(err) { // Don't fail if not found and no storage key was specified
+		return fmt.Errorf("can't read storage secret %s: %w", storageSecretName, err)
+	}
+
+	if storageData != nil {
+		if stype == "" {
+			var storageDataJson map[string]string
+			if err := json.Unmarshal(storageData, &storageDataJson); err != nil {
+				return fmt.Errorf("invalid json encountered in key %s of storage secret %s: %w",
+					storageKey, storageSecretName, err)
+			}
+			if stype, ok = storageDataJson["type"]; ok && !utils.Includes(SupportedStorageSpecTypes, stype) {
+				return fmt.Errorf(UnsupportedStorageSpecType, strings.Join(SupportedStorageSpecTypes, ", "), stype)
+			}
+			// Get bucket from storage-config if not provided in override params
+			if _, ok = storageDataJson["bucket"]; ok && bucket == "" {
+				bucket = storageDataJson["bucket"]
+			}
+		}
+
+		// Pass storage config json as SecretKeyRef env var
+		container.Env = append(container.Env, v1.EnvVar{
+			Name: StorageConfigEnvKey,
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: storageSecretName,
+					},
+					Key: storageKey,
+				},
+			},
+		})
+	}
+
+	if stype == "" {
+		return errors.New("unable to determine storage type")
+	}
+
+	if strings.HasPrefix(container.Args[0], UriSchemePlaceholder+"://") {
+		path := container.Args[0][len(UriSchemePlaceholder+"://"):]
+
+		if utils.Includes(StorageBucketTypes, stype) {
+			if bucket == "" {
+				return fmt.Errorf(MissingBucket, stype)
+			}
+
+			container.Args[0] = fmt.Sprintf("%s://%s/%s", stype, bucket, path)
+		} else {
+			container.Args[0] = fmt.Sprintf("%s://%s", stype, path)
+		}
+	}
+
+	// Provide override secret values if parameters are provided
+	if len(overrideParams) != 0 {
+		if overrideParamsJSON, err := json.Marshal(overrideParams); err == nil {
+			container.Env = append(container.Env, v1.EnvVar{
+				Name:  StorageOverrideConfigEnvKey,
+				Value: string(overrideParamsJSON),
+			})
+		}
+	}
+
+	return nil
 }
 
 func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAccountName string,
@@ -116,10 +222,19 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
 			envs := azure.BuildSecretEnvs(secret)
 			container.Env = append(container.Env, envs...)
+		} else if _, ok := secret.Data[azure.AzureStorageAccessKey]; ok {
+			log.Info("Setting secret envs with azure storage access key for azure", "AzureSecret", secret.Name)
+			envs := azure.BuildStorageAccessKeySecretEnv(secret)
+			container.Env = append(container.Env, envs...)
 		} else if _, ok := secret.Data[https.HTTPSHost]; ok {
 			log.Info("Setting secret volume from uri", "HTTP(S)Secret", secret.Name)
 			envs := https.BuildSecretEnvs(secret)
 			container.Env = append(container.Env, envs...)
+		} else if _, ok := secret.Data[hdfs.HdfsNamenode]; ok {
+			log.Info("Setting secret for hdfs", "HdfsSecret", secret.Name)
+			volume, volumeMount := hdfs.BuildSecret(secret)
+			*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
+			container.VolumeMounts = append(container.VolumeMounts, volumeMount)
 		} else {
 			log.V(5).Info("Skipping non gcs/s3/azure secret", "Secret", secret.Name)
 		}

@@ -17,17 +17,43 @@ limitations under the License.
 package components
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/credentials"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Component can be reconciled to create underlying resources for an InferenceService
 type Component interface {
-	Reconcile(isvc *v1beta1.InferenceService) error
+	Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error)
+}
+
+func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map[string]string) bool {
+	if storageSpec == nil {
+		return false
+	}
+	annotations[constants.StorageSpecAnnotationKey] = "true"
+	if storageSpec.Parameters != nil {
+		if jsonParam, err := json.Marshal(storageSpec.Parameters); err == nil {
+			annotations[constants.StorageSpecParamAnnotationKey] = string(jsonParam)
+		}
+	}
+	if storageSpec.StorageKey != nil {
+		annotations[constants.StorageSpecKeyAnnotationKey] = *storageSpec.StorageKey
+	}
+	if storageSpec.Path != nil {
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] =
+			fmt.Sprintf("%s://%s", credentials.UriSchemePlaceholder,
+				strings.TrimPrefix(*storageSpec.Path, "/"))
+	}
+	return true
 }
 
 func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) bool {

@@ -14876,7 +14876,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kserve-controller-manager
-  namespace: kserve
+  namespace: kubeflow
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -14892,7 +14892,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kserve-controller-manager
-  namespace: kserve
+  namespace: kubeflow
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -14908,7 +14908,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kserve-controller-manager
-  namespace: kserve
+  namespace: kubeflow
 ---
 apiVersion: v1
 data:
@@ -14977,12 +14977,18 @@ data:
   predictors: |-
     {
         "tensorflow": {
+            "image": "tensorflow/serving",
+            "defaultImageVersion": "2.6.2",
+            "defaultGpuImageVersion": "2.6.2-gpu",
+            "defaultTimeout": "60",
             "supportedFrameworks": [
               "tensorflow"
             ],
             "multiModelServer": false
         },
         "onnx": {
+            "image": "mcr.microsoft.com/onnxruntime/server",
+            "defaultImageVersion": "v1.0.0",
             "supportedFrameworks": [
               "onnx"
             ],
@@ -14990,12 +14996,16 @@ data:
         },
         "sklearn": {
           "v1": {
+            "image": "kserve/sklearnserver",
+            "defaultImageVersion": "v0.8.0",
             "supportedFrameworks": [
               "sklearn"
             ],
             "multiModelServer": true
           },
           "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.5.3",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -15004,12 +15014,16 @@ data:
         },
         "xgboost": {
           "v1": {
+            "image": "kserve/xgbserver",
+            "defaultImageVersion": "v0.8.0",
             "supportedFrameworks": [
               "xgboost"
             ],
             "multiModelServer": true
           },
           "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.5.3",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -15017,12 +15031,28 @@ data:
           }
         },
         "pytorch": {
-          "supportedFrameworks": [
-            "pytorch"
-          ],
-          "multiModelServer": false
+          "v1" : {
+            "image": "kserve/torchserve-kfs",
+            "defaultImageVersion": "0.5.3",
+            "defaultGpuImageVersion": "0.5.3-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          },
+          "v2" : {
+            "image": "kserve/torchserve-kfs",
+            "defaultImageVersion": "0.5.3",
+            "defaultGpuImageVersion": "0.5.3-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          }
         },
         "triton": {
+            "image": "nvcr.io/nvidia/tritonserver",
+            "defaultImageVersion": "21.09-py3",
             "supportedFrameworks": [
               "tensorrt",
               "tensorflow",
@@ -15032,18 +15062,24 @@ data:
             "multiModelServer": true
         },
         "pmml": {
+            "image": "kserve/pmmlserver",
+            "defaultImageVersion": "v0.8.0",
             "supportedFrameworks": [
               "pmml"
             ],
             "multiModelServer": false
         },
         "lightgbm": {
+            "image": "kserve/lgbserver",
+            "defaultImageVersion": "v0.8.0",
             "supportedFrameworks": [
               "lightgbm"
             ],
             "multiModelServer": false
         },
         "paddle": {
+            "image": "kserve/paddleserver",
+            "defaultImageVersion": "v0.8.0",
             "supportedFrameworks": [
               "paddle"
             ],

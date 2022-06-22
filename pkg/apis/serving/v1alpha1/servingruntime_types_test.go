@@ -32,7 +32,7 @@ func TestMarshalServingRuntime(t *testing.T) {
 		Spec: ServingRuntimeSpec{
 			GrpcDataEndpoint: &endpoint,
 			ServingRuntimePodSpec: ServingRuntimePodSpec{
-				Containers: []Container{
+				Containers: []v1.Container{
 					{
 						Args:    []string{"arg1", "arg2"},
 						Command: []string{"command", "command2"},

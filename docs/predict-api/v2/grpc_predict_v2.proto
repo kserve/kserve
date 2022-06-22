@@ -194,9 +194,8 @@ message ModelInferRequest
   // what is expected by the tensor's shape and data type. The raw
   // data must be the flattened, one-dimensional, row-major order of
   // the tensor elements without any stride or padding between the
-  // elements. Note that the FP16 data type must be represented as raw
-  // content as there is no specific data type for a 16-bit float
-  // type.
+  // elements. Note that the FP16 and BF16 data types must be represented as
+  // raw content as there is no specific data type for a 16-bit float type.
   //
   // If this field is specified then InferInputTensor::contents must
   // not be specified for any input tensor.
@@ -249,9 +248,8 @@ message ModelInferResponse
   // what is expected by the tensor's shape and data type. The raw
   // data must be the flattened, one-dimensional, row-major order of
   // the tensor elements without any stride or padding between the
-  // elements. Note that the FP16 data type must be represented as raw
-  // content as there is no specific data type for a 16-bit float
-  // type.
+  // elements. Note that the FP16 and BF16 data types must be represented as
+  // raw content as there is no specific data type for a 16-bit float type.
   //
   // If this field is specified then InferOutputTensor::contents must
   // not be specified for any output tensor.

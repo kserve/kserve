@@ -32,10 +32,10 @@ def test_tensorflow_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         tensorflow=V1beta1TFServingSpec(
-            storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
+            storage_uri='gs://kfserving-examples/models/tensorflow/flowers',
             resources=V1ResourceRequirements(
-                requests={'cpu': '1', 'memory': '2Gi'},
-                limits={'cpu': '1', 'memory': '2Gi'}
+                requests={'cpu': '10m', 'memory': '128Mi'},
+                limits={'cpu': '100m', 'memory': '256Mi'}
             )
         )
     )
@@ -64,10 +64,10 @@ def test_tensorflow_runtime_kserve():
             model_format=V1beta1ModelFormat(
                 name="tensorflow",
             ),
-            storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
+            storage_uri='gs://kfserving-examples/models/tensorflow/flowers',
             resources=V1ResourceRequirements(
-                requests={'cpu': '1', 'memory': '2Gi'},
-                limits={'cpu': '1', 'memory': '2Gi'}
+                requests={'cpu': '10m', 'memory': '128Mi'},
+                limits={'cpu': '100m', 'memory': '256Mi'}
             )
         )
     )

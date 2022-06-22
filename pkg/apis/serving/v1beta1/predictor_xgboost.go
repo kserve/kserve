@@ -37,13 +37,6 @@ var (
 	_ PredictorImplementation = &XGBoostSpec{}
 )
 
-// Validate returns an error if invalid
-func (x *XGBoostSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(x.GetStorageUri()),
-	})
-}
-
 // Default sets defaults on the resource
 func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 	x.Container.Name = constants.InferenceServiceContainerName
@@ -175,10 +168,6 @@ func (x *XGBoostSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
 	}
 
 	return vars
-}
-
-func (x *XGBoostSpec) GetStorageUri() *string {
-	return x.StorageURI
 }
 
 func (x *XGBoostSpec) GetProtocol() constants.InferenceServiceProtocol {

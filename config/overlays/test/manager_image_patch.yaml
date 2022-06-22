@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: kserve-controller-manager
   namespace: kserve
@@ -9,4 +9,12 @@ spec:
       containers:
         - name: manager
           command:
-          image: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/kserve-controller:latest
+          image: kserve/kserve-controller:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 100m
+              memory: 200Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi

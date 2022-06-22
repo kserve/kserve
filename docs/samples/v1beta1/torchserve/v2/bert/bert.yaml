@@ -6,5 +6,5 @@ spec:
   predictor:
     pytorch:
       protocolVersion: v2
-      storageUri: gs://kfserving-examples/models/torchserve/huggingface
+      storageUri: gs://kfserving-examples/models/torchserve/bert/v2
       # storageUri: pvc://model-pv-claim

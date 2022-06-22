@@ -85,14 +85,20 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
-	lastRolledoutRevision := componentStatus.LatestRolledoutRevision
-	// This is to handle case when the latest ready revision is rolled out with 100% and then rolled back
-	// so here we need to get the revision that is previously rolled out with 100%
-	if componentStatus.LatestRolledoutRevision == componentStatus.LatestReadyRevision &&
-		componentStatus.LatestReadyRevision == componentStatus.LatestCreatedRevision &&
-		componentExtension.CanaryTrafficPercent != nil && *componentExtension.CanaryTrafficPercent < 100 {
-		lastRolledoutRevision = componentStatus.PreviousRolledoutRevision
+
+	if componentExtension.ScaleTarget != nil {
+		annotations[autoscaling.TargetAnnotationKey] = fmt.Sprint(*componentExtension.ScaleTarget)
 	}
+
+	if componentExtension.ScaleMetric != nil {
+		annotations[autoscaling.MetricAnnotationKey] = fmt.Sprint(*componentExtension.ScaleMetric)
+	}
+
+	lastRolledoutRevision := componentStatus.LatestRolledoutRevision
+
+	// Log component status and canary traffic percent
+	log.Info("revision status:", "LatestRolledoutRevision", componentStatus.LatestRolledoutRevision, "LatestReadyRevision", componentStatus.LatestReadyRevision, "LatestCreatedRevision", componentStatus.LatestCreatedRevision, "PreviousRolledoutRevision", componentStatus.PreviousRolledoutRevision, "CanaryTrafficPercent", componentExtension.CanaryTrafficPercent)
+
 	trafficTargets := []knservingv1.TrafficTarget{}
 	// Split traffic when canary traffic percent is specified
 	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" {

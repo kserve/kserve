@@ -26,7 +26,7 @@ import (
 
 	"knative.dev/pkg/network"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // KServe Constants
@@ -81,6 +81,9 @@ var (
 var (
 	InferenceServiceInternalAnnotationsPrefix        = "internal." + KServeAPIGroupName
 	StorageInitializerSourceUriInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
+	StorageSpecAnnotationKey                         = InferenceServiceInternalAnnotationsPrefix + "/storage-spec"
+	StorageSpecParamAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/storage-spec-param"
+	StorageSpecKeyAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/storage-spec-key"
 	LoggerInternalAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/logger"
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
@@ -92,6 +95,14 @@ var (
 	AgentModelConfigVolumeNameAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/configVolumeName"
 	AgentModelConfigMountPathAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/configMountPath"
 	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
+	PredictorHostAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/predictor-host"
+	PredictorProtocolAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/predictor-protocol"
+)
+
+// StorageSpec Constants
+var (
+	DefaultStorageSpecSecret     = "storage-config"
+	DefaultStorageSpecSecretPath = "/mnt/storage-secret"
 )
 
 // Controller Constants
@@ -102,6 +113,12 @@ var (
 
 type AutoscalerClassType string
 type AutoscalerMetricsType string
+type AutoScalerKPAMetricsType string
+
+var (
+	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
+	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
+)
 
 // Autoscaler Default Class
 var (
@@ -118,6 +135,11 @@ var (
 	AutoScalerMetricsCPU AutoscalerMetricsType = "cpu"
 )
 
+// Autoscaler Memory metrics
+var (
+	AutoScalerMetricsMemory AutoscalerMetricsType = "memory"
+)
+
 // Autoscaler Class Allowed List
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
@@ -126,6 +148,13 @@ var AutoscalerAllowedClassList = []AutoscalerClassType{
 // Autoscaler Metrics Allowed List
 var AutoscalerAllowedMetricsList = []AutoscalerMetricsType{
 	AutoScalerMetricsCPU,
+	AutoScalerMetricsMemory,
+}
+
+// Autoscaler KPA Metrics Allowed List
+var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
+	AutoScalerKPAMetricsConcurrency,
+	AutoScalerKPAMetricsRPS,
 }
 
 // Autoscaler Default Metrics Value
@@ -182,8 +211,11 @@ const (
 
 // InferenceService protocol enums
 const (
-	ProtocolV1 InferenceServiceProtocol = "v1"
-	ProtocolV2 InferenceServiceProtocol = "v2"
+	ProtocolV1      InferenceServiceProtocol = "v1"
+	ProtocolV2      InferenceServiceProtocol = "v2"
+	ProtocolGRPCV1  InferenceServiceProtocol = "grpc-v1"
+	ProtocolGRPCV2  InferenceServiceProtocol = "grpc-v2"
+	ProtocolUnknown InferenceServiceProtocol = ""
 )
 
 // InferenceService Endpoint Ports
@@ -225,7 +257,8 @@ const (
 
 // InferenceService container name
 const (
-	InferenceServiceContainerName = "kserve-container"
+	InferenceServiceContainerName   = "kserve-container"
+	StorageInitializerContainerName = "storage-initializer"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
@@ -293,6 +326,7 @@ const (
 	MLServerModelClassSKLearn  = "mlserver_sklearn.SKLearnModel"
 	MLServerModelClassXGBoost  = "mlserver_xgboost.XGBoostModel"
 	MLServerModelClassLightGBM = "mlserver_lightgbm.LightGBMModel"
+	MLServerModelClassMLFlow   = "mlserver_mlflow.MLflowRuntime"
 )
 
 // torchserve service envelope label allowed values
@@ -312,6 +346,32 @@ const (
 	SupportedModelLightGBM   = "lightgbm"
 	SupportedModelPaddle     = "paddle"
 	SupportedModelTriton     = "triton"
+	SupportedModelMLFlow     = "mlflow"
+)
+
+type ProtocolVersion int
+
+const (
+	_ ProtocolVersion = iota
+	V1
+	V2
+	GRPCV1
+	GRPCV2
+	Unknown
+)
+
+// revision label
+const (
+	RevisionLabel         = "serving.knative.dev/revision"
+	RawDeploymentAppLabel = "app"
+)
+
+// container state reason
+const (
+	StateReasonRunning          = "Running"
+	StateReasonCompleted        = "Completed"
+	StateReasonError            = "Error"
+	StateReasonCrashLoopBackOff = "CrashLoopBackOff"
 )
 
 // GetRawServiceLabel generate native service label
@@ -387,11 +447,13 @@ func InferenceServicePrefix(name string) string {
 }
 
 func PredictPath(name string, protocol InferenceServiceProtocol) string {
-	if protocol == ProtocolV2 {
-		return fmt.Sprintf("/v2/models/%s/infer", name)
-	} else {
-		return fmt.Sprintf("/v1/models/%s:predict", name)
+	path := ""
+	if protocol == ProtocolV1 {
+		path = fmt.Sprintf("/v1/models/%s:predict", name)
+	} else if protocol == ProtocolV2 {
+		path = fmt.Sprintf("/v2/models/%s/infer", name)
 	}
+	return path
 }
 
 func ExplainPath(name string) string {
@@ -411,7 +473,7 @@ func VirtualServiceHostname(name string, predictorHostName string) string {
 	return name + predictorHostName[index:]
 }
 
-func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
+func PredictorURL(metadata metav1.ObjectMeta, isCanary bool) string {
 	serviceName := DefaultPredictorServiceName(metadata.Name)
 	if isCanary {
 		serviceName = CanaryPredictorServiceName(metadata.Name)
@@ -419,7 +481,7 @@ func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
 	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
 }
 
-func TransformerURL(metadata v1.ObjectMeta, isCanary bool) string {
+func TransformerURL(metadata metav1.ObjectMeta, isCanary bool) string {
 	serviceName := DefaultTransformerServiceName(metadata.Name)
 	if isCanary {
 		serviceName = CanaryTransformerServiceName(metadata.Name)
@@ -449,4 +511,34 @@ func exact(regexp string) string {
 
 func optional(regexp string) string {
 	return "(" + regexp + ")?"
+}
+
+func GetProtocolVersionInt(protocol InferenceServiceProtocol) ProtocolVersion {
+	switch protocol {
+	case ProtocolV1:
+		return V1
+	case ProtocolV2:
+		return V2
+	case ProtocolGRPCV1:
+		return GRPCV1
+	case ProtocolGRPCV2:
+		return GRPCV2
+	default:
+		return Unknown
+	}
+}
+
+func GetProtocolVersionString(protocol ProtocolVersion) InferenceServiceProtocol {
+	switch protocol {
+	case V1:
+		return ProtocolV1
+	case V2:
+		return ProtocolV2
+	case GRPCV1:
+		return ProtocolGRPCV1
+	case GRPCV2:
+		return ProtocolGRPCV2
+	default:
+		return ProtocolUnknown
+	}
 }

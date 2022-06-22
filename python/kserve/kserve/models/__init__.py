@@ -31,7 +31,6 @@ from __future__ import absolute_import
 from kserve.models.v1alpha1_built_in_adapter import V1alpha1BuiltInAdapter
 from kserve.models.v1alpha1_cluster_serving_runtime import V1alpha1ClusterServingRuntime
 from kserve.models.v1alpha1_cluster_serving_runtime_list import V1alpha1ClusterServingRuntimeList
-from kserve.models.v1alpha1_container import V1alpha1Container
 from kserve.models.v1alpha1_model_spec import V1alpha1ModelSpec
 from kserve.models.v1alpha1_serving_runtime import V1alpha1ServingRuntime
 from kserve.models.v1alpha1_serving_runtime_list import V1alpha1ServingRuntimeList
@@ -56,6 +55,7 @@ from kserve.models.v1beta1_explainer_config import V1beta1ExplainerConfig
 from kserve.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExtensionSpec
 from kserve.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
 from kserve.models.v1beta1_explainers_config import V1beta1ExplainersConfig
+from kserve.models.v1beta1_failure_info import V1beta1FailureInfo
 from kserve.models.v1beta1_inference_service import V1beta1InferenceService
 from kserve.models.v1beta1_inference_service_list import V1beta1InferenceServiceList
 from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceServiceSpec
@@ -64,8 +64,11 @@ from kserve.models.v1beta1_inference_services_config import V1beta1InferenceServ
 from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
+from kserve.models.v1beta1_model_copies import V1beta1ModelCopies
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat
+from kserve.models.v1beta1_model_revision_states import V1beta1ModelRevisionStates
 from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
+from kserve.models.v1beta1_model_status import V1beta1ModelStatus
 from kserve.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
 from kserve.models.v1beta1_pmml_spec import V1beta1PMMLSpec
 from kserve.models.v1beta1_paddle_server_spec import V1beta1PaddleServerSpec
@@ -76,6 +79,7 @@ from kserve.models.v1beta1_predictor_protocols import V1beta1PredictorProtocols
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_predictors_config import V1beta1PredictorsConfig
 from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
+from kserve.models.v1beta1_storage_spec import V1beta1StorageSpec
 from kserve.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kserve.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec
 from kserve.models.v1beta1_transformer_config import V1beta1TransformerConfig

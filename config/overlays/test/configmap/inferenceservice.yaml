@@ -7,12 +7,18 @@ data:
   predictors: |-
     {
         "tensorflow": {
+            "image": "tensorflow/serving",
+            "defaultImageVersion": "2.6.2",
+            "defaultGpuImageVersion": "2.6.2-gpu",
+            "defaultTimeout": "60",
             "supportedFrameworks": [
-             "tensorflow"
+              "tensorflow"
             ],
             "multiModelServer": false
         },
         "onnx": {
+            "image": "mcr.microsoft.com/onnxruntime/server",
+            "defaultImageVersion": "v1.0.0",
             "supportedFrameworks": [
               "onnx"
             ],
@@ -20,12 +26,16 @@ data:
         },
         "sklearn": {
           "v1": {
+            "image": "kserve/sklearnserver",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "sklearn"
             ],
             "multiModelServer": true
           },
           "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.5.3",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -34,12 +44,16 @@ data:
         },
         "xgboost": {
           "v1": {
+            "image": "kserve/xgbserver",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "xgboost"
             ],
             "multiModelServer": true
           },
           "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.5.3",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -47,18 +61,28 @@ data:
           }
         },
         "pytorch": {
-          "supportedFrameworks": [
-            "pytorch"
-          ],
-          "multiModelServer": false
-        },
-        "paddle": {
+          "v1" : {
+            "image": "pytorch/torchserve-kfs",
+            "defaultImageVersion": "0.6.0",
+            "defaultGpuImageVersion": "0.6.0-gpu",
             "supportedFrameworks": [
-              "paddle"
+              "pytorch"
             ],
             "multiModelServer": false
+          },
+          "v2" : {
+            "image": "pytorch/torchserve-kfs",
+            "defaultImageVersion": "0.6.0",
+            "defaultGpuImageVersion": "0.6.0-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          }
         },
         "triton": {
+            "image": "nvcr.io/nvidia/tritonserver",
+            "defaultImageVersion": "21.09-py3",
             "supportedFrameworks": [
               "tensorrt",
               "tensorflow",
@@ -69,16 +93,28 @@ data:
             "multiModelServer": true
         },
         "pmml": {
+            "image": "kserve/pmmlserver",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "pmml"
             ],
             "multiModelServer": false
         },
         "lightgbm": {
+            "image": "kserve/lgbserver",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "lightgbm"
             ],
-            "multiModelServer": true
+            "multiModelServer": false
+        },
+        "paddle": {
+            "image": "kserve/paddleserver",
+            "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "paddle"
+            ],
+            "multiModelServer": false
         }
     }
   transformers: |-
@@ -87,21 +123,21 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/alibi-explainer",
+            "image" : "kserve/alibi-explainer",
             "defaultImageVersion": "latest"
         },
         "aix": {
-            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/aix-explainer",
+            "image" : "kserve/aix-explainer",
             "defaultImageVersion": "latest"
         },
         "art": {
-            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/art-explainer",
+            "image" : "kserve/art-explainer",
             "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/storage-initializer:latest",
+        "image" : "kserve/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -122,11 +158,13 @@ data:
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
         "localGateway": "knative-serving/knative-local-gateway",
-        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local"
+        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+        "ingressClassName" : "istio",
+        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
     }
   logger: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/agent:latest",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -135,7 +173,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/batcher:latest",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",
@@ -143,7 +181,7 @@ data:
     }
   agent: |-
     {
-        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kserve/agent:latest",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",

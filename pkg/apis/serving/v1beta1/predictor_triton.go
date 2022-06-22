@@ -21,7 +21,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -41,13 +40,6 @@ var (
 	_ ComponentImplementation = &TritonSpec{}
 	_ PredictorImplementation = &TritonSpec{}
 )
-
-// Validate returns an error if invalid
-func (t *TritonSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(t.GetStorageUri()),
-	})
-}
 
 // Default sets defaults on the resource
 func (t *TritonSpec) Default(config *InferenceServicesConfig) {
@@ -82,10 +74,6 @@ func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compon
 	arguments = append(arguments, t.Args...)
 	t.Args = arguments
 	return &t.Container
-}
-
-func (t *TritonSpec) GetStorageUri() *string {
-	return t.StorageURI
 }
 
 func (t *TritonSpec) GetProtocol() constants.InferenceServiceProtocol {

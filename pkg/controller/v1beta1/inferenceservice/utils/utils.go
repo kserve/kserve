@@ -21,6 +21,9 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -36,9 +39,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
+// IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
+// storage uri nor storage spec is set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
-	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
+	return predictor.GetImplementation().IsMMS(isvcConfig) &&
+		predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
 }
 
 func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
@@ -71,62 +76,54 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 
 // MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
-func MergeRuntimeContainers(runtimeContainer *v1alpha1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
-	// Default container configuration from the runtime.
-	coreContainer := v1.Container{
-		Args:            runtimeContainer.Args,
-		Command:         runtimeContainer.Command,
-		Env:             runtimeContainer.Env,
-		Image:           runtimeContainer.Image,
-		Name:            runtimeContainer.Name,
-		Resources:       runtimeContainer.Resources,
-		ImagePullPolicy: runtimeContainer.ImagePullPolicy,
-		WorkingDir:      runtimeContainer.WorkingDir,
-		LivenessProbe:   runtimeContainer.LivenessProbe,
-	}
+func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
 	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
 	// since the Name field does not have the 'omitempty' struct tag.
 	runtimeContainerName := runtimeContainer.Name
 
-	// Args and Env will be combined instead of overridden.
-	argCopy := make([]string, len(coreContainer.Args))
-	copy(argCopy, coreContainer.Args)
+	// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch
+	runtimeContainerJson, err := json.Marshal(runtimeContainer)
+	if err != nil {
+		return nil, err
+	}
 
-	envCopy := make([]v1.EnvVar, len(coreContainer.Env))
-	copy(envCopy, coreContainer.Env)
-
-	// Use JSON Marshal/Unmarshal to merge Container structs.
 	overrides, err := json.Marshal(predictorContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(overrides, &coreContainer); err != nil {
+	mergedContainer := v1.Container{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(runtimeContainerJson, overrides, mergedContainer)
+	if err != nil {
 		return nil, err
 	}
 
-	if coreContainer.Name == "" {
-		coreContainer.Name = runtimeContainerName
+	if err := json.Unmarshal(jsonResult, &mergedContainer); err != nil {
+		return nil, err
 	}
 
-	argCopy = append(argCopy, predictorContainer.Args...)
-	envCopy = append(envCopy, predictorContainer.Env...)
+	if mergedContainer.Name == "" {
+		mergedContainer.Name = runtimeContainerName
+	}
 
-	coreContainer.Args = argCopy
-	coreContainer.Env = envCopy
+	// Strategic merge patch will replace args but more useful behaviour here is to concatenate
+	mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), predictorContainer.Args...)
 
-	return &coreContainer, nil
-
+	return &mergedContainer, nil
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
 // to override runtime PodSpec settings from the predictor spec.
 func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
 
-	corePodSpec := v1.PodSpec{
+	runtimePodSpecJson, err := json.Marshal(v1.PodSpec{
 		NodeSelector: runtimePodSpec.NodeSelector,
 		Affinity:     runtimePodSpec.Affinity,
 		Tolerations:  runtimePodSpec.Tolerations,
+		Volumes:      runtimePodSpec.Volumes,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Use JSON Marshal/Unmarshal to merge PodSpec structs.
@@ -135,12 +132,17 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 		return nil, err
 	}
 
-	if err := json.Unmarshal(overrides, &corePodSpec); err != nil {
+	corePodSpec := v1.PodSpec{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(runtimePodSpecJson, overrides, corePodSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(jsonResult, &corePodSpec); err != nil {
 		return nil, err
 	}
 
 	return &corePodSpec, nil
-
 }
 
 // GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
@@ -183,8 +185,13 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
 func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
 	image := container.Image
-	if runtimeVersion != nil && len(strings.Split(image, ":")) > 0 {
-		container.Image = strings.Split(image, ":")[0] + ":" + *runtimeVersion
+	if runtimeVersion != nil {
+		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+		if len(re.FindString(image)) == 0 {
+			container.Image = image + ":" + *runtimeVersion
+		} else {
+			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
+		}
 		return
 	}
 	if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
@@ -195,4 +202,25 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig 
 			container.Image = imageName + ":" + isvcConfig.Predictors.PyTorch.DefaultGpuImageVersion
 		}
 	}
+}
+
+// ListPodsByLabel Get a PodList by label.
+func ListPodsByLabel(cl client.Client, namespace string, labelKey string, labelVal string) (*v1.PodList, error) {
+	podList := &v1.PodList{}
+	opts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels{labelKey: labelVal},
+	}
+	err := cl.List(context.TODO(), podList, opts...)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	sortPodsByCreatedTimestampDesc(podList)
+	return podList, nil
+}
+
+func sortPodsByCreatedTimestampDesc(pods *v1.PodList) {
+	sort.Slice(pods.Items, func(i, j int) bool {
+		return pods.Items[j].ObjectMeta.CreationTimestamp.Before(&pods.Items[i].ObjectMeta.CreationTimestamp)
+	})
 }

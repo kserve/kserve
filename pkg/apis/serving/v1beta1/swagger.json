@@ -10,6 +10,14 @@
     "v1alpha1.BuiltInAdapter": {
       "type": "object",
       "properties": {
+        "env": {
+          "description": "Environment variables used to control other aspects of the built-in adapter's behaviour (uncommon)",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.EnvVar"
+          }
+        },
         "memBufferBytes": {
           "description": "Fixed memory overhead to subtract from runtime container's memory allocation to determine model capacity",
           "type": "integer",
@@ -26,7 +34,7 @@
           "format": "int32"
         },
         "serverType": {
-          "description": "ServerType can be one of triton/mlserver and the runtime's container must have the same name",
+          "description": "ServerType must be one of the supported built-in types such as \"triton\" or \"mlserver\", and the runtime's container must have the same name",
           "type": "string"
         }
       }
@@ -85,52 +93,58 @@
         }
       }
     },
-    "v1alpha1.Container": {
+    "v1alpha1.InferenceGraph": {
+      "description": "InferenceGraph is the Schema for the InferenceGraph API for multiple models",
       "type": "object",
       "properties": {
-        "args": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "default": ""
-          }
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
         },
-        "command": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "default": ""
-          }
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
         },
-        "env": {
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.InferenceGraphSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.InferenceGraphStatus"
+        }
+      }
+    },
+    "v1alpha1.InferenceGraphList": {
+      "description": "InferenceGraphList contains a list of InferenceGraph",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1.EnvVar"
-          }
+            "$ref": "#/definitions/v1alpha1.InferenceGraph"
+          },
+          "x-kubernetes-list-type": "set"
         },
-        "image": {
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
           "type": "string"
         },
-        "imagePullPolicy": {
-          "type": "string"
-        },
-        "livenessProbe": {
-          "description": "Periodic probe of container liveness. Container will be restarted if the probe fails. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
-          "$ref": "#/definitions/v1.Probe"
-        },
-        "name": {
-          "type": "string"
-        },
-        "readinessProbe": {
-          "$ref": "#/definitions/v1.Probe"
-        },
-        "resources": {
+        "metadata": {
           "default": {},
-          "$ref": "#/definitions/v1.ResourceRequirements"
-        },
-        "workingDir": {
-          "type": "string"
+          "$ref": "#/definitions/v1.ListMeta"
         }
       }
     },
@@ -229,7 +243,7 @@
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1alpha1.Container"
+            "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
@@ -249,6 +263,16 @@
             "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
+        },
+        "volumes": {
+          "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Volume"
+          },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge,retainKeys"
         }
       }
     },
@@ -272,7 +296,7 @@
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1alpha1.Container"
+            "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
@@ -305,6 +329,14 @@
             "default": ""
           }
         },
+        "protocolVersions": {
+          "description": "Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
         "replicas": {
           "description": "Configure the number of replicas in the Deployment generated by this ServingRuntime If specified, this overrides the podsPerRuntime configuration value",
           "type": "integer",
@@ -329,6 +361,16 @@
             "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
+        },
+        "volumes": {
+          "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Volume"
+          },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge,retainKeys"
         }
       }
     },
@@ -552,6 +594,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "The location of a trained explanation model",
           "type": "string"
@@ -713,6 +759,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "The location of a trained explanation model",
@@ -876,6 +926,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "The location of a trained explanation model",
           "type": "string"
@@ -976,6 +1030,15 @@
           "type": "integer",
           "format": "int32"
         },
+        "scaleMetric": {
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "type": "string"
+        },
+        "scaleTarget": {
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "type": "integer",
+          "format": "int32"
+        },
         "timeout": {
           "description": "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
           "type": "integer",
@@ -990,6 +1053,10 @@
         "address": {
           "description": "Addressable endpoint for the InferenceService",
           "$ref": "#/definitions/knative.Addressable"
+        },
+        "grpcUrl": {
+          "description": "gRPC endpoint of the component if available.",
+          "$ref": "#/definitions/knative.URL"
         },
         "latestCreatedRevision": {
           "description": "Latest revision name that is created",
@@ -1007,6 +1074,10 @@
           "description": "Previous revision name that is rolled out with 100 percent traffic",
           "type": "string"
         },
+        "restUrl": {
+          "description": "REST endpoint of the component if available.",
+          "$ref": "#/definitions/knative.URL"
+        },
         "traffic": {
           "description": "Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.",
           "type": "array",
@@ -1016,7 +1087,7 @@
           }
         },
         "url": {
-          "description": "URL holds the url that will distribute traffic over the provided traffic targets. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}",
+          "description": "URL holds the primary url that will distribute traffic over the provided traffic targets. This will be one the REST or gRPC endpoints that are available. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}",
           "$ref": "#/definitions/knative.URL"
         }
       }
@@ -1807,6 +1878,10 @@
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
         },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
+        },
         "storageUri": {
           "description": "The location of a trained explanation model",
           "type": "string"
@@ -2033,6 +2108,15 @@
           "description": "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/runtime-class.md This is a beta feature as of Kubernetes v1.14.",
           "type": "string"
         },
+        "scaleMetric": {
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "type": "string"
+        },
+        "scaleTarget": {
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "type": "integer",
+          "format": "int32"
+        },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
           "type": "string"
@@ -2120,6 +2204,31 @@
         "art": {
           "default": {},
           "$ref": "#/definitions/v1beta1.ExplainerConfig"
+        }
+      }
+    },
+    "v1beta1.FailureInfo": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "description": "Name of component to which the failure relates (usually Pod name)",
+          "type": "string"
+        },
+        "message": {
+          "description": "Detailed error message",
+          "type": "string"
+        },
+        "modelRevisionName": {
+          "description": "Internal Revision/ID of model, tied to specific Spec contents",
+          "type": "string"
+        },
+        "reason": {
+          "description": "High level class of failure",
+          "type": "string"
+        },
+        "time": {
+          "description": "Time failure occurred or was discovered",
+          "$ref": "#/definitions/v1.Time"
         }
       }
     },
@@ -2234,6 +2343,11 @@
           "x-kubernetes-patch-merge-key": "type",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "modelStatus": {
+          "description": "Model related statuses",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.ModelStatus"
+        },
         "observedGeneration": {
           "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
           "type": "integer",
@@ -2273,6 +2387,12 @@
     "v1beta1.IngressConfig": {
       "type": "object",
       "properties": {
+        "domainTemplate": {
+          "type": "string"
+        },
+        "ingressClassName": {
+          "type": "string"
+        },
         "ingressDomain": {
           "type": "string"
         },
@@ -2286,6 +2406,9 @@
           "type": "string"
         },
         "localGatewayService": {
+          "type": "string"
+        },
+        "urlScheme": {
           "type": "string"
         }
       }
@@ -2365,7 +2488,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -2396,6 +2519,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -2453,6 +2580,25 @@
         }
       }
     },
+    "v1beta1.ModelCopies": {
+      "type": "object",
+      "required": [
+        "failedCopies"
+      ],
+      "properties": {
+        "failedCopies": {
+          "description": "How many copies of this predictor's models failed to load recently",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "totalCopies": {
+          "description": "Total number copies of this predictor's models that are currently loaded",
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "v1beta1.ModelFormat": {
       "type": "object",
       "properties": {
@@ -2463,6 +2609,22 @@
         },
         "version": {
           "description": "Version of the model format. Used in validating that a predictor is supported by a runtime. Can be \"major\", \"major.minor\" or \"major.minor.patch\".",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.ModelRevisionStates": {
+      "type": "object",
+      "required": [
+        "activeModelState"
+      ],
+      "properties": {
+        "activeModelState": {
+          "description": "High level state string: Pending, Standby, Loading, Loaded, FailedToLoad",
+          "type": "string",
+          "default": ""
+        },
+        "targetModelState": {
           "type": "string"
         }
       }
@@ -2549,7 +2711,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -2584,6 +2746,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -2624,6 +2790,31 @@
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
           "type": "string"
+        }
+      }
+    },
+    "v1beta1.ModelStatus": {
+      "type": "object",
+      "required": [
+        "transitionStatus"
+      ],
+      "properties": {
+        "copies": {
+          "description": "Model copy information of the predictor's model.",
+          "$ref": "#/definitions/v1beta1.ModelCopies"
+        },
+        "lastFailureInfo": {
+          "description": "Details of last failure, when load of target model is failed or blocked.",
+          "$ref": "#/definitions/v1beta1.FailureInfo"
+        },
+        "states": {
+          "description": "State information of the predictor's model.",
+          "$ref": "#/definitions/v1beta1.ModelRevisionStates"
+        },
+        "transitionStatus": {
+          "description": "Whether the available predictor endpoints reflect the current Spec or is in transition",
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -2702,7 +2893,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -2733,6 +2924,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -2851,7 +3046,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -2882,6 +3077,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -2999,7 +3198,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -3030,6 +3229,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3402,7 +3605,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -3433,6 +3636,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3683,6 +3890,15 @@
           "description": "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/runtime-class.md This is a beta feature as of Kubernetes v1.14.",
           "type": "string"
         },
+        "scaleMetric": {
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "type": "string"
+        },
+        "scaleTarget": {
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "type": "integer",
+          "format": "int32"
+        },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
           "type": "string"
@@ -3888,7 +4104,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -3919,6 +4135,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3958,6 +4178,31 @@
         },
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.StorageSpec": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "The Storage Key in the secret for this model.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters to override the default storage credentials and config.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "path": {
+          "description": "The path to the model object in the storage. It cannot co-exist with the storageURI.",
+          "type": "string"
+        },
+        "schemaPath": {
+          "description": "The path to the model schema file in the storage.",
           "type": "string"
         }
       }
@@ -4037,7 +4282,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -4068,6 +4313,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4186,7 +4435,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -4217,6 +4466,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4451,6 +4704,15 @@
           "description": "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/runtime-class.md This is a beta feature as of Kubernetes v1.14.",
           "type": "string"
         },
+        "scaleMetric": {
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "type": "string"
+        },
+        "scaleTarget": {
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "type": "integer",
+          "format": "int32"
+        },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
           "type": "string"
@@ -4608,7 +4870,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -4639,6 +4901,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4757,7 +5023,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "protocolVersion": {
-          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "string"
         },
         "readinessProbe": {
@@ -4788,6 +5054,10 @@
         "stdinOnce": {
           "description": "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
           "type": "boolean"
+        },
+        "storage": {
+          "description": "Storage Spec for model location",
+          "$ref": "#/definitions/v1beta1.StorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",

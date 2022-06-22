@@ -38,13 +38,6 @@ var (
 	_ PredictorImplementation = &LightGBMSpec{}
 )
 
-// Validate returns an error if invalid
-func (x *LightGBMSpec) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(x.GetStorageUri()),
-	})
-}
-
 // Default sets defaults on the resource
 func (x *LightGBMSpec) Default(config *InferenceServicesConfig) {
 	x.Container.Name = constants.InferenceServiceContainerName
@@ -76,10 +69,6 @@ func (x *LightGBMSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Comp
 	x.Container.Name = constants.InferenceServiceContainerName
 	x.Container.Args = append(arguments, x.Container.Args...)
 	return &x.Container
-}
-
-func (x *LightGBMSpec) GetStorageUri() *string {
-	return x.StorageURI
 }
 
 func (x *LightGBMSpec) GetProtocol() constants.InferenceServiceProtocol {

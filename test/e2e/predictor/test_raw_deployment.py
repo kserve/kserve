@@ -35,14 +35,13 @@ def test_raw_deployment_kserve():
     service_name = "raw-sklearn"
     annotations = dict()
     annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
-    annotations['kubernetes.io/ingress.class'] = 'istio'
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
         ),
@@ -70,7 +69,6 @@ def test_raw_deployment_runtime_kserve():
     service_name = "raw-sklearn-runtime"
     annotations = dict()
     annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
-    annotations['kubernetes.io/ingress.class'] = 'istio'
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -80,7 +78,7 @@ def test_raw_deployment_runtime_kserve():
             ),
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
         ),

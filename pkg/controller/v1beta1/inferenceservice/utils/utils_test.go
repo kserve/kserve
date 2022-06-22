@@ -80,7 +80,7 @@ func TestIsMMSPredictor(t *testing.T) {
 				},
 				PyTorch: PredictorConfig{
 					ContainerImage:      "pytorch/torchserve-kfs",
-					DefaultImageVersion: "0.4.1",
+					DefaultImageVersion: "0.6.0",
 					MultiModelServer:    mmsCase,
 				},
 				Tensorflow: PredictorConfig{
@@ -644,7 +644,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 			},
 			PyTorch: PredictorConfig{
 				ContainerImage:      "pytorch/torchserve-kfs",
-				DefaultImageVersion: "0.4.1",
+				DefaultImageVersion: "0.6.0",
 			},
 			Tensorflow: PredictorConfig{
 				ContainerImage:         "tfserving",
@@ -1177,12 +1177,12 @@ func TestMergeRuntimeContainers(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		containerBase     *v1alpha1.Container
+		containerBase     *v1.Container
 		containerOverride *v1.Container
 		expected          *v1.Container
 	}{
 		"BasicMerge": {
-			containerBase: &v1alpha1.Container{
+			containerBase: &v1.Container{
 				Name:  "kserve-container",
 				Image: "default-image",
 				Args: []string{
@@ -1191,6 +1191,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				},
 				Env: []v1.EnvVar{
 					{Name: "PORT", Value: "8080"},
+					{Name: "PORT2", Value: "8081"},
 				},
 				Resources: v1.ResourceRequirements{
 					Limits: v1.ResourceList{
@@ -1208,6 +1209,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 					"--new-arg=baz",
 				},
 				Env: []v1.EnvVar{
+					{Name: "PORT2", Value: "8082"},
 					{Name: "Some", Value: "Var"},
 				},
 				Resources: v1.ResourceRequirements{
@@ -1227,6 +1229,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				},
 				Env: []v1.EnvVar{
 					{Name: "PORT", Value: "8080"},
+					{Name: "PORT2", Value: "8082"},
 					{Name: "Some", Value: "Var"},
 				},
 				Resources: v1.ResourceRequirements{
@@ -1270,6 +1273,24 @@ func TestMergePodSpec(t *testing.T) {
 				Tolerations: []v1.Toleration{
 					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
 				},
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bar",
+							},
+						},
+					},
+					{
+						Name: "aaa",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bbb",
+							},
+						},
+					},
+				},
 			},
 			podSpecOverride: &v1beta1.PodSpec{
 				NodeSelector: map[string]string{
@@ -1277,6 +1298,24 @@ func TestMergePodSpec(t *testing.T) {
 					"xxx": "yyy",
 				},
 				ServiceAccountName: "testAccount",
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "baz",
+							},
+						},
+					},
+					{
+						Name: "xxx",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "yyy",
+							},
+						},
+					},
+				},
 			},
 			expected: &v1.PodSpec{
 				NodeSelector: map[string]string{
@@ -1288,6 +1327,32 @@ func TestMergePodSpec(t *testing.T) {
 					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
 				},
 				ServiceAccountName: "testAccount",
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "baz",
+							},
+						},
+					},
+					{
+						Name: "xxx",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "yyy",
+							},
+						},
+					},
+					{
+						Name: "aaa",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bbb",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -1319,7 +1384,7 @@ func TestGetServingRuntime(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1alpha1.Container{
+				Containers: []v1.Container{
 					{
 						Name:  "kserve-container",
 						Image: tfRuntime + "-image:latest",
@@ -1336,7 +1401,7 @@ func TestGetServingRuntime(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1alpha1.Container{
+				Containers: []v1.Container{
 					{
 						Name:  "kserve-container",
 						Image: sklearnRuntime + "-image:latest",
@@ -1550,6 +1615,62 @@ func TestUpdateImageTag(t *testing.T) {
 			runtimeVersion: nil,
 			isvcConfig:     &config,
 			expected:       "tfserving:1.14.0-gpu",
+		},
+		"UpdateRuntimeVersionWithProxy": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "localhost:8888/tfserving",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: proto.String("2.6.2"),
+			isvcConfig:     &config,
+			expected:       "localhost:8888/tfserving:2.6.2",
+		},
+		"UpdateRuntimeVersionWithProxyAndTag": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "localhost:8888/tfserving:1.2.3",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("1"),
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: proto.String("2.6.2"),
+			isvcConfig:     &config,
+			expected:       "localhost:8888/tfserving:2.6.2",
 		},
 	}
 	for name, scenario := range scenarios {

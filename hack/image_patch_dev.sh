@@ -3,7 +3,7 @@
 set -u
 set -e
 OVERLAY=$1
-IMG=$(ko resolve -f config/manager/manager.yaml | grep 'image:' | awk '{print $2}')
+IMG=$(ko resolve -f config/manager/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/${OVERLAY}/manager_image_patch.yaml << EOF
 apiVersion: apps/v1
@@ -18,9 +18,24 @@ spec:
         - name: manager
           command:
           image: ${IMG}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kserve-controller-manager
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          command:
+          image: ${IMG}
 EOF
 
 AGENT_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_agent| grep 'image:' | awk '{print $2}')
+ROUTER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_router| grep 'image:' | awk '{print $2}')
+
 if [ -z ${AGENT_IMG} ]; then exit; fi
 
 cat > config/overlays/${OVERLAY}/configmap/inferenceservice_patch.yaml << EOF
@@ -49,6 +64,14 @@ data:
   agent: |-
     {
         "image" : "${AGENT_IMG}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "500Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "100m"
+    }
+  router: |-
+    {
+        "image" : "${ROUTER_IMG}",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",

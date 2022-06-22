@@ -47,6 +47,7 @@ class V1alpha1BuiltInAdapter(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'env': 'list[V1EnvVar]',
         'mem_buffer_bytes': 'int',
         'model_loading_timeout_millis': 'int',
         'runtime_management_port': 'int',
@@ -54,24 +55,28 @@ class V1alpha1BuiltInAdapter(object):
     }
 
     attribute_map = {
+        'env': 'env',
         'mem_buffer_bytes': 'memBufferBytes',
         'model_loading_timeout_millis': 'modelLoadingTimeoutMillis',
         'runtime_management_port': 'runtimeManagementPort',
         'server_type': 'serverType'
     }
 
-    def __init__(self, mem_buffer_bytes=None, model_loading_timeout_millis=None, runtime_management_port=None, server_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, env=None, mem_buffer_bytes=None, model_loading_timeout_millis=None, runtime_management_port=None, server_type=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1BuiltInAdapter - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._env = None
         self._mem_buffer_bytes = None
         self._model_loading_timeout_millis = None
         self._runtime_management_port = None
         self._server_type = None
         self.discriminator = None
 
+        if env is not None:
+            self.env = env
         if mem_buffer_bytes is not None:
             self.mem_buffer_bytes = mem_buffer_bytes
         if model_loading_timeout_millis is not None:
@@ -80,6 +85,29 @@ class V1alpha1BuiltInAdapter(object):
             self.runtime_management_port = runtime_management_port
         if server_type is not None:
             self.server_type = server_type
+
+    @property
+    def env(self):
+        """Gets the env of this V1alpha1BuiltInAdapter.  # noqa: E501
+
+        Environment variables used to control other aspects of the built-in adapter's behaviour (uncommon)  # noqa: E501
+
+        :return: The env of this V1alpha1BuiltInAdapter.  # noqa: E501
+        :rtype: list[V1EnvVar]
+        """
+        return self._env
+
+    @env.setter
+    def env(self, env):
+        """Sets the env of this V1alpha1BuiltInAdapter.
+
+        Environment variables used to control other aspects of the built-in adapter's behaviour (uncommon)  # noqa: E501
+
+        :param env: The env of this V1alpha1BuiltInAdapter.  # noqa: E501
+        :type: list[V1EnvVar]
+        """
+
+        self._env = env
 
     @property
     def mem_buffer_bytes(self):
@@ -154,7 +182,7 @@ class V1alpha1BuiltInAdapter(object):
     def server_type(self):
         """Gets the server_type of this V1alpha1BuiltInAdapter.  # noqa: E501
 
-        ServerType can be one of triton/mlserver and the runtime's container must have the same name  # noqa: E501
+        ServerType must be one of the supported built-in types such as \"triton\" or \"mlserver\", and the runtime's container must have the same name  # noqa: E501
 
         :return: The server_type of this V1alpha1BuiltInAdapter.  # noqa: E501
         :rtype: str
@@ -165,7 +193,7 @@ class V1alpha1BuiltInAdapter(object):
     def server_type(self, server_type):
         """Sets the server_type of this V1alpha1BuiltInAdapter.
 
-        ServerType can be one of triton/mlserver and the runtime's container must have the same name  # noqa: E501
+        ServerType must be one of the supported built-in types such as \"triton\" or \"mlserver\", and the runtime's container must have the same name  # noqa: E501
 
         :param server_type: The server_type of this V1alpha1BuiltInAdapter.  # noqa: E501
         :type: str
