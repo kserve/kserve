@@ -84,16 +84,16 @@ class ImageTransformer(kserve.Model):
         """
         return {'instances': [image_transform(instance) for instance in inputs['instances']]}
 
-    def postprocess(self, inputs: List) -> List:
+    def postprocess(self, inputs: Dict) -> Dict:
         """Post process function of Torchserve on the KServe side is
         written here.
 
         Args:
-            inputs (List): The list of the inputs
+            inputs (Dict): The inputs
 
         Returns:
-            List: If a post process functionality is specified, it converts that into
-            a list.
+            Dict: If a post process functionality is specified, it converts that into
+            a new dict.
         """
         return inputs
 
