@@ -1,4 +1,4 @@
-FROM python:3.7
+FROM python:3.9-slim
 
 COPY artexplainer artexplainer
 COPY kserve kserve
