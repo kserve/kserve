@@ -249,7 +249,7 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
 	}
 	// set environment variables based on storage uri
-	if isvc.Spec.Predictor.Model.StorageURI == nil {
+	if isvc.Spec.Predictor.Model.StorageURI == nil && isvc.Spec.Predictor.Model.Storage == nil {
 		isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
 			v1.EnvVar{
 				Name:  constants.MLServerLoadModelsStartupEnv,
