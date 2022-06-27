@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/kmp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -106,13 +107,19 @@ func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (const
 		return constants.CheckResultUnknown, nil, err
 	}
 	//existed, check equivalence
-	if semanticDeploymentEquals(r.Deployment, existingDeployment) {
+	if semanticDeploymentEquals(*r.Deployment, *existingDeployment) {
 		return constants.CheckResultExisted, existingDeployment, nil
 	}
+
+	diff, err := kmp.SafeDiff(r.Deployment.Spec, existingDeployment.Spec)
+	log.Info("Deployment Updated", "Diff", diff, "err", err)
+
 	return constants.CheckResultUpdate, existingDeployment, nil
 }
 
-func semanticDeploymentEquals(desired, existing *appsv1.Deployment) bool {
+func semanticDeploymentEquals(desired, existing appsv1.Deployment) bool {
+	//for HPA scaling, we should ignore Replicas of Deployment
+	*desired.Spec.Replicas = *existing.Spec.Replicas
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
 }
 
