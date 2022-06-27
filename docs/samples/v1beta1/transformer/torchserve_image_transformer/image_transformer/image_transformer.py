@@ -15,7 +15,7 @@ import io
 import base64
 import json
 import tornado
-from typing import List, Dict
+from typing import Dict
 from PIL import Image
 import torchvision.transforms as transforms
 import logging
