@@ -96,24 +96,13 @@ func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (const
 		return constants.CheckResultUnknown, nil, err
 	}
 	//existed, check equivalence
-	if semanticDeploymentEquals(r.Deployment.Spec, existingDeployment.Spec) {
-		return constants.CheckResultExisted, existingDeployment, nil
-	}
-
-	diff, err := kmp.SafeDiff(r.Deployment.Spec, existingDeployment.Spec)
-	log.Info("Deployment Updated", "Diff", diff, "err", err)
-
-	return constants.CheckResultUpdate, existingDeployment, nil
-}
-
-func semanticDeploymentEquals(desired, existing appsv1.DeploymentSpec) bool {
 	//for HPA scaling, we should ignore Replicas of Deployment
 	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
-	if diff, err := kmp.SafeDiff(desired, existing, ignoreFields); err != nil || diff != "" {
+	if diff, err := kmp.SafeDiff(r.Deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil || diff != "" {
 		log.Info("Deployment Updated", "Diff", diff, "err", err)
-		return false
+		return constants.CheckResultUpdate, existingDeployment, nil
 	}
-	return true
+	return constants.CheckResultExisted, existingDeployment, nil
 }
 
 func setDefaultPodSpec(podSpec *corev1.PodSpec) {
