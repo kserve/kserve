@@ -19,11 +19,11 @@ package deployment
 import (
 	"context"
 
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,23 +60,12 @@ func NewDeploymentReconciler(client client.Client,
 func createRawDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec) *appsv1.Deployment {
-	var minReplicas int32
-	if componentExt.MinReplicas == nil {
-		minReplicas = int32(constants.DefaultMinReplicas)
-	} else {
-		minReplicas = int32(*componentExt.MinReplicas)
-	}
-
-	if minReplicas < int32(constants.DefaultMinReplicas) {
-		minReplicas = int32(constants.DefaultMinReplicas)
-	}
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
 	setDefaultPodSpec(podSpec)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: componentMeta,
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &minReplicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": constants.GetRawServiceLabel(componentMeta.Name),
@@ -107,7 +96,7 @@ func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (const
 		return constants.CheckResultUnknown, nil, err
 	}
 	//existed, check equivalence
-	if semanticDeploymentEquals(*r.Deployment, *existingDeployment) {
+	if semanticDeploymentEquals(r.Deployment.Spec, existingDeployment.Spec) {
 		return constants.CheckResultExisted, existingDeployment, nil
 	}
 
@@ -117,10 +106,14 @@ func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (const
 	return constants.CheckResultUpdate, existingDeployment, nil
 }
 
-func semanticDeploymentEquals(desired, existing appsv1.Deployment) bool {
+func semanticDeploymentEquals(desired, existing appsv1.DeploymentSpec) bool {
 	//for HPA scaling, we should ignore Replicas of Deployment
-	*desired.Spec.Replicas = *existing.Spec.Replicas
-	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
+	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
+	if diff, err := kmp.SafeDiff(desired, existing, ignoreFields); err != nil || diff != "" {
+		log.Info("Deployment Updated", "Diff", diff, "err", err)
+		return false
+	}
+	return true
 }
 
 func setDefaultPodSpec(podSpec *corev1.PodSpec) {
