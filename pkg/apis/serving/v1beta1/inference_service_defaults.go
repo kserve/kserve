@@ -84,16 +84,20 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
 		isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
 	}
+	components := []Component{isvc.Spec.Transformer, isvc.Spec.Explainer}
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 	if !ok || deploymentMode != string(constants.ModelMeshDeployment) {
-		// Only attempt to assign runtimes for non-modelmesh predictors
+		// Only attempt to assign runtimes and apply defaulting logic for non-modelmesh predictors
 		isvc.setPredictorModelDefaults()
+		components = append(components, &isvc.Spec.Predictor)
+	} else {
+		// If this is a modelmesh predictor, we still want to do "Exactly One" validation.
+		if err := validateExactlyOneImplementation(&isvc.Spec.Predictor); err != nil {
+			mutatorLogger.Error(ExactlyOneErrorFor(&isvc.Spec.Predictor), "Missing component implementation")
+		}
 	}
-	for _, component := range []Component{
-		&isvc.Spec.Predictor,
-		isvc.Spec.Transformer,
-		isvc.Spec.Explainer,
-	} {
+
+	for _, component := range components {
 		if !reflect.ValueOf(component).IsNil() {
 			if err := validateExactlyOneImplementation(component); err != nil {
 				mutatorLogger.Error(ExactlyOneErrorFor(component), "Missing component implementation")
