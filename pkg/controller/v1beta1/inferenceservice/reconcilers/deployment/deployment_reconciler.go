@@ -98,8 +98,10 @@ func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (const
 	//existed, check equivalence
 	//for HPA scaling, we should ignore Replicas of Deployment
 	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
-	if diff, err := kmp.SafeDiff(r.Deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil || diff != "" {
-		log.Info("Deployment Updated", "Diff", diff, "err", err)
+	if diff, err := kmp.SafeDiff(r.Deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil {
+		return constants.CheckResultUnknown, nil, err
+	} else if diff != "" {
+		log.Info("Deployment Updated", "Diff", diff)
 		return constants.CheckResultUpdate, existingDeployment, nil
 	}
 	return constants.CheckResultExisted, existingDeployment, nil
