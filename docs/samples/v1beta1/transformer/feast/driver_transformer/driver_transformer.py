@@ -155,15 +155,15 @@ class DriverTransformer(kserve.Model):
 
         return outputs
 
-    def postprocess(self, inputs: List) -> List:
+    def postprocess(self, inputs: Dict) -> Dict:
         """Post process function of the driver ranking output data. Here we
         simply pass the raw rankings through. Convert gRPC response if needed.
 
         Args:
-            inputs (List): The list of the inputs
+            inputs (Dict): The inputs
 
         Returns:
-            List: If a post process functionality is specified, it could convert
+            Dict: If a post process functionality is specified, it could convert
             raw rankings into a different list.
         """
         logging.info("The output from model predict is %s", inputs)
