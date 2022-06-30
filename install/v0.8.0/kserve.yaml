@@ -14445,7 +14445,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: leader-election-role
+  name: kserve-leader-election-role
   namespace: kserve
 rules:
 - apiGroups:
@@ -14761,12 +14761,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: leader-election-rolebinding
+  name: kserve-leader-election-rolebinding
   namespace: kserve
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: leader-election-role
+  name: kserve-leader-election-role
 subjects:
 - kind: ServiceAccount
   name: kserve-controller-manager
