@@ -4,7 +4,7 @@ COPY custom_model custom_model
 COPY kserve kserve
 
 RUN pip install --upgrade pip && pip install -e ./kserve
-RUN pip install -e ./custom_model
+RUN pip install -r ./custom_model/requirements.txt
 COPY third_party third_party
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
