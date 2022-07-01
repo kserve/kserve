@@ -34,6 +34,7 @@ var (
 	KServeName                     = "kserve"
 	KServeAPIGroupName             = "serving.kserve.io"
 	KnativeAutoscalingAPIGroupName = "autoscaling.knative.dev"
+	KnativeServingAPIGroupName     = "serving.knative.dev"
 	KServeNamespace                = getEnvOrDefault("POD_NAMESPACE", "kserve")
 	KServeDefaultVersion           = "v0.5.0"
 )
@@ -75,6 +76,7 @@ var (
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
 	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/minScale"
 	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/maxScale"
+	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
 )
 
 // InferenceService Internal Annotations
