@@ -1,12 +1,12 @@
 FROM python:3.8
 
-RUN pip install --upgrade pip
-
-COPY kserve kserve
-COPY paddleserver paddleserver
 COPY third_party third_party
 
-RUN pip install -e ./kserve -e ./paddleserver
+COPY kserve kserve
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
+
+COPY paddleserver paddleserver
+RUN pip install --no-cache-dir -e ./paddleserver
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 USER 1000
