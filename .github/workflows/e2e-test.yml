@@ -37,14 +37,14 @@ jobs:
         with:
           image: "kserve/storage-initializer:${{ github.sha }}"
 
-  runtime-build-set1:
+  predictor-runtime-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
       - name: Build runtime server images
         run: |
-          ./test/scripts/gh-actions/build-server-runtimes.sh 1
+          ./test/scripts/gh-actions/build-server-runtimes.sh predictor,transformer
           docker image ls
           cat ./config/overlays/test/configmap/inferenceservice.yaml
       
@@ -72,22 +72,22 @@ jobs:
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
           image: "kserve/paddleserver:${{ github.sha }}"
+
+      - name: Upload image transformer image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/image-transformer:${{ github.sha }}"
       
-  runtime-build-set2:
+  explainer-runtime-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
       - name: Build runtime server images
         run: |
-          ./test/scripts/gh-actions/build-server-runtimes.sh 2
+          ./test/scripts/gh-actions/build-server-runtimes.sh explainer
           docker image ls
           cat ./config/overlays/test/configmap/inferenceservice.yaml
-
-      - name: Upload image transformer image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "kserve/image-transformer:${{ github.sha }}"
 
       - name: Upload aix image
         uses: ishworkh/docker-image-artifact-upload@v1
@@ -99,12 +99,17 @@ jobs:
         with:
           image: "kserve/alibi-explainer:${{ github.sha }}"
       
+      - name: Upload art explainer image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/art-explainer:${{ github.sha }}"
+      
 
 
 
   test-fast:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, runtime-build-set1, runtime-build-set2]
+    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
@@ -197,7 +202,7 @@ jobs:
   
   test-slow:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, runtime-build-set1, runtime-build-set2]
+    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
@@ -290,7 +295,7 @@ jobs:
 
   test-explainer:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, runtime-build-set1, runtime-build-set2]
+    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
@@ -338,6 +343,11 @@ jobs:
         with:
           image: "kserve/alibi-explainer:${{ github.sha }}"
 
+      - name: Download art explainer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/art-explainer:${{ github.sha }}"
+
       - name: Setup KServe dependencies
         run: |
           ./test/scripts/gh-actions/setup-deps.sh
@@ -379,7 +389,7 @@ jobs:
 
   test-transformer-mms:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, runtime-build-set1, runtime-build-set2]
+    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2

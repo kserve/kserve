@@ -22,8 +22,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 echo "Github SHA ${GITHUB_SHA}"
-
-part=$1
+IFS=,
+types=($1)
 
 # Predictor runtime server images
 SKLEARN_IMG=kserve/sklearnserver:${GITHUB_SHA}
@@ -34,12 +34,13 @@ PADDLE_IMG=kserve/paddleserver:${GITHUB_SHA}
 # Explainer images
 ALIBI_IMG=kserve/alibi-explainer:${GITHUB_SHA}
 AIX_IMG=kserve/aix-explainer:${GITHUB_SHA}
+ART_IMG=kserve/art-explainer:${GITHUB_SHA}
 # Transformer images
 IMAGE_TRANSFORMER_IMG=kserve/image-transformer:${GITHUB_SHA}
 
 
 pushd python >/dev/null
-  if [[ $part == 1 ]]; then
+  if [[ " ${types[*]} " =~ "predictor" ]]; then
     echo "Building Sklearn image"
     docker build -t ${SKLEARN_IMG} -f sklearn.Dockerfile .
     echo "Building XGB image"
@@ -52,11 +53,16 @@ pushd python >/dev/null
     docker build -t ${PADDLE_IMG} -f paddle.Dockerfile .
   fi
 
-  if [[ $part == 2 ]]; then
+  if [[ " ${types[*]} " =~ "explainer" ]]; then
     echo "Building Alibi image"
     docker build -t ${ALIBI_IMG} -f alibiexplainer.Dockerfile .
     echo "Building AIX image"
     docker build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
+    echo "Building ART explainer image"
+    docker build -t ${ART_IMG} -f artexplainer.Dockerfile .
+  fi
+
+  if [[ " ${types[*]} " =~ "transformer" ]]; then
     echo "Building Image transformer image"
     docker build -t ${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
   fi
