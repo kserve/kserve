@@ -338,6 +338,7 @@ rules:
       - ""
     resources:
       - namespaces
+      - namespaces/finalizers
     verbs:
       - get
       - list

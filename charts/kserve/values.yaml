@@ -39,7 +39,7 @@ kserve:
       modelmeshRuntimeAdapterImage: kserve/modelmesh-runtime-adapter
       modelmeshRuntimeAdapterImageTag: *defaultModelMeshVersion
       restProxyImage: kserve/rest-proxy
-      restProxyImageTag: v0.1.1
+      restProxyImageTag: v0.1.4
       podsPerRuntime: 2
   servingruntime:
     modelNamePlaceholder: '{{.Name}}'
