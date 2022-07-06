@@ -163,8 +163,19 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			})
 			return ctrl.Result{}, errors.New("no container configuration found in selected serving runtime")
 		}
-		// Assume only one container is specified in runtime spec.
-		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[0], &isvc.Spec.Predictor.Model.Container)
+
+		kserveContainerIdx := -1
+		for i := range sRuntime.Containers {
+			if sRuntime.Containers[i].Name == constants.InferenceServiceContainerName {
+				kserveContainerIdx = i
+				break
+			}
+		}
+		if kserveContainerIdx == -1 {
+			return ctrl.Result{}, errors.New("failed to find kserve-container in ServingRuntime containers")
+		}
+
+		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[kserveContainerIdx], &isvc.Spec.Predictor.Model.Container)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidPredictorSpec,
@@ -182,9 +193,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.Wrapf(err, "failed to consolidate serving runtime PodSpecs")
 		}
 
-		// Other dependencies rely on the container to be a specific name.
-		container.Name = constants.InferenceServiceContainerName
-
 		// Replace placeholders in runtime container by values from inferenceservice metadata
 		if err = isvcutils.ReplacePlaceholders(container, isvc.ObjectMeta); err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
@@ -201,6 +209,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		podSpec.Containers = []v1.Container{
 			*container,
 		}
+		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[:kserveContainerIdx]...)
+		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
 
 	} else {
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
