@@ -27,7 +27,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
 
-@pytest.mark.skip
+@pytest.mark.slow
 def test_triton():
     service_name = 'isvc-triton'
     predictor = V1beta1PredictorSpec(
@@ -78,7 +78,7 @@ def test_triton():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.skip
+@pytest.mark.slow
 def test_triton_runtime():
     service_name = 'isvc-triton-runtime'
     predictor = V1beta1PredictorSpec(
