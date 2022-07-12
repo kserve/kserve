@@ -1,5 +1,6 @@
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,BuiltInAdapter,Env
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,InferenceGraphList,Items
+API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,InferenceRouter,Steps
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Containers
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Tolerations
 API rule violation: list_type_missing,./pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Volumes
@@ -17,6 +18,8 @@ API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,Readine
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,Tolerations
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,Volumes
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PredictorConfig,SupportedFrameworks
+API rule violation: names_match,./pkg/apis/serving/v1alpha1,InferenceStep,StepName
+API rule violation: names_match,./pkg/apis/serving/v1alpha1,InferenceTarget,ServiceURL
 API rule violation: names_match,./pkg/apis/serving/v1alpha1,ModelSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1alpha1,ServingRuntimeSpec,GrpcMultiModelManagementEndpoint
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ComponentExtensionSpec,TimeoutSeconds
