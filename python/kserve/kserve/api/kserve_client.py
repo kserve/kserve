@@ -21,6 +21,7 @@ from ..constants import constants
 from ..utils import utils
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
 from .watch import isvc_watch
+from ..models import V1alpha1InferenceGraph
 
 
 class KServeClient(object):
@@ -414,3 +415,58 @@ class KServeClient(object):
 
         raise RuntimeError(f"InferenceService ({service_name}) has not loaded the \
                             model ({model_name}) before the timeout.")
+
+    def create_inference_graph(self, inferencegraph: V1alpha1InferenceGraph, namespace: str = None) -> object:
+        """
+        create a inference graph
+
+        :param inferencegraph: inference graph object
+        :param namespace: defaults to current or default namespace
+        :return: created inference graph
+        """
+        version = inferencegraph.api_version.split("/")[1]
+        if namespace is None:
+            namespace = utils.set_ig_namespace(inferencegraph)
+
+        try:
+            outputs = self.api_instance.create_namespaced_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                namespace,
+                constants.KSERVE_PLURAL_INFERENCEGRAPH,
+                inferencegraph
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
+                 %s\n"
+                % e
+            )
+        return outputs
+
+    def delete_inference_graph(self, name: str, namespace: str = None,
+                               version: str = constants.KSERVE_V1ALPHA1_VERSION):
+        """
+        Delete the inference graph
+
+        :param name: inference graph name
+        :param namespace: defaults to current or default namespace
+        :param version: api group version
+        """
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        try:
+            self.api_instance.delete_namespaced_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                namespace,
+                constants.KSERVE_PLURAL_INFERENCEGRAPH,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
+                 %s\n"
+                % e
+            )
