@@ -29,7 +29,7 @@ setup(
     description='Model Explanation Server. \
                  Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
-    python_requires='>=3.9',
+    python_requires='>=3.7',
     packages=find_packages("alibiexplainer"),
     install_requires=[
         "kserve>=0.8.0",
