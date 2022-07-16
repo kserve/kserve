@@ -80,9 +80,11 @@ func (isvc *InferenceService) Default() {
 }
 
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig) {
-	if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
-		deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
-		isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
+	if _, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]; !ok {
+		if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
+			deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
+		}
 	}
 	components := []Component{isvc.Spec.Transformer, isvc.Spec.Explainer}
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
