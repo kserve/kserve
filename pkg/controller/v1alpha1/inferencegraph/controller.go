@@ -25,10 +25,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -144,6 +147,18 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
+	deployConfig, err := v1beta1api.NewDeployConfig(r.Client)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
+	}
+
+	deploymentMode := isvcutils.GetDeploymentMode(graph.ObjectMeta.Annotations, deployConfig)
+	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
+	if deploymentMode == constants.RawDeployment {
+		err := fmt.Errorf("RawDeployment mode is not supported for InferenceGraph")
+		r.Log.Error(err, "name", graph.GetName())
+		return reconcile.Result{}, err
+	}
 	//@TODO check raw deployment mode
 	desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
 	err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
@@ -216,9 +231,16 @@ func inferenceGraphReadiness(status v1alpha1api.InferenceGraphStatus) bool {
 		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 }
 
-func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1api.InferenceGraph{}).
-		Owns(&knservingv1.Service{}).
-		Complete(r)
+func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig) error {
+	if deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&v1alpha1api.InferenceGraph{}).
+			Owns(&appsv1.Deployment{}).
+			Complete(r)
+	} else {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&v1alpha1api.InferenceGraph{}).
+			Owns(&knservingv1.Service{}).
+			Complete(r)
+	}
 }
