@@ -1,0 +1,32 @@
+name: 'Base Download Actions'
+description: 'A wrapper around download docker artifact to allow passing a list'
+inputs:
+  image-list:
+    description: 'List of images'
+    required: true
+    default: 'kserve/agent:${{ github.sha }}'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Update test overlays
+      shell: bash
+      run: |
+        ./test/scripts/gh-actions/update-test-overlays.sh
+        docker image ls
+        cat ./config/overlays/test/configmap/inferenceservice.yaml
+
+    - name: Download controller image
+      uses: ishworkh/docker-image-artifact-download@v1
+      with:
+        image: "kserve/kserve-controller:${{ github.sha }}"
+    
+    - name: Download agent image
+      uses: ishworkh/docker-image-artifact-download@v1
+      with:
+        image: "kserve/agent:${{ github.sha }}"
+    
+    - name: Download storage initializer image
+      uses: ishworkh/docker-image-artifact-download@v1
+      with:
+        image: "kserve/storage-initializer:${{ github.sha }}"

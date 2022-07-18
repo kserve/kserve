@@ -1,0 +1,40 @@
+name: 'Minikube setup action'
+description: 'A wrapper around download docker artifact to allow passing a list'
+inputs:
+  image-list:
+    description: 'List of images'
+    required: true
+    default: 'kserve/agent:${{ github.sha }}'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Minikube
+      shell: bash
+      run: |
+        wget --no-verbose https://github.com/kubernetes/minikube/releases/download/v1.25.1/minikube-linux-amd64
+        sudo cp minikube-linux-amd64 /usr/local/bin/minikube
+        sudo chmod 755 /usr/local/bin/minikube
+        sudo apt-get install -y conntrack socat
+        minikube start --driver=none --kubernetes-version v1.22.10
+    - name: Check Kubernetes pods
+      shell: bash
+      run: |
+        sleep 40
+        kubectl get pods -n kube-system
+    - name: Setup KServe dependencies
+      shell: bash
+      run: |
+        ./test/scripts/gh-actions/setup-deps.sh
+
+        kubectl get pods -n istio-system
+        kubectl describe svc -n istio-system istio-ingressgateway
+        kubectl get pods -n knative-serving
+        kubectl get pods -n cert-manager
+    
+    - name: Update test overlays
+      shell: bash
+      run: |
+        ./test/scripts/gh-actions/update-test-overlays.sh
+        docker image ls
+        cat ./config/overlays/test/configmap/inferenceservice.yaml

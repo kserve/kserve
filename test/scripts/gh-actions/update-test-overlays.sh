@@ -21,12 +21,6 @@
 # agent and storage-initializer.
 sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
 
-# Update agent tag
-sed -i -e "s/kserve\/agent:latest/kserve\/agent:${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
-
-# Update storage init tag
-sed -i -e "s/kserve\/storage-initializer:latest/kserve\/storage-initializer:${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
-
 # Update runtimes
 sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/runtimes/kustomization.yaml
 
