@@ -168,7 +168,7 @@ func main() {
 		Log:      ctrl.Log.WithName("v1alpha1Controllers").WithName("InferenceGraph"),
 		Scheme:   mgr.GetScheme(),
 		Recorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), v1.EventSource{Component: "InferenceGraphController"}),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, deployConfig); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "InferenceGraph")
 		os.Exit(1)
 	}
