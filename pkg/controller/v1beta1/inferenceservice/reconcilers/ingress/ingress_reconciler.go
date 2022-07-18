@@ -384,10 +384,19 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService, disableIs
 		} else if !isvcutils.IsMMSPredictor(&isvc.Spec.Predictor) {
 
 			protocol := isvc.Spec.Predictor.GetImplementation().GetProtocol()
+			modelName := isvc.Name
+			// Set model name from env variable for mlserver
+			if isvc.Spec.Predictor.Model != nil {
+				for _, env := range isvc.Spec.Predictor.Model.Env {
+					if env.Name == constants.MLServerModelNameEnv {
+						modelName = env.Value
+					}
+				}
+			}
 			if protocol == constants.ProtocolV1 {
-				path = constants.PredictPath(isvc.Name, constants.ProtocolV1)
+				path = constants.PredictPath(modelName, constants.ProtocolV1)
 			} else if protocol == constants.ProtocolV2 {
-				path = constants.PredictPath(isvc.Name, constants.ProtocolV2)
+				path = constants.PredictPath(modelName, constants.ProtocolV2)
 			}
 
 		}
