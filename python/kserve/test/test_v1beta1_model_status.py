@@ -50,16 +50,16 @@ class TestV1beta1ModelStatus(unittest.TestCase):
         # model = kserve.models.v1beta1_model_status.V1beta1ModelStatus()  # noqa: E501
         if include_optional :
             return V1beta1ModelStatus(
-                copies = kserve.models.v1beta1/model_copies.v1beta1.ModelCopies(
+                copies = kserve.models.v1beta1_model_copies.V1beta1ModelCopies(
                     failed_copies = 56, 
                     total_copies = 56, ), 
-                last_failure_info = kserve.models.v1beta1/failure_info.v1beta1.FailureInfo(
+                last_failure_info = kserve.models.v1beta1_failure_info.V1beta1FailureInfo(
                     location = '0', 
                     message = '0', 
                     model_revision_name = '0', 
                     reason = '0', 
                     time = None, ), 
-                states = kserve.models.v1beta1/model_revision_states.v1beta1.ModelRevisionStates(
+                states = kserve.models.v1beta1_model_revision_states.V1beta1ModelRevisionStates(
                     active_model_state = '0', 
                     target_model_state = '0', ), 
                 transition_status = '0'

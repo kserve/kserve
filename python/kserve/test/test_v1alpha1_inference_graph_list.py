@@ -52,7 +52,7 @@ class TestV1alpha1InferenceGraphList(unittest.TestCase):
             return V1alpha1InferenceGraphList(
                 api_version = '0', 
                 items = [
-                    kserve.models.v1alpha1/inference_graph.v1alpha1.InferenceGraph(
+                    kserve.models.v1alpha1_inference_graph.V1alpha1InferenceGraph(
                         api_version = '0', 
                         kind = '0', 
                         metadata = None, 
@@ -65,7 +65,7 @@ class TestV1alpha1InferenceGraphList(unittest.TestCase):
         else :
             return V1alpha1InferenceGraphList(
                 items = [
-                    kserve.models.v1alpha1/inference_graph.v1alpha1.InferenceGraph(
+                    kserve.models.v1alpha1_inference_graph.V1alpha1InferenceGraph(
                         api_version = '0', 
                         kind = '0', 
                         metadata = None, 

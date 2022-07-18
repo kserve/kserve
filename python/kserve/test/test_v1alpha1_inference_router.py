@@ -52,7 +52,7 @@ class TestV1alpha1InferenceRouter(unittest.TestCase):
             return V1alpha1InferenceRouter(
                 router_type = '0', 
                 steps = [
-                    kserve.models.v1alpha1/inference_step.v1alpha1.InferenceStep(
+                    kserve.models.v1alpha1_inference_step.V1alpha1InferenceStep(
                         condition = '0', 
                         data = '0', 
                         name = '0', 
