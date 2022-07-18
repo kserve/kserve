@@ -60,7 +60,7 @@ class PyTorchModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict) -> Dict:
+    def predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
         inputs = []
         with torch.no_grad():
             try:

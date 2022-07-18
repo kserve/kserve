@@ -52,7 +52,7 @@ class XGBoostModel(Model):
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict) -> Dict:
+    def predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
             dmatrix = xgb.DMatrix(np.array(request["instances"]), nthread=self.nthread)

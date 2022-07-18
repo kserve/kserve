@@ -14,6 +14,7 @@
 
 import json
 from http import HTTPStatus
+from typing import Dict
 
 import tornado.web
 
@@ -47,8 +48,9 @@ class PredictHandler(HTTPHandler):
     async def post(self, name: str):
         is_cloudevent = False
         is_binary_cloudevent = False
+        req_headers: Dict[str, str] = self.request.headers
 
-        if has_binary_headers(self.request.headers):
+        if has_binary_headers(req_headers):
             is_cloudevent = True
             is_binary_cloudevent = True
             body = self.get_binary_cloudevent()
@@ -67,21 +69,21 @@ class PredictHandler(HTTPHandler):
         # call model locally or remote model workers
         model = self.get_model(name)
         if not isinstance(model, RayServeHandle):
-            response = await model(body)
+            response = await model(body, headers=req_headers)
         else:
             model_handle = model
-            response = await model_handle.remote(body)
+            response = await model_handle.remote(body, headers=req_headers)
 
         # if we received a cloudevent, then also return a cloudevent
         if is_cloudevent:
-            headers, response = create_response_cloudevent(name, body, response, is_binary_cloudevent)
+            res_headers, response = create_response_cloudevent(name, body, response, is_binary_cloudevent)
 
             if is_binary_cloudevent:
                 self.set_header("Content-Type", "application/json")
             else:
                 self.set_header("Content-Type", "application/cloudevents+json")
 
-            for k, v in headers.items():
+            for k, v in res_headers.items():
                 self.set_header(k, v)
 
         self.write(response)

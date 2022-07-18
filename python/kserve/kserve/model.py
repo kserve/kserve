@@ -75,7 +75,7 @@ class Model:
         self._http_client_instance = None
         self._grpc_client_stub = None
 
-    async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
+    async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR, headers: Dict[str, str] = None):
         request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
             else self.preprocess(body)
         request = self.validate(request)
@@ -83,8 +83,8 @@ class Model:
             response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
                 else self.explain(request)
         elif model_type == ModelType.PREDICTOR:
-            response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
-                else self.predict(request)
+            response = (await self.predict(request, headers)) if inspect.iscoroutinefunction(self.predict) \
+                else self.predict(request, headers)
         else:
             raise NotImplementedError
         response = self.postprocess(response)
@@ -174,16 +174,16 @@ class Model:
             return response.get_response(as_json=True)
         return response
 
-    async def _http_predict(self, request: Dict) -> Dict:
+    async def _http_predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
-        json_header = {'Content-Type': 'application/json'}
+        # json_header = {'Content-Type': 'application/json'}
         response = await self._http_client.fetch(
             predict_url,
             method='POST',
             request_timeout=self.timeout,
-            headers=json_header,
+            headers=headers,
             body=json.dumps(request)
         )
         if response.code != 200:
@@ -192,23 +192,24 @@ class Model:
                 reason=response.body)
         return json.loads(response.body)
 
-    async def _grpc_predict(self, request: ModelInferRequest) -> ModelInferResponse:
-        async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
+    async def _grpc_predict(self, request: ModelInferRequest, headers: Dict[str, str] = None) -> ModelInferResponse:
+        async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout, headers=headers)
         return async_result
 
-    async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
+    async def predict(self, request: Union[Dict, ModelInferRequest], headers: Dict[str, str] = None) -> Union[Dict, ModelInferResponse]:
         """
         The predict handler can be overridden to implement the model inference.
         The default implementation makes a call to the predictor if predictor_host is specified
+        :param headers:
         :param request: Dict|ModelInferRequest passed from preprocess handler
         :return: Dict|ModelInferResponse
         """
         if not self.predictor_host:
             raise NotImplementedError
         if self.protocol == PredictorProtocol.GRPC_V2.value:
-            return await self._grpc_predict(request)
+            return await self._grpc_predict(request, headers)
         else:
-            return await self._http_predict(request)
+            return await self._http_predict(request, headers)
 
     async def explain(self, request: Dict) -> Dict:
         """

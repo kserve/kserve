@@ -46,7 +46,7 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict) -> Dict:
+    def predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
         instances = request["instances"]
         try:
             if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
