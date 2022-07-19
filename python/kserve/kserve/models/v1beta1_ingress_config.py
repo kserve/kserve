@@ -53,7 +53,8 @@ class V1beta1IngressConfig(object):
         'ingress_gateway': 'str',
         'ingress_service': 'str',
         'local_gateway': 'str',
-        'local_gateway_service': 'str'
+        'local_gateway_service': 'str',
+        'url_scheme': 'str'
     }
 
     attribute_map = {
@@ -63,10 +64,11 @@ class V1beta1IngressConfig(object):
         'ingress_gateway': 'ingressGateway',
         'ingress_service': 'ingressService',
         'local_gateway': 'localGateway',
-        'local_gateway_service': 'localGatewayService'
+        'local_gateway_service': 'localGatewayService',
+        'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -79,6 +81,7 @@ class V1beta1IngressConfig(object):
         self._ingress_service = None
         self._local_gateway = None
         self._local_gateway_service = None
+        self._url_scheme = None
         self.discriminator = None
 
         if domain_template is not None:
@@ -95,6 +98,8 @@ class V1beta1IngressConfig(object):
             self.local_gateway = local_gateway
         if local_gateway_service is not None:
             self.local_gateway_service = local_gateway_service
+        if url_scheme is not None:
+            self.url_scheme = url_scheme
 
     @property
     def domain_template(self):
@@ -242,6 +247,27 @@ class V1beta1IngressConfig(object):
         """
 
         self._local_gateway_service = local_gateway_service
+
+    @property
+    def url_scheme(self):
+        """Gets the url_scheme of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The url_scheme of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._url_scheme
+
+    @url_scheme.setter
+    def url_scheme(self, url_scheme):
+        """Sets the url_scheme of this V1beta1IngressConfig.
+
+
+        :param url_scheme: The url_scheme of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._url_scheme = url_scheme
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -38,6 +38,7 @@ type InferenceGraph struct {
 }
 
 // InferenceGraphSpec defines the InferenceGraph spec
+// +k8s:openapi-gen=true
 type InferenceGraphSpec struct {
 	// Map of InferenceGraph router nodes
 	// Each node defines the router which can be different routing types
@@ -70,7 +71,6 @@ const (
 )
 
 // +k8s:openapi-gen=true
-
 // InferenceRouter defines the router for each InferenceGraph node with one or multiple steps
 //
 // ```yaml
@@ -190,7 +190,6 @@ type InferenceRouter struct {
 
 // +k8s:openapi-gen=true
 // Exactly one InferenceTarget field must be specified
-
 type InferenceTarget struct {
 	// The node name for routing as next step
 	// +optional
@@ -206,7 +205,6 @@ type InferenceTarget struct {
 
 // InferenceStep defines the inference target of the current step with condition, weights and data.
 // +k8s:openapi-gen=true
-
 type InferenceStep struct {
 	// Unique name for the step within this node
 	// +optional
@@ -233,7 +231,6 @@ type InferenceStep struct {
 
 // InferenceGraphStatus defines the InferenceGraph conditions and status
 // +k8s:openapi-gen=true
-
 type InferenceGraphStatus struct {
 	// Conditions for InferenceGraph
 	duckv1.Status `json:",inline"`

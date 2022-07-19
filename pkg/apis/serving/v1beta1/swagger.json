@@ -148,6 +148,131 @@
         }
       }
     },
+    "v1alpha1.InferenceGraphSpec": {
+      "description": "InferenceGraphSpec defines the InferenceGraph spec",
+      "type": "object",
+      "required": [
+        "nodes"
+      ],
+      "properties": {
+        "nodes": {
+          "description": "Map of InferenceGraph router nodes Each node defines the router which can be different routing types",
+          "type": "object",
+          "additionalProperties": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.InferenceRouter"
+          }
+        }
+      }
+    },
+    "v1alpha1.InferenceGraphStatus": {
+      "description": "InferenceGraphStatus defines the InferenceGraph conditions and status",
+      "type": "object",
+      "properties": {
+        "annotations": {
+          "description": "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "conditions": {
+          "description": "Conditions the latest available observations of a resource's current state.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/knative.Condition"
+          },
+          "x-kubernetes-patch-merge-key": "type",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "url": {
+          "description": "Url for the InferenceGraph",
+          "$ref": "#/definitions/knative.URL"
+        }
+      }
+    },
+    "v1alpha1.InferenceRouter": {
+      "description": "InferenceRouter defines the router for each InferenceGraph node with one or multiple steps\n\n```yaml kind: InferenceGraph metadata:\n  name: canary-route\nspec:\n  nodes:\n    root:\n      routerType: Splitter\n      routes:\n      - service: mymodel1\n        weight: 20\n      - service: mymodel2\n        weight: 80\n```\n\n```yaml kind: InferenceGraph metadata:\n  name: abtest\nspec:\n  nodes:\n    mymodel:\n      routerType: Switch\n      routes:\n      - service: mymodel1\n        condition: \"{ .input.userId == 1 }\"\n      - service: mymodel2\n        condition: \"{ .input.userId == 2 }\"\n```\n\nScoring a case using a model ensemble consists of scoring it using each model separately, then combining the results into a single scoring result using one of the pre-defined combination methods.\n\nTree Ensemble constitutes a case where simple algorithms for combining results of either classification or regression trees are well known. Multiple classification trees, for example, are commonly combined using a \"majority-vote\" method. Multiple regression trees are often combined using various averaging techniques. e.g tagging models with segment identifiers and weights to be used for their combination in these ways. ```yaml kind: InferenceGraph metadata:\n  name: ensemble\nspec:\n  nodes:\n    root:\n      routerType: Sequence\n      routes:\n      - service: feast\n      - nodeName: ensembleModel\n        data: $response\n    ensembleModel:\n      routerType: Ensemble\n      routes:\n      - service: sklearn-model\n      - service: xgboost-model\n```\n\nScoring a case using a sequence, or chain of models allows the output of one model to be passed in as input to the subsequent models. ```yaml kind: InferenceGraph metadata:\n  name: model-chainer\nspec:\n  nodes:\n    root:\n      routerType: Sequence\n      routes:\n      - service: mymodel-s1\n      - service: mymodel-s2\n        data: $response\n      - service: mymodel-s3\n        data: $response\n```\n\nIn the flow described below, the pre_processing node base64 encodes the image and passes it to two model nodes in the flow. The encoded data is available to both these nodes for classification. The second node i.e. dog-breed-classification takes the original input from the pre_processing node along-with the response from the cat-dog-classification node to do further classification of the dog breed if required. ```yaml kind: InferenceGraph metadata:\n  name: dog-breed-classification\nspec:\n  nodes:\n    root:\n      routerType: Sequence\n      routes:\n      - service: cat-dog-classifier\n      - nodeName: breed-classifier\n        data: $request\n    breed-classifier:\n      routerType: Switch\n      routes:\n      - service: dog-breed-classifier\n        condition: { .predictions.class == \"dog\" }\n      - service: cat-breed-classifier\n        condition: { .predictions.class == \"cat\" }\n```",
+      "type": "object",
+      "required": [
+        "routerType"
+      ],
+      "properties": {
+        "routerType": {
+          "description": "RouterType\n\n- `Sequence:` chain multiple inference steps with input/output from previous step\n\n- `Splitter:` randomly routes to the target service according to the weight\n\n- `Ensemble:` routes the request to multiple models and then merge the responses\n\n- `Switch:` routes the request to one of the steps based on condition",
+          "type": "string",
+          "default": ""
+        },
+        "steps": {
+          "description": "Steps defines destinations for the current router node",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.InferenceStep"
+          }
+        }
+      }
+    },
+    "v1alpha1.InferenceStep": {
+      "description": "InferenceStep defines the inference target of the current step with condition, weights and data.",
+      "type": "object",
+      "properties": {
+        "condition": {
+          "description": "routing based on the condition",
+          "type": "string"
+        },
+        "data": {
+          "description": "request data sent to the next route with input/output from the previous step $request $response.predictions",
+          "type": "string"
+        },
+        "name": {
+          "description": "Unique name for the step within this node",
+          "type": "string"
+        },
+        "nodeName": {
+          "description": "The node name for routing as next step",
+          "type": "string"
+        },
+        "serviceName": {
+          "description": "named reference for InferenceService",
+          "type": "string"
+        },
+        "serviceUrl": {
+          "description": "InferenceService URL, mutually exclusive with ServiceName",
+          "type": "string"
+        },
+        "weight": {
+          "description": "the weight for split of the traffic, only used for Split Router when weight is specified all the routing targets should be sum to 100",
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "v1alpha1.InferenceTarget": {
+      "description": "Exactly one InferenceTarget field must be specified",
+      "type": "object",
+      "properties": {
+        "nodeName": {
+          "description": "The node name for routing as next step",
+          "type": "string"
+        },
+        "serviceName": {
+          "description": "named reference for InferenceService",
+          "type": "string"
+        },
+        "serviceUrl": {
+          "description": "InferenceService URL, mutually exclusive with ServiceName",
+          "type": "string"
+        }
+      }
+    },
     "v1alpha1.ModelSpec": {
       "description": "ModelSpec describes a TrainedModel",
       "type": "object",
