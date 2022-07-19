@@ -967,7 +967,7 @@ class V1beta1TransformerSpec(object):
     def scale_metric(self):
         """Gets the scale_metric of this V1beta1TransformerSpec.  # noqa: E501
 
-        ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).  # noqa: E501
+        ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
 
         :return: The scale_metric of this V1beta1TransformerSpec.  # noqa: E501
         :rtype: str
@@ -978,7 +978,7 @@ class V1beta1TransformerSpec(object):
     def scale_metric(self, scale_metric):
         """Sets the scale_metric of this V1beta1TransformerSpec.
 
-        ScaleMetric specifies scaling metric of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).  # noqa: E501
+        ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
 
         :param scale_metric: The scale_metric of this V1beta1TransformerSpec.  # noqa: E501
         :type: str
@@ -990,7 +990,7 @@ class V1beta1TransformerSpec(object):
     def scale_target(self):
         """Gets the scale_target of this V1beta1TransformerSpec.  # noqa: E501
 
-        ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
+        ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
 
         :return: The scale_target of this V1beta1TransformerSpec.  # noqa: E501
         :rtype: int
@@ -1001,7 +1001,7 @@ class V1beta1TransformerSpec(object):
     def scale_target(self, scale_target):
         """Sets the scale_target of this V1beta1TransformerSpec.
 
-        ScaleTarget specifies scaling value of the component concurrency(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
+        ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
 
         :param scale_target: The scale_target of this V1beta1TransformerSpec.  # noqa: E501
         :type: int

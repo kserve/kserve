@@ -13,14 +13,16 @@
 # limitations under the License.
 
 import time
-import requests
-from kubernetes import client, config
 from urllib.parse import urlparse
 
-from ..constants import constants
-from ..utils import utils
+import requests
+from kubernetes import client, config
+
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
 from .watch import isvc_watch
+from ..constants import constants
+from ..models import V1alpha1InferenceGraph
+from ..utils import utils
 
 
 class KServeClient(object):
@@ -414,3 +416,125 @@ class KServeClient(object):
 
         raise RuntimeError(f"InferenceService ({service_name}) has not loaded the \
                             model ({model_name}) before the timeout.")
+
+    def create_inference_graph(self, inferencegraph: V1alpha1InferenceGraph, namespace: str = None) -> object:
+        """
+        create a inference graph
+
+        :param inferencegraph: inference graph object
+        :param namespace: defaults to current or default namespace
+        :return: created inference graph
+        """
+        version = inferencegraph.api_version.split("/")[1]
+        if namespace is None:
+            namespace = utils.set_ig_namespace(inferencegraph)
+
+        try:
+            outputs = self.api_instance.create_namespaced_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                namespace,
+                constants.KSERVE_PLURAL_INFERENCEGRAPH,
+                inferencegraph
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
+                 %s\n"
+                % e
+            )
+        return outputs
+
+    def delete_inference_graph(self, name: str, namespace: str = None,
+                               version: str = constants.KSERVE_V1ALPHA1_VERSION):
+        """
+        Delete the inference graph
+
+        :param name: inference graph name
+        :param namespace: defaults to current or default namespace
+        :param version: api group version
+        """
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        try:
+            self.api_instance.delete_namespaced_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                namespace,
+                constants.KSERVE_PLURAL_INFERENCEGRAPH,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
+                 %s\n"
+                % e
+            )
+
+    def get_inference_graph(self, name: str, namespace: str = None,
+                            version: str = constants.KSERVE_V1ALPHA1_VERSION) -> object:
+        """
+        Get the inference graph
+
+        :param name: existing inference graph name
+        :param namespace: defaults to current or default namespace
+        :param version: api group version
+        :return: inference graph
+        """
+
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        try:
+            return self.api_instance.get_namespaced_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                namespace,
+                constants.KSERVE_PLURAL_INFERENCEGRAPH,
+                name)
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->get_namespaced_custom_object:\
+                 %s\n" % e)
+
+    def is_ig_ready(self, name: str, namespace: str = None, version: str = constants.KSERVE_V1ALPHA1_VERSION) -> bool:
+        """
+        Check if the inference graph is ready.
+
+        :param name: inference graph name
+        :param namespace: defaults to current or default namespace
+        :param version: api group version
+        :return: true if inference graph is ready, else false.
+        """
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        ig: dict = self.get_inference_graph(name, namespace=namespace, version=version)
+        for condition in ig.get('status', {}).get('conditions', {}):
+            if condition.get('type', '') == 'Ready':
+                status = condition.get('status', 'Unknown')
+                return status.lower() == "true"
+        return False
+
+    def wait_ig_ready(self, name: str, namespace: str = None, version: str = constants.KSERVE_V1ALPHA1_VERSION,
+                      timeout_seconds: int = 600,
+                      polling_interval: int = 10):
+        """
+        Wait for inference graph to be ready until timeout. Print out the inference graph if timeout.
+
+        :param name: inference graph name
+        :param namespace: defaults to current or default namespace
+        :param version: api group version
+        :param timeout_seconds: timeout seconds for waiting, default to 600s.
+        :param polling_interval: The time interval to poll status
+        :return:
+        """
+        for _ in range(round(timeout_seconds / polling_interval)):
+            time.sleep(polling_interval)
+            if self.is_ig_ready(name, namespace, version):
+                return
+
+        current_ig = self.get_inference_graph(name, namespace=namespace, version=version)
+        raise RuntimeError("Timeout to start the InferenceGraph {}. \
+                            The InferenceGraph is as following: {}".format(name, current_ig))

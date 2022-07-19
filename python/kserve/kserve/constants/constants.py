@@ -20,6 +20,8 @@ KSERVE_KIND = 'InferenceService'
 KSERVE_PLURAL = 'inferenceservices'
 KSERVE_KIND_TRAINEDMODEL = 'TrainedModel'
 KSERVE_PLURAL_TRAINEDMODEL = 'trainedmodels'
+KSERVE_KIND_INFERENCEGRAPH = 'InferenceGraph'
+KSERVE_PLURAL_INFERENCEGRAPH = 'inferencegraphs'
 KSERVE_V1BETA1_VERSION = 'v1beta1'
 KSERVE_V1ALPHA1_VERSION = "v1alpha1"
 

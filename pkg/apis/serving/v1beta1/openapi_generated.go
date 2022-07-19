@@ -35,6 +35,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1alpha1.ClusterServingRuntimeList": schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref),
 		"./pkg/apis/serving/v1alpha1.InferenceGraph":            schema_pkg_apis_serving_v1alpha1_InferenceGraph(ref),
 		"./pkg/apis/serving/v1alpha1.InferenceGraphList":        schema_pkg_apis_serving_v1alpha1_InferenceGraphList(ref),
+		"./pkg/apis/serving/v1alpha1.InferenceGraphSpec":        schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref),
+		"./pkg/apis/serving/v1alpha1.InferenceGraphStatus":      schema_pkg_apis_serving_v1alpha1_InferenceGraphStatus(ref),
+		"./pkg/apis/serving/v1alpha1.InferenceRouter":           schema_pkg_apis_serving_v1alpha1_InferenceRouter(ref),
+		"./pkg/apis/serving/v1alpha1.InferenceStep":             schema_pkg_apis_serving_v1alpha1_InferenceStep(ref),
+		"./pkg/apis/serving/v1alpha1.InferenceTarget":           schema_pkg_apis_serving_v1alpha1_InferenceTarget(ref),
 		"./pkg/apis/serving/v1alpha1.ModelSpec":                 schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
 		"./pkg/apis/serving/v1alpha1.ServingRuntime":            schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref),
 		"./pkg/apis/serving/v1alpha1.ServingRuntimeList":        schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref),
@@ -345,6 +350,235 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphList(ref common.ReferenceCal
 		},
 		Dependencies: []string{
 			"./pkg/apis/serving/v1alpha1.InferenceGraph", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InferenceGraphSpec defines the InferenceGraph spec",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Map of InferenceGraph router nodes Each node defines the router which can be different routing types",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("./pkg/apis/serving/v1alpha1.InferenceRouter"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"nodes"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.InferenceRouter"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_InferenceGraphStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InferenceGraphStatus defines the InferenceGraph conditions and status",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "type",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions the latest available observations of a resource's current state.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("knative.dev/pkg/apis.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Url for the InferenceGraph",
+							Ref:         ref("knative.dev/pkg/apis.URL"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_InferenceRouter(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InferenceRouter defines the router for each InferenceGraph node with one or multiple steps\n\n```yaml kind: InferenceGraph metadata:\n  name: canary-route\nspec:\n  nodes:\n    root:\n      routerType: Splitter\n      routes:\n      - service: mymodel1\n        weight: 20\n      - service: mymodel2\n        weight: 80\n```\n\n```yaml kind: InferenceGraph metadata:\n  name: abtest\nspec:\n  nodes:\n    mymodel:\n      routerType: Switch\n      routes:\n      - service: mymodel1\n        condition: \"{ .input.userId == 1 }\"\n      - service: mymodel2\n        condition: \"{ .input.userId == 2 }\"\n```\n\nScoring a case using a model ensemble consists of scoring it using each model separately, then combining the results into a single scoring result using one of the pre-defined combination methods.\n\nTree Ensemble constitutes a case where simple algorithms for combining results of either classification or regression trees are well known. Multiple classification trees, for example, are commonly combined using a \"majority-vote\" method. Multiple regression trees are often combined using various averaging techniques. e.g tagging models with segment identifiers and weights to be used for their combination in these ways. ```yaml kind: InferenceGraph metadata:\n  name: ensemble\nspec:\n  nodes:\n    root:\n      routerType: Sequence\n      routes:\n      - service: feast\n      - nodeName: ensembleModel\n        data: $response\n    ensembleModel:\n      routerType: Ensemble\n      routes:\n      - service: sklearn-model\n      - service: xgboost-model\n```\n\nScoring a case using a sequence, or chain of models allows the output of one model to be passed in as input to the subsequent models. ```yaml kind: InferenceGraph metadata:\n  name: model-chainer\nspec:\n  nodes:\n    root:\n      routerType: Sequence\n      routes:\n      - service: mymodel-s1\n      - service: mymodel-s2\n        data: $response\n      - service: mymodel-s3\n        data: $response\n```\n\nIn the flow described below, the pre_processing node base64 encodes the image and passes it to two model nodes in the flow. The encoded data is available to both these nodes for classification. The second node i.e. dog-breed-classification takes the original input from the pre_processing node along-with the response from the cat-dog-classification node to do further classification of the dog breed if required. ```yaml kind: InferenceGraph metadata:\n  name: dog-breed-classification\nspec:\n  nodes:\n    root:\n      routerType: Sequence\n      routes:\n      - service: cat-dog-classifier\n      - nodeName: breed-classifier\n        data: $request\n    breed-classifier:\n      routerType: Switch\n      routes:\n      - service: dog-breed-classifier\n        condition: { .predictions.class == \"dog\" }\n      - service: cat-breed-classifier\n        condition: { .predictions.class == \"cat\" }\n```",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"routerType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RouterType\n\n- `Sequence:` chain multiple inference steps with input/output from previous step\n\n- `Splitter:` randomly routes to the target service according to the weight\n\n- `Ensemble:` routes the request to multiple models and then merge the responses\n\n- `Switch:` routes the request to one of the steps based on condition",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"steps": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Steps defines destinations for the current router node",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("./pkg/apis/serving/v1alpha1.InferenceStep"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"routerType"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.InferenceStep"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_InferenceStep(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InferenceStep defines the inference target of the current step with condition, weights and data.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Unique name for the step within this node",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"nodeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The node name for routing as next step",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serviceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "named reference for InferenceService",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serviceUrl": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferenceService URL, mutually exclusive with ServiceName",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"data": {
+						SchemaProps: spec.SchemaProps{
+							Description: "request data sent to the next route with input/output from the previous step $request $response.predictions",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"weight": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the weight for split of the traffic, only used for Split Router when weight is specified all the routing targets should be sum to 100",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"condition": {
+						SchemaProps: spec.SchemaProps{
+							Description: "routing based on the condition",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_InferenceTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Exactly one InferenceTarget field must be specified",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The node name for routing as next step",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serviceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "named reference for InferenceService",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serviceUrl": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferenceService URL, mutually exclusive with ServiceName",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -807,6 +1041,7 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -3496,6 +3731,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -4635,6 +4871,7 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -4719,6 +4956,7 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -5343,6 +5581,7 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5615,6 +5854,7 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5886,6 +6126,7 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6608,6 +6849,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7477,6 +7719,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7798,6 +8041,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -8070,6 +8314,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -8836,6 +9081,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -9108,6 +9354,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
