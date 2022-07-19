@@ -1,10 +1,5 @@
 name: 'Minikube setup action'
-description: 'A wrapper around download docker artifact to allow passing a list'
-inputs:
-  image-list:
-    description: 'List of images'
-    required: true
-    default: 'kserve/agent:${{ github.sha }}'
+description: 'Sets up minikube on the github runner'
 
 runs:
   using: "composite"
