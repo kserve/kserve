@@ -6,9 +6,11 @@ from kubernetes.client import V1ResourceRequirements
 from kserve import V1beta1PredictorSpec, V1beta1SKLearnSpec, V1beta1InferenceServiceSpec, V1beta1InferenceService, \
     constants, KServeClient, V1alpha1InferenceGraphSpec, V1alpha1InferenceRouter, V1alpha1InferenceGraph, \
     V1alpha1InferenceStep, V1beta1XGBoostSpec
+import pytest
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
 
+@pytest.mark.graph
 def test_inference_graph():
     sklearn_name = "isvc-sklearn"
     xgb_name = "isvc-xgboost"
