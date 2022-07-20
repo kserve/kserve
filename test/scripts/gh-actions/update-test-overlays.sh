@@ -16,11 +16,13 @@
 
 # The script is used to deploy knative and kserve, and run e2e tests.
 
-set -o errexit
-set -o nounset
-set -o pipefail
 
-echo "Starting E2E functional tests ..."
-pushd test/e2e >/dev/null
-  pytest -m "$1"
-popd
+# Update KServe configurations to use the correct tag. This replaces all 'latest' entries in the configmap include the
+# agent and storage-initializer.
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
+
+# Update runtimes
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/runtimes/kustomization.yaml
+
+# Update controller image tag
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/manager_image_patch.yaml

@@ -22,11 +22,13 @@ from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
 from kserve import V1beta1ModelSpec, V1beta1ModelFormat
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
+@pytest.mark.slow
 def test_tensorflow_kserve():
     service_name = 'isvc-tensorflow'
     predictor = V1beta1PredictorSpec(
@@ -56,6 +58,7 @@ def test_tensorflow_kserve():
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.slow
 def test_tensorflow_runtime_kserve():
     service_name = 'isvc-tensorflow-runtime'
     predictor = V1beta1PredictorSpec(

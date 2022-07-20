@@ -24,10 +24,12 @@ from kserve import (
     V1beta1ModelFormat,
 )
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import predict, KSERVE_TEST_NAMESPACE
 
 
+@pytest.mark.fast
 def test_lightgbm_kserve():
     service_name = "isvc-lightgbm"
     predictor = V1beta1PredictorSpec(
@@ -59,6 +61,7 @@ def test_lightgbm_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.fast
 def test_lightgbm_runtime_kserve():
     service_name = "isvc-lightgbm-runtime"
     predictor = V1beta1PredictorSpec(
@@ -93,6 +96,7 @@ def test_lightgbm_runtime_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.fast
 def test_lightgbm_v2_runtime_kserve():
     service_name = "isvc-lightgbm-v2-runtime"
 

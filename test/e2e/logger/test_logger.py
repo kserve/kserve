@@ -23,6 +23,7 @@ from kserve import V1beta1InferenceService
 from kserve import V1beta1LoggerSpec
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
+import pytest
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 import time
@@ -30,6 +31,7 @@ import time
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
+@pytest.mark.fast
 def test_kserve_logger():
     msg_dumper = 'message-dumper'
     predictor = V1beta1PredictorSpec(
