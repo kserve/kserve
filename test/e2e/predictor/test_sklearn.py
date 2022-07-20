@@ -24,11 +24,13 @@ from kserve import (
     V1beta1ModelFormat,
 )
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
+@pytest.mark.fast
 def test_sklearn_kserve():
     service_name = "isvc-sklearn"
     predictor = V1beta1PredictorSpec(
@@ -59,6 +61,7 @@ def test_sklearn_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.fast
 def test_sklearn_v2_kserve():
     service_name = "isvc-sklearn-v2"
     predictor = V1beta1PredictorSpec(
@@ -92,6 +95,7 @@ def test_sklearn_v2_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.fast
 def test_sklearn_runtime_kserve():
     service_name = "isvc-sklearn-runtime"
     predictor = V1beta1PredictorSpec(
@@ -125,6 +129,7 @@ def test_sklearn_runtime_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.fast
 def test_sklearn_v2_runtime_kserve():
     service_name = "isvc-sklearn-v2-runtime"
 

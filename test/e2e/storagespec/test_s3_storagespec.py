@@ -23,11 +23,13 @@ from kserve import (
     V1beta1StorageSpec
 )
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
+@pytest.mark.fast
 def test_sklearn_s3_storagespec_kserve():
     service_name = "isvc-sklearn-s3"
     predictor = V1beta1PredictorSpec(

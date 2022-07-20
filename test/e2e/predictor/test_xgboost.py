@@ -24,10 +24,12 @@ from kserve import (
     V1beta1ModelFormat,
 )
 from kubernetes.client import V1ResourceRequirements, V1EnvVar
+import pytest
 
 from ..common.utils import predict, KSERVE_TEST_NAMESPACE
 
 
+@pytest.mark.fast
 def test_xgboost_kserve():
     service_name = "isvc-xgboost"
     predictor = V1beta1PredictorSpec(
@@ -58,6 +60,7 @@ def test_xgboost_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.fast
 def test_xgboost_v2_kserve():
     service_name = "isvc-xgboost-v2"
     predictor = V1beta1PredictorSpec(
@@ -92,6 +95,7 @@ def test_xgboost_v2_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.fast
 def test_xgboost_runtime_kserve():
     service_name = "isvc-xgboost-runtime"
     predictor = V1beta1PredictorSpec(
@@ -125,6 +129,7 @@ def test_xgboost_runtime_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.fast
 def test_xgboost_v2_runtime_kserve():
     service_name = "isvc-xgboost-v2-runtime"
 
