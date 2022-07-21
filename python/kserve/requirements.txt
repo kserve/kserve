@@ -1,6 +1,6 @@
 six>=1.16.0
 python_dateutil>=2.8.0
-setuptools>=60.6.0
+setuptools>=59.5.0
 urllib3>=1.26.8
 kubernetes>=18.20.0
 tornado>=6.1
