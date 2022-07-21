@@ -100,8 +100,6 @@ spec:
                 fieldPath: metadata.namespace
           - name: SECRET_NAME
             value: kserve-webhook-server-cert
-        args:
-          - --leader-elect=true
         resources:
           limits:
             cpu: 100m
