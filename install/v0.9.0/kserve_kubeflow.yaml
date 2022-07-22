@@ -16974,6 +16974,15 @@ metadata:
   namespace: kubeflow
 rules:
 - apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - list
+  - update
+- apiGroups:
   - ""
   resources:
   - configmaps
@@ -17779,6 +17788,7 @@ spec:
       containers:
       - args:
         - --metrics-addr=127.0.0.1:8080
+        - --leader-elect
         command:
         - /manager
         env:

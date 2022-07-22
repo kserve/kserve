@@ -113,6 +113,7 @@ spec:
         name: manager
         args:
         - "--metrics-addr=127.0.0.1:8080"
+        - "--leader-elect"
         env:
           - name: POD_NAMESPACE
             valueFrom:
