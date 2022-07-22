@@ -134,6 +134,10 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		eh.log.Info("Failed to proxy request", "status code", rr.Code)
 	}
 
+	header := w.Header()
+	for k, v := range rr.Header() {
+		header[k] = v
+	}
 	w.WriteHeader(rr.Code)
 	_, err = w.Write(rr.Body.Bytes())
 	if err != nil {
