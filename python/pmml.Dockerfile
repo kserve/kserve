@@ -4,6 +4,8 @@ ARG PYTHON_VERSION=3.7
 ARG CONDA_PYTHON_VERSION=3
 ARG CONDA_DIR=/opt/conda
 
+COPY third_party third_party
+
 # Install basic utilities
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git wget unzip bzip2 build-essential ca-certificates && \
@@ -21,11 +23,10 @@ RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda$CONDA_PYTHON_VERS
 
 RUN conda install -y python=$PYTHON_VERSION
 
-COPY pmmlserver pmmlserver
 COPY kserve kserve
-COPY third_party third_party
-
 RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kserve
+
+COPY pmmlserver pmmlserver
 RUN pip install --no-cache-dir -e ./pmmlserver
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
