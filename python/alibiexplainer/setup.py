@@ -32,7 +32,7 @@ setup(
     python_requires='>=3.7',
     packages=find_packages("alibiexplainer"),
     install_requires=[
-        "kserve>=0.8.0",
+        "kserve>=0.7.0",
         "nest_asyncio>=1.4.0",
         "alibi==0.7.0",
         "joblib>=0.13.2",
