@@ -1,4 +1,4 @@
-FROM python:3.9-slim-bullseye
+FROM python:3.7
 
 COPY third_party third_party
 
