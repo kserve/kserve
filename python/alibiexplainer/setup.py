@@ -37,7 +37,7 @@ setup(
         "alibi==0.6.4",
         "joblib>=0.13.2",
         "xgboost==1.5.0",
-        "shap==0.39.0",
+        "shap==0.40.0",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
