@@ -34,7 +34,8 @@ setup(
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
         "adversarial-robustness-toolbox[keras] == 1.10.3",
-        "nest_asyncio>=1.4.0"
+        "nest_asyncio>=1.4.0",
+        "pillow>=6.0.0"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

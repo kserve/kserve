@@ -11,14 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Dict
-
 import asyncio
 import logging
-import kserve
+from typing import Dict
+
 import numpy as np
-from art.classifiers import BlackBoxClassifier
 from art.attacks.evasion.square_attack import SquareAttack
+from art.estimators.classification import BlackBoxClassifierNeuralNetwork
+
+import kserve
 
 
 class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
@@ -54,19 +55,17 @@ class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
         label = request["instances"][1]
         try:
             inputs = np.array(image)
+            label = np.array(label)
             logging.info("Calling explain on image of shape %s", (inputs.shape,))
         except Exception as e:
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s" % (e, request["instances"]))
         try:
             if str.lower(self.adversary_type) == "squareattack":
-
-                classifier = BlackBoxClassifier(self._predict, inputs.shape, self.nb_classes,
-                                                clip_values=(-np.inf, np.inf))
+                classifier = BlackBoxClassifierNeuralNetwork(self._predict, inputs.shape, self.nb_classes,
+                                                             channels_first=False, clip_values=(-np.inf, np.inf))
                 preds = np.argmax(classifier.predict(inputs, batch_size=1))
-                classifier.channels_first = False
                 attack = SquareAttack(estimator=classifier, max_iter=self.max_iter)
-
                 x_adv = attack.generate(x=inputs, y=label)
 
                 adv_preds = np.argmax(classifier.predict(x_adv))
