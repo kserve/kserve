@@ -32,7 +32,7 @@ done
 
 export ISTIO_VERSION=1.14.0
 export KNATIVE_VERSION=knative-v1.4.0
-export KSERVE_VERSION=v0.9.0-rc0
+export KSERVE_VERSION=v0.9.0
 export CERT_MANAGER_VERSION=v1.3.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
