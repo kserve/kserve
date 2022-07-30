@@ -14966,6 +14966,9 @@ spec:
                     type: object
                   lastFailureInfo:
                     properties:
+                      exitCode:
+                        format: int32
+                        type: integer
                       location:
                         type: string
                       message:
