@@ -25,6 +25,7 @@ from kserve import V1beta1ARTExplainerSpec
 from kserve import V1beta1InferenceService
 from kubernetes.client import V1Container
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import predict
 from ..common.utils import explain_art
@@ -34,6 +35,7 @@ logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
+@pytest.mark.explainer
 def test_tabular_explainer():
     service_name = 'art-explainer'
     isvc = V1beta1InferenceService(

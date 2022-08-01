@@ -1,6 +1,6 @@
 kserve:
-  version: &defaultVersion v0.9.0-rc0
-  modelmeshVersion: &defaultModelMeshVersion latest #TODO update 
+  version: &defaultVersion v0.9.0
+  modelmeshVersion: &defaultModelMeshVersion v0.9.0
   agent:
     image: kserve/agent
     tag: *defaultVersion
@@ -39,7 +39,7 @@ kserve:
       modelmeshRuntimeAdapterImage: kserve/modelmesh-runtime-adapter
       modelmeshRuntimeAdapterImageTag: *defaultModelMeshVersion
       restProxyImage: kserve/rest-proxy
-      restProxyImageTag: v0.1.1
+      restProxyImageTag: v0.1.4
       podsPerRuntime: 2
   servingruntime:
     modelNamePlaceholder: '{{.Name}}'
@@ -48,7 +48,7 @@ kserve:
       tag: 2.6.2
     mlserver:
       image: docker.io/seldonio/mlserver
-      tag: 0.5.3
+      tag: 1.0.0
       modelClassPlaceholder: '{{.Labels.modelClass}}'
     sklearnserver:
       image: kserve/sklearnserver
@@ -69,8 +69,8 @@ kserve:
       image: kserve/lgbserver
       tag: *defaultVersion
     torchserve:
-      image: kserve/torchserve-kfs
-      tag: 0.5.2
+      image: pytorch/torchserve-kfs
+      tag: 0.6.0
       serviceEnvelopePlaceholder: '{{.Labels.serviceEnvelope}}'
     alibi:
       image: kserve/alibi-explainer

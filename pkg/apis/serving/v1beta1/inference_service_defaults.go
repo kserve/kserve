@@ -80,20 +80,26 @@ func (isvc *InferenceService) Default() {
 }
 
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig) {
-	if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
-		deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
-		isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
+	if _, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]; !ok {
+		if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
+			deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
+		}
 	}
+	components := []Component{isvc.Spec.Transformer, isvc.Spec.Explainer}
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 	if !ok || deploymentMode != string(constants.ModelMeshDeployment) {
-		// Only attempt to assign runtimes for non-modelmesh predictors
+		// Only attempt to assign runtimes and apply defaulting logic for non-modelmesh predictors
 		isvc.setPredictorModelDefaults()
+		components = append(components, &isvc.Spec.Predictor)
+	} else {
+		// If this is a modelmesh predictor, we still want to do "Exactly One" validation.
+		if err := validateExactlyOneImplementation(&isvc.Spec.Predictor); err != nil {
+			mutatorLogger.Error(ExactlyOneErrorFor(&isvc.Spec.Predictor), "Missing component implementation")
+		}
 	}
-	for _, component := range []Component{
-		&isvc.Spec.Predictor,
-		isvc.Spec.Transformer,
-		isvc.Spec.Explainer,
-	} {
+
+	for _, component := range components {
 		if !reflect.ValueOf(component).IsNil() {
 			if err := validateExactlyOneImplementation(component); err != nil {
 				mutatorLogger.Error(ExactlyOneErrorFor(component), "Missing component implementation")
@@ -249,7 +255,7 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
 	}
 	// set environment variables based on storage uri
-	if isvc.Spec.Predictor.Model.StorageURI == nil {
+	if isvc.Spec.Predictor.Model.StorageURI == nil && isvc.Spec.Predictor.Model.Storage == nil {
 		isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
 			v1.EnvVar{
 				Name:  constants.MLServerLoadModelsStartupEnv,
@@ -308,7 +314,7 @@ func (isvc *InferenceService) SetTritonDefaults() {
 		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
 	}
 	// set model-control-model arg to 'explicit' if storage uri is nil
-	if isvc.Spec.Predictor.Model.StorageURI == nil {
+	if isvc.Spec.Predictor.Model.StorageURI == nil && isvc.Spec.Predictor.Model.Storage == nil {
 		isvc.Spec.Predictor.Model.Args = append(isvc.Spec.Predictor.Model.Args,
 			fmt.Sprintf("%s=%s", "--model-control-mode", "explicit"))
 	}

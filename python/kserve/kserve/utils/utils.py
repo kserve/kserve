@@ -14,8 +14,9 @@
 
 import os
 import sys
-import psutil
 from typing import Dict, Union
+
+import psutil
 from cloudevents.http import CloudEvent, to_binary, to_structured
 
 
@@ -38,6 +39,10 @@ def set_isvc_namespace(inferenceservice):
     isvc_namespace = inferenceservice.metadata.namespace
     namespace = isvc_namespace or get_default_target_namespace()
     return namespace
+
+
+def set_ig_namespace(inferencegraph):
+    return inferencegraph.metadata.namespace or get_default_target_namespace()
 
 
 def cpu_count():

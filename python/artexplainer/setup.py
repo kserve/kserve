@@ -27,14 +27,15 @@ setup(
     url='https://github.com/kserve/kserve/python/artserver',
     description='Model Server implementation for AI Robustness Toolbox. \
                  Not intended for use outside KServe Frameworks Images',
-    python_requires='>3.7',
+    python_requires='>=3.9',
     packages=find_packages("artserver"),
     install_requires=[
         "kserve>=0.7.0",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
-        "adversarial-robustness-toolbox[keras] == 1.4.1",
-        "nest_asyncio>=1.4.0"
+        "adversarial-robustness-toolbox[keras] == 1.10.3",
+        "nest_asyncio>=1.4.0",
+        "pillow>=6.0.0"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

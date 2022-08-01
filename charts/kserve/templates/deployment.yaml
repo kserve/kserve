@@ -113,6 +113,7 @@ spec:
         name: manager
         args:
         - "--metrics-addr=127.0.0.1:8080"
+        - "--leader-elect"
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -164,7 +165,6 @@ spec:
         app.kubernetes.io/managed-by: modelmesh-controller
         app.kubernetes.io/name: modelmesh-controller
         control-plane: modelmesh-controller
-        network-policy: allow-egress
     spec:
       affinity:
         nodeAffinity:

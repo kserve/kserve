@@ -24,6 +24,7 @@ from kserve import V1beta1ExplainerSpec
 from kserve import V1beta1AlibiExplainerSpec
 from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import predict
 from ..common.utils import explain
@@ -33,14 +34,15 @@ logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
+@pytest.mark.explainer
 def test_tabular_explainer():
     service_name = 'isvc-explainer-tabular'
     predictor = V1beta1PredictorSpec(
         sklearn=V1beta1SKLearnSpec(
             storage_uri='gs://kfserving-examples/models/sklearn/1.0/income/model',
             resources=V1ResourceRequirements(
-                requests={'cpu': '10m', 'memory': '128Mi'},
-                limits={'cpu': '100m', 'memory': '256Mi'}
+                requests={'cpu': '100m', 'memory': '256Mi'},
+                limits={'cpu': '250m', 'memory': '512Mi'}
             )
         )
     )
@@ -51,8 +53,8 @@ def test_tabular_explainer():
             type='AnchorTabular',
             storage_uri='gs://kfserving-examples/models/sklearn/1.0/income/explainer-py37-0.6.2',
             resources=V1ResourceRequirements(
-                requests={'cpu': '10m', 'memory': '128Mi'},
-                limits={'cpu': '100m', 'memory': '256Mi'}
+                requests={'cpu': '100m', 'memory': '256Mi'},
+                limits={'cpu': '250m', 'memory': '512Mi'}
             )
         )
     )

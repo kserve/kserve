@@ -22,11 +22,13 @@ from kserve import V1beta1ModelSpec, V1beta1ModelFormat
 from kserve import constants
 from kubernetes import client
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
 
+@pytest.mark.pmml
 def test_pmml_kserve():
     service_name = 'isvc-pmml'
     predictor = V1beta1PredictorSpec(
@@ -58,6 +60,7 @@ def test_pmml_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.pmml
 def test_pmml_runtime_kserve():
     service_name = 'isvc-pmml-runtime'
     predictor = V1beta1PredictorSpec(

@@ -51,6 +51,10 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+const (
+	LeaderLockName = "kserve-controller-manager-leader-lock"
+)
+
 func init() {
 	// Allow unknown fields in Istio API client for backwards compatibility if cluster has existing vs with deprecated fields.
 	istio_networking.VirtualServiceUnmarshaler.AllowUnknownFields = true
@@ -59,7 +63,11 @@ func init() {
 
 func main() {
 	var metricsAddr string
+	var enableLeaderElection bool
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+		"Enable leader election for kserve controller manager. "+
+			"Enabling this will ensure there is only one active kserve controller manager.")
 	flag.Parse()
 	logf.SetLogger(zap.New())
 	log := logf.Log.WithName("entrypoint")
@@ -74,7 +82,12 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	log.Info("Setting up manager")
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: metricsAddr, Port: 9443})
+	mgr, err := manager.New(cfg, manager.Options{
+		MetricsBindAddress: metricsAddr,
+		Port:               9443,
+		LeaderElection:     enableLeaderElection,
+		LeaderElectionID:   LeaderLockName,
+	})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")
 		os.Exit(1)
@@ -168,7 +181,7 @@ func main() {
 		Log:      ctrl.Log.WithName("v1alpha1Controllers").WithName("InferenceGraph"),
 		Scheme:   mgr.GetScheme(),
 		Recorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), v1.EventSource{Component: "InferenceGraphController"}),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, deployConfig); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "InferenceGraph")
 		os.Exit(1)
 	}

@@ -1,7 +1,7 @@
 
 # Readme for Generating KServe SDK
 
-The guide shows how to generate the openapi model and swagger.json file from KFServing types using `openapi-gen` and generate KFServing Python SDK Client for the Python object models using `swagger-codegen`. Also show how to upload the KFServing SDK to Pypi.
+The guide shows how to generate the openapi model and swagger.json file from KServe types using `openapi-gen` and generate Python SDK Client for the Python object models using `openapi-codegen`. Also show how to upload the Python SDK to Pypi.
 
 ## Generate openapi spec and swagger file.
 
@@ -14,7 +14,7 @@ After executing, the `openapi_generated.go` and `swagger.json` are generated and
 
 ## Generate Python SDK
 
-From root folder, execute the script `/hack/python-sdk/client-gen.sh` to install swagger-codegen and generate KFServing Python SDK, or you can install customized swagger-codegen and generate SDK manually following the [guide](https://github.com/swagger-api/swagger-codegen#getting-started) of swagger-codegen.
+From root folder, execute the script `/hack/python-sdk/client-gen.sh` to install openapi-codegen and generate Python SDK.
 
 ```
 ./hack/python-sdk/client-gen.sh

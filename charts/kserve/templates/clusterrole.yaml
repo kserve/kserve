@@ -87,6 +87,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - create
@@ -330,6 +338,7 @@ rules:
       - ""
     resources:
       - namespaces
+      - namespaces/finalizers
     verbs:
       - get
       - list

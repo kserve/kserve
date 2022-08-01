@@ -38,7 +38,7 @@ data:
       limits:
         cpu: "2"
         memory: "512Mi"
-    serviceAccountName: modelmesh
+    serviceAccountName: ""
     metrics:
       enabled: true
 kind: ConfigMap
@@ -203,4 +203,4 @@ data:
 kind: ConfigMap
 metadata:
   name: inferenceservice-config
-  namespace: {{ .Release.Namespace }} 
+  namespace: {{ .Release.Namespace }}

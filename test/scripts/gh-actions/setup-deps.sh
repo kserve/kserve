@@ -24,8 +24,8 @@ set -o pipefail
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
 ISTIO_VERSION="1.12.0"
-KNATIVE_VERSION="knative-v1.0.0"
-CERT_MANAGER_VERSION="v1.2.0"
+KNATIVE_VERSION="knative-v1.4.0"
+CERT_MANAGER_VERSION="v1.5.0"
 KUSTOMIZE_VERSION="4.2.0"
 YQ_VERSION="3.3.2"
 
@@ -35,7 +35,7 @@ rm -rf ${KUSTOMIZE_PATH}
 curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- ${KUSTOMIZE_VERSION} ${KUSTOMIZE_PATH::-10}
 
 echo "Installing yq ..."
-wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
+wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
 echo "Installing Istio ..."
 mkdir istio_tmp
@@ -75,7 +75,7 @@ popd
 for i in 1 2 3 ; do kustomize build test/overlays/knative | kubectl apply -f - && break || sleep 15; done
 
 echo "Waiting for Knative to be ready ..."
-kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
+kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
 
 echo "Add knative hpa..."
 # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml

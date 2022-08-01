@@ -30,11 +30,13 @@ from kserve import (
     V1beta1ModelSpec,
     V1beta1ModelFormat,
 )
+import pytest
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict
 
 logging.basicConfig(level=logging.INFO)
 
 
+@pytest.mark.slow
 def test_paddle():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -75,6 +77,7 @@ def test_paddle():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.slow
 def test_paddle_runtime():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,

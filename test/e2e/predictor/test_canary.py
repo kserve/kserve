@@ -22,6 +22,7 @@ from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
 from kserve import V1beta1ModelSpec, V1beta1ModelFormat
 from kubernetes.client import V1ResourceRequirements
+import pytest
 
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
@@ -29,6 +30,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
+@pytest.mark.fast
 def test_canary_rollout():
     service_name = 'isvc-canary'
     default_endpoint_spec = V1beta1InferenceServiceSpec(
@@ -76,6 +78,7 @@ def test_canary_rollout():
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.fast
 def test_canary_rollout_runtime():
     service_name = 'isvc-canary-runtime'
     default_endpoint_spec = V1beta1InferenceServiceSpec(
