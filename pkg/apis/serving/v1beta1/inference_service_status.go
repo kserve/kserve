@@ -223,6 +223,9 @@ type FailureInfo struct {
 	// Time failure occurred or was discovered
 	//+optional
 	Time *metav1.Time `json:"time,omitempty"`
+	// Exit status from the last termination of the container
+	//+optional
+	ExitCode int32 `json:"exitCode,omitempty"`
 }
 
 var conditionsMap = map[ComponentType]apis.ConditionType{
@@ -473,15 +476,17 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 			} else if cs.State.Terminated != nil &&
 				cs.State.Terminated.Reason == constants.StateReasonError {
 				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
-					Reason:  ModelLoadFailed,
-					Message: cs.State.Terminated.Message,
+					Reason:   ModelLoadFailed,
+					Message:  cs.State.Terminated.Message,
+					ExitCode: cs.State.Terminated.ExitCode,
 				})
 				return
 			} else if cs.State.Waiting != nil &&
 				cs.State.Waiting.Reason == constants.StateReasonCrashLoopBackOff {
 				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
-					Reason:  ModelLoadFailed,
-					Message: cs.LastTerminationState.Terminated.Message,
+					Reason:   ModelLoadFailed,
+					Message:  cs.LastTerminationState.Terminated.Message,
+					ExitCode: cs.LastTerminationState.Terminated.ExitCode,
 				})
 				return
 			}
@@ -494,14 +499,16 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 			if cs.State.Terminated != nil &&
 				cs.State.Terminated.Reason == constants.StateReasonError {
 				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
-					Reason:  ModelLoadFailed,
-					Message: cs.State.Terminated.Message,
+					Reason:   ModelLoadFailed,
+					Message:  cs.State.Terminated.Message,
+					ExitCode: cs.State.Terminated.ExitCode,
 				})
 			} else if cs.State.Waiting != nil &&
 				cs.State.Waiting.Reason == constants.StateReasonCrashLoopBackOff {
 				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
-					Reason:  ModelLoadFailed,
-					Message: cs.LastTerminationState.Terminated.Message,
+					Reason:   ModelLoadFailed,
+					Message:  cs.LastTerminationState.Terminated.Message,
+					ExitCode: cs.LastTerminationState.Terminated.ExitCode,
 				})
 			} else {
 				ss.UpdateModelRevisionStates(Pending, totalCopies, nil)
