@@ -28,7 +28,7 @@ setup(
     description='Model Server implementation for AI eXplainability with LIME. \
                  Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
-    python_requires='>3.7',
+    python_requires='>=3.6',
     packages=find_packages("aixserver"),
     install_requires=[
         "kserve>=0.7.0",
