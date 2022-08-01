@@ -17,7 +17,7 @@ import asyncio
 import logging
 import kserve
 import numpy as np
-from aix360.algorithms.lime import LimeImageExplainer
+from aix360.algorithms.lime.lime_wrapper import LimeImageExplainer
 from lime.wrappers.scikit_image import SegmentationAlgorithm
 
 
