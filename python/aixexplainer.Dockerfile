@@ -1,12 +1,14 @@
-FROM python:3.8-slim
+FROM python:3.7-slim
 
 COPY third_party third_party
 
 COPY kserve kserve
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
 
+RUN apt update && apt install -y build-essential
 COPY aixexplainer aixexplainer
 RUN pip install --no-cache-dir -e ./aixexplainer
+RUN apt remove -y build-essential
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 USER 1000
