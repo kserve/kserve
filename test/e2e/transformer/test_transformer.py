@@ -78,5 +78,5 @@ def test_transformer():
             print(pod)
         raise e
     res = predict(service_name, "./data/transformer.json", model_name="mnist")
-    assert(res.get("predictions")[0] == 2)
+    assert (res.get("predictions")[0] == 2)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
