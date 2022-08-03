@@ -69,8 +69,8 @@ def test_sklearn_kserve_concurrency():
 
     res = predict(service_name, INPUT)
     assert res["predictions"] == [1, 1]
-    assert(isvc_annotations[METRIC] == 'concurrency')
-    assert(isvc_annotations[TARGET] == '2')
+    assert (isvc_annotations[METRIC] == 'concurrency')
+    assert (isvc_annotations[TARGET] == '2')
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -108,8 +108,8 @@ def test_sklearn_kserve_rps():
 
     annotations = pods.items[0].metadata.annotations
 
-    assert(annotations[METRIC] == 'rps')
-    assert(annotations[TARGET] == '5')
+    assert (annotations[METRIC] == 'rps')
+    assert (annotations[TARGET] == '5')
     res = predict(service_name, INPUT)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -153,8 +153,8 @@ def test_sklearn_kserve_cpu():
 
     isvc_annotations = pods.items[0].metadata.annotations
 
-    assert(isvc_annotations[METRIC] == 'cpu')
-    assert(isvc_annotations[TARGET] == '50')
+    assert (isvc_annotations[METRIC] == 'cpu')
+    assert (isvc_annotations[TARGET] == '50')
     res = predict(service_name, INPUT)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -197,7 +197,7 @@ def test_sklearn_kserve_raw():
                                                           namespace=KSERVE_TEST_NAMESPACE,
                                                           plural='horizontalpodautoscalers')
 
-    assert(hpa_resp['items'][0]['spec']['targetCPUUtilizationPercentage'] == 50)
+    assert (hpa_resp['items'][0]['spec']['targetCPUUtilizationPercentage'] == 50)
     res = predict(service_name, INPUT)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

@@ -87,7 +87,7 @@ def test_kserve_logger():
             print(pod)
 
     res = predict(service_name, './data/iris_input.json')
-    assert(res["predictions"] == [1, 1])
+    assert (res["predictions"] == [1, 1])
     pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
                                                       label_selector='serving.kserve.io/inferenceservice={}'.
                                                       format(msg_dumper))
@@ -98,7 +98,7 @@ def test_kserve_logger():
                                                               namespace=pod.metadata.namespace,
                                                               container="kserve-container")
         print(log)
-    assert("org.kubeflow.serving.inference.request" in log)
-    assert("org.kubeflow.serving.inference.response" in log)
+    assert ("org.kubeflow.serving.inference.request" in log)
+    assert ("org.kubeflow.serving.inference.response" in log)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(msg_dumper, KSERVE_TEST_NAMESPACE)
