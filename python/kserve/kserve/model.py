@@ -196,7 +196,8 @@ class Model:
         async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout, headers=headers)
         return async_result
 
-    async def predict(self, request: Union[Dict, ModelInferRequest], headers: Dict[str, str] = None) -> Union[Dict, ModelInferResponse]:
+    async def predict(self, request: Union[Dict, ModelInferRequest],
+                      headers: Dict[str, str] = None) -> Union[Dict, ModelInferResponse]:
         """
         The predict handler can be overridden to implement the model inference.
         The default implementation makes a call to the predictor if predictor_host is specified
