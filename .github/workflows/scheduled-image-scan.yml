@@ -1,0 +1,29 @@
+name: Twice a week scan
+# Temporarily adding on push for testing
+on:
+  push:
+    branches: [ snyk-scan ]
+  pull_request:
+    branches: []
+
+jobs:
+  base-image-scan:
+    name: scan images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [kserve-controller, agent, storage-initializer]
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Security scan on docker image
+        uses: snyk/actions/docker@master
+        id: docker-image-scan
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: kserve/${{ matrix.image }}
+          args: --severity-threshold=low
