@@ -31,7 +31,8 @@ setup(
     python_requires='>3.7',
     packages=find_packages("aixserver"),
     install_requires=[
-        "kserve",
+        "kserve>=0.9.0",
+        "argparse >= 1.4.0",
         "aix360 >= 0.2.0",
         "lime >= 0.1.1.37",
         "nest_asyncio>=1.4.0",

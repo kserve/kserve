@@ -33,7 +33,7 @@ setup(
     python_requires='>3.7',
     packages=find_packages("xgbserver"),
     install_requires=[
-        "kserve",
+        "kserve>=0.9.0",
         "xgboost == 1.5.0",
         "scikit-learn == 1.0.1",
     ],

@@ -32,7 +32,7 @@ setup(
     python_requires='>3.7',
     packages=find_packages("aifserver"),
     install_requires=[
-        "kserve",
+        "kserve>=0.9.0",
         "aif360 >= 0.2.3",
         "nest_asyncio>=1.4.0",
         "requests[security]>=2.24.0"
