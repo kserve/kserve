@@ -23,7 +23,7 @@ tests_require = [
 
 setup(
     name='xgbserver',
-    version='0.7.0',
+    version='0.9.0',
     author_email='ellisbigelow@google.com',
     license='../../LICENSE.txt',
     url='https://github.com/kserve/kserve/python/xgbserver',
@@ -33,7 +33,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("xgbserver"),
     install_requires=[
-        "kserve>=0.7.0",
+        "kserve>=0.9.0",
         "xgboost == 1.5.0",
         "scikit-learn == 1.0.1",
     ],

@@ -27,10 +27,10 @@ setup(
     url='https://github.com/kserve/kserve/docs/samples/v1beta1/pytorch/torchscript/image_transformer_v2',
     description='ImageTransformerV2',
     long_description=open('README.md').read(),
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     packages=find_packages("image_transformer_v2"),
     install_requires=[
-        "kfserving>=0.4",
+        "kserve>=0.9",
         "torchvision>=0.4.0",
         "pillow==9.0.1"
     ],

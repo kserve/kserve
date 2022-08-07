@@ -11,10 +11,10 @@ setup(
     version='0.1.0',
     author_email='dsun20@bloomberg.net',
     description='BertTransformerV2',
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     packages=find_packages("bert_transformer"),
     install_requires=[
-        "kfserving>=0.4.0",
+        "kserve>=0.9.0",
         "tensorflow==2.7.2",
     ],
     tests_require=tests_require,

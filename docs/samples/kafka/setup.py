@@ -30,7 +30,7 @@ setup(
     python_requires='>=3.7',
     packages=find_packages("transformer"),
     install_requires=[
-        "kserve>=0.7.0",
+        "kserve>=0.9.0",
         "pandas>=0.24.2",
         "opencv-python-headless==4.2.0.32",
     ],

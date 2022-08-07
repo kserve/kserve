@@ -22,7 +22,7 @@ tests_require = [
 
 setup(
     name='alibiexplainer',
-    version='0.7.0',
+    version='0.9.0',
     author_email='cc@seldon.io',
     license='../../LICENSE.txt',
     url='https://github.com/kserve/kserve/python/alibiexplainer',
@@ -32,7 +32,7 @@ setup(
     python_requires='>=3.7',
     packages=find_packages("alibiexplainer"),
     install_requires=[
-        "kserve>=0.7.0",
+        "kserve>=0.9.0",
         "nest_asyncio>=1.4.0",
         "alibi==0.6.4",
         "joblib>=0.13.2",

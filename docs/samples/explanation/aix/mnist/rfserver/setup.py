@@ -27,7 +27,7 @@ setup(
     description='Model Server implementation for AI eXplainability using LIME. \
                  Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
-    python_requires='>3.4',
+    python_requires='>3.7',
     packages=find_packages("rfserver"),
     install_requires=[
         "kserve",
