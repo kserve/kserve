@@ -1,10 +1,12 @@
 name: Twice a week scan
 # Temporarily adding on push for testing
 on:
-  push:
-    branches: [ snyk-scan ]
+  # on pull request will be removed before merge
   pull_request:
-    branches: []
+    branches: [master]
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch: {}
 
 jobs:
   base-image-scan:
@@ -27,14 +29,14 @@ jobs:
         with:
           image: kserve/${{ matrix.image }}
           args: --severity-threshold=low
-                --sarif-file-output=./application/${{ matrix.repository }}/docker.snyk.sarif
+                --sarif-file-output=./application/${{ matrix.image }}/docker.snyk.sarif
           sarif: false
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
         uses: github/codeql-action/upload-sarif@v1
         with:
-          sarif_file: application/${{ matrix.repository }}
+          sarif_file: application/${{ matrix.image }}/docker.snyk.sarif
   
   predictor-image-scan:
     name: scan predictor images
@@ -56,14 +58,14 @@ jobs:
         with:
           image: kserve/${{ matrix.image }}
           args: --severity-threshold=low
-                --sarif-file-output=./application/${{ matrix.repository }}/docker.snyk.sarif
+                --sarif-file-output=./application/${{ matrix.image }}/docker.snyk.sarif
           sarif: false
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
         uses: github/codeql-action/upload-sarif@v1
         with:
-          sarif_file: application/${{ matrix.repository }}
+          sarif_file: application/${{ matrix.image }}/docker.snyk.sarif
   
   explainer-image-scan:
     name: scan explainer images
@@ -85,11 +87,11 @@ jobs:
         with:
           image: kserve/${{ matrix.image }}
           args: --severity-threshold=low
-                --sarif-file-output=./application/${{ matrix.repository }}/docker.snyk.sarif
+                --sarif-file-output=./application/${{ matrix.image }}/docker.snyk.sarif
           sarif: false
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
         uses: github/codeql-action/upload-sarif@v1
         with:
-          sarif_file: application/${{ matrix.repository }}
+          sarif_file: application/${{ matrix.image }}
