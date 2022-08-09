@@ -1,10 +1,12 @@
 name: Twice a week scan
 # Temporarily adding on push for testing
 on:
-  push:
-    branches: [ snyk-scan ]
+  # on pull request will be removed before merge
   pull_request:
-    branches: []
+    branches: [master]
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch: {}
 
 jobs:
   base-image-scan:
@@ -12,7 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [kserve-controller, agent, storage-initializer]
+        image: [{ name: kserve-controller, file: Dockerfile},
+                { name: agent, file: agent.Dockerfile}, 
+                { name: storage-initializer, file: python/storage-initializer.Dockerfile},
+                { name: router, file: router.Dockerfile}]
     
     steps:
       - name: Checkout
@@ -25,15 +30,27 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: kserve/${{ matrix.image }}
+          image: kserve/${{ matrix.image.name }}
           args: --severity-threshold=low
+                --file=${{ matrix.image.file }}
+                --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sarif: false
+
+      - name: Upload sarif file to Github Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
   
   predictor-image-scan:
     name: scan predictor images
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [sklearnserver, xgbserver, pmmlserver, paddleserver]
+        image: [{ name: sklearnserver, file: python/sklearn.Dockerfile},
+                { name: xgbserver, file: python/xgb.Dockerfile},
+                { name: pmmlserver, file: python/pmml.Dockerfile},
+                { name: paddleserver, file: python/paddle.Dockerfile}]
     
     steps:
       - name: Checkout
@@ -46,15 +63,26 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: kserve/${{ matrix.image }}
+          image: kserve/${{ matrix.image.name }}
           args: --severity-threshold=low
+                --file=${{ matrix.image.file }}
+                --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sarif: false
+
+      - name: Upload sarif file to Github Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
   
   explainer-image-scan:
     name: scan explainer images
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [aix-explainer, alibi-explainer, art-explainer]
+        image: [{ name: aix-explainer, file: python/aixexplainer.Dockerfile},
+                { name: alibi-explainer, file: python/alibiexplainer.Dockerfile},
+                { name: art-explainer, file: python/artexplainer.Dockerfile}]
     
     steps:
       - name: Checkout
@@ -67,5 +95,14 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: kserve/${{ matrix.image }}
+          image: kserve/${{ matrix.image.name }}
           args: --severity-threshold=low
+                --file=${{ matrix.image.file }}
+                --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sarif: false
+
+      - name: Upload sarif file to Github Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
