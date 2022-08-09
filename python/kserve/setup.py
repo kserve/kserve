@@ -23,7 +23,7 @@ with open('requirements.txt') as f:
     REQUIRES = f.readlines()
 
 setuptools.setup(
-    name='kserve',
+    name='zillow-kserve',
     version='0.7.0',
     author="The KServe Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net',
