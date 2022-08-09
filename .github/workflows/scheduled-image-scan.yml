@@ -27,3 +27,45 @@ jobs:
         with:
           image: kserve/${{ matrix.image }}
           args: --severity-threshold=low
+  
+  predictor-image-scan:
+    name: scan predictor images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [sklearn, xgb, pmml, paddle]
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Security scan on docker image
+        uses: snyk/actions/docker@master
+        id: docker-image-scan
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: kserve/${{ matrix.image }}
+          args: --severity-threshold=low
+  
+  explainer-image-scan:
+    name: scan predictor images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [aiexplainer, alibiexplainer, artexplainer]
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Security scan on docker image
+        uses: snyk/actions/docker@master
+        id: docker-image-scan
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: kserve/${{ matrix.image }}
+          args: --severity-threshold=low
