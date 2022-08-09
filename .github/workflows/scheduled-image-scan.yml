@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [sklearn, xgb, pmml, paddle]
+        image: [sklearnserver, xgbserver, pmmlserver, paddleserver]
     
     steps:
       - name: Checkout
@@ -50,11 +50,11 @@ jobs:
           args: --severity-threshold=low
   
   explainer-image-scan:
-    name: scan predictor images
+    name: scan explainer images
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [aiexplainer, alibiexplainer, artexplainer]
+        image: [aix-explainer, alibi-explainer, art-explainer]
     
     steps:
       - name: Checkout
