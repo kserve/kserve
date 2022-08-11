@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import io
 import json
 import os
 import re
@@ -18,17 +19,16 @@ from unittest import mock
 
 import avro.io
 import avro.schema
-import io
 import pytest
 from cloudevents.http import CloudEvent, to_binary, to_structured
-from kserve import Model
-from kserve import ModelServer
-from kserve import ModelRepository
-from kserve.model import PredictorProtocol
+from ray import serve
 from tornado.httpclient import HTTPClientError
 from tornado.web import HTTPError
-from ray import serve
 
+from kserve import Model
+from kserve import ModelRepository
+from kserve import ModelServer
+from kserve.model import PredictorProtocol
 
 test_avsc_schema = '''
         {
@@ -71,10 +71,10 @@ class DummyModel(Model):
     def load(self):
         self.ready = True
 
-    async def predict(self, request):
+    async def predict(self, request, headers=None):
         return {"predictions": request["instances"]}
 
-    async def explain(self, request):
+    async def explain(self, request, headers=None):
         return {"predictions": request["instances"]}
 
 
@@ -88,10 +88,10 @@ class DummyServeModel(Model):
     def load(self):
         self.ready = True
 
-    async def predict(self, request):
+    async def predict(self, request, headers=None):
         return {"predictions": request["instances"]}
 
-    async def explain(self, request):
+    async def explain(self, request, headers=None):
         return {"predictions": request["instances"]}
 
 
@@ -104,10 +104,10 @@ class DummyCEModel(Model):
     def load(self):
         self.ready = True
 
-    async def predict(self, request):
+    async def predict(self, request, headers=None):
         return {"predictions": request["instances"]}
 
-    async def explain(self, request):
+    async def explain(self, request, headers=None):
         return {"predictions": request["instances"]}
 
 
@@ -139,10 +139,10 @@ class DummyAvroCEModel(Model):
             assert attributes["content-type"] == "application/json"
             return self._parserequest(request.data)
 
-    async def predict(self, request):
+    async def predict(self, request, headers=None):
         return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
 
-    async def explain(self, request):
+    async def explain(self, request, headers=None):
         return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
 
 

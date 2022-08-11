@@ -15,7 +15,6 @@
 import os
 from typing import Dict
 
-import kserve
 from jpmml_evaluator import make_evaluator
 from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
 
@@ -56,8 +55,8 @@ class PmmlModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
-        instances = request["instances"]
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        instances = payload["instances"]
         try:
             result = [self.evaluator.evaluate(dict(zip(self.input_fields, instance))) for instance in instances]
             return {"predictions": result}

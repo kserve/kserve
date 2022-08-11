@@ -12,20 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Union
-import sys
 import inspect
 import json
-import tornado.web
-from tornado.httpclient import AsyncHTTPClient
-from cloudevents.http import CloudEvent
-from http import HTTPStatus
+import sys
 from enum import Enum
-from kserve.utils.utils import is_structured_cloudevent
+from http import HTTPStatus
+from typing import Dict, Union
+
 import grpc
+import tornado.web
+from cloudevents.http import CloudEvent
+from tornado.httpclient import AsyncHTTPClient
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 
+from kserve.utils.utils import is_structured_cloudevent
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -76,15 +77,15 @@ class Model:
         self._grpc_client_stub = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR, headers: Dict[str, str] = None):
-        request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
+        payload = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
             else self.preprocess(body)
-        request = self.validate(request)
+        payload = self.validate(payload)
         if model_type == ModelType.EXPLAINER:
-            response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
-                else self.explain(request)
+            response = (await self.explain(payload, headers)) if inspect.iscoroutinefunction(self.explain) \
+                else self.explain(payload, headers)
         elif model_type == ModelType.PREDICTOR:
-            response = (await self.predict(request, headers)) if inspect.iscoroutinefunction(self.predict) \
-                else self.predict(request, headers)
+            response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
+                else self.predict(payload, headers)
         else:
             raise NotImplementedError
         response = self.postprocess(response)
@@ -106,20 +107,20 @@ class Model:
             self._grpc_client_stub = service_pb2_grpc.GRPCInferenceServiceStub(_channel)
         return self._grpc_client_stub
 
-    def validate(self, request):
+    def validate(self, payload):
         if self.protocol == PredictorProtocol.REST_V2.value:
-            if "inputs" in request and not isinstance(request["inputs"], list):
+            if "inputs" in payload and not isinstance(payload["inputs"], list):
                 raise tornado.web.HTTPError(
                     status_code=HTTPStatus.BAD_REQUEST,
                     reason="Expected \"inputs\" to be a list"
                 )
-        elif isinstance(request, Dict) or self.protocol == PredictorProtocol.REST_V1.value:
-            if "instances" in request and not isinstance(request["instances"], list):
+        elif isinstance(payload, Dict) or self.protocol == PredictorProtocol.REST_V1.value:
+            if "instances" in payload and not isinstance(payload["instances"], list):
                 raise tornado.web.HTTPError(
                     status_code=HTTPStatus.BAD_REQUEST,
                     reason="Expected \"instances\" to be a list"
                 )
-        return request
+        return payload
 
     def load(self) -> bool:
         """
@@ -130,18 +131,18 @@ class Model:
         self.ready = True
         return self.ready
 
-    async def preprocess(self, request: Union[Dict, CloudEvent]) -> Union[Dict, ModelInferRequest]:
+    async def preprocess(self, payload: Union[Dict, CloudEvent]) -> Union[Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
-        :param request: Dict|CloudEvent|ModelInferRequest
+        :param payload: Dict|CloudEvent|ModelInferRequest body
         :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
-        response = request
+        response = payload
 
-        if isinstance(request, CloudEvent):
-            response = request.data
+        if isinstance(payload, CloudEvent):
+            response = payload.data
             # Try to decode and parse JSON UTF-8 if possible, otherwise
             # just pass the CloudEvent data on to the predict function.
             # This is for the cases that CloudEvent encoding is protobuf, avro etc.
@@ -149,17 +150,17 @@ class Model:
                 response = json.loads(response.decode('UTF-8'))
             except (json.decoder.JSONDecodeError, UnicodeDecodeError) as e:
                 # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
-                if "content-type" in request._attributes and \
-                        (request._attributes["content-type"] == "application/cloudevents+json" or
-                         request._attributes["content-type"] == "application/json"):
+                if "content-type" in payload._attributes and \
+                        (payload._attributes["content-type"] == "application/cloudevents+json" or
+                         payload._attributes["content-type"] == "application/json"):
                     raise tornado.web.HTTPError(
                         status_code=HTTPStatus.BAD_REQUEST,
                         reason=f"Failed to decode or parse binary json cloudevent: {e}"
                     )
 
-        elif isinstance(request, dict):
-            if is_structured_cloudevent(request):
-                response = request["data"]
+        elif isinstance(payload, dict):
+            if is_structured_cloudevent(payload):
+                response = payload["data"]
 
         return response
 
@@ -174,17 +175,18 @@ class Model:
             return response.get_response(as_json=True)
         return response
 
-    async def _http_predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
+    async def _http_predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
-        # json_header = {'Content-Type': 'application/json'}
+        if headers is None:
+            headers = {'Content-Type': 'application/json'}
         response = await self._http_client.fetch(
             predict_url,
             method='POST',
             request_timeout=self.timeout,
             headers=headers,
-            body=json.dumps(request)
+            body=json.dumps(payload)
         )
         if response.code != 200:
             raise tornado.web.HTTPError(
@@ -192,31 +194,31 @@ class Model:
                 reason=response.body)
         return json.loads(response.body)
 
-    async def _grpc_predict(self, request: ModelInferRequest, headers: Dict[str, str] = None) -> ModelInferResponse:
-        async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout, headers=headers)
+    async def _grpc_predict(self, payload: ModelInferRequest, headers: Dict[str, str] = None) -> ModelInferResponse:
+        async_result = await self._grpc_client.ModelInfer(request=payload, timeout=self.timeout, headers=headers)
         return async_result
 
-    async def predict(self, request: Union[Dict, ModelInferRequest],
+    async def predict(self, payload: Union[Dict, ModelInferRequest],
                       headers: Dict[str, str] = None) -> Union[Dict, ModelInferResponse]:
         """
         The predict handler can be overridden to implement the model inference.
         The default implementation makes a call to the predictor if predictor_host is specified
-        :param headers:
-        :param request: Dict|ModelInferRequest passed from preprocess handler
+        :param headers: Dict|ModelInferenceRequest headers
+        :param payload: Dict|ModelInferRequest body passed from preprocess handler
         :return: Dict|ModelInferResponse
         """
         if not self.predictor_host:
             raise NotImplementedError
         if self.protocol == PredictorProtocol.GRPC_V2.value:
-            return await self._grpc_predict(request, headers)
+            return await self._grpc_predict(payload, headers)
         else:
-            return await self._http_predict(request, headers)
+            return await self._http_predict(payload, headers)
 
-    async def explain(self, request: Dict) -> Dict:
+    async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """
         The explain handler can be overridden to implement the model explanation.
         The default implementation makes an call to the explainer if explainer_host is specified
-        :param request: Dict passed from preprocess handler
+        :param payload: Dict passed from preprocess handler
         :return: Dict
         """
         if self.explainer_host is None:
@@ -228,7 +230,7 @@ class Model:
             url=explain_url,
             method='POST',
             request_timeout=self.timeout,
-            body=json.dumps(request)
+            body=json.dumps(payload)
         )
         if response.code != 200:
             raise tornado.web.HTTPError(

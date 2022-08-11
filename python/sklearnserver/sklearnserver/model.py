@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-
-import kserve
-import joblib
 import pathlib
 from typing import Dict
+
+import joblib
+
+import kserve
 from kserve.model import ModelMissingError, InferenceError
 
 MODEL_EXTENSIONS = (".joblib", ".pkl", ".pickle")
@@ -46,8 +47,8 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
-        instances = request["instances"]
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        instances = payload["instances"]
         try:
             if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
                     hasattr(self._model, "predict_proba"):

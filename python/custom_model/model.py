@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kserve
-from torchvision import models, transforms
-from typing import Dict
-import torch
-from PIL import Image
 import base64
 import io
+from typing import Dict
+
+import torch
+from PIL import Image
+from torchvision import models, transforms
+
+import kserve
 
 
 class AlexNetModel(kserve.Model):
@@ -33,8 +35,8 @@ class AlexNetModel(kserve.Model):
         self.model = model
         self.ready = True
 
-    def predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
-        inputs = request["instances"]
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        inputs = payload["instances"]
 
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values

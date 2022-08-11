@@ -52,10 +52,10 @@ class LightGBMModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         try:
             dfs = []
-            for input in request['inputs']:
+            for input in payload['inputs']:
                 dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
             inputs = pd.concat(dfs, axis=0)
 

@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict
 import os
+from typing import Dict
+
 import numpy as np
 from paddle import inference
+
 import kserve
 
 
@@ -58,8 +60,8 @@ class PaddleModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
-        instances = request["instances"]
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        instances = payload["instances"]
         try:
             inputs = np.array(instances, dtype='float32')
         except Exception as e:
