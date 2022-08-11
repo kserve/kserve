@@ -34,8 +34,8 @@ class ExplainHandler(HTTPHandler):
         # call model locally or remote model workers
         model = self.get_model(name)
         if not isinstance(model, RayServeHandle):
-            response = await model(body, model_type=ModelType.EXPLAINER)
+            response = await model(body, model_type=ModelType.EXPLAINER, headers=self.request.headers)
         else:
             model_handle = model
-            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
+            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER, headers=self.request.headers)
         self.write(response)

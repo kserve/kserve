@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import List, Optional, Dict
+
 from alibi.api.interfaces import Explanation
-from typing import List, Optional
 
 
 class ExplainerWrapper:
     def validate(self, training_data_url: Optional[str]):
         pass
 
-    def explain(self, inputs: List) -> Explanation:
+    def explain(self, inputs: List, headers: Dict[str, str] = None) -> Explanation:
         pass
