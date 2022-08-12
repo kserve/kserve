@@ -23,12 +23,18 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // CustomExplainer defines arguments for configuring a custom explainer.
 type CustomExplainer struct {
 	v1.PodSpec `json:",inline"`
 }
+
+var (
+	// logger for the custom explainer
+	customExplainerLogger = logf.Log.WithName("inferenceservice-v1beta1-custom-explainer")
+)
 
 var _ ComponentImplementation = &CustomExplainer{}
 
@@ -69,6 +75,22 @@ func (c *CustomExplainer) GetStorageSpec() *StorageSpec {
 // GetContainer transforms the resource into a container spec
 func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Containers[0]
+
+	argumentPredictorHost := constants.PredictorURL(metadata, false)
+	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]
+
+	if ok && (deploymentMode == string(constants.ModelMeshDeployment)) {
+		// Get predictor host and protocol from annotations in modelmesh deployment mode
+		argumentPredictorHost = metadata.Annotations[constants.PredictorHostAnnotationKey]
+		argumentPredictorProtocol := metadata.Annotations[constants.PredictorProtocolAnnotationKey]
+
+		// Set predictor protocol if not provided in container arguments
+		if !utils.IncludesArg(container.Args, "--protocol") {
+			customExplainerLogger.Info("Set predictor protocol based on ModelMesh predictor URL", "protocol", argumentPredictorProtocol)
+			container.Args = append(container.Args, "--protocol", argumentPredictorProtocol)
+		}
+	}
+
 	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentModelName,
@@ -78,7 +100,7 @@ func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *C
 	if !utils.IncludesArg(container.Args, constants.ArgumentPredictorHost) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentPredictorHost,
-			constants.PredictorURL(metadata, false),
+			argumentPredictorHost,
 		}...)
 	}
 	container.Args = append(container.Args, []string{

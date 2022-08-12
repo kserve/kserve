@@ -256,7 +256,7 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
 	}
 	// set environment variables based on storage uri
-	if isvc.Spec.Predictor.Model.StorageURI == nil && isvc.Spec.Predictor.Model.Storage == nil {
+	if isvc.Spec.Predictor.Model.StorageURI == nil {
 		isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
 			v1.EnvVar{
 				Name:  constants.MLServerLoadModelsStartupEnv,
@@ -315,7 +315,7 @@ func (isvc *InferenceService) SetTritonDefaults() {
 		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
 	}
 	// set model-control-model arg to 'explicit' if storage uri is nil
-	if isvc.Spec.Predictor.Model.StorageURI == nil && isvc.Spec.Predictor.Model.Storage == nil {
+	if isvc.Spec.Predictor.Model.StorageURI == nil {
 		isvc.Spec.Predictor.Model.Args = append(isvc.Spec.Predictor.Model.Args,
 			fmt.Sprintf("%s=%s", "--model-control-mode", "explicit"))
 	}

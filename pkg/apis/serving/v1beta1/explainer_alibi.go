@@ -26,6 +26,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // AlibiExplainerType is the explanation method
@@ -54,6 +55,11 @@ type AlibiExplainerSpec struct {
 	ExplainerExtensionSpec `json:",inline"`
 }
 
+var (
+	// logger for the alibi explainer
+	alibiExplainerLogger = logf.Log.WithName("inferenceservice-v1beta1-alibi-explainer")
+)
+
 var _ ComponentImplementation = &AlibiExplainerSpec{}
 
 func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
@@ -62,13 +68,35 @@ func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements 
 }
 
 func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+	alibiExplainerLogger.Info("=====hello 0 alibi=====", "metadata.Name", metadata.Name)
 	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
+
+	argumentPredictorHost := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
+	//argumentPredictorPort := constants.InferenceServiceDefaultHttpPort
+	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]
+	alibiExplainerLogger.Info("=====hello 1.0 alibi=====", "argumentPredictorHost", argumentPredictorHost)
+
+	if ok && (deploymentMode == string(constants.ModelMeshDeployment)) {
+		// Get predictor host and protocol from annotations in modelmesh deployment mode
+		alibiExplainerLogger.Info("=====hello 1.1 alibi=====", "argumentPredictorHost", metadata.Annotations[constants.PredictorHostAnnotationKey])
+		argumentPredictorHost = metadata.Annotations[constants.PredictorHostAnnotationKey]
+		argumentPredictorProtocol := metadata.Annotations[constants.PredictorProtocolAnnotationKey]
+		alibiExplainerLogger.Info("=====hello 1.2 alibi=====", "argumentPredictorHost", argumentPredictorHost)
+		alibiExplainerLogger.Info("=====hello 2 alibi=====", "argumentPredictorProtocol", argumentPredictorProtocol)
+
+		// Set predictor protocol if not provided in container arguments
+		//if !utils.IncludesArg(args, "--protocol") {
+		//	customExplainerLogger.Info("Set predictor protocol based on ModelMesh predictor URL", "protocol", argumentPredictorProtocol)
+		//	args = append(args, "--protocol", argumentPredictorProtocol)
+		//}
+		//argumentPredictorPort = argumentPredictorProtocol
+	}
+
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentPredictorHost) {
-		args = append(args, constants.ArgumentPredictorHost,
-			fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace))
+		args = append(args, constants.ArgumentPredictorHost, argumentPredictorHost)
 
 	}
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentWorkers) {
