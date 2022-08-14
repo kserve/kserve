@@ -70,7 +70,7 @@ class DataPlaneV1:
         payload: dict,
         model_name: str,
     ):
-        model_name = model_name.rstrip(model_name[len(":predict")])
+        model_name = model_name.rstrip(model_name[-1*len(":predict"):])
         logging.info(model_name)
         model = self.get_model_from_registry(model_name)
         # TODO: Remove converting dict
