@@ -5,7 +5,7 @@ from sklearn.datasets import fetch_openml
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.neural_network import MLPClassifier
 import joblib
-
+import numpy as np
 from aix360.datasets import MNISTDataset
 
 data = MNISTDataset()
@@ -34,10 +34,12 @@ print(data.test_data.shape)
 # Load data from https://www.openml.org/d/554
 X, y = fetch_openml('mnist_784', version=1, return_X_y=True)
 X = X / 255.
+X = X.to_numpy()
+y = [int(y) for y in y.values.tolist()]
 
 # rescale the data, use the traditional train/test split
-X_train, X_test = X[:60000].extend(X_train_2), X[60000:].extend(X_test_2)
-y_train, y_test = y[:60000].extend(y_train_2), y[60000:].extend(y_test_2)
+X_train, X_test = np.concatenate(X[:60000], X_train_2), np.concatenate(X[60000:], X_test_2)
+y_train, y_test = y[:60000] + y_train_2, y[60000:] + y_test_2
 
 mlp = MLPClassifier(hidden_layer_sizes=(500, 500, 500), max_iter=10, alpha=1e-4,
                     solver='sgd', verbose=10, random_state=1,
