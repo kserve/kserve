@@ -13,15 +13,15 @@
 # limitations under the License.
 
 import os
+from typing import Dict
 
 import kserve
 from jpmml_evaluator import make_evaluator
 from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
-from typing import Dict
 
-MODEL_BASENAME = "model"
+from kserve.model import ModelMissingError
 
-MODEL_EXTENSIONS = ['.pmml']
+MODEL_EXTENSIONS = ('.pmml')
 
 
 class PmmlModel(kserve.Model):
@@ -37,16 +37,23 @@ class PmmlModel(kserve.Model):
 
     def load(self) -> bool:
         model_path = kserve.Storage.download(self.model_dir)
-        paths = [os.path.join(model_path, MODEL_BASENAME + model_extension)
-                 for model_extension in MODEL_EXTENSIONS]
-        for path in paths:
-            if os.path.exists(path):
-                self._gateway = launch_gateway()
-                self._backend = Py4JBackend(self._gateway)
-                self.evaluator = make_evaluator(self._backend, path).verify()
-                self.input_fields = [inputField.getName() for inputField in self.evaluator.getInputFields()]
-                self.ready = True
-                break
+        model_files = []
+        for file in os.listdir(model_path):
+            file_path = os.path.join(model_path, file)
+            if os.path.isfile(file_path) and file.endswith(MODEL_EXTENSIONS):
+                model_files.append(file_path)
+        if len(model_files) == 0:
+            raise ModelMissingError(model_path)
+        elif len(model_files) > 1:
+            raise RuntimeError('More than one model file is detected, '
+                               f'Only one is allowed within model_dir: {model_files}')
+        self._gateway = launch_gateway()
+        self._backend = Py4JBackend(self._gateway)
+        self.evaluator = make_evaluator(
+            self._backend, model_files[0]).verify()
+        self.input_fields = [inputField.getName()
+                             for inputField in self.evaluator.getInputFields()]
+        self.ready = True
         return self.ready
 
     def predict(self, request: Dict) -> Dict:
