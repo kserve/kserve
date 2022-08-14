@@ -20,7 +20,7 @@ from xgboost import XGBModel
 import os
 from typing import Dict
 
-BOOSTER_FILE = "model.bst"
+BOOSTER_FILE_EXTENSION = ".bst"
 
 
 class XGBoostModel(Model):
@@ -35,12 +35,20 @@ class XGBoostModel(Model):
             self.ready = True
 
     def load(self) -> bool:
-        model_file = os.path.join(
-            Storage.download(self.model_dir), BOOSTER_FILE)
-        if not os.path.exists(model_file):
-            raise ModelMissingError(model_file)
+        model_path = Storage.download(self.model_dir)
+        model_files = []
+        for file in os.listdir(model_path):
+            file_path = os.path.join(model_path, file)
+            if os.path.isfile(file_path) and file.endswith(BOOSTER_FILE_EXTENSION):
+                model_files.append(file_path)
+        if len(model_files) == 0:
+            raise ModelMissingError(model_path)
+        elif len(model_files) > 1:
+            raise RuntimeError('More than one model file is detected, '
+                               f'Only one is allowed within model_dir: {model_files}')
+
         self._booster = xgb.Booster(params={"nthread": self.nthread},
-                                    model_file=model_file)
+                                    model_file=model_files[0])
         self.ready = True
         return self.ready
 
