@@ -17,3 +17,4 @@ from .health import LivenessHandler, HealthHandler  # noqa # pylint: disable=unu
 from .model_management import LoadHandler, UnloadHandler, ListHandler  # noqa # pylint: disable=unused-import
 from .explain import ExplainHandler  # noqa # pylint: disable=unused-import
 from .predict import PredictHandler  # noqa # pylint: disable=unused-import
+from .dataplane_v1 import DataPlaneV1

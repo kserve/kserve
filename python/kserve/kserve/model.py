@@ -16,6 +16,7 @@
 from typing import Dict, Union
 import logging
 import time
+import contextlib
 import sys
 import inspect
 import json
@@ -37,6 +38,8 @@ PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
+
+logging.basicConfig(level=logging.INFO)
 
 PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'pre-processing request latency')
 POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'post-processing request latency')
