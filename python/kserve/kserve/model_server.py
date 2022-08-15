@@ -21,6 +21,7 @@ import tornado.httpserver
 import tornado.log
 import asyncio
 from tornado import concurrent
+from prometheus_client import start_http_server
 
 from .utils import utils
 
@@ -65,6 +66,7 @@ class ModelServer:
         self.workers = workers
         self.max_asyncio_workers = max_asyncio_workers
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
+        start_http_server(8000)
 
     def create_application(self):
         return tornado.web.Application([

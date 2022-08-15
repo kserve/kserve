@@ -25,12 +25,14 @@ from kserve.utils.utils import is_structured_cloudevent
 import grpc
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
-
+from prometheus_client import Summary
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
+
+REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
 
 
 class ModelType(Enum):
@@ -130,6 +132,7 @@ class Model:
         self.ready = True
         return self.ready
 
+    @REQUEST_TIME.time()
     async def preprocess(self, request: Union[Dict, CloudEvent]) -> Union[Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation.
@@ -163,6 +166,7 @@ class Model:
 
         return response
 
+    @REQUEST_TIME.time()
     def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
         """
         The postprocess handler can be overridden for inference response transformation
@@ -196,6 +200,7 @@ class Model:
         async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
         return async_result
 
+    @REQUEST_TIME.time()
     async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
         """
         The predict handler can be overridden to implement the model inference.
@@ -210,6 +215,7 @@ class Model:
         else:
             return await self._http_predict(request)
 
+    @REQUEST_TIME.time()
     async def explain(self, request: Dict) -> Dict:
         """
         The explain handler can be overridden to implement the model explanation.
