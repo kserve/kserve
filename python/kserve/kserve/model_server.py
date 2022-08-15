@@ -15,12 +15,10 @@
 import argparse
 import logging
 from typing import List, Optional, Dict, Union
-import tornado.ioloop
-import tornado.web
-import tornado.httpserver
-import tornado.log
+import uvicorn
+from fastapi import FastAPI
+from fastapi.routing import APIRoute as FastAPIRoute
 import asyncio
-from tornado import concurrent
 
 from .utils import utils
 
@@ -29,7 +27,6 @@ from kserve import Model
 from kserve.model_repository import ModelRepository
 from ray.serve.api import Deployment, RayServeHandle
 from ray import serve
-from tornado.web import RequestHandler
 from prometheus_client import REGISTRY
 from prometheus_client.exposition import choose_encoder
 
@@ -55,9 +52,6 @@ parser.add_argument(
 
 args, _ = parser.parse_known_args()
 
-tornado.log.enable_pretty_logging()
-
-
 class MetricsHandler(RequestHandler):
     def get(self):
         encoder, content_type = choose_encoder(self.request.headers.get('accept'))
@@ -79,39 +73,24 @@ class ModelServer:
         self.max_buffer_size = max_buffer_size
         self.workers = workers
         self.max_asyncio_workers = max_asyncio_workers
-        self._http_server: Optional[tornado.httpserver.HTTPServer] = None
+        self._http_server = None
         self.enable_latency_logging = validate_enable_latency_logging(enable_latency_logging)
 
     def create_application(self):
-        return tornado.web.Application([
-            (r"/metrics", MetricsHandler),
+        dataplane = handlers.DataPlaneV1(model_registry=self.registered_models)
+        return FastAPI(routes=[
             # Server Liveness API returns 200 if server is alive.
-            (r"/", handlers.LivenessHandler),
-            (r"/v2/health/live", handlers.LivenessHandler),
-            (r"/v1/models",
-             handlers.ListHandler, dict(models=self.registered_models)),
-            (r"/v2/models",
-             handlers.ListHandler, dict(models=self.registered_models)),
+            FastAPIRoute(r"/", dataplane.live),
+            FastAPIRoute(r"/v1/models", dataplane.model_metadata),
             # Model Health API returns 200 if model is ready to serve.
-            (r"/v1/models/([a-zA-Z0-9_-]+)",
-             handlers.HealthHandler, dict(models=self.registered_models)),
-            (r"/v2/models/([a-zA-Z0-9_-]+)/status",
-             handlers.HealthHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+):predict",
-             handlers.PredictHandler, dict(models=self.registered_models)),
-            (r"/v2/models/([a-zA-Z0-9_-]+)/infer",
-             handlers.PredictHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+):explain",
-             handlers.ExplainHandler, dict(models=self.registered_models)),
-            (r"/v2/models/([a-zA-Z0-9_-]+)/explain",
-             handlers.ExplainHandler, dict(models=self.registered_models)),
-            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/load",
-             handlers.LoadHandler, dict(models=self.registered_models)),
-            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/unload",
-             handlers.UnloadHandler, dict(models=self.registered_models)),
-        ], default_handler_class=handlers.NotFoundHandler)
+            FastAPIRoute(r"/v1/models/{model_name}", dataplane.model_ready),
+            FastAPIRoute(r"/v1/models/{model_name}:predict", dataplane.infer, methods=["POST"]),
+            FastAPIRoute(r"/v1/models/{model_name}:explain", dataplane.infer, methods=["POST"]),
+            FastAPIRoute(r"/v2/repository/models/{model_name}/load", dataplane.load),
+            FastAPIRoute(r"/v2/repository/models/{model_name}/unload", dataplane.unload),
+        ])
 
-    def start(self, models: Union[List[Model], Dict[str, Deployment]], nest_asyncio: bool = False):
+    async def start(self, models: Union[List[Model], Dict[str, Deployment]]):
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):
@@ -132,30 +111,16 @@ class ModelServer:
         else:
             raise RuntimeError("Unknown model collection types")
 
-        if self.max_asyncio_workers is None:
-            # formula as suggest in https://bugs.python.org/issue35279
-            self.max_asyncio_workers = min(32, utils.cpu_count()+4)
+        cfg = uvicorn.Config(
+            self.create_application(),
+            port=self.http_port,
+            workers=self.workers
+        )
 
-        self._http_server = tornado.httpserver.HTTPServer(
-            self.create_application(), max_buffer_size=self.max_buffer_size)
-
-        logging.info("Listening on port %s", self.http_port)
-        self._http_server.bind(self.http_port)
-        logging.info("Will fork %d workers", self.workers)
-        self._http_server.start(self.workers)
-
-        logging.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
-        asyncio.get_event_loop().set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
-
-        # Need to start the IOLoop after workers have been started
-        # https://github.com/tornadoweb/tornado/issues/2426
-        # The nest_asyncio package needs to be installed by the downstream module
-        if nest_asyncio:
-            import nest_asyncio
-            nest_asyncio.apply()
-
-        tornado.ioloop.IOLoop.current().start()
+        self._server = uvicorn.Server(cfg)
+        servers = [self._server.serve()]
+        servers_task = asyncio.gather(*servers)
+        await servers_task
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)
