@@ -10,7 +10,7 @@ KServe provides a Kubernetes [Custom Resource Definition](https://kubernetes.io/
 
 It encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for Production ML Serving including prediction, pre-processing, post-processing and explainability. KServe is being [used across various organizations.](https://kserve.github.io/website/master/community/adopters/)
 
-For more details, visit [KServe website](https://kserve.github.io/website/)
+For more details, visit the [KServe website](https://kserve.github.io/website/).
 
 ![KServe](/docs/diagrams/kserve.png)
 
@@ -28,13 +28,13 @@ _Since 0.7 [KFServing is rebranded to KServe](https://blog.kubeflow.org/release/
 ### Learn More
 To learn more about KServe, how to use various supported features, and how to participate in the KServe community, 
 please follow the [KServe website documentation](https://kserve.github.io/website). 
-Additionally, we have compiled a list of [presentations and demoes](https://kserve.github.io/website/master/community/presentations/) to dive through various details.
+Additionally, we have compiled a list of [presentations and demos](https://kserve.github.io/website/master/community/presentations/) to dive through various details.
 
 ### :hammer_and_wrench: Installation
 
 #### Standalone Installation
 - **[Serverless Installation](https://kserve.github.io/website/master/admin/serverless)**: KServe by default installs Knative for **serverless deployment** for InferenceService.
-- **[Raw Deployment Installation](https://kserve.github.io/website/master/admin/kubernetes_deployment)**: Comparing to Serverless Installation, it is more **lightweight** installation however this option does not support canary deployment and request based autoscaling with scale-to-zero.
+- **[Raw Deployment Installation](https://kserve.github.io/website/master/admin/kubernetes_deployment)**: Compared to Serverless Installation, this is a more **lightweight** installation. However, this option does not support canary deployment and request based autoscaling with scale-to-zero.
 - **[ModelMesh Installation](https://kserve.github.io/website/master/admin/modelmesh/)**: You can optionally install ModelMesh to enable **high-scale**, **high-density** and **frequently-changing model serving** use cases. 
 - **[Quick Installation](https://kserve.github.io/website/master/get_started/)**: Install KServe on your local machine.
 
@@ -47,7 +47,7 @@ KServe is an important addon component of Kubeflow, please learn more from the [
 
 ### :blue_book: [InferenceService API Reference](https://kserve.github.io/website/master/reference/api)
 
-### :toolbox: [Developer Guide](https://kserve.github.io/website/master/developer/developer/).
+### :toolbox: [Developer Guide](https://kserve.github.io/website/master/developer/developer/)
 
 ### :writing_hand: [Contributor Guide](./CONTRIBUTING.md)
 
