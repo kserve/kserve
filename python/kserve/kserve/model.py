@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 from typing import Dict, Union
 import sys
 import inspect
@@ -35,6 +34,7 @@ EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
 PRE_REQUEST_TIME = Summary('request_preprocessing_seconds', 'Time spent pre-processing request')
 POST_REQUEST_TIME = Summary('request_postprocessing_seconds', 'Time spent post-processing request')
 PREDICT_REQUEST_TIME = Summary('request_predict_processing_seconds', 'Time spent processing prediction request')
+EXPLAIN_REQUEST_TIME = Summary('request_explain_processing_seconds', 'Time spent processing explain request')
 
 
 class ModelType(Enum):
@@ -81,13 +81,13 @@ class Model:
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
         with PRE_REQUEST_TIME.time():
-            logging.info("prepocessing")
             request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
                 else self.preprocess(body)
         request = self.validate(request)
         if model_type == ModelType.EXPLAINER:
-            response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
-                else self.explain(request)
+            with EXPLAIN_REQUEST_TIME.time():
+                response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
+                    else self.explain(request)
         elif model_type == ModelType.PREDICTOR:
             with PREDICT_REQUEST_TIME.time():
                 response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
@@ -138,7 +138,6 @@ class Model:
         self.ready = True
         return self.ready
 
-    @PRE_REQUEST_TIME.time()
     async def preprocess(self, request: Union[Dict, CloudEvent]) -> Union[Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation.
@@ -173,7 +172,6 @@ class Model:
 
         return response
 
-    @POST_REQUEST_TIME.time()
     def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
         """
         The postprocess handler can be overridden for inference response transformation
@@ -207,7 +205,6 @@ class Model:
         async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
         return async_result
 
-    @PREDICT_REQUEST_TIME.time()
     async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
         """
         The predict handler can be overridden to implement the model inference.
