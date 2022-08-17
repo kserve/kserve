@@ -24,7 +24,7 @@ from kserve.utils.utils import is_structured_cloudevent
 import grpc
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
-from prometheus_client import Summary
+from prometheus_client import Summary, Histogram
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -80,21 +80,21 @@ class Model:
         self._grpc_client_stub = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
-        with PRE_REQUEST_TIME.time():
+        with PRE_REQUEST_TIME.time() and histogram(step="pre_process", seconds=2):
             request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
                 else self.preprocess(body)
         request = self.validate(request)
         if model_type == ModelType.EXPLAINER:
-            with EXPLAIN_REQUEST_TIME.time():
+            with EXPLAIN_REQUEST_TIME.time() and histogram(step="explain", seconds=2):
                 response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
                     else self.explain(request)
         elif model_type == ModelType.PREDICTOR:
-            with PREDICT_REQUEST_TIME.time():
+            with PREDICT_REQUEST_TIME.time() and histogram(step="predict", seconds=2):
                 response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(request)
         else:
             raise NotImplementedError
-        with POST_REQUEST_TIME.time():
+        with POST_REQUEST_TIME.time() and histogram(step="post_process", seconds=2):
             response = self.postprocess(response)
         return response
 
@@ -241,3 +241,9 @@ class Model:
                 status_code=response.code,
                 reason=response.body)
         return json.loads(response.body)
+
+
+def histogram(step, seconds):
+    name = f"{step}_request_latency_seconds"
+    h = Histogram(name, f"latency historgram for {step}")
+    return h.observe(seconds)
