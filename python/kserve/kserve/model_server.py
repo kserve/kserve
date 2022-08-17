@@ -66,7 +66,6 @@ class ModelServer:
         self.workers = workers
         self.max_asyncio_workers = max_asyncio_workers
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
-        start_http_server(8000)
 
     def create_application(self):
         return tornado.web.Application([
@@ -97,6 +96,7 @@ class ModelServer:
         ], default_handler_class=handlers.NotFoundHandler)
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]], nest_asyncio: bool = False):
+
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):
@@ -122,7 +122,11 @@ class ModelServer:
         self._http_server = tornado.httpserver.HTTPServer(
             self.create_application(), max_buffer_size=self.max_buffer_size)
 
-        logging.info("Listening on port %s", self.http_port)
+        # TODO: remove
+        logging.info("starting HTTP server")
+        start_http_server(8000)
+
+        logging.info("HII Listening on port %s", self.http_port)
         self._http_server.bind(self.http_port)
         logging.info("Will fork %d workers", self.workers)
         self._http_server.start(self.workers)
