@@ -57,7 +57,6 @@ def expected_call_args_list(parent_key, dest, paths):
             for p in paths]
 
 # pylint: disable=protected-access
-
 @mock.patch('kserve.storage.boto3')
 def test_parent_key(mock_storage):
 
@@ -112,13 +111,6 @@ def test_full_name_key(mock_storage):
                                                           object_key)
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
-
-@mock.patch('kserve.storage.boto3')
-def test_no_such_key(mock_storage):
-    bucket_name = 'foo'
-    object_key = 'path/to/model/name.pt'
-
-    with assert kserve.Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
 
 
 @mock.patch('kserve.storage.boto3')
