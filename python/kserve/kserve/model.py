@@ -31,10 +31,10 @@ EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
 
-PRE_REQUEST_TIME = Summary('request_preprocessing_seconds', 'Time spent pre-processing request')
-POST_REQUEST_TIME = Summary('request_postprocessing_seconds', 'Time spent post-processing request')
-PREDICT_REQUEST_TIME = Summary('request_predict_processing_seconds', 'Time spent processing prediction request')
-EXPLAIN_REQUEST_TIME = Summary('request_explain_processing_seconds', 'Time spent processing explain request')
+PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'histogram - time spent pre-processing request')
+POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'histogram - time spent post-processing request')
+PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds', 'histogram - time spent processing prediction request')
+EXPLAIN_HIST_TIME = Histogram('request_explain_processing_seconds', 'histogram - time spent processing explain request')
 
 
 class ModelType(Enum):
@@ -80,21 +80,21 @@ class Model:
         self._grpc_client_stub = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
-        with PRE_REQUEST_TIME.time() and histogram(step="pre_process", seconds=2):
+        with PRE_HIST_TIME.time():
             request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
                 else self.preprocess(body)
         request = self.validate(request)
         if model_type == ModelType.EXPLAINER:
-            with EXPLAIN_REQUEST_TIME.time() and histogram(step="explain", seconds=2):
+            with EXPLAIN_HIST_TIME.time():
                 response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
                     else self.explain(request)
         elif model_type == ModelType.PREDICTOR:
-            with PREDICT_REQUEST_TIME.time() and histogram(step="predict", seconds=2):
+            with PREDICT_HIST_TIME.time():
                 response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(request)
         else:
             raise NotImplementedError
-        with POST_REQUEST_TIME.time() and histogram(step="post_process", seconds=2):
+        with POST_HIST_TIME.time():
             response = self.postprocess(response)
         return response
 
@@ -243,7 +243,7 @@ class Model:
         return json.loads(response.body)
 
 
-def histogram(step, seconds):
+def histogram(step):
     name = f"{step}_request_latency_seconds"
     h = Histogram(name, f"latency historgram for {step}")
-    return h.observe(seconds)
+    return h.time()
