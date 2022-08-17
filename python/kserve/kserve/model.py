@@ -146,7 +146,6 @@ class Model:
         :param request: Dict|CloudEvent|ModelInferRequest
         :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
-        print("PRE")
         response = request
 
         if isinstance(request, CloudEvent):
