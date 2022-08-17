@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 from typing import Dict, Union
 import sys
 import inspect
@@ -32,7 +32,9 @@ EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
 
-REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
+PRE_REQUEST_TIME = Summary('request_preprocessing_seconds', 'Time spent pre-processing request')
+POST_REQUEST_TIME = Summary('request_postprocessing_seconds', 'Time spent post-processing request')
+PREDICT_REQUEST_TIME = Summary('request_predict_processing_seconds', 'Time spent processing prediction request')
 
 
 class ModelType(Enum):
@@ -78,18 +80,22 @@ class Model:
         self._grpc_client_stub = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
-        request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
-            else self.preprocess(body)
+        with PRE_REQUEST_TIME.time():
+            logging.info("prepocessing")
+            request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
+                else self.preprocess(body)
         request = self.validate(request)
         if model_type == ModelType.EXPLAINER:
             response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
                 else self.explain(request)
         elif model_type == ModelType.PREDICTOR:
-            response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
-                else self.predict(request)
+            with PREDICT_REQUEST_TIME.time():
+                response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
+                    else self.predict(request)
         else:
             raise NotImplementedError
-        response = self.postprocess(response)
+        with POST_REQUEST_TIME.time():
+            response = self.postprocess(response)
         return response
 
     @property
@@ -132,7 +138,7 @@ class Model:
         self.ready = True
         return self.ready
 
-    @REQUEST_TIME.time()
+    @PRE_REQUEST_TIME.time()
     async def preprocess(self, request: Union[Dict, CloudEvent]) -> Union[Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation.
@@ -141,6 +147,7 @@ class Model:
         :param request: Dict|CloudEvent|ModelInferRequest
         :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
+        print("PRE")
         response = request
 
         if isinstance(request, CloudEvent):
@@ -166,7 +173,7 @@ class Model:
 
         return response
 
-    @REQUEST_TIME.time()
+    @POST_REQUEST_TIME.time()
     def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
         """
         The postprocess handler can be overridden for inference response transformation
@@ -200,7 +207,7 @@ class Model:
         async_result = await self._grpc_client.ModelInfer(request=request, timeout=self.timeout)
         return async_result
 
-    @REQUEST_TIME.time()
+    @PREDICT_REQUEST_TIME.time()
     async def predict(self, request: Union[Dict, ModelInferRequest]) -> Union[Dict, ModelInferResponse]:
         """
         The predict handler can be overridden to implement the model inference.
@@ -215,7 +222,6 @@ class Model:
         else:
             return await self._http_predict(request)
 
-    @REQUEST_TIME.time()
     async def explain(self, request: Dict) -> Dict:
         """
         The explain handler can be overridden to implement the model explanation.

@@ -126,7 +126,7 @@ class ModelServer:
         logging.info("starting HTTP server")
         start_http_server(8000)
 
-        logging.info("HII Listening on port %s", self.http_port)
+        logging.info("Listening on port %s", self.http_port)
         self._http_server.bind(self.http_port)
         logging.info("Will fork %d workers", self.workers)
         self._http_server.start(self.workers)
