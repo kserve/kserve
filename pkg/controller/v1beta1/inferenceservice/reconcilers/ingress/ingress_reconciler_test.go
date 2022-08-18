@@ -493,7 +493,7 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
 			}
 
-			actualService := createIngress(testIsvc, ingressConfig)
+			actualService := createIngress(testIsvc, ingressConfig, constants.Serverless)
 			if diff := cmp.Diff(tc.expectedService, actualService); diff != "" {
 				t.Errorf("Test %q unexpected status (-want +got): %v", tc.name, diff)
 			}

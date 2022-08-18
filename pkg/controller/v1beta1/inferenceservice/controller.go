@@ -116,13 +116,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if deploymentMode == constants.ModelMeshDeployment {
 		if isvc.Spec.Transformer == nil && isvc.Spec.Explainer == nil {
-			// Skip if no transformers
-			r.Log.Info("=====hello 0 Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+			// Skip when there is no transformer and explainer
+			r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 				"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 			return ctrl.Result{}, nil
 		}
-		// Continue to reconcile when there is a transformer
-		r.Log.Info("=====hello 1 Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+		// Continue to reconcile when there is a transformer or explainer
+		r.Log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	}
 	// name of our custom finalizer
@@ -218,7 +218,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err := configMapReconciler.Reconcile(isvc); err != nil {
 		return reconcile.Result{}, err
 	}
-	r.Log.Info("=====hello 2 update status next =======", "deploymentMode", deploymentMode)
 
 	if err = r.updateStatus(isvc, deploymentMode); err != nil {
 		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
@@ -235,26 +234,19 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		return err
 	}
 	wasReady := inferenceServiceReadiness(existingService.Status)
-	r.Log.Info("=====hello 3 update status here =======", "wasReady", wasReady)
-
 	if inferenceServiceStatusEqual(existingService.Status, desiredService.Status, deploymentMode) {
-		r.Log.Info("=====hello 4.0 update status here =======", "status equal", desiredService.Status)
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if err := r.Status().Update(context.TODO(), desiredService); err != nil {
-		r.Log.Info("=====hello 4.1 update status here =======", "failed to update", desiredService.Status)
 		r.Log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
 		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)
 		return errors.Wrapf(err, "fails to update InferenceService status")
 	} else {
 		// If there was a difference and there was no error.
-		r.Log.Info("=====hello 4 update status here =======", "desiredService.Status", desiredService.Status)
-
 		isReady := inferenceServiceReadiness(desiredService.Status)
-		r.Log.Info("=====hello 5 update status here =======", "isReady", isReady)
 		if wasReady && !isReady { // Moved to NotReady State
 			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
 				fmt.Sprintf("InferenceService [%v] is no longer Ready", desiredService.GetName()))

@@ -68,31 +68,24 @@ func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements 
 }
 
 func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	alibiExplainerLogger.Info("=====hello 0 alibi=====", "metadata.Name", metadata.Name)
 	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
 
 	argumentPredictorHost := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
-	//argumentPredictorPort := constants.InferenceServiceDefaultHttpPort
 	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]
-	alibiExplainerLogger.Info("=====hello 1.0 alibi=====", "argumentPredictorHost", argumentPredictorHost)
 
 	if ok && (deploymentMode == string(constants.ModelMeshDeployment)) {
 		// Get predictor host and protocol from annotations in modelmesh deployment mode
-		alibiExplainerLogger.Info("=====hello 1.1 alibi=====", "argumentPredictorHost", metadata.Annotations[constants.PredictorHostAnnotationKey])
 		argumentPredictorHost = metadata.Annotations[constants.PredictorHostAnnotationKey]
 		argumentPredictorProtocol := metadata.Annotations[constants.PredictorProtocolAnnotationKey]
-		alibiExplainerLogger.Info("=====hello 1.2 alibi=====", "argumentPredictorHost", argumentPredictorHost)
-		alibiExplainerLogger.Info("=====hello 2.1 alibi=====", "argumentPredictorProtocol", argumentPredictorProtocol)
 
 		// Set predictor protocol if not provided in container arguments
 		if !utils.IncludesArg(args, "--protocol") {
 			alibiExplainerLogger.Info("Set predictor protocol based on ModelMesh predictor URL", "protocol", argumentPredictorProtocol)
 			args = append(args, "--protocol", argumentPredictorProtocol)
 		}
-		//argumentPredictorPort = argumentPredictorProtocol
 	}
 
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentPredictorHost) {
@@ -125,7 +118,6 @@ func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions
 	}
 	s.Name = constants.InferenceServiceContainerName
 	s.Args = append(args, s.Args...)
-	alibiExplainerLogger.Info("=====hello 3.1 alibi=====", "s.Args", s.Args)
 	return &s.Container
 }
 

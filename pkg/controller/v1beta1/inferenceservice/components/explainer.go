@@ -62,7 +62,6 @@ func NewExplainer(client client.Client, scheme *runtime.Scheme, inferenceService
 // Reconcile observes the explainer and attempts to drive the status towards the desired state.
 func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	e.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
-	e.Log.Info("=====hello0 Explainer=====")
 	explainer := isvc.Spec.Explainer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -75,13 +74,10 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
 	// Add StorageSpec annotations so mutator will mount storage credentials to InferenceService's explainer
 	addStorageSpecAnnotations(explainer.GetStorageSpec(), annotations)
-	e.Log.Info("=====hello1 Explainer=====")
-
 	deployConfig, err := v1beta1.NewDeployConfig(e.client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultExplainerServiceName(isvc.Name),
 		Namespace: isvc.Namespace,
@@ -92,10 +88,9 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		Annotations: annotations,
 	}
 
-	// Need to wait for predictor URL in modelmesh deployment mode
+	// Need to wait for predictor URL in ModelMesh deployment mode
 	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.ModelMeshDeployment {
 		// check if predictor URL is populated
-		e.Log.Info("=====hello3 Explainer=====")
 		predictorURL := (*url.URL)(isvc.Status.Components["predictor"].URL)
 		if predictorURL == nil {
 			// explainer reconcile will retry every 3 second until predictor URL is populated
@@ -103,33 +98,18 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
 		}
 
-		// add predictor host and protocol to metadata
+		// Add predictor host and protocol to metadata
 		isvc.ObjectMeta.Annotations[constants.PredictorHostAnnotationKey] = predictorURL.Host
-		e.Log.Info("=====hello4 Explainer=====", "predictorURL.Scheme", predictorURL.Scheme)
-		e.Log.Info("=====hello5 Explainer=====", "predictorURL.Host", predictorURL.Host)
-		e.Log.Info("=====hello6 Explainer=====", "predictorURL", predictorURL)
-
 		if predictorURL.Scheme == "grpc" {
 			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolGRPCV2)
 		} else if predictorURL.Scheme == "http" || predictorURL.Scheme == "https" {
-			// modelmesh supports v2 only
+			// ModelMesh supports v2 only
 			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolV2)
 		} else {
 			return ctrl.Result{}, fmt.Errorf("Predictor URL Scheme not supported: %v", predictorURL.Scheme)
 		}
-		//predictorURL = (*url.URL)(isvc.Status.Components["predictor"].RestURL)
-		//e.Log.Info("=====hello4 Explainer=====", "predictorURL.Host", predictorURL.Host)
-		//host, port, err := net.SplitHostPort(predictorURL.Host)
-		//if err != nil {
-		//		return ctrl.Result{}, err
-		//}
-		//isvc.ObjectMeta.Annotations[constants.PredictorHostAnnotationKey] = host
-		//isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = port
-		//e.Log.Info("=====hello5 Explainer=====", "host", host)
-		//e.Log.Info("=====hello6 Explainer=====", "port", port)
-
 	}
-	e.Log.Info("=====hello7 Explainer=====", "protocol key", isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey])
+
 	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig)
 	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
 		isvc.Spec.Explainer.PodSpec.Containers = []v1.Container{
