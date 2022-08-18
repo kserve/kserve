@@ -105,6 +105,10 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 
 		// add predictor host and protocol to metadata
 		isvc.ObjectMeta.Annotations[constants.PredictorHostAnnotationKey] = predictorURL.Host
+		e.Log.Info("=====hello4 Explainer=====", "predictorURL.Scheme", predictorURL.Scheme)
+		e.Log.Info("=====hello5 Explainer=====", "predictorURL.Host", predictorURL.Host)
+		e.Log.Info("=====hello6 Explainer=====", "predictorURL", predictorURL)
+
 		if predictorURL.Scheme == "grpc" {
 			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolGRPCV2)
 		} else if predictorURL.Scheme == "http" || predictorURL.Scheme == "https" {
@@ -125,6 +129,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		//e.Log.Info("=====hello6 Explainer=====", "port", port)
 
 	}
+	e.Log.Info("=====hello7 Explainer=====", "protocol key", isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey])
 	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig)
 	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
 		isvc.Spec.Explainer.PodSpec.Containers = []v1.Container{

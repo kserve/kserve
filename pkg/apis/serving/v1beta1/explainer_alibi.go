@@ -85,13 +85,13 @@ func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions
 		argumentPredictorHost = metadata.Annotations[constants.PredictorHostAnnotationKey]
 		argumentPredictorProtocol := metadata.Annotations[constants.PredictorProtocolAnnotationKey]
 		alibiExplainerLogger.Info("=====hello 1.2 alibi=====", "argumentPredictorHost", argumentPredictorHost)
-		alibiExplainerLogger.Info("=====hello 2 alibi=====", "argumentPredictorProtocol", argumentPredictorProtocol)
+		alibiExplainerLogger.Info("=====hello 2.1 alibi=====", "argumentPredictorProtocol", argumentPredictorProtocol)
 
 		// Set predictor protocol if not provided in container arguments
-		//if !utils.IncludesArg(args, "--protocol") {
-		//	customExplainerLogger.Info("Set predictor protocol based on ModelMesh predictor URL", "protocol", argumentPredictorProtocol)
-		//	args = append(args, "--protocol", argumentPredictorProtocol)
-		//}
+		if !utils.IncludesArg(args, "--protocol") {
+			alibiExplainerLogger.Info("Set predictor protocol based on ModelMesh predictor URL", "protocol", argumentPredictorProtocol)
+			args = append(args, "--protocol", argumentPredictorProtocol)
+		}
 		//argumentPredictorPort = argumentPredictorProtocol
 	}
 
@@ -125,6 +125,7 @@ func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions
 	}
 	s.Name = constants.InferenceServiceContainerName
 	s.Args = append(args, s.Args...)
+	alibiExplainerLogger.Info("=====hello 3.1 alibi=====", "s.Args", s.Args)
 	return &s.Container
 }
 

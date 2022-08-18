@@ -22,6 +22,7 @@ logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 DEFAULT_EXPLAINER_NAME = "explainer"
 ENV_STORAGE_URI = "STORAGE_URI"
+DEFAULT_PREDICTOR_PROTOCOL = "v1"
 
 
 class GroupedAction(argparse.Action):  # pylint:disable=too-few-public-methods
@@ -152,6 +153,9 @@ def parse_args(sys_args):
     )
     parser.add_argument(
         "--predictor_host", help="The host for the predictor", required=True
+    )
+    parser.add_argument(
+        "--protocol", default=DEFAULT_PREDICTOR_PROTOCOL, help="The protocol for the predictor", required=False 
     )
     parser.add_argument(
         "--storage_uri",
