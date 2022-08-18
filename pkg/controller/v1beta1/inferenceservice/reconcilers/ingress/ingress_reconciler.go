@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	utils "github.com/kserve/kserve/pkg/utils"
@@ -100,7 +99,7 @@ func getServiceHost(isvc *v1beta1.InferenceService, deploymentMode constants.Dep
 	}
 }
 
-func getServiceUrl(isvc *v1beta1.InferenceService, urlScheme string) string {
+func getServiceUrl(isvc *v1beta1.InferenceService, urlScheme string, disableIstioVirtualHost bool) string {
 	if isvc.Status.Components == nil {
 		return ""
 	}
@@ -113,7 +112,11 @@ func getServiceUrl(isvc *v1beta1.InferenceService, urlScheme string) string {
 		} else {
 			url := transformerStatus.URL
 			url.Scheme = urlScheme
-			return strings.Replace(url.String(), fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
+			if disableIstioVirtualHost == false {
+				return strings.Replace(url.String(), fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
+			} else {
+				return url.String()
+			}
 		}
 	}
 
@@ -127,7 +130,11 @@ func getServiceUrl(isvc *v1beta1.InferenceService, urlScheme string) string {
 			return url.String()
 		}
 		url.Scheme = urlScheme
-		return strings.Replace(url.String(), fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
+		if disableIstioVirtualHost == false {
+			return strings.Replace(url.String(), fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
+		} else {
+			return url.String()
+		}
 	}
 }
 
@@ -339,55 +346,58 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 	return desiredIngress
 }
 
-func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
+func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool) error {
 	//get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
-	deployConfig, err := v1beta1api.NewDeployConfig(ir.client)
+	deployConfig, err := v1beta1.NewDeployConfig(ir.client)
 	if err != nil {
 		return errors.Wrapf(err, "fails to create DeployConfig")
 	}
 	deploymentMode := isvcutils.GetDeploymentMode(annotations, deployConfig)
 
 	serviceHost := getServiceHost(isvc, deploymentMode)
-	serviceUrl := getServiceUrl(isvc, ir.ingressConfig.UrlScheme)
+	serviceUrl := getServiceUrl(isvc, ir.ingressConfig.UrlScheme, disableIstioVirtualHost)
 	if serviceHost == "" || serviceUrl == "" {
 		return nil
 	}
-	//Create ingress
-	desiredIngress := createIngress(isvc, ir.ingressConfig, deploymentMode)
-	if desiredIngress == nil {
-		return nil
-	}
-
-	//Create external service which points to local gateway
-	if err := ir.reconcileExternalService(isvc, ir.ingressConfig); err != nil {
-		return errors.Wrapf(err, "fails to reconcile external name service")
-	}
-
-	if err := controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set owner reference for ingress")
-	}
-
-	existing := &v1alpha3.VirtualService{}
-	err = ir.client.Get(context.TODO(), types.NamespacedName{Name: desiredIngress.Name, Namespace: desiredIngress.Namespace}, existing)
-	if err != nil {
-		if apierr.IsNotFound(err) {
-			log.Info("Creating Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
-			err = ir.client.Create(context.TODO(), desiredIngress)
+	// When Istio virtual host is disabled, we return the underlying component url.
+	// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
+	if disableIstioVirtualHost == false {
+		desiredIngress := createIngress(isvc, ir.ingressConfig, deploymentMode)
+		if desiredIngress == nil {
+			return nil
 		}
-	} else {
-		if !routeSemanticEquals(desiredIngress, existing) {
-			existing.Spec = desiredIngress.Spec
-			existing.Annotations = desiredIngress.Annotations
-			existing.Labels = desiredIngress.Labels
-			log.Info("Update Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
-			err = ir.client.Update(context.TODO(), existing)
+
+		//Create external service which points to local gateway
+		if err := ir.reconcileExternalService(isvc, ir.ingressConfig); err != nil {
+			return errors.Wrapf(err, "fails to reconcile external name service")
 		}
-	}
-	if err != nil {
-		return errors.Wrapf(err, "fails to create or update ingress")
+
+		if err := controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set owner reference for ingress")
+		}
+
+		existing := &v1alpha3.VirtualService{}
+		err = ir.client.Get(context.TODO(), types.NamespacedName{Name: desiredIngress.Name, Namespace: desiredIngress.Namespace}, existing)
+		if err != nil {
+			if apierr.IsNotFound(err) {
+				log.Info("Creating Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
+				err = ir.client.Create(context.TODO(), desiredIngress)
+			}
+		} else {
+			if !routeSemanticEquals(desiredIngress, existing) {
+				existing.Spec = desiredIngress.Spec
+				existing.Annotations = desiredIngress.Annotations
+				existing.Labels = desiredIngress.Labels
+				log.Info("Update Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
+				err = ir.client.Update(context.TODO(), existing)
+			}
+		}
+		if err != nil {
+			return errors.Wrapf(err, "fails to create or update ingress")
+		}
 	}
 
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
@@ -406,10 +416,11 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			}
 
 		}
+		hostPrefix := getHostPrefix(isvc, disableIstioVirtualHost)
 		if deploymentMode != constants.ModelMeshDeployment || isvc.Spec.Transformer != nil {
 			isvc.Status.Address = &duckv1.Addressable{
 				URL: &apis.URL{
-					Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
+					Host:   network.GetServiceHostname(hostPrefix, isvc.Namespace),
 					Scheme: "http",
 					Path:   path,
 				},
@@ -429,4 +440,14 @@ func routeSemanticEquals(desired, existing *v1alpha3.VirtualService) bool {
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
+}
+
+func getHostPrefix(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool) string {
+	if disableIstioVirtualHost == true {
+		if isvc.Spec.Transformer != nil {
+			return constants.DefaultTransformerServiceName(isvc.Name)
+		}
+		return constants.DefaultPredictorServiceName(isvc.Name)
+	}
+	return isvc.Name
 }

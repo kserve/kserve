@@ -523,7 +523,7 @@ func TestGetServiceHostname(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			testIsvc := createInferenceServiceWithHostname(tt.predictorHostName)
-			result := getServiceHost(testIsvc)
+			result := getServiceHost(testIsvc, constants.Serverless)
 			if diff := cmp.Diff(tt.expectedHostName, result); diff != "" {
 				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
 			}

@@ -32,6 +32,7 @@ nest_asyncio.apply()
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
+
 def deserialize_bytes_tensor(encoded_tensor):
     strs = list()
     offset = 0
@@ -40,6 +41,7 @@ def deserialize_bytes_tensor(encoded_tensor):
         offset += 4
         strs.append(val)
     return np.array(strs, dtype=np.float32)
+
 
 class ExplainerMethod(Enum):
     anchor_tabular = "AnchorTabular"
@@ -89,7 +91,7 @@ class AlibiExplainer(kserve.Model):
                 instances.append(req_data)
         shape = np.shape(instances)
         loop = asyncio.get_running_loop()  # type: ignore
-        
+
         # Prepare the request beased on the predictor protocol
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             data = np.array(instances, dtype=np.float32).flatten()
@@ -102,7 +104,7 @@ class AlibiExplainer(kserve.Model):
             )
             predict_req = pb.ModelInferRequest(model_name=self.name, inputs=[inputs])
         elif self.protocol == PredictorProtocol.REST_V2.value:
-            predict_req = { 
+            predict_req = {
                 "inputs": [
                     {
                         "name": "input_1",
@@ -116,14 +118,14 @@ class AlibiExplainer(kserve.Model):
             predict_req = {"instances": instances}
 
         resp = loop.run_until_complete(self.predict(predict_req))
- 
+
         # Process the request beased on the predictor protocol
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             shape = []
             for value in resp.outputs[0].shape:
                 shape.append(value)
             rst = deserialize_bytes_tensor(resp.raw_output_contents[0])
-            outputs=np.resize(rst, shape)
+            outputs = np.resize(rst, shape)
         elif self.protocol == PredictorProtocol.REST_V2.value:
             outputs_shape = resp["outputs"][0]["shape"]
             outputs = np.reshape(np.array(resp["outputs"][0]["data"]), outputs_shape)
@@ -144,4 +146,3 @@ class AlibiExplainer(kserve.Model):
             return json.loads(explanationAsJsonStr)
 
         raise NotImplementedError
-

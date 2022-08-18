@@ -155,7 +155,7 @@ def parse_args(sys_args):
         "--predictor_host", help="The host for the predictor", required=True
     )
     parser.add_argument(
-        "--protocol", default=DEFAULT_PREDICTOR_PROTOCOL, help="The protocol for the predictor", required=False 
+        "--protocol", default=DEFAULT_PREDICTOR_PROTOCOL, help="The protocol for the predictor", required=False
     )
     parser.add_argument(
         "--storage_uri",
