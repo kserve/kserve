@@ -14,4 +14,4 @@ Once your docker image is pushed you can pull the image from `dockeruser/aixserv
 
 ## Example 
 
-Try deploying [LIME with MNIST](../../docs/samples/explanation/aix/mnist)
+Try deploying [LIME with MNIST](../../docs/samples/explanation/aix/mnist) or [LIME with NewsGroups](../../docs/samples/explanation/aix/fetch_20newsgroups)
