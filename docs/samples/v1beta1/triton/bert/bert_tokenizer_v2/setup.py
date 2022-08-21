@@ -14,7 +14,7 @@ setup(
     python_requires='>=3.7',
     packages=find_packages("bert_transformer"),
     install_requires=[
-        "kserve>=0.9.0",
+        "kserve",
         "tensorflow==2.7.2",
     ],
     tests_require=tests_require,

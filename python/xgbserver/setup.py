@@ -30,10 +30,10 @@ setup(
     description='Model Server implementation for XGBoost. \
                  Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
-    python_requires='>3.4',
+    python_requires='>3.7',
     packages=find_packages("xgbserver"),
     install_requires=[
-        "kserve>=0.9.0",
+        "kserve",
         "xgboost == 1.5.0",
         "scikit-learn == 1.0.1",
     ],

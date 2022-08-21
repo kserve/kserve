@@ -7,7 +7,7 @@ spec:
     model:
       modelFormat:
         name: sklearn
-      storageUri: gs://kfserving-examples/art/mnist
+      storageUri: gs://kfserving-examples/models/sklearn/mnist/art
   explainer:
     art:
       type: SquareAttack
