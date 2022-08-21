@@ -49,66 +49,6 @@ func TestIsMMSPredictor(t *testing.T) {
 	protocolV2 := constants.ProtocolV2
 
 	for _, mmsCase := range multiModelServerCases {
-		config := InferenceServicesConfig{
-			Predictors: PredictorsConfig{
-				LightGBM: PredictorConfig{
-					ContainerImage:      "lightgbm",
-					DefaultImageVersion: "v0.4.0",
-					MultiModelServer:    mmsCase,
-				},
-				ONNX: PredictorConfig{
-					ContainerImage:      "onnxruntime",
-					DefaultImageVersion: "v1.0.0",
-					MultiModelServer:    mmsCase,
-				},
-				PMML: PredictorConfig{
-					ContainerImage:      "pmmlserver",
-					DefaultImageVersion: "v0.4.0",
-					MultiModelServer:    mmsCase,
-				},
-				SKlearn: PredictorProtocols{
-					V1: &PredictorConfig{
-						ContainerImage:      "sklearnserver",
-						DefaultImageVersion: "v0.4.0",
-						MultiModelServer:    mmsCase,
-					},
-					V2: &PredictorConfig{
-						ContainerImage:      "mlserver",
-						DefaultImageVersion: "0.1.2",
-						MultiModelServer:    mmsCase,
-					},
-				},
-				PyTorch: PredictorConfig{
-					ContainerImage:      "pytorch/torchserve-kfs",
-					DefaultImageVersion: "0.6.0",
-					MultiModelServer:    mmsCase,
-				},
-				Tensorflow: PredictorConfig{
-					ContainerImage:         "tfserving",
-					DefaultImageVersion:    "1.14.0",
-					DefaultGpuImageVersion: "1.14.0-gpu",
-					DefaultTimeout:         60,
-					MultiModelServer:       mmsCase,
-				},
-				Triton: PredictorConfig{
-					ContainerImage:      "tritonserver",
-					DefaultImageVersion: "20.03-py3",
-					MultiModelServer:    mmsCase,
-				},
-				XGBoost: PredictorProtocols{
-					V1: &PredictorConfig{
-						ContainerImage:      "xgboost",
-						DefaultImageVersion: "v0.4.0",
-						MultiModelServer:    mmsCase,
-					},
-					V2: &PredictorConfig{
-						ContainerImage:      "mlserver",
-						DefaultImageVersion: "v0.1.2",
-						MultiModelServer:    mmsCase,
-					},
-				},
-			},
-		}
 
 		scenarios := map[string]struct {
 			isvc     InferenceService
@@ -607,7 +547,7 @@ func TestIsMMSPredictor(t *testing.T) {
 
 		for name, scenario := range scenarios {
 			t.Run(name, func(t *testing.T) {
-				res := IsMMSPredictor(&scenario.isvc.Spec.Predictor, &config)
+				res := IsMMSPredictor(&scenario.isvc.Spec.Predictor, nil)
 				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 					t.Errorf("got %t, want %t", res, scenario.expected)
 				}
@@ -618,56 +558,7 @@ func TestIsMMSPredictor(t *testing.T) {
 
 func TestIsMemoryResourceAvailable(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			LightGBM: PredictorConfig{
-				ContainerImage:      "lightgbm",
-				DefaultImageVersion: "v0.4.0",
-			},
-			ONNX: PredictorConfig{
-				ContainerImage:      "onnxruntime",
-				DefaultImageVersion: "v1.0.0",
-			},
-			PMML: PredictorConfig{
-				ContainerImage:      "pmmlserver",
-				DefaultImageVersion: "v0.4.0",
-			},
-			SKlearn: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "sklearnserver",
-					DefaultImageVersion: "v0.4.0",
-				},
-				V2: &PredictorConfig{
-					ContainerImage:      "mlserver",
-					DefaultImageVersion: "0.1.2",
-				},
-			},
-			PyTorch: PredictorConfig{
-				ContainerImage:      "pytorch/torchserve-kfs",
-				DefaultImageVersion: "0.6.0",
-			},
-			Tensorflow: PredictorConfig{
-				ContainerImage:         "tfserving",
-				DefaultImageVersion:    "1.14.0",
-				DefaultGpuImageVersion: "1.14.0-gpu",
-				DefaultTimeout:         60,
-			},
-			Triton: PredictorConfig{
-				ContainerImage:      "tritonserver",
-				DefaultImageVersion: "20.03-py3",
-			},
-			XGBoost: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "xgboost",
-					DefaultImageVersion: "v0.4.0",
-				},
-				V2: &PredictorConfig{
-					ContainerImage:      "mlserver",
-					DefaultImageVersion: "v0.1.2",
-				},
-			},
-		},
-	}
+
 	reqResourcesScenarios := map[string]struct {
 		resource v1.ResourceRequirements
 		expected bool
@@ -1164,8 +1055,8 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 
 		for name, scenario := range scenarios {
 			t.Run(name, func(t *testing.T) {
-				scenario.isvc.Spec.Predictor.GetImplementation().Default(&config)
-				res := IsMemoryResourceAvailable(&scenario.isvc, totalReqMemory, &config)
+				scenario.isvc.Spec.Predictor.GetImplementation().Default(nil)
+				res := IsMemoryResourceAvailable(&scenario.isvc, totalReqMemory, nil)
 				if !g.Expect(res).To(gomega.Equal(reqResourcesScenario.expected)) {
 					t.Errorf("got %t, want %t with memory %s vs %s", res, reqResourcesScenario.expected, reqResourcesScenario.resource.Limits.Memory().String(), totalReqMemory.String())
 				}
@@ -1548,16 +1439,6 @@ func TestReplacePlaceholders(t *testing.T) {
 
 func TestUpdateImageTag(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			Tensorflow: PredictorConfig{
-				ContainerImage:         "tfserving",
-				DefaultImageVersion:    "1.14.0",
-				DefaultGpuImageVersion: "1.14.0-gpu",
-				DefaultTimeout:         60,
-			},
-		},
-	}
 
 	scenarios := map[string]struct {
 		container      *v1.Container
@@ -1590,7 +1471,6 @@ func TestUpdateImageTag(t *testing.T) {
 				},
 			},
 			runtimeVersion: proto.String("2.6.2"),
-			isvcConfig:     &config,
 			expected:       "tfserving:2.6.2",
 		},
 		"UpdateGPUImageTag": {
@@ -1613,7 +1493,6 @@ func TestUpdateImageTag(t *testing.T) {
 				},
 			},
 			runtimeVersion: nil,
-			isvcConfig:     &config,
 			expected:       "tfserving:1.14.0-gpu",
 		},
 		"UpdateRuntimeVersionWithProxy": {
@@ -1641,7 +1520,6 @@ func TestUpdateImageTag(t *testing.T) {
 				},
 			},
 			runtimeVersion: proto.String("2.6.2"),
-			isvcConfig:     &config,
 			expected:       "localhost:8888/tfserving:2.6.2",
 		},
 		"UpdateRuntimeVersionWithProxyAndTag": {
@@ -1669,13 +1547,12 @@ func TestUpdateImageTag(t *testing.T) {
 				},
 			},
 			runtimeVersion: proto.String("2.6.2"),
-			isvcConfig:     &config,
 			expected:       "localhost:8888/tfserving:2.6.2",
 		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			UpdateImageTag(scenario.container, scenario.runtimeVersion, scenario.isvcConfig)
+			UpdateImageTag(scenario.container, scenario.runtimeVersion, nil)
 			if !g.Expect(scenario.container.Image).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.container.Image, scenario.expected)
 			}
