@@ -30,14 +30,6 @@ import (
 func TestInferenceServiceDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			Tensorflow: PredictorConfig{
-				ContainerImage:         "tfserving",
-				DefaultImageVersion:    "1.14.0",
-				DefaultGpuImageVersion: "1.14.0-gpu",
-				MultiModelServer:       false,
-			},
-		},
 		Explainers: ExplainersConfig{
 			AlibiExplainer: ExplainerConfig{
 				ContainerImage:      "alibi",
@@ -99,14 +91,6 @@ func TestInferenceServiceDefaults(t *testing.T) {
 func TestCustomPredictorDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			Tensorflow: PredictorConfig{
-				ContainerImage:         "tfserving",
-				DefaultImageVersion:    "1.14.0",
-				DefaultGpuImageVersion: "1.14.0-gpu",
-				MultiModelServer:       false,
-			},
-		},
 		Explainers: ExplainersConfig{
 			AlibiExplainer: ExplainerConfig{
 				ContainerImage:      "alibi",

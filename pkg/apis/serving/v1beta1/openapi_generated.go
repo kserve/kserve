@@ -83,18 +83,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1beta1.PMMLSpec":                   schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
 		"./pkg/apis/serving/v1beta1.PaddleServerSpec":           schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
 		"./pkg/apis/serving/v1beta1.PodSpec":                    schema_pkg_apis_serving_v1beta1_PodSpec(ref),
-		"./pkg/apis/serving/v1beta1.PredictorConfig":            schema_pkg_apis_serving_v1beta1_PredictorConfig(ref),
 		"./pkg/apis/serving/v1beta1.PredictorExtensionSpec":     schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
-		"./pkg/apis/serving/v1beta1.PredictorProtocols":         schema_pkg_apis_serving_v1beta1_PredictorProtocols(ref),
 		"./pkg/apis/serving/v1beta1.PredictorSpec":              schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
-		"./pkg/apis/serving/v1beta1.PredictorsConfig":           schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref),
 		"./pkg/apis/serving/v1beta1.SKLearnSpec":                schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
 		"./pkg/apis/serving/v1beta1.StorageSpec":                schema_pkg_apis_serving_v1beta1_StorageSpec(ref),
 		"./pkg/apis/serving/v1beta1.TFServingSpec":              schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
 		"./pkg/apis/serving/v1beta1.TorchServeSpec":             schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
-		"./pkg/apis/serving/v1beta1.TransformerConfig":          schema_pkg_apis_serving_v1beta1_TransformerConfig(ref),
 		"./pkg/apis/serving/v1beta1.TransformerSpec":            schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
-		"./pkg/apis/serving/v1beta1.TransformersConfig":         schema_pkg_apis_serving_v1beta1_TransformersConfig(ref),
 		"./pkg/apis/serving/v1beta1.TritonSpec":                 schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
 		"./pkg/apis/serving/v1beta1.XGBoostSpec":                schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
 	}
@@ -1041,7 +1036,6 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -3731,7 +3725,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -4274,6 +4267,13 @@ func schema_pkg_apis_serving_v1beta1_FailureInfo(ref common.ReferenceCallback) c
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
+					"exitCode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Exit status from the last termination of the container",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 			},
 		},
@@ -4516,20 +4516,6 @@ func schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref common.Referenc
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"transformers": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Transformer configurations",
-							Default:     map[string]interface{}{},
-							Ref:         ref("./pkg/apis/serving/v1beta1.TransformersConfig"),
-						},
-					},
-					"predictors": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Predictor configurations",
-							Default:     map[string]interface{}{},
-							Ref:         ref("./pkg/apis/serving/v1beta1.PredictorsConfig"),
-						},
-					},
 					"explainers": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Explainer configurations",
@@ -4538,11 +4524,11 @@ func schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"transformers", "predictors", "explainers"},
+				Required: []string{"explainers"},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.ExplainersConfig", "./pkg/apis/serving/v1beta1.PredictorsConfig", "./pkg/apis/serving/v1beta1.TransformersConfig"},
+			"./pkg/apis/serving/v1beta1.ExplainersConfig"},
 	}
 }
 
@@ -4871,7 +4857,6 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -4956,7 +4941,6 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -5581,7 +5565,6 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -5854,7 +5837,6 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6126,7 +6108,6 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6518,72 +6499,6 @@ func schema_pkg_apis_serving_v1beta1_PodSpec(ref common.ReferenceCallback) commo
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_PredictorConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"image": {
-						SchemaProps: spec.SchemaProps{
-							Description: "predictor docker image name",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"defaultImageVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "default predictor docker image version on cpu",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"defaultGpuImageVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "default predictor docker image version on gpu",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"defaultTimeout": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Default timeout of predictor for serving a request, in seconds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"multiModelServer": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Flag to determine if multi-model serving is supported",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"supportedFrameworks": {
-						SchemaProps: spec.SchemaProps{
-							Description: "frameworks the model agent is able to run",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"image", "defaultImageVersion", "defaultGpuImageVersion", "supportedFrameworks"},
-			},
-		},
-	}
-}
-
 func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -6849,35 +6764,10 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
 			"./pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
-	}
-}
-
-func schema_pkg_apis_serving_v1beta1_PredictorProtocols(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"v1": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
-					"v2": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.PredictorConfig"},
 	}
 }
 
@@ -7386,74 +7276,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"tensorflow": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
-					"triton": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
-					"xgboost": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.PredictorProtocols"),
-						},
-					},
-					"sklearn": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.PredictorProtocols"),
-						},
-					},
-					"pytorch": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
-					"onnx": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
-					"pmml": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
-					"lightgbm": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
-					"paddle": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.PredictorConfig", "./pkg/apis/serving/v1beta1.PredictorProtocols"},
-	}
-}
-
 func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7719,7 +7541,6 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8041,7 +7862,6 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8314,40 +8134,10 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
 			"./pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
-	}
-}
-
-func schema_pkg_apis_serving_v1beta1_TransformerConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"image": {
-						SchemaProps: spec.SchemaProps{
-							Description: "transformer docker image name",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"defaultImageVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "default transformer docker image version",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"image", "defaultImageVersion"},
-			},
-		},
 	}
 }
 
@@ -8796,26 +8586,6 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_TransformersConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"feast": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("./pkg/apis/serving/v1beta1.TransformerConfig"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.TransformerConfig"},
-	}
-}
-
 func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9081,7 +8851,6 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -9354,7 +9123,6 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{

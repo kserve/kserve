@@ -29,9 +29,7 @@ import (
 
 // ConfigMap Keys
 const (
-	PredictorConfigKeyName   = "predictors"
-	TransformerConfigKeyName = "transformers"
-	ExplainerConfigKeyName   = "explainers"
+	ExplainerConfigKeyName = "explainers"
 )
 
 const (
@@ -60,59 +58,7 @@ type ExplainersConfig struct {
 }
 
 // +kubebuilder:object:generate=false
-type PredictorConfig struct {
-	// predictor docker image name
-	ContainerImage string `json:"image"`
-	// default predictor docker image version on cpu
-	DefaultImageVersion string `json:"defaultImageVersion"`
-	// default predictor docker image version on gpu
-	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
-	// Default timeout of predictor for serving a request, in seconds
-	DefaultTimeout int64 `json:"defaultTimeout,string,omitempty"`
-	// Flag to determine if multi-model serving is supported
-	MultiModelServer bool `json:"multiModelServer,boolean,omitempty"`
-	// frameworks the model agent is able to run
-	SupportedFrameworks []string `json:"supportedFrameworks"`
-}
-
-// +kubebuilder:object:generate=false
-type PredictorProtocols struct {
-	V1 *PredictorConfig `json:"v1,omitempty"`
-	V2 *PredictorConfig `json:"v2,omitempty"`
-}
-
-// +kubebuilder:object:generate=false
-type PredictorsConfig struct {
-	Tensorflow PredictorConfig    `json:"tensorflow,omitempty"`
-	Triton     PredictorConfig    `json:"triton,omitempty"`
-	XGBoost    PredictorProtocols `json:"xgboost,omitempty"`
-	SKlearn    PredictorProtocols `json:"sklearn,omitempty"`
-	PyTorch    PredictorConfig    `json:"pytorch,omitempty"`
-	ONNX       PredictorConfig    `json:"onnx,omitempty"`
-	PMML       PredictorConfig    `json:"pmml,omitempty"`
-	LightGBM   PredictorConfig    `json:"lightgbm,omitempty"`
-	Paddle     PredictorConfig    `json:"paddle,omitempty"`
-}
-
-// +kubebuilder:object:generate=false
-type TransformerConfig struct {
-	// transformer docker image name
-	ContainerImage string `json:"image"`
-	// default transformer docker image version
-	DefaultImageVersion string `json:"defaultImageVersion"`
-}
-
-// +kubebuilder:object:generate=false
-type TransformersConfig struct {
-	Feast TransformerConfig `json:"feast,omitempty"`
-}
-
-// +kubebuilder:object:generate=false
 type InferenceServicesConfig struct {
-	// Transformer configurations
-	Transformers TransformersConfig `json:"transformers"`
-	// Predictor configurations
-	Predictors PredictorsConfig `json:"predictors"`
 	// Explainer configurations
 	Explainers ExplainersConfig `json:"explainers"`
 }
@@ -143,9 +89,7 @@ func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, er
 	}
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
-		getComponentConfig(PredictorConfigKeyName, configMap, &icfg.Predictors),
 		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
-		getComponentConfig(TransformerConfigKeyName, configMap, &icfg.Transformers),
 	} {
 		if err != nil {
 			return nil, err

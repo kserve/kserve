@@ -253,25 +253,6 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 		conditionErr = fmt.Errorf(IsNotMMSPredictor, isvc.Name, tm.Name)
 	}
 
-	// Update Framework Supported condition
-	predictor := isvc.Spec.Predictor.GetPredictorImplementation()
-	if predictor != nil && (*predictor).IsFrameworkSupported(tm.Spec.Model.Framework, isvcConfig) {
-		log.Info("Framework is supported", "TrainedModel", tm.Name, "InferenceService", isvc.Name, "Framework", tm.Spec.Model.Framework)
-		tm.Status.SetCondition(v1alpha1api.FrameworkSupported, &apis.Condition{
-			Status: v1.ConditionTrue,
-		})
-	} else {
-		log.Info("Framework is not supported", "TrainedModel", tm.Name, "InferenceService", isvc.Name, "Framework", tm.Spec.Model.Framework)
-		tm.Status.SetCondition(v1alpha1api.FrameworkSupported, &apis.Condition{
-			Type:    v1alpha1api.FrameworkSupported,
-			Status:  v1.ConditionFalse,
-			Reason:  "FrameworkNotSupported",
-			Message: "Inference Service does not support the Trained Model framework",
-		})
-
-		conditionErr = fmt.Errorf(FrameworkNotSupported, isvc.Name, tm.Name, tm.Spec.Model.Framework)
-	}
-
 	// Get trained models with same inference service
 	var trainedModels v1alpha1api.TrainedModelList
 	if err := r.List(context.TODO(), &trainedModels, client.InNamespace(tm.Namespace), client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name, constants.TrainedModelAllocated: isvc.Name}); err != nil {
