@@ -100,6 +100,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
                "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
             }`,
 		}
+		servingRuntime = &v1alpha1.ServingRuntime{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "tf-serving",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.ServingRuntimeSpec{
+				SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+					{
+						Name:       "tensorflow",
+						Version:    proto.String("1"),
+						AutoSelect: proto.Bool(true),
+					},
+				},
+				ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+					Containers: []v1.Container{
+						{
+							Name:    "kserve-container",
+							Image:   "tensorflow/serving:1.14.0",
+							Command: []string{"/usr/bin/tensorflow_model_server"},
+							Args: []string{
+								"--port=9000",
+								"--rest_api_port=8080",
+								"--model_base_path=/mnt/models",
+								"--rest_api_timeout_in_ms=60000",
+							},
+							Resources: defaultResource,
+						},
+					},
+				},
+				Disabled: proto.Bool(false),
+			},
+		}
 	)
 	Context("When creating inference service with predictor", func() {
 		It("Should have knative service created", func() {
@@ -1034,44 +1066,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	Context("When creating an inference service using a ServingRuntime", func() {
 		It("Should create successfully", func() {
 			serviceName := "svc-with-servingruntime"
-			servingRuntimeName := "tf-serving"
 			namespace := "default"
 
 			var predictorServiceKey = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
 				Namespace: namespace}
-
-			var servingRuntime = &v1alpha1.ServingRuntime{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      servingRuntimeName,
-					Namespace: namespace,
-				},
-				Spec: v1alpha1.ServingRuntimeSpec{
-					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
-						{
-							Name:       "tensorflow",
-							Version:    proto.String("1"),
-							AutoSelect: proto.Bool(true),
-						},
-					},
-					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
-							{
-								Name:    "kserve-container",
-								Image:   "tensorflow/serving:1.14.0",
-								Command: []string{"/usr/bin/tensorflow_model_server"},
-								Args: []string{
-									"--port=9000",
-									"--rest_api_port=8080",
-									"--model_base_path=/mnt/models",
-									"--rest_api_timeout_in_ms=60000",
-								},
-								Resources: defaultResource,
-							},
-						},
-					},
-					Disabled: proto.Bool(false),
-				},
-			}
 
 			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), servingRuntime)

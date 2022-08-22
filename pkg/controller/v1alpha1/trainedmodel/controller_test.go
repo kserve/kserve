@@ -58,19 +58,6 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			},
 		}
 		configs = map[string]string{
-			"predictors": `{
-               "tensorflow": {
-                  "image": "tensorflow/serving",
-				  "supportedFrameworks": ["tensorflow"],
-				  "multiModelServer": true
-               },
-               "sklearn": {
-                  "image": "kfserving/sklearnserver"
-               },
-               "xgboost": {
-                  "image": "kfserving/xgbserver"
-               }
-	         }`,
 			"explainers": `{
                "alibi": {
                   "image": "kfserving/alibi-explainer",
