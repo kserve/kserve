@@ -16,7 +16,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='paddleserver',
-    version='0.7.0',
+    version='0.9.0',
     author_email='zhangzhengyuan0604@gmail.com',
     license='https://github.com/kserve/kserve/LICENSE',
     description='Model Server implementation for Paddle. \
@@ -25,7 +25,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("paddleserver"),
     install_requires=[
-        "kserve>=0.7.0",
+        "kserve",
         "paddlepaddle>=2.0.2"
     ],
     extras_require={'test': ['opencv-python']}

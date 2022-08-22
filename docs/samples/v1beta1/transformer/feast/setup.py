@@ -27,7 +27,7 @@ setup(
     url='https://github.com/kserve/kserve/docs/samples/v1beta1/transformer/feast/driver_transformer',
     description='Driver transformer',
     long_description=open('README.md').read(),
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     packages=find_packages("driver_transformer"),
     install_requires=[
         "kserve",
