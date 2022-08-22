@@ -21,17 +21,17 @@ tests_require = [
 ]
 setup(
     name='pytorchserver',
-    version='0.7.0',
+    version='0.9.0',
     author_email='singhan@us.ibm.com',
     license='https://github.com/kserve/kserve/LICENSE',
     url='https://github.com/kserve/kserve/python/pytorchserver',
     description='Model Server implementation for PyTorch. ' +
     'Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
-    python_requires='>3.4',
+    python_requires='>3.7',
     packages=find_packages("pytorchserver"),
     install_requires=[
-        "kserve>=0.7.0",
+        "kserve",
         "torch >= 1.3.1",
         "torchvision == 0.8.2"
     ],

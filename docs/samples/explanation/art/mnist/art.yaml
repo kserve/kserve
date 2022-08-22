@@ -4,10 +4,10 @@ metadata:
   name: "artserver"
 spec:
   predictor:
-    containers:
-    - name: predictor
-      image: aipipeline/art-server:mnist-predictor
-      imagePullPolicy: Always
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: gs://kfserving-examples/models/sklearn/mnist/art
   explainer:
     art:
       type: SquareAttack

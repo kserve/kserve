@@ -23,7 +23,7 @@ tests_require = [
 
 setup(
     name='lgbserver',
-    version='0.7.0',
+    version='0.9.0',
     author_email='linyiming@ainnovation.com',
     license='../../LICENSE.txt',
     url='https://github.com/kserve/kserve/python/lgbserver',
@@ -33,7 +33,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("lgbserver"),
     install_requires=[
-        "kserve>=0.7.0",
+        "kserve",
         "lightgbm == 3.3.2",
         "pandas == 1.3.5",
         "argparse >= 1.4.0",

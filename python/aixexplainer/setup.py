@@ -21,18 +21,17 @@ tests_require = [
 ]
 setup(
     name='aixserver',
-    version='0.7.0',
+    version='0.9.0',
     author_email='Andrew.Butler@ibm.com',
     license='https://github.com/kserve/kserve/LICENSE',
     url='https://github.com/kserve/kserve/python/aixserver',
     description='Model Server implementation for AI eXplainability with LIME. \
                  Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
-    python_requires='>3.4',
+    python_requires='>3.7',
     packages=find_packages("aixserver"),
     install_requires=[
-        "kserve>=0.7.0",
-        "argparse >= 1.4.0",
+        "kserve",
         "aix360 >= 0.2.0",
         "lime >= 0.1.1.37",
         "nest_asyncio>=1.4.0",

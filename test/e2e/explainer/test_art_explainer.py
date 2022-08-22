@@ -21,9 +21,9 @@ from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1ExplainerSpec
+from kserve import V1beta1SKLearnSpec
 from kserve import V1beta1ARTExplainerSpec
 from kserve import V1beta1InferenceService
-from kubernetes.client import V1Container
 from kubernetes.client import V1ResourceRequirements
 import pytest
 
@@ -45,18 +45,13 @@ def test_tabular_explainer():
             name=service_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=V1beta1InferenceServiceSpec(
             predictor=V1beta1PredictorSpec(
-                containers=[V1Container(
-                    name="predictor",
-                    # Update the image below to the aipipeline org.
-                    image='aipipeline/art-server:mnist-predictor',
-                    command=["python", "-m", "sklearnserver", "--model_name",
-                             "art-explainer", "--model_dir",
-                             "file://sklearnserver/sklearnserver/example_model"],
+                sklearn=V1beta1SKLearnSpec(
+                    storage_uri='gs://kfserving-examples/models/sklearn/mnist/art',
                     resources=V1ResourceRequirements(
                         requests={'cpu': '10m', 'memory': '128Mi'},
                         limits={'cpu': '100m', 'memory': '256Mi'}
                     )
-                )]
+                )
             ),
             explainer=V1beta1ExplainerSpec(
                 min_replicas=1,
