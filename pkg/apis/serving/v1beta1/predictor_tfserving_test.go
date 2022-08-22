@@ -117,7 +117,9 @@ func TestTensorflowDefaulter(t *testing.T) {
 		"DefaultResources": {
 			spec: PredictorSpec{
 				Tensorflow: &TFServingSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: proto.String("1.14.0"),
+					},
 				},
 			},
 			expected: PredictorSpec{

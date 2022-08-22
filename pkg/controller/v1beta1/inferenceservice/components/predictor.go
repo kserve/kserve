@@ -73,7 +73,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Add StorageSpec annotations so mutator will mount storage credentials to InferenceService's predictor
 	addStorageSpecAnnotations(isvc.Spec.Predictor.GetImplementation().GetStorageSpec(), annotations)
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
-	addAgentAnnotations(isvc, annotations, p.inferenceServiceConfig)
+	addAgentAnnotations(isvc, annotations)
 
 	// Reconcile modelConfig
 	configMapReconciler := modelconfig.NewModelConfigReconciler(p.client, p.scheme)

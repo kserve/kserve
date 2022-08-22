@@ -231,14 +231,9 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 		conditionErr = fmt.Errorf(InferenceServiceNotReady, isvc.Name, tm.Name)
 	}
 
-	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
-	if err != nil {
-		return err
-	}
-
 	// Update Is MMS Predictor condition
 	implementations := isvc.Spec.Predictor.GetImplementations()
-	if len(implementations) > 0 && v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
+	if len(implementations) > 0 && v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor) {
 		tm.Status.SetCondition(v1alpha1api.IsMMSPredictor, &apis.Condition{
 			Status: v1.ConditionTrue,
 		})
@@ -265,7 +260,7 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 
 	totalReqMemory := trainedModels.TotalRequestedMemory()
 	// Update Inference Service Resource Available condition
-	if v1beta1utils.IsMemoryResourceAvailable(isvc, totalReqMemory, isvcConfig) {
+	if v1beta1utils.IsMemoryResourceAvailable(isvc, totalReqMemory) {
 		log.Info("Parent InferenceService memory resources are available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
 		if _, ok := tm.Labels[constants.TrainedModelAllocated]; !ok {
 			tm.Labels[constants.TrainedModelAllocated] = isvc.Name
