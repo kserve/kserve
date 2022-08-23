@@ -38,8 +38,15 @@ import (
 
 var log = logf.Log.WithName("InferenceGraphRouter")
 
-func callService(serviceUrl string, input []byte) ([]byte, error) {
-	resp, err := http.Post(serviceUrl, "application/json", bytes.NewBuffer(input))
+func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, error) {
+	log.Info("calling from inside callService")
+	client := http.Client{}
+	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
+	req.Header = headers
+
+	resp, err := client.Do(req)
+
+	//resp, err := http.Post(serviceUrl, "application/json", bytes.NewBuffer(input))
 	if err != nil {
 		log.Error(err, "An error has occurred from service", "service", serviceUrl)
 		return nil, err
@@ -83,20 +90,21 @@ func timeTrack(start time.Time, name string) {
 	log.Info("elapsed time", "node", name, "time", elapsed)
 }
 
-func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte) ([]byte, error) {
+func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, error) {
 	log.Info("current step", "nodeName", nodeName)
+	log.Info("current step", "headers", headers)
 	defer timeTrack(time.Now(), nodeName)
 	currentNode := graph.Nodes[nodeName]
 
 	if currentNode.RouterType == v1alpha1.Splitter {
-		return executeStep(pickupRoute(currentNode.Steps), graph, input)
+		return executeStep(pickupRoute(currentNode.Steps), graph, input, headers)
 	}
 	if currentNode.RouterType == v1alpha1.Switch {
 		route := pickupRouteByCondition(input, currentNode.Steps)
 		if route == nil {
 			return input, nil //TODO maybe should fail in this case?
 		}
-		return executeStep(route, graph, input)
+		return executeStep(route, graph, input, headers)
 	}
 	if currentNode.RouterType == v1alpha1.Ensemble {
 		ensembleRes := make([]chan map[string]interface{}, len(currentNode.Steps))
@@ -106,7 +114,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte)
 			resultChan := make(chan map[string]interface{})
 			ensembleRes[i] = resultChan
 			go func() {
-				output, err := executeStep(step, graph, input)
+				output, err := executeStep(step, graph, input, headers)
 				if err == nil {
 					var res map[string]interface{}
 					if err = json.Unmarshal(output, &res); err == nil {
@@ -151,7 +159,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte)
 					return responseBytes, nil
 				}
 			}
-			if responseBytes, err = executeStep(step, graph, request); err != nil {
+			if responseBytes, err = executeStep(step, graph, request, headers); err != nil {
 				return nil, err
 			}
 		}
@@ -161,19 +169,23 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte)
 	return nil, fmt.Errorf("invalid route type: %v", currentNode.RouterType)
 }
 
-func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec, input []byte) ([]byte, error) {
+func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, error) {
 	if step.NodeName != "" {
 		// when nodeName is specified make a recursive call for routing to next step
-		return routeStep(step.NodeName, graph, input)
+		return routeStep(step.NodeName, graph, input, headers)
 	}
-	return callService(step.ServiceURL, input)
+	return callService(step.ServiceURL, input, headers)
 }
 
 var inferenceGraph *v1alpha1.InferenceGraphSpec
 
 func graphHandler(w http.ResponseWriter, req *http.Request) {
+	// log.Info("current step", "nodeName", nodeName)
+	log.Info("Start of graph Handler", "nodeName")
+	log.Info("Req body is: ", "reqBody", req.Body)
+	log.Info("Req headers are: ", "headers", req.Header)
 	inputBytes, _ := ioutil.ReadAll(req.Body)
-	if response, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes); err != nil {
+	if response, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes, req.Header); err != nil {
 		log.Error(err, "failed to process request")
 		w.WriteHeader(500) //TODO status code tbd
 		w.Write([]byte(fmt.Sprintf("Failed to process request: %v", err)))
