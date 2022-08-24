@@ -72,13 +72,18 @@ func TestSimpleModelChainer(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(input)
-	res, err := routeStep("root", graphSpec, jsonBytes)
+	headers := http.Header{
+		"Trace-ID":      {"f32c0242-2384-11ed"},
+		"Authorization": {"Bearer Token"},
+	}
+
+	res, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
 		"predictions": "2",
 	}
-	fmt.Printf("final response:%v", response)
+	fmt.Printf("final response:%v\n", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -141,7 +146,11 @@ func TestSimpleModelEnsemble(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(input)
-	res, err := routeStep("root", graphSpec, jsonBytes)
+	headers := http.Header{
+		"Trace-ID":      {"f32c0242-2384-11ed"},
+		"Authorization": {"Bearer Token"},
+	}
+	res, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
@@ -152,7 +161,7 @@ func TestSimpleModelEnsemble(t *testing.T) {
 			"predictions": "2",
 		},
 	}
-	fmt.Printf("final response:%v", response)
+	fmt.Printf("final response:%v\n", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -317,7 +326,11 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(input)
-	res, err := routeStep("root", graphSpec, jsonBytes)
+	headers := http.Header{
+		"Trace-ID":      {"f32c0242-2384-11ed"},
+		"Authorization": {"Bearer Token"},
+	}
+	res, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedModel3Response := map[string]interface{}{

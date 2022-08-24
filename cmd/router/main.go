@@ -39,14 +39,12 @@ import (
 var log = logf.Log.WithName("InferenceGraphRouter")
 
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, error) {
-	log.Info("calling from inside callService")
 	client := http.Client{}
 	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
-	req.Header = headers
-
+	req.Header = headers // propagating the headers to steps i.e. to ISVCs
+	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
 
-	//resp, err := http.Post(serviceUrl, "application/json", bytes.NewBuffer(input))
 	if err != nil {
 		log.Error(err, "An error has occurred from service", "service", serviceUrl)
 		return nil, err
@@ -91,8 +89,6 @@ func timeTrack(start time.Time, name string) {
 }
 
 func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, error) {
-	log.Info("current step", "nodeName", nodeName)
-	log.Info("current step", "headers", headers)
 	defer timeTrack(time.Now(), nodeName)
 	currentNode := graph.Nodes[nodeName]
 
@@ -180,10 +176,6 @@ func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec
 var inferenceGraph *v1alpha1.InferenceGraphSpec
 
 func graphHandler(w http.ResponseWriter, req *http.Request) {
-	// log.Info("current step", "nodeName", nodeName)
-	log.Info("Start of graph Handler", "nodeName")
-	log.Info("Req body is: ", "reqBody", req.Body)
-	log.Info("Req headers are: ", "headers", req.Header)
 	inputBytes, _ := ioutil.ReadAll(req.Body)
 	if response, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes, req.Header); err != nil {
 		log.Error(err, "failed to process request")
