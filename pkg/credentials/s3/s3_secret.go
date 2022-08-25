@@ -42,10 +42,15 @@ const (
 )
 
 type S3Config struct {
-	S3AccessKeyIDName     string `json:"s3AccessKeyIDName,omitempty"`
-	S3SecretAccessKeyName string `json:"s3SecretAccessKeyName,omitempty"`
-	S3Endpoint            string `json:"s3Endpoint,omitempty"`
-	S3UseHttps            string `json:"s3UseHttps,omitempty"`
+	S3AccessKeyIDName        string `json:"s3AccessKeyIDName,omitempty"`
+	S3SecretAccessKeyName    string `json:"s3SecretAccessKeyName,omitempty"`
+	S3Endpoint               string `json:"s3Endpoint,omitempty"`
+	S3UseHttps               string `json:"s3UseHttps,omitempty"`
+	S3Region                 string `json:"s3Region,omitempty"`
+	S3VerifySSL              string `json:"s3VerifySSL,omitempty"`
+	S3UseVirtualBucket       string `json:"s3UseVirtualBucket,omitempty"`
+	S3UseAnonymousCredential string `json:"s3UseAnonymousCredential,omitempty"`
+	S3CABundle               string `json:"s3CABundle,omitempty"`
 }
 
 var (
@@ -93,79 +98,7 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 		},
 	}
 
-	if s3Endpoint, ok := secret.Annotations[InferenceServiceS3SecretEndpointAnnotation]; ok {
-		s3EndpointUrl := "https://" + s3Endpoint
-		if s3UseHttps, ok := secret.Annotations[InferenceServiceS3SecretHttpsAnnotation]; ok {
-			if s3UseHttps == "0" {
-				s3EndpointUrl = "http://" + secret.Annotations[InferenceServiceS3SecretEndpointAnnotation]
-			}
-			envs = append(envs, v1.EnvVar{
-				Name:  S3UseHttps,
-				Value: s3UseHttps,
-			})
-		}
-		envs = append(envs, v1.EnvVar{
-			Name:  S3Endpoint,
-			Value: s3Endpoint,
-		})
-		envs = append(envs, v1.EnvVar{
-			Name:  AWSEndpointUrl,
-			Value: s3EndpointUrl,
-		})
+	envs = append(envs, BuildS3EnvVars(secret.Annotations, s3Config)...)
 
-	} else if s3Config.S3Endpoint != "" {
-		s3EndpointUrl := "https://" + s3Config.S3Endpoint
-		if s3Config.S3UseHttps == "0" {
-			s3EndpointUrl = "http://" + s3Config.S3Endpoint
-			envs = append(envs, v1.EnvVar{
-				Name:  S3UseHttps,
-				Value: s3Config.S3UseHttps,
-			})
-		}
-		envs = append(envs, v1.EnvVar{
-			Name:  S3Endpoint,
-			Value: s3Config.S3Endpoint,
-		})
-		envs = append(envs, v1.EnvVar{
-			Name:  AWSEndpointUrl,
-			Value: s3EndpointUrl,
-		})
-
-	}
-
-	if s3Region, ok := secret.Annotations[InferenceServiceS3SecretRegionAnnotation]; ok {
-		envs = append(envs, v1.EnvVar{
-			Name:  AWSRegion,
-			Value: s3Region,
-		})
-	}
-
-	if useAnonymousCredential, ok := secret.Annotations[InferenceServiceS3UseAnonymousCredential]; ok {
-		envs = append(envs, v1.EnvVar{
-			Name:  AWSAnonymousCredential,
-			Value: useAnonymousCredential,
-		})
-	}
-
-	if verifySsl, ok := secret.Annotations[InferenceServiceS3SecretSSLAnnotation]; ok {
-		envs = append(envs, v1.EnvVar{
-			Name:  S3VerifySSL,
-			Value: verifySsl,
-		})
-	}
-
-	if useVirtualBucket, ok := secret.Annotations[InferenceServiceS3UseVirtualBucketAnnotation]; ok {
-		envs = append(envs, v1.EnvVar{
-			Name:  S3UseVirtualBucket,
-			Value: useVirtualBucket,
-		})
-	}
-
-	if customCABundle, ok := secret.Annotations[InferenceServiceS3CABundleAnnotation]; ok {
-		envs = append(envs, v1.EnvVar{
-			Name:  AWSCABundle,
-			Value: customCABundle,
-		})
-	}
 	return envs
 }
