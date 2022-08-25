@@ -1034,6 +1034,7 @@ func TestUpdateImageTag(t *testing.T) {
 	scenarios := map[string]struct {
 		container      *v1.Container
 		runtimeVersion *string
+		servingRuntime string
 		isvcConfig     *v1beta1.InferenceServicesConfig
 		expected       string
 	}{
@@ -1062,6 +1063,7 @@ func TestUpdateImageTag(t *testing.T) {
 				},
 			},
 			runtimeVersion: proto.String("2.6.2"),
+			servingRuntime: constants.TFServing,
 			expected:       "tfserving:2.6.2",
 		},
 		"UpdateGPUImageTag": {
@@ -1084,7 +1086,31 @@ func TestUpdateImageTag(t *testing.T) {
 				},
 			},
 			runtimeVersion: nil,
+			servingRuntime: constants.TFServing,
 			expected:       "tfserving:1.14.0-gpu",
+		},
+		"UpdateGPUImageTagWithProxy": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "localhost:8888/tfserving:1.14.0",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.TFServing,
+			expected:       "localhost:8888/tfserving:1.14.0-gpu",
 		},
 		"UpdateRuntimeVersionWithProxy": {
 			container: &v1.Container{
@@ -1111,6 +1137,7 @@ func TestUpdateImageTag(t *testing.T) {
 				},
 			},
 			runtimeVersion: proto.String("2.6.2"),
+			servingRuntime: constants.TFServing,
 			expected:       "localhost:8888/tfserving:2.6.2",
 		},
 		"UpdateRuntimeVersionWithProxyAndTag": {
@@ -1138,12 +1165,13 @@ func TestUpdateImageTag(t *testing.T) {
 				},
 			},
 			runtimeVersion: proto.String("2.6.2"),
+			servingRuntime: constants.TFServing,
 			expected:       "localhost:8888/tfserving:2.6.2",
 		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			UpdateImageTag(scenario.container, scenario.runtimeVersion, nil)
+			UpdateImageTag(scenario.container, scenario.runtimeVersion, &scenario.servingRuntime)
 			if !g.Expect(scenario.container.Image).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.container.Image, scenario.expected)
 			}

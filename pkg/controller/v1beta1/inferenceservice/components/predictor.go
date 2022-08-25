@@ -195,7 +195,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 
 		// Update image tag if GPU is enabled or runtime version is provided
-		isvcutils.UpdateImageTag(container, isvc.Spec.Predictor.Model.RuntimeVersion, p.inferenceServiceConfig)
+		isvcutils.UpdateImageTag(container, isvc.Spec.Predictor.Model.RuntimeVersion, isvc.Spec.Predictor.Model.Runtime)
 
 		podSpec = *mergedPodSpec
 		podSpec.Containers = []v1.Container{

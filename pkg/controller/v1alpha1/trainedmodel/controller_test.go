@@ -389,11 +389,6 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 					return false
 				}
 
-				// Condition FrameworkSupported should be true
-				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.FrameworkSupported) {
-					return false
-				}
-
 				// Condition for MemoryResourceAvailable should be true
 				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.MemoryResourceAvailable) {
 					return false

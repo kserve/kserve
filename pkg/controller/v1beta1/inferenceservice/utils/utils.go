@@ -182,7 +182,7 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
-func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
+func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRuntime *string) {
 	image := container.Image
 	if runtimeVersion != nil {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
@@ -190,16 +190,17 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig 
 			container.Image = image + ":" + *runtimeVersion
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
-		}
-		return
-	}
-	if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
-		// Can we detect the ServingRuntime here?
-		// For TFServing/TorchServe the GPU image is tagged with suffix "-gpu", when the version is found in the tag
-		// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
-		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
-		if len(re.FindString(image)) > 0 {
-			container.Image = image + "-gpu"
+			}
+	} else {
+		if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
+			re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+			if len(re.FindString(image)) > 0 {
+				// For TFServing/TorchServe the GPU image is tagged with suffix "-gpu", when the version is found in the tag
+				// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
+				if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe) {
+					container.Image = image + "-gpu"
+				}
+			}
 		}
 	}
 }
