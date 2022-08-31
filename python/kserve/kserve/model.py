@@ -107,18 +107,18 @@ class Model:
         return self._grpc_client_stub
 
     def validate(self, request):
-        if self.protocol == PredictorProtocol.REST_V2.value:
-            if "inputs" in request and not isinstance(request["inputs"], list):
-                raise tornado.web.HTTPError(
-                    status_code=HTTPStatus.BAD_REQUEST,
-                    reason="Expected \"inputs\" to be a list"
-                )
-        elif isinstance(request, Dict) or self.protocol == PredictorProtocol.REST_V1.value:
-            if "instances" in request and not isinstance(request["instances"], list):
-                raise tornado.web.HTTPError(
-                    status_code=HTTPStatus.BAD_REQUEST,
-                    reason="Expected \"instances\" to be a list"
-                )
+        # if self.protocol == PredictorProtocol.REST_V2.value:
+        #     if "inputs" in request and not isinstance(request["inputs"], list):
+        #         raise tornado.web.HTTPError(
+        #             status_code=HTTPStatus.BAD_REQUEST,
+        #             reason="Expected \"inputs\" to be a list"
+        #         )
+        # elif isinstance(request, Dict) or self.protocol == PredictorProtocol.REST_V1.value:
+        #     if "instances" in request and not isinstance(request["instances"], list):
+        #         raise tornado.web.HTTPError(
+        #             status_code=HTTPStatus.BAD_REQUEST,
+        #             reason="Expected \"instances\" to be a list"
+        #         )
         return request
 
     def load(self) -> bool:

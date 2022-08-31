@@ -54,14 +54,18 @@ class PredictHandler(HTTPHandler):
             body = self.get_binary_cloudevent()
         else:
             try:
-                body = json.loads(self.request.body)
+                print(type(self.request.body))
+                if isinstance(self.request.body, bytes):
+                    body = self.request.body
+                else:
+                    body = json.loads(self.request.body)
             except json.decoder.JSONDecodeError as e:
                 raise tornado.web.HTTPError(
                     status_code=HTTPStatus.BAD_REQUEST,
                     reason="Unrecognized request format: %s" % e
                 )
 
-            if is_structured_cloudevent(body):
+            if not isinstance(body, bytes) and is_structured_cloudevent(body):
                 is_cloudevent = True
 
         # call model locally or remote model workers
