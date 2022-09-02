@@ -53,7 +53,7 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.ready = True
 
-    def preprocess(self, payload: Dict) -> ModelInferRequest:
+    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> ModelInferRequest:
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
         input_tensors = [image_transform(instance) for instance in payload["instances"]]

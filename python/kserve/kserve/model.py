@@ -77,8 +77,8 @@ class Model:
         self._grpc_client_stub = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR, headers: Dict[str, str] = None):
-        payload = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
-            else self.preprocess(body)
+        payload = await self.preprocess(body, headers) if inspect.iscoroutinefunction(self.preprocess) \
+            else self.preprocess(body, headers)
         payload = self.validate(payload)
         if model_type == ModelType.EXPLAINER:
             response = (await self.explain(payload, headers)) if inspect.iscoroutinefunction(self.explain) \
@@ -131,11 +131,13 @@ class Model:
         self.ready = True
         return self.ready
 
-    async def preprocess(self, payload: Union[Dict, CloudEvent]) -> Union[Dict, ModelInferRequest]:
+    async def preprocess(self, payload: Union[Dict, CloudEvent], headers: Dict[str, str] = None) -> Union[
+            Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
+        :param headers: Dict|ModelInferRequest headers
         :param payload: Dict|CloudEvent|ModelInferRequest body
         :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
@@ -218,6 +220,7 @@ class Model:
         """
         The explain handler can be overridden to implement the model explanation.
         The default implementation makes an call to the explainer if explainer_host is specified
+        :param headers: Dict|ModelInferRequest headers
         :param payload: Dict passed from preprocess handler
         :return: Dict
         """

@@ -15,6 +15,7 @@ import io
 import json
 import os
 import re
+from typing import Dict
 from unittest import mock
 
 import avro.io
@@ -129,7 +130,7 @@ class DummyAvroCEModel(Model):
         record1 = reader.read(decoder)
         return record1
 
-    def preprocess(self, request):
+    def preprocess(self, request, headers: Dict[str, str] = None):
         if isinstance(request, CloudEvent):
             attributes = request._attributes
             assert attributes["specversion"] == "1.0"
