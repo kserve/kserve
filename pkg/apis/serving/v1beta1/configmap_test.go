@@ -17,54 +17,92 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/onsi/gomega"
+	ctx "context"
 	logger "log"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"testing"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func createFakeClient() client.WithWatch {
+	clientBuilder := fakeclient.NewClientBuilder()
+	fakeClient := clientBuilder.Build()
+	configMap := &v1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KServeNamespace,
+		},
+		Immutable: nil,
+		Data:      map[string]string{},
+		BinaryData: map[string][]byte{
+			ExplainerConfigKeyName: []byte(`{                                                                                                                                                                                                               │
+				     "alibi": {                                                                                                                                                                                                  │
+				        "image" : "kserve/alibi-explainer",                                                                                                                                                                     │
+				         "defaultImageVersion": "latest"                                                                                                                                                                         │
+				     },                                                                                                                                                                                                          │
+				     "aix": {                                                                                                                                                                                                    │
+				         "image" : "kserve/aix-explainer",                                                                                                                                                                       │
+				         "defaultImageVersion": "latest"                                                                                                                                                                         │
+				     },                                                                                                                                                                                                          │
+				     "art": {                                                                                                                                                                                                    │
+				         "image" : "kserve/art-explainer",                                                                                                                                                                       │
+				         "defaultImageVersion": "latest"                                                                                                                                                                         │
+				     }                                                                                                                                                                                                           │
+			}`),
+			IngressConfigKeyName: []byte(`{                                                                                                                                                                                                               │
+     				"ingressGateway" : "knative-serving/knative-ingress-gateway",                                                                                                                                               │
+     				"ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",                                                                                                                                   │
+     				"localGateway" : "knative-serving/knative-local-gateway",                                                                                                                                                   │
+     				"localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",                                                                                                                             │
+     				"ingressDomain"  : "example.com",                                                                                                                                                                           │
+     				"ingressClassName" : "istio",                                                                                                                                                                               │
+     				"domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",                                                                                                                                      │
+     				"urlScheme": "http"                                                                                                                                                                                         │
+ 			}`),
+			DeployConfigName: []byte(`{                                                                                                                                                                                                               │
+   				"defaultDeploymentMode": "Serverless"                                                                                                                                                                         │
+ 			}`),
+		},
+	}
+	err := fakeClient.Create(ctx.TODO(), configMap)
+	if err != nil {
+		logger.Fatalf("Unable to create configmap: %v", err)
+	}
+	return fakeClient
+}
 
 func TestNewInferenceServiceConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	cfg, err := config.GetConfig()
-	if err != nil {
-		logger.Fatalf("Failed to get config: %v", err)
-	}
-	client, err := client.New(cfg, client.Options{})
-	if err != nil {
-		logger.Fatalf("Unable to create client: %v", err)
-	}
-	isvcConfig, err := NewInferenceServicesConfig(client)
+	fakeClient := createFakeClient()
+
+	isvcConfig, err := NewInferenceServicesConfig(fakeClient)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(isvcConfig).ShouldNot(gomega.BeNil())
 }
 
 func TestNewIngressConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	cfg, err := config.GetConfig()
-	if err != nil {
-		logger.Fatalf("Failed to get config: %v", err)
-	}
-	client, err := client.New(cfg, client.Options{})
-	if err != nil {
-		logger.Fatalf("Unable to create client: %v", err)
-	}
-	ingressCfg, err := NewIngressConfig(client)
+	fakeClient := createFakeClient()
+
+	ingressCfg, err := NewIngressConfig(fakeClient)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
 }
 
 func TestNewDeployConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	cfg, err := config.GetConfig()
-	if err != nil {
-		logger.Fatalf("Failed to get config: %v", err)
-	}
-	client, err := client.New(cfg, client.Options{})
-	if err != nil {
-		logger.Fatalf("Unable to create client: %v", err)
-	}
-	deployConfig, err := NewDeployConfig(client)
+	fakeClient := createFakeClient()
+
+	deployConfig, err := NewDeployConfig(fakeClient)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(deployConfig).ShouldNot(gomega.BeNil())
 }

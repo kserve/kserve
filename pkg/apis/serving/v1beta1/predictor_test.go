@@ -59,9 +59,9 @@ func TestGetPredictorImplementations(t *testing.T) {
 func TestGetPredictorImplementation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	spec := makeTestPredictorSpec()
-	expected := (PredictorImplementation)(spec.PyTorch)
+	expected := spec.PyTorch
 	implementation := spec.GetPredictorImplementation()
-	g.Expect(implementation).Should(gomega.Equal(&expected))
+	g.Expect(*implementation).Should(gomega.Equal(expected))
 
 	spec.PyTorch = nil
 	implementation = spec.GetPredictorImplementation()

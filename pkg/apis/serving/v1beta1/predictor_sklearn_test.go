@@ -17,16 +17,17 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestSKLearnValidation(t *testing.T) {
@@ -164,17 +165,7 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			SKlearn: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "someOtherImage",
-					DefaultImageVersion: "0.2.0",
-					MultiModelServer:    true,
-				},
-			},
-		},
-	}
+	var config = InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
@@ -199,14 +190,8 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "someOtherImage:0.2.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-				},
 			},
 		},
 		"ContainerSpecWithDefaultImage": {
@@ -229,14 +214,8 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-				},
 			},
 		},
 		"ContainerSpecWithCustomImage": {
@@ -262,11 +241,6 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 				Image:     "customImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-				},
 			},
 		},
 		"ContainerSpecWithContainerConcurrency": {
@@ -292,15 +266,8 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-					"--workers=1",
-				},
 			},
 		},
 		"ContainerSpecWithWorkerArg": {
@@ -329,13 +296,9 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
 					"--workers=1",
 				},
 			},
@@ -368,22 +331,7 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			SKlearn: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "someOtherImage",
-					DefaultImageVersion: "0.1.0",
-					MultiModelServer:    true,
-				},
-				V2: &PredictorConfig{
-					ContainerImage:      "mlserver",
-					DefaultImageVersion: "0.1.2",
-					MultiModelServer:    true,
-				},
-			},
-		},
-	}
+	var config = InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
@@ -410,35 +358,8 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "mlserver:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Env: []v1.EnvVar{
-					{
-						Name:  constants.MLServerHTTPPortEnv,
-						Value: fmt.Sprint(constants.MLServerISRestPort),
-					},
-					{
-						Name:  constants.MLServerGRPCPortEnv,
-						Value: fmt.Sprint(constants.MLServerISGRPCPort),
-					},
-					{
-						Name:  constants.MLServerModelsDirEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-					{
-						Name:  constants.MLServerModelImplementationEnv,
-						Value: constants.MLServerSKLearnImplementation,
-					},
-					{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "sklearn",
-					},
-					{
-						Name:  constants.MLServerModelURIEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-				},
 			},
 		},
 		"ContainerSpecWithCustomImage": {
@@ -465,32 +386,6 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 				Image:     "customImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Env: []v1.EnvVar{
-					{
-						Name:  constants.MLServerHTTPPortEnv,
-						Value: fmt.Sprint(constants.MLServerISRestPort),
-					},
-					{
-						Name:  constants.MLServerGRPCPortEnv,
-						Value: fmt.Sprint(constants.MLServerISGRPCPort),
-					},
-					{
-						Name:  constants.MLServerModelsDirEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-					{
-						Name:  constants.MLServerModelImplementationEnv,
-						Value: constants.MLServerSKLearnImplementation,
-					},
-					{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "sklearn",
-					},
-					{
-						Name:  constants.MLServerModelURIEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-				},
 			},
 		},
 		"ContainerSpecWithoutStorageURI": {
@@ -512,31 +407,8 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "mlserver:0.1.2",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Env: []v1.EnvVar{
-					{
-						Name:  constants.MLServerHTTPPortEnv,
-						Value: fmt.Sprint(constants.MLServerISRestPort),
-					},
-					{
-						Name:  constants.MLServerGRPCPortEnv,
-						Value: fmt.Sprint(constants.MLServerISGRPCPort),
-					},
-					{
-						Name:  constants.MLServerModelsDirEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-					{
-						Name:  constants.MLServerLoadModelsStartupEnv,
-						Value: fmt.Sprint(false),
-					},
-					{
-						Name:  constants.MLServerModelImplementationEnv,
-						Value: constants.MLServerSKLearnImplementation,
-					},
-				},
 			},
 		},
 	}
@@ -547,171 +419,6 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 			res := predictor.GetContainer(scenario.isvc.ObjectMeta, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
-			}
-		})
-	}
-}
-
-func TestSKLearnIsMMS(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	multiModelServerCases := [2]bool{true, false}
-
-	for _, mmsCase := range multiModelServerCases {
-		config := InferenceServicesConfig{
-			Predictors: PredictorsConfig{
-				SKlearn: PredictorProtocols{
-					V1: &PredictorConfig{
-						ContainerImage:      "sklearnserver",
-						DefaultImageVersion: "v0.4.0",
-						MultiModelServer:    mmsCase,
-					},
-					V2: &PredictorConfig{
-						ContainerImage:      "mlserver",
-						DefaultImageVersion: "0.1.2",
-						MultiModelServer:    mmsCase,
-					},
-				},
-			},
-		}
-
-		protocolV1 := constants.ProtocolV1
-		protocolV2 := constants.ProtocolV2
-
-		defaultResource = v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse("1"),
-			v1.ResourceMemory: resource.MustParse("2Gi"),
-		}
-		scenarios := map[string]struct {
-			spec     PredictorSpec
-			expected bool
-		}{
-			"DefaultRuntimeVersion": {
-				spec: PredictorSpec{
-					SKLearn: &SKLearnSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{},
-					},
-				},
-				expected: mmsCase,
-			},
-			"DefaultRuntimeVersionAndProtocol": {
-				spec: PredictorSpec{
-					SKLearn: &SKLearnSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{
-							ProtocolVersion: &protocolV1,
-						},
-					},
-				},
-				expected: mmsCase,
-			},
-			"DefaultRuntimeVersionAndProtocol2": {
-				spec: PredictorSpec{
-					SKLearn: &SKLearnSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{
-							ProtocolVersion: &protocolV2,
-						},
-					},
-				},
-				expected: mmsCase,
-			},
-		}
-
-		for name, scenario := range scenarios {
-			t.Run(name, func(t *testing.T) {
-				scenario.spec.SKLearn.Default(&config)
-				res := scenario.spec.SKLearn.IsMMS(&config)
-				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-					t.Errorf("got %t, want %t", res, scenario.expected)
-				}
-			})
-		}
-	}
-}
-
-func TestSKLearnIsFrameworkSupported(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	sklearn := "sklearn"
-	unsupportedFramework := "framework"
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			SKlearn: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "sklearnserver",
-					DefaultImageVersion: "latest",
-					SupportedFrameworks: []string{sklearn},
-				},
-				V2: &PredictorConfig{
-					ContainerImage:      "mlserver",
-					DefaultImageVersion: "0.1.2",
-					SupportedFrameworks: []string{sklearn},
-				},
-			},
-		},
-	}
-
-	protocolV1 := constants.ProtocolV1
-	protocolV2 := constants.ProtocolV2
-
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
-	scenarios := map[string]struct {
-		spec      PredictorSpec
-		framework string
-		expected  bool
-	}{
-		"SupportedFrameworkV1": {
-			spec: PredictorSpec{
-				SKLearn: &SKLearnSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV1,
-					},
-				},
-			},
-			framework: sklearn,
-			expected:  true,
-		},
-		"SupportedFrameworkV2": {
-			spec: PredictorSpec{
-				SKLearn: &SKLearnSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV2,
-					},
-				},
-			},
-			framework: sklearn,
-			expected:  true,
-		},
-		"UnsupportedFrameworkV1": {
-			spec: PredictorSpec{
-				SKLearn: &SKLearnSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV1,
-					},
-				},
-			},
-			framework: unsupportedFramework,
-			expected:  false,
-		},
-		"UnsupportedFrameworkV2": {
-			spec: PredictorSpec{
-				SKLearn: &SKLearnSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV2,
-					},
-				},
-			},
-			framework: unsupportedFramework,
-			expected:  false,
-		},
-	}
-
-	for name, scenario := range scenarios {
-		t.Run(name, func(t *testing.T) {
-			scenario.spec.SKLearn.Default(&config)
-			res := scenario.spec.SKLearn.IsFrameworkSupported(scenario.framework, &config)
-			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %t, want %t", res, scenario.expected)
 			}
 		})
 	}
@@ -745,5 +452,130 @@ func TestSKLearnGetProtocol(t *testing.T) {
 	for _, scenario := range scenarios {
 		protocol := scenario.spec.SKLearn.GetProtocol()
 		g.Expect(protocol).To(scenario.matcher)
+	}
+}
+
+func TestSKLearnSpec_GetDefaultsV2(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	metadata := metav1.ObjectMeta{
+		Name: "test",
+	}
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"storage uri is nil": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerModelImplementationEnv,
+					Value: constants.MLServerSKLearnImplementation,
+				},
+			}),
+		},
+		"storage uri is not nil": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://kserve/model"),
+					},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerModelImplementationEnv,
+					Value: constants.MLServerSKLearnImplementation,
+				},
+				{
+					Name:  constants.MLServerModelNameEnv,
+					Value: metadata.Name,
+				},
+				{
+					Name:  constants.MLServerModelURIEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+			}),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.SKLearn.getDefaultsV2(metadata)
+			if !g.Expect(res).To(scenario.matcher) {
+				t.Errorf("got %q, want %q", res, scenario.matcher)
+			}
+		})
+	}
+}
+
+func TestSKLearnSpec_GetEnvVarsV2(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"storage uri is nil": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerHTTPPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISRestPort)),
+				},
+				{
+					Name:  constants.MLServerGRPCPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
+				},
+				{
+					Name:  constants.MLServerModelsDirEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+				{
+					Name:  constants.MLServerLoadModelsStartupEnv,
+					Value: strconv.FormatBool(false),
+				},
+			}),
+		},
+		"storage uri is not nil": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://kserve/model"),
+					},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerHTTPPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISRestPort)),
+				},
+				{
+					Name:  constants.MLServerGRPCPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
+				},
+				{
+					Name:  constants.MLServerModelsDirEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+			}),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.SKLearn.getEnvVarsV2()
+			if !g.Expect(res).To(scenario.matcher) {
+				t.Errorf("got %q, want %q", res, scenario.matcher)
+			}
+		})
 	}
 }

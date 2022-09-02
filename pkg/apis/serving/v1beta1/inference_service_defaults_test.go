@@ -38,188 +38,56 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				DefaultImageVersion: "v0.4.0",
 			},
 		},
-		"Triton": {
-			predictor: PredictorsConfig{
-				Triton: PredictorConfig{
-					ContainerImage:      "tritonserver",
-					DefaultImageVersion: "20.03-py3",
-					MultiModelServer:    false,
-				},
-			},
-			predictorSpec: PredictorSpec{
-				Triton: &TritonSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("gs://testbucket/testmodel"),
-					},
-				},
-			},
-		},
-		"XGBoost": {
-			predictor: PredictorsConfig{
-				XGBoost: PredictorProtocols{
-					V1: &PredictorConfig{
-						ContainerImage:      "xgboost",
-						DefaultImageVersion: "v0.4.0",
-						MultiModelServer:    false,
-					},
-				},
-			},
-			predictorSpec: PredictorSpec{
-				XGBoost: &XGBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("gs://testbucket/testmodel"),
-					},
-				},
-			},
-		},
-		"ONNX": {
-			predictor: PredictorsConfig{
-				ONNX: PredictorConfig{
-					ContainerImage:      "onnxruntime",
-					DefaultImageVersion: "v1.0.0",
-					MultiModelServer:    false,
-				},
-			},
-			predictorSpec: PredictorSpec{
-				ONNX: &ONNXRuntimeSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("gs://testbucket/testmodel"),
-					},
-				},
-			},
-		},
-		"PMML": {
-			predictor: PredictorsConfig{
-				PMML: PredictorConfig{
-					ContainerImage:      "pmmlserver",
-					DefaultImageVersion: "v0.4.0",
-					MultiModelServer:    false,
-				},
-			},
-			predictorSpec: PredictorSpec{
-				PMML: &PMMLSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("gs://testbucket/testmodel"),
-					},
-				},
-			},
-		},
-		"LightGBM": {
-			predictor: PredictorsConfig{
-				LightGBM: PredictorConfig{
-					ContainerImage:      "lightgbm",
-					DefaultImageVersion: "v0.4.0",
-					MultiModelServer:    false,
-				},
-			},
-			predictorSpec: PredictorSpec{
-				LightGBM: &LightGBMSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("gs://testbucket/testmodel"),
-					},
-				},
-			},
-		},
-		"Paddle": {
-			predictor: PredictorsConfig{
-				Paddle: PredictorConfig{
-					ContainerImage:      "paddleserver",
-					DefaultImageVersion: "latest",
-					MultiModelServer:    false,
-				},
-			},
-			predictorSpec: PredictorSpec{
-				Paddle: &PaddleServerSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("gs://testbucket/testmodel"),
-					},
-				},
-			},
-		},
 	}
-
 	deployConfig := &DeployConfig{
 		DefaultDeploymentMode: "Serverless",
 	}
-
-	for name, scenario := range scenarios {
-		config := &InferenceServicesConfig{
-			Predictors: scenario.predictor,
-			Explainers: ExplainersConfig{
-				AlibiExplainer: ExplainerConfig{
-					ContainerImage:      "alibi",
-					DefaultImageVersion: "v0.4.0",
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
 				},
 			},
-		}
-		isvc := InferenceService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "default",
-			},
-			Spec: InferenceServiceSpec{
-				Predictor: scenario.predictorSpec,
-				Transformer: &TransformerSpec{
-					PodSpec: PodSpec{
-						Containers: []v1.Container{
-							{
-								Env: []v1.EnvVar{
-									{
-										Name:  "STORAGE_URI",
-										Value: "s3://transformer",
-									},
+			Transformer: &TransformerSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://transformer",
 								},
 							},
 						},
 					},
 				},
-				Explainer: &ExplainerSpec{
-					Alibi: &AlibiExplainerSpec{
-						ExplainerExtensionSpec: ExplainerExtensionSpec{
-							StorageURI: "gs://testbucket/testmodel",
-						},
+			},
+			Explainer: &ExplainerSpec{
+				Alibi: &AlibiExplainerSpec{
+					ExplainerExtensionSpec: ExplainerExtensionSpec{
+						StorageURI: "gs://testbucket/testmodel",
 					},
 				},
 			},
-		}
-
-		resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
-		isvc.Spec.DeepCopy()
-		isvc.DefaultInferenceService(config, deployConfig)
-
-		switch name {
-		case "Tensorflow":
-			g.Expect(isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
-
-		case "SKLearn":
-			g.Expect(isvc.Spec.Predictor.SKLearn).To(gomega.BeNil())
-
-		case "PyTorch":
-			g.Expect(isvc.Spec.Predictor.PyTorch).To(gomega.BeNil())
-
-		case "Triton":
-			g.Expect(isvc.Spec.Predictor.Triton).To(gomega.BeNil())
-
-		case "XGBoost":
-			g.Expect(isvc.Spec.Predictor.XGBoost).To(gomega.BeNil())
-
-		case "ONNX":
-			g.Expect(isvc.Spec.Predictor.ONNX).To(gomega.BeNil())
-
-		case "PMML":
-			g.Expect(isvc.Spec.Predictor.PMML).To(gomega.BeNil())
-
-		case "LightGBM":
-			g.Expect(isvc.Spec.Predictor.LightGBM).To(gomega.BeNil())
-
-		case "Paddle":
-			g.Expect(isvc.Spec.Predictor.Paddle).To(gomega.BeNil())
-		}
-		g.Expect(isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
-		g.Expect(isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
-		g.Expect(*isvc.Spec.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("v0.4.0"))
-		g.Expect(isvc.Spec.Explainer.Alibi.Resources).To(gomega.Equal(resources))
+		},
 	}
+	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
+	isvc.Spec.DeepCopy()
+	isvc.DefaultInferenceService(config, deployConfig)
+	g.Expect(*&isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
+	g.Expect(*&isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
+
+	g.Expect(isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
+	g.Expect(isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
+	g.Expect(*isvc.Spec.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("v0.4.0"))
+	g.Expect(isvc.Spec.Explainer.Alibi.Resources).To(gomega.Equal(resources))
 }
 
 func TestCustomPredictorDefaults(t *testing.T) {
@@ -293,51 +161,12 @@ func TestInferenceServiceDefaultsModelMeshAnnotation(t *testing.T) {
 	g.Expect(isvc.Spec.Predictor.Tensorflow).ToNot(gomega.BeNil())
 }
 
-func TestDefault(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	isvc := InferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-		},
-		Spec: InferenceServiceSpec{
-			Predictor: PredictorSpec{
-				Tensorflow: &TFServingSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("gs://testbucket/testmodel"),
-					},
-				},
-			},
-			Transformer: &TransformerSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "s3://transformer",
-								},
-							},
-						},
-					},
-				},
-			},
-			Explainer: &ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					ExplainerExtensionSpec: ExplainerExtensionSpec{
-						StorageURI: "gs://testbucket/testmodel",
-					},
-				},
-			},
-		},
-	}
-	isvc.Default()
-	g.Expect(isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
-	g.Expect(isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
-}
-
 func TestRuntimeDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
 	scenarios := map[string]struct {
 		config  *InferenceServicesConfig
 		isvc    InferenceService
@@ -345,15 +174,7 @@ func TestRuntimeDefaults(t *testing.T) {
 		matcher types.GomegaMatcher
 	}{
 		"PyTorch": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					PyTorch: PredictorConfig{
-						ContainerImage:      "pytorch/torchserve-kfs",
-						DefaultImageVersion: "0.4.1",
-						MultiModelServer:    false,
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -373,15 +194,7 @@ func TestRuntimeDefaults(t *testing.T) {
 			matcher: gomega.Equal(constants.ProtocolV1),
 		},
 		"Triton": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					Triton: PredictorConfig{
-						ContainerImage:      "tritonserver",
-						DefaultImageVersion: "20.03-py3",
-						MultiModelServer:    false,
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -401,17 +214,7 @@ func TestRuntimeDefaults(t *testing.T) {
 			matcher: gomega.Equal(constants.ProtocolV2),
 		},
 		"MlServer": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					XGBoost: PredictorProtocols{
-						V1: &PredictorConfig{
-							ContainerImage:      "xgboost",
-							DefaultImageVersion: "v0.4.0",
-							MultiModelServer:    false,
-						},
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -431,10 +234,6 @@ func TestRuntimeDefaults(t *testing.T) {
 			matcher: gomega.Equal(constants.ProtocolV2),
 		},
 	}
-	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
-	}
-
 	for name, scenario := range scenarios {
 		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &scenario.runtime
@@ -457,6 +256,10 @@ func TestRuntimeDefaults(t *testing.T) {
 
 func TestTorchServeDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
 	protocolVersion := constants.ProtocolV2
 	scenarios := map[string]struct {
 		config  *InferenceServicesConfig
@@ -464,15 +267,7 @@ func TestTorchServeDefaults(t *testing.T) {
 		matcher types.GomegaMatcher
 	}{
 		"pytorch with protocol version 2": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					PyTorch: PredictorConfig{
-						ContainerImage:      "pytorch/torchserve-kfs",
-						DefaultImageVersion: "0.4.1",
-						MultiModelServer:    false,
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -492,15 +287,7 @@ func TestTorchServeDefaults(t *testing.T) {
 			matcher: gomega.HaveKeyWithValue(constants.ServiceEnvelope, constants.ServiceEnvelopeKServeV2),
 		},
 		"pytorch with labels": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					PyTorch: PredictorConfig{
-						ContainerImage:      "pytorch/torchserve-kfs",
-						DefaultImageVersion: "0.4.1",
-						MultiModelServer:    false,
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -523,10 +310,6 @@ func TestTorchServeDefaults(t *testing.T) {
 		},
 	}
 	runtime := constants.TorchServe
-	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
-	}
-
 	for _, scenario := range scenarios {
 		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
@@ -539,21 +322,17 @@ func TestTorchServeDefaults(t *testing.T) {
 
 func TestSetTritonDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
 	scenarios := map[string]struct {
 		config  *InferenceServicesConfig
 		isvc    InferenceService
 		matcher types.GomegaMatcher
 	}{
 		"Storage URI is nil": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					Triton: PredictorConfig{
-						ContainerImage:      "tritonserver",
-						DefaultImageVersion: "20.03-py3",
-						MultiModelServer:    false,
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -571,10 +350,6 @@ func TestSetTritonDefaults(t *testing.T) {
 		},
 	}
 	runtime := constants.TritonServer
-	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
-	}
-
 	for _, scenario := range scenarios {
 		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
@@ -587,23 +362,17 @@ func TestSetTritonDefaults(t *testing.T) {
 
 func TestMlServerDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
 	scenarios := map[string]struct {
 		config  *InferenceServicesConfig
 		isvc    InferenceService
 		matcher map[string]types.GomegaMatcher
 	}{
 		"Storage URI is nil": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					SKlearn: PredictorProtocols{
-						V1: &PredictorConfig{
-							ContainerImage:      "sklearnserver",
-							DefaultImageVersion: "v0.4.0",
-							MultiModelServer:    false,
-						},
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -627,17 +396,7 @@ func TestMlServerDefaults(t *testing.T) {
 			},
 		},
 		"XGBoost model": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					XGBoost: PredictorProtocols{
-						V1: &PredictorConfig{
-							ContainerImage:      "xgboost",
-							DefaultImageVersion: "v0.4.0",
-							MultiModelServer:    false,
-						},
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -668,15 +427,7 @@ func TestMlServerDefaults(t *testing.T) {
 			},
 		},
 		"LightGBM model": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					LightGBM: PredictorConfig{
-						ContainerImage:      "lightgbm",
-						DefaultImageVersion: "v0.4.0",
-						MultiModelServer:    false,
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -707,15 +458,7 @@ func TestMlServerDefaults(t *testing.T) {
 			},
 		},
 		"LightGBM model with labels": {
-			config: &InferenceServicesConfig{
-				Predictors: PredictorsConfig{
-					LightGBM: PredictorConfig{
-						ContainerImage:      "lightgbm",
-						DefaultImageVersion: "v0.4.0",
-						MultiModelServer:    false,
-					},
-				},
-			},
+			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -750,10 +493,6 @@ func TestMlServerDefaults(t *testing.T) {
 		},
 	}
 	runtime := constants.MLServer
-	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
-	}
-
 	for _, scenario := range scenarios {
 		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
