@@ -345,9 +345,9 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                      account_name,
                      container_name,
                      prefix)
-        token = Storage._get_azure_storage_token()
+        token = Storage._get_azure_storage_token() or Storage._get_azure_storage_access_key()
         if token is None:
-            logging.warning("Azure credentials not found, retrying anonymous access")
+            logging.warning("Azure credentials or shared access signature token not found, retrying anonymous access")
 
         blob_service_client = BlobServiceClient(account_url, credential=token)
         container_client = blob_service_client.get_container_client(container_name)
