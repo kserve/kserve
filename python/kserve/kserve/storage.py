@@ -151,9 +151,13 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         #    if awsAnonymousCredential env var true, passed in via config
         # 2. Environment variables
         # 3. ~/.aws/config file
-        s3 = boto3.resource('s3',
-                            endpoint_url=os.getenv("AWS_ENDPOINT_URL", "http://s3.amazonaws.com"),
-                            config=Storage.get_S3_config())
+        kwargs = {
+            "config": Storage.get_S3_config()
+        }
+        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
+        if endpoint_url:
+            kwargs.update({"endpoint_url": endpoint_url})
+        s3 = boto3.resource("s3", **kwargs)
         parsed = urlparse(uri, scheme='s3')
         bucket_name = parsed.netloc
         bucket_path = parsed.path.lstrip('/')
