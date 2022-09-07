@@ -24,7 +24,15 @@ pushd test/e2e > /dev/null
     pytest logger/test_logger.py
 popd
 
+echo "printing all logs in isvc"
 kubectl logs service/isvc-logger-predictor-default-00001-private --all-containers -n kserve-ci-e2e-test
 kubectl logs -l component=predictor --all-containers -n kserve-ci-e2e-test 
 
+echo "printing all resources in ci ns"
+kubectl get all -n kserve-ci-e2e-test
+echo "printing all pods in kserve ns"
 kubectl get pods -n kserve
+
+echo "printing isvc yaml"
+
+kubectl get isvc isvc-logger -n kserve-ci-e2e-test -o yaml
