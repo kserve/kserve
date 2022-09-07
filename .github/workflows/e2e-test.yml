@@ -144,9 +144,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml"
-
-          kubectl get pods -n kserve
+          ./test/scripts/gh-actions/debug-actions.sh
       - name: Check system status
         if: always()
         run: |
