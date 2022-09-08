@@ -31,7 +31,7 @@ import time
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-@pytest.mark.fast
+@pytest.mark.logger
 def test_kserve_logger():
     msg_dumper = 'message-dumper'
     predictor = V1beta1PredictorSpec(
@@ -95,5 +95,5 @@ def test_kserve_logger():
         print(log)
     assert ("org.kubeflow.serving.inference.request" in log)
     assert ("org.kubeflow.serving.inference.response" in log)
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-    kserve_client.delete(msg_dumper, KSERVE_TEST_NAMESPACE)
+    # kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    # kserve_client.delete(msg_dumper, KSERVE_TEST_NAMESPACE)

@@ -35,4 +35,4 @@ kubectl get pods -n kserve
 
 echo "printing isvc yaml"
 
-kubectl get isvc isvc-logger -n kserve-ci-e2e-test -o yaml
+kubectl get isvc message-dumper -n kserve-ci-e2e-test -o yaml
