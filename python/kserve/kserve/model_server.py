@@ -127,9 +127,6 @@ class ModelServer:
         self._http_server = tornado.httpserver.HTTPServer(
             self.create_application(), max_buffer_size=self.max_buffer_size)
 
-        logging.info("Prometheus server listening on port %d", 8000)
-        start_http_server(8000) #TODO: configurable port number as arg
-
         logging.info("Listening on port %s", self.http_port)
         self._http_server.bind(self.http_port)
         logging.info("Will fork %d workers", self.workers)

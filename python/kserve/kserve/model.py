@@ -35,11 +35,10 @@ EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
 
-PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'histogram - time spent pre-processing request')
-POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'histogram - time spent post-processing request')
-PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds',
-                              'histogram - time spent processing prediction request')
-EXPLAIN_HIST_TIME = Histogram('request_explain_processing_seconds', 'histogram - time spent processing explain request')
+PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'pre-processing request latency')
+POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'post-processing request latency')
+PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds', 'prediction request latency')
+EXPLAIN_HIST_TIME = Histogram('request_explain_processing_seconds', 'explain request latency')
 
 tornado.log.enable_pretty_logging()
 
@@ -70,6 +69,8 @@ class InferenceError(RuntimeError):
     def __str__(self):
         return self.reason
 
+def get_latency_ms(start, end):
+    return (end - start) / 1000
 
 # Model is intended to be subclassed by various components within KServe.
 class Model:
@@ -88,35 +89,35 @@ class Model:
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
         request_id = str(uuid.uuid4())  # may need to move this outside of the method (collisions?)
-        latencies = dict(preprocess_ms=0, predict_ms=0, explain_ms=0, postprocess_ms=0)
+        latencies = dict(preprocess_ms=0, explain_ms=0, predict_ms=0, postprocess_ms=0)
 
         with PRE_HIST_TIME.time():
             start = time.time()
             request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
                 else self.preprocess(body)
-            latencies.preprocess_ms = time.time() - start
+            latencies.preprocess_ms = get_latency_ms(start, time.time())
         request = self.validate(request)
         if model_type == ModelType.EXPLAINER:
             with EXPLAIN_HIST_TIME.time():
                 start = time.time()
                 response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
                     else self.explain(request)
-                latencies.explain_ms = time.time() - start
+                latencies.explain_ms = get_latency_ms(start, time.time())
         elif model_type == ModelType.PREDICTOR:
             with PREDICT_HIST_TIME.time():
                 start = time.time()
                 response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(request)
-                latencies.predict_ms = time.time() - start
+                latencies.predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
         with POST_HIST_TIME.time():
             start = time.time()
             response = self.postprocess(response)
-            latencies.postprocess_ms = time.time() - start
+            latencies.postprocess_ms = get_latency_ms(start, time.time())
 
         #TODO: what about when there is a failure? if latency is really long, like timeouts this wont log.
-        logging.info(f"requestId: {request_id}, preprocess_ms: {latencies.preprocess_ms}, predict_ms: {latencies.predict_ms}, explain_ms: {latencies.explain_ms}, postprocess_ms: {latencies.postprocess_ms}")
+        logging.info(f"requestId: {request_id}, preprocess_ms: {latencies.preprocess_ms}, explain_ms: {latencies.explain_ms}, predict_ms: {latencies.predict_ms}, postprocess_ms: {latencies.postprocess_ms}")
 
         return response
 
