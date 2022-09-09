@@ -117,17 +117,23 @@ func main() {
 		log.Error(err, "unable to get deploy config.")
 		os.Exit(1)
 	}
+	ingressConfig, err := v1beta1.NewIngressConfig(client)
+	if err != nil {
+		log.Error(err, "unable to get ingress config.")
+		os.Exit(1)
+	}
 	if deployConfig.DefaultDeploymentMode == string(constants.Serverless) {
 		log.Info("Setting up Knative scheme")
 		if err := knservingv1.AddToScheme(mgr.GetScheme()); err != nil {
 			log.Error(err, "unable to add Knative APIs to scheme")
 			os.Exit(1)
 		}
-
-		log.Info("Setting up Istio schemes")
-		if err := v1alpha3.AddToScheme(mgr.GetScheme()); err != nil {
-			log.Error(err, "unable to add Istio v1alpha3 APIs to scheme")
-			os.Exit(1)
+		if ingressConfig.DisableIstioVirtualHost == false {
+			log.Info("Setting up Istio schemes")
+			if err := v1alpha3.AddToScheme(mgr.GetScheme()); err != nil {
+				log.Error(err, "unable to add Istio v1alpha3 APIs to scheme")
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -152,7 +158,7 @@ func main() {
 		Scheme: mgr.GetScheme(),
 		Recorder: eventBroadcaster.NewRecorder(
 			mgr.GetScheme(), v1.EventSource{Component: "v1beta1Controllers"}),
-	}).SetupWithManager(mgr, deployConfig); err != nil {
+	}).SetupWithManager(mgr, deployConfig, ingressConfig.DisableIstioVirtualHost); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1beta1Controller", "InferenceService")
 		os.Exit(1)
 	}

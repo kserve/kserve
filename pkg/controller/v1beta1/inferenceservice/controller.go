@@ -205,7 +205,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	} else {
 		reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
 		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
-		if err := reconciler.Reconcile(isvc); err != nil {
+		if err := reconciler.Reconcile(isvc, ingressConfig.DisableIstioVirtualHost); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 		}
 	}
@@ -274,17 +274,23 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1api.InferenceServiceStatus, deplo
 	return equality.Semantic.DeepEqual(s1, s2)
 }
 
-func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig) error {
+func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig, disableIstioVirtualHost bool) error {
 	if deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&v1beta1api.InferenceService{}).
+			Owns(&appsv1.Deployment{}).
+			Complete(r)
+	} else if disableIstioVirtualHost == false {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&v1beta1api.InferenceService{}).
+			Owns(&knservingv1.Service{}).
+			Owns(&v1alpha3.VirtualService{}).
 			Owns(&appsv1.Deployment{}).
 			Complete(r)
 	} else {
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&v1beta1api.InferenceService{}).
 			Owns(&knservingv1.Service{}).
-			Owns(&v1alpha3.VirtualService{}).
 			Owns(&appsv1.Deployment{}).
 			Complete(r)
 	}

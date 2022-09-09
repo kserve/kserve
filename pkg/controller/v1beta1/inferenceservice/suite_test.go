@@ -100,7 +100,7 @@ var _ = BeforeSuite(func() {
 		Scheme:   k8sClient.Scheme(),
 		Log:      ctrl.Log.WithName("V1beta1InferenceServiceController"),
 		Recorder: k8sManager.GetEventRecorderFor("V1beta1InferenceServiceController"),
-	}).SetupWithManager(k8sManager, deployConfig)
+	}).SetupWithManager(k8sManager, deployConfig, false)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
