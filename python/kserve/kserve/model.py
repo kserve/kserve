@@ -88,39 +88,35 @@ class Model:
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
         request_id = str(uuid.uuid4())  # may need to move this outside of the method (collisions?)
-
-        preprocess_ms = 0
-        predict_ms = 0
-        explain_ms = 0
-        postprocess_ms = 0
+        latencies = dict(preprocess_ms=0, predict_ms=0, explain_ms=0, postprocess_ms=0)
 
         with PRE_HIST_TIME.time():
             start = time.time()
             request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
                 else self.preprocess(body)
-            preprocess_ms = time.time() - start
+            latencies.preprocess_ms = time.time() - start
         request = self.validate(request)
         if model_type == ModelType.EXPLAINER:
-            start = time.time()
             with EXPLAIN_HIST_TIME.time():
+                start = time.time()
                 response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
                     else self.explain(request)
-            explain_ms = time.time() - start
+                latencies.explain_ms = time.time() - start
         elif model_type == ModelType.PREDICTOR:
-            start = time.time()
             with PREDICT_HIST_TIME.time():
+                start = time.time()
                 response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(request)
-            predict_ms = time.time() - start
+                latencies.predict_ms = time.time() - start
         else:
             raise NotImplementedError
         with POST_HIST_TIME.time():
             start = time.time()
             response = self.postprocess(response)
-            postprocess_ms = time.time() - start
+            latencies.postprocess_ms = time.time() - start
 
         #TODO: what about when there is a failure? if latency is really long, like timeouts this wont log.
-        logging.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, predict_ms: {predict_ms}, explain_ms: {explain_ms}, postprocess_ms: {postprocess_ms}")
+        logging.info(f"requestId: {request_id}, preprocess_ms: {latencies.preprocess_ms}, predict_ms: {latencies.predict_ms}, explain_ms: {latencies.explain_ms}, postprocess_ms: {latencies.postprocess_ms}")
 
         return response
 
