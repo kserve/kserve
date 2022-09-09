@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from typing import Dict, Union
+import logging
 import sys
 import inspect
 import json
 import tornado.web
+import tornado.log
 from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from http import HTTPStatus
@@ -33,8 +35,11 @@ EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
 
 PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'histogram - time spent pre-processing request')
 POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'histogram - time spent post-processing request')
-PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds', 'histogram - time spent processing prediction request')
+PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds',
+                              'histogram - time spent processing prediction request')
 EXPLAIN_HIST_TIME = Histogram('request_explain_processing_seconds', 'histogram - time spent processing explain request')
+
+tornado.log.enable_pretty_logging()
 
 
 class ModelType(Enum):
@@ -80,9 +85,24 @@ class Model:
         self._grpc_client_stub = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
+        pre_latency = 0
+        predict_latency = 0
+        explain_latency = 0
+        post_latency = 0
+
         with PRE_HIST_TIME.time():
             request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
                 else self.preprocess(body)
+            pre_latency = PRE_HIST_TIME.collect()
+        # make configurable
+        # add request id and latency
+        for i in pre_latency:
+            print("i")
+            print(i)
+        for k, v in pre_latency:
+            print("k, v")
+            print(k, v)
+        logging.info("response metrics: %s, created_minus_time: %s, self_latency: %s", pre_latency, 0, 0)
         request = self.validate(request)
         if model_type == ModelType.EXPLAINER:
             with EXPLAIN_HIST_TIME.time():
@@ -96,6 +116,7 @@ class Model:
             raise NotImplementedError
         with POST_HIST_TIME.time():
             response = self.postprocess(response)
+
         return response
 
     @property

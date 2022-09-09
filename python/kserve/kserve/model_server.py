@@ -30,6 +30,8 @@ from kserve import Model
 from kserve.model_repository import ModelRepository
 from ray.serve.api import Deployment, RayServeHandle
 from ray import serve
+from tornado_prometheus import PrometheusMixIn, MetricsHandler
+
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -51,6 +53,8 @@ args, _ = parser.parse_known_args()
 
 tornado.log.enable_pretty_logging()
 
+class App(PrometheusMixIn, tornado.web.Application):
+    pass
 
 class ModelServer:
     def __init__(self, http_port: int = args.http_port,
@@ -68,7 +72,8 @@ class ModelServer:
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
 
     def create_application(self):
-        return tornado.web.Application([
+        return App([
+            (r"/metrics", MetricsHandler),
             # Server Liveness API returns 200 if server is alive.
             (r"/", handlers.LivenessHandler),
             (r"/v2/health/live", handlers.LivenessHandler),

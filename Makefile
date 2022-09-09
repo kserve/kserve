@@ -189,8 +189,11 @@ docker-push-agent:
 docker-build-sklearn:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
 
-docker-push-sklearn: docker-build-sklearn
+docker-push-sklearn:
 	docker push ${KO_DOCKER_REPO}/${SKLEARN_IMG}
+
+docker-build-and-push-sklearn: docker-build-sklearn
+	docker-push-sklearn
 
 docker-build-xgb:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
