@@ -17,7 +17,7 @@ cloudevents>=1.2.0
 avro>=1.11.0
 boto3==1.21.0
 psutil>=5.9.0
-ray[serve]==1.10.0
+ray[serve]==2.0.0
 grpcio>=1.34.0
 tritonclient==2.18.0
 protobuf~=3.19.0
