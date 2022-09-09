@@ -39,11 +39,10 @@ import (
 var log = logf.Log.WithName("InferenceGraphRouter")
 
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, error) {
-	client := http.Client{}
 	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
 	req.Header = headers // propagating the headers to steps i.e. to ISVCs
 	req.Header.Add("Content-Type", "application/json")
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 
 	if err != nil {
 		log.Error(err, "An error has occurred from service", "service", serviceUrl)
