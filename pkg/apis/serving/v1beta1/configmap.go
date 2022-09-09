@@ -127,6 +127,7 @@ type IngressConfig struct {
 	IngressClassName        *string `json:"ingressClassName,omitempty"`
 	DomainTemplate          string  `json:"domainTemplate,omitempty"`
 	UrlScheme               string  `json:"urlScheme,omitempty"`
+	DisableIstioVirtualHost bool    `json:"disableIstioVirtualHost,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

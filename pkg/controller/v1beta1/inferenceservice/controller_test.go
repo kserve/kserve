@@ -1653,4 +1653,113 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 
+	Context("When creating inference service with predictor and without top level istio virtual service", func() {
+		It("Should have knative service created", func() {
+			By("By creating a new InferenceService")
+			// Create configmap
+			copiedConfigs := make(map[string]string)
+			for key, value := range configs {
+				if key == "ingress" {
+					copiedConfigs[key] = `{
+						"disableIstioVirtualHost": true,
+						"ingressGateway": "knative-serving/knative-ingress-gateway",
+						"ingressService": "test-destination",
+						"localGateway": "knative-serving/knative-local-gateway",
+						"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+					}`
+				} else {
+					copiedConfigs[key] = value
+				}
+			}
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: copiedConfigs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			serviceName := "foo-disable-istio"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      "kfs",
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+			inferenceService := &v1beta1.InferenceService{}
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			actualService := &knservingv1.Service{}
+			predictorServiceKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
+			}, timeout).Should(Succeed())
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			// update predictor
+			updatedService := actualService.DeepCopy()
+			updatedService.Status.LatestCreatedRevisionName = "revision-v1"
+			updatedService.Status.LatestReadyRevisionName = "revision-v1"
+			updatedService.Status.URL = predictorUrl
+			updatedService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
+			}
+			Expect(k8sClient.Status().Update(context.TODO(), updatedService)).NotTo(gomega.HaveOccurred())
+			// get inference service
+			time.Sleep(10 * time.Second)
+			actualIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, expectedRequest.NamespacedName, actualIsvc)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			Expect(actualIsvc.Status.URL).To(gomega.Equal(&apis.URL{
+				Scheme: "http",
+				Host:   constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
+			}))
+			Expect(actualIsvc.Status.Address.URL).To(gomega.Equal(&apis.URL{
+				Scheme: "http",
+				Host:   network.GetServiceHostname(fmt.Sprintf("%s-%s-default", serviceKey.Name, string(constants.Predictor)), serviceKey.Namespace),
+				Path:   constants.PredictPath(serviceKey.Name, constants.ProtocolV1),
+			}))
+		})
+	})
 })
