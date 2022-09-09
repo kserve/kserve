@@ -13,8 +13,10 @@
 # limitations under the License.
 from typing import Dict, Union
 import logging
+import time
 import sys
 import inspect
+import uuid
 import json
 import tornado.web
 import tornado.log
@@ -85,37 +87,40 @@ class Model:
         self._grpc_client_stub = None
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
-        pre_latency = 0
-        predict_latency = 0
-        explain_latency = 0
-        post_latency = 0
+        request_id = str(uuid.uuid4())  # may need to move this outside of the method (collisions?)
+
+        preprocess_ms = 0
+        predict_ms = 0
+        explain_ms = 0
+        postprocess_ms = 0
 
         with PRE_HIST_TIME.time():
+            start = time.time()
             request = await self.preprocess(body) if inspect.iscoroutinefunction(self.preprocess) \
                 else self.preprocess(body)
-            pre_latency = PRE_HIST_TIME.collect()
-        # make configurable
-        # add request id and latency
-        for i in pre_latency:
-            print("i")
-            print(i)
-        for k, v in pre_latency:
-            print("k, v")
-            print(k, v)
-        logging.info("response metrics: %s, created_minus_time: %s, self_latency: %s", pre_latency, 0, 0)
+            preprocess_ms = time.time() - start
         request = self.validate(request)
         if model_type == ModelType.EXPLAINER:
+            start = time.time()
             with EXPLAIN_HIST_TIME.time():
                 response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
                     else self.explain(request)
+            explain_ms = time.time() - start
         elif model_type == ModelType.PREDICTOR:
+            start = time.time()
             with PREDICT_HIST_TIME.time():
                 response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(request)
+            predict_ms = time.time() - start
         else:
             raise NotImplementedError
         with POST_HIST_TIME.time():
+            start = time.time()
             response = self.postprocess(response)
+            postprocess_ms = time.time() - start
+
+        #TODO: what about when there is a failure? if latency is really long, like timeouts this wont log.
+        logging.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, predict_ms: {predict_ms}, explain_ms: {explain_ms}, postprocess_ms: {postprocess_ms}")
 
         return response
 
@@ -263,8 +268,3 @@ class Model:
                 reason=response.body)
         return json.loads(response.body)
 
-
-def histogram(step):
-    name = f"{step}_request_latency_seconds"
-    h = Histogram(name, f"latency historgram for {step}")
-    return h.time()
