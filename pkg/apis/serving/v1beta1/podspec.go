@@ -59,11 +59,10 @@ type PodSpec struct {
 	// pod to perform user-initiated actions such as debugging. This list cannot be specified when
 	// creating a pod, and it cannot be modified by updating the pod spec. In order to add an
 	// ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.
-	// This field is alpha-level and is only honored by servers that enable the EphemeralContainers feature.
+	// This field is beta-level and available on clusters that haven't disabled the EphemeralContainers feature gate.
 	// +optional
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	// +kubebuilder:pruning:PreserveUnknownFields
 	EphemeralContainers []v1.EphemeralContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,34,rep,name=ephemeralContainers"`
 	// Restart policy for all containers within the pod.
 	// One of Always, OnFailure, Never.
@@ -72,7 +71,8 @@ type PodSpec struct {
 	// +optional
 	RestartPolicy v1.RestartPolicy `json:"restartPolicy,omitempty" protobuf:"bytes,3,opt,name=restartPolicy,casttype=RestartPolicy"`
 	// Optional duration in seconds the pod needs to terminate gracefully. May be decreased in delete request.
-	// Value must be non-negative integer. The value zero indicates delete immediately.
+	// Value must be non-negative integer. The value zero indicates stop immediately via
+	// the kill signal (no opportunity to shut down).
 	// If this value is nil, the default grace period will be used instead.
 	// The grace period is the duration in seconds after the processes running in the pod are sent
 	// a termination signal and the time when the processes are forcibly halted with a kill signal.
@@ -97,6 +97,7 @@ type PodSpec struct {
 	// Selector which must match a node's labels for the pod to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 	// +optional
+	// +mapType=atomic
 	NodeSelector map[string]string `json:"nodeSelector,omitempty" protobuf:"bytes,7,rep,name=nodeSelector"`
 
 	// ServiceAccountName is the name of the ServiceAccount to use to run this pod.
@@ -200,14 +201,14 @@ type PodSpec struct {
 	// If specified, all readiness gates will be evaluated for pod readiness.
 	// A pod is ready when all its containers are ready AND
 	// all conditions specified in the readiness gates have status equal to "True"
-	// More info: https://git.k8s.io/enhancements/keps/sig-network/0007-pod-ready%2B%2B.md
+	// More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates
 	// +optional
 	ReadinessGates []v1.PodReadinessGate `json:"readinessGates,omitempty" protobuf:"bytes,28,opt,name=readinessGates"`
 	// RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used
 	// to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run.
 	// If unset or empty, the "legacy" RuntimeClass will be used, which is an implicit class with an
 	// empty definition that uses the default runtime handler.
-	// More info: https://git.k8s.io/enhancements/keps/sig-node/runtime-class.md
+	// More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class
 	// This is a beta feature as of Kubernetes v1.14.
 	// +optional
 	RuntimeClassName *string `json:"runtimeClassName,omitempty" protobuf:"bytes,29,opt,name=runtimeClassName"`
@@ -228,8 +229,8 @@ type PodSpec struct {
 	// The RuntimeClass admission controller will reject Pod create requests which have the overhead already
 	// set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value
 	// defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero.
-	// More info: https://git.k8s.io/enhancements/keps/sig-node/20190226-pod-overhead.md
-	// This field is alpha-level as of Kubernetes v1.16, and is only honored by servers that enable the PodOverhead feature.
+	// More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md
+	// This field is beta-level as of Kubernetes v1.18, and is only honored by servers that enable the PodOverhead feature.
 	// +optional
 	Overhead v1.ResourceList `json:"overhead,omitempty" protobuf:"bytes,32,opt,name=overhead"`
 	// TopologySpreadConstraints describes how a group of pods ought to spread across topology
@@ -249,4 +250,34 @@ type PodSpec struct {
 	// Default to false.
 	// +optional
 	SetHostnameAsFQDN *bool `json:"setHostnameAsFQDN,omitempty" protobuf:"varint,35,opt,name=setHostnameAsFQDN"`
+	// Specifies the OS of the containers in the pod.
+	// Some pod and container fields are restricted if this is set.
+	//
+	// If the OS field is set to linux, the following fields must be unset:
+	// -securityContext.windowsOptions
+	//
+	// If the OS field is set to windows, following fields must be unset:
+	// - spec.hostPID
+	// - spec.hostIPC
+	// - spec.securityContext.seLinuxOptions
+	// - spec.securityContext.seccompProfile
+	// - spec.securityContext.fsGroup
+	// - spec.securityContext.fsGroupChangePolicy
+	// - spec.securityContext.sysctls
+	// - spec.shareProcessNamespace
+	// - spec.securityContext.runAsUser
+	// - spec.securityContext.runAsGroup
+	// - spec.securityContext.supplementalGroups
+	// - spec.containers[*].securityContext.seLinuxOptions
+	// - spec.containers[*].securityContext.seccompProfile
+	// - spec.containers[*].securityContext.capabilities
+	// - spec.containers[*].securityContext.readOnlyRootFilesystem
+	// - spec.containers[*].securityContext.privileged
+	// - spec.containers[*].securityContext.allowPrivilegeEscalation
+	// - spec.containers[*].securityContext.procMount
+	// - spec.containers[*].securityContext.runAsUser
+	// - spec.containers[*].securityContext.runAsGroup
+	// +optional
+	// This is an alpha field and requires the IdentifyPodOS feature
+	OS *v1.PodOS `json:"os,omitempty" protobuf:"bytes,36,opt,name=os"`
 }
