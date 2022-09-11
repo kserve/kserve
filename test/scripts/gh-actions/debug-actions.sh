@@ -36,3 +36,6 @@ kubectl get pods -n kserve
 echo "printing isvc yaml"
 
 kubectl get isvc message-dumper -n kserve-ci-e2e-test -o yaml
+
+echo "printing node details"
+kubectl describe nodes
