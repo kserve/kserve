@@ -675,6 +675,16 @@ spec:
                         failureThreshold:
                           format: int32
                           type: integer
+                        grpc:
+                          properties:
+                            port:
+                              format: int32
+                              type: integer
+                            service:
+                              type: string
+                          required:
+                          - port
+                          type: object
                         httpGet:
                           properties:
                             host:
@@ -769,6 +779,16 @@ spec:
                         failureThreshold:
                           format: int32
                           type: integer
+                        grpc:
+                          properties:
+                            port:
+                              format: int32
+                              type: integer
+                            service:
+                              type: string
+                          required:
+                          - port
+                          type: object
                         httpGet:
                           properties:
                             host:
@@ -917,6 +937,16 @@ spec:
                         failureThreshold:
                           format: int32
                           type: integer
+                        grpc:
+                          properties:
+                            port:
+                              format: int32
+                              type: integer
+                            service:
+                              type: string
+                          required:
+                          - port
+                          type: object
                         httpGet:
                           properties:
                             host:
@@ -2517,6 +2547,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -2607,6 +2647,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -2753,6 +2803,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -3085,6 +3145,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -3175,6 +3245,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -3321,6 +3401,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -3653,6 +3743,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -3743,6 +3843,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -3889,6 +3999,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -4235,6 +4355,16 @@ spec:
                             failureThreshold:
                               format: int32
                               type: integer
+                            grpc:
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                service:
+                                  type: string
+                              required:
+                              - port
+                              type: object
                             httpGet:
                               properties:
                                 host:
@@ -4327,6 +4457,16 @@ spec:
                             failureThreshold:
                               format: int32
                               type: integer
+                            grpc:
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                service:
+                                  type: string
+                              required:
+                              - port
+                              type: object
                             httpGet:
                               properties:
                                 host:
@@ -4473,6 +4613,16 @@ spec:
                             failureThreshold:
                               format: int32
                               type: integer
+                            grpc:
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                service:
+                                  type: string
+                              required:
+                              - port
+                              type: object
                             httpGet:
                               properties:
                                 host:
@@ -4647,6 +4797,12 @@ spec:
                   nodeSelector:
                     additionalProperties:
                       type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  os:
+                    properties:
+                      name:
+                        type: string
                     type: object
                   overhead:
                     additionalProperties:
@@ -6094,6 +6250,16 @@ spec:
                             failureThreshold:
                               format: int32
                               type: integer
+                            grpc:
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                service:
+                                  type: string
+                              required:
+                              - port
+                              type: object
                             httpGet:
                               properties:
                                 host:
@@ -6186,6 +6352,16 @@ spec:
                             failureThreshold:
                               format: int32
                               type: integer
+                            grpc:
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                service:
+                                  type: string
+                              required:
+                              - port
+                              type: object
                             httpGet:
                               properties:
                                 host:
@@ -6332,6 +6508,16 @@ spec:
                             failureThreshold:
                               format: int32
                               type: integer
+                            grpc:
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                service:
+                                  type: string
+                              required:
+                              - port
+                              type: object
                             httpGet:
                               properties:
                                 host:
@@ -6696,6 +6882,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -6788,6 +6984,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -6934,6 +7140,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -7275,6 +7491,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -7376,6 +7602,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -7524,6 +7760,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -7646,6 +7892,7 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   onnx:
                     properties:
                       args:
@@ -7856,6 +8103,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -7948,6 +8205,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -8094,6 +8361,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -8208,6 +8485,11 @@ spec:
                           type: object
                         type: array
                       workingDir:
+                        type: string
+                    type: object
+                  os:
+                    properties:
+                      name:
                         type: string
                     type: object
                   overhead:
@@ -8428,6 +8710,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -8520,6 +8812,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -8666,6 +8968,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -8992,6 +9304,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -9084,6 +9406,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -9230,6 +9562,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -9563,6 +9905,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -9655,6 +10007,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -9801,6 +10163,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -10223,6 +10595,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -10315,6 +10697,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -10461,6 +10853,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -10789,6 +11191,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -10881,6 +11293,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -11027,6 +11449,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -11418,6 +11850,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -11510,6 +11952,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -11656,6 +12108,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -12662,6 +13124,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -12754,6 +13226,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -12900,6 +13382,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -13604,6 +14096,16 @@ spec:
                             failureThreshold:
                               format: int32
                               type: integer
+                            grpc:
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                service:
+                                  type: string
+                              required:
+                              - port
+                              type: object
                             httpGet:
                               properties:
                                 host:
@@ -13696,6 +14198,16 @@ spec:
                             failureThreshold:
                               format: int32
                               type: integer
+                            grpc:
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                service:
+                                  type: string
+                              required:
+                              - port
+                              type: object
                             httpGet:
                               properties:
                                 host:
@@ -13842,6 +14354,16 @@ spec:
                             failureThreshold:
                               format: int32
                               type: integer
+                            grpc:
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                service:
+                                  type: string
+                              required:
+                              - port
+                              type: object
                             httpGet:
                               properties:
                                 host:
@@ -14016,6 +14538,12 @@ spec:
                   nodeSelector:
                     additionalProperties:
                       type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  os:
+                    properties:
+                      name:
+                        type: string
                     type: object
                   overhead:
                     additionalProperties:
@@ -15721,6 +16249,16 @@ spec:
                         failureThreshold:
                           format: int32
                           type: integer
+                        grpc:
+                          properties:
+                            port:
+                              format: int32
+                              type: integer
+                            service:
+                              type: string
+                          required:
+                          - port
+                          type: object
                         httpGet:
                           properties:
                             host:
@@ -15815,6 +16353,16 @@ spec:
                         failureThreshold:
                           format: int32
                           type: integer
+                        grpc:
+                          properties:
+                            port:
+                              format: int32
+                              type: integer
+                            service:
+                              type: string
+                          required:
+                          - port
+                          type: object
                         httpGet:
                           properties:
                             host:
@@ -15963,6 +16511,16 @@ spec:
                         failureThreshold:
                           format: int32
                           type: integer
+                        grpc:
+                          properties:
+                            port:
+                              format: int32
+                              type: integer
+                            service:
+                              type: string
+                          required:
+                          - port
+                          type: object
                         httpGet:
                           properties:
                             host:

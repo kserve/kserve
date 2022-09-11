@@ -94,7 +94,7 @@ func TestAgentInjector(t *testing.T) {
 						{
 							Name: "sklearn",
 							ReadinessProbe: &v1.Probe{
-								Handler: v1.Handler{
+								ProbeHandler: v1.ProbeHandler{
 									TCPSocket: &v1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
@@ -124,7 +124,7 @@ func TestAgentInjector(t *testing.T) {
 						{
 							Name: "sklearn",
 							ReadinessProbe: &v1.Probe{
-								Handler: v1.Handler{
+								ProbeHandler: v1.ProbeHandler{
 									TCPSocket: &v1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
@@ -164,7 +164,7 @@ func TestAgentInjector(t *testing.T) {
 							},
 							Env: []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							ReadinessProbe: &v1.Probe{
-								Handler: v1.Handler{
+								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										HTTPHeaders: []v1.HTTPHeader{
 											{
@@ -245,7 +245,7 @@ func TestAgentInjector(t *testing.T) {
 						{
 							Name: "sklearn",
 							ReadinessProbe: &v1.Probe{
-								Handler: v1.Handler{
+								ProbeHandler: v1.ProbeHandler{
 									TCPSocket: &v1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
@@ -280,7 +280,7 @@ func TestAgentInjector(t *testing.T) {
 						{
 							Name: "sklearn",
 							ReadinessProbe: &v1.Probe{
-								Handler: v1.Handler{
+								ProbeHandler: v1.ProbeHandler{
 									TCPSocket: &v1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
@@ -327,7 +327,7 @@ func TestAgentInjector(t *testing.T) {
 							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
 							ReadinessProbe: &v1.Probe{
-								Handler: v1.Handler{
+								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										HTTPHeaders: []v1.HTTPHeader{
 											{
