@@ -140,7 +140,7 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 			if container.ReadinessProbe == nil {
 				if len(container.Ports) == 0 {
 					container.ReadinessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							TCPSocket: &corev1.TCPSocketAction{
 								Port: intstr.IntOrString{
 									IntVal: 8080,
@@ -154,7 +154,7 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 					}
 				} else {
 					container.ReadinessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							TCPSocket: &corev1.TCPSocketAction{
 								Port: intstr.IntOrString{
 									IntVal: container.Ports[0].ContainerPort,
