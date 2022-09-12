@@ -80,14 +80,15 @@ func (isvc *InferenceService) Default() {
 }
 
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig) {
-	if _, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]; !ok {
+	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
+
+	if !ok && deployConfig != nil {
 		if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
 			deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
 			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
 		}
 	}
 	components := []Component{isvc.Spec.Transformer, isvc.Spec.Explainer}
-	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 	if !ok || deploymentMode != string(constants.ModelMeshDeployment) {
 		// Only attempt to assign runtimes and apply defaulting logic for non-modelmesh predictors
 		isvc.setPredictorModelDefaults()

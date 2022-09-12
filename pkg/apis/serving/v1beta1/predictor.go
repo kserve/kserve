@@ -155,9 +155,9 @@ func (p *PredictorExtensionSpec) GetStorageSpec() *StorageSpec {
 	return p.Storage
 }
 
-// GetPredictor returns the implementation for the predictor
-func (s *PredictorSpec) GetPredictorImplementations() []PredictorImplementation {
-	implementations := NonNilPredictors([]PredictorImplementation{
+// GetPredictorImplementations GetPredictor returns the implementation for the predictor
+func (s *PredictorSpec) GetPredictorImplementations() []ComponentImplementation {
+	implementations := NonNilPredictors([]ComponentImplementation{
 		s.XGBoost,
 		s.PyTorch,
 		s.Triton,
@@ -176,7 +176,7 @@ func (s *PredictorSpec) GetPredictorImplementations() []PredictorImplementation 
 	return implementations
 }
 
-func (s *PredictorSpec) GetPredictorImplementation() *PredictorImplementation {
+func (s *PredictorSpec) GetPredictorImplementation() *ComponentImplementation {
 	predictors := s.GetPredictorImplementations()
 	if len(predictors) == 0 {
 		return nil
@@ -184,20 +184,11 @@ func (s *PredictorSpec) GetPredictorImplementation() *PredictorImplementation {
 	return &s.GetPredictorImplementations()[0]
 }
 
-func NonNilPredictors(objects []PredictorImplementation) (results []PredictorImplementation) {
+func NonNilPredictors(objects []ComponentImplementation) (results []ComponentImplementation) {
 	for _, object := range objects {
 		if !reflect.ValueOf(object).IsNil() {
 			results = append(results, object)
 		}
 	}
 	return results
-}
-
-func isFrameworkIncluded(supportedFrameworks []string, framework string) bool {
-	for _, supportedFramework := range supportedFrameworks {
-		if supportedFramework == framework {
-			return true
-		}
-	}
-	return false
 }

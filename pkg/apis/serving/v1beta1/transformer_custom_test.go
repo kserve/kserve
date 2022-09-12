@@ -85,9 +85,6 @@ func TestTransformerValidation(t *testing.T) {
 
 func TestTransformerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Transformers: TransformersConfig{},
-	}
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
@@ -136,7 +133,7 @@ func TestTransformerDefaulter(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			CustomTransformer := NewCustomTransformer(&scenario.spec.PodSpec)
-			CustomTransformer.Default(&config)
+			CustomTransformer.Default(nil)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -159,9 +156,6 @@ func TestCreateTransformerContainer(t *testing.T) {
 			},
 			"memory": resource.MustParse("1Gi"),
 		},
-	}
-	var config = InferenceServicesConfig{
-		Transformers: TransformersConfig{},
 	}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
@@ -365,57 +359,11 @@ func TestCreateTransformerContainer(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			transformer := scenario.isvc.Spec.Transformer.GetImplementation()
-			transformer.Default(&config)
-			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Transformer.ComponentExtensionSpec, &config)
+			transformer.Default(nil)
+			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"},
+				&scenario.isvc.Spec.Transformer.ComponentExtensionSpec, nil)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
-			}
-		})
-	}
-}
-
-func TestTransformerIsMMS(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Transformers: TransformersConfig{},
-	}
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
-
-	// MMS for transformer is false
-	mmsCase := false
-	scenarios := map[string]struct {
-		spec     TransformerSpec
-		expected bool
-	}{
-		"DefaultResources": {
-			spec: TransformerSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "hdfs://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			expected: mmsCase,
-		},
-	}
-
-	for name, scenario := range scenarios {
-		t.Run(name, func(t *testing.T) {
-			CustomTransformer := NewCustomTransformer(&scenario.spec.PodSpec)
-			CustomTransformer.Default(&config)
-			res := CustomTransformer.IsMMS(&config)
-			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %t, want %t", res, scenario.expected)
 			}
 		})
 	}
