@@ -41,17 +41,16 @@ import (
 
 // IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
 // storage uri nor storage spec is set
-func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
-	return predictor.GetImplementation().IsMMS(isvcConfig) &&
-		predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
+func IsMMSPredictor(predictor *v1beta1api.PredictorSpec) bool {
+	return predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
 }
 
-func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
+func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity) bool {
 	if isvc.Spec.Predictor.GetExtensions() == nil || len(isvc.Spec.Predictor.GetImplementations()) == 0 {
 		return false
 	}
 
-	container := isvc.Spec.Predictor.GetImplementation().GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), isvcConfig)
+	container := isvc.Spec.Predictor.GetImplementation().GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), nil)
 
 	predictorMemoryLimit := container.Resources.Limits.Memory()
 	return predictorMemoryLimit.Cmp(totalReqMemory) >= 0
@@ -183,7 +182,7 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
-func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
+func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRuntime *string) {
 	image := container.Image
 	if runtimeVersion != nil {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
@@ -191,15 +190,17 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig 
 			container.Image = image + ":" + *runtimeVersion
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
-		}
-		return
-	}
-	if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
-		imageName := strings.Split(image, ":")[0]
-		if imageName == isvcConfig.Predictors.Tensorflow.ContainerImage {
-			container.Image = imageName + ":" + isvcConfig.Predictors.Tensorflow.DefaultGpuImageVersion
-		} else if imageName == isvcConfig.Predictors.PyTorch.ContainerImage {
-			container.Image = imageName + ":" + isvcConfig.Predictors.PyTorch.DefaultGpuImageVersion
+			}
+	} else {
+		if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
+			re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+			if len(re.FindString(image)) > 0 {
+				// For TFServing/TorchServe the GPU image is tagged with suffix "-gpu", when the version is found in the tag
+				// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
+				if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe) {
+					container.Image = image + "-gpu"
+				}
+			}
 		}
 	}
 }

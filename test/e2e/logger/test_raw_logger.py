@@ -41,7 +41,9 @@ def test_kserve_logger():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         containers=[V1Container(name="kserve-container",
-                                image='gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display')]
+                                image='gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display',
+                                resources=V1ResourceRequirements(requests={'cpu': '10m', 'memory': '128Mi'},
+                                                                 limits={'cpu': '100m', 'memory': '256Mi'}))]
     )
 
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,

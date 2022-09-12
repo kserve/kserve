@@ -66,30 +66,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			},
 		}
 		configs = map[string]string{
-			"predictors": `{
-               "tensorflow": {
-                  "image": "tensorflow/serving",
-				  "defaultTimeout": "60",
- 				  "multiModelServer": false
-               },
-               "sklearn": {
-                 "v1": {
-                  	"image": "kfserving/sklearnserver",
-					"multiModelServer": true
-                 },
-                 "v2": {
-                  	"image": "kfserving/sklearnserver",
-					"multiModelServer": true
-                 }
-               },
-               "xgboost": {
-				  	"image": "kfserving/xgbserver",
-				  	"multiModelServer": true
-               }
-	         }`,
 			"explainers": `{
                "alibi": {
-                  "image": "kfserving/alibi-explainer",
+                  "image": "kserve/alibi-explainer",
 			      "defaultImageVersion": "latest"
                }
             }`,
@@ -114,6 +93,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    constants.InferenceServiceContainerName,
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			// Create InferenceService
 			serviceName := "foo"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -143,10 +158,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
+			isvc.DefaultInferenceService(nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 			inferenceService := &v1beta1.InferenceService{}
-
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
 				if err != nil {
@@ -175,7 +190,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									constants.InferenceServicePodLabelKey: serviceName,
 								},
 								Annotations: map[string]string{
-									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
+									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 									"autoscaling.knative.dev/maxScale":                         "3",
 									"autoscaling.knative.dev/minScale":                         "1",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -188,13 +203,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Containers: []v1.Container{
 										{
 											Image: "tensorflow/serving:" +
-												*isvc.Spec.Predictor.Tensorflow.RuntimeVersion,
+												*isvc.Spec.Predictor.Model.RuntimeVersion,
 											Name:    constants.InferenceServiceContainerName,
 											Command: []string{v1beta1.TensorflowEntrypointCommand},
 											Args: []string{
 												"--port=" + v1beta1.TensorflowServingGRPCPort,
 												"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
-												"--model_name=" + isvc.Name,
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 												"--rest_api_timeout_in_ms=60000",
 											},
@@ -377,8 +391,43 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
-
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    constants.InferenceServiceContainerName,
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
+			transformer.DefaultInferenceService(nil, nil)
 			instance := transformer.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), instance)
@@ -424,6 +473,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												constants.ArgumentHttpPort,
 												constants.InferenceServiceDefaultHttpPort,
 											},
+											Name:      constants.InferenceServiceContainerName,
 											Resources: defaultResource,
 										},
 									},
@@ -541,7 +591,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Namespace: namespace}
 			var explainerServiceKey = types.NamespacedName{Name: constants.DefaultExplainerServiceName(serviceName),
 				Namespace: namespace}
-			var transformer = &v1beta1.InferenceService{
+			var explainer = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceName,
 					Namespace: namespace,
@@ -570,7 +620,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     "s3://test/mnist/explainer",
 								RuntimeVersion: proto.String("0.4.0"),
 								Container: v1.Container{
-									Name:      "kfserving-container",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -598,7 +648,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
-			instance := transformer.DeepCopy()
+			instance := explainer.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), instance)
 
@@ -612,7 +662,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			expectedExplainerService := &knservingv1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultTransformerServiceName(instance.Name),
+					Name:      constants.DefaultExplainerServiceName(instance.Name),
 					Namespace: instance.Namespace,
 				},
 				Spec: knservingv1.ServiceSpec{
@@ -636,7 +686,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Containers: []v1.Container{
 										{
 											Name:  constants.InferenceServiceContainerName,
-											Image: "kfserving/alibi-explainer:0.4.0",
+											Image: "kserve/alibi-explainer:0.4.0",
 											Args: []string{
 												"--model_name",
 												serviceName,
@@ -767,7 +817,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
-
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    constants.InferenceServiceContainerName,
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			// Create Canary InferenceService
 			serviceName := "foo-canary"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -798,7 +883,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-
+			isvc.DefaultInferenceService(nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			inferenceService := &v1beta1.InferenceService{}
 
@@ -857,7 +942,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// update canary traffic percent to 20%
 			updatedIsvc := inferenceService.DeepCopy()
-			updatedIsvc.Spec.Predictor.Tensorflow.StorageURI = &storageUri2
+			updatedIsvc.Spec.Predictor.Model.StorageURI = &storageUri2
 			updatedIsvc.Spec.Predictor.CanaryTrafficPercent = proto.Int64(20)
 			Expect(k8sClient.Update(context.TODO(), updatedIsvc)).NotTo(gomega.HaveOccurred())
 
@@ -1034,16 +1119,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	Context("When creating an inference service using a ServingRuntime", func() {
 		It("Should create successfully", func() {
 			serviceName := "svc-with-servingruntime"
-			servingRuntimeName := "tf-serving"
 			namespace := "default"
 
 			var predictorServiceKey = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
 				Namespace: namespace}
-
-			var servingRuntime = &v1alpha1.ServingRuntime{
+			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      servingRuntimeName,
-					Namespace: namespace,
+					Name:      "tf-serving",
+					Namespace: "default",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
 					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
@@ -1056,7 +1139,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 						Containers: []v1.Container{
 							{
-								Name:    "kserve-container",
+								Name:    constants.InferenceServiceContainerName,
 								Image:   "tensorflow/serving:1.14.0",
 								Command: []string{"/usr/bin/tensorflow_model_server"},
 								Args: []string{
@@ -1072,7 +1155,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: proto.Bool(false),
 				},
 			}
-
 			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 
@@ -1272,7 +1354,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 						Containers: []v1.Container{
 							{
-								Name:    "kserve-container",
+								Name:    constants.InferenceServiceContainerName,
 								Image:   "tensorflow/serving:1.14.0",
 								Command: []string{"/usr/bin/tensorflow_model_server"},
 								Args: []string{
@@ -1388,7 +1470,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 						Containers: []v1.Container{
 							{
-								Name:    "kserve-container",
+								Name:    constants.InferenceServiceContainerName,
 								Image:   "tensorflow/serving:1.14.0",
 								Command: []string{"/usr/bin/tensorflow_model_server"},
 								Args: []string{
@@ -1492,7 +1574,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 						Containers: []v1.Container{
 							{
-								Name:    "kserve-container",
+								Name:    constants.InferenceServiceContainerName,
 								Image:   "tensorflow/serving:1.14.0",
 								Command: []string{"/usr/bin/tensorflow_model_server"},
 								Args: []string{
@@ -1552,7 +1634,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:  "storage-initializer",
 							Image: "kserve/storage-initializer:latest",
 							Args: []string{
-								"gs://kfserving-invalid/models/sklearn/1.0/model",
+								"gs://kserve-invalid/models/sklearn/1.0/model",
 								"/mnt/models",
 							},
 							Resources: defaultResource,
@@ -1560,7 +1642,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 					Containers: []v1.Container{
 						{
-							Name:    "kserve-container",
+							Name:    constants.InferenceServiceContainerName,
 							Image:   "tensorflow/serving:1.14.0",
 							Command: []string{"/usr/bin/tensorflow_model_server"},
 							Args: []string{

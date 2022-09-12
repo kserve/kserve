@@ -73,7 +73,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Add StorageSpec annotations so mutator will mount storage credentials to InferenceService's predictor
 	addStorageSpecAnnotations(isvc.Spec.Predictor.GetImplementation().GetStorageSpec(), annotations)
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
-	addAgentAnnotations(isvc, annotations, p.inferenceServiceConfig)
+	addAgentAnnotations(isvc, annotations)
 
 	// Reconcile modelConfig
 	configMapReconciler := modelconfig.NewModelConfigReconciler(p.client, p.scheme)
@@ -195,7 +195,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 
 		// Update image tag if GPU is enabled or runtime version is provided
-		isvcutils.UpdateImageTag(container, isvc.Spec.Predictor.Model.RuntimeVersion, p.inferenceServiceConfig)
+		isvcutils.UpdateImageTag(container, isvc.Spec.Predictor.Model.RuntimeVersion, isvc.Spec.Predictor.Model.Runtime)
 
 		podSpec = *mergedPodSpec
 		podSpec.Containers = []v1.Container{

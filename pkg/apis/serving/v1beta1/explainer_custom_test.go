@@ -163,9 +163,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 			"memory": resource.MustParse("1Gi"),
 		},
 	}
-	var config = InferenceServicesConfig{
-		Transformers: TransformersConfig{},
-	}
+	var config = InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
