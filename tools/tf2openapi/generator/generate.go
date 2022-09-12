@@ -78,8 +78,8 @@ func (g *Generator) GenerateOpenAPI(model *pb.SavedModel) (string, error) {
 }
 
 func validateOpenAPI(json []byte) error {
-	loader := openapi3.NewSwaggerLoader()
-	swagger, err := loader.LoadSwaggerFromData(json)
+	loader := openapi3.NewLoader()
+	swagger, err := loader.LoadFromData(json)
 	if err != nil {
 		return fmt.Errorf(UnloadableSpecError, err.Error(), json)
 	}

@@ -262,7 +262,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		SecurityContext: securityContext,
 		Env:             agentEnvs,
 		ReadinessProbe: &v1.Probe{
-			Handler: v1.Handler{
+			ProbeHandler: v1.ProbeHandler{
 				HTTPGet: &v1.HTTPGetAction{
 					HTTPHeaders: []v1.HTTPHeader{
 						{

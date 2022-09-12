@@ -230,7 +230,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &v1.Probe{
-										Handler: v1.Handler{
+										ProbeHandler: v1.ProbeHandler{
 											TCPSocket: &v1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,
@@ -662,7 +662,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &v1.Probe{
-										Handler: v1.Handler{
+										ProbeHandler: v1.ProbeHandler{
 											TCPSocket: &v1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,
@@ -1095,7 +1095,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &v1.Probe{
-										Handler: v1.Handler{
+										ProbeHandler: v1.ProbeHandler{
 											TCPSocket: &v1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,
