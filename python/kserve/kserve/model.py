@@ -116,7 +116,6 @@ class Model:
             response = self.postprocess(response)
             latencies.postprocess_ms = get_latency_ms(start, time.time())
 
-        #TODO: what about when there is a failure? if latency is really long, like timeouts this wont log.
         logging.info(f"requestId: {request_id}, preprocess_ms: {latencies.preprocess_ms}, explain_ms: {latencies.explain_ms}, predict_ms: {latencies.predict_ms}, postprocess_ms: {latencies.postprocess_ms}")
 
         return response
@@ -264,4 +263,3 @@ class Model:
                 status_code=response.code,
                 reason=response.body)
         return json.loads(response.body)
-
