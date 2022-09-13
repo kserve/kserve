@@ -30,7 +30,9 @@ from kserve import Model
 from kserve.model_repository import ModelRepository
 from ray.serve.api import Deployment, RayServeHandle
 from ray import serve
-from tornado_prometheus import PrometheusMixIn, MetricsHandler
+from tornado.web import RequestHandler
+from prometheus_client import REGISTRY
+from prometheus_client.exposition import choose_encoder
 
 
 DEFAULT_HTTP_PORT = 8080
@@ -53,8 +55,11 @@ args, _ = parser.parse_known_args()
 
 tornado.log.enable_pretty_logging()
 
-class App(PrometheusMixIn, tornado.web.Application):
-    pass
+class MetricsHandler(RequestHandler):
+    def get(self):
+        encoder, content_type = choose_encoder(self.request.headers.get('accept'))
+        self.set_header("Content-Type", content_type)
+        self.write(encoder(REGISTRY))
 
 class ModelServer:
     def __init__(self, http_port: int = args.http_port,
@@ -72,7 +77,7 @@ class ModelServer:
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
 
     def create_application(self):
-        return App([
+        return tornado.web.Application([
             (r"/metrics", MetricsHandler),
             # Server Liveness API returns 200 if server is alive.
             (r"/", handlers.LivenessHandler),
