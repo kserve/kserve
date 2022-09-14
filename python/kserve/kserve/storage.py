@@ -164,7 +164,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
         count = 0
         bucket = s3.Bucket(bucket_name)
-
         for obj in bucket.objects.filter(Prefix=bucket_path):
             # Skip where boto3 lists the directory as an object
             if obj.key.endswith("/"):

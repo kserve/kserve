@@ -57,6 +57,8 @@ def expected_call_args_list(parent_key, dest, paths):
             for p in paths]
 
 # pylint: disable=protected-access
+
+
 @mock.patch('kserve.storage.boto3')
 def test_parent_key(mock_storage):
 

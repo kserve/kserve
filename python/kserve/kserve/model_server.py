@@ -21,7 +21,6 @@ import tornado.httpserver
 import tornado.log
 import asyncio
 from tornado import concurrent
-from prometheus_client import start_http_server
 
 from .utils import utils
 
@@ -33,7 +32,6 @@ from ray import serve
 from tornado.web import RequestHandler
 from prometheus_client import REGISTRY
 from prometheus_client.exposition import choose_encoder
-
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -106,7 +104,6 @@ class ModelServer:
         ], default_handler_class=handlers.NotFoundHandler)
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]], nest_asyncio: bool = False):
-
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):

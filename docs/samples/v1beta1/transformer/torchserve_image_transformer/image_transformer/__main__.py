@@ -18,22 +18,21 @@ from .image_transformer import ImageTransformer
 from .transformer_model_repository import TransformerModelRepository
 
 DEFAULT_MODEL_NAME = "model"
+CONFIG_PATH = "/mnt/models/config/config.properties"
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument(
     "--predictor_host", help="The URL for the model predict function", required=True
 )
+parser.add_argument("--config_path", help="The path to the config file containing the list of model names", required=False, default=CONFIG_PATH)
 
 args, _ = parser.parse_known_args()
-
-CONFIG_PATH = "/mnt/models/config/config.properties"
-
 
 def parse_config():
     separator = "="
     keys = {}
 
-    with open(CONFIG_PATH) as f:
+    with open(args.config_path) as f:
 
         for line in f:
             if separator in line:

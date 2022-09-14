@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from typing import Dict, Union
 import logging
 import time
 import sys
 import inspect
-import uuid
 import json
 import tornado.web
 import tornado.log
@@ -30,6 +30,8 @@ from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 from prometheus_client import Histogram
 
+tornado.log.enable_pretty_logging()
+
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
@@ -39,8 +41,6 @@ PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'pre-processing reque
 POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'post-processing request latency')
 PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds', 'prediction request latency')
 EXPLAIN_HIST_TIME = Histogram('request_explain_processing_seconds', 'explain request latency')
-
-tornado.log.enable_pretty_logging()
 
 
 class ModelType(Enum):

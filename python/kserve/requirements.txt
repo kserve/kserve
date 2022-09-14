@@ -20,5 +20,5 @@ psutil>=5.9.0
 ray[serve]==2.0.0
 grpcio>=1.34.0
 tritonclient==2.18.0
-prometheus-client
 protobuf~=3.19.0
+prometheus-client>=0.13.1

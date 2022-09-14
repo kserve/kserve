@@ -22,7 +22,7 @@ from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
 from kserve import KServeClient
 
-kserve_client = KServeClient(config_file='./kserve/test/kubeconfig')
+kserve_client = KServeClient(config_file='./test/kubeconfig')
 
 mocked_unit_result = \
     '''
