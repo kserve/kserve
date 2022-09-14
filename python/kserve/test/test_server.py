@@ -213,7 +213,8 @@ class TestTFHttpServer:
 
     async def test_metrics(self, http_server_client):
         resp = await http_server_client.fetch('/metrics')
-        assert resp is None
+        print(resp)
+        assert resp is not None
 
 
 class TestRayServer:
