@@ -89,14 +89,14 @@ class Model:
         self._http_client_instance = None
         self._grpc_client_stub = None
 
-    async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR, headers={"X-RequestID": None}):
-        request_id = headers["X-RequestID"]
+    async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR, headers={}):
+        request_id = headers.get("X-RequestID")
+
         # latency vars
         preprocess_ms = 0
         explain_ms = 0
         predict_ms = 0
         postprocess_ms = 0
-        logging.info("http: %s, grpc: %s, protocol: %s", self._http_client_instance, self._grpc_client_stub, self.protocol)
 
         with PRE_HIST_TIME.time():
             start = time.time()
