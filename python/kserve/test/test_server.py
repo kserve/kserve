@@ -211,6 +211,10 @@ class TestTFHttpServer:
         assert err.value.code == 404
         assert err.value.response.body == b'{"error": "invalid path"}'
 
+    async def test_metrics(self, http_server_client):
+        resp = await http_server_client.fetch('/metrics')
+        assert resp is None
+
 
 class TestRayServer:
     @pytest.fixture(scope="class")

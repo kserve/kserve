@@ -71,7 +71,7 @@ class InferenceError(RuntimeError):
 
 
 def get_latency_ms(start, end):
-    return (end - start) / 1000
+    return round((end - start) * 1000, 9)
 
 
 # Model is intended to be subclassed by various components within KServe.
@@ -118,6 +118,7 @@ class Model:
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
+
         with POST_HIST_TIME.time():
             start = time.time()
             response = self.postprocess(response)
