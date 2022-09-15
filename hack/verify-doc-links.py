@@ -208,9 +208,9 @@ def request_url(url, method="HEAD", timeout=5, headers={}) -> int:
     except HTTPError as e:
         status = e.code
         set_retry_time(url, status)
-    except URLError as e:
+    except URLError:
         status = 444  # custom code used script-internally
-    except Exception as e:
+    except Exception:
         status = 555  # custom code used script-internally
 
     return status
@@ -228,7 +228,7 @@ def verify_urls_concurrently(file_line_text_url: [(str, int, str, str)]) -> [(st
             try:
                 file, line, text, url, status = url_check.result()
                 file_line_text_url_status.append((file, line, text, url, status))
-            except Exception as e:
+            except Exception:
                 # set 555 status as a custom code used script-internally
                 file_line_text_url_status.append((file, line, text, url, 555))
             finally:
