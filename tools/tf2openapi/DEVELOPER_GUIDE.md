@@ -5,7 +5,7 @@ Tf2OpenAPI.
 ## Prerequisites
 ### Install requirements
 1. [`go`](https://golang.org/doc/install): Tf2OpenAPI is written in Go.
-1. [`git`](https://help.github.com/articles/set-up-git/): For source control.
+1. [`git`](https://docs.github.com/en/get-started/quickstart/set-up-git): For source control.
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
 1. [`protoc`](http://google.github.io/proto-lens/installing-protoc.html): For

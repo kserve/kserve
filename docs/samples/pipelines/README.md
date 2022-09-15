@@ -1,4 +1,4 @@
-# Deploy to KServe from [Kubeflow Pipelines](https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/)
+# Deploy to KServe from [Kubeflow Pipelines](https://www.kubeflow.org/docs/components/pipelines/introduction/)
 
 ## Kubeflow Pipelines KServe component
 
@@ -13,7 +13,7 @@ To dive into the source behind the KServe Kubeflow Pipelines Component, please l
 
 
 **Note**: For those still using an older version of KFServing less than v0.5.0, an older version of the KFServing Pipelines component must be used
-as demonstrated in [this notebook](./kfs-pipeline-v1alpha2.ipynb). The source code for this version of the component can be found [here](https://github.com/kubeflow/pipelines/tree/65bed9b6d1d676ef2d541a970d3edc0aee12400d/components/kubeflow/kfserving).
+as demonstrated in [this notebook](./kfs-pipeline.ipynb). The source code for this version of the component can be found [here](https://github.com/kubeflow/pipelines/tree/65bed9b6d1d676ef2d541a970d3edc0aee12400d/components/kubeflow/kfserving).
 
 
 ## End to end pipeline example using KServe

@@ -181,5 +181,5 @@ kubectl delete -f bentoml.yaml
 
 * [GitHub repository](https://github.com/bentoml/BentoML)
 * [BentoML documentation](https://docs.bentoml.org)
-* [Quick start guide](https://docs.bentoml.org/en/latest/quickstart.html)
+* [Tutorial](https://docs.bentoml.org/en/latest/tutorial.html)
 * [Community](https://join.slack.com/t/bentoml/shared_invite/enQtNjcyMTY3MjE4NTgzLTU3ZDc1MWM5MzQxMWQxMzJiNTc1MTJmMzYzMTYwMjQ0OGEwNDFmZDkzYWQxNzgxYWNhNjAxZjk4MzI4OGY1Yjg)

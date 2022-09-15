@@ -5,8 +5,8 @@ This `storageUri` option supports single file models, like `sklearn` which is sp
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
-2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Your cluster's Istio Egress gateway must [allow http / https traffic](https://knative.dev/docs/serving/outbound-network-access/)
+2. Your cluster's Istio Ingress gateway must be [network-accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
+3. Your cluster's Istio Egress gateway must [allow http / https traffic](https://istio.io/latest/docs/tasks/traffic-management/egress/egress-gateway/)
 
 ## Create HTTP/HTTPS header Secret and attach to Service account
 If you do not require headers in your HTTP/HTTPS service request then you can skip this step.

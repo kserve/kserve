@@ -627,7 +627,7 @@ class V1beta1PodSpec(object):
     def overhead(self):
         """Gets the overhead of this V1beta1PodSpec.  # noqa: E501
 
-        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://git.k8s.io/enhancements/keps/sig-node/20190226-pod-overhead.md This field is alpha-level as of Kubernetes v1.16, and is only honored by servers that enable the PodOverhead feature.  # noqa: E501
+        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/688-pod-overhead This field is alpha-level as of Kubernetes v1.16, and is only honored by servers that enable the PodOverhead feature.  # noqa: E501
 
         :return: The overhead of this V1beta1PodSpec.  # noqa: E501
         :rtype: dict(str, ResourceQuantity)
@@ -638,7 +638,7 @@ class V1beta1PodSpec(object):
     def overhead(self, overhead):
         """Sets the overhead of this V1beta1PodSpec.
 
-        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://git.k8s.io/enhancements/keps/sig-node/20190226-pod-overhead.md This field is alpha-level as of Kubernetes v1.16, and is only honored by servers that enable the PodOverhead feature.  # noqa: E501
+        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/688-pod-overhead This field is alpha-level as of Kubernetes v1.16, and is only honored by servers that enable the PodOverhead feature.  # noqa: E501
 
         :param overhead: The overhead of this V1beta1PodSpec.  # noqa: E501
         :type: dict(str, ResourceQuantity)
@@ -719,7 +719,7 @@ class V1beta1PodSpec(object):
     def readiness_gates(self):
         """Gets the readiness_gates of this V1beta1PodSpec.  # noqa: E501
 
-        If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/0007-pod-ready%2B%2B.md  # noqa: E501
+        If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/580-pod-readiness-gates  # noqa: E501
 
         :return: The readiness_gates of this V1beta1PodSpec.  # noqa: E501
         :rtype: list[V1PodReadinessGate]
@@ -730,7 +730,7 @@ class V1beta1PodSpec(object):
     def readiness_gates(self, readiness_gates):
         """Sets the readiness_gates of this V1beta1PodSpec.
 
-        If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/0007-pod-ready%2B%2B.md  # noqa: E501
+        If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/580-pod-readiness-gates  # noqa: E501
 
         :param readiness_gates: The readiness_gates of this V1beta1PodSpec.  # noqa: E501
         :type: list[V1PodReadinessGate]
@@ -765,7 +765,7 @@ class V1beta1PodSpec(object):
     def runtime_class_name(self):
         """Gets the runtime_class_name of this V1beta1PodSpec.  # noqa: E501
 
-        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/runtime-class.md This is a beta feature as of Kubernetes v1.14.  # noqa: E501
+        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/585-runtime-class This is a beta feature as of Kubernetes v1.14.  # noqa: E501
 
         :return: The runtime_class_name of this V1beta1PodSpec.  # noqa: E501
         :rtype: str
@@ -776,7 +776,7 @@ class V1beta1PodSpec(object):
     def runtime_class_name(self, runtime_class_name):
         """Sets the runtime_class_name of this V1beta1PodSpec.
 
-        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/runtime-class.md This is a beta feature as of Kubernetes v1.14.  # noqa: E501
+        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/585-runtime-class This is a beta feature as of Kubernetes v1.14.  # noqa: E501
 
         :param runtime_class_name: The runtime_class_name of this V1beta1PodSpec.  # noqa: E501
         :type: str

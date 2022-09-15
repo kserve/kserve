@@ -100,7 +100,7 @@ Expected Output
 
 ## Run LightGBM InferenceService with your own image
 Since the KServe LightGBM image is built from a specific version of `lightgbm` pip package, sometimes it might not be compatible with the pickled model
-you saved from your training environment, however you can build your own lgbserver image following [this instruction](../../../python/lgbserver/README.md#building-your-own-ligthgbm-server-docker-image).
+you saved from your training environment, however you can build your own lgbserver image following [this instruction](/python/lgbserver/README.md#building-your-own-ligthgbm-server-docker-image).
 
 To use your lgbserver image:
 - Add the image to the KServe [configmap](../../../../config/configmap/inferenceservice.yaml)
