@@ -3,7 +3,7 @@
 This guide demonstrates how to serve a scikit-learn based iris classifier model with BentoML
 and deploying the BentoML model server with KFServing. The same deployment
 steps are also applicable for models trained with other machine learning frameworks, see
-more BentoML examples [here](https://docs.bentoml.org/en/latest/examples.html).
+more BentoML examples [here](https://github.com/bentoml/BentoML/tree/main/examples).
 
 [BentoML](https://bentoml.org) is an open-source platform for high-performance ML model
 serving. It makes building production API endpoint for your ML model easy and supports all
