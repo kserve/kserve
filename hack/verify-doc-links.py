@@ -36,36 +36,36 @@ BRANCH = "master"
 # glob expressions to find markdown files in project
 md_file_path_expressions = [
     "/**/*.md",
+    "/.github/**/*.md",
 ]
 
 # don't process .md files in excluded folders
 excluded_paths = [
-    "node_modules",
-    "temp",
+    "/node_modules/",
+    "/temp/",
+    "/.venv/",
 ]
 
-# don't analyze URLs that are not actual links like in the style guide or
-# any <host>:<port> style URLs are assumed to be meant as examples only
-url_excludes = [
-    ".svc.cluster.local",
-    "127.0.0",
+# don't analyze URLs with variables to be replaced by the user
+url_excludes = ["<", ">", "$", "{", "}"]
+
+# also exclude non-public or local URLs in a <host>:<port> style
+url_excludes.extend([
+    "0.0.0.0",
     ":80",
     ":90",
     ":port",
-    "CLUSTER_IP",
-    "CONTAINER",
-    "INGRESS_HOST",
-    "INGRESS_PORT",
-    "MODEL_NAME",
-    "PATH",
-    "STORAGE_ACCOUNT_NAME",
-    "example",
+    ":predict",
+    ".default",
+    "blob.core.windows.net",
+    "customdomain.com",
+    "example.com",
     "localhost",
     "somecluster",
     "sslip.io",
+    "svc.cluster.local",
     "xip.io",
-    "your-domain",
-]
+])
 
 # GitHub rate-limiting is 60 requests per minute, then we sleep a bit
 parallel_requests = 60  # use no more than 60 parallel requests
@@ -118,17 +118,21 @@ def get_links_from_md_file(md_file_path: str) -> [(int, str, str)]:  # -> [(line
     line_text_url = []
     for line_number, line_text in enumerate(md_file_content.splitlines()):
 
+        all_urls_in_this_line = set()
+
         # find markdown-styled links [text](url)
-        for (link_text, url) in re.findall(r"\[([^]]+)\]\((%s[^)]+)\)" % "http", line_text):
+        for (link_text, url) in re.findall(r"\[([^][]+)\]\((%s[^)]+)\)" % "http", line_text):
             if not any(s in url for s in url_excludes):
                 line_text_url.append((line_number + 1, link_text, url))
+                all_urls_in_this_line.add(url)
 
         # find plain http(s)-style links
-        for url in re.findall(r"[\n\r\s\"'](https?://[^\s]+)[\n\r\s\"']", line_text):
-            if not any(s in url for s in url_excludes):
+        for url in re.findall(r"https?://[a-zA-Z0-9./?=_&%${}<>:-]+", line_text):
+            if url not in all_urls_in_this_line\
+                    and not any(s in url for s in url_excludes):
                 try:
                     urlparse(url)
-                    line_text_url.append((line_number + 1, "", url.strip('"').strip("'")))
+                    line_text_url.append((line_number + 1, "", url.strip(".")))
                 except URLError:
                     pass
 
@@ -169,6 +173,10 @@ def test_url(file: str, line: int, text: str, url: str) -> (str, int, str, str, 
 
         if status in [444, 555]:  # other URLError or Exception, retry with longer timeout
             status = request_url(short_url, method="GET", timeout=15)
+
+        # if we keep getting the same error, mark it as 404 to be reported at the end
+        if status in [444, 555]:
+            status = 404
 
         url_status_cache[short_url] = status
 
