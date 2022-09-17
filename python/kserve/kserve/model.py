@@ -181,8 +181,12 @@ class Model:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
-        if headers is None:
-            headers = {'Content-Type': 'application/json'}
+
+        # Adjusting headers. Inject content type if not exist.
+        # Also, removing host, as the header is the one passed to transformer and contains transformer's host
+        if not ('Content-Type' in headers):
+            headers['Content-Type'] = 'application/json'
+        headers.pop("Host", None)
         response = await self._http_client.fetch(
             predict_url,
             method='POST',
