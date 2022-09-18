@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib
-import os
-import sys
-from typing import Dict
-
-import torch
-
 import kserve
+import os
+from typing import Dict
+import torch
+import importlib
+import sys
 
 PYTORCH_FILE = "model.pt"
 

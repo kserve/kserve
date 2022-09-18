@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
-import io
+import kserve
+from torchvision import models, transforms
 from typing import Dict
-
 import torch
 from PIL import Image
+import base64
+import io
 from ray import serve
-from torchvision import models, transforms
-
-import kserve
 
 
 # the model handle name should match the model endpoint name

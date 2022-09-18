@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-import pathlib
-from typing import Dict
-
-import joblib
 
 import kserve
+import joblib
+import pathlib
+from typing import Dict
 from kserve.model import ModelMissingError, InferenceError
 
 MODEL_EXTENSIONS = (".joblib", ".pkl", ".pickle")

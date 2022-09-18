@@ -11,16 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import kserve
 import logging
-from typing import Callable, List, Optional, Dict
-
-import alibi
 import numpy as np
+import alibi
 from alibi.api.interfaces import Explanation
 from alibi.utils.wrappers import ArgmaxTransformer
-
-import kserve
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
+from typing import Callable, List, Optional, Dict
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 

@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
-import io
+import kserve
+from torchvision import models, transforms
 from typing import Dict
-
 import torch
 from PIL import Image
-from torchvision import models, transforms
-
-import kserve
+import base64
+import io
 
 
 class AlexNetModel(kserve.Model):

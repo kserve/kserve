@@ -15,13 +15,11 @@
 import os
 from typing import Dict
 
+import kserve
 from jpmml_evaluator import make_evaluator
 from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
 
-import kserve
 from kserve.model import ModelMissingError
-
-MODEL_BASENAME = "model"
 
 MODEL_EXTENSIONS = ('.pmml')
 

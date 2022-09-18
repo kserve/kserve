@@ -11,15 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import asyncio
-import logging
 from typing import Dict
 
+import asyncio
+import logging
+import kserve
 import numpy as np
 from aix360.algorithms.lime import LimeImageExplainer
 from lime.wrappers.scikit_image import SegmentationAlgorithm
-
-import kserve
 
 
 class AIXModel(kserve.Model):  # pylint:disable=c-extension-no-member

@@ -12,22 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict, Union
+import sys
 import inspect
 import json
-import logging
-import sys
-from enum import Enum
-from http import HTTPStatus
-from typing import Dict, Union
-
-import grpc
 import tornado.web
-from cloudevents.http import CloudEvent
 from tornado.httpclient import AsyncHTTPClient
+from cloudevents.http import CloudEvent
+from http import HTTPStatus
+from enum import Enum
+from kserve.utils.utils import is_structured_cloudevent
+import grpc
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 
-from kserve.utils.utils import is_structured_cloudevent
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -185,8 +183,6 @@ class Model:
 
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
-        logging.info(f"request url {predict_url}")
-        logging.info(f"headers in http predict {headers}")
         if headers is None:
             headers = {}
         if not ('Content-Type' in headers):

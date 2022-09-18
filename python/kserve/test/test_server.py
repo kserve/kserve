@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import io
 import json
 import os
 import re
@@ -20,16 +19,17 @@ from unittest import mock
 
 import avro.io
 import avro.schema
+import io
 import pytest
 from cloudevents.http import CloudEvent, to_binary, to_structured
-from ray import serve
+from kserve import Model
+from kserve import ModelServer
+from kserve import ModelRepository
+from kserve.model import PredictorProtocol
 from tornado.httpclient import HTTPClientError
 from tornado.web import HTTPError
+from ray import serve
 
-from kserve import Model
-from kserve import ModelRepository
-from kserve import ModelServer
-from kserve.model import PredictorProtocol
 
 test_avsc_schema = '''
         {
