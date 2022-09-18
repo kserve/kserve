@@ -14,6 +14,7 @@
 
 import inspect
 import json
+import logging
 import sys
 from enum import Enum
 from http import HTTPStatus
@@ -137,7 +138,7 @@ class Model:
         The preprocess handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
-        :param headers: Dict|ModelInferRequest headers
+        :param headers: Dict
         :param payload: Dict|CloudEvent|ModelInferRequest body
         :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
@@ -184,6 +185,10 @@ class Model:
 
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
+        logging.info(f"request url {predict_url}")
+        logging.info(f"headers in http predict {headers}")
+        if headers is None:
+            headers = {}
         if not ('Content-Type' in headers):
             headers['Content-Type'] = 'application/json'
         headers.pop("Host", None)
@@ -209,8 +214,8 @@ class Model:
         """
         The predict handler can be overridden to implement the model inference.
         The default implementation makes a call to the predictor if predictor_host is specified
-        :param headers: Dict|ModelInferenceRequest headers
         :param payload: Dict|ModelInferRequest body passed from preprocess handler
+        :param headers: Dict
         :return: Dict|ModelInferResponse
         """
         if not self.predictor_host:
@@ -224,8 +229,8 @@ class Model:
         """
         The explain handler can be overridden to implement the model explanation.
         The default implementation makes an call to the explainer if explainer_host is specified
-        :param headers: Dict|ModelInferRequest headers
         :param payload: Dict passed from preprocess handler
+        :param headers: Dict
         :return: Dict
         """
         if self.explainer_host is None:
