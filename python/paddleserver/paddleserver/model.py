@@ -58,8 +58,8 @@ class PaddleModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict) -> Dict:
-        instances = request["instances"]
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        instances = payload["instances"]
         try:
             inputs = np.array(instances, dtype='float32')
         except Exception as e:

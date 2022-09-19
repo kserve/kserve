@@ -38,12 +38,12 @@ class ExplainerMethod(Enum):
 
 class AlibiExplainer(kserve.Model):
     def __init__(  # pylint:disable=too-many-arguments
-        self,
-        name: str,
-        predictor_host: str,
-        method: ExplainerMethod,
-        config: Mapping,
-        explainer: object = None,
+            self,
+            name: str,
+            predictor_host: str,
+            method: ExplainerMethod,
+            config: Mapping,
+            explainer: object = None,
     ):
         super().__init__(name)
         self.predictor_host = predictor_host
@@ -75,13 +75,13 @@ class AlibiExplainer(kserve.Model):
         resp = loop.run_until_complete(self.predict({"instances": instances}))
         return np.array(resp["predictions"])
 
-    def explain(self, request: Dict) -> Any:
+    def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Any:
         if (
-            self.method is ExplainerMethod.anchor_tabular
-            or self.method is ExplainerMethod.anchor_images
-            or self.method is ExplainerMethod.anchor_text
+                self.method is ExplainerMethod.anchor_tabular
+                or self.method is ExplainerMethod.anchor_images
+                or self.method is ExplainerMethod.anchor_text
         ):
-            explanation = self.wrapper.explain(request["instances"])
+            explanation = self.wrapper.explain(payload["instances"])
             explanationAsJsonStr = explanation.to_json()
             logging.info("Explanation: %s", explanationAsJsonStr)
             return json.loads(explanationAsJsonStr)

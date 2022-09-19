@@ -14,6 +14,7 @@
 import json
 import os
 import re
+from typing import Dict
 from unittest import mock
 
 import avro.io
@@ -71,10 +72,10 @@ class DummyModel(Model):
     def load(self):
         self.ready = True
 
-    async def predict(self, request):
+    async def predict(self, request, headers=None):
         return {"predictions": request["instances"]}
 
-    async def explain(self, request):
+    async def explain(self, request, headers=None):
         return {"predictions": request["instances"]}
 
 
@@ -88,10 +89,10 @@ class DummyServeModel(Model):
     def load(self):
         self.ready = True
 
-    async def predict(self, request):
+    async def predict(self, request, headers=None):
         return {"predictions": request["instances"]}
 
-    async def explain(self, request):
+    async def explain(self, request, headers=None):
         return {"predictions": request["instances"]}
 
 
@@ -104,10 +105,10 @@ class DummyCEModel(Model):
     def load(self):
         self.ready = True
 
-    async def predict(self, request):
+    async def predict(self, request, headers=None):
         return {"predictions": request["instances"]}
 
-    async def explain(self, request):
+    async def explain(self, request, headers=None):
         return {"predictions": request["instances"]}
 
 
@@ -129,7 +130,7 @@ class DummyAvroCEModel(Model):
         record1 = reader.read(decoder)
         return record1
 
-    def preprocess(self, request):
+    def preprocess(self, request, headers: Dict[str, str] = None):
         if isinstance(request, CloudEvent):
             attributes = request._attributes
             assert attributes["specversion"] == "1.0"
@@ -139,10 +140,10 @@ class DummyAvroCEModel(Model):
             assert attributes["content-type"] == "application/json"
             return self._parserequest(request.data)
 
-    async def predict(self, request):
+    async def predict(self, request, headers=None):
         return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
 
-    async def explain(self, request):
+    async def explain(self, request, headers=None):
         return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
 
 

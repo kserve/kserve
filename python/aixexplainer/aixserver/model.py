@@ -48,23 +48,23 @@ class AIXModel(kserve.Model):  # pylint:disable=c-extension-no-member
         resp = loop.run_until_complete(self.predict(scoring_data))
         return np.array(resp["predictions"])
 
-    def explain(self, request: Dict) -> Dict:
-        instances = request["instances"]
+    def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        instances = payload["instances"]
         try:
-            top_labels = (int(request["top_labels"])
-                          if "top_labels" in request else
+            top_labels = (int(payload["top_labels"])
+                          if "top_labels" in payload else
                           self.top_labels)
-            segmentation_alg = (request["segmentation_alg"]
-                                if "segmentation_alg" in request else
+            segmentation_alg = (payload["segmentation_alg"]
+                                if "segmentation_alg" in payload else
                                 self.segmentation_alg)
-            num_samples = (int(request["num_samples"])
-                           if "num_samples" in request else
+            num_samples = (int(payload["num_samples"])
+                           if "num_samples" in payload else
                            self.num_samples)
-            positive_only = ((request["positive_only"].lower() == "true") | (request["positive_only"].lower() == "t")
-                             if "positive_only" in request else
+            positive_only = ((payload["positive_only"].lower() == "true") | (payload["positive_only"].lower() == "t")
+                             if "positive_only" in payload else
                              self.positive_only)
-            min_weight = (float(request['min_weight'])
-                          if "min_weight" in request else
+            min_weight = (float(payload['min_weight'])
+                          if "min_weight" in payload else
                           self.min_weight)
         except Exception as err:
             raise Exception("Failed to specify parameters: %s", (err,))
