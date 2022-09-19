@@ -33,8 +33,8 @@ class AlexNetModel(kserve.Model):
         self.model = model
         self.ready = True
 
-    def predict(self, request: Dict) -> Dict:
-        inputs = request["instances"]
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        inputs = payload["instances"]
 
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values

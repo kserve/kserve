@@ -2,7 +2,7 @@
 ## Setup
 1. Your `~/.kube/config` should point to a cluster with [KServe installed](https://github.com/kserve/kserve#installation).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
-3. Your cluster's Istio Egresss gateway must [allow accessing S3 Storage](https://knative.dev/docs/serving/outbound-network-access/)
+3. Your cluster's Istio Egresss gateway must [allow accessing S3 Storage](https://istio.io/latest/docs/tasks/traffic-management/egress/egress-control/)
 
 ## Create Common Storage Secret
 Create a common secret with your [storage credential](https://console.aws.amazon.com/iam/home#/users), `KServe` reads the secret key to inject

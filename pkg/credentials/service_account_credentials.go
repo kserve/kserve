@@ -46,6 +46,7 @@ const (
 	DefaultStorageSecretKey     = "default"
 	UnsupportedStorageSpecType  = "storage type must be one of [%s]. storage type [%s] is not supported"
 	MissingBucket               = "format [%s] requires a bucket but one wasn't found in storage data or parameters"
+	AwsIrsaAnnotationKey        = "eks.amazonaws.com/role-arn"
 )
 
 var (
@@ -194,6 +195,14 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		return nil
 	}
 
+	for annotationKey := range serviceAccount.Annotations {
+		if annotationKey == AwsIrsaAnnotationKey {
+			log.Info("AWS IAM Role annotation found, setting service account envs for s3", "ServiceAccountName", serviceAccountName)
+			envs := s3.BuildServiceAccountEnvs(serviceAccount, &c.config.S3)
+			container.Env = append(container.Env, envs...)
+		}
+	}
+
 	for _, secretRef := range serviceAccount.Secrets {
 		log.Info("found secret", "SecretName", secretRef.Name)
 		secret := &v1.Secret{}
@@ -206,7 +215,8 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		if _, ok := secret.Data[s3SecretAccessKeyName]; ok {
 			log.Info("Setting secret envs for s3", "S3Secret", secret.Name)
 			envs := s3.BuildSecretEnvs(secret, &c.config.S3)
-			container.Env = append(container.Env, envs...)
+			// Merge envs here to override values possibly present from IAM Role annotations with values from secret annotations
+			container.Env = utils.MergeEnvs(container.Env, envs)
 		} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
 			log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
 			volume, volumeMount := gcs.BuildSecretVolume(secret)

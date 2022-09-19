@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kserve/kserve/tools/tf2openapi/types"
@@ -15,18 +16,18 @@ const (
 	pathTemplate        = "/v1/models/%s/versions/%s:predict"
 )
 
-func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagger, error) {
+func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.T, error) {
 	requestSchema, responseSchema, err := model.Schema(g.metaGraphTags, g.sigDefKey)
 	if err != nil {
-		return &openapi3.Swagger{}, err
+		return &openapi3.T{}, err
 	}
-	return &openapi3.Swagger{
+	return &openapi3.T{
 		OpenAPI: "3.0.0",
 		Components: openapi3.Components{
 			Responses: map[string]*openapi3.ResponseRef{
 				responseName: {
 					Value: &openapi3.Response{
-						Description: "Model output",
+						Description: proto.String("Model output"),
 						Content:     openapi3.NewContentWithJSONSchema(responseSchema),
 					},
 				},
@@ -54,7 +55,7 @@ func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagge
 				},
 			},
 		},
-		Info: openapi3.Info{
+		Info: &openapi3.Info{
 			Title:   "TFServing Predict Request API",
 			Version: "1.0",
 		},

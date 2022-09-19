@@ -64,6 +64,7 @@ class V1beta1CustomPredictor(object):
         'init_containers': 'list[V1Container]',
         'node_name': 'str',
         'node_selector': 'dict(str, str)',
+        'os': 'V1PodOS',
         'overhead': 'dict(str, ResourceQuantity)',
         'preemption_policy': 'str',
         'priority': 'int',
@@ -102,6 +103,7 @@ class V1beta1CustomPredictor(object):
         'init_containers': 'initContainers',
         'node_name': 'nodeName',
         'node_selector': 'nodeSelector',
+        'os': 'os',
         'overhead': 'overhead',
         'preemption_policy': 'preemptionPolicy',
         'priority': 'priority',
@@ -122,7 +124,7 @@ class V1beta1CustomPredictor(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1CustomPredictor - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -145,6 +147,7 @@ class V1beta1CustomPredictor(object):
         self._init_containers = None
         self._node_name = None
         self._node_selector = None
+        self._os = None
         self._overhead = None
         self._preemption_policy = None
         self._priority = None
@@ -198,6 +201,8 @@ class V1beta1CustomPredictor(object):
             self.node_name = node_name
         if node_selector is not None:
             self.node_selector = node_selector
+        if os is not None:
+            self.os = os
         if overhead is not None:
             self.overhead = overhead
         if preemption_policy is not None:
@@ -398,7 +403,7 @@ class V1beta1CustomPredictor(object):
     def ephemeral_containers(self):
         """Gets the ephemeral_containers of this V1beta1CustomPredictor.  # noqa: E501
 
-        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource. This field is alpha-level and is only honored by servers that enable the EphemeralContainers feature.  # noqa: E501
+        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource. This field is beta-level and available on clusters that haven't disabled the EphemeralContainers feature gate.  # noqa: E501
 
         :return: The ephemeral_containers of this V1beta1CustomPredictor.  # noqa: E501
         :rtype: list[V1EphemeralContainer]
@@ -409,7 +414,7 @@ class V1beta1CustomPredictor(object):
     def ephemeral_containers(self, ephemeral_containers):
         """Sets the ephemeral_containers of this V1beta1CustomPredictor.
 
-        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource. This field is alpha-level and is only honored by servers that enable the EphemeralContainers feature.  # noqa: E501
+        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource. This field is beta-level and available on clusters that haven't disabled the EphemeralContainers feature gate.  # noqa: E501
 
         :param ephemeral_containers: The ephemeral_containers of this V1beta1CustomPredictor.  # noqa: E501
         :type: list[V1EphemeralContainer]
@@ -623,6 +628,27 @@ class V1beta1CustomPredictor(object):
         """
 
         self._node_selector = node_selector
+
+    @property
+    def os(self):
+        """Gets the os of this V1beta1CustomPredictor.  # noqa: E501
+
+
+        :return: The os of this V1beta1CustomPredictor.  # noqa: E501
+        :rtype: V1PodOS
+        """
+        return self._os
+
+    @os.setter
+    def os(self, os):
+        """Sets the os of this V1beta1CustomPredictor.
+
+
+        :param os: The os of this V1beta1CustomPredictor.  # noqa: E501
+        :type: V1PodOS
+        """
+
+        self._os = os
 
     @property
     def overhead(self):

@@ -47,6 +47,7 @@ class V1beta1IngressConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'disable_istio_virtual_host': 'bool',
         'domain_template': 'str',
         'ingress_class_name': 'str',
         'ingress_domain': 'str',
@@ -58,6 +59,7 @@ class V1beta1IngressConfig(object):
     }
 
     attribute_map = {
+        'disable_istio_virtual_host': 'disableIstioVirtualHost',
         'domain_template': 'domainTemplate',
         'ingress_class_name': 'ingressClassName',
         'ingress_domain': 'ingressDomain',
@@ -68,12 +70,13 @@ class V1beta1IngressConfig(object):
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, disable_istio_virtual_host=None, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._disable_istio_virtual_host = None
         self._domain_template = None
         self._ingress_class_name = None
         self._ingress_domain = None
@@ -84,6 +87,8 @@ class V1beta1IngressConfig(object):
         self._url_scheme = None
         self.discriminator = None
 
+        if disable_istio_virtual_host is not None:
+            self.disable_istio_virtual_host = disable_istio_virtual_host
         if domain_template is not None:
             self.domain_template = domain_template
         if ingress_class_name is not None:
@@ -100,6 +105,27 @@ class V1beta1IngressConfig(object):
             self.local_gateway_service = local_gateway_service
         if url_scheme is not None:
             self.url_scheme = url_scheme
+
+    @property
+    def disable_istio_virtual_host(self):
+        """Gets the disable_istio_virtual_host of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The disable_istio_virtual_host of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._disable_istio_virtual_host
+
+    @disable_istio_virtual_host.setter
+    def disable_istio_virtual_host(self, disable_istio_virtual_host):
+        """Sets the disable_istio_virtual_host of this V1beta1IngressConfig.
+
+
+        :param disable_istio_virtual_host: The disable_istio_virtual_host of this V1beta1IngressConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._disable_istio_virtual_host = disable_istio_virtual_host
 
     @property
     def domain_template(self):

@@ -31,7 +31,7 @@ dump(clf, 'model.joblib')
 Once we've got our model serialised `model.joblib`, we can then use
 [MLServer](https://github.com/SeldonIO/MLServer) to spin up a local server.
 For more details on MLServer, feel free to check the [SKLearn example in their
-docs](https://github.com/SeldonIO/MLServer/tree/master/examples/sklearn).
+docs](https://github.com/SeldonIO/MLServer/tree/master/docs/examples/sklearn).
 
 > Note that this step is optional and just meant for testing.
 > Feel free to jump straight to [deploying your trained model](#deployment).
@@ -71,7 +71,7 @@ further configuration.
 However, you can still override these defaults by providing a
 `model-settings.json` file similar to your local one.
 You can even provide a [set of `model-settings.json` files to load multiple
-models](https://github.com/SeldonIO/MLServer/tree/master/examples/mms).
+models](https://github.com/SeldonIO/MLServer/tree/master/docs/examples/mms).
 
 ### Serving our model locally
 

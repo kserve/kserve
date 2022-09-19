@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,9 +38,16 @@ var configMap = &v1.ConfigMap{
 			"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
 			"s3" : {
 				"s3AccessKeyIDName": "awsAccessKeyID",
-				"s3SecretAccessKeyName": "awsSecretAccessKey"
+				"s3SecretAccessKeyName": "awsSecretAccessKey",
+				"s3Endpoint": "s3.amazonaws.com",
+				"s3UseHttps": "1",
+				"s3Region": "us-east-2",
+				"s3VerifySSL": "1",
+				"s3UseVirtualBucket": "",
+				"s3UseAnonymousCredential": "false",
+				"s3CABundle": ""
 			}
-	    }`,
+		}`,
 	},
 }
 
@@ -130,6 +137,18 @@ func TestS3CredentialBuilder(t *testing.T) {
 												Name:  s3.AWSEndpointUrl,
 												Value: "https://s3.aws.com",
 											},
+											{
+												Name:  s3.S3VerifySSL,
+												Value: "1",
+											},
+											{
+												Name:  s3.AWSAnonymousCredential,
+												Value: "false",
+											},
+											{
+												Name:  s3.AWSRegion,
+												Value: "us-east-2",
+											},
 										},
 									},
 								},
@@ -165,6 +184,105 @@ func TestS3CredentialBuilder(t *testing.T) {
 		}
 		g.Expect(c.Delete(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Delete(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+
+	}
+}
+
+func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingServiceAccount := &v1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: "default",
+			Annotations: map[string]string{
+				s3.InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+				s3.InferenceServiceS3UseAnonymousCredential:   "true",
+				AwsIrsaAnnotationKey:                          "arn:aws:iam::123456789012:role/s3access",
+			},
+		},
+	}
+	scenarios := map[string]struct {
+		serviceAccount        *v1.ServiceAccount
+		inputConfiguration    *knservingv1.Configuration
+		expectedConfiguration *knservingv1.Configuration
+		shouldFail            bool
+	}{
+		"Build s3 service account envs": {
+			serviceAccount: existingServiceAccount,
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Env: []v1.EnvVar{
+											{
+												Name:  s3.S3Endpoint,
+												Value: "s3.aws.com",
+											},
+											{
+												Name:  s3.AWSEndpointUrl,
+												Value: "https://s3.aws.com",
+											},
+											{
+												Name:  s3.S3VerifySSL,
+												Value: "1",
+											},
+											{
+												Name:  s3.AWSAnonymousCredential,
+												Value: "true",
+											},
+											{
+												Name:  s3.AWSRegion,
+												Value: "us-east-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
+	}
+
+	builder := NewCredentialBulder(c, configMap)
+	for name, scenario := range scenarios {
+		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
+			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+		)
+		if scenario.shouldFail && err == nil {
+			t.Errorf("Test %q failed: returned success but expected error", name)
+		}
+		// Validate
+		if !scenario.shouldFail {
+			if err != nil {
+				t.Errorf("Test %q failed: returned error: %v", name, err)
+			}
+			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
+			}
+		}
+		g.Expect(c.Delete(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	}
 }

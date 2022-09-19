@@ -18,17 +18,17 @@ import alibi
 from alibi.api.interfaces import Explanation
 from alibi.utils.wrappers import ArgmaxTransformer
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Dict
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
 class AnchorTabular(ExplainerWrapper):
     def __init__(
-        self,
-        predict_fn: Callable,
-        explainer=Optional[alibi.explainers.AnchorTabular],
-        **kwargs
+            self,
+            predict_fn: Callable,
+            explainer=Optional[alibi.explainers.AnchorTabular],
+            **kwargs
     ):
         if explainer is None:
             raise Exception("Anchor images requires a built explainer")
@@ -37,7 +37,7 @@ class AnchorTabular(ExplainerWrapper):
         self.anchors_tabular = explainer
         self.kwargs = kwargs
 
-    def explain(self, inputs: List) -> Explanation:
+    def explain(self, inputs: List, headers: Dict[str, str] = None) -> Explanation:
         arr = np.array(inputs)
         # set anchor_tabular predict function so it always returns predicted class
         # See anchor_tabular.__init__

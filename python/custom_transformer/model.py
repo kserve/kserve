@@ -51,18 +51,18 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.ready = True
 
-    def preprocess(self, request: Dict) -> ModelInferRequest:
+    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> ModelInferRequest:
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-        input_tensors = [image_transform(instance) for instance in request["instances"]]
+        input_tensors = [image_transform(instance) for instance in payload["instances"]]
 
         # Transform to KServe v1/v2 inference protocol
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             return self.v2_request_transform(numpy.asarray(input_tensors))
         else:
             inputs = [{"data": input_tensor.tolist()} for input_tensor in input_tensors]
-            request = {"instances": inputs}
-            return request
+            payload = {"instances": inputs}
+            return payload
 
     def v2_request_transform(self, input_tensors):
         request = ModelInferRequest()

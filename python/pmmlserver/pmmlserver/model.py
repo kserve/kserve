@@ -56,8 +56,8 @@ class PmmlModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict) -> Dict:
-        instances = request["instances"]
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        instances = payload["instances"]
         try:
             result = [self.evaluator.evaluate(dict(zip(self.input_fields, instance))) for instance in instances]
             return {"predictions": result}

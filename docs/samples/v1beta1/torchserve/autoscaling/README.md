@@ -2,7 +2,7 @@
 KServe supports the implementation of Knative Pod Autoscaler (KPA) and Kubernetes’ Horizontal Pod Autoscaler (HPA).
 The features and limitations of each of these Autoscalers are listed below.
 
-IMPORTANT: If you want to use Kubernetes Horizontal Pod Autoscaler (HPA), you must install [HPA extension](https://knative.dev/docs/install/any-kubernetes-cluster/#optional-serving-extensions)
+IMPORTANT: If you want to use Kubernetes Horizontal Pod Autoscaler (HPA), you must install [HPA extension](https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/#install-optional-serving-extensions)
  after you install Knative Serving.
 
 Knative Pod Autoscaler (KPA)
@@ -66,7 +66,7 @@ $inferenceservice.serving.kserve.io/torchserve created
 
 ## Run inference with concurrent requests
 
-The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/master/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 Install hey load generator 
 ```bash

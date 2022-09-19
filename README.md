@@ -45,7 +45,7 @@ KServe is an important addon component of Kubeflow, please learn more from the [
 
 ### :bulb: [Roadmap](./ROADMAP.md)
 
-### :blue_book: [InferenceService API Reference](https://kserve.github.io/website/master/reference/api)
+### :blue_book: [InferenceService API Reference](https://kserve.github.io/website/master/reference/api/)
 
 ### :toolbox: [Developer Guide](https://kserve.github.io/website/master/developer/developer/)
 

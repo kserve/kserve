@@ -46,7 +46,7 @@ Let's apply this YAML:
 kubectl create -f sklearn-logging.yaml
 ```
 
-We can now send a request to the sklearn model. Check the README [here](https://kserve.github.io/website/get_started/first_isvc/#3-determine-the-ingress-ip-and-ports)
+We can now send a request to the sklearn model. Check the README [here](https://kserve.github.io/website/master/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports)
 to learn how to determine the INGRESS_HOST and INGRESS_PORT used in curling the InferenceService.
 
 ```

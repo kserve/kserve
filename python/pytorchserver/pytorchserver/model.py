@@ -60,15 +60,15 @@ class PyTorchModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict) -> Dict:
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         inputs = []
         with torch.no_grad():
             try:
-                inputs = torch.tensor(request["instances"]).to(self.device)
+                inputs = torch.tensor(payload["instances"]).to(self.device)
             except Exception as e:
                 raise TypeError(
                     "Failed to initialize Torch Tensor from inputs: %s, %s" % (e, inputs))
             try:
-                return {"predictions":  self.model(inputs).tolist()}
+                return {"predictions": self.model(inputs).tolist()}
             except Exception as e:
                 raise Exception("Failed to predict %s" % e)
