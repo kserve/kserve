@@ -136,8 +136,8 @@ class Model:
         The preprocess handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
-        :param headers: Dict
         :param payload: Dict|CloudEvent|ModelInferRequest body
+        :param headers: Dict
         :return: Transformed Dict|ModelInferRequest which passes to predict handler
         """
         response = payload
@@ -183,16 +183,18 @@ class Model:
 
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
-        if headers is None:
-            headers = {}
-        if not ('Content-Type' in headers):
-            headers['Content-Type'] = 'application/json'
-        headers.pop("Host", None)
+        predict_headers = {'Content-Type': 'application/json'}
+        if headers is not None:
+            if 'X-Request-Id' in headers:
+                predict_headers['X-Request-Id'] = headers['X-Request-Id']
+            if 'X-B3-Traceid' in headers:
+                predict_headers['X-B3-Traceid'] = headers['X-B3-Traceid']
+
         response = await self._http_client.fetch(
             predict_url,
             method='POST',
             request_timeout=self.timeout,
-            headers=headers,
+            headers=predict_headers,
             body=json.dumps(payload)
         )
         if response.code != 200:
