@@ -2,7 +2,7 @@
 
 This example uses a [movie sentiment dataset](http://www.cs.cornell.edu/people/pabo/movie-review-data/).
 
-For a more visual rethrough please try the [Jupyter notebook](movie_review_explanations.ipynb).
+For a more visual run-through please try the [Jupyter notebook](movie_review_explanations.ipynb).
 
 We can create a InferenceService with a trained sklearn predictor for this dataset and an associated explainer. The black box explainer algorithm we will use is the Text version of Anchors from the [Alibi open source library](https://github.com/SeldonIO/alibi). More details on this algorithm and configuration settings that can be set can be found in the [Seldon Alibi documentation](https://docs.seldon.io/projects/alibi/en/stable/).
 

@@ -47,6 +47,7 @@ class V1beta1FailureInfo(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'exit_code': 'int',
         'location': 'str',
         'message': 'str',
         'model_revision_name': 'str',
@@ -55,6 +56,7 @@ class V1beta1FailureInfo(object):
     }
 
     attribute_map = {
+        'exit_code': 'exitCode',
         'location': 'location',
         'message': 'message',
         'model_revision_name': 'modelRevisionName',
@@ -62,12 +64,13 @@ class V1beta1FailureInfo(object):
         'time': 'time'
     }
 
-    def __init__(self, location=None, message=None, model_revision_name=None, reason=None, time=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, exit_code=None, location=None, message=None, model_revision_name=None, reason=None, time=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1FailureInfo - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._exit_code = None
         self._location = None
         self._message = None
         self._model_revision_name = None
@@ -75,6 +78,8 @@ class V1beta1FailureInfo(object):
         self._time = None
         self.discriminator = None
 
+        if exit_code is not None:
+            self.exit_code = exit_code
         if location is not None:
             self.location = location
         if message is not None:
@@ -85,6 +90,29 @@ class V1beta1FailureInfo(object):
             self.reason = reason
         if time is not None:
             self.time = time
+
+    @property
+    def exit_code(self):
+        """Gets the exit_code of this V1beta1FailureInfo.  # noqa: E501
+
+        Exit status from the last termination of the container  # noqa: E501
+
+        :return: The exit_code of this V1beta1FailureInfo.  # noqa: E501
+        :rtype: int
+        """
+        return self._exit_code
+
+    @exit_code.setter
+    def exit_code(self, exit_code):
+        """Sets the exit_code of this V1beta1FailureInfo.
+
+        Exit status from the last termination of the container  # noqa: E501
+
+        :param exit_code: The exit_code of this V1beta1FailureInfo.  # noqa: E501
+        :type: int
+        """
+
+        self._exit_code = exit_code
 
     @property
     def location(self):

@@ -292,3 +292,7 @@ $(ENVTEST): $(LOCALBIN)
 apidocs:
 	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
 	docker run -it --rm -v $(CURDIR)/pkg/apis:/go/src/github.com/kserve/kserve/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen
+
+.PHONY: check-doc-links
+check-doc-links:
+	@python3 hack/verify-doc-links.py && echo "$@: OK"

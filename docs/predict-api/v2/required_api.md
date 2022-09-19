@@ -833,7 +833,7 @@ matches the tensor's data type.
 
 A platform is a string indicating a DL/ML framework or
 backend. Platform is returned as part of the response to a
-[Model Metadata](#model_metadata) request but is information only. The
+[Model Metadata](#model-metadata) request but is information only. The
 proposed inference APIs are generic relative to the DL/ML framework
 used by a model and so a client does not need to know the platform of
 a given model to use the API. Platform names use the format

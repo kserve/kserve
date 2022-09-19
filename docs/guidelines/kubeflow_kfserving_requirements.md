@@ -35,10 +35,10 @@ This document is intended to cover KFServing deployed in the Kubernetes cluster 
 | Description | Category | Explanation |
 |-------------|----------|-------------|
 | Version stability | Required  | <ul><li>No deprecative API changes </ul> |
-| Multi Version Support | Required  | <ul><li>Serves multiple versions of the [CR per K8s docs](https://kubernetes.io/docs/tasks/access-kubernetes-api/custom-resources/custom-resource-definition-versioning/#specify-multiple-versions) </ul> |
+| Multi Version Support | Required  | <ul><li>Serves multiple versions of the [CR per K8s docs](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/#specify-multiple-versions) </ul> |
 | Supports status subresource | Required  | <ul><li>Status subresource documented [here](https://kubernetes.io/docs/tasks/access-kubernetes-api/custom-resources/custom-resource-definitions/#status-subresource) </ul> |
 | CRD schema validation | Required  | <ul><li>Validation documented [here](https://kubernetes.io/docs/tasks/access-kubernetes-api/custom-resources/custom-resource-definitions/#validation) <li>Example: [TFJob](https://github.com/kubeflow/kubeflow/blob/v0.6.1/kubeflow/tf-training/tf-job-operator.libsonnet#L81) </ul> |
-| Training operators follow kubeflow/common conventions | Required  | <ul><li>Conventions defined [here](https://github.com/kubeflow/common/blob/master/job_controller/api/v1/types.go) <li>Examples: [TFJob](https://github.com/kubeflow/kubeflow/blob/v0.6.1/kubeflow/tf-training/tf-job-operator.libsonnet) and [PyTorchJob](https://github.com/kubeflow/kubeflow/blob/v0.6.1/kubeflow/pytorch-job/pytorch-operator.libsonnet) </ul> |
+| Training operators follow kubeflow/common conventions | Required  | <ul><li>Conventions defined [here](https://github.com/kubeflow/common/blob/master/pkg/apis/common/v1/types.go) <li>Examples: [TFJob](https://github.com/kubeflow/kubeflow/blob/v0.6.1/kubeflow/tf-training/tf-job-operator.libsonnet) and [PyTorchJob](https://github.com/kubeflow/kubeflow/blob/v0.6.1/kubeflow/pytorch-job/pytorch-operator.libsonnet) </ul> |
 
 ### Logging and monitoring
 
@@ -88,7 +88,7 @@ This document is intended to cover KFServing deployed in the Kubernetes cluster 
 ## Reference
 
 * TFJob and PyTorch 1.0 [exit criterion](http://bit.ly/operators-exit-criterion)
-* [CNCF Graduation Criteria](https://github.com/cncf/toc/blob/master/process/graduation_criteria.adoc)
+* [CNCF Graduation Criteria](https://github.com/cncf/toc/blob/main/process/graduation_criteria.md)
 * [Core Infrastructure Best Practices](https://github.com/coreinfrastructure/best-practices-badge)
 * [Kubeflow v1.0 Docs and Processes](https://docs.google.com/document/d/1v06QmjIms3z-uoW-waS7S9IzMA6n4CVrXOwQQ9N0do4)
 * [Application CR Issue](https://github.com/kubernetes-sigs/application/issues/6) related to dependencies and health monitoring 

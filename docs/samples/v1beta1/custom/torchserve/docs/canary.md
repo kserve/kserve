@@ -101,7 +101,7 @@ torchserve-custom-predictor-default-cj2d8-deployment-69444c9c74-vvpjl   2/2     
 
 ## Get Revisions
 
-Install [Knative CLI tool](https://knative.dev/docs/install/install-kn/)
+Install [Knative CLI tool](https://knative.dev/docs/client/install-kn/)
 
 ```bash
 kn revision list -n <namespace>

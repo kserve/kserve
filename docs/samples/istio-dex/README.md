@@ -2,7 +2,7 @@
 
 This example shows how to create a KFServing InferenceService as well as sending a prediction request to the InferenceService in an Istio-Dex environment.
 
-We will be using the [SKLearn example](../sklearn) to create our InferenceService.
+We will be using the [SKLearn example](/docs/samples/v1beta1/sklearn/v1) to create our InferenceService.
 
 ## Setup
 Deploy a Multi-user, auth-enabled Kubeflow from Kustomize manifests using [kftcl_istio_dex.yaml](https://raw.githubusercontent.com/kubeflow/manifests/v1.1-branch/kfdef/kfctl_istio_dex.yaml)
