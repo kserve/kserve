@@ -29,6 +29,9 @@ from kserve import Model
 from kserve.model_repository import ModelRepository
 from ray.serve.api import Deployment, RayServeHandle
 from ray import serve
+from tornado.web import RequestHandler
+from prometheus_client import REGISTRY
+from prometheus_client.exposition import choose_encoder
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -45,10 +48,21 @@ parser.add_argument('--workers', default=1, type=int,
                     help='The number of works to fork')
 parser.add_argument('--max_asyncio_workers', default=None, type=int,
                     help='Max number of asyncio workers to spawn')
+parser.add_argument(
+    "--enable_latency_logging", help="Output a log per request with latency metrics",
+    required=False, default=False
+)
 
 args, _ = parser.parse_known_args()
 
 tornado.log.enable_pretty_logging()
+
+
+class MetricsHandler(RequestHandler):
+    def get(self):
+        encoder, content_type = choose_encoder(self.request.headers.get('accept'))
+        self.set_header("Content-Type", content_type)
+        self.write(encoder(REGISTRY))
 
 
 class ModelServer:
@@ -57,7 +71,8 @@ class ModelServer:
                  max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers,
                  max_asyncio_workers: int = args.max_asyncio_workers,
-                 registered_models: ModelRepository = ModelRepository()):
+                 registered_models: ModelRepository = ModelRepository(),
+                 enable_latency_logging: bool = args.enable_latency_logging):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -65,9 +80,11 @@ class ModelServer:
         self.workers = workers
         self.max_asyncio_workers = max_asyncio_workers
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
+        self.enable_latency_logging = validate_enable_latency_logging(enable_latency_logging)
 
     def create_application(self):
         return tornado.web.Application([
+            (r"/metrics", MetricsHandler),
             # Server Liveness API returns 200 if server is alive.
             (r"/", handlers.LivenessHandler),
             (r"/v2/health/live", handlers.LivenessHandler),
@@ -99,6 +116,8 @@ class ModelServer:
             for model in models:
                 if isinstance(model, Model):
                     self.register_model(model)
+                    # pass whether to log request latency into the model
+                    model.enable_latency_logging = self.enable_latency_logging
                 else:
                     raise RuntimeError("Model type should be Model")
         elif isinstance(models, dict):
@@ -148,3 +167,14 @@ class ModelServer:
                 "Failed to register model, model.name must be provided.")
         self.registered_models.update(model)
         logging.info("Registering model: %s", model.name)
+
+
+def validate_enable_latency_logging(enable_latency_logging):
+    if isinstance(enable_latency_logging, str):
+        if enable_latency_logging.lower() == "true":
+            enable_latency_logging = True
+        elif enable_latency_logging.lower() == "false":
+            enable_latency_logging = False
+    if not isinstance(enable_latency_logging, bool):
+        raise TypeError(f"enable_latency_logging must be one of [True, true, False, false], got {enable_latency_logging} instead.")
+    return enable_latency_logging
