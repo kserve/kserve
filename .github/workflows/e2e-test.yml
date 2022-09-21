@@ -78,6 +78,10 @@ jobs:
         with:
           image: "kserve/image-transformer:${{ github.sha }}"
       
+      - name: Upload custom model grpc image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/custom-model-grpc:${{ github.sha }}"
   explainer-runtime-build:
     runs-on: ubuntu-latest
     steps:
@@ -135,6 +139,11 @@ jobs:
         with:
           image: "kserve/pmmlserver:${{ github.sha }}"  
       
+      - name: Download custom model grpc image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/custom-model-grpc:${{ github.sha }}"
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh

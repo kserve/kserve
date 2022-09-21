@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import argparse
+import asyncio
 import logging
 
 import kserve
@@ -38,4 +39,8 @@ if __name__ == "__main__":
         logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
                       f"trying loading from model repository.")
 
-    kserve.ModelServer(registered_models=SKLearnModelRepository(args.model_dir)).start([model] if model.ready else [])
+    asyncio.run(
+        kserve.ModelServer(
+            registered_models=SKLearnModelRepository(args.model_dir)
+        ).start([model] if model.ready else [])
+    )

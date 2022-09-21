@@ -27,9 +27,11 @@ from http import HTTPStatus
 from enum import Enum
 from kserve.utils.utils import is_structured_cloudevent
 import grpc
-from tritonclient.grpc import InferResult, service_pb2_grpc
-from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 from prometheus_client import Histogram
+from google.protobuf.json_format import MessageToJson
+from kserve.grpc import grpc_predict_v2_pb2_grpc
+from kserve.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
+                                             ModelInferResponse)
 
 tornado.log.enable_pretty_logging()
 
@@ -123,7 +125,7 @@ class Model:
 
         with POST_HIST_TIME.time():
             start = time.time()
-            response = self.postprocess(response)
+            response = self.postprocess(response, headers)
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
@@ -145,10 +147,12 @@ class Model:
             if ":" not in self.predictor_host:
                 self.predictor_host = self.predictor_host + ":80"
             _channel = grpc.aio.insecure_channel(self.predictor_host)
-            self._grpc_client_stub = service_pb2_grpc.GRPCInferenceServiceStub(_channel)
+            self._grpc_client_stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
         return self._grpc_client_stub
 
     def validate(self, payload):
+        if isinstance(payload, ModelInferRequest):
+            return payload
         if self.protocol == PredictorProtocol.REST_V2.value:
             if "inputs" in payload and not isinstance(payload["inputs"], list):
                 raise tornado.web.HTTPError(
@@ -172,8 +176,11 @@ class Model:
         self.ready = True
         return self.ready
 
-    async def preprocess(self, payload: Union[Dict, CloudEvent], headers: Dict[str, str] = None) -> Union[
-            Dict, ModelInferRequest]:
+    async def preprocess(
+        self,
+        payload: Union[Dict, CloudEvent, ModelInferRequest],
+        headers: Dict[str, str] = None
+    ) -> Union[Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
@@ -207,15 +214,21 @@ class Model:
 
         return response
 
-    def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
+    def postprocess(
+        self,
+        response: Union[Dict, ModelInferResponse],
+        headers: Dict[str, str] = None
+    ) -> Union[Dict, ModelInferResponse]:
         """
         The postprocess handler can be overridden for inference response transformation
         :param response: Dict|ModelInferResponse passed from predict handler
         :return: Dict
         """
+        if "grpc" in headers.get("user-agent", "") and isinstance(response, ModelInferResponse):
+            return response
         if isinstance(response, ModelInferResponse):
-            response = InferResult(response)
-            return response.get_response(as_json=True)
+            return json.loads(
+                MessageToJson(response, preserving_proto_field_name=True, including_default_value_fields=True))
         return response
 
     async def _http_predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
@@ -246,7 +259,11 @@ class Model:
         return json.loads(response.body)
 
     async def _grpc_predict(self, payload: ModelInferRequest, headers: Dict[str, str] = None) -> ModelInferResponse:
-        async_result = await self._grpc_client.ModelInfer(request=payload, timeout=self.timeout, headers=headers)
+        async_result = await self._grpc_client.ModelInfer(
+            request=payload,
+            timeout=self.timeout,
+            metadata=(('request_type', 'grpc_v2'), ('response_type', 'grpc_v2'))
+        )
         return async_result
 
     async def predict(self, payload: Union[Dict, ModelInferRequest],
@@ -289,3 +306,12 @@ class Model:
                 status_code=response.code,
                 reason=response.body)
         return json.loads(response.body)
+
+    async def metadata(self):
+        return {
+            "name": self.name,
+            "versions": [],
+            "platform": "",
+            "inputs": [],
+            "outputs": []
+        }

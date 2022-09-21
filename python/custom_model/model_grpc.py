@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,17 @@
 # limitations under the License.
 
 import asyncio
-import kserve
-from torchvision import models, transforms
-from typing import Dict
-import torch
-from PIL import Image
 import base64
 import io
+from typing import Dict, Union
+
+import kserve
+import torch
+from kserve.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
+                                             ModelInferResponse)
+from kserve.utils.utils import generate_uuid
+from PIL import Image
+from torchvision import models, transforms
 
 
 class AlexNetModel(kserve.Model):
@@ -34,16 +38,27 @@ class AlexNetModel(kserve.Model):
         self.model = model
         self.ready = True
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        inputs = payload["instances"]
+    def predict(
+        self,
+        request: Union[Dict, ModelInferRequest],
+        headers: Dict[str, str] = None
+    ) -> Union[Dict, ModelInferResponse]:
+        raw_img_data = ""
+        if isinstance(request, Dict):
+            inputs = request["instances"]
 
-        # Input follows the Tensorflow V1 HTTP API for binary values
-        # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-        data = inputs[0]["image"]["b64"]
+            # Input follows the Tensorflow V1 HTTP API for binary values
+            # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
+            data = inputs[0]["image"]["b64"]
 
-        raw_img_data = base64.b64decode(data)
+            raw_img_data = base64.b64decode(data)
+        elif isinstance(request, ModelInferRequest):
+            req = request.inputs[0]
+            fields = req.contents.ListFields()
+            _, field_value = fields[0]
+            points = list(field_value)
+            raw_img_data = points[0]
         input_image = Image.open(io.BytesIO(raw_img_data))
-
         preprocess = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -60,8 +75,19 @@ class AlexNetModel(kserve.Model):
         torch.nn.functional.softmax(output, dim=1)[0]
 
         values, top_5 = torch.topk(output, 5)
-
-        return {"predictions": values.tolist()}
+        result = values.tolist()
+        return {
+            "id": generate_uuid(),
+            "model_name": request.model_name,
+            "outputs": [
+                {
+                    "data": result[0],
+                    "datatype": "FP32",
+                    "name": req.name,
+                    "shape": req.shape
+                }
+            ]
+        }
 
 
 if __name__ == "__main__":

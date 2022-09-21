@@ -16,6 +16,7 @@ remote model storage, a general good practice is to call the `load` handler in t
 is loaded on startup and ready to serve when user is making the prediction calls.
 
 ```python
+import asyncio
 import kserve
 from typing import Dict
 
@@ -33,7 +34,9 @@ class AlexNetModel(kserve.Model):
 
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
-    kserve.ModelServer().start([model])
+    asyncio.run(
+        kserve.ModelServer().start([model])
+    )
 ```
 
 ## Build the custom image with Buildpacks
@@ -56,6 +59,7 @@ KServe integrates [RayServe](https://docs.ray.io/en/master/serve/index.html) whi
 as separate python workers so the inference can be ran in parallel.
 
 ```python
+import asyncio
 import kserve
 from typing import Dict
 from ray import serve
@@ -74,7 +78,9 @@ class AlexNetModel(kserve.Model):
         pass
 
 if __name__ == "__main__":
-    kserve.ModelServer().start({"custom-model": AlexNetModel})
+    asyncio.run(
+        kserve.ModelServer().start({"custom-model": AlexNetModel})
+    )
 ```
 
 Modify the `Procfile` to `web: python -m model_remote` and then run the above `pack` command, it builds the serving image which launches

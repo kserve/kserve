@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import dill
 import kserve
 import logging
@@ -47,7 +48,9 @@ def main():
         alibi_model,
     )
     explainer.load()
-    kserve.ModelServer().start(models=[explainer], nest_asyncio=True)
+    asyncio.run(
+        kserve.ModelServer().start(models=[explainer], nest_asyncio=True)
+    )
 
 
 if __name__ == "__main__":

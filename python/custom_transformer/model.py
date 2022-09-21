@@ -74,7 +74,7 @@ class ImageTransformer(Model):
             request.raw_input_contents.extend([input_0._get_content()])
         return request
 
-    def postprocess(self, infer_response: ModelInferResponse) -> Dict:
+    def postprocess(self, infer_response: ModelInferResponse, headers: Dict[str, str] = None) -> Dict:
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             response = InferResult(infer_response)
             return {"predictions": response.as_numpy("OUTPUT__0").tolist()}

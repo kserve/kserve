@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import kserve
 import argparse
 from .bert_transformer import BertTransformer
@@ -27,4 +28,6 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     transformer = BertTransformer(args.model_name, predictor_host=args.predictor_host)
     server = kserve.ModelServer()
-    server.start(models=[transformer])
+    asyncio.run(
+        server.start(models=[transformer])
+    )

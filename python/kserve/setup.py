@@ -43,6 +43,7 @@ setuptools.setup(
         'kserve.models',
         'kserve.handlers',
         'kserve.utils',
+        'kserve.grpc'
     ],
     package_data={'': ['requirements.txt']},
     include_package_data=True,

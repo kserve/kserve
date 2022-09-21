@@ -32,6 +32,7 @@ from ray import serve
 from tornado.web import RequestHandler
 from prometheus_client import REGISTRY
 from prometheus_client.exposition import choose_encoder
+from kserve.grpc.server import GRPCServer
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -83,6 +84,8 @@ class ModelServer:
         self.enable_latency_logging = validate_enable_latency_logging(enable_latency_logging)
 
     def create_application(self):
+        dataplane = handlers.DataPlane(model_registry=self.registered_models)
+        self._grpc_server = GRPCServer(port=self.grpc_port, data_plane=dataplane)
         return tornado.web.Application([
             (r"/metrics", MetricsHandler),
             # Server Liveness API returns 200 if server is alive.
@@ -111,7 +114,7 @@ class ModelServer:
              handlers.UnloadHandler, dict(models=self.registered_models)),
         ], default_handler_class=handlers.NotFoundHandler)
 
-    def start(self, models: Union[List[Model], Dict[str, Deployment]], nest_asyncio: bool = False):
+    async def start(self, models: Union[List[Model], Dict[str, Deployment]], nest_asyncio: bool = False):
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):
@@ -155,7 +158,7 @@ class ModelServer:
             import nest_asyncio
             nest_asyncio.apply()
 
-        tornado.ioloop.IOLoop.current().start()
+        await self._grpc_server.start(self.max_asyncio_workers)
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)

@@ -12,6 +12,7 @@
 # limitations under the License.
 
 import argparse
+import asyncio
 import kserve
 
 from .driver_transformer import DriverTransformer
@@ -58,4 +59,6 @@ if __name__ == "__main__":
         entity_ids=args.entity_ids,
         feature_refs=args.feature_refs)
     server = kserve.ModelServer()
-    server.start(models=[transformer])
+    asyncio.run(
+        server.start(models=[transformer])
+    )

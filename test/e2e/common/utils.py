@@ -22,6 +22,9 @@ from kubernetes import client
 
 from kserve import KServeClient
 from kserve import constants
+from kserve.grpc import grpc_predict_v2_pb2 as pb
+from kserve.grpc import grpc_predict_v2_pb2_grpc
+
 from . import inference_pb2_grpc
 
 logging.basicConfig(level=logging.INFO)
@@ -204,3 +207,20 @@ def get_cluster_ip():
         else:
             cluster_ip = service.status.load_balancer.ingress[0].ip
     return os.environ.get("KSERVE_INGRESS_HOST_PORT", cluster_ip)
+
+
+def predict_grpc(service_name, payload, version=constants.KSERVE_V1BETA1_VERSION):
+    cluster_ip = get_cluster_ip()
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    isvc = kfs_client.get(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        version=version,
+    )
+    host = urlparse(isvc["status"]["url"]).netloc
+    channel = grpc.insecure_channel(
+        cluster_ip,
+        options=(('grpc.ssl_target_name_override', host),))
+    stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(channel)
+    return stub.ModelInfer(pb.ModelInferRequest(model_name=service_name, inputs=payload))

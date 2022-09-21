@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import argparse
+import asyncio
 import kserve
 import json
 
@@ -71,4 +72,6 @@ if __name__ == "__main__":
         unprivileged_groups=args.unprivileged_groups
     )
     model.load()
-    kserve.ModelServer().start([model], nest_asyncio=True)
+    asyncio.run(
+        kserve.ModelServer().start([model], nest_asyncio=True)
+    )

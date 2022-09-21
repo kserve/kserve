@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import kserve
 import argparse
 
@@ -26,4 +27,6 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = RFModel(args.model_name)
     model.load()
-    kserve.ModelServer().start([model])
+    asyncio.run(
+        kserve.ModelServer().start([model])
+    )

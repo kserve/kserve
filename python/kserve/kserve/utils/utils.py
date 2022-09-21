@@ -14,10 +14,12 @@
 
 import os
 import sys
+import uuid
 from typing import Dict, Union
 
 import psutil
 from cloudevents.http import CloudEvent, to_binary, to_structured
+from grpc import ServicerContext
 
 
 def is_running_in_k8s():
@@ -116,3 +118,18 @@ def create_response_cloudevent(model_name: str, body: Union[Dict, CloudEvent], r
         event_headers, event_body = to_structured(event)
 
     return event_headers, event_body
+
+
+def generate_uuid() -> str:
+    return str(uuid.uuid4())
+
+
+def to_headers(context: ServicerContext) -> Dict[str, str]:
+    metadata = context.invocation_metadata()
+    if hasattr(context, "trailing_metadata"):
+        metadata += context.trailing_metadata()
+    headers = {}
+    for metadatum in metadata:
+        headers[metadatum.key] = metadatum.value
+
+    return headers
