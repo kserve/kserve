@@ -27,7 +27,7 @@ class ModelRepository:
     """
 
     def __init__(self, models_dir: str = MODEL_MOUNT_DIRS):
-        self.models = {}
+        self.models: Dict[str, Union[Model, RayServeHandle]] = {}
         self.models_dir = models_dir
 
     def load_models(self):

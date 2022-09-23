@@ -137,7 +137,6 @@ class DummyAvroCEModel(Model):
             assert attributes["specversion"] == "1.0"
             assert attributes["source"] == "https://example.com/event-producer"
             assert attributes["type"] == "com.example.sampletype1"
-            assert attributes["datacontenttype"] == "application/x-www-form-urlencoded"
             assert attributes["content-type"] == "application/json"
             return self._parserequest(request.data)
 
@@ -149,9 +148,10 @@ class DummyAvroCEModel(Model):
 
 
 class DummyModelRepository(ModelRepository):
-    def __init__(self, test_load_success: bool):
+    def __init__(self, test_load_success: bool, fail_with_exception: bool = False):
         super().__init__()
         self.test_load_success = test_load_success
+        self.fail_with_exception = fail_with_exception
 
     async def load(self, name: str) -> bool:
         if self.test_load_success:
@@ -160,7 +160,10 @@ class DummyModelRepository(ModelRepository):
             self.update(model)
             return model.ready
         else:
-            return False
+            if self.fail_with_exception:
+                raise Exception(f"Could not load model {name}.")
+            else:
+                return False
 
 
 class TestModel:

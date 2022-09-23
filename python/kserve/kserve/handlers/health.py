@@ -13,13 +13,15 @@
 # limitations under the License.
 
 import tornado.web
+from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.base import BaseHandler
 from kserve.model_repository import ModelRepository
 
 
 class LivenessHandler(BaseHandler):  # pylint:disable=too-few-public-methods
     def get(self):
-        self.write({"status": "alive"})
+        resp = DataPlane.live()
+        self.write(resp)
 
 
 class HealthHandler(BaseHandler):

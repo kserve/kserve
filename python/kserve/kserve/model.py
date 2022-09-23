@@ -11,20 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
-from typing import Dict, Union
-import logging
-import time
+from typing import Dict, Union, List
 import contextlib
 import sys
 import inspect
 import json
 import tornado.web
-import tornado.log
+import time
+import logging
 from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
-from http import HTTPStatus
 from enum import Enum
 from kserve.utils.utils import is_structured_cloudevent
 import grpc
@@ -32,7 +28,6 @@ from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 from prometheus_client import Histogram
 
-tornado.log.enable_pretty_logging()
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -74,6 +69,19 @@ class InferenceError(RuntimeError):
         return self.reason
 
 
+class InvalidInput(ValueError):
+    """
+    Exception class indicating invalid input arguments.
+    HTTP Servers should return HTTP_400 (Bad Request).
+    """
+
+    def __init__(self, reason):
+        self.reason = reason
+
+    def __str__(self):
+        return self.reason
+
+
 def get_latency_ms(start, end):
     return round((end - start) * 1000, 9)
 
@@ -95,7 +103,7 @@ class Model:
         self.enable_latency_logging = False
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR, headers: Dict[str, str] = None):
-        request_id = headers.get("X-Request-Id")
+        request_id = headers.get("X-Request-Id", "N.A.") if headers else "N.A."
 
         # latency vars
         preprocess_ms = 0
@@ -130,8 +138,9 @@ class Model:
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
-            logging.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, explain_ms: {explain_ms}, "
-                         f"predict_ms: {predict_ms}, postprocess_ms: {postprocess_ms}")
+            logging.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, "
+                         f"explain_ms: {explain_ms}, predict_ms: {predict_ms}, "
+                         f"postprocess_ms: {postprocess_ms}")
 
         return response
 
@@ -152,18 +161,13 @@ class Model:
         return self._grpc_client_stub
 
     def validate(self, payload):
+        # TODO: validate the request if self.get_input_types() defines the input types.
         if self.protocol == PredictorProtocol.REST_V2.value:
             if "inputs" in payload and not isinstance(payload["inputs"], list):
-                raise tornado.web.HTTPError(
-                    status_code=HTTPStatus.BAD_REQUEST,
-                    reason="Expected \"inputs\" to be a list"
-                )
+                raise InvalidInput("Expected \"inputs\" to be a list")
         elif isinstance(payload, Dict) or self.protocol == PredictorProtocol.REST_V1.value:
             if "instances" in payload and not isinstance(payload["instances"], list):
-                raise tornado.web.HTTPError(
-                    status_code=HTTPStatus.BAD_REQUEST,
-                    reason="Expected \"instances\" to be a list"
-                )
+                raise InvalidInput("Expected \"instances\" to be a list")
         return payload
 
     def load(self) -> bool:
@@ -174,6 +178,23 @@ class Model:
         """
         self.ready = True
         return self.ready
+
+    def get_input_types(self) -> List[Dict]:
+        # Override this function to return appropriate input format expected by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
+
+    def get_output_types(self) -> List[Dict]:
+        # Override this function to return appropriate output format returned by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
+
 
     async def preprocess(self, payload: Union[Dict, CloudEvent], headers: Dict[str, str] = None) -> Union[
             Dict, ModelInferRequest]:
@@ -199,10 +220,7 @@ class Model:
                 if "content-type" in payload._attributes and \
                         (payload._attributes["content-type"] == "application/cloudevents+json" or
                          payload._attributes["content-type"] == "application/json"):
-                    raise tornado.web.HTTPError(
-                        status_code=HTTPStatus.BAD_REQUEST,
-                        reason=f"Failed to decode or parse binary json cloudevent: {e}"
-                    )
+                    raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
 
         elif isinstance(payload, dict):
             if is_structured_cloudevent(payload):

@@ -20,9 +20,9 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute as FastAPIRoute
 import asyncio
 
-from .utils import utils
-
 import kserve.handlers as handlers
+from tornado.web import RequestHandler
+
 from kserve import Model
 from kserve.model_repository import ModelRepository
 from ray.serve.api import Deployment, RayServeHandle
@@ -52,6 +52,7 @@ parser.add_argument(
 
 args, _ = parser.parse_known_args()
 
+
 class MetricsHandler(RequestHandler):
     def get(self):
         encoder, content_type = choose_encoder(self.request.headers.get('accept'))
@@ -77,7 +78,7 @@ class ModelServer:
         self.enable_latency_logging = validate_enable_latency_logging(enable_latency_logging)
 
     def create_application(self):
-        dataplane = handlers.DataPlaneV1(model_registry=self.registered_models)
+        dataplane = handlers.DataPlane(model_registry=self.registered_models)
         return FastAPI(routes=[
             # Server Liveness API returns 200 if server is alive.
             FastAPIRoute(r"/", dataplane.live),
