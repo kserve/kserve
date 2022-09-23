@@ -64,6 +64,7 @@ class ImageTransformer(kserve.Model):
         Args:
             name (str): Name of the model.
             predictor_host (str): The host in which the predictor runs.
+            log_latency (bool): Whether to log the latency metrics per request.
         """
         super().__init__(name)
         self.predictor_host = predictor_host
@@ -73,11 +74,12 @@ class ImageTransformer(kserve.Model):
         logging.info("EXPLAINER URL %s", self.explainer_host)
         self.timeout = 100
 
-    def preprocess(self, inputs: Dict) -> Dict:
+    def preprocess(self, inputs: Dict, headers: Dict[str, str] = None) -> Dict:
         """Pre-process activity of the Image Input data.
 
         Args:
             inputs (Dict): KServe http request
+            headers (Dict): Kserve http request headers
 
         Returns:
             Dict: Returns the request input after converting it into a tensor
@@ -97,11 +99,12 @@ class ImageTransformer(kserve.Model):
         """
         return inputs
 
-    async def explain(self, request: Dict) -> Dict:
+    async def explain(self, request: Dict, headers: Dict[str, str] = None) -> Dict:
         """Returns the captum explanations for the input request
 
         Args:
             request (Dict): http input request
+            headers (Dict): http request headers
 
         Raises:
             NotImplementedError: If the explainer host is not specified.
