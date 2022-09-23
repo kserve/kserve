@@ -126,7 +126,7 @@ class Model:
             response = self.postprocess(response)
             postprocess_ms = get_latency_ms(start, time.time())
 
-        if self.enable_latency_logging:
+        if self.enable_latency_logging is True:
             logging.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, explain_ms: {explain_ms}, "
                          f"predict_ms: {predict_ms}, postprocess_ms: {postprocess_ms}")
 

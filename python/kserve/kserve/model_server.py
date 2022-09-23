@@ -176,5 +176,6 @@ def validate_enable_latency_logging(enable_latency_logging):
         elif enable_latency_logging.lower() == "false":
             enable_latency_logging = False
     if not isinstance(enable_latency_logging, bool):
-        raise TypeError(f"enable_latency_logging must be one of [True, true, False, false], got {enable_latency_logging} instead.")
+        raise TypeError(f"enable_latency_logging must be one of [True, true, False, false], "
+                        f"got {enable_latency_logging} instead.")
     return enable_latency_logging
