@@ -8,7 +8,8 @@ resources:
   - kserve-paddleserver.yaml
   - kserve-lgbserver.yaml
   - kserve-torchserve.yaml
-
+  - kserve-djlserving.yaml
+  
 images:
   # SMS Only Runtimes
   - name: tensorflow-serving
@@ -46,3 +47,7 @@ images:
   - name: kserve-torchserve
     newName: pytorch/torchserve-kfs
     newTag: 0.6.0
+
+  - name: kserve-djlserving
+    newName: docker.io/deepjavalibrary/djl-serving
+    newTag: latest

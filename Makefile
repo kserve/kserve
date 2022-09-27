@@ -10,6 +10,7 @@ LGB_IMG ?= lgbserver
 PYTORCH_IMG ?= pytorchserver
 PMML_IMG ?= pmmlserver
 PADDLE_IMG ?= paddleserver
+DJLSERVING_IMG ?= djl-serving:latest
 ALIBI_IMG ?= alibi-explainer
 AIX_IMG ?= aix-explainer
 STORAGE_INIT_IMG ?= storage-initializer
@@ -103,6 +104,10 @@ deploy-dev-pmml : docker-push-pmml
 
 deploy-dev-paddle: docker-push-paddle
 	./hack/model_server_patch_dev.sh paddle ${KO_DOCKER_REPO}/${PADDLE_IMG}
+	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+
+deploy-dev-djlserving:
+	./hack/model_server_patch_dev.sh djlserving ${KO_DOCKER_REPO}/${DJLSERVING_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-alibi: docker-push-alibi

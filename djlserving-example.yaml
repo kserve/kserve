@@ -1,0 +1,9 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "djl-serving-model"
+spec:
+  predictor:
+    djlserving:
+      storageUri: https://resources.djl.ai/demo/mxnet/resnet18_v1.zip
+

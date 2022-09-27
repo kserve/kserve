@@ -1,0 +1,31 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-djlserving
+spec:
+  supportedModelFormats:
+    - name: pytorch
+      version: "1"
+      autoSelect: no
+    - name: tensorflow
+      version: "1"
+      autoSelect: no
+    - name: mxnet 
+      
+    # need to add another four
+  protocolVersions:
+    - v2
+  containers:
+    - name: kserve-container
+      image: kserve-djlserving:replace
+      args:
+        - --models={{.Name}}
+        # - --model_dir=/mnt/models
+        # - --http_port=8080
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
