@@ -2,7 +2,6 @@
 
 while read p || [ -n "$p" ] 
 do
-echo "p $p"  
 sed -i "/${p}/d" ./coverage.out 
 done < ./.cov-ignore
 
