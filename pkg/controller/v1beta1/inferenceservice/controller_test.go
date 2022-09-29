@@ -108,6 +108,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Labels: map[string]string{
+							"key1": "val1",
+							"key2": "val2",
+						},
+						Annotations: map[string]string{
+							"key1": "val1",
+							"key2": "val2",
+						},
 						Containers: []v1.Container{
 							{
 								Name:    constants.InferenceServiceContainerName,
@@ -188,12 +196,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Labels: map[string]string{
 									constants.KServiceComponentLabel:      constants.Predictor.String(),
 									constants.InferenceServicePodLabelKey: serviceName,
+									"key1":                                "val1",
+									"key2":                                "val2",
 								},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 									"autoscaling.knative.dev/maxScale":                         "3",
 									"autoscaling.knative.dev/minScale":                         "1",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"key1":                                                     "val1",
+									"key2":                                                     "val2",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{

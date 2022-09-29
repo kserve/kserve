@@ -65,6 +65,14 @@ func TestUnionUtil(t *testing.T) {
 			expected: map[string]string{"serving.kserve.io/service": "mnist",
 				"label1": "value1", "service.knative.dev/service": "mnist", "label2": "value2"},
 		},
+		"UnionTwoMapsOverwritten": {
+			input1: map[string]string{"serving.kserve.io/service": "mnist",
+				"label1": "value1", "label3": "value1"},
+			input2: map[string]string{"service.knative.dev/service": "mnist",
+				"label2": "value2", "label3": "value3"},
+			expected: map[string]string{"serving.kserve.io/service": "mnist",
+				"label1": "value1", "service.knative.dev/service": "mnist", "label2": "value2", "label3": "value3"},
+		},
 		"UnionWithEmptyMap": {
 			input1: map[string]string{},
 			input2: map[string]string{"service.knative.dev/service": "mnist",

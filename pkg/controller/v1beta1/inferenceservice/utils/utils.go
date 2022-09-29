@@ -21,10 +21,11 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"regexp"
 	"sort"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -190,7 +191,7 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRunt
 			container.Image = image + ":" + *runtimeVersion
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
-			}
+		}
 	} else {
 		if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
 			re := regexp.MustCompile(`(:([\w.\-_]*))$`)
