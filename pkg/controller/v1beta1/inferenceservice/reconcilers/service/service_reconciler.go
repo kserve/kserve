@@ -71,23 +71,51 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 		port = int(constants.InferenceServiceDefaultAgentPort)
 	}
 
+	ports := []corev1.ServicePort{
+		{
+			Name: componentMeta.Name,
+			Port: constants.CommonDefaultHttpPort,
+			TargetPort: intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: int32(port),
+			},
+			Protocol: corev1.ProtocolTCP,
+		},
+	}
+	for i := 1; i < len(podSpec.Containers[0].Ports); i++ {
+		var servicePort corev1.ServicePort
+		port := podSpec.Containers[0].Ports[i]
+
+		if port.Protocol != "" {
+			servicePort = corev1.ServicePort{
+				Name: port.Name,
+				Port: int32(port.ContainerPort),
+				TargetPort: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: int32(port.ContainerPort),
+				},
+				Protocol: port.Protocol,
+			}
+		} else {
+			servicePort = corev1.ServicePort{
+				Name: port.Name,
+				Port: int32(port.ContainerPort),
+				TargetPort: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: int32(port.ContainerPort),
+				},
+				Protocol: corev1.ProtocolTCP,
+			}
+		}
+		ports = append(ports, servicePort)
+	}
 	service := &corev1.Service{
 		ObjectMeta: componentMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
 				"app": constants.GetRawServiceLabel(componentMeta.Name),
 			},
-			Ports: []corev1.ServicePort{
-				{
-					Name: componentMeta.Name,
-					Port: constants.CommonDefaultHttpPort,
-					TargetPort: intstr.IntOrString{
-						Type:   intstr.Int,
-						IntVal: int32(port),
-					},
-					Protocol: corev1.ProtocolTCP,
-				},
-			},
+			Ports: ports,
 		},
 	}
 	return service
