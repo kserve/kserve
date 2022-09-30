@@ -110,11 +110,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 						Labels: map[string]string{
 							"key1": "val1FromSR",
-							"key2": "val2FromSR",
 						},
 						Annotations: map[string]string{
 							"key1": "val1FromSR",
-							"key2": "val2FromSR",
 						},
 						Containers: []v1.Container{
 							{
@@ -146,12 +144,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
-					Labels: map[string]string{
-						"key2": "val2FromISVC",
-					},
-					Annotations: map[string]string{
-						"key2": "val2FromISVC",
-					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
@@ -203,7 +195,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									constants.KServiceComponentLabel:      constants.Predictor.String(),
 									constants.InferenceServicePodLabelKey: serviceName,
 									"key1":                                "val1FromSR",
-									"key2":                                "val2FromISVC",
 								},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -211,7 +202,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									"autoscaling.knative.dev/minScale":                         "1",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"key1":                                                     "val1FromSR",
-									"key2":                                                     "val2FromISVC",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -1169,6 +1159,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Resources: defaultResource,
 							},
 						},
+						Labels: map[string]string{
+							"key1": "val1FromSR",
+							"key2": "val2FromSR",
+						},
+						Annotations: map[string]string{
+							"key1": "val1FromSR",
+							"key2": "val2FromSR",
+						},
 					},
 					Disabled: proto.Bool(false),
 				},
@@ -1180,6 +1178,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceName,
 					Namespace: namespace,
+					Labels: map[string]string{
+						"key2": "val2FromISVC",
+					},
+					Annotations: map[string]string{
+						"key2": "val2FromISVC",
+					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
@@ -1237,12 +1241,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
 									constants.KServiceComponentLabel: constants.Predictor.String(),
+									"key1":                           "val1FromSR",
+									"key2":                           "val2FromISVC",
 								},
 								Annotations: map[string]string{
+									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/mnist/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/maxScale":                         "3",
 									"autoscaling.knative.dev/minScale":                         "1",
-									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/mnist/export",
+									"key1":                                                     "val1FromSR",
+									"key2":                                                     "val2FromISVC",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
