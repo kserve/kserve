@@ -204,7 +204,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			*container,
 		}
 
-		// label filter will be handled in ksvc_reconciler
+		// Label filter will be handled in ksvc_reconciler
 		sRuntimeLabels = sRuntime.ServingRuntimePodSpec.Labels
 		sRuntimeAnnotations = utils.Filter(sRuntime.ServingRuntimePodSpec.Annotations, func(key string) bool {
 			return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
