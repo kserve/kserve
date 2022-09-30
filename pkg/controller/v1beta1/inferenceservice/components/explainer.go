@@ -18,7 +18,6 @@ package components
 
 import (
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -91,7 +90,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Need to wait for predictor URL in ModelMesh deployment mode
 	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.ModelMeshDeployment {
 		// check if predictor URL is populated
-		predictorURL := (*url.URL)(isvc.Status.Components["predictor"].URL)
+		predictorURL := isvc.Status.Components["predictor"].URL
 		if predictorURL == nil {
 			// explainer reconcile will retry every 3 second until predictor URL is populated
 			e.Log.Info("Explainer reconciliation is waiting for predictor URL to be populated")
