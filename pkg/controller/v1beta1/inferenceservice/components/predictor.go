@@ -63,8 +63,8 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceService
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	var container *v1.Container
 	var podSpec v1.PodSpec
-	sRuntimeLabels := map[string]string{}
-	sRuntimeAnnotations := map[string]string{}
+	var sRuntimeLabels map[string]string
+	var sRuntimeAnnotations map[string]string
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
