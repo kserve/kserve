@@ -190,7 +190,7 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRunt
 			container.Image = image + ":" + *runtimeVersion
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
-			}
+		}
 	} else {
 		if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
 			re := regexp.MustCompile(`(:([\w.\-_]*))$`)

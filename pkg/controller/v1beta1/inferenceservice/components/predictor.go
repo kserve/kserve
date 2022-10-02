@@ -63,6 +63,8 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceService
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	var container *v1.Container
 	var podSpec v1.PodSpec
+	var sRuntimeLabels map[string]string
+	var sRuntimeAnnotations map[string]string
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -202,6 +204,12 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			*container,
 		}
 
+		// Label filter will be handled in ksvc_reconciler
+		sRuntimeLabels = sRuntime.ServingRuntimePodSpec.Labels
+		sRuntimeAnnotations = utils.Filter(sRuntime.ServingRuntimePodSpec.Annotations, func(key string) bool {
+			return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		})
+
 	} else {
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 
@@ -224,14 +232,15 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 
+	// Labels and annotations from isvc will overwrite labels and annotations from ServingRuntimePodSpec
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultPredictorServiceName(isvc.Name),
 		Namespace: isvc.Namespace,
-		Labels: utils.Union(isvc.Labels, map[string]string{
+		Labels: utils.Union(sRuntimeLabels, isvc.Labels, map[string]string{
 			constants.InferenceServicePodLabelKey: isvc.Name,
 			constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
 		}),
-		Annotations: annotations,
+		Annotations: utils.Union(sRuntimeAnnotations, annotations),
 	}
 
 	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)

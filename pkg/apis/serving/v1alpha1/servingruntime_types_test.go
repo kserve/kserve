@@ -32,6 +32,14 @@ func TestMarshalServingRuntime(t *testing.T) {
 		Spec: ServingRuntimeSpec{
 			GrpcDataEndpoint: &endpoint,
 			ServingRuntimePodSpec: ServingRuntimePodSpec{
+				Labels: map[string]string{
+					"key1": "val1",
+					"key2": "val2",
+				},
+				Annotations: map[string]string{
+					"key1": "val1",
+					"key2": "val2",
+				},
 				Containers: []v1.Container{
 					{
 						Args:    []string{"arg1", "arg2"},
