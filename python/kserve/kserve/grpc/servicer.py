@@ -64,16 +64,6 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
         # NOTE: response must be either ModelInferResponse or Predict Protocol v2 infer response structure
         if isinstance(response, pb.ModelInferResponse):
             return response
-        outputs = []
-        for output in response["outputs"]:
-            infer_output = {
-                "datatype": output["datatype"],
-                "name": output["name"],
-                "shape": output.get("shape", [])
-            }
-            infer_output["contents"] = {
-                # TODO: add key with datatype which is from response
-                "fp32_contents": output["data"]
-            }
-            outputs.append(infer_output)
-        return pb.ModelInferResponse(id=response["id"], model_name=response["model_name"], outputs=outputs)
+        return pb.ModelInferResponse(id=response["id"],
+                                     model_name=response["model_name"],
+                                     outputs=response["outputs"])

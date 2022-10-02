@@ -31,33 +31,33 @@ class AlexNetModel(kserve.Model):
         super().__init__(name)
         self.name = name
         self.load()
+        self.model = None
+        self.ready = False
 
     def load(self):
-        model = models.alexnet(pretrained=True)
-        model.eval()
-        self.model = model
+        self.model = models.alexnet(pretrained=True)
+        self.model.eval()
         self.ready = True
 
     def predict(
         self,
-        request: Union[Dict, ModelInferRequest],
+        payload: Union[Dict, ModelInferRequest],
         headers: Dict[str, str] = None
     ) -> Union[Dict, ModelInferResponse]:
         raw_img_data = ""
-        if isinstance(request, Dict):
-            inputs = request["instances"]
-
+        if isinstance(payload, Dict):
+            inputs = payload["instances"]
             # Input follows the Tensorflow V1 HTTP API for binary values
             # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
             data = inputs[0]["image"]["b64"]
-
             raw_img_data = base64.b64decode(data)
-        elif isinstance(request, ModelInferRequest):
-            req = request.inputs[0]
+        elif isinstance(payload, ModelInferRequest):
+            req = payload.inputs[0]
             fields = req.contents.ListFields()
             _, field_value = fields[0]
             points = list(field_value)
             raw_img_data = points[0]
+
         input_image = Image.open(io.BytesIO(raw_img_data))
         preprocess = transforms.Compose([
             transforms.Resize(256),
@@ -72,22 +72,26 @@ class AlexNetModel(kserve.Model):
 
         output = self.model(input_batch)
 
-        torch.nn.functional.softmax(output, dim=1)[0]
-
+        torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
         result = values.tolist()
-        return {
-            "id": generate_uuid(),
-            "model_name": request.model_name,
-            "outputs": [
-                {
-                    "data": result[0],
+        if isinstance(payload, Dict):
+            return {"predictions": values.tolist()}
+        else:
+            return {
+                "id": generate_uuid(),
+                "model_name": payload.model_name,
+                "outputs": [
+                  {
+                    "contents": {
+                        "fp32_contents": result[0],
+                    },
                     "datatype": "FP32",
-                    "name": req.name,
-                    "shape": req.shape
-                }
-            ]
-        }
+                    "name": "output-0",
+                    "shape": list(values.shape)
+                  }
+                ]
+            }
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ from kserve import (
     V1beta1PredictorSpec,
     constants
 )
+from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort
 from ..common.utils import predict_grpc
@@ -37,14 +38,17 @@ def test_custom_model_grpc():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:latest",
+                image="kserve/custom-model-grpc:"
+                      + os.environ.get("GITHUB_SHA"),
+                resources=V1ResourceRequirements(
+                    requests={"cpu": "50m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "256Mi"}),
                 ports=[
                     V1ContainerPort(
                         container_port=8081,
                         name="h2c",
                         protocol="TCP"
-                    )
-                ]
+                    )]
             )
         ]
     )
@@ -81,10 +85,10 @@ def test_custom_model_grpc():
     _, field_value = fields[0]
     points = list(field_value)
     assert points == [
-        14.975619316101074,
-        14.036808967590332,
-        13.966033935546875,
-        12.252279281616211,
-        12.086268424987793
+        14.861763000488281,
+        13.942919731140137,
+        13.924379348754883,
+        12.182709693908691,
+        12.006349563598633
     ]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

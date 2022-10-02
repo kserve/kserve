@@ -27,11 +27,12 @@ class AlexNetModel(kserve.Model):
         super().__init__(name)
         self.name = name
         self.load()
+        self.model = None
+        self.ready = False
 
     def load(self):
-        model = models.alexnet(pretrained=True)
-        model.eval()
-        self.model = model
+        self.model = models.alexnet(pretrained=True)
+        self.model.eval()
         self.ready = True
 
     def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
@@ -57,7 +58,7 @@ class AlexNetModel(kserve.Model):
 
         output = self.model(input_batch)
 
-        torch.nn.functional.softmax(output, dim=1)[0]
+        torch.nn.functional.softmax(output, dim=1)
 
         values, top_5 = torch.topk(output, 5)
 
