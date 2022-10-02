@@ -5,17 +5,17 @@ metadata:
   namespace: default
 spec:
   predictor:
-    containers:
-    - name: predictor
-      image: ccugroup/limerf
-      command: ["python", "-m", "rfserver", "--model_name", "aix-explainer"]
-      imagePullPolicy: Always
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: "gs://kfserving-examples/models/sklearn/newsgroup"
+      env:
+        - name: PREDICT_PROBA
+          value: "true"
   explainer:
     aix:
       type: LimeTexts
       config:
-        num_samples: "100"
         top_labels: "10"
-        min_weight: "0.01"
 
 
