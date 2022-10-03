@@ -67,11 +67,13 @@ class ImageTransformer(Model):
     def v2_request_transform(self, input_tensors):
         request = ModelInferRequest()
         request.model_name = self.name
-        input_0 = InferInput("INPUT__0", input_tensors.shape, "FP32")
-        input_0.set_data_from_numpy(input_tensors)
-        request.inputs.extend([input_0._get_tensor()])
-        if input_0._get_content() is not None:
-            request.raw_input_contents.extend([input_0._get_content()])
+        tensor = {
+            'name': "INPUT__0",
+            'shape': input_tensors.shape,
+            'datatype': "FP32",
+        }
+        request.inputs.extend([tensor])
+        request.raw_input_contents.extend([input_tensors.tobytes()])
         return request
 
     def postprocess(self, infer_response: ModelInferResponse, headers: Dict[str, str] = None) -> Dict:
