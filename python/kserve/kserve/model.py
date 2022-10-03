@@ -95,7 +95,6 @@ class Model:
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR, headers: Dict[str, str] = None):
         request_id = headers.get("X-Request-Id")
-
         # latency vars
         preprocess_ms = 0
         explain_ms = 0
@@ -222,13 +221,15 @@ class Model:
         """
         The postprocess handler can be overridden for inference response transformation
         :param response: Dict|ModelInferResponse passed from predict handler
+        :param headers: Dict
         :return: Dict
         """
-        if "grpc" in headers.get("user-agent", "") and isinstance(response, ModelInferResponse):
-            return response
-        if isinstance(response, ModelInferResponse):
-            return json.loads(
-                MessageToJson(response, preserving_proto_field_name=True, including_default_value_fields=True))
+        if headers:
+            if "grpc" in headers.get("user-agent", "") and isinstance(response, ModelInferResponse):
+                return response
+            if "application/json" in headers.get("Content-Type", "") and isinstance(response, ModelInferResponse):
+                return json.loads(
+                    MessageToJson(response, preserving_proto_field_name=True, including_default_value_fields=True))
         return response
 
     async def _http_predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:

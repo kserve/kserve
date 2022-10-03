@@ -53,10 +53,7 @@ class AlexNetModel(kserve.Model):
             raw_img_data = base64.b64decode(data)
         elif isinstance(payload, ModelInferRequest):
             req = payload.inputs[0]
-            fields = req.contents.ListFields()
-            _, field_value = fields[0]
-            points = list(field_value)
-            raw_img_data = points[0]
+            raw_img_data = req.contents.bytes_contents[0]
 
         input_image = Image.open(io.BytesIO(raw_img_data))
         preprocess = transforms.Compose([

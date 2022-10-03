@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import argparse
+import asyncio
 import logging
 import kserve
 from kserve.model import ModelMissingError
-
 
 from xgbserver import XGBoostModel, XGBoostModelRepository
 
@@ -41,5 +41,5 @@ if __name__ == "__main__":
         logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
                       f"trying loading from model repository.")
 
-    kserve.ModelServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread))\
-        .start([model] if model.ready else [])
+    asyncio.run(kserve.ModelServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread))
+                .start([model] if model.ready else []))

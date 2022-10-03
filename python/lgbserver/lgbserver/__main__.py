@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import argparse
+import asyncio
 import logging
 import kserve
 
@@ -44,4 +45,4 @@ if __name__ == "__main__":
     model_repository = LightGBMModelRepository(args.model_dir, args.nthread)
     # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
     kfserver = kserve.ModelServer(workers=1, registered_models=model_repository)  # pylint:disable=c-extension-no-member
-    kfserver.start([model] if model.ready else [])
+    asyncio.run(kfserver.start([model] if model.ready else []))

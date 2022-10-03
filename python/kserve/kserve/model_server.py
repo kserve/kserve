@@ -74,6 +74,8 @@ class ModelServer:
                  max_asyncio_workers: int = args.max_asyncio_workers,
                  registered_models: ModelRepository = ModelRepository(),
                  enable_latency_logging: bool = args.enable_latency_logging):
+        dataplane = handlers.DataPlane(model_registry=registered_models)
+        self._grpc_server = GRPCServer(port=grpc_port, data_plane=dataplane)
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -84,8 +86,6 @@ class ModelServer:
         self.enable_latency_logging = validate_enable_latency_logging(enable_latency_logging)
 
     def create_application(self):
-        dataplane = handlers.DataPlane(model_registry=self.registered_models)
-        self._grpc_server = GRPCServer(port=self.grpc_port, data_plane=dataplane)
         return tornado.web.Application([
             (r"/metrics", MetricsHandler),
             # Server Liveness API returns 200 if server is alive.
@@ -158,7 +158,7 @@ class ModelServer:
             import nest_asyncio
             nest_asyncio.apply()
 
-        await self._grpc_server.start(self.max_asyncio_workers)
+        await self._grpc_server.start(self.workers)
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)
