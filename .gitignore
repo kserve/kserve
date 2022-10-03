@@ -6,6 +6,7 @@
 *.so
 *.dylib
 *.pyc
+*.egg-info/
 bin
 
 # Test binary, build with `go test -c`

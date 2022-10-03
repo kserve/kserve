@@ -22,6 +22,7 @@ import avro.schema
 import io
 import pytest
 from cloudevents.http import CloudEvent, to_binary, to_structured
+from kserve.model_server import validate_enable_latency_logging
 from kserve import Model
 from kserve import ModelServer
 from kserve import ModelRepository
@@ -233,6 +234,11 @@ class TestTFHttpServer:
             _ = await http_server_client.fetch('/unknown_path')
         assert err.value.code == 404
         assert err.value.response.body == b'{"error": "invalid path"}'
+
+    async def test_metrics(self, http_server_client):
+        resp = await http_server_client.fetch('/metrics')
+        assert resp.code == 200
+        assert resp.body is not None
 
 
 class TestRayServer:
@@ -524,3 +530,19 @@ class TestTFHttpServerAvroCloudEvent:
         assert resp.headers['ce-type'] == "io.kserve.inference.response"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert resp.body == b'{"predictions": [["foo", 1, "pink"]]}'
+
+
+def test_validate_enable_latency_logging_bool():
+    tests = ["False", "false", "True", "true", True, False]
+    expected = [False, False, True, True, True, False]
+
+    for i, test in enumerate(tests):
+        assert expected[i] == validate_enable_latency_logging(test)
+
+
+def test_validate_enable_latency_logging_raises():
+    tests = ["F", "t", "wrong"]
+
+    for test in tests:
+        with pytest.raises(TypeError):
+            validate_enable_latency_logging(test)

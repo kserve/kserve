@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from typing import Dict, Union
+import logging
+import time
 import sys
 import inspect
 import json
 import tornado.web
+import tornado.log
 from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from http import HTTPStatus
@@ -25,12 +29,19 @@ from kserve.utils.utils import is_structured_cloudevent
 import grpc
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
+from prometheus_client import Histogram
 
+tornado.log.enable_pretty_logging()
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
+
+PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'pre-processing request latency')
+POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'post-processing request latency')
+PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds', 'prediction request latency')
+EXPLAIN_HIST_TIME = Histogram('request_explain_processing_seconds', 'explain request latency')
 
 
 class ModelType(Enum):
@@ -60,6 +71,10 @@ class InferenceError(RuntimeError):
         return self.reason
 
 
+def get_latency_ms(start, end):
+    return round((end - start) * 1000, 9)
+
+
 # Model is intended to be subclassed by various components within KServe.
 class Model:
     def __init__(self, name: str):
@@ -74,20 +89,47 @@ class Model:
         self.timeout = 600
         self._http_client_instance = None
         self._grpc_client_stub = None
+        self.enable_latency_logging = False
 
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR, headers: Dict[str, str] = None):
-        payload = await self.preprocess(body, headers) if inspect.iscoroutinefunction(self.preprocess) \
-            else self.preprocess(body, headers)
+        request_id = headers.get("X-Request-Id")
+
+        # latency vars
+        preprocess_ms = 0
+        explain_ms = 0
+        predict_ms = 0
+        postprocess_ms = 0
+
+        with PRE_HIST_TIME.time():
+            start = time.time()
+            payload = await self.preprocess(body, headers) if inspect.iscoroutinefunction(self.preprocess) \
+                else self.preprocess(body, headers)
+            preprocess_ms = get_latency_ms(start, time.time())
         payload = self.validate(payload)
         if model_type == ModelType.EXPLAINER:
-            response = (await self.explain(payload, headers)) if inspect.iscoroutinefunction(self.explain) \
-                else self.explain(payload, headers)
+            with EXPLAIN_HIST_TIME.time():
+                start = time.time()
+                response = (await self.explain(payload, headers)) if inspect.iscoroutinefunction(self.explain) \
+                    else self.explain(payload, headers)
+                explain_ms = get_latency_ms(start, time.time())
         elif model_type == ModelType.PREDICTOR:
-            response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
-                else self.predict(payload, headers)
+            with PREDICT_HIST_TIME.time():
+                start = time.time()
+                response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
+                    else self.predict(payload, headers)
+                predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
-        response = self.postprocess(response)
+
+        with POST_HIST_TIME.time():
+            start = time.time()
+            response = self.postprocess(response)
+            postprocess_ms = get_latency_ms(start, time.time())
+
+        if self.enable_latency_logging is True:
+            logging.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, explain_ms: {explain_ms}, "
+                         f"predict_ms: {predict_ms}, postprocess_ms: {postprocess_ms}")
+
         return response
 
     @property
