@@ -219,6 +219,12 @@ def predict_grpc(service_name, payload, version=constants.KSERVE_V1BETA1_VERSION
         version=version,
     )
     host = urlparse(isvc["status"]["url"]).netloc
+    if ":" not in cluster_ip:
+        cluster_ip = cluster_ip + ":80"
+
+    logging.info("Cluster IP: %s", cluster_ip)
+    logging.info("gRPC target host: %s", host)
+
     channel = grpc.insecure_channel(
         cluster_ip,
         options=(('grpc.ssl_target_name_override', host),))
