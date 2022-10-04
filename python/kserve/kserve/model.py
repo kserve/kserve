@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from typing import Dict, Union, List
-import contextlib
 import sys
 import inspect
 import json
@@ -22,12 +21,12 @@ import logging
 from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from enum import Enum
+from kserve.errors import InvalidInput
 from kserve.utils.utils import is_structured_cloudevent
 import grpc
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 from prometheus_client import Histogram
-
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -51,35 +50,6 @@ class PredictorProtocol(Enum):
     REST_V1 = "v1"
     REST_V2 = "v2"
     GRPC_V2 = "grpc-v2"
-
-
-class ModelMissingError(Exception):
-    def __init__(self, path):
-        self.path = path
-
-    def __str__(self):
-        return self.path
-
-
-class InferenceError(RuntimeError):
-    def __init__(self, reason):
-        self.reason = reason
-
-    def __str__(self):
-        return self.reason
-
-
-class InvalidInput(ValueError):
-    """
-    Exception class indicating invalid input arguments.
-    HTTP Servers should return HTTP_400 (Bad Request).
-    """
-
-    def __init__(self, reason):
-        self.reason = reason
-
-    def __str__(self):
-        return self.reason
 
 
 def get_latency_ms(start, end):
@@ -195,9 +165,8 @@ class Model:
         # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
-
     async def preprocess(self, payload: Union[Dict, CloudEvent], headers: Dict[str, str] = None) -> Union[
-            Dict, ModelInferRequest]:
+        Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent

@@ -1,5 +1,5 @@
 import pytest
-from kserve.handlers.dataplane import ModelNotFound
+from kserve.errors import ModelNotFound
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension, ModelNotReady
 from kserve.model_repository import ModelRepository
 from test.test_server import DummyModel, DummyModelRepository

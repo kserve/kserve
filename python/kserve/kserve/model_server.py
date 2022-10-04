@@ -22,6 +22,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.routing import APIRoute as FastAPIRoute
 
+import kserve.errors as errors
 import kserve.handlers as handlers
 from tornado.web import RequestHandler
 
@@ -103,7 +104,12 @@ class ModelServer:
             # TODO: Finish Triton Multi-Model Serving
             FastAPIRoute(r"/v2/repository/models/{model_name}/load", dataplane.load),
             FastAPIRoute(r"/v2/repository/models/{model_name}/unload", dataplane.unload),
-        ])
+        ], exception_handlers={
+            errors.InvalidInput: errors.invalid_input_handler,
+            errors.InferenceError: errors.inference_error_handler,
+            errors.ModelNotFound: errors.model_not_found_handler,
+            Exception: errors.exception_handler
+        })
 
     async def start(self, models: Union[List[Model], Dict[str, Deployment]]):
         if isinstance(models, list):

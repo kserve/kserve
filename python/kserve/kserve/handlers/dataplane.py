@@ -8,24 +8,11 @@ from cloudevents.sdk.converters.util import has_binary_headers
 
 from ..constants import constants
 from kserve import Model
+from kserve.errors import InvalidInput, ModelNotFound
+from kserve.model import ModelType
 from kserve.model_repository import ModelRepository
 from ray.serve.api import RayServeHandle
 from kserve.utils.utils import is_structured_cloudevent, create_response_cloudevent
-from kserve.model import ModelType, InvalidInput
-
-
-class ModelNotFound(Exception):
-    """
-    Exception class indicating requested model does not exist.
-    HTTP Servers should return HTTP_404 (Not Found).
-    """
-
-    def __init__(self, model_name=None):
-        self.model_name = model_name
-        self.reason = f"Model {self.model_name} not found."
-
-    def __str__(self):
-        return self.reason
 
 
 class DataPlane:

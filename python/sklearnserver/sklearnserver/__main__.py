@@ -17,7 +17,7 @@ import logging
 
 import kserve
 from sklearnserver import SKLearnModel, SKLearnModelRepository
-from kserve.model import ModelMissingError
+from kserve.errors import ModelMissingError
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"

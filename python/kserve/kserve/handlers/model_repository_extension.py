@@ -2,7 +2,7 @@ import inspect
 import sys
 from typing import Dict, List
 
-from kserve.handlers.dataplane import ModelNotFound
+from kserve.errors import ModelNotFound
 from kserve import ModelRepository
 
 

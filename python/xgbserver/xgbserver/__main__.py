@@ -15,8 +15,7 @@
 import argparse
 import logging
 import kserve
-from kserve.model import ModelMissingError
-
+from kserve.errors import ModelMissingError
 
 from xgbserver import XGBoostModel, XGBoostModelRepository
 

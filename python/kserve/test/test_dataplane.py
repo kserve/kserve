@@ -5,13 +5,12 @@ from unittest import mock
 
 import avro
 from cloudevents.http import to_structured, to_binary, CloudEvent
-from kserve.handlers.dataplane import ModelNotFound
+from kserve.errors import InvalidInput, ModelNotFound
 from kserve.model_repository import ModelRepository
 from kserve.handlers import DataPlane
 import pytest
 import os
 
-from kserve.model import InvalidInput
 from ray import serve
 from test.test_server import DummyModel, dummy_cloud_event, DummyCEModel, DummyAvroCEModel, \
     DummyServeModel
