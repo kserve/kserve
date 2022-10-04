@@ -92,10 +92,6 @@ deploy-dev-lgb: docker-push-lgb
 	./hack/model_server_patch_dev.sh lightgbm ${KO_DOCKER_REPO}/${LGB_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
-deploy-dev-pytorch: docker-push-pytorch
-	./hack/model_server_patch_dev.sh pytorch ${KO_DOCKER_REPO}/${PYTORCH_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
-
 deploy-dev-pmml : docker-push-pmml
 	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${PMML_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply -f -
@@ -237,12 +233,6 @@ docker-build-lgb:
 
 docker-push-lgb: docker-build-lgb
 	docker push ${KO_DOCKER_REPO}/${LGB_IMG}
-
-docker-build-pytorch:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${PYTORCH_IMG} -f pytorch.Dockerfile .
-
-docker-push-pytorch: docker-build-pytorch
-	docker push ${KO_DOCKER_REPO}/${PYTORCH_IMG}
 
 docker-build-pmml:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
