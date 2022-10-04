@@ -7,7 +7,6 @@ ROUTER_IMG ?= router:latest
 SKLEARN_IMG ?= sklearnserver
 XGB_IMG ?= xgbserver
 LGB_IMG ?= lgbserver
-PYTORCH_IMG ?= pytorchserver
 PMML_IMG ?= pmmlserver
 PADDLE_IMG ?= paddleserver
 ALIBI_IMG ?= alibi-explainer
