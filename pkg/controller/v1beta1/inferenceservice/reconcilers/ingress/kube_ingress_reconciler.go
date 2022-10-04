@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-//RawIngressReconciler reconciles the kubernetes ingress
+// RawIngressReconciler reconciles the kubernetes ingress
 type RawIngressReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme

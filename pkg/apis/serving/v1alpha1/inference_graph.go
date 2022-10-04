@@ -76,31 +76,39 @@ const (
 // ```yaml
 // kind: InferenceGraph
 // metadata:
-//   name: canary-route
+//
+//	name: canary-route
+//
 // spec:
-//   nodes:
-//     root:
-//       routerType: Splitter
-//       routes:
-//       - service: mymodel1
-//         weight: 20
-//       - service: mymodel2
-//         weight: 80
+//
+//	nodes:
+//	  root:
+//	    routerType: Splitter
+//	    routes:
+//	    - service: mymodel1
+//	      weight: 20
+//	    - service: mymodel2
+//	      weight: 80
+//
 // ```
 //
 // ```yaml
 // kind: InferenceGraph
 // metadata:
-//   name: abtest
+//
+//	name: abtest
+//
 // spec:
-//   nodes:
-//     mymodel:
-//       routerType: Switch
-//       routes:
-//       - service: mymodel1
-//         condition: "{ .input.userId == 1 }"
-//       - service: mymodel2
-//         condition: "{ .input.userId == 2 }"
+//
+//	nodes:
+//	  mymodel:
+//	    routerType: Switch
+//	    routes:
+//	    - service: mymodel1
+//	      condition: "{ .input.userId == 1 }"
+//	    - service: mymodel2
+//	      condition: "{ .input.userId == 2 }"
+//
 // ```
 //
 // Scoring a case using a model ensemble consists of scoring it using each model separately,
@@ -113,37 +121,45 @@ const (
 // ```yaml
 // kind: InferenceGraph
 // metadata:
-//   name: ensemble
+//
+//	name: ensemble
+//
 // spec:
-//   nodes:
-//     root:
-//       routerType: Sequence
-//       routes:
-//       - service: feast
-//       - nodeName: ensembleModel
-//         data: $response
-//     ensembleModel:
-//       routerType: Ensemble
-//       routes:
-//       - service: sklearn-model
-//       - service: xgboost-model
+//
+//	nodes:
+//	  root:
+//	    routerType: Sequence
+//	    routes:
+//	    - service: feast
+//	    - nodeName: ensembleModel
+//	      data: $response
+//	  ensembleModel:
+//	    routerType: Ensemble
+//	    routes:
+//	    - service: sklearn-model
+//	    - service: xgboost-model
+//
 // ```
 //
 // Scoring a case using a sequence, or chain of models allows the output of one model to be passed in as input to the subsequent models.
 // ```yaml
 // kind: InferenceGraph
 // metadata:
-//   name: model-chainer
+//
+//	name: model-chainer
+//
 // spec:
-//   nodes:
-//     root:
-//       routerType: Sequence
-//       routes:
-//       - service: mymodel-s1
-//       - service: mymodel-s2
-//         data: $response
-//       - service: mymodel-s3
-//         data: $response
+//
+//	nodes:
+//	  root:
+//	    routerType: Sequence
+//	    routes:
+//	    - service: mymodel-s1
+//	    - service: mymodel-s2
+//	      data: $response
+//	    - service: mymodel-s3
+//	      data: $response
+//
 // ```
 //
 // In the flow described below, the pre_processing node base64 encodes the image and passes it to two model nodes in the flow.
@@ -153,22 +169,26 @@ const (
 // ```yaml
 // kind: InferenceGraph
 // metadata:
-//   name: dog-breed-classification
+//
+//	name: dog-breed-classification
+//
 // spec:
-//   nodes:
-//     root:
-//       routerType: Sequence
-//       routes:
-//       - service: cat-dog-classifier
-//       - nodeName: breed-classifier
-//         data: $request
-//     breed-classifier:
-//       routerType: Switch
-//       routes:
-//       - service: dog-breed-classifier
-//         condition: { .predictions.class == "dog" }
-//       - service: cat-breed-classifier
-//         condition: { .predictions.class == "cat" }
+//
+//	nodes:
+//	  root:
+//	    routerType: Sequence
+//	    routes:
+//	    - service: cat-dog-classifier
+//	    - nodeName: breed-classifier
+//	      data: $request
+//	  breed-classifier:
+//	    routerType: Switch
+//	    routes:
+//	    - service: dog-breed-classifier
+//	      condition: { .predictions.class == "dog" }
+//	    - service: cat-breed-classifier
+//	      condition: { .predictions.class == "cat" }
+//
 // ```
 type InferenceRouter struct {
 	// RouterType

@@ -59,10 +59,13 @@ func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory
 /*
 GetDeploymentMode returns the current deployment mode, supports Serverless and RawDeployment
 case 1: no serving.kserve.org/deploymentMode annotation
-        return config.deploy.defaultDeploymentMode
+
+	return config.deploy.defaultDeploymentMode
+
 case 2: serving.kserve.org/deploymentMode is set
-        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
-		else return config.deploy.defaultDeploymentMode
+
+	        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
+			else return config.deploy.defaultDeploymentMode
 */
 func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.DeployConfig) constants.DeploymentModeType {
 	deploymentMode, ok := annotations[constants.DeploymentMode]

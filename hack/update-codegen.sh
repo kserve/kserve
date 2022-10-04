@@ -19,14 +19,18 @@ set -o nounset
 set -o pipefail
 
 KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
-CODEGEN_PKG=${KUBE_ROOT}/vendor/k8s.io/code-generator
+CODEGEN_VERSION=$(cd "${KUBE_ROOT}" && grep 'k8s.io/code-generator' go.mod | awk '{print $2}')
+CODEGEN_PKG="$GOPATH/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
 if [ -z "${GOPATH:-}" ]; then
     export GOPATH=$(go env GOPATH)
 fi
-# Generating files 
-${CODEGEN_PKG}/generate-groups.sh \
+
+chmod +x "${CODEGEN_PKG}/generate-groups.sh"
+
+# Generating files
+"${CODEGEN_PKG}/generate-groups.sh" \
     all \
     "github.com/kserve/kserve/pkg/client" \
     "github.com/kserve/kserve/pkg/apis" \
     "serving:v1beta1" \
-    --go-header-file ${KUBE_ROOT}/hack/boilerplate.go.txt
+    --go-header-file "${KUBE_ROOT}/hack/boilerplate.go.txt"
