@@ -8,7 +8,7 @@ To deploy the inferenceservice with v1beta1 API
 
 Then find the url.
 
-`kubectl get inferenceservice`
+`kubectl get inferenceservice aix-explainer`
 
 ```
 NAME         URL                                               READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
