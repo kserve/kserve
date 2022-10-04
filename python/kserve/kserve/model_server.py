@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import argparse
+import asyncio
 import logging
-from typing import List, Optional, Dict, Union
+from typing import List, Dict, Union
+
 import uvicorn
+
 from fastapi import FastAPI
 from fastapi.routing import APIRoute as FastAPIRoute
-import asyncio
 
 import kserve.handlers as handlers
 from tornado.web import RequestHandler
@@ -27,11 +29,11 @@ from kserve import Model
 from kserve.model_repository import ModelRepository
 from ray.serve.api import Deployment, RayServeHandle
 from ray import serve
-from prometheus_client import REGISTRY
-from prometheus_client.exposition import choose_encoder
+from prometheus_client import REGISTRY, exposition
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
+# TODO: replace max_buffer_size in tornado
 DEFAULT_MAX_BUFFER_SIZE = 104857600
 
 parser = argparse.ArgumentParser(add_help=False)
@@ -45,17 +47,16 @@ parser.add_argument('--workers', default=1, type=int,
                     help='The number of works to fork')
 parser.add_argument('--max_asyncio_workers', default=None, type=int,
                     help='Max number of asyncio workers to spawn')
-parser.add_argument(
-    "--enable_latency_logging", help="Output a log per request with latency metrics",
-    required=False, default=False
-)
+parser.add_argument("--enable_latency_logging", default=False, type=bool,
+                    help="Output a log per request with latency metrics")
 
 args, _ = parser.parse_known_args()
 
 
+# TODO: Use FastAPI for this
 class MetricsHandler(RequestHandler):
     def get(self):
-        encoder, content_type = choose_encoder(self.request.headers.get('accept'))
+        encoder, content_type = exposition.choose_encoder(self.request.headers.get('accept'))
         self.set_header("Content-Type", content_type)
         self.write(encoder(REGISTRY))
 
@@ -74,7 +75,7 @@ class ModelServer:
         self.max_buffer_size = max_buffer_size
         self.workers = workers
         self.max_asyncio_workers = max_asyncio_workers
-        self._http_server = None
+        self._server = None
         self.enable_latency_logging = validate_enable_latency_logging(enable_latency_logging)
 
     def create_application(self):
@@ -82,11 +83,24 @@ class ModelServer:
         return FastAPI(routes=[
             # Server Liveness API returns 200 if server is alive.
             FastAPIRoute(r"/", dataplane.live),
+            # V1 Inference Protocol
             FastAPIRoute(r"/v1/models", dataplane.model_metadata),
             # Model Health API returns 200 if model is ready to serve.
             FastAPIRoute(r"/v1/models/{model_name}", dataplane.model_ready),
             FastAPIRoute(r"/v1/models/{model_name}:predict", dataplane.infer, methods=["POST"]),
             FastAPIRoute(r"/v1/models/{model_name}:explain", dataplane.infer, methods=["POST"]),
+            # V2 Inference Protocol
+            # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
+            FastAPIRoute(r"/v2", dataplane.metadata),
+            FastAPIRoute(r"/v2/health/live", dataplane.live),
+            FastAPIRoute(r"/v2/health/ready", dataplane.ready),
+            # TODO: Finish model metadata with version dataplane handler
+            FastAPIRoute(r"/v2/models/{model_name}", dataplane.model_metadata),
+            FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}", dataplane.model_metadata),
+            # TODO: Finish model infer with version dataplane handler
+            FastAPIRoute(r"/v1/models/{model_name}/infer", dataplane.infer, methods=["POST"]),
+            FastAPIRoute(r"/v1/models/{model_name}/versions/{model_version}/infer", dataplane.infer, methods=["POST"]),
+            # TODO: Finish Triton Multi-Model Serving
             FastAPIRoute(r"/v2/repository/models/{model_name}/load", dataplane.load),
             FastAPIRoute(r"/v2/repository/models/{model_name}/unload", dataplane.unload),
         ])
