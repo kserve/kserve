@@ -27,7 +27,17 @@ fi
 
 chmod +x "${CODEGEN_PKG}/generate-groups.sh"
 
-# Generating files
+# We can not generate client-go for v1alpha1 and v1beta1 and add them to the same directory.
+# So, we add each to a separate directory.
+# Generating files for v1alpha1
+"${CODEGEN_PKG}/generate-groups.sh" \
+    all \
+    "github.com/kserve/kserve/pkg/clientv1alpha1" \
+    "github.com/kserve/kserve/pkg/apis" \
+    "serving:v1alpha1" \
+    --go-header-file "${KUBE_ROOT}/hack/boilerplate.go.txt"
+
+# Generating files for v1beta1
 "${CODEGEN_PKG}/generate-groups.sh" \
     all \
     "github.com/kserve/kserve/pkg/client" \
