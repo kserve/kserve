@@ -5,12 +5,14 @@ import cloudevents.exceptions as ce
 import pkg_resources
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
+from ray.serve.api import RayServeHandle
 
 from ..constants import constants
 from kserve import Model
 from kserve.errors import InvalidInput, ModelNotFound
 from kserve.model import ModelType
 from kserve.model_repository import ModelRepository
+
 from ray.serve.api import RayServeHandle
 from kserve.utils.utils import is_structured_cloudevent, create_response_cloudevent
 
