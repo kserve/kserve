@@ -31,20 +31,14 @@ from kserve.model_repository import ModelRepository
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
-# TODO: replace max_buffer_size in tornado
-DEFAULT_MAX_BUFFER_SIZE = 104857600
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
                     help='The HTTP Port listened to by the model server.')
 parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
                     help='The GRPC Port listened to by the model server.')
-parser.add_argument('--max_buffer_size', default=DEFAULT_MAX_BUFFER_SIZE, type=int,
-                    help='The max buffer size for tornado.')
 parser.add_argument('--workers', default=1, type=int,
                     help='The number of works to fork')
-parser.add_argument('--max_asyncio_workers', default=None, type=int,
-                    help='Max number of asyncio workers to spawn')
 parser.add_argument("--enable_latency_logging", default=False, type=bool,
                     help="Output a log per request with latency metrics")
 
@@ -59,17 +53,13 @@ async def metrics_handler(request: Request):
 class ModelServer:
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
-                 max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers,
-                 max_asyncio_workers: int = args.max_asyncio_workers,
                  registered_models: ModelRepository = ModelRepository(),
                  enable_latency_logging: bool = args.enable_latency_logging):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
-        self.max_buffer_size = max_buffer_size
         self.workers = workers
-        self.max_asyncio_workers = max_asyncio_workers
         self._server = None
         self.enable_latency_logging = validate_enable_latency_logging(enable_latency_logging)
 
