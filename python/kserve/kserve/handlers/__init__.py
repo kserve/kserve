@@ -12,9 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .base import NotFoundHandler  # noqa # pylint: disable=unused-import
-from .health import LivenessHandler, HealthHandler  # noqa # pylint: disable=unused-import
-from .model_management import LoadHandler, UnloadHandler, ListHandler  # noqa # pylint: disable=unused-import
-from .explain import ExplainHandler  # noqa # pylint: disable=unused-import
-from .predict import PredictHandler  # noqa # pylint: disable=unused-import
 from .dataplane import DataPlane
