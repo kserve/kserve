@@ -22,7 +22,6 @@ import avro.schema
 import io
 import pytest
 from cloudevents.http import CloudEvent, to_binary, to_structured
-from kserve.model_server import validate_enable_latency_logging
 from kserve import Model
 from kserve import ModelServer
 from kserve import ModelRepository
@@ -533,19 +532,3 @@ class TestTFHttpServerAvroCloudEvent:
         assert resp.headers['ce-type'] == "io.kserve.inference.response"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert resp.body == b'{"predictions": [["foo", 1, "pink"]]}'
-
-
-def test_validate_enable_latency_logging_bool():
-    tests = ["False", "false", "True", "true", True, False]
-    expected = [False, False, True, True, True, False]
-
-    for i, test in enumerate(tests):
-        assert expected[i] == validate_enable_latency_logging(test)
-
-
-def test_validate_enable_latency_logging_raises():
-    tests = ["F", "t", "wrong"]
-
-    for test in tests:
-        with pytest.raises(TypeError):
-            validate_enable_latency_logging(test)
