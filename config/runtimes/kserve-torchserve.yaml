@@ -3,6 +3,8 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-torchserve
 spec:
+  annotations:
+    prometheus.kserve.io/port: '8082'
   supportedModelFormats:
     - name: pytorch
       version: "1"

@@ -3,6 +3,8 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-lgbserver
 spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
   supportedModelFormats:
     - name: lightgbm
       version: "2"
