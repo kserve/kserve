@@ -11,22 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Dict, Union, List
-import sys
 import inspect
 import json
-import tornado.web
-import time
 import logging
-from tornado.httpclient import AsyncHTTPClient
-from cloudevents.http import CloudEvent
+import sys
+import time
 from enum import Enum
-from kserve.errors import InvalidInput
-from kserve.utils.utils import is_structured_cloudevent
+from typing import Dict, Union, List
+
+import httpx
 import grpc
+import tornado.web
+from cloudevents.http import CloudEvent
+from prometheus_client import Histogram
+from tornado.httpclient import AsyncHTTPClient
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
-from prometheus_client import Histogram
+
+from kserve.errors import InvalidInput
+from kserve.utils.utils import is_structured_cloudevent
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -117,6 +120,7 @@ class Model:
     @property
     def _http_client(self):
         if self._http_client_instance is None:
+            # TODO: maybe replace this with httpx.AsyncClient
             self._http_client_instance = AsyncHTTPClient(max_clients=sys.maxsize)
         return self._http_client_instance
 

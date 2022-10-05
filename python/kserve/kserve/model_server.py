@@ -115,9 +115,10 @@ class ModelServer:
                     # pass whether to log request latency into the model
                     model.enable_latency_logging = self.enable_latency_logging
                 else:
-                    raise RuntimeError("Model type should be Model")
+                    raise RuntimeError("Model type should be 'Model'")
         elif isinstance(models, dict):
             if all([isinstance(v, Deployment) for v in models.values()]):
+                # TODO: make this port number a variable
                 serve.start(detached=True, http_options={"host": "0.0.0.0", "port": 9071})
                 for key in models:
                     models[key].deploy()
