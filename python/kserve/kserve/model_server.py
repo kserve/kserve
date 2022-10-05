@@ -16,6 +16,7 @@ import argparse
 import asyncio
 import logging
 from typing import List, Dict, Union
+from distutils.util import strtobool
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -39,7 +40,7 @@ parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
                     help='The GRPC Port listened to by the model server.')
 parser.add_argument('--workers', default=1, type=int,
                     help='The number of works to fork')
-parser.add_argument("--enable_latency_logging", default=False, type=bool,
+parser.add_argument("--enable_latency_logging", default=False, type=lambda x: bool(strtobool(x)),
                     help="Output a log per request with latency metrics")
 
 args, _ = parser.parse_known_args()
@@ -61,7 +62,7 @@ class ModelServer:
         self.grpc_port = grpc_port
         self.workers = workers
         self._server = None
-        self.enable_latency_logging = validate_enable_latency_logging(enable_latency_logging)
+        self.enable_latency_logging = enable_latency_logging
 
     def create_application(self):
         dataplane = handlers.DataPlane(model_registry=self.registered_models)
@@ -140,15 +141,3 @@ class ModelServer:
                 "Failed to register model, model.name must be provided.")
         self.registered_models.update(model)
         logging.info("Registering model: %s", model.name)
-
-
-def validate_enable_latency_logging(enable_latency_logging):
-    if isinstance(enable_latency_logging, str):
-        if enable_latency_logging.lower() == "true":
-            enable_latency_logging = True
-        elif enable_latency_logging.lower() == "false":
-            enable_latency_logging = False
-    if not isinstance(enable_latency_logging, bool):
-        raise TypeError(f"enable_latency_logging must be one of [True, true, False, false], "
-                        f"got {enable_latency_logging} instead.")
-    return enable_latency_logging
