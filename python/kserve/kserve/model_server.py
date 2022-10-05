@@ -18,19 +18,16 @@ import logging
 from typing import List, Dict, Union
 
 import uvicorn
-
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute as FastAPIRoute
+from prometheus_client import REGISTRY, exposition
+from ray import serve
+from ray.serve.api import Deployment, RayServeHandle
 
 import kserve.errors as errors
 import kserve.handlers as handlers
-from tornado.web import RequestHandler
-
 from kserve import Model
 from kserve.model_repository import ModelRepository
-from ray.serve.api import Deployment, RayServeHandle
-from ray import serve
-from prometheus_client import REGISTRY, exposition
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -54,12 +51,9 @@ parser.add_argument("--enable_latency_logging", default=False, type=bool,
 args, _ = parser.parse_known_args()
 
 
-# TODO: Use FastAPI for this
-class MetricsHandler(RequestHandler):
-    def get(self):
-        encoder, content_type = exposition.choose_encoder(self.request.headers.get('accept'))
-        self.set_header("Content-Type", content_type)
-        self.write(encoder(REGISTRY))
+async def metrics_handler(request: Request):
+    encoder, content_type = exposition.choose_encoder(request.headers.get('accept'))
+    return Response(content=encoder(REGISTRY), headers={'content-type': content_type})
 
 
 class ModelServer:
@@ -82,6 +76,8 @@ class ModelServer:
     def create_application(self):
         dataplane = handlers.DataPlane(model_registry=self.registered_models)
         return FastAPI(routes=[
+            # Metrics
+            FastAPIRoute(r"/metrics", metrics_handler, methods=['GET']),
             # Server Liveness API returns 200 if server is alive.
             FastAPIRoute(r"/", dataplane.live),
             # V1 Inference Protocol
