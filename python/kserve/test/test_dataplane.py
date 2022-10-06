@@ -1,17 +1,17 @@
 import io
 import json
+import os
 import re
 from unittest import mock
 
 import avro
-from cloudevents.http import to_structured, to_binary, CloudEvent
-from kserve.errors import InvalidInput, ModelNotFound
-from kserve.model_repository import ModelRepository
-from kserve.handlers import DataPlane
 import pytest
-import os
-
+from cloudevents.http import to_structured, to_binary, CloudEvent
 from ray import serve
+
+from kserve.errors import InvalidInput, ModelNotFound
+from kserve.handlers import DataPlane
+from kserve.model_repository import ModelRepository
 from test.test_server import DummyModel, dummy_cloud_event, DummyCEModel, DummyAvroCEModel, \
     DummyServeModel
 
@@ -46,7 +46,7 @@ class TestDataPlane:
         with pytest.raises(ModelNotFound) as http_exec:
             dataplane.get_model_from_registry(model_name)
         # assert http_exec.value.status_code == 404
-        assert http_exec.value.reason == f"Model {model_name} not found."
+        assert http_exec.value.reason == f"Model with name {model_name} does not exist."
 
         ready_model = DummyModel("Model")
         ready_model.load()

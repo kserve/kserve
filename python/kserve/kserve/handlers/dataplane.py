@@ -150,9 +150,13 @@ class DataPlane:
             model_name (str): name of the model
 
         Returns:
-            False, if the model is not ready or model is not found
-            True, otherwise
+            True, if the model is ready
+            False, if the model is not ready
+            Raise ModelNotFound exception if model is not found
         """
+        if self._model_registry.get_model(model_name) is None:
+            raise ModelNotFound(model_name)
+
         is_ready = self._model_registry.is_model_ready(model_name)
         return is_ready
 

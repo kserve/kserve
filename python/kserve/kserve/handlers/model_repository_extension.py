@@ -3,7 +3,7 @@ import sys
 from typing import Dict, List
 
 from kserve.errors import ModelNotFound, ModelNotReady
-from kserve import ModelRepository
+from kserve.model_repository import ModelRepository
 
 
 class ModelRepositoryExtension:

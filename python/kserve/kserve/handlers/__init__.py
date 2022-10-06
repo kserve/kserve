@@ -12,4 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .dataplane import DataPlane
+from __future__ import absolute_import
+
+from kserve.handlers.dataplane import DataPlane
+from kserve.handlers.model_repository_extension import ModelRepositoryExtension
