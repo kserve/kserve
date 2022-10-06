@@ -393,6 +393,10 @@ spec:
                         type: array
                     type: object
                 type: object
+              annotations:
+                additionalProperties:
+                  type: string
+                type: object
               builtInAdapter:
                 properties:
                   env:
@@ -1059,6 +1063,10 @@ spec:
                 type: string
               httpDataEndpoint:
                 type: string
+              labels:
+                additionalProperties:
+                  type: string
+                type: object
               multiModel:
                 type: boolean
               nodeSelector:
@@ -15967,6 +15975,10 @@ spec:
                         type: array
                     type: object
                 type: object
+              annotations:
+                additionalProperties:
+                  type: string
+                type: object
               builtInAdapter:
                 properties:
                   env:
@@ -16633,6 +16645,10 @@ spec:
                 type: string
               httpDataEndpoint:
                 type: string
+              labels:
+                additionalProperties:
+                  type: string
+                type: object
               multiModel:
                 type: boolean
               nodeSelector:

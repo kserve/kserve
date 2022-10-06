@@ -54,6 +54,19 @@ It supports the following storage providers:
     * `https://<some_url>.com/model.joblib`
     * `http://<some_url>.com/model.joblib`
 
+### Metrics
+
+For latency metrics, send a request to `/metrics`. Prometheus latency histograms are emitted for each of the steps (pre/postprocessing, explain, predict).
+Additionally, the latencies of each step are logged per request.
+
+| Metric Name                        | Description                    | Type      |
+|------------------------------------|--------------------------------|-----------| 
+| request_preprocessing_seconds      | pre-processing request latency | Histogram | 
+| request_explain_processing_seconds | explain request latency        | Histogram | 
+| request_predict_processing_seconds | prediction request latency     | Histogram |
+| request_postprocessing_seconds     | pre-processing request latency | Histogram | 
+
+
 ## KServe Client
 
 ### Getting Started
