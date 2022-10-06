@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 
 from setuptools import setup, find_packages
 
@@ -21,9 +22,12 @@ tests_require = [
     'mypy'
 ]
 
+with open(os.path.join(os.getcwd(), '../VERSION')) as version_file:
+    version = version_file.read().strip()
+
 setup(
     name='lgbserver',
-    version='0.9.0',
+    version=version,
     author_email='linyiming@ainnovation.com',
     license='../../LICENSE.txt',
     url='https://github.com/kserve/kserve/python/lgbserver',
@@ -33,7 +37,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("lgbserver"),
     install_requires=[
-        "kserve>=0.9.0",
+        f"kserve>={version}",
         "lightgbm == 3.3.2",
         "pandas == 1.3.5",
         "argparse >= 1.4.0",

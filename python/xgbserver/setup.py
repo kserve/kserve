@@ -11,8 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 
 from setuptools import setup, find_packages
+
+
+with open(os.path.join(os.getcwd(), '../VERSION')) as version_file:
+    version = version_file.read().strip()
 
 tests_require = [
     'pytest',
@@ -33,7 +38,7 @@ setup(
     python_requires='>3.7',
     packages=find_packages("xgbserver"),
     install_requires=[
-        "kserve>=0.9.0",
+        f"kserve>={version}",
         "xgboost == 1.5.0",
         "scikit-learn == 1.0.1",
     ],

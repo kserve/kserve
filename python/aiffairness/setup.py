@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 
 from setuptools import setup, find_packages
 
@@ -20,9 +21,12 @@ tests_require = [
     'mypy'
 ]
 
+with open(os.path.join(os.getcwd(), '../VERSION')) as version_file:
+    version = version_file.read().strip()
+
 setup(
     name='aifserver',
-    version='0.9.0',
+    version=version,
     author_email='Andrew.Butler@ibm.com',
     license='https://github.com/kserve/kserve/LICENSE',
     url='https://github.com/kserve/kserve/python/aifserver',
@@ -32,7 +36,7 @@ setup(
     python_requires='>3.7',
     packages=find_packages("aifserver"),
     install_requires=[
-        "kserve>=0.9.0",
+        f"kserve>={version}",
         "aif360 >= 0.2.3",
         "nest_asyncio>=1.4.0",
         "requests[security]>=2.24.0"
