@@ -28,6 +28,7 @@ from tornado.httpclient import HTTPClientError
 from tornado.web import HTTPError
 
 from kserve import Model, ModelServer, ModelRepository
+from kserve.errors import InvalidInput
 from kserve.model import PredictorProtocol
 
 test_avsc_schema = '''
@@ -172,7 +173,7 @@ class TestModel:
         validated_request = model.validate(good_request)
         assert validated_request == good_request
         bad_request = {"instances": "invalid"}
-        with pytest.raises(HTTPError):
+        with pytest.raises(InvalidInput):
             model.validate(bad_request)
 
         model.protocol = PredictorProtocol.REST_V2.value
@@ -180,10 +181,11 @@ class TestModel:
         validated_request = model.validate(good_request)
         assert validated_request == good_request
         bad_request = {"inputs": "invalid"}
-        with pytest.raises(HTTPError):
+        with pytest.raises(InvalidInput):
             model.validate(bad_request)
 
 
+@pytest.mark.asyncio
 class TestTFHttpServer:
 
     @pytest.fixture(scope="class")
@@ -198,7 +200,6 @@ class TestTFHttpServer:
     def http_server_client(self, app):
         return TestClient(app)
 
-    @pytest.mark.asyncio
     def test_liveness(self, http_server_client):
         resp = http_server_client.get('/')
         assert resp.status_code == 200
@@ -218,32 +219,29 @@ class TestTFHttpServer:
         assert resp.status_code == 200
         assert resp.json() == {"models": ["TestModel"]}
 
-    async def test_predict(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                              method="POST",
-                                              body=b'{"instances":[[1,2]]}')
-        assert resp.code == 200
-        assert resp.body == b'{"predictions": [[1, 2]]}'
-        assert resp.headers['content-type'] == "application/json; charset=UTF-8"
+    def test_predict(self, http_server_client):
+        resp = http_server_client.post('/v1/models/TestModel:predict',
+                                       data=b'{"instances":[[1,2]]}')
+        assert resp.status_code == 200
+        assert resp.content == b'{"predictions":[[1,2]]}'
+        assert resp.headers['content-type'] == "application/json"
 
-    async def test_explain(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models/TestModel:explain',
-                                              method="POST",
-                                              body=b'{"instances":[[1,2]]}')
-        assert resp.code == 200
-        assert resp.body == b'{"predictions": [[1, 2]]}'
-        assert resp.headers['content-type'] == "application/json; charset=UTF-8"
+    def test_explain(self, http_server_client):
+        resp = http_server_client.post('/v1/models/TestModel:explain',
+                                       data=b'{"instances":[[1,2]]}')
+        assert resp.status_code == 200
+        assert resp.content == b'{"predictions":[[1,2]]}'
+        assert resp.headers['content-type'] == "application/json"
 
-    async def test_unknown_path(self, http_server_client):
-        with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/unknown_path')
-        assert err.value.code == 404
-        assert err.value.response.body == b'{"error": "invalid path"}'
+    def test_unknown_path(self, http_server_client):
+        resp = http_server_client.get('/unknown_path')
+        assert resp.status_code == 404
+        assert resp.json() == {"detail": "Not Found"}
 
-    async def test_metrics(self, http_server_client):
-        resp = await http_server_client.fetch('/metrics')
-        assert resp.code == 200
-        assert resp.body is not None
+    def test_metrics(self, http_server_client):
+        resp = http_server_client.get('/metrics')
+        assert resp.status_code == 200
+        assert resp.content is not None
 
 
 class TestRayServer:

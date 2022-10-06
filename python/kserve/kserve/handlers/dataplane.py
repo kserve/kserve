@@ -27,6 +27,10 @@ class DataPlane:
         # that 'kserve' will already be installed by the time this class is instantiated.
         self._server_version = pkg_resources.get_distribution("kserve").version
 
+    @property
+    def model_registry(self):
+        return self._model_registry
+
     def get_model_from_registry(self, name: str) -> Union[Model, RayServeHandle]:
         model = self._model_registry.get_model(name)
         if model is None:
@@ -241,12 +245,3 @@ class DataPlane:
             model_handle = model
             response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
         return response
-
-    # TODO: add tests for the handlers
-    async def model_list_handler(self) -> dict[str, list[str]]:
-        """Get a list of model names
-        """
-        return {"models": list(self._model_registry.get_models().keys())}
-
-    async def model_ready_handler(self, model_name: str) -> dict[str, Union[str, bool]]:
-        return {"model": model_name, "ready": self.model_ready(model_name)}

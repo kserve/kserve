@@ -19,7 +19,6 @@ import time
 from enum import Enum
 from typing import Dict, Union, List
 
-import httpx
 import grpc
 import tornado.web
 from cloudevents.http import CloudEvent

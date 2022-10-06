@@ -27,6 +27,7 @@ from ray.serve.api import Deployment, RayServeHandle
 
 import kserve.errors as errors
 from kserve import Model
+from kserve.handlers import V1Endpoints
 from kserve.model_repository import ModelRepository
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
@@ -68,18 +69,19 @@ class ModelServer:
     def create_application(self):
         dataplane = DataPlane(model_registry=self.registered_models)
         model_repository_extension = ModelRepositoryExtension(model_registry=self.registered_models)
+        v1_endpoints = V1Endpoints(dataplane, model_repository_extension)
 
         return FastAPI(routes=[
-            # Metrics
-            FastAPIRoute(r"/metrics", metrics_handler, methods=['GET']),
             # Server Liveness API returns 200 if server is alive.
             FastAPIRoute(r"/", dataplane.live),
+            # Metrics
+            FastAPIRoute(r"/metrics", metrics_handler, methods=['GET']),
             # V1 Inference Protocol
-            FastAPIRoute(r"/v1/models", dataplane.model_list_handler),
+            FastAPIRoute(r"/v1/models", v1_endpoints.models),
             # Model Health API returns 200 if model is ready to serve.
-            FastAPIRoute(r"/v1/models/{model_name}", dataplane.model_ready_handler),
-            FastAPIRoute(r"/v1/models/{model_name}:predict", dataplane.infer, methods=["POST"]),
-            FastAPIRoute(r"/v1/models/{model_name}:explain", dataplane.infer, methods=["POST"]),
+            FastAPIRoute(r"/v1/models/{model_name}", v1_endpoints.model_ready),
+            FastAPIRoute(r"/v1/models/{model_name}:predict", v1_endpoints.predict, methods=["POST"]),
+            FastAPIRoute(r"/v1/models/{model_name}:explain", v1_endpoints.explain, methods=["POST"]),
             # V2 Inference Protocol
             # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
             FastAPIRoute(r"/v2", dataplane.metadata),
