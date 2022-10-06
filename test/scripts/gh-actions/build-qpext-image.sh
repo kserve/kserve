@@ -14,13 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The script is used to deploy knative and kserve, and run e2e tests.
+# The script is used to build all the queue-proxy extension image.
 
 set -o errexit
 set -o nounset
 set -o pipefail
+echo "Github SHA ${GITHUB_SHA}"
+export QPEXT_IMG=kserve/qpext:${GITHUB_SHA}
 
-echo "Starting E2E functional tests ..."
-pushd test/e2e >/dev/null
-  pytest -m "$1" --ignore=qpext
+pushd qpext >/dev/null
+echo "Building queue proxy extension image"
+docker build -t ${QPEXT_IMG} -f qpext.Dockerfile .
 popd
+echo "Done building image"

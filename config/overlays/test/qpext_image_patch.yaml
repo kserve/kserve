@@ -1,0 +1,2 @@
+data:
+  queueSidecarImage: kserve/qpext:latest

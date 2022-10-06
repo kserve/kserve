@@ -71,3 +71,8 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "300m"
     }
+  metricsAggregator: |-
+    {
+      "enableMetricAggregation": "false",
+      "enablePrometheusScraping" : "false"
+    }

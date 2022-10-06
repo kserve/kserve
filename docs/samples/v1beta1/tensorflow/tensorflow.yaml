@@ -2,6 +2,9 @@ apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flower-sample"
+  annotations:
+    serving.kserve.io/enable-metric-aggregation:  "true"
+    serving.kserve.io/enable-prometheus-scraping: "true"
 spec:
   predictor:
     tensorflow:
