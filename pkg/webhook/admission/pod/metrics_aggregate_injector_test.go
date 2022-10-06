@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KServe Authors.
+Copyright 2022 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -65,8 +65,9 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						{
 							Name: "queue-proxy",
 							Env: []v1.EnvVar{
-								{Name: constants.KServeContainerPrometheusPortEnvVarKey, Value: sklearnPrometheusPort},
-								{Name: constants.QueueProxyAggregatePrometheusPortEnvVarKey, Value: QueueProxyAggregateMetricsPort},
+								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
+								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
 							},
 						},
 					},
@@ -173,8 +174,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					Annotations: map[string]string{
 						constants.EnableMetricAggregation:          "true",
 						constants.SetPrometheusAggregateAnnotation: "true",
-						PrometheusPortAnnotationKey:                QueueProxyAggregateMetricsPort,
-						PrometheusPathAnnotationKey:                PrometheusPathAnnotationValue,
+						constants.PrometheusPortAnnotationKey:      constants.QueueProxyAggregatePrometheusMetricsPort,
+						constants.PrometheusPathAnnotationKey:      constants.DefaultPrometheusPath,
 					},
 				},
 				Spec: v1.PodSpec{
@@ -184,8 +185,9 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						{
 							Name: "queue-proxy",
 							Env: []v1.EnvVar{
-								{Name: constants.KServeContainerPrometheusPortEnvVarKey, Value: sklearnPrometheusPort},
-								{Name: constants.QueueProxyAggregatePrometheusPortEnvVarKey, Value: QueueProxyAggregateMetricsPort},
+								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
+								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
 							},
 						},
 					},
@@ -228,8 +230,9 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						{
 							Name: "queue-proxy",
 							Env: []v1.EnvVar{
-								{Name: constants.KServeContainerPrometheusPortEnvVarKey, Value: sklearnPrometheusPort},
-								{Name: constants.QueueProxyAggregatePrometheusPortEnvVarKey, Value: QueueProxyAggregateMetricsPort},
+								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
+								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
 							},
 						},
 					},

@@ -4,7 +4,9 @@ metadata:
   name: kserve-mlserver
 spec:
   annotations:
+    # mlserver version 1.1.0 uses port 8082 as default instead of 8080.
     prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: sklearn
       version: "0"
