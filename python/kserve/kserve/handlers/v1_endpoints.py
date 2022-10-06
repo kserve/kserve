@@ -40,7 +40,7 @@ class V1Endpoints:
         :return:
         """
 
-        return {"model": model_name, "ready": self.dataplane.model_ready(model_name)}
+        return {"name": model_name, "ready": self.dataplane.model_ready(model_name)}
 
     async def predict(self, model_name: str, request: Request):
         # TODO: capture exception here
