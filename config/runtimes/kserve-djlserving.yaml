@@ -4,22 +4,34 @@ metadata:
   name: kserve-djlserving
 spec:
   supportedModelFormats:
-    - name: pytorch
+    - name: pytorch  # PyTorch TorchScript model
       version: "1"
-      autoSelect: no
-    - name: tensorflow
+      autoSelect: False
+    - name: tensorflow # TensorFlow SavedModel bundle
       version: "1"
-      autoSelect: no
-    - name: mxnet 
-      
-    # need to add another four
+      autoSelect: False
+    - name: mxnet # Apache MXNet model
+      version: "1"
+      autoSelect: False
+    - name: onnx # ONNX model (CPU)
+      version: "1"
+      autoSelect: False
+    - name: tensorrt  # TensorRT model
+      version: "1"
+      autoSelect: False
+    - name: python # Python script model
+      version: "1"
+      autoSelect: False
   protocolVersions:
     - v2
   containers:
     - name: kserve-container
       image: kserve-djlserving:replace
+      ports:
+      - containerPort: 8080
       args:
-        - --models={{.Name}}
+        - serve
+        - --model-store=/mnt/models/model-store
         # - --model_dir=/mnt/models
         # - --http_port=8080
       resources:

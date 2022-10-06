@@ -1,0 +1,11 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: djl-test-7
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: mxnet
+      storageUri: https://resources.djl.ai/demo/mxnet/resnet18_v2.zip
+      runtime: kserve-djlserving
