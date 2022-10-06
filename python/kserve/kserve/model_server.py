@@ -15,8 +15,8 @@
 import argparse
 import asyncio
 import logging
-from typing import List, Dict, Union
 from distutils.util import strtobool
+from typing import List, Dict, Union
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -26,9 +26,10 @@ from ray import serve
 from ray.serve.api import Deployment, RayServeHandle
 
 import kserve.errors as errors
-import kserve.handlers as handlers
 from kserve import Model
 from kserve.model_repository import ModelRepository
+from kserve.handlers.dataplane import DataPlane
+from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -65,16 +66,18 @@ class ModelServer:
         self.enable_latency_logging = enable_latency_logging
 
     def create_application(self):
-        dataplane = handlers.DataPlane(model_registry=self.registered_models)
+        dataplane = DataPlane(model_registry=self.registered_models)
+        model_repository_extension = ModelRepositoryExtension(model_registry=self.registered_models)
+
         return FastAPI(routes=[
             # Metrics
             FastAPIRoute(r"/metrics", metrics_handler, methods=['GET']),
             # Server Liveness API returns 200 if server is alive.
             FastAPIRoute(r"/", dataplane.live),
             # V1 Inference Protocol
-            FastAPIRoute(r"/v1/models", dataplane.model_metadata),
+            FastAPIRoute(r"/v1/models", dataplane.model_list_handler),
             # Model Health API returns 200 if model is ready to serve.
-            FastAPIRoute(r"/v1/models/{model_name}", dataplane.model_ready),
+            FastAPIRoute(r"/v1/models/{model_name}", dataplane.model_ready_handler),
             FastAPIRoute(r"/v1/models/{model_name}:predict", dataplane.infer, methods=["POST"]),
             FastAPIRoute(r"/v1/models/{model_name}:explain", dataplane.infer, methods=["POST"]),
             # V2 Inference Protocol
@@ -89,8 +92,8 @@ class ModelServer:
             FastAPIRoute(r"/v1/models/{model_name}/infer", dataplane.infer, methods=["POST"]),
             FastAPIRoute(r"/v1/models/{model_name}/versions/{model_version}/infer", dataplane.infer, methods=["POST"]),
             # TODO: Finish Triton Multi-Model Serving
-            FastAPIRoute(r"/v2/repository/models/{model_name}/load", dataplane.load),
-            FastAPIRoute(r"/v2/repository/models/{model_name}/unload", dataplane.unload),
+            FastAPIRoute(r"/v2/repository/models/{model_name}/load", model_repository_extension.load),
+            FastAPIRoute(r"/v2/repository/models/{model_name}/unload", model_repository_extension.unload),
         ], exception_handlers={
             errors.InvalidInput: errors.invalid_input_handler,
             errors.InferenceError: errors.inference_error_handler,

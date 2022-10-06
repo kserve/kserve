@@ -57,7 +57,7 @@ class DataPlane:
             raise InvalidInput(f"Cloud Event Exceptions: {e}")
 
     @staticmethod
-    async def live() -> dict:
+    async def live() -> dict[str, str]:
         """
         Returns status alive on successful invocation. Primarily meant to be used as
         kubernetes liveness check
@@ -65,8 +65,7 @@ class DataPlane:
         Returns:
             Dict: {"status": "alive"}
         """
-        response = {"status": "alive"}
-        return response
+        return {"status": "alive"}
 
     async def metadata(self) -> dict:
         """
@@ -142,7 +141,7 @@ class DataPlane:
         is_ready = all([model.ready for model in models])
         return is_ready
 
-    async def model_ready(self, model_name: str) -> bool:
+    def model_ready(self, model_name: str) -> bool:
         """
         Returns if the model specified by 'model_name' is ready
 
@@ -157,8 +156,7 @@ class DataPlane:
         if self._model_registry.get_model(model_name) is None:
             raise ModelNotFound(model_name)
 
-        is_ready = self._model_registry.is_model_ready(model_name)
-        return is_ready
+        return self._model_registry.is_model_ready(model_name)
 
     async def infer(
             self,
@@ -243,3 +241,12 @@ class DataPlane:
             model_handle = model
             response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
         return response
+
+    # TODO: add tests for the handlers
+    async def model_list_handler(self) -> dict[str, list[str]]:
+        """Get a list of model names
+        """
+        return {"models": list(self._model_registry.get_models().keys())}
+
+    async def model_ready_handler(self, model_name: str) -> dict[str, Union[str, bool]]:
+        return {"model": model_name, "ready": self.model_ready(model_name)}

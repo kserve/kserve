@@ -72,12 +72,12 @@ class TestDataPlane:
         ready_model = DummyModel("ReadyModel")
         ready_model.load()
         dataplane._model_registry.update(ready_model)
-        assert await dataplane.model_ready(ready_model.name) is True
+        assert dataplane.model_ready(ready_model.name) is True
 
         not_ready_model = DummyModel("NotReadyModel")
         # model.load()  # Model not loaded, i.e. not ready
         dataplane._model_registry.update(not_ready_model)
-        assert await dataplane.model_ready(not_ready_model.name) is False
+        assert dataplane.model_ready(not_ready_model.name) is False
 
     async def test_server_metadata(self):
         with open(os.path.join(os.getcwd(), '../../VERSION')) as version_file:
