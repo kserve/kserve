@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import io
 import json
 import os
 import re
@@ -19,17 +20,15 @@ from unittest import mock
 
 import avro.io
 import avro.schema
-import io
 import pytest
 from cloudevents.http import CloudEvent, to_binary, to_structured
-from kserve import Model
-from kserve import ModelServer
-from kserve import ModelRepository
-from kserve.model import PredictorProtocol
+from fastapi.testclient import TestClient
+from ray import serve
 from tornado.httpclient import HTTPClientError
 from tornado.web import HTTPError
-from ray import serve
 
+from kserve import Model, ModelServer, ModelRepository
+from kserve.model import PredictorProtocol
 
 test_avsc_schema = '''
         {
@@ -195,20 +194,29 @@ class TestTFHttpServer:
         server.register_model(model)
         return server.create_application()
 
-    async def test_liveness(self, http_server_client):
-        resp = await http_server_client.fetch('/')
-        assert resp.code == 200
-        assert resp.body == b'{"status": "alive"}'
+    @pytest.fixture(scope='class')
+    def http_server_client(self, app):
+        return TestClient(app)
 
-    async def test_model(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models/TestModel')
-        assert resp.code == 200
+    @pytest.mark.asyncio
+    def test_liveness(self, http_server_client):
+        resp = http_server_client.get('/')
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "alive"}
 
-    async def test_unknown_model(self, http_server_client):
-        with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/v1/models/InvalidModel')
-        assert err.value.code == 404
-        assert err.value.response.body == b'{"error": "Model with name InvalidModel does not exist."}'
+    def test_model(self, http_server_client):
+        resp = http_server_client.get('/v1/models/TestModel')
+        assert resp.status_code == 200
+
+    def test_unknown_model(self, http_server_client):
+        resp = http_server_client.get('/v1/models/InvalidModel')
+        assert resp.status_code == 404
+        assert resp.json() == {"error": "Model with name InvalidModel does not exist."}
+
+    def test_list_models(self, http_server_client):
+        resp = http_server_client.get('/v1/models')
+        assert resp.status_code == 200
+        assert resp.json() == {"models": ["TestModel"]}
 
     async def test_predict(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models/TestModel:predict',
@@ -225,11 +233,6 @@ class TestTFHttpServer:
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
         assert resp.headers['content-type'] == "application/json; charset=UTF-8"
-
-    async def test_list(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models')
-        assert resp.code == 200
-        assert resp.body == b'{"models": ["TestModel"]}'
 
     async def test_unknown_path(self, http_server_client):
         with pytest.raises(HTTPClientError) as err:
