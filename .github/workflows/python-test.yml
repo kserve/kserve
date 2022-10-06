@@ -47,8 +47,6 @@ jobs:
         pytest --cov=sklearnserver ./sklearnserver
         pip install -e ./xgbserver
         pytest --cov=xgbserver ./xgbserver
-        pip install -e ./pytorchserver
-        pytest --cov=pytorchserver ./pytorchserver
         pip install -e ./pmmlserver
         pytest --cov=pmmlserver ./pmmlserver
         pip install -e ./lgbserver
