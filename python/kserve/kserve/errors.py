@@ -52,7 +52,7 @@ class ModelNotFound(Exception):
     """
 
     def __init__(self, model_name=None):
-        self.reason = f"Model '{model_name}' not found."
+        self.reason = f"Model with name {model_name} does not exist."
 
     def __str__(self):
         return self.reason
@@ -70,16 +70,16 @@ class ModelNotReady(RuntimeError):
 
 
 async def exception_handler(_, exc):
-    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"detail": str(exc)})
+    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)})
 
 
 async def invalid_input_handler(_, exc):
-    return JSONResponse(status_code=HTTPStatus.BAD_REQUEST, content={"detail": str(exc)})
+    return JSONResponse(status_code=HTTPStatus.BAD_REQUEST, content={"error": str(exc)})
 
 
 async def inference_error_handler(_, exc):
-    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"detail": str(exc)})
+    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)})
 
 
 async def model_not_found_handler(_, exc):
-    return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content={"detail": str(exc)})
+    return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content={"error": str(exc)})
