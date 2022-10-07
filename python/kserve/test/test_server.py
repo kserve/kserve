@@ -25,7 +25,6 @@ from cloudevents.http import CloudEvent, to_binary, to_structured
 from fastapi.testclient import TestClient
 from ray import serve
 from tornado.httpclient import HTTPClientError
-from tornado.web import HTTPError
 
 from kserve import Model, ModelServer, ModelRepository
 from kserve.errors import InvalidInput
@@ -339,10 +338,13 @@ class TestTFHttpServerModelNotLoaded:
         server.register_model(model)
         return server.create_application()
 
-    async def test_model_not_ready_error(self, http_server_client):
-        with pytest.raises(HTTPClientError) as excinfo:
-            _ = await http_server_client.fetch('/v1/models/TestModel')
-        assert excinfo.value.code == 503
+    @pytest.fixture(scope='class')
+    def http_server_client(self, app):
+        return TestClient(app)
+
+    def test_model_not_ready_error(self, http_server_client):
+        resp = http_server_client.get('/v1/models/TestModel')
+        assert resp.status_code == 503
 
 
 class TestTFHttpServerCloudEvent:

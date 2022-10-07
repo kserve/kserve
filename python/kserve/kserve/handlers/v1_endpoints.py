@@ -13,9 +13,10 @@
 # limitations under the License.
 from typing import Optional, Union
 
-from fastapi import Request, Response
+from fastapi import Request, Response, HTTPException
 from fastapi.responses import ORJSONResponse
 
+from kserve.errors import ModelNotReady
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 
@@ -39,8 +40,12 @@ class V1Endpoints:
         :param model_name: Name of the model
         :return:
         """
+        model_ready = self.dataplane.model_ready(model_name)
 
-        return {"name": model_name, "ready": self.dataplane.model_ready(model_name)}
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
+        return {"name": model_name, "ready": model_ready}
 
     async def predict(self, model_name: str, request: Request):
         # TODO: capture exception here

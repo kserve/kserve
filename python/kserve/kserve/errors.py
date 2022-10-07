@@ -83,3 +83,7 @@ async def inference_error_handler(_, exc):
 
 async def model_not_found_handler(_, exc):
     return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content={"error": str(exc)})
+
+
+async def model_not_ready_handler(_, exc):
+    return JSONResponse(status_code=HTTPStatus.SERVICE_UNAVAILABLE, content={"error": str(exc)})
