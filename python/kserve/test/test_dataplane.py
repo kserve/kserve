@@ -16,6 +16,7 @@ from test.test_server import DummyModel, dummy_cloud_event, DummyCEModel, DummyA
     DummyServeModel
 
 
+@pytest.mark.asyncio
 class TestDataPlane:
     MODEL_NAME = "TestModel"
 
@@ -114,6 +115,7 @@ class TestDataPlane:
         assert resp == {"predictions": [[1, 2]]}
 
 
+@pytest.mark.asyncio
 class TestDataPlaneCloudEvent:
     MODEL_NAME = "TestModel"
 
@@ -193,7 +195,7 @@ class TestDataPlaneCloudEvent:
             body = resp[0]
             headers = resp[1]
 
-            assert headers['Content-Type'] == "application/json"
+            assert headers['content-type'] == "application/json"
             assert headers['ce-specversion'] == "1.0"
             assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
             # Added by add_extension=True in dummy_cloud_event
@@ -211,7 +213,7 @@ class TestDataPlaneCloudEvent:
         body = resp[0]
         headers = resp[1]
 
-        assert headers['Content-Type'] == "application/json"
+        assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
         assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
         assert headers['ce-source'] == "io.kserve.kfserver.TestModel"
@@ -227,7 +229,7 @@ class TestDataPlaneCloudEvent:
         body = resp[0]
         headers = resp[1]
 
-        assert headers['Content-Type'] == "application/json"
+        assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
         assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
         assert headers['ce-source'] == "io.kserve.kfserver.TestModel"
@@ -259,6 +261,7 @@ class TestDataPlaneCloudEvent:
         assert error_regex.match(err.value.reason) is not None
 
 
+@pytest.mark.asyncio
 class TestDataPlaneAvroCloudEvent:
     test_avsc_schema = '''
             {
@@ -301,7 +304,7 @@ class TestDataPlaneAvroCloudEvent:
         body = resp[0]
         headers = resp[1]
 
-        assert headers['Content-Type'] == "application/json"
+        assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
         assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
         assert headers['ce-source'] == "io.kserve.kfserver.TestModel"
