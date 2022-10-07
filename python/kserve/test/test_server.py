@@ -355,17 +355,18 @@ class TestTFHttpServerCloudEvent:
         server.register_model(model)
         return server.create_application()
 
-    async def test_predict_ce_structured(self, http_server_client):
+    @pytest.fixture(scope='class')
+    def http_server_client(self, app):
+        return TestClient(app)
+
+    def test_predict_ce_structured(self, http_server_client):
         event = dummy_cloud_event({"instances": [[1, 2]]})
         headers, body = to_structured(event)
 
-        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                              method="POST",
-                                              headers=headers,
-                                              body=body)
-        body = json.loads(resp.body)
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+        body = json.loads(resp.content)
 
-        assert resp.code == 200
+        assert resp.status_code == 200
         assert resp.headers['content-type'] == "application/cloudevents+json"
 
         assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
@@ -375,19 +376,16 @@ class TestTFHttpServerCloudEvent:
         assert body['type'] == "io.kserve.inference.response"
         assert body['time'] > "2021-01-28T21:04:43.144141+00:00"
 
-    async def test_predict_custom_ce_attributes(self, http_server_client):
+    def test_predict_custom_ce_attributes(self, http_server_client):
         with mock.patch.dict(os.environ,
                              {"CE_SOURCE": "io.kserve.kfserver.CustomSource", "CE_TYPE": "io.kserve.custom_type"}):
             event = dummy_cloud_event({"instances": [[1, 2]]})
             headers, body = to_structured(event)
 
-            resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                                  method="POST",
-                                                  headers=headers,
-                                                  body=body)
-            body = json.loads(resp.body)
+            resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+            body = json.loads(resp.content)
 
-            assert resp.code == 200
+            assert resp.status_code == 200
             assert resp.headers['content-type'] == "application/cloudevents+json"
 
             assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
@@ -395,18 +393,15 @@ class TestTFHttpServerCloudEvent:
             assert body['source'] == "io.kserve.kfserver.CustomSource"
             assert body['type'] == "io.kserve.custom_type"
 
-    async def test_predict_merge_structured_ce_attributes(self, http_server_client):
+    def test_predict_merge_structured_ce_attributes(self, http_server_client):
         with mock.patch.dict(os.environ, {"CE_MERGE": "true"}):
             event = dummy_cloud_event({"instances": [[1, 2]]}, add_extension=True)
             headers, body = to_structured(event)
 
-            resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                                  method="POST",
-                                                  headers=headers,
-                                                  body=body)
-            body = json.loads(resp.body)
+            resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+            body = json.loads(resp.content)
 
-            assert resp.code == 200
+            assert resp.status_code == 200
             assert resp.headers['content-type'] == "application/cloudevents+json"
 
             assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
@@ -416,17 +411,14 @@ class TestTFHttpServerCloudEvent:
             assert body["custom-extension"] == "custom-value"  # Added by add_extension=True in dummy_cloud_event
             assert body['time'] > "2021-01-28T21:04:43.144141+00:00"
 
-    async def test_predict_merge_binary_ce_attributes(self, http_server_client):
+    def test_predict_merge_binary_ce_attributes(self, http_server_client):
         with mock.patch.dict(os.environ, {"CE_MERGE": "true"}):
             event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True, add_extension=True)
             headers, body = to_binary(event)
 
-            resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                                  method="POST",
-                                                  headers=headers,
-                                                  body=body)
+            resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
 
-            assert resp.code == 200
+            assert resp.status_code == 200
             assert resp.headers['content-type'] == "application/json"
             assert resp.headers['ce-specversion'] == "1.0"
             assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
@@ -435,70 +427,59 @@ class TestTFHttpServerCloudEvent:
             assert resp.headers['ce-source'] == "io.kserve.kfserver.TestModel"
             assert resp.headers['ce-type'] == "io.kserve.inference.response"
             assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
-            assert resp.body == b'{"predictions": [[1, 2]]}'
+            assert resp.content == b'{"predictions": [[1, 2]]}'
 
-    async def test_predict_ce_binary_dict(self, http_server_client):
+    def test_predict_ce_binary_dict(self, http_server_client):
         event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True)
         headers, body = to_binary(event)
-        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                              method="POST",
-                                              headers=headers,
-                                              body=body)
 
-        assert resp.code == 200
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+
+        assert resp.status_code == 200
         assert resp.headers['content-type'] == "application/json"
         assert resp.headers['ce-specversion'] == "1.0"
         assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
         assert resp.headers['ce-source'] == "io.kserve.kfserver.TestModel"
         assert resp.headers['ce-type'] == "io.kserve.inference.response"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
-        assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.content == b'{"predictions": [[1, 2]]}'
 
-    async def test_predict_ce_binary_bytes(self, http_server_client):
+    def test_predict_ce_binary_bytes(self, http_server_client):
         event = dummy_cloud_event(b'{"instances":[[1,2]]}', set_contenttype=True)
         headers, body = to_binary(event)
-        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                              method="POST",
-                                              headers=headers,
-                                              body=body)
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
 
-        assert resp.code == 200
+        assert resp.status_code == 200
         assert resp.headers['content-type'] == "application/json"
         assert resp.headers['ce-specversion'] == "1.0"
         assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
         assert resp.headers['ce-source'] == "io.kserve.kfserver.TestModel"
         assert resp.headers['ce-type'] == "io.kserve.inference.response"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
-        assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.content == b'{"predictions": [[1, 2]]}'
 
-    async def test_predict_ce_bytes_bad_format_exception(self, http_server_client):
+    def test_predict_ce_bytes_bad_format_exception(self, http_server_client):
         event = dummy_cloud_event(b'{', set_contenttype=True)
         headers, body = to_binary(event)
 
-        with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                               method="POST",
-                                               headers=headers,
-                                               body=body)
-        assert err.value.code == 400
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+
+        assert resp.status_code == 400
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: "
                                  "Expecting property name enclosed in double quotes.*")
-        response = json.loads(err.value.response.body)
+        response = json.loads(resp.content)
         assert error_regex.match(response["error"]) is not None
 
-    async def test_predict_ce_bytes_bad_hex_format_exception(self, http_server_client):
+    def test_predict_ce_bytes_bad_hex_format_exception(self, http_server_client):
         event = dummy_cloud_event(b'0\x80\x80\x06World!\x00\x00', set_contenttype=True)
         headers, body = to_binary(event)
 
-        with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                               method="POST",
-                                               headers=headers,
-                                               body=body)
-        assert err.value.code == 400
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+
+        assert resp.status_code == 400
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: "
                                  "'utf-8' codec can't decode byte 0x80 in position 1: invalid start byte.*")
-        response = json.loads(err.value.response.body)
+        response = json.loads(resp.content)
         assert error_regex.match(response["error"]) is not None
 
 
@@ -511,7 +492,11 @@ class TestTFHttpServerAvroCloudEvent:
         server.register_model(model)
         return server.create_application()
 
-    async def test_predict_ce_avro_binary(self, http_server_client):
+    @pytest.fixture(scope='class')
+    def http_server_client(self, app):
+        return TestClient(app)
+
+    def test_predict_ce_avro_binary(self, http_server_client):
         schema = avro.schema.parse(test_avsc_schema)
         msg = {"name": "foo", "favorite_number": 1, "favorite_color": "pink"}
 
@@ -524,16 +509,13 @@ class TestTFHttpServerAvroCloudEvent:
         event = dummy_cloud_event(data, set_contenttype=True)
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
-        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                              method="POST",
-                                              headers=headers,
-                                              body=body)
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
 
-        assert resp.code == 200
+        assert resp.status_code == 200
         assert resp.headers['content-type'] == "application/json"
         assert resp.headers['ce-specversion'] == "1.0"
         assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
         assert resp.headers['ce-source'] == "io.kserve.kfserver.TestModel"
         assert resp.headers['ce-type'] == "io.kserve.inference.response"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
-        assert resp.body == b'{"predictions": [["foo", 1, "pink"]]}'
+        assert resp.content == b'{"predictions": [["foo", 1, "pink"]]}'

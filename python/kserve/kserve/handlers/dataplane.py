@@ -216,9 +216,9 @@ class DataPlane:
                                                                     is_binary_cloudevent)
 
             if is_binary_cloudevent:
-                response_headers["Content-Type"] = "application/json"
+                response_headers["content-type"] = "application/json"
             else:
-                response_headers["Content-Type"] = "application/cloudevents+json"
+                response_headers["content-type"] = "application/cloudevents+json"
 
         return response, response_headers
 
