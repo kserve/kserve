@@ -209,7 +209,7 @@ class DataPlane:
             model_handle: RayServeHandle = model
             response = await model_handle.remote(body)
 
-        response_headers = {}
+        response_headers = {"content-type": "application/json"}
         # if we received a cloudevent, then also return a cloudevent
         if is_cloudevent:
             response_headers, response = create_response_cloudevent(model_name, body, response,
