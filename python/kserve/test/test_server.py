@@ -24,7 +24,6 @@ import pytest
 from cloudevents.http import CloudEvent, to_binary, to_structured
 from fastapi.testclient import TestClient
 from ray import serve
-from tornado.httpclient import HTTPClientError
 
 from kserve import Model, ModelServer, ModelRepository
 from kserve.errors import InvalidInput
@@ -163,7 +162,7 @@ class DummyModelRepository(ModelRepository):
             else:
                 return False
 
-
+@pytest.mark.asyncio
 class TestModel:
 
     async def test_validate(self):
@@ -184,7 +183,6 @@ class TestModel:
             model.validate(bad_request)
 
 
-@pytest.mark.asyncio
 class TestTFHttpServer:
 
     @pytest.fixture(scope="class")
@@ -289,44 +287,6 @@ class TestRayServer:
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers['content-type'] == "application/json"
-
-
-class TestTFHttpServerLoadAndUnLoad:
-    @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
-        server = ModelServer(registered_models=DummyModelRepository(test_load_success=True))
-        return server.create_application()
-
-    async def test_load(self, http_server_client):
-        resp = await http_server_client.fetch('/v2/repository/models/model/load',
-                                              method="POST", body=b'')
-        assert resp.code == 200
-        assert resp.body == b'{"name": "model", "load": true}'
-
-    async def test_unload(self, http_server_client):
-        resp = await http_server_client.fetch('/v2/repository/models/model/unload',
-                                              method="POST", body=b'')
-        assert resp.code == 200
-        assert resp.body == b'{"name": "model", "unload": true}'
-
-
-class TestTFHttpServerLoadAndUnLoadFailure:
-    @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
-        server = ModelServer(registered_models=DummyModelRepository(test_load_success=False))
-        return server.create_application()
-
-    async def test_load_fail(self, http_server_client):
-        with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/v2/repository/models/model/load',
-                                               method="POST", body=b'')
-        assert err.value.code == 503
-
-    async def test_unload_fail(self, http_server_client):
-        with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/v2/repository/models/model/unload',
-                                               method="POST", body=b'')
-        assert err.value.code == 404
 
 
 class TestTFHttpServerModelNotLoaded:
@@ -519,3 +479,44 @@ class TestTFHttpServerAvroCloudEvent:
         assert resp.headers['ce-type'] == "io.kserve.inference.response"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert resp.content == b'{"predictions": [["foo", 1, "pink"]]}'
+
+
+class TestTFHttpServerLoadAndUnLoad:
+
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        server = ModelServer(registered_models=DummyModelRepository(test_load_success=True))
+        return server.create_application()
+
+    @pytest.fixture(scope='class')
+    def http_server_client(self, app):
+        return TestClient(app)
+
+    def test_load(self, http_server_client):
+        resp = http_server_client.post('/v2/repository/models/model/load', data=b'')
+        assert resp.status_code == 200
+        assert resp.content == b'{"name": "model", "load": true}'
+
+    def test_unload(self, http_server_client):
+        resp = http_server_client.post('/v2/repository/models/model/unload', data=b'')
+        assert resp.status_code == 200
+        assert resp.content == b'{"name": "model", "unload": true}'
+
+
+class TestTFHttpServerLoadAndUnLoadFailure:
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        server = ModelServer(registered_models=DummyModelRepository(test_load_success=False))
+        return server.create_application()
+
+    @pytest.fixture(scope='class')
+    def http_server_client(self, app):
+        return TestClient(app)
+
+    def test_load_fail(self, http_server_client):
+        resp = http_server_client.fetch('/v2/repository/models/model/load', body=b'')
+        assert resp.status_code == 503
+
+    def test_unload_fail(self, http_server_client):
+        resp = http_server_client.fetch('/v2/repository/models/model/unload', body=b'')
+        assert resp.status_code == 404
