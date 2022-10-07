@@ -115,6 +115,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
 		agentInjector.InjectAgent,
+		InjectMetricsAggregator,
 	}
 
 	for _, mutator := range mutators {
