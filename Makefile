@@ -187,8 +187,7 @@ generate: controller-gen
 	go env -w GOFLAGS=-mod=mod
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
-	#TODO update-codegen.sh is not used and requires vendor
-	#hack/update-codegen.sh
+	hack/update-codegen.sh
 	hack/update-openapigen.sh
 
 # Build the docker image
