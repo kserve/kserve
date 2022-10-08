@@ -17,3 +17,4 @@ from __future__ import absolute_import
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 from kserve.handlers.v1_endpoints import V1Endpoints
+from kserve.handlers.v2_endpoints import V2Endpoints

@@ -61,7 +61,7 @@ class DataPlane:
             raise InvalidInput(f"Cloud Event Exceptions: {e}")
 
     @staticmethod
-    async def live() -> dict[str, str]:
+    def live() -> dict[str, str]:
         """
         Returns status alive on successful invocation. Primarily meant to be used as
         kubernetes liveness check
@@ -71,7 +71,7 @@ class DataPlane:
         """
         return {"status": "alive"}
 
-    async def metadata(self) -> dict:
+    def metadata(self) -> dict:
         """
         Returns metadata for this server
         Returns:
@@ -131,7 +131,7 @@ class DataPlane:
             "outputs": output_types
         }
 
-    async def ready(self) -> bool:
+    def ready(self) -> bool:
         """
         Returns 'True' when all the loaded models are ready to receive requests.
         Primarily meant to be used as kubernetes readiness check.
@@ -162,7 +162,7 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    async def infer(
+    async def predict(
             self,
             model_name: str,
             body: bytes,
@@ -244,4 +244,16 @@ class DataPlane:
         else:
             model_handle = model
             response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
+        return response
+
+    async def infer(self, model_name: str, body: dict) -> Dict:
+        """Performs inference for the specified model.
+        """
+        model = self.get_model(model_name)
+        if not isinstance(model, RayServeHandle):
+            response = await model(body)
+        else:
+            model_handle: RayServeHandle = model
+            response = await model_handle.remote(body)
+
         return response

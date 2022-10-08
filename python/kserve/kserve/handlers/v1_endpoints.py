@@ -13,7 +13,7 @@
 # limitations under the License.
 from typing import Optional, Union
 
-from fastapi import Request, Response, HTTPException
+from fastapi import Request, Response
 from fastapi.responses import ORJSONResponse
 
 from kserve.errors import ModelNotReady
@@ -51,7 +51,7 @@ class V1Endpoints:
         # TODO: capture exception here
         body = await request.body()
         headers = dict(request.headers.items())
-        response, response_headers = await self.dataplane.infer(model_name=model_name, body=body, headers=headers)
+        response, response_headers = await self.dataplane.predict(model_name=model_name, body=body, headers=headers)
 
         if isinstance(response, dict):
             return ORJSONResponse(content=response)

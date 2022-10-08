@@ -27,7 +27,8 @@ from ray.serve.api import Deployment, RayServeHandle
 
 import kserve.errors as errors
 from kserve import Model
-from kserve.handlers import V1Endpoints
+from kserve.handlers import V1Endpoints, V2Endpoints
+from kserve.handlers.v2_datamodels import InferenceResponse
 from kserve.model_repository import ModelRepository
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
@@ -70,6 +71,7 @@ class ModelServer:
         dataplane = DataPlane(model_registry=self.registered_models)
         model_repository_extension = ModelRepositoryExtension(model_registry=self.registered_models)
         v1_endpoints = V1Endpoints(dataplane, model_repository_extension)
+        v2_endpoints = V2Endpoints(dataplane, model_repository_extension)
 
         return FastAPI(routes=[
             # Server Liveness API returns 200 if server is alive.
@@ -84,15 +86,17 @@ class ModelServer:
             FastAPIRoute(r"/v1/models/{model_name}:explain", v1_endpoints.explain, methods=["POST"]),
             # V2 Inference Protocol
             # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
-            FastAPIRoute(r"/v2", dataplane.metadata),
-            FastAPIRoute(r"/v2/health/live", dataplane.live),
-            FastAPIRoute(r"/v2/health/ready", dataplane.ready),
+            FastAPIRoute(r"/v2", v2_endpoints.metadata),
+            FastAPIRoute(r"/v2/health/live", v2_endpoints.live),
+            FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready),
             # TODO: Finish model metadata with version dataplane handler
-            FastAPIRoute(r"/v2/models/{model_name}", dataplane.model_metadata),
-            FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}", dataplane.model_metadata),
+            FastAPIRoute(r"/v2/models/{model_name}", v2_endpoints.model_metadata),
+            FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}", v2_endpoints.model_metadata),
             # TODO: Finish model infer with version dataplane handler
-            FastAPIRoute(r"/v1/models/{model_name}/infer", dataplane.infer, methods=["POST"]),
-            FastAPIRoute(r"/v1/models/{model_name}/versions/{model_version}/infer", dataplane.infer, methods=["POST"]),
+            FastAPIRoute(r"/v2/models/{model_name}/infer",
+                         v2_endpoints.infer, methods=["POST"], response_model=InferenceResponse),
+            FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}/infer",
+                         v2_endpoints.infer, methods=["POST"]),
             # TODO: Finish Triton Multi-Model Serving
             FastAPIRoute(r"/v2/repository/models/{model_name}/load", model_repository_extension.load),
             FastAPIRoute(r"/v2/repository/models/{model_name}/unload", model_repository_extension.unload),
