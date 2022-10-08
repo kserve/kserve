@@ -132,6 +132,32 @@ class InferenceRequest(BaseModel):
     inputs: List[RequestInput]
     outputs: Optional[List[RequestOutput]] = None
 
+    class Config:
+        schema_extra = {
+            "example": {
+                "id": "42",
+                "inputs": [
+                    {
+                        "name": "input0",
+                        "shape": [2, 2],
+                        "datatype": "UINT32",
+                        "data": [1, 2, 3, 4]
+                    },
+                    {
+                        "name": "input1",
+                        "shape": [3],
+                        "datatype": "BOOL",
+                        "data": ["true"]
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "output0"
+                    }
+                ]
+            }
+        }
+
 
 class InferenceResponse(BaseModel):
     """InferenceResponse

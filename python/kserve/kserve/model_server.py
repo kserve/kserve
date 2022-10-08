@@ -28,30 +28,32 @@ from ray.serve.api import Deployment, RayServeHandle
 import kserve.errors as errors
 from kserve import Model
 from kserve.handlers import V1Endpoints, V2Endpoints
-from kserve.handlers.v2_datamodels import InferenceResponse
-from kserve.model_repository import ModelRepository
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
+from kserve.handlers.v2_datamodels import InferenceResponse
+from kserve.model_repository import ModelRepository
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
 
 parser = argparse.ArgumentParser(add_help=False)
-parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
-                    help='The HTTP Port listened to by the model server.')
-parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
-                    help='The GRPC Port listened to by the model server.')
-parser.add_argument('--workers', default=1, type=int,
-                    help='The number of works to fork')
+parser.add_argument("--http_port", default=DEFAULT_HTTP_PORT, type=int,
+                    help="The HTTP Port listened to by the model server.")
+parser.add_argument("--grpc_port", default=DEFAULT_GRPC_PORT, type=int,
+                    help="The GRPC Port listened to by the model server.")
+parser.add_argument("--workers", default=1, type=int,
+                    help="The number of works to fork.")
+parser.add_argument("--enable_docs_url", default=False, type=lambda x: bool(strtobool(x)),
+                    help="Enable docs url '/docs' to display Swagger UI.")
 parser.add_argument("--enable_latency_logging", default=False, type=lambda x: bool(strtobool(x)),
-                    help="Output a log per request with latency metrics")
+                    help="Output a log per request with latency metrics.")
 
 args, _ = parser.parse_known_args()
 
 
 async def metrics_handler(request: Request):
-    encoder, content_type = exposition.choose_encoder(request.headers.get('accept'))
-    return Response(content=encoder(REGISTRY), headers={'content-type': content_type})
+    encoder, content_type = exposition.choose_encoder(request.headers.get("accept"))
+    return Response(content=encoder(REGISTRY), headers={"content-type": content_type})
 
 
 class ModelServer:
@@ -59,12 +61,14 @@ class ModelServer:
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers,
                  registered_models: ModelRepository = ModelRepository(),
+                 enable_docs_url: bool = args.enable_docs_url,
                  enable_latency_logging: bool = args.enable_latency_logging):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
         self._server = None
+        self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
 
     def create_application(self):
@@ -73,40 +77,48 @@ class ModelServer:
         v1_endpoints = V1Endpoints(dataplane, model_repository_extension)
         v2_endpoints = V2Endpoints(dataplane, model_repository_extension)
 
-        return FastAPI(routes=[
-            # Server Liveness API returns 200 if server is alive.
-            FastAPIRoute(r"/", dataplane.live),
-            # Metrics
-            FastAPIRoute(r"/metrics", metrics_handler, methods=['GET']),
-            # V1 Inference Protocol
-            FastAPIRoute(r"/v1/models", v1_endpoints.models),
-            # Model Health API returns 200 if model is ready to serve.
-            FastAPIRoute(r"/v1/models/{model_name}", v1_endpoints.model_ready),
-            FastAPIRoute(r"/v1/models/{model_name}:predict", v1_endpoints.predict, methods=["POST"]),
-            FastAPIRoute(r"/v1/models/{model_name}:explain", v1_endpoints.explain, methods=["POST"]),
-            # V2 Inference Protocol
-            # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
-            FastAPIRoute(r"/v2", v2_endpoints.metadata),
-            FastAPIRoute(r"/v2/health/live", v2_endpoints.live),
-            FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready),
-            # TODO: Finish model metadata with version dataplane handler
-            FastAPIRoute(r"/v2/models/{model_name}", v2_endpoints.model_metadata),
-            FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}", v2_endpoints.model_metadata),
-            # TODO: Finish model infer with version dataplane handler
-            FastAPIRoute(r"/v2/models/{model_name}/infer",
-                         v2_endpoints.infer, methods=["POST"], response_model=InferenceResponse),
-            FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}/infer",
-                         v2_endpoints.infer, methods=["POST"]),
-            # TODO: Finish Triton Multi-Model Serving
-            FastAPIRoute(r"/v2/repository/models/{model_name}/load", model_repository_extension.load),
-            FastAPIRoute(r"/v2/repository/models/{model_name}/unload", model_repository_extension.unload),
-        ], exception_handlers={
-            errors.InvalidInput: errors.invalid_input_handler,
-            errors.InferenceError: errors.inference_error_handler,
-            errors.ModelNotFound: errors.model_not_found_handler,
-            errors.ModelNotReady: errors.model_not_ready_handler,
-            Exception: errors.exception_handler
-        })
+        return FastAPI(
+            title="KServe ModelServer",
+            version="0.9.0",
+            docs_url="/docs" if self.enable_docs_url else None,
+            redoc_url=None,
+            routes=[
+                # Server Liveness API returns 200 if server is alive.
+                FastAPIRoute(r"/", dataplane.live),
+                # Metrics
+                FastAPIRoute(r"/metrics", metrics_handler, methods=["GET"]),
+                # V1 Inference Protocol
+                FastAPIRoute(r"/v1/models", v1_endpoints.models, tags=["V1"]),
+                # Model Health API returns 200 if model is ready to serve.
+                FastAPIRoute(r"/v1/models/{model_name}", v1_endpoints.model_ready, tags=["V1"]),
+                FastAPIRoute(r"/v1/models/{model_name}:predict",
+                             v1_endpoints.predict, methods=["POST"], tags=["V1"]),
+                FastAPIRoute(r"/v1/models/{model_name}:explain",
+                             v1_endpoints.explain, methods=["POST"], tags=["V1"]),
+                # V2 Inference Protocol
+                # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
+                FastAPIRoute(r"/v2", v2_endpoints.metadata, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/live", v2_endpoints.live, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready, tags=["V2"]),
+                FastAPIRoute(r"/v2/models/{model_name}", v2_endpoints.model_metadata, tags=["V2"]),
+                FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}",
+                             v2_endpoints.model_metadata, tags=["V2"], include_in_schema=False),
+                FastAPIRoute(r"/v2/models/{model_name}/infer",
+                             v2_endpoints.infer, methods=["POST"], response_model=InferenceResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}/infer",
+                             v2_endpoints.infer, methods=["POST"], tags=["V2"], include_in_schema=False),
+                FastAPIRoute(r"/v2/repository/models/{model_name}/load",
+                             model_repository_extension.load, tags=["V2"]),
+                FastAPIRoute(r"/v2/repository/models/{model_name}/unload",
+                             model_repository_extension.unload, tags=["V2"]),
+            ], exception_handlers={
+                errors.InvalidInput: errors.invalid_input_handler,
+                errors.InferenceError: errors.inference_error_handler,
+                errors.ModelNotFound: errors.model_not_found_handler,
+                errors.ModelNotReady: errors.model_not_ready_handler,
+                Exception: errors.exception_handler
+            }
+        )
 
     async def start(self, models: Union[List[Model], Dict[str, Deployment]]):
         if isinstance(models, list):
