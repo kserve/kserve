@@ -5,8 +5,9 @@ metadata:
 spec:
   containers:
   - args:
-    - --model_dir=/mnt/models
-    image: docker.io/deepjavalibrary/djl-serving:latest
+    - serve
+    - --model-store=/mnt/models
+    image: docker.io/sindhuvahinis/deepjavalibrarytest:kserve
     name: kserve-container
     ports:
     - containerPort: 8080

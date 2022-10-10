@@ -1,11 +1,11 @@
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: djl-test-7
+  name: djltest1
 spec:
   predictor:
     model:
       modelFormat:
-        name: mxnet
-      storageUri: https://resources.djl.ai/demo/mxnet/resnet18_v2.zip
+        name: pytorch
+      storageUri: https://djl-ai.s3.amazonaws.com/resources/demo/pytorch/identity.zip
       runtime: kserve-djlserving

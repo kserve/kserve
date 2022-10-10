@@ -49,5 +49,5 @@ images:
     newTag: 0.6.0
 
   - name: kserve-djlserving
-    newName: docker.io/deepjavalibrary/djl-serving
-    newTag: latest
+    newName: docker.io/sindhuvahinis/deepjavalibrarytest
+    newTag: kserve
