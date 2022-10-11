@@ -63,7 +63,9 @@ class TestDataPlane:
         not_ready_model = DummyModel("NotReadyModel")
         # model.load()  # Model not loaded, i.e. model not ready
         dataplane_with_model._model_registry.update(not_ready_model)
-        assert await dataplane_with_model.ready() is False
+        # The model server readiness endpoint should return 'True' irrespective of the readiness
+        # of the model loaded into it.
+        assert await dataplane_with_model.ready() is True
 
     async def test_model_readiness(self):
         dataplane = DataPlane(model_registry=ModelRepository())
@@ -79,10 +81,13 @@ class TestDataPlane:
         assert await dataplane.model_ready(not_ready_model.name) is False
 
     async def test_server_metadata(self):
+        with open(os.path.join(os.getcwd(), '../../VERSION')) as version_file:
+            version = version_file.read().strip()
+
         dataplane = DataPlane(model_registry=ModelRepository())
         expected_metadata = {
             "name": "kserve",
-            "version": "v0.8.0",
+            "version": version,
             "extensions": ["model_repository_extension"]
         }
         assert await dataplane.metadata() == expected_metadata

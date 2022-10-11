@@ -2,8 +2,11 @@ import json
 from typing import Dict, Union, Tuple
 
 import cloudevents.exceptions as ce
+import pkg_resources
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
+
+from ..constants import constants
 from kserve import Model
 from kserve.model_repository import ModelRepository
 from ray.serve.api import RayServeHandle
@@ -29,8 +32,11 @@ class DataPlane:
 
     def __init__(self, model_registry: ModelRepository):
         self._model_registry = model_registry
-        self._server_name = "kserve"  # TODO: get from variables
-        self._server_version = "v0.8.0"  # TODO: get from variables
+        self._server_name = constants.KSERVE_MODEL_SERVER_NAME
+
+        # Dynamically fetching version of the installed 'kserve' distribution. The assumption is
+        # that 'kserve' will already be installed by the time this class is instantiated.
+        self._server_version = pkg_resources.get_distribution("kserve").version
 
     def get_model_from_registry(self, name: str) -> Union[Model, RayServeHandle]:
         model = self._model_registry.get_model(name)
