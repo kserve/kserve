@@ -36,8 +36,6 @@ class PipeStep(object):
 
 path_to_save = sys.argv[1]
 
-dataset = sys.argv[2]
-
 data = datasets.fetch_20newsgroups()
 
 X = data.data[1:1001]
