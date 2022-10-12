@@ -142,7 +142,7 @@ func validateInferenceGraphName(ig *InferenceGraph) error {
 	return nil
 }
 
-//Validation of inference graph router root
+// Validation of inference graph router root
 func validateInferenceGraphRouterRoot(ig *InferenceGraph) error {
 	nodes := ig.Spec.Nodes
 	for name := range nodes {
@@ -153,7 +153,7 @@ func validateInferenceGraphRouterRoot(ig *InferenceGraph) error {
 	return fmt.Errorf("root node not found, InferenceGraph needs a node with name 'root' as the root node of the graph")
 }
 
-//Validation of inference graph router type
+// Validation of inference graph router type
 func validateInferenceGraphSplitterWeight(ig *InferenceGraph) error {
 	nodes := ig.Spec.Nodes
 	for name, node := range nodes {
