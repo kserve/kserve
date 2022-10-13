@@ -773,6 +773,9 @@ func TestMergePodSpec(t *testing.T) {
 						},
 					},
 				},
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{Name: "foo"},
+				},
 			},
 			podSpecOverride: &v1beta1.PodSpec{
 				NodeSelector: map[string]string{
@@ -797,6 +800,10 @@ func TestMergePodSpec(t *testing.T) {
 							},
 						},
 					},
+				},
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{Name: "foo"},
+					{Name: "bar"},
 				},
 			},
 			expected: &v1.PodSpec{
@@ -834,6 +841,10 @@ func TestMergePodSpec(t *testing.T) {
 							},
 						},
 					},
+				},
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{Name: "foo"},
+					{Name: "bar"},
 				},
 			},
 		},
