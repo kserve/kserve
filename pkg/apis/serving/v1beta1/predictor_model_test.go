@@ -23,6 +23,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -297,7 +298,10 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	}
 
 	s := runtime.NewScheme()
-	v1alpha1.AddToScheme(s)
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
 
 	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
 	for name, scenario := range scenarios {
@@ -309,4 +313,95 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		})
 	}
 
+}
+
+func TestModelPredictorGetContainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	var storageUri = "s3://test/model"
+	isvcConfig := &InferenceServicesConfig{}
+	objectMeta := metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "default",
+	}
+	componentSpec := &ComponentExtensionSpec{
+		MinReplicas: GetIntReference(3),
+		MaxReplicas: 2,
+	}
+	scenarios := map[string]struct {
+		spec     *ModelSpec
+		expected v1.Container
+	}{
+		"ContainerSpecified": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "tensorflow",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					StorageURI: &storageUri,
+					Container: v1.Container{
+						Name: "foo",
+						Env: []v1.EnvVar{
+							{
+								Name:  "STORAGE_URI",
+								Value: storageUri,
+							},
+						},
+					},
+				},
+			},
+			expected: v1.Container{
+				Name: "foo",
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_URI",
+						Value: storageUri,
+					},
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			container := scenario.spec.GetContainer(objectMeta, componentSpec, isvcConfig)
+			g.Expect(*container).To(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
+func TestModelPredictorGetProtocol(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		spec    *ModelSpec
+		matcher types.GomegaMatcher
+	}{
+		"DefaultProtocol": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "tensorflow",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					StorageURI: proto.String("s3://test/model"),
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV1),
+		},
+		"ProtocolV2Specified": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "tensorflow",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					StorageURI:      proto.String("s3://test/model"),
+					ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV2),
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			protocol := scenario.spec.GetProtocol()
+			g.Expect(protocol).To(scenario.matcher)
+		})
+	}
 }
