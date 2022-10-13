@@ -773,6 +773,9 @@ func TestMergePodSpec(t *testing.T) {
 						},
 					},
 				},
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{Name: "foo"},
+				},
 			},
 			podSpecOverride: &v1beta1.PodSpec{
 				NodeSelector: map[string]string{
@@ -797,6 +800,10 @@ func TestMergePodSpec(t *testing.T) {
 							},
 						},
 					},
+				},
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{Name: "foo"},
+					{Name: "bar"},
 				},
 			},
 			expected: &v1.PodSpec{
@@ -834,6 +841,10 @@ func TestMergePodSpec(t *testing.T) {
 							},
 						},
 					},
+				},
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{Name: "foo"},
+					{Name: "bar"},
 				},
 			},
 		},
@@ -1174,6 +1185,53 @@ func TestUpdateImageTag(t *testing.T) {
 			UpdateImageTag(scenario.container, scenario.runtimeVersion, &scenario.servingRuntime)
 			if !g.Expect(scenario.container.Image).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.container.Image, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestGetDeploymentMode(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		annotations  map[string]string
+		deployConfig *v1beta1.DeployConfig
+		expected     constants.DeploymentModeType
+	}{
+		"RawDeployment": {
+			annotations: map[string]string{
+				constants.DeploymentMode: string(constants.RawDeployment),
+			},
+			deployConfig: &v1beta1.DeployConfig{},
+			expected:     constants.DeploymentModeType(constants.RawDeployment),
+		},
+		"ServerlessDeployment": {
+			annotations: map[string]string{
+				constants.DeploymentMode: string(constants.Serverless),
+			},
+			deployConfig: &v1beta1.DeployConfig{},
+			expected:     constants.DeploymentModeType(constants.Serverless),
+		},
+		"ModelMeshDeployment": {
+			annotations: map[string]string{
+				constants.DeploymentMode: string(constants.ModelMeshDeployment),
+			},
+			deployConfig: &v1beta1.DeployConfig{},
+			expected:     constants.DeploymentModeType(constants.ModelMeshDeployment),
+		},
+		"DefaultDeploymentMode": {
+			annotations: map[string]string{},
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: string(constants.Serverless),
+			},
+			expected: constants.DeploymentModeType(constants.Serverless),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			deploymentMode := GetDeploymentMode(scenario.annotations, scenario.deployConfig)
+			if !g.Expect(deploymentMode).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", deploymentMode, scenario.expected)
 			}
 		})
 	}

@@ -35,7 +35,7 @@ import (
 
 var log = logf.Log.WithName("ServiceReconciler")
 
-//ServiceReconciler is the struct of Raw K8S Object
+// ServiceReconciler is the struct of Raw K8S Object
 type ServiceReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
@@ -93,7 +93,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 	return service
 }
 
-//checkServiceExist checks if the service exists?
+// checkServiceExist checks if the service exists?
 func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.CheckResultType, *corev1.Service, error) {
 	//get service
 	existingService := &corev1.Service{}
@@ -120,7 +120,7 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 		equality.Semantic.DeepEqual(desired.Spec.Selector, existing.Spec.Selector)
 }
 
-//Reconcile ...
+// Reconcile ...
 func (r *ServiceReconciler) Reconcile() (*corev1.Service, error) {
 	//reconcile Service
 	checkResult, existingService, err := r.checkServiceExist(r.client)

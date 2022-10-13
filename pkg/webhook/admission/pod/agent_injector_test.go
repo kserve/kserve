@@ -21,6 +21,8 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -368,6 +370,142 @@ func TestAgentInjector(t *testing.T) {
 				},
 			},
 		},
+		"AddBatcher": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.BatcherInternalAnnotationKey:             "true",
+						constants.BatcherMaxLatencyInternalAnnotationKey:   "100",
+						constants.BatcherMaxBatchSizeInternalAnnotationKey: "30",
+					},
+					Labels: map[string]string{
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:         "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								ProbeHandler: v1.ProbeHandler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+					Annotations: map[string]string{
+						constants.BatcherInternalAnnotationKey:             "true",
+						constants.BatcherMaxLatencyInternalAnnotationKey:   "100",
+						constants.BatcherMaxBatchSizeInternalAnnotationKey: "30",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								ProbeHandler: v1.ProbeHandler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+						{
+							Name:  constants.AgentContainerName,
+							Image: loggerConfig.Image,
+							Args: []string{
+								BatcherEnableFlag,
+								BatcherArgumentMaxBatchSize,
+								"30",
+								BatcherArgumentMaxLatency,
+								"100",
+							},
+							Ports: []v1.ContainerPort{
+								{
+									Name:          "agent-port",
+									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+							},
+							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Resources: agentResourceRequirement,
+							ReadinessProbe: &v1.Probe{
+								ProbeHandler: v1.ProbeHandler{
+									HTTPGet: &v1.HTTPGetAction{
+										HTTPHeaders: []v1.HTTPHeader{
+											{
+												Name:  "K-Network-Probe",
+												Value: "queue",
+											},
+										},
+										Port:   intstr.FromInt(9081),
+										Path:   "/",
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"DoNotAddBatcher": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{
+						Name: "sklearn",
+					}},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{
+						Name: "sklearn",
+					}},
+				},
+			},
+		},
 	}
 
 	credentialBuilder := credentials.NewCredentialBulder(c, &v1.ConfigMap{
@@ -385,5 +523,145 @@ func TestAgentInjector(t *testing.T) {
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
+	}
+}
+
+func TestGetLoggerConfigs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cases := []struct {
+		name      string
+		configMap *v1.ConfigMap
+		matchers  []types.GomegaMatcher
+	}{
+		{
+			name: "Valid Logger Config",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Invalid Resource Value",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200mc",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200mc",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.HaveOccurred(),
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		loggerConfigs, err := getLoggerConfigs(tc.configMap)
+		g.Expect(err).Should(tc.matchers[1])
+		g.Expect(loggerConfigs).Should(tc.matchers[0])
+	}
+}
+
+func TestGetAgentConfigs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cases := []struct {
+		name      string
+		configMap *v1.ConfigMap
+		matchers  []types.GomegaMatcher
+	}{
+		{
+			name: "Valid Agent Config",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					constants.AgentConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/agent:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&AgentConfig{
+					Image:         "gcr.io/kfserving/agent:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Invalid Resource Value",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					constants.AgentConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/agent:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200mc",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&AgentConfig{
+					Image:         "gcr.io/kfserving/agent:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200mc",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.HaveOccurred(),
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		loggerConfigs, err := getAgentConfigs(tc.configMap)
+		g.Expect(err).Should(tc.matchers[1])
+		g.Expect(loggerConfigs).Should(tc.matchers[0])
 	}
 }
