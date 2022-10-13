@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -117,6 +119,171 @@ func TestLightGBMDefaulter(t *testing.T) {
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
+		})
+	}
+}
+
+func TestCreateLightGBMModelServingContainer(t *testing.T) {
+
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.MustParse("100m"),
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.MustParse("90m"),
+		},
+	}
+	var config = InferenceServicesConfig{}
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc                  InferenceService
+		expectedContainerSpec *v1.Container
+	}{
+		"ContainerSpecWithDefaultImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "lightgbm",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						LightGBM: &LightGBMSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: proto.String("0.1.0"),
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+		"ContainerSpecWithCustomImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "lightgbm",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						LightGBM: &LightGBMSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://someUri"),
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "customImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+		"ContainerSpecWithContainerConcurrency": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "lightgbm",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: proto.Int64(1),
+						},
+						LightGBM: &LightGBMSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: proto.String("0.1.0"),
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+		"ContainerSpecWithWorker": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "lightgbm",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: proto.Int64(2),
+						},
+						LightGBM: &LightGBMSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: proto.String("0.1.0"),
+								Container: v1.Container{
+									Resources: requestedResource,
+									Args: []string{
+										constants.ArgumentWorkers + "=1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--workers=1",
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
+			predictor.Default(&config)
+			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
+				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			}
+		})
+	}
+}
+
+func TestLightGBMGetProtocol(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{}
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"DefaultProtocol": {
+			spec: PredictorSpec{
+				LightGBM: &LightGBMSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV1),
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.LightGBM.Default(&config)
+			protocol := scenario.spec.LightGBM.GetProtocol()
+			g.Expect(protocol).To(scenario.matcher)
 		})
 	}
 }

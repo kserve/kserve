@@ -65,7 +65,7 @@ type AgentInjector struct {
 	batcherConfig     *BatcherConfig
 }
 
-//TODO agent config
+// TODO agent config
 func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 	agentConfig := &AgentConfig{}
 	if agentConfigValue, ok := configMap.Data[constants.AgentConfigMapKeyName]; ok {
