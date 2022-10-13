@@ -6,7 +6,8 @@ spec:
   containers:
   - args:
     - serve
-    - --model-store=/mnt/models
+    - --model-store=/mnt/models/model-store
+    - --config-file=/mnt/models/config/config.properties
     image: docker.io/sindhuvahinis/deepjavalibrarytest:kserve
     name: kserve-container
     ports:

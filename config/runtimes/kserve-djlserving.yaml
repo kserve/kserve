@@ -28,12 +28,11 @@ spec:
     - name: kserve-container
       image: kserve-djlserving:replace
       ports:
-      - containerPort: 8080
+        - containerPort : 8080
       args:
         - serve
-        - --model-store=/mnt/models
-        # - --model_dir=/mnt/models
-        # - --http_port=8080
+        - --model-store=/mnt/models/model-store
+        - --config-file=/mnt/models/config/config.properties
       resources:
         requests:
           cpu: "1"
