@@ -21,8 +21,11 @@ import (
 	"testing"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	testify "github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -239,4 +242,42 @@ func getSortedConfigData(input string) (output ModelConfigs, err error) {
 		return output[i].Name < output[j].Name
 	})
 	return output, nil
+}
+
+func TestCreateEmptyModelConfig(t *testing.T) {
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.DeploymentMode: string(constants.ModelMeshDeployment),
+			},
+		},
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{
+				Tensorflow: &v1beta1.TFServingSpec{
+					PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+			},
+		},
+	}
+	shardStrategy := memory.MemoryStrategy{}
+	shardId := shardStrategy.GetShard(isvc)[0]
+	expected := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.ModelConfigName(isvc.Name, shardId),
+			Namespace: isvc.Namespace,
+			Labels:    isvc.Labels,
+		},
+		Data: map[string]string{
+			constants.ModelConfigFileName: "[]",
+		},
+	}
+
+	configMap, err := CreateEmptyModelConfig(isvc, shardId)
+	testify.Nil(t, err)
+	testify.Equal(t, configMap, expected)
+
 }

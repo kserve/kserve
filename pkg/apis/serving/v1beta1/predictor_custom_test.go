@@ -25,6 +25,7 @@ import (
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCustomPredictorValidation(t *testing.T) {
@@ -199,5 +200,228 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
+	}
+}
+
+func TestCreateCustomPredictorContainer(t *testing.T) {
+
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "100",
+			},
+			"memory": resource.MustParse("1Gi"),
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "90",
+			},
+			"memory": resource.MustParse("1Gi"),
+		},
+	}
+	var config = InferenceServicesConfig{}
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc                  InferenceService
+		expectedContainerSpec *v1.Container
+	}{
+		"ContainerSpecWithCustomImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "custom-predictor",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "custom-predictor:0.1.0",
+									Args: []string{
+										"--model_name",
+										"someName",
+										"--http_port",
+										"8080",
+									},
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
+										},
+									},
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "custom-predictor:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name",
+					"someName",
+					"--http_port",
+					"8080",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_URI",
+						Value: "hdfs://modelzoo",
+					},
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
+			predictor.Default(&config)
+			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
+				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			}
+		})
+	}
+}
+
+func TestCustomPredictorIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{}
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+
+	mmsCase := false
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected bool
+	}{
+		"DefaultResources": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: mmsCase,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+			res := customPredictor.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestCustomPredictorIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	framework := "framework"
+	config := InferenceServicesConfig{}
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected bool
+	}{
+		"DefaultResources": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+			res := customPredictor.IsFrameworkSupported(framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestCustomPredictorGetProtocol(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"Default protocol": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV1),
+		},
+		"protocol v2": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
+								},
+								{
+									Name:  constants.CustomSpecProtocolEnvVarKey,
+									Value: string(constants.ProtocolV2),
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV2),
+		},
+	}
+	for _, scenario := range scenarios {
+		customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+		protocol := customPredictor.GetProtocol()
+		g.Expect(protocol).To(scenario.matcher)
 	}
 }
