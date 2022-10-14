@@ -6,7 +6,6 @@ from test.test_server import DummyModel, DummyModelRepository
 
 
 class TestModelRepositoryExtension:
-
     MODEL_NAME = "TestModel"
 
     @pytest.fixture()
@@ -18,7 +17,6 @@ class TestModelRepositoryExtension:
         return model_repo_ext
 
     def test_index(self, model_repo_ext):
-
         assert model_repo_ext.index() == [
             {
                 "name": self.MODEL_NAME,
@@ -89,5 +87,4 @@ class TestModelRepositoryExtension:
     def test_unload_fail(self, model_repo_ext):
         with pytest.raises(ModelNotFound) as e:
             model_repo_ext.unload("FAKE_NAME")
-        assert e.value.reason == f"Model FAKE_NAME not found."
-
+        assert e.value.reason == "Model FAKE_NAME not found."
