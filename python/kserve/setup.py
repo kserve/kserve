@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import pathlib
 
 import setuptools
 
@@ -27,7 +28,7 @@ TESTS_REQUIRES = [
 with open('requirements.txt') as f:
     REQUIRES = f.readlines()
 
-with open(os.path.join(os.getcwd(), '../VERSION')) as version_file:
+with open(pathlib.Path(__file__).parent / 'VERSION') as version_file:
     version = version_file.read().strip()
 
 setuptools.setup(

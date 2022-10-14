@@ -22,7 +22,7 @@ tests_require = [
     'mypy'
 ]
 
-with open(os.path.join(os.getcwd(), '../VERSION')) as version_file:
+with open(pathlib.Path(__file__).parent / 'VERSION') as version_file:
     version = version_file.read().strip()
 
 setup(
