@@ -17,7 +17,7 @@ import pathlib
 from setuptools import setup, find_packages
 
 
-with open(pathlib.Path(__file__).parent / 'VERSION') as version_file:
+with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
     version = version_file.read().strip()
 
 tests_require = [

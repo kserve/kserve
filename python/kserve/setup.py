@@ -28,7 +28,7 @@ TESTS_REQUIRES = [
 with open('requirements.txt') as f:
     REQUIRES = f.readlines()
 
-with open(pathlib.Path(__file__).parent / 'VERSION') as version_file:
+with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
     version = version_file.read().strip()
 
 setuptools.setup(
