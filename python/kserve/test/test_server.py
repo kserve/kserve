@@ -162,6 +162,7 @@ class DummyModelRepository(ModelRepository):
             else:
                 return False
 
+
 @pytest.mark.asyncio
 class TestModel:
 

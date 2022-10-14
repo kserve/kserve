@@ -11,11 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 import pathlib
 
 from setuptools import setup, find_packages
-
 
 with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
     version = version_file.read().strip()

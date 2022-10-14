@@ -168,8 +168,8 @@ class Model:
         # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
-    async def preprocess(self, payload: Union[Dict, CloudEvent], headers: Dict[str, str] = None) -> Union[
-        Dict, ModelInferRequest]:
+    async def preprocess(self, payload: Union[Dict, CloudEvent],
+                         headers: Dict[str, str] = None) -> Union[Dict, ModelInferRequest]:
         """
         The preprocess handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent

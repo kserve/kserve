@@ -163,7 +163,7 @@ class TestDataPlaneCloudEvent:
 
             assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
             assert body["data"] == {"predictions": [[1, 2]]}
-            assert body['source'] == f"io.kserve.kfserver.CustomSource"
+            assert body['source'] == "io.kserve.kfserver.CustomSource"
             assert body['type'] == "io.kserve.custom_type"
 
     async def test_infer_merge_structured_ce_attributes(self, dataplane_with_ce_model):
