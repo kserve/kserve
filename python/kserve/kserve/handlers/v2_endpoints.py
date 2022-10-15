@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional
+from typing import Optional, Dict
 
 from kserve.handlers.v2_datamodels import (
     InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
@@ -54,3 +54,11 @@ class V2Endpoints:
 
         response = await self.dataplane.infer(model_name=model_name, body=request_body.dict())
         return InferenceResponse.parse_obj(response)
+
+    async def load(self, model_name: str) -> Dict:
+        self.model_repository_extension.load(model_name)
+        return {"name": model_name, "load": True}
+
+    async def unload(self, model_name: str) -> Dict:
+        self.model_repository_extension.unload(model_name)
+        return {"name": model_name, "unload": True}

@@ -18,6 +18,7 @@ import logging
 from distutils.util import strtobool
 from typing import List, Dict, Union
 
+import pkg_resources
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute as FastAPIRoute
@@ -79,7 +80,7 @@ class ModelServer:
 
         return FastAPI(
             title="KServe ModelServer",
-            version="0.9.0",
+            version=pkg_resources.get_distribution("kserve").version,
             docs_url="/docs" if self.enable_docs_url else None,
             redoc_url=None,
             routes=[
@@ -108,9 +109,9 @@ class ModelServer:
                 FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}/infer",
                              v2_endpoints.infer, methods=["POST"], tags=["V2"], include_in_schema=False),
                 FastAPIRoute(r"/v2/repository/models/{model_name}/load",
-                             model_repository_extension.load, tags=["V2"]),
+                             v2_endpoints.load, methods=["POST"], tags=["V2"]),
                 FastAPIRoute(r"/v2/repository/models/{model_name}/unload",
-                             model_repository_extension.unload, tags=["V2"]),
+                             v2_endpoints.unload, methods=["POST"], tags=["V2"]),
             ], exception_handlers={
                 errors.InvalidInput: errors.invalid_input_handler,
                 errors.InferenceError: errors.inference_error_handler,

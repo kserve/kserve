@@ -50,7 +50,7 @@ class ModelRepositoryExtension:
 
         return model_list
 
-    async def load(self, model_name: str) -> None:
+    def load(self, model_name: str) -> None:
         """
         Loads the Specified model.
 
@@ -63,7 +63,7 @@ class ModelRepositoryExtension:
         """
         try:
             if inspect.iscoroutinefunction(self._model_registry.load):
-                await self._model_registry.load(model_name)
+                self._model_registry.load(model_name)
             else:
                 self._model_registry.load(model_name)
         except Exception:

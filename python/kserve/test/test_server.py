@@ -150,7 +150,7 @@ class DummyModelRepository(ModelRepository):
         self.test_load_success = test_load_success
         self.fail_with_exception = fail_with_exception
 
-    async def load(self, name: str) -> bool:
+    def load(self, name: str) -> bool:
         if self.test_load_success:
             model = DummyModel(name)
             model.load()
@@ -496,12 +496,12 @@ class TestTFHttpServerLoadAndUnLoad:
     def test_load(self, http_server_client):
         resp = http_server_client.post('/v2/repository/models/model/load', data=b'')
         assert resp.status_code == 200
-        assert resp.content == b'{"name": "model", "load": true}'
+        assert resp.content == b'{"name":"model","load":true}'
 
     def test_unload(self, http_server_client):
         resp = http_server_client.post('/v2/repository/models/model/unload', data=b'')
         assert resp.status_code == 200
-        assert resp.content == b'{"name": "model", "unload": true}'
+        assert resp.content == b'{"name":"model","unload":true}'
 
 
 class TestTFHttpServerLoadAndUnLoadFailure:
@@ -515,9 +515,9 @@ class TestTFHttpServerLoadAndUnLoadFailure:
         return TestClient(app)
 
     def test_load_fail(self, http_server_client):
-        resp = http_server_client.fetch('/v2/repository/models/model/load', body=b'')
+        resp = http_server_client.post('/v2/repository/models/model/load', data=b'')
         assert resp.status_code == 503
 
     def test_unload_fail(self, http_server_client):
-        resp = http_server_client.fetch('/v2/repository/models/model/unload', body=b'')
+        resp = http_server_client.post('/v2/repository/models/model/unload', data=b'')
         assert resp.status_code == 404
