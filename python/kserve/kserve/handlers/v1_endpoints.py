@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, Union
+from typing import Optional, Union, Dict
 
 from fastapi import Request, Response
 from fastapi.responses import ORJSONResponse
@@ -27,14 +27,14 @@ class V1Endpoints:
         self.model_repository_extension = model_repository_extension
         self.dataplane = dataplane
 
-    async def models(self) -> dict[str, list[str]]:
+    async def models(self) -> Dict[str, list[str]]:
         """Get a list of models in the model registry
 
         :return: List of model names
         """
         return {"models": list(self.dataplane.model_registry.get_models().keys())}
 
-    async def model_ready(self, model_name: str) -> dict[str, Union[str, bool]]:
+    async def model_ready(self, model_name: str) -> Dict[str, Union[str, bool]]:
         """Check if a given model is ready
 
         :param model_name: Name of the model
