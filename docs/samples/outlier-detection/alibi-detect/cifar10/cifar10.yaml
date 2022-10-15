@@ -1,13 +1,12 @@
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "tfserving-cifar10"
   namespace: cifar10
 spec:
-  default:
     predictor:
       tensorflow:
-        storageUri: "gs://kfserving-examples/tfserving/cifar10/resnet32"
+        storageUri: "gs://seldon-models/tfserving/cifar10/resnet32"
       logger:
         mode: all
         url: http://broker-ingress.knative-eventing.svc.cluster.local/cifar10/default
