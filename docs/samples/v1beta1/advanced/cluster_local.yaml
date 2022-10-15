@@ -3,7 +3,7 @@ kind: "InferenceService"
 metadata:
   name: "sklearn-iris-local"
   labels:
-    serving.knative.dev/visibility: cluster-local
+    networking.knative.dev/visibility: cluster-local
 spec:
   predictor:
     sklearn:
