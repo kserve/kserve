@@ -60,7 +60,7 @@ class DataPlane:
             raise InvalidInput(f"Cloud Event Exceptions: {e}")
 
     @staticmethod
-    def live() -> dict[str, str]:
+    def live() -> Dict[str, str]:
         """
         Returns status alive on successful invocation. Primarily meant to be used as
         kubernetes liveness check
@@ -70,7 +70,7 @@ class DataPlane:
         """
         return {"status": "alive"}
 
-    def metadata(self) -> dict:
+    def metadata(self) -> Dict:
         """
         Returns metadata for this server
         Returns:
