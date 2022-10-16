@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import pathlib
 import re
 from unittest import mock
 
@@ -54,20 +55,20 @@ class TestDataPlane:
         dataplane._model_registry.update(ready_model)
         dataplane.get_model_from_registry("Model")
 
-    async def test_liveness(self):
-        assert await DataPlane.live() == {'status': 'alive'}
+    def test_liveness(self):
+        assert DataPlane.live() == {'status': 'alive'}
 
-    async def test_server_readiness(self, dataplane_with_model):
-        assert await dataplane_with_model.ready() is True
+    def test_server_readiness(self, dataplane_with_model):
+        assert dataplane_with_model.ready() is True
 
         not_ready_model = DummyModel("NotReadyModel")
         # model.load()  # Model not loaded, i.e. model not ready
         dataplane_with_model._model_registry.update(not_ready_model)
         # The model server readiness endpoint should return 'True' irrespective of the readiness
         # of the model loaded into it.
-        assert await dataplane_with_model.ready() is True
+        assert dataplane_with_model.ready() is True
 
-    async def test_model_readiness(self):
+    def test_model_readiness(self):
         dataplane = DataPlane(model_registry=ModelRepository())
 
         ready_model = DummyModel("ReadyModel")
@@ -80,8 +81,8 @@ class TestDataPlane:
         dataplane._model_registry.update(not_ready_model)
         assert dataplane.model_ready(not_ready_model.name) is False
 
-    async def test_server_metadata(self):
-        with open(os.path.join(os.getcwd(), '../../VERSION')) as version_file:
+    def test_server_metadata(self):
+        with open(pathlib.Path(__file__).parent.parent.parent / 'VERSION') as version_file:
             version = version_file.read().strip()
 
         dataplane = DataPlane(model_registry=ModelRepository())
@@ -90,7 +91,7 @@ class TestDataPlane:
             "version": version,
             "extensions": ["model_repository_extension"]
         }
-        assert await dataplane.metadata() == expected_metadata
+        assert dataplane.metadata() == expected_metadata
 
     async def test_model_metadata(self, dataplane_with_model):
         assert await dataplane_with_model.model_metadata(self.MODEL_NAME) == {
@@ -105,7 +106,7 @@ class TestDataPlane:
         resp = await dataplane_with_model.predict(self.MODEL_NAME, body)
         assert resp == (
             {"predictions": [[1, 2]]},  # body
-            {}  # headers
+            {'content-type': 'application/json'}  # headers
         )
 
     async def test_explain(self, dataplane_with_model):

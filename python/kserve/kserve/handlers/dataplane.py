@@ -130,19 +130,15 @@ class DataPlane:
             "outputs": output_types
         }
 
-    def ready(self) -> bool:
+    @staticmethod
+    def ready() -> bool:
         """
-        Returns 'True' when all the loaded models are ready to receive requests.
-        Primarily meant to be used as kubernetes readiness check.
+        Returns 'True'. Primarily meant to be used as kubernetes readiness check.
 
         Returns:
-            True, when all registered models are ready
-            False, otherwise
+            True
         """
-
-        models = self._model_registry.get_models().values()
-        is_ready = all([model.ready for model in models])
-        return is_ready
+        return True
 
     def model_ready(self, model_name: str) -> bool:
         """
