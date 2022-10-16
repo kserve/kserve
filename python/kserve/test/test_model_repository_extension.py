@@ -52,29 +52,29 @@ class TestModelRepositoryExtension:
             }
         ]
 
-    async def test_load(self):
+    def test_load(self):
         model_repo_ext = ModelRepositoryExtension(
             model_registry=DummyModelRepository(test_load_success=True)
         )
-        await model_repo_ext.load(self.MODEL_NAME)
+        model_repo_ext.load(self.MODEL_NAME)
         model = model_repo_ext._model_registry.get_model(self.MODEL_NAME)
         assert model.name == self.MODEL_NAME
 
-    async def test_load_fail(self):
+    def test_load_fail(self):
         model_repo_ext = ModelRepositoryExtension(
             model_registry=DummyModelRepository(test_load_success=False)
         )
         with pytest.raises(ModelNotReady) as e:
-            await model_repo_ext.load(self.MODEL_NAME)
+            model_repo_ext.load(self.MODEL_NAME)
         assert e.value.model_name == self.MODEL_NAME
         assert e.value.error_msg == f"Model with name {self.MODEL_NAME} is not ready."
 
-    async def test_load_fail_with_exception(self):
+    def test_load_fail_with_exception(self):
         model_repo_ext = ModelRepositoryExtension(
             model_registry=DummyModelRepository(test_load_success=False, fail_with_exception=True)
         )
         with pytest.raises(ModelNotReady) as e:
-            await model_repo_ext.load(self.MODEL_NAME)
+            model_repo_ext.load(self.MODEL_NAME)
         assert e.value.model_name == self.MODEL_NAME
         assert e.value.error_msg == f"Model with name {self.MODEL_NAME} is not ready. " \
                                     f"Error type: <class 'Exception'> error " \
@@ -87,4 +87,4 @@ class TestModelRepositoryExtension:
     def test_unload_fail(self, model_repo_ext):
         with pytest.raises(ModelNotFound) as e:
             model_repo_ext.unload("FAKE_NAME")
-        assert e.value.reason == "Model FAKE_NAME not found."
+        assert e.value.reason == "Model with name FAKE_NAME does not exist."
