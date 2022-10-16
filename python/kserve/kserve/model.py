@@ -14,16 +14,15 @@
 import inspect
 import json
 import logging
-import sys
 import time
 from enum import Enum
 from typing import Dict, Union, List
 
 import grpc
-import tornado.web
+import httpx
+import orjson
 from cloudevents.http import CloudEvent
 from prometheus_client import Histogram
-from tornado.httpclient import AsyncHTTPClient
 from tritonclient.grpc import InferResult, service_pb2_grpc
 from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 
@@ -119,8 +118,7 @@ class Model:
     @property
     def _http_client(self):
         if self._http_client_instance is None:
-            # TODO: maybe replace this with httpx.AsyncClient
-            self._http_client_instance = AsyncHTTPClient(max_clients=sys.maxsize)
+            self._http_client_instance = httpx.AsyncClient()
         return self._http_client_instance
 
     @property
@@ -225,18 +223,14 @@ class Model:
             if 'X-B3-Traceid' in headers:
                 predict_headers['X-B3-Traceid'] = headers['X-B3-Traceid']
 
-        response = await self._http_client.fetch(
+        response = await self._http_client.post(
             predict_url,
-            method='POST',
-            request_timeout=self.timeout,
+            timeout=self.timeout,
             headers=predict_headers,
-            body=json.dumps(payload)
+            content=orjson.dumps(payload)
         )
-        if response.code != 200:
-            raise tornado.web.HTTPError(
-                status_code=response.code,
-                reason=response.body)
-        return json.loads(response.body)
+        response.raise_for_status()
+        return orjson.loads(response.content)
 
     async def _grpc_predict(self, payload: ModelInferRequest, headers: Dict[str, str] = None) -> ModelInferResponse:
         async_result = await self._grpc_client.ModelInfer(request=payload, timeout=self.timeout, headers=headers)
@@ -271,14 +265,10 @@ class Model:
         explain_url = EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
             explain_url = EXPLAINER_V2_URL_FORMAT.format(self.explainer_host, self.name)
-        response = await self._http_client.fetch(
+        response = await self._http_client.post(
             url=explain_url,
-            method='POST',
-            request_timeout=self.timeout,
-            body=json.dumps(payload)
+            timeout=self.timeout,
+            content=orjson.dumps(payload)
         )
-        if response.code != 200:
-            raise tornado.web.HTTPError(
-                status_code=response.code,
-                reason=response.body)
-        return json.loads(response.body)
+        response.raise_for_status()
+        return orjson.loads(response.content)
