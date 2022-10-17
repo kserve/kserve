@@ -1,19 +1,18 @@
-import json
 from typing import Dict, Union, Tuple
 
 import cloudevents.exceptions as ce
+import orjson
 import pkg_resources
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
+from ray.serve.api import RayServeHandle
 
-from ..constants import constants
 from kserve import Model
 from kserve.errors import InvalidInput, ModelNotFound
 from kserve.model import ModelType
 from kserve.model_repository import ModelRepository
-
-from ray.serve.api import RayServeHandle
 from kserve.utils.utils import is_structured_cloudevent, create_response_cloudevent
+from ..constants import constants
 
 
 class DataPlane:
@@ -189,8 +188,8 @@ class DataPlane:
             body = self.get_binary_cloudevent(body, headers)
         else:
             try:
-                body = json.loads(body)
-            except json.decoder.JSONDecodeError as e:
+                body = orjson.loads(body)
+            except orjson.JSONDecodeError as e:
                 raise InvalidInput(f"Unrecognized request format: {e}")
 
             if is_structured_cloudevent(body):
@@ -229,8 +228,8 @@ class DataPlane:
             Result explanation result
         """
         try:
-            body = json.loads(body)
-        except json.decoder.JSONDecodeError as e:
+            body = orjson.loads(body)
+        except orjson.JSONDecodeError as e:
             raise InvalidInput(f"Unrecognized request format: {e}")
         # call model locally or remote model workers
         model = self.get_model(model_name)
