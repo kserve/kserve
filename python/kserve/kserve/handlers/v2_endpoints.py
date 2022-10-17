@@ -22,7 +22,7 @@ from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 
 
 class V2Endpoints:
-    """V2 Endpoints
+    """KServe V2 Endpoints
     """
 
     def __init__(self, dataplane: DataPlane, model_repository_extension: Optional[ModelRepositoryExtension] = None):

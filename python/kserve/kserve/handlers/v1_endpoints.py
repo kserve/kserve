@@ -22,23 +22,29 @@ from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 
 
 class V1Endpoints:
+    """KServe V1 Endpoints
+    """
 
     def __init__(self, dataplane: DataPlane, model_repository_extension: Optional[ModelRepositoryExtension] = None):
         self.model_repository_extension = model_repository_extension
         self.dataplane = dataplane
 
     async def models(self) -> Dict[str, List[str]]:
-        """Get a list of models in the model registry
+        """Get a list of models in the model registry.
 
-        :return: List of model names
+        Returns:
+            Dict[str, List[str]]: List of model names.
         """
         return {"models": list(self.dataplane.model_registry.get_models().keys())}
 
     async def model_ready(self, model_name: str) -> Dict[str, Union[str, bool]]:
-        """Check if a given model is ready
+        """Check if a given model is ready.
 
-        :param model_name: Name of the model
-        :return:
+        Args:
+            model_name (str): Model name.
+
+        Returns:
+            Dict[str, Union[str, bool]]: Name of the model and whether it's ready.
         """
         model_ready = self.dataplane.model_ready(model_name)
 
@@ -48,7 +54,6 @@ class V1Endpoints:
         return {"name": model_name, "ready": model_ready}
 
     async def predict(self, model_name: str, request: Request):
-        # TODO: capture exception here
         body = await request.body()
         headers = dict(request.headers.items())
         response, response_headers = await self.dataplane.predict(model_name=model_name, body=body, headers=headers)
@@ -59,7 +64,6 @@ class V1Endpoints:
         return Response(content=response, headers=response_headers)
 
     async def explain(self, model_name: str, request: Request):
-        # TODO: capture exception here
         body = await request.body()
         response = await self.dataplane.explain(model_name=model_name, body=body)
 

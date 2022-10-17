@@ -52,12 +52,22 @@ parser.add_argument("--enable_latency_logging", default=False, type=lambda x: bo
 args, _ = parser.parse_known_args()
 
 
-async def metrics_handler(request: Request):
+async def metrics_handler(request: Request) -> Response:
     encoder, content_type = exposition.choose_encoder(request.headers.get("accept"))
     return Response(content=encoder(REGISTRY), headers={"content-type": content_type})
 
 
 class ModelServer:
+    """KServe ModelServer
+
+    Args:
+        http_port (int): HTTP port. Default: ``8080``.
+        grpc_port (int): GRPC port. Default: ``8081``.
+        workers (int): Number of workers for uvicorn. Default: ``1``.
+        registered_models (ModelRepository): Model repository with registered models.
+        enable_docs_url (bool): Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
+        enable_latency_logging (bool): Whether to log latency metric. Default: ``False``.
+    """
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers,
@@ -72,7 +82,12 @@ class ModelServer:
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
 
-    def create_application(self):
+    def create_application(self) -> FastAPI:
+        """Create a KServe ModelServer application with API routes.
+
+        Returns:
+            FastAPI: An application instance.
+        """
         dataplane = DataPlane(model_registry=self.registered_models)
         model_repository_extension = ModelRepositoryExtension(model_registry=self.registered_models)
         v1_endpoints = V1Endpoints(dataplane, model_repository_extension)
@@ -121,7 +136,7 @@ class ModelServer:
             }
         )
 
-    async def start(self, models: Union[List[Model], Dict[str, Deployment]]):
+    async def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):
