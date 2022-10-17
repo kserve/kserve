@@ -1,5 +1,6 @@
 from typing import Optional, List, Union, Dict
 
+import orjson
 from pydantic import BaseModel
 
 # TODO: in the future, this file can be auto generated
@@ -137,6 +138,7 @@ class InferenceRequest(BaseModel):
     outputs: Optional[List[RequestOutput]] = None
 
     class Config:
+        json_loads = orjson.loads
         schema_extra = {
             "example": {
                 "id": "42",
