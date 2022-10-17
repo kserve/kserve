@@ -38,6 +38,7 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 )
 
 var log = logf.Log.WithName("GraphKsvcReconciler")
@@ -151,6 +152,12 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 									Args: []string{
 										"--graph-json",
 										string(bytes),
+									},
+									Env: []v1.EnvVar{
+										{
+											Name:  "PROPAGATE_HEADERS",
+											Value: strings.Join(config.Headers["propagate"], ","),
+										},
 									},
 									Resources: v1.ResourceRequirements{
 										Limits: v1.ResourceList{

@@ -66,11 +66,12 @@ const (
 )
 
 type RouterConfig struct {
-	Image         string `json:"image"`
-	CpuRequest    string `json:"cpuRequest"`
-	CpuLimit      string `json:"cpuLimit"`
-	MemoryRequest string `json:"memoryRequest"`
-	MemoryLimit   string `json:"memoryLimit"`
+	Image         string              `json:"image"`
+	CpuRequest    string              `json:"cpuRequest"`
+	CpuLimit      string              `json:"cpuLimit"`
+	MemoryRequest string              `json:"memoryRequest"`
+	MemoryLimit   string              `json:"memoryLimit"`
+	Headers       map[string][]string `json:"headers"`
 }
 
 func getRouterConfigs(configMap *v1.ConfigMap) (*RouterConfig, error) {

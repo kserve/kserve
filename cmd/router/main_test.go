@@ -73,7 +73,6 @@ func TestSimpleModelChainer(t *testing.T) {
 	}
 	jsonBytes, _ := json.Marshal(input)
 	headers := http.Header{
-		"Trace-ID":      {"f32c0242-2384-11ed"},
 		"Authorization": {"Bearer Token"},
 	}
 
@@ -147,7 +146,6 @@ func TestSimpleModelEnsemble(t *testing.T) {
 	}
 	jsonBytes, _ := json.Marshal(input)
 	headers := http.Header{
-		"Trace-ID":      {"f32c0242-2384-11ed"},
 		"Authorization": {"Bearer Token"},
 	}
 	res, err := routeStep("root", graphSpec, jsonBytes, headers)
@@ -327,7 +325,6 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 	}
 	jsonBytes, _ := json.Marshal(input)
 	headers := http.Header{
-		"Trace-ID":      {"f32c0242-2384-11ed"},
 		"Authorization": {"Bearer Token"},
 	}
 	res, err := routeStep("root", graphSpec, jsonBytes, headers)
@@ -357,4 +354,142 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 	fmt.Printf("final response:%v\n", response)
 	assert.Equal(t, expectedModel3Response, response["model3"])
 	assert.Equal(t, expectedModel4Response, response["model4"])
+}
+
+func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
+	// Start a local HTTP server
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		// Putting headers as part of response so that we can assert the headers' presence later
+		response := make(map[string]interface{})
+		response["predictions"] = "1"
+		for _, h := range headersToPropagate {
+			response[h] = req.Header[h][0]
+		}
+		responseBytes, err := json.Marshal(response)
+		_, err = rw.Write(responseBytes)
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model1.Close()
+
+	input := map[string]interface{}{
+		"instances": []string{
+			"test",
+			"test2",
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{
+		"Authorization":   {"Bearer Token"},
+		"Test-Header-Key": {"Test-Header-Value"},
+	}
+	// Propagating no header
+	headersToPropagate = []string{}
+	res, err := callService(model1Url.String(), jsonBytes, headers)
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	expectedResponse := map[string]interface{}{
+		"predictions": "1",
+	}
+	fmt.Printf("final response:%v\n", response)
+	assert.Equal(t, expectedResponse, response)
+}
+
+func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
+	// Start a local HTTP serverq
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		// Putting headers as part of response so that we can assert the headers' presence later
+		response := make(map[string]interface{})
+		response["predictions"] = "1"
+		for _, h := range headersToPropagate {
+			response[h] = req.Header[h][0]
+		}
+		responseBytes, err := json.Marshal(response)
+		_, err = rw.Write(responseBytes)
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model1.Close()
+
+	input := map[string]interface{}{
+		"instances": []string{
+			"test",
+			"test2",
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{
+		"Authorization":   {"Bearer Token"},
+		"Test-Header-Key": {"Test-Header-Value"},
+	}
+	// Propagating only 1 header "Test-Header-Key"
+	headersToPropagate = []string{"Test-Header-Key"}
+	res, err := callService(model1Url.String(), jsonBytes, headers)
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	expectedResponse := map[string]interface{}{
+		"predictions":     "1",
+		"Test-Header-Key": "Test-Header-Value",
+	}
+	fmt.Printf("final response:%v\n", response)
+	assert.Equal(t, expectedResponse, response)
+}
+
+func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
+	// Start a local HTTP server
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		// Putting headers as part of response so that we can assert the headers' presence later
+		response := make(map[string]interface{})
+		response["predictions"] = "1"
+		for _, h := range headersToPropagate {
+			response[h] = req.Header[h][0]
+		}
+		responseBytes, err := json.Marshal(response)
+		_, err = rw.Write(responseBytes)
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model1.Close()
+
+	input := map[string]interface{}{
+		"instances": []string{
+			"test",
+			"test2",
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{
+		"Authorization":   {"Bearer Token"},
+		"Test-Header-Key": {"Test-Header-Value"},
+	}
+	// Propagating multiple headers "Test-Header-Key"
+	headersToPropagate = []string{"Test-Header-Key", "Authorization"}
+	res, err := callService(model1Url.String(), jsonBytes, headers)
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	expectedResponse := map[string]interface{}{
+		"predictions":     "1",
+		"Test-Header-Key": "Test-Header-Value",
+		"Authorization":   "Bearer Token",
+	}
+	fmt.Printf("final response:%v\n", response)
+	assert.Equal(t, expectedResponse, response)
 }

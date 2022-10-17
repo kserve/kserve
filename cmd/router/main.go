@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/tidwall/gjson"
@@ -40,7 +41,14 @@ var log = logf.Log.WithName("InferenceGraphRouter")
 
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, error) {
 	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
-	req.Header = headers // propagating the headers to steps i.e. to ISVCs
+	for _, h := range headersToPropagate {
+		_, exists := headers[h]
+		if exists {
+			for _, v := range headers[h] {
+				req.Header.Add(h, v)
+			}
+		}
+	}
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 
@@ -186,7 +194,8 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 var (
-	jsonGraph = flag.String("graph-json", "", "serialized json graph def")
+	jsonGraph          = flag.String("graph-json", "", "serialized json graph def")
+	headersToPropagate = strings.Split(os.Getenv("PROPAGATE_HEADERS"), ",")
 )
 
 func main() {
