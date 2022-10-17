@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -117,6 +118,78 @@ func TestPMMLDefaulter(t *testing.T) {
 			scenario.spec.PMML.Default(nil)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestPMMLSpec_GetProtocol(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected constants.InferenceServiceProtocol
+	}{
+		"default": {
+			spec: PredictorSpec{
+				PMML: &PMMLSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
+						},
+					},
+				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
+			},
+			expected: constants.ProtocolV1,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.PMML.GetProtocol()
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", scenario.spec.Triton, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestPMMLSpec_GetContainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	metadata := metav1.ObjectMeta{Name: constants.InferenceServiceContainerName}
+	scenarios := map[string]struct {
+		spec PredictorSpec
+	}{
+		"simple": {
+			spec: PredictorSpec{
+				PMML: &PMMLSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Name:      constants.InferenceServiceContainerName,
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
+						},
+					},
+				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.PMML.GetContainer(metadata, &scenario.spec.ComponentExtensionSpec, nil)
+			if !g.Expect(res).To(gomega.Equal(&scenario.spec.PMML.Container)) {
+				t.Errorf("got %v, want %v", res, scenario.spec.PMML.Container)
 			}
 		})
 	}

@@ -17,10 +17,15 @@ limitations under the License.
 package utils
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -385,5 +390,154 @@ func TestMergeEnvs(t *testing.T) {
 		if diff := cmp.Diff(scenario.expectedEnvs, envs); diff != "" {
 			t.Errorf("Test %q unexpected envs (-want +got): %v", name, diff)
 		}
+	}
+}
+
+func TestIncludesArg(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	args := []string{
+		constants.ArgumentModelName,
+	}
+	scenarios := map[string]struct {
+		arg      string
+		expected bool
+	}{
+		"SliceContainsArg": {
+			arg:      constants.ArgumentModelName,
+			expected: true,
+		},
+		"SliceNotContainsArg": {
+			arg:      "NoArg",
+			expected: false,
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := IncludesArg(args, scenario.arg)
+			g.Expect(res).To(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
+func TestIsGpuEnabled(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		resource v1.ResourceRequirements
+		expected bool
+	}{
+		"GpuEnabled": {
+			resource: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					"cpu": resource.Quantity{
+						Format: "100",
+					},
+					constants.NvidiaGPUResourceType: resource.MustParse("1"),
+				},
+				Requests: v1.ResourceList{
+					"cpu": resource.Quantity{
+						Format: "90",
+					},
+					constants.NvidiaGPUResourceType: resource.MustParse("1"),
+				},
+			},
+			expected: true,
+		},
+		"GPUDisabled": {
+			resource: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					"cpu": resource.Quantity{
+						Format: "100",
+					},
+				},
+				Requests: v1.ResourceList{
+					"cpu": resource.Quantity{
+						Format: "90",
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := IsGPUEnabled(scenario.resource)
+			g.Expect(res).To(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
+func TestFirstNonNilError(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		errors  []error
+		matcher types.GomegaMatcher
+	}{
+		"NoNonNilError": {
+			errors: []error{
+				nil,
+				nil,
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ContainsError": {
+			errors: []error{
+				nil,
+				errors.New("First non nil error"),
+				errors.New("Second non nil error"),
+			},
+			matcher: gomega.Equal(errors.New("First non nil error")),
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := FirstNonNilError(scenario.errors)
+			g.Expect(err).Should(scenario.matcher)
+		})
+	}
+}
+
+func TestRemoveString(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testStrings := []string{
+		"Model Tensorflow",
+		"SKLearn Model",
+		"Model",
+		"ModelPytorch",
+	}
+	expected := []string{
+		"Model Tensorflow",
+		"SKLearn Model",
+		"ModelPytorch",
+	}
+	res := RemoveString(testStrings, "Model")
+	g.Expect(res).Should(gomega.Equal(expected))
+}
+
+func TestIsPrefixSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	prefixes := []string{
+		"S3://",
+		"GCS://",
+		"HTTP://",
+		"HTTPS://",
+	}
+	scenarios := map[string]struct {
+		input    string
+		expected bool
+	}{
+		"SupportedPrefix": {
+			input:    "GCS://test/model",
+			expected: true,
+		},
+		"UnSupportedPreifx": {
+			input:    "PVC://test/model",
+			expected: false,
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := IsPrefixSupported(scenario.input, prefixes)
+			g.Expect(res).Should(gomega.Equal(scenario.expected))
+		})
 	}
 }
