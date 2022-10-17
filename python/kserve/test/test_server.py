@@ -427,7 +427,7 @@ class TestTFHttpServerCloudEvent:
 
         assert resp.status_code == 400
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: "
-                                 "Expecting property name enclosed in double quotes.*")
+                                 "unexpected end of data:*")
         response = json.loads(resp.content)
         assert error_regex.match(response["error"]) is not None
 

@@ -246,7 +246,7 @@ class TestDataPlaneCloudEvent:
             await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
 
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: "
-                                 "Expecting property name enclosed in double quotes.*")
+                                 "unexpected end of data:*")
         assert error_regex.match(err.value.reason) is not None
 
     async def test_infer_ce_bytes_bad_hex_format_exception(self, dataplane_with_ce_model):
