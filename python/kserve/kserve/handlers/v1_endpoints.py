@@ -56,7 +56,7 @@ class V1Endpoints:
     async def predict(self, model_name: str, request: Request):
         body = await request.body()
         headers = dict(request.headers.items())
-        response, response_headers = await self.dataplane.predict(model_name=model_name, body=body, headers=headers)
+        response, response_headers = await self.dataplane.infer(model_name=model_name, body=body, headers=headers)
 
         if isinstance(response, dict):
             return ORJSONResponse(content=response)

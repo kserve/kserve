@@ -1,4 +1,4 @@
-from typing import Dict, Union, Tuple
+from typing import Dict, Union, Tuple, Optional
 
 import cloudevents.exceptions as ce
 import orjson
@@ -156,29 +156,28 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    async def predict(
+    async def infer(
             self,
             model_name: str,
-            body: bytes,
-            headers: Dict[str, str] = None
+            body: Union[bytes, Dict],
+            headers: Optional[Dict[str, str]] = None
     ) -> Tuple[Union[str, bytes, Dict], Dict[str, str]]:
-        """
-        Performs inference on the specified model with the provided body and headers.
+        """Performs inference on the specified model with the provided body and headers.
+
         If the 'body' contains an encoded [CloudEvent](https://cloudevents.io/),
         then it will be decoded and processed. The response body/headers will also be encoded as
         CloudEvents.
 
         Args:
-            model_name (str): Model name
-            body (bytes): The raw body of the received HTTP request.
-            headers (Dict[str,str]): The headers received for HTTP request
+            model_name (str): Model name.
+            body (bytes|Dict): Request body data.
+            headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
-            A tuple with below elements:
-                - response: The inference result
-                - response_headers: Headers to construct the HTTP response
+            Tuple[Union[str, bytes, Dict], Dict[str, str]]:
+                - response: The inference result.
+                - response_headers: Headers to construct the HTTP response.
         """
-
         is_cloudevent = False
         is_binary_cloudevent = False
 
@@ -187,10 +186,11 @@ class DataPlane:
             is_binary_cloudevent = True
             body = self.get_binary_cloudevent(body, headers)
         else:
-            try:
-                body = orjson.loads(body)
-            except orjson.JSONDecodeError as e:
-                raise InvalidInput(f"Unrecognized request format: {e}")
+            if type(body) is bytes:
+                try:
+                    body = orjson.loads(body)
+                except orjson.JSONDecodeError as e:
+                    raise InvalidInput(f"Unrecognized request format: {e}")
 
             if is_structured_cloudevent(body):
                 is_cloudevent = True
@@ -203,7 +203,7 @@ class DataPlane:
             model_handle: RayServeHandle = model
             response = await model_handle.remote(body)
 
-        response_headers = {"content-type": "application/json"}
+        response_headers = {}
         # if we received a cloudevent, then also return a cloudevent
         if is_cloudevent:
             response_headers, response = create_response_cloudevent(model_name, body, response,
@@ -238,16 +238,4 @@ class DataPlane:
         else:
             model_handle = model
             response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
-        return response
-
-    async def infer(self, model_name: str, body: dict) -> Dict:
-        """Performs inference for the specified model.
-        """
-        model = self.get_model(model_name)
-        if not isinstance(model, RayServeHandle):
-            response = await model(body)
-        else:
-            model_handle: RayServeHandle = model
-            response = await model_handle.remote(body)
-
         return response

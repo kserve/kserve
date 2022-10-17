@@ -52,7 +52,7 @@ class V2Endpoints:
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
 
-        response = await self.dataplane.infer(model_name=model_name, body=request_body.dict())
+        response, _ = await self.dataplane.infer(model_name=model_name, body=request_body.dict())
         return InferenceResponse.parse_obj(response)
 
     async def load(self, model_name: str) -> Dict:

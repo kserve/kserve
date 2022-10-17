@@ -103,10 +103,10 @@ class TestDataPlane:
 
     async def test_infer(self, dataplane_with_model):
         body = b'{"instances":[[1,2]]}'
-        resp = await dataplane_with_model.predict(self.MODEL_NAME, body)
+        resp = await dataplane_with_model.infer(self.MODEL_NAME, body)
         assert resp == (
             {"predictions": [[1, 2]]},  # body
-            {'content-type': 'application/json'}  # headers
+            {}  # headers
         )
 
     async def test_explain(self, dataplane_with_model):
@@ -132,7 +132,7 @@ class TestDataPlaneCloudEvent:
         event: CloudEvent = dummy_cloud_event({"instances": [[1, 2]]})
         headers, body = to_structured(event)
 
-        resp = await dataplane_with_ce_model.predict(self.MODEL_NAME, body, headers)
+        resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
         body = json.loads(resp[0])
         headers = resp[1]
 
@@ -156,7 +156,7 @@ class TestDataPlaneCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]})
             headers, body = to_structured(event)
 
-            resp = await dataplane_with_ce_model.predict(self.MODEL_NAME, body, headers)
+            resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
             body = json.loads(resp[0])
             headers = resp[1]
 
@@ -172,7 +172,7 @@ class TestDataPlaneCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]}, add_extension=True)
             headers, body = to_structured(event)
 
-            resp = await dataplane_with_ce_model.predict(self.MODEL_NAME, body, headers)
+            resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
             body = json.loads(resp[0])
             headers = resp[1]
 
@@ -192,7 +192,7 @@ class TestDataPlaneCloudEvent:
                                       add_extension=True)
             headers, body = to_binary(event)
 
-            resp = await dataplane_with_ce_model.predict(self.MODEL_NAME, body, headers)
+            resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
             body = resp[0]
             headers = resp[1]
 
@@ -210,7 +210,7 @@ class TestDataPlaneCloudEvent:
         event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = await dataplane_with_ce_model.predict(self.MODEL_NAME, body, headers)
+        resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
         body = resp[0]
         headers = resp[1]
 
@@ -226,7 +226,7 @@ class TestDataPlaneCloudEvent:
         event = dummy_cloud_event(b'{"instances":[[1,2]]}', set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = await dataplane_with_ce_model.predict(self.MODEL_NAME, body, headers)
+        resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
         body = resp[0]
         headers = resp[1]
 
@@ -243,7 +243,7 @@ class TestDataPlaneCloudEvent:
         headers, body = to_binary(event)
 
         with pytest.raises(InvalidInput) as err:
-            await dataplane_with_ce_model.predict(self.MODEL_NAME, body, headers)
+            await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
 
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: "
                                  "Expecting property name enclosed in double quotes.*")
@@ -254,7 +254,7 @@ class TestDataPlaneCloudEvent:
         headers, body = to_binary(event)
 
         with pytest.raises(InvalidInput) as err:
-            await dataplane_with_ce_model.predict(self.MODEL_NAME, body, headers)
+            await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
 
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: 'utf-8' codec "
                                  "can't decode byte 0x80 in position 1: invalid start byte.*")
@@ -301,7 +301,7 @@ class TestDataPlaneAvroCloudEvent:
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
 
-        resp = await dataplane_with_ce_model.predict(self.MODEL_NAME, body, headers)
+        resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
         body = resp[0]
         headers = resp[1]
 
