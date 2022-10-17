@@ -53,13 +53,19 @@ class PredictorProtocol(Enum):
     GRPC_V2 = "grpc-v2"
 
 
-def get_latency_ms(start, end):
+def get_latency_ms(start: float, end: float) -> float:
     return round((end - start) * 1000, 9)
 
 
-# Model is intended to be subclassed by various components within KServe.
 class Model:
     def __init__(self, name: str):
+        """KServe Model
+
+        Model is intended to be subclassed by various components within KServe.
+
+        Args:
+            name (str): Name of the model.
+        """
         self.name = name
         self.ready = False
         self.protocol = PredictorProtocol.REST_V1.value
@@ -73,7 +79,19 @@ class Model:
         self._grpc_client_stub = None
         self.enable_latency_logging = False
 
-    async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR, headers: Dict[str, str] = None):
+    async def __call__(self, body: Union[Dict, CloudEvent],
+                       model_type: ModelType = ModelType.PREDICTOR,
+                       headers: Dict[str, str] = None) -> Dict:
+        """Method to call predictor or explainer with the given input.
+
+        Args:
+            body (Dict|CloudEvent): Request payload body.
+            model_type (ModelType): Model type enum. Can be either predictor or explainer.
+            headers (Dict): Request headers.
+
+        Returns:
+            Dict: Response output from preprocess -> predictor/explainer -> postprocess
+        """
         request_id = headers.get("X-Request-Id", "N.A.") if headers else "N.A."
 
         # latency vars
@@ -142,10 +160,11 @@ class Model:
         return payload
 
     def load(self) -> bool:
-        """
-        Load handler can be overridden to load the model from storage
-        self.ready flag is used for model health check
-        :return: bool
+        """Load handler can be overridden to load the model from storage
+        ``self.ready`` flag is used for model health check
+
+        Returns:
+            bool: True if model is ready, False otherwise
         """
         self.ready = True
         return self.ready
@@ -168,13 +187,16 @@ class Model:
 
     async def preprocess(self, payload: Union[Dict, CloudEvent],
                          headers: Dict[str, str] = None) -> Union[Dict, ModelInferRequest]:
-        """
-        The preprocess handler can be overridden for data or feature transformation.
+        """`preprocess` handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
-        :param payload: Dict|CloudEvent|ModelInferRequest body
-        :param headers: Dict
-        :return: Transformed Dict|ModelInferRequest which passes to predict handler
+
+        Args:
+            payload (Dict|CloudEvent|ModelInferRequest): Body of the request.
+            headers (Dict): Request headers.
+
+        Returns:
+            Transformed Dict|ModelInferRequest which passes to ``predict`` handler
         """
         response = payload
 
@@ -199,10 +221,13 @@ class Model:
         return response
 
     def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
-        """
-        The postprocess handler can be overridden for inference response transformation
-        :param response: Dict|ModelInferResponse passed from predict handler
-        :return: Dict
+        """The postprocess handler can be overridden for inference response transformation
+
+        Args:
+            response (Dict|ModelInferResponse): The response passed from ``predict`` handler.
+
+        Returns:
+            Dict: post-processed response.
         """
         if isinstance(response, ModelInferResponse):
             response = InferResult(response)
@@ -239,6 +264,15 @@ class Model:
     async def predict(self, payload: Union[Dict, ModelInferRequest],
                       headers: Dict[str, str] = None) -> Union[Dict, ModelInferResponse]:
         """
+
+        Args:
+            payload (Dict|ModelInferRequest): Prediction data passed from ``preprocess`` handler.
+            headers (Dict): Request headers.
+
+        Returns:
+            Dict|ModelInferResponse: Prediction result from the model.
+        """
+        """
         The predict handler can be overridden to implement the model inference.
         The default implementation makes a call to the predictor if predictor_host is specified
         :param payload: Dict|ModelInferRequest body passed from preprocess handler
@@ -253,12 +287,15 @@ class Model:
             return await self._http_predict(payload, headers)
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        """
-        The explain handler can be overridden to implement the model explanation.
-        The default implementation makes an call to the explainer if explainer_host is specified
-        :param payload: Dict passed from preprocess handler
-        :param headers: Dict
-        :return: Dict
+        """`explain` handler can be overridden to implement the model explanation.
+        The default implementation makes call to the explainer if ``explainer_host`` is specified
+
+        Args:
+            payload (Dict): Dict passed from preprocess handler.
+            headers (Dict): Request headers.
+
+        Returns:
+            Dict: Response from the explainer.
         """
         if self.explainer_host is None:
             raise NotImplementedError
