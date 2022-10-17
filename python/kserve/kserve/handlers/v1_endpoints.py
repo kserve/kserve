@@ -52,7 +52,18 @@ class V1Endpoints:
 
         return {"name": model_name, "ready": model_ready}
 
-    async def predict(self, model_name: str, request: Request):
+    async def predict(self, model_name: str, request: Request) -> Union[Response, Dict]:
+        """Predict request handler.
+
+        It sends the request to the dataplane where the model will process the request body.
+
+        Args:
+            model_name (str): Model name.
+            request (Request): Raw request object.
+
+        Returns:
+            Dict|Response: Model inference response.
+        """
         body = await request.body()
         headers = dict(request.headers.items())
         response, response_headers = await self.dataplane.infer(model_name=model_name, body=body, headers=headers)
@@ -62,7 +73,16 @@ class V1Endpoints:
 
         return response
 
-    async def explain(self, model_name: str, request: Request):
+    async def explain(self, model_name: str, request: Request) -> Dict:
+        """Explain handler.
+
+        Args:
+            model_name (str): Model name.
+            request (Request): Raw request object.
+
+        Returns:
+            Dict: Explainer output.
+        """
         body = await request.body()
         response = await self.dataplane.explain(model_name=model_name, body=body)
 

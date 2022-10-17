@@ -30,15 +30,39 @@ class V2Endpoints:
         self.dataplane = dataplane
 
     async def metadata(self) -> ServerMetadataResponse:
+        """Server metadata endpoint.
+
+        Returns:
+            ServerMetadataResponse: Server metadata JSON object.
+        """
         return ServerMetadataResponse.parse_obj(self.dataplane.metadata())
 
     async def live(self) -> ServerLiveResponse:
+        """Server live endpoint.
+
+        Returns:
+            ServerLiveResponse: Server live message.
+        """
         return ServerLiveResponse.parse_obj(self.dataplane.live())
 
     async def ready(self) -> ServerReadyResponse:
+        """Server ready endpoint.
+
+        Returns:
+            ServerReadyResponse: Server ready message.
+        """
         return ServerReadyResponse.parse_obj(self.dataplane.ready())
 
     async def model_metadata(self, model_name: str, model_version: Optional[str] = None) -> ModelMetadataResponse:
+        """Model metadata handler. It provides information about a model.
+
+        Args:
+            model_name (str): Model name.
+            model_version (Optional[str]): Model version (optional).
+
+        Returns:
+            ModelMetadataResponse: Model metadata object.
+        """
         # TODO: support model_version
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
@@ -48,6 +72,16 @@ class V2Endpoints:
 
     async def infer(self, model_name: str, request_body: InferenceRequest,
                     model_version: Optional[str] = None) -> InferenceResponse:
+        """Infer handler.
+
+        Args:
+            model_name (str): Model name.
+            request_body (InferenceRequest): Inference request body.
+            model_version (Optional[str]): Model version (optional).
+
+        Returns:
+            InferenceResponse: Inference response object.
+        """
         # TODO: support model_version
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
@@ -56,9 +90,25 @@ class V2Endpoints:
         return InferenceResponse.parse_obj(response)
 
     async def load(self, model_name: str) -> Dict:
+        """Model load handler.
+
+        Args:
+            model_name (str): Model name.
+
+        Returns:
+            Dict: {"name": model_name, "load": True}
+        """
         self.model_repository_extension.load(model_name)
         return {"name": model_name, "load": True}
 
     async def unload(self, model_name: str) -> Dict:
+        """Model unload handler.
+
+        Args:
+            model_name (str): Model name.
+
+        Returns:
+            Dict: {"name": model_name, "unload": True}
+        """
         self.model_repository_extension.unload(model_name)
         return {"name": model_name, "unload": True}

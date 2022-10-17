@@ -2,7 +2,11 @@ from typing import Optional, List, Union, Dict
 
 from pydantic import BaseModel
 
+# TODO: in the future, this file can be auto generated
+# https://pydantic-docs.helpmanual.io/datamodel_code_generator/
+
 # Reference: https://github.com/kserve/kserve/blob/master/docs/predict-api/v2/rest_predict_v2.yaml
+
 
 InferParameter = Union[str, int, float, bool]
 Parameters = Dict[str, InferParameter]
