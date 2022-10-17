@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import inspect
-import json
 import logging
 import time
 from enum import Enum
@@ -206,8 +205,8 @@ class Model:
             # just pass the CloudEvent data on to the predict function.
             # This is for the cases that CloudEvent encoding is protobuf, avro etc.
             try:
-                response = json.loads(response.decode('UTF-8'))
-            except (json.decoder.JSONDecodeError, UnicodeDecodeError) as e:
+                response = orjson.loads(response.decode('UTF-8'))
+            except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
                 # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
                 if "content-type" in payload._attributes and \
                         (payload._attributes["content-type"] == "application/cloudevents+json" or
@@ -272,15 +271,8 @@ class Model:
         Returns:
             Dict|ModelInferResponse: Prediction result from the model.
         """
-        """
-        The predict handler can be overridden to implement the model inference.
-        The default implementation makes a call to the predictor if predictor_host is specified
-        :param payload: Dict|ModelInferRequest body passed from preprocess handler
-        :param headers: Dict
-        :return: Dict|ModelInferResponse
-        """
         if not self.predictor_host:
-            raise NotImplementedError
+            raise NotImplementedError("Could not find predictor_host.")
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             return await self._grpc_predict(payload, headers)
         else:
@@ -298,7 +290,7 @@ class Model:
             Dict: Response from the explainer.
         """
         if self.explainer_host is None:
-            raise NotImplementedError
+            raise NotImplementedError("Could not find explainer_host.")
         explain_url = EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
             explain_url = EXPLAINER_V2_URL_FORMAT.format(self.explainer_host, self.name)
