@@ -55,8 +55,8 @@ class TestDataPlane:
         dataplane._model_registry.update(ready_model)
         dataplane.get_model_from_registry("Model")
 
-    def test_liveness(self):
-        assert DataPlane.live() == {'status': 'alive'}
+    async def test_liveness(self):
+        assert (await DataPlane.live()) == {'status': 'alive'}
 
     def test_server_readiness(self, dataplane_with_model):
         assert dataplane_with_model.ready() is True

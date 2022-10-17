@@ -59,7 +59,7 @@ class DataPlane:
             raise InvalidInput(f"Cloud Event Exceptions: {e}")
 
     @staticmethod
-    def live() -> Dict[str, str]:
+    async def live() -> Dict[str, str]:
         """
         Returns status alive on successful invocation. Primarily meant to be used as
         kubernetes liveness check
