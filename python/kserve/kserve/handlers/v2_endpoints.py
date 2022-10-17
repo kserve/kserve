@@ -37,21 +37,23 @@ class V2Endpoints:
         """
         return ServerMetadataResponse.parse_obj(self.dataplane.metadata())
 
-    async def live(self) -> ServerLiveResponse:
+    @staticmethod
+    async def live() -> ServerLiveResponse:
         """Server live endpoint.
 
         Returns:
             ServerLiveResponse: Server live message.
         """
-        return ServerLiveResponse.parse_obj(self.dataplane.live())
+        return ServerLiveResponse(live=True)
 
-    async def ready(self) -> ServerReadyResponse:
+    @staticmethod
+    async def ready() -> ServerReadyResponse:
         """Server ready endpoint.
 
         Returns:
             ServerReadyResponse: Server ready message.
         """
-        return ServerReadyResponse.parse_obj(self.dataplane.ready())
+        return ServerReadyResponse(ready=True)
 
     async def model_metadata(self, model_name: str, model_version: Optional[str] = None) -> ModelMetadataResponse:
         """Model metadata handler. It provides information about a model.

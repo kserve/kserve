@@ -32,7 +32,8 @@ from kserve import Model
 from kserve.handlers import V1Endpoints, V2Endpoints
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
-from kserve.handlers.v2_datamodels import InferenceResponse
+from kserve.handlers.v2_datamodels import InferenceResponse, ServerMetadataResponse, ServerLiveResponse, \
+    ServerReadyResponse, ModelMetadataResponse
 from kserve.model_repository import ModelRepository
 
 DEFAULT_HTTP_PORT = 8080
@@ -69,6 +70,7 @@ class ModelServer:
         enable_docs_url (bool): Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
         enable_latency_logging (bool): Whether to log latency metric. Default: ``False``.
     """
+
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers,
@@ -115,10 +117,11 @@ class ModelServer:
                              v1_endpoints.explain, methods=["POST"], tags=["V1"]),
                 # V2 Inference Protocol
                 # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
-                FastAPIRoute(r"/v2", v2_endpoints.metadata, tags=["V2"]),
-                FastAPIRoute(r"/v2/health/live", v2_endpoints.live, tags=["V2"]),
-                FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready, tags=["V2"]),
-                FastAPIRoute(r"/v2/models/{model_name}", v2_endpoints.model_metadata, tags=["V2"]),
+                FastAPIRoute(r"/v2", v2_endpoints.metadata, response_model=ServerMetadataResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/live", v2_endpoints.live, response_model=ServerLiveResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready, response_model=ServerReadyResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/models/{model_name}",
+                             v2_endpoints.model_metadata, response_model=ModelMetadataResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}",
                              v2_endpoints.model_metadata, tags=["V2"], include_in_schema=False),
                 FastAPIRoute(r"/v2/models/{model_name}/infer",
