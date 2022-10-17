@@ -16,9 +16,23 @@ Parameters = Dict[str, InferParameter]
 class ServerLiveResponse(BaseModel):
     live: bool
 
+    class Config:
+        schema_extra = {
+            "example": {
+                "live": True
+            }
+        }
+
 
 class ServerReadyResponse(BaseModel):
     ready: bool
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "ready": True
+            }
+        }
 
 
 class ServerMetadataResponse(BaseModel):
@@ -182,3 +196,18 @@ class InferenceResponse(BaseModel):
     id: str
     parameters: Optional[Parameters]
     outputs: List[ResponseOutput]
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "id": "42",
+                "outputs": [
+                    {
+                        "name": "output0",
+                        "shape": [3, 2],
+                        "datatype": "FP32",
+                        "data": [1.0, 1.1, 2.0, 2.1, 3.0, 3.1]
+                    }
+                ]
+            }
+        }
