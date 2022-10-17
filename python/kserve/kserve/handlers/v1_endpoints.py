@@ -14,7 +14,6 @@
 from typing import Optional, Union, Dict, List
 
 from fastapi import Request, Response
-from fastapi.responses import ORJSONResponse
 
 from kserve.errors import ModelNotReady
 from kserve.handlers.dataplane import DataPlane
@@ -58,13 +57,13 @@ class V1Endpoints:
         headers = dict(request.headers.items())
         response, response_headers = await self.dataplane.infer(model_name=model_name, body=body, headers=headers)
 
-        if isinstance(response, dict):
-            return ORJSONResponse(content=response)
+        if not isinstance(response, dict):
+            return Response(content=response, headers=response_headers)
 
-        return Response(content=response, headers=response_headers)
+        return response
 
     async def explain(self, model_name: str, request: Request):
         body = await request.body()
         response = await self.dataplane.explain(model_name=model_name, body=body)
 
-        return ORJSONResponse(content=response)
+        return response

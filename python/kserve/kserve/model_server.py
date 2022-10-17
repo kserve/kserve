@@ -22,6 +22,7 @@ import pkg_resources
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute as FastAPIRoute
+from fastapi.responses import ORJSONResponse
 from prometheus_client import REGISTRY, exposition
 from ray import serve
 from ray.serve.api import Deployment, RayServeHandle
@@ -98,6 +99,7 @@ class ModelServer:
             version=pkg_resources.get_distribution("kserve").version,
             docs_url="/docs" if self.enable_docs_url else None,
             redoc_url=None,
+            default_response_class=ORJSONResponse,
             routes=[
                 # Server Liveness API returns 200 if server is alive.
                 FastAPIRoute(r"/", dataplane.live),
