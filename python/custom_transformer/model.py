@@ -11,18 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import argparse
+import asyncio
+import base64
+import io
+from typing import Dict
+
+import numpy
+from PIL import Image
+from torchvision import transforms
+from tritonclient.grpc import InferResult, InferInput
+from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 
 from kserve import Model, ModelServer, model_server
 from kserve.model import PredictorProtocol
-from torchvision import transforms
-from typing import Dict
-from PIL import Image
-import base64
-import io
-import argparse
-import numpy
-from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
-from tritonclient.grpc import InferResult, InferInput
 
 
 def image_transform(instance):
