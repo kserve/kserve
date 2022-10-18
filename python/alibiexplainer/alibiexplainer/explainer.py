@@ -92,30 +92,31 @@ class AlibiExplainer(kserve.Model):
         shape = np.shape(instances)
         loop = asyncio.get_running_loop()  # type: ignore
 
-        # Prepare the request beased on the predictor protocol
-        if self.protocol == PredictorProtocol.GRPC_V2.value:
-            data = np.array(instances, dtype=np.float32).flatten()
-            tensor_contents = pb.InferTensorContents(fp32_contents=data)
-            inputs = pb.ModelInferRequest().InferInputTensor(
-                    name="input_1",
-                    shape=list(shape),
-                    datatype="FP32",
-                    contents=tensor_contents
-            )
-            predict_req = pb.ModelInferRequest(model_name=self.name, inputs=[inputs])
-        elif self.protocol == PredictorProtocol.REST_V2.value:
-            predict_req = {
-                "inputs": [
-                    {
-                        "name": "input_1",
-                        "shape": list(shape),
-                        "datatype": "FP32",
-                        "data": instances
-                    }
-                ]
-            }
-        else:
-            predict_req = {"instances": instances}
+        predict_req = {"instances": instances}
+
+        # Prepare the request beased on the predictor protocol for anchor images
+        if self.method is ExplainerMethod.anchor_images:
+            if self.protocol == PredictorProtocol.GRPC_V2.value:
+                data = np.array(instances, dtype=np.float32).flatten()
+                tensor_contents = pb.InferTensorContents(fp32_contents=data)
+                inputs = pb.ModelInferRequest().InferInputTensor(
+                        name="input_1",
+                        shape=list(shape),
+                        datatype="FP32",
+                        contents=tensor_contents
+                )
+                predict_req = pb.ModelInferRequest(model_name=self.name, inputs=[inputs])
+            elif self.protocol == PredictorProtocol.REST_V2.value:
+                predict_req = {
+                    "inputs": [
+                        {
+                            "name": "input_1",
+                            "shape": list(shape),
+                            "datatype": "FP32",
+                            "data": instances
+                        }
+                    ]
+                }
 
         resp = loop.run_until_complete(self.predict(predict_req))
 

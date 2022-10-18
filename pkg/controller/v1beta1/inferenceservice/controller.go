@@ -188,7 +188,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 	//Reconcile ingress
-	//Skip if deployment mode is modelmesh and explainer exists
 	ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
