@@ -12,7 +12,7 @@ COPY pkg/    pkg/
 COPY cmd/    cmd/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o agent ./cmd/agent
+RUN CGO_ENABLED=0 GOOS=linux go build -a -o agent ./cmd/agent
 
 # Copy the inference-agent into a thin image
 FROM gcr.io/distroless/static:latest
