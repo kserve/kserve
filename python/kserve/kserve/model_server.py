@@ -166,6 +166,7 @@ class ModelServer:
 
         cfg = uvicorn.Config(
             self.create_application(),
+            host="0.0.0.0",
             port=self.http_port,
             workers=self.workers
         )
