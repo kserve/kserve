@@ -139,6 +139,8 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 					} else {
 						return nil
 					}
+				case constants.AutoscalerClassNone:
+					return nil
 				default:
 					return fmt.Errorf("unknown autoscaler class [%s]", class)
 				}
