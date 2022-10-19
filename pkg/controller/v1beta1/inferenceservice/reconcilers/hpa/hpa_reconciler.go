@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -57,11 +58,9 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 	var utilization int32
 	annotations := metadata.Annotations
 
-	resourceName := corev1.ResourceCPU
-
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
-		utilizationInt, _ := strconv.Atoi(value)
-		utilization = int32(utilizationInt)
+		utilization, _ := strconv.Atoi(value)
+		cpuUtilization = int32(utilization)
 	} else {
 		utilization = constants.DefaultCPUUtilization
 	}
@@ -86,7 +85,6 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 			Target: metricTarget,
 		},
 	}
-
 	metrics = append(metrics, ms)
 	return metrics
 }
@@ -115,7 +113,6 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			},
 			MinReplicas: &minReplicas,
 			MaxReplicas: maxReplicas,
-
 			Metrics:  metrics,
 			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 		},
@@ -154,27 +151,21 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 // Reconcile ...
 func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	//reconcile Service
-	checkResult, existingHPA, err := r.checkHPAExist(r.client)
+	checkResult, _, err := r.checkHPAExist(r.client)
 	log.Info("service reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if checkResult == constants.CheckResultCreate {
-		err = r.client.Create(context.TODO(), r.HPA)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.HPA, nil
-		}
+		return r.client.Create(context.TODO(), r.HPA)
 	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
-		err = r.client.Update(context.TODO(), r.HPA)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.HPA, nil
-		}
+		return r.client.Update(context.TODO(), r.HPA)
 	} else {
-		return existingHPA, nil
+		return nil
 	}
+}
+
+func (r *HPAReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	return controllerutil.SetControllerReference(owner, r.HPA, scheme)
 }
