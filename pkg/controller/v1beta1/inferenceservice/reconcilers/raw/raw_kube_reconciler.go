@@ -97,7 +97,7 @@ func (r *RawKubeReconciler) Reconcile() (*appsv1.Deployment, error) {
 		return nil, err
 	}
 	//reconcile HPA
-	_, err = r.Scaler.Reconcile()
+	err = r.Scaler.Reconcile()
 	if err != nil {
 		return nil, err
 	}
