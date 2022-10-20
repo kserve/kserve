@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from kserve import Model, Storage
-from kserve.model import ModelMissingError, InferenceError
+from kserve.errors import InferenceError, ModelMissingError
 import xgboost as xgb
 import numpy as np
 from xgboost import XGBModel

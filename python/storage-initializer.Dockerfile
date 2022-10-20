@@ -5,6 +5,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 COPY third_party third_party
 
 COPY kserve kserve
+COPY VERSION VERSION
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
 
 RUN apt-get update && apt-get install -y \
