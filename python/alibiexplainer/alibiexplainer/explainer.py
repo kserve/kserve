@@ -24,6 +24,9 @@ from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
+import nest_asyncio
+nest_asyncio.apply()
+
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 

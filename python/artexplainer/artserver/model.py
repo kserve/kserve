@@ -21,6 +21,9 @@ from art.estimators.classification import BlackBoxClassifierNeuralNetwork
 
 import kserve
 
+import nest_asyncio
+nest_asyncio.apply()
+
 
 class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, predictor_host: str, adversary_type: str,
