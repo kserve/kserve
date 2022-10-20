@@ -21,7 +21,8 @@ from unittest import mock
 import avro.io
 import avro.schema
 import pytest
-from cloudevents.http import CloudEvent, to_binary, to_structured
+from cloudevents.conversion import to_binary, to_structured
+from cloudevents.http import CloudEvent
 from fastapi.testclient import TestClient
 from ray import serve
 
@@ -150,7 +151,7 @@ class DummyModelRepository(ModelRepository):
         self.test_load_success = test_load_success
         self.fail_with_exception = fail_with_exception
 
-    def load(self, name: str) -> bool:
+    async def load(self, name: str) -> bool:
         if self.test_load_success:
             model = DummyModel(name)
             model.load()

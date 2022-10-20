@@ -7,7 +7,8 @@ from unittest import mock
 
 import avro
 import pytest
-from cloudevents.http import to_structured, to_binary, CloudEvent
+from cloudevents.conversion import to_binary, to_structured
+from cloudevents.http import CloudEvent
 from ray import serve
 
 from kserve.errors import InvalidInput, ModelNotFound
@@ -42,7 +43,7 @@ class TestDataPlane:
             yield dataplane
             serve.shutdown()
 
-    def test_get_model_from_registry(self):
+    async def test_get_model_from_registry(self):
         dataplane = DataPlane(model_registry=ModelRepository())
         model_name = "FakeModel"
         with pytest.raises(ModelNotFound) as http_exec:
@@ -58,7 +59,7 @@ class TestDataPlane:
     async def test_liveness(self):
         assert (await DataPlane.live()) == {'status': 'alive'}
 
-    def test_server_readiness(self, dataplane_with_model):
+    async def test_server_readiness(self, dataplane_with_model):
         assert dataplane_with_model.ready() is True
 
         not_ready_model = DummyModel("NotReadyModel")
@@ -68,7 +69,7 @@ class TestDataPlane:
         # of the model loaded into it.
         assert dataplane_with_model.ready() is True
 
-    def test_model_readiness(self):
+    async def test_model_readiness(self):
         dataplane = DataPlane(model_registry=ModelRepository())
 
         ready_model = DummyModel("ReadyModel")
@@ -81,7 +82,7 @@ class TestDataPlane:
         dataplane._model_registry.update(not_ready_model)
         assert dataplane.model_ready(not_ready_model.name) is False
 
-    def test_server_metadata(self):
+    async def test_server_metadata(self):
         with open(pathlib.Path(__file__).parent.parent.parent / 'VERSION') as version_file:
             version = version_file.read().strip()
 
