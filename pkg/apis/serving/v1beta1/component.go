@@ -57,7 +57,7 @@ var (
 type ComponentImplementation interface {
 	Default(config *InferenceServicesConfig)
 	Validate() error
-	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container
+	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container
 	GetStorageUri() *string
 	GetStorageSpec() *StorageSpec
 	GetProtocol() constants.InferenceServiceProtocol

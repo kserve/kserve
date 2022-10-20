@@ -19,6 +19,8 @@ package components
 import (
 	"fmt"
 
+	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -31,6 +33,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -242,9 +246,15 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 
+	existing := &knservingv1.Service{}
+	predictorName := constants.PredictorServiceName(isvc.Name)
+	err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+	if err == nil {
+		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+	}
 	// Labels and annotations from isvc will overwrite labels and annotations from ServingRuntimePodSpec
 	objectMeta := metav1.ObjectMeta{
-		Name:      constants.DefaultPredictorServiceName(isvc.Name),
+		Name:      predictorName,
 		Namespace: isvc.Namespace,
 		Labels: utils.Union(sRuntimeLabels, isvc.Labels, map[string]string{
 			constants.InferenceServicePodLabelKey: isvc.Name,
@@ -308,7 +318,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 	statusSpec, _ := isvc.Status.Components[v1beta1.PredictorComponent]
 	if rawDeployment {
-		podLabelValue = constants.GetRawServiceLabel(constants.DefaultPredictorServiceName(isvc.ObjectMeta.Name))
+		podLabelValue = constants.GetRawServiceLabel(constants.PredictorServiceName(isvc.ObjectMeta.Name))
 	} else {
 		podLabelValue = statusSpec.LatestCreatedRevision
 	}
