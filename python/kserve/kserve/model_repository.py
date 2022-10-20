@@ -21,9 +21,12 @@ MODEL_MOUNT_DIRS = "/mnt/models"
 
 
 class ModelRepository:
-    """
-    Model repository interface, follows NVIDIA Triton's `model-repository`
-    extension.
+    """Model repository interface.
+
+    It follows NVIDIA Triton's `Model Repository Extension`_.
+
+    .. _Model Repository Extension:
+        https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md
     """
 
     def __init__(self, models_dir: str = MODEL_MOUNT_DIRS):

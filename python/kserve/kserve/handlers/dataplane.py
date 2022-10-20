@@ -29,6 +29,8 @@ from ..constants import constants
 
 
 class DataPlane:
+    """KServe DataPlane
+    """
 
     def __init__(self, model_registry: ModelRepository):
         self._model_registry = model_registry
@@ -50,6 +52,16 @@ class DataPlane:
         return model
 
     def get_model(self, name: str) -> Union[Model, RayServeHandle]:
+        """Get the model instance with the given name.
+
+        The instance can be either ``Model`` or ``RayServeHandle``.
+
+        Args:
+            name (str): Model name.
+
+        Returns:
+            Model|RayServeHandle: Instance of the model.
+        """
         model = self._model_registry.get_model(name)
         if model is None:
             raise ModelNotFound(name)
@@ -59,6 +71,18 @@ class DataPlane:
 
     @staticmethod
     def get_binary_cloudevent(body: Union[str, bytes, None], headers: Dict[str, str]) -> CloudEvent:
+        """Helper function to parse CloudEvent body and headers.
+
+        Args:
+            body (str|bytes|None): Request body.
+            headers (Dict[str, str]): Request headers.
+
+        Returns:
+            CloudEvent: A CloudEvent instance parsed from http body and headers.
+
+        Raises:
+            InvalidInput: An error when CloudEvent failed to parse.
+        """
         try:
             # Use default unmarshaller if contenttype is set in header
             if "ce-contenttype" in headers:
@@ -73,9 +97,10 @@ class DataPlane:
 
     @staticmethod
     async def live() -> Dict[str, str]:
-        """
-        Returns status alive on successful invocation. Primarily meant to be used as
-        kubernetes liveness check
+        """Server live.
+
+        Returns ``{"status": "alive"}`` on successful invocation.
+        Primarily meant to be used for Kubernetes liveness check.
 
         Returns:
             Dict: {"status": "alive"}
@@ -83,32 +108,35 @@ class DataPlane:
         return {"status": "alive"}
 
     def metadata(self) -> Dict:
-        """
-        Returns metadata for this server
+        """Server metadata.
+
+        Note:
+            Supports ``model_repository_extension`` as defined at Triton Server `Model Repository Extension`_.
+
         Returns:
             Returns a dict object with following fields:
-                - name (str): name of the server
-                - version (str): server version number
-                - extension (list[str]): list of protocol extensions supported by this server
+                - name (str): name of the server.
+                - version (str): server version number.
+                - extension (list[str]): list of protocol extensions supported by this server.
+
+        .. _Model Repository Extension:
+            https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md
         """
         return {
             "name": self._server_name,
             "version": self._server_version,
-            # supports model_repository_extension as defined at
-            # https://github.com/triton-inference-server/server/blob/main/docs/protocol
-            # /extension_model_repository.md#model-repository-extension
             "extensions": ["model_repository_extension"]
         }
 
     async def model_metadata(self, model_name: str) -> Dict:
-        """
-        Returns metadata for a specific model.
+        """Get metadata for a specific model.
 
         Args:
             model_name (str): Model name
 
         Returns:
-            A dictionary with following fields:
+            Dict: dictionary with following fields:
+
                 - name (str): name of the model
                 - platform: "" (Empty String)
                 - inputs: Dict with below fields
@@ -116,16 +144,18 @@ class DataPlane:
                     - datatype (str): Eg. INT32, FP32
                     - shape ([]int): The shape of the tensor.
                                    Variable-size dimensions are specified as -1.
-}
                 - outputs: Same as inputs described above.
-            For more info refer:
-            https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata
 
-        Raises: 'ModelNotFound' exception will be raised if the model with model_name is not found.
+        Note:
+            For more information, check KServe v2 `Model Metadata`_ documentation.
 
+        Raises:
+            ModelNotFound: exception will be raised if the model with model_name is not found.
+
+        .. _Model Metadata:
+            https://github.com/kserve/kserve/blob/master/docs/predict-api/v2/required_api.md#model-metadata
         """
-
-        # Note: model versioning is not supported
+        # TODO: model versioning is not supported yet
         model = self.get_model_from_registry(model_name)
 
         if not isinstance(model, RayServeHandle):
@@ -144,25 +174,26 @@ class DataPlane:
 
     @staticmethod
     def ready() -> bool:
-        """
-        Returns 'True'. Primarily meant to be used as kubernetes readiness check.
+        """Server ready.
+
+        Returns ``True``. Primarily meant to be used as Kubernetes readiness check.
 
         Returns:
-            True
+            bool: True
         """
         return True
 
     def model_ready(self, model_name: str) -> bool:
-        """
-        Returns if the model specified by 'model_name' is ready
+        """Check if a model is ready.
 
         Args:
             model_name (str): name of the model
 
         Returns:
-            True, if the model is ready
-            False, if the model is not ready
-            Raise ModelNotFound exception if model is not found
+            bool: True if the model is ready, False otherwise.
+
+        Raises:
+            ModelNotFound: exception if model is not found
         """
         if self._model_registry.get_model(model_name) is None:
             raise ModelNotFound(model_name)
@@ -177,9 +208,8 @@ class DataPlane:
     ) -> Tuple[Union[str, bytes, Dict], Dict[str, str]]:
         """Performs inference on the specified model with the provided body and headers.
 
-        If the 'body' contains an encoded [CloudEvent](https://cloudevents.io/),
-        then it will be decoded and processed. The response body/headers will also be encoded as
-        CloudEvents.
+        If the ``body`` contains an encoded `CloudEvent`_, then it will be decoded and processed.
+        The response body/headers will also be encoded as CloudEvents.
 
         Args:
             model_name (str): Model name.
@@ -190,6 +220,11 @@ class DataPlane:
             Tuple[Union[str, bytes, Dict], Dict[str, str]]:
                 - response: The inference result.
                 - response_headers: Headers to construct the HTTP response.
+
+        Raises:
+            InvalidInput: An error when the body bytes can't be decoded as JSON.
+
+        .. _CloudEvent: https://cloudevents.io/
         """
         is_cloudevent = False
         is_binary_cloudevent = False
@@ -230,15 +265,17 @@ class DataPlane:
         return response, response_headers
 
     async def explain(self, model_name: str, body: bytes) -> Dict:
-        """
-        Performs explanation for the specified model.
+        """Performs explanation for the specified model.
 
         Args:
-            model_name (str): Model name to be used for explanation
-            body (bytes): Raw HTTP request body
+            model_name (str): Model name to be used for explanation.
+            body (bytes): Raw HTTP request body.
 
         Returns:
-            Result explanation result
+            Dict: Explanation result.
+
+        Raises:
+            InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         try:
             body = orjson.loads(body)

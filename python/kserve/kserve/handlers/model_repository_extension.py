@@ -74,6 +74,7 @@ class ModelRepositoryExtension:
             ModelNotReady: Exception if model loading fails.
         """
         try:
+            # For backward compatibility, the synchronous `load` has been kept here.
             if inspect.iscoroutinefunction(self._model_registry.load):
                 await self._model_registry.load(model_name)
             else:
