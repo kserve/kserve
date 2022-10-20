@@ -1,3 +1,5 @@
+import os
+
 from setuptools import setup, find_packages
 
 tests_require = [
@@ -5,6 +7,9 @@ tests_require = [
     'pytest-tornasync',
     'mypy'
 ]
+
+with open(os.path.join(os.getcwd(), '../../../../../../python/VERSION')) as version_file:
+    version = version_file.read().strip()
 
 setup(
     name='bert_transformer_v2',
@@ -14,7 +19,7 @@ setup(
     python_requires='>=3.7',
     packages=find_packages("bert_transformer"),
     install_requires=[
-        "kserve",
+        f"kserve>={version}",
         "tensorflow==2.7.2",
     ],
     tests_require=tests_require,

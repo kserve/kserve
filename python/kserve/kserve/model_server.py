@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,105 +13,136 @@
 # limitations under the License.
 
 import argparse
-import logging
-from typing import List, Optional, Dict, Union
-import tornado.ioloop
-import tornado.web
-import tornado.httpserver
-import tornado.log
 import asyncio
-from tornado import concurrent
+import logging
+from distutils.util import strtobool
+from typing import List, Dict, Union
 
-from .utils import utils
-
-import kserve.handlers as handlers
-from kserve import Model
-from kserve.model_repository import ModelRepository
-from ray.serve.api import Deployment, RayServeHandle
+import pkg_resources
+import uvicorn
+from fastapi import FastAPI, Request, Response
+from fastapi.routing import APIRoute as FastAPIRoute
+from fastapi.responses import ORJSONResponse
+from prometheus_client import REGISTRY, exposition
 from ray import serve
-from tornado.web import RequestHandler
-from prometheus_client import REGISTRY
-from prometheus_client.exposition import choose_encoder
+from ray.serve.api import Deployment, RayServeHandle
+
+import kserve.errors as errors
+from kserve import Model
+from kserve.handlers import V1Endpoints, V2Endpoints
+from kserve.handlers.dataplane import DataPlane
+from kserve.handlers.model_repository_extension import ModelRepositoryExtension
+from kserve.handlers.v2_datamodels import InferenceResponse, ServerMetadataResponse, ServerLiveResponse, \
+    ServerReadyResponse, ModelMetadataResponse
+from kserve.model_repository import ModelRepository
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
-DEFAULT_MAX_BUFFER_SIZE = 104857600
 
 parser = argparse.ArgumentParser(add_help=False)
-parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
-                    help='The HTTP Port listened to by the model server.')
-parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
-                    help='The GRPC Port listened to by the model server.')
-parser.add_argument('--max_buffer_size', default=DEFAULT_MAX_BUFFER_SIZE, type=int,
-                    help='The max buffer size for tornado.')
-parser.add_argument('--workers', default=1, type=int,
-                    help='The number of works to fork')
-parser.add_argument('--max_asyncio_workers', default=None, type=int,
-                    help='Max number of asyncio workers to spawn')
-parser.add_argument(
-    "--enable_latency_logging", help="Output a log per request with latency metrics",
-    required=False, default=False
-)
+parser.add_argument("--http_port", default=DEFAULT_HTTP_PORT, type=int,
+                    help="The HTTP Port listened to by the model server.")
+parser.add_argument("--grpc_port", default=DEFAULT_GRPC_PORT, type=int,
+                    help="The GRPC Port listened to by the model server.")
+parser.add_argument("--workers", default=1, type=int,
+                    help="The number of works to fork.")
+parser.add_argument("--enable_docs_url", default=False, type=lambda x: bool(strtobool(x)),
+                    help="Enable docs url '/docs' to display Swagger UI.")
+parser.add_argument("--enable_latency_logging", default=False, type=lambda x: bool(strtobool(x)),
+                    help="Output a log per request with latency metrics.")
 
 args, _ = parser.parse_known_args()
 
-tornado.log.enable_pretty_logging()
 
-
-class MetricsHandler(RequestHandler):
-    def get(self):
-        encoder, content_type = choose_encoder(self.request.headers.get('accept'))
-        self.set_header("Content-Type", content_type)
-        self.write(encoder(REGISTRY))
+async def metrics_handler(request: Request) -> Response:
+    encoder, content_type = exposition.choose_encoder(request.headers.get("accept"))
+    return Response(content=encoder(REGISTRY), headers={"content-type": content_type})
 
 
 class ModelServer:
+    """KServe ModelServer
+
+    Args:
+        http_port (int): HTTP port. Default: ``8080``.
+        grpc_port (int): GRPC port. Default: ``8081``.
+        workers (int): Number of workers for uvicorn. Default: ``1``.
+        registered_models (ModelRepository): Model repository with registered models.
+        enable_docs_url (bool): Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
+        enable_latency_logging (bool): Whether to log latency metric. Default: ``False``.
+    """
+
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
-                 max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers,
-                 max_asyncio_workers: int = args.max_asyncio_workers,
                  registered_models: ModelRepository = ModelRepository(),
+                 enable_docs_url: bool = args.enable_docs_url,
                  enable_latency_logging: bool = args.enable_latency_logging):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
-        self.max_buffer_size = max_buffer_size
         self.workers = workers
-        self.max_asyncio_workers = max_asyncio_workers
-        self._http_server: Optional[tornado.httpserver.HTTPServer] = None
-        self.enable_latency_logging = validate_enable_latency_logging(enable_latency_logging)
+        self._server = None
+        self.enable_docs_url = enable_docs_url
+        self.enable_latency_logging = enable_latency_logging
 
-    def create_application(self):
-        return tornado.web.Application([
-            (r"/metrics", MetricsHandler),
-            # Server Liveness API returns 200 if server is alive.
-            (r"/", handlers.LivenessHandler),
-            (r"/v2/health/live", handlers.LivenessHandler),
-            (r"/v1/models",
-             handlers.ListHandler, dict(models=self.registered_models)),
-            (r"/v2/models",
-             handlers.ListHandler, dict(models=self.registered_models)),
-            # Model Health API returns 200 if model is ready to serve.
-            (r"/v1/models/([a-zA-Z0-9_-]+)",
-             handlers.HealthHandler, dict(models=self.registered_models)),
-            (r"/v2/models/([a-zA-Z0-9_-]+)/status",
-             handlers.HealthHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+):predict",
-             handlers.PredictHandler, dict(models=self.registered_models)),
-            (r"/v2/models/([a-zA-Z0-9_-]+)/infer",
-             handlers.PredictHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+):explain",
-             handlers.ExplainHandler, dict(models=self.registered_models)),
-            (r"/v2/models/([a-zA-Z0-9_-]+)/explain",
-             handlers.ExplainHandler, dict(models=self.registered_models)),
-            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/load",
-             handlers.LoadHandler, dict(models=self.registered_models)),
-            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/unload",
-             handlers.UnloadHandler, dict(models=self.registered_models)),
-        ], default_handler_class=handlers.NotFoundHandler)
+    def create_application(self) -> FastAPI:
+        """Create a KServe ModelServer application with API routes.
 
-    def start(self, models: Union[List[Model], Dict[str, Deployment]], nest_asyncio: bool = False):
+        Returns:
+            FastAPI: An application instance.
+        """
+        dataplane = DataPlane(model_registry=self.registered_models)
+        model_repository_extension = ModelRepositoryExtension(model_registry=self.registered_models)
+        v1_endpoints = V1Endpoints(dataplane, model_repository_extension)
+        v2_endpoints = V2Endpoints(dataplane, model_repository_extension)
+
+        return FastAPI(
+            title="KServe ModelServer",
+            version=pkg_resources.get_distribution("kserve").version,
+            docs_url="/docs" if self.enable_docs_url else None,
+            redoc_url=None,
+            default_response_class=ORJSONResponse,
+            routes=[
+                # Server Liveness API returns 200 if server is alive.
+                FastAPIRoute(r"/", dataplane.live),
+                # Metrics
+                FastAPIRoute(r"/metrics", metrics_handler, methods=["GET"]),
+                # V1 Inference Protocol
+                FastAPIRoute(r"/v1/models", v1_endpoints.models, tags=["V1"]),
+                # Model Health API returns 200 if model is ready to serve.
+                FastAPIRoute(r"/v1/models/{model_name}", v1_endpoints.model_ready, tags=["V1"]),
+                FastAPIRoute(r"/v1/models/{model_name}:predict",
+                             v1_endpoints.predict, methods=["POST"], tags=["V1"]),
+                FastAPIRoute(r"/v1/models/{model_name}:explain",
+                             v1_endpoints.explain, methods=["POST"], tags=["V1"]),
+                # V2 Inference Protocol
+                # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
+                FastAPIRoute(r"/v2", v2_endpoints.metadata, response_model=ServerMetadataResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/live", v2_endpoints.live, response_model=ServerLiveResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready, response_model=ServerReadyResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/models/{model_name}",
+                             v2_endpoints.model_metadata, response_model=ModelMetadataResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}",
+                             v2_endpoints.model_metadata, tags=["V2"], include_in_schema=False),
+                FastAPIRoute(r"/v2/models/{model_name}/infer",
+                             v2_endpoints.infer, methods=["POST"], response_model=InferenceResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}/infer",
+                             v2_endpoints.infer, methods=["POST"], tags=["V2"], include_in_schema=False),
+                FastAPIRoute(r"/v2/repository/models/{model_name}/load",
+                             v2_endpoints.load, methods=["POST"], tags=["V2"]),
+                FastAPIRoute(r"/v2/repository/models/{model_name}/unload",
+                             v2_endpoints.unload, methods=["POST"], tags=["V2"]),
+            ], exception_handlers={
+                errors.InvalidInput: errors.invalid_input_handler,
+                errors.InferenceError: errors.inference_error_handler,
+                errors.ModelNotFound: errors.model_not_found_handler,
+                errors.ModelNotReady: errors.model_not_ready_handler,
+                NotImplementedError: errors.not_implemented_error_handler,
+                Exception: errors.exception_handler
+            }
+        )
+
+    async def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):
@@ -119,9 +150,10 @@ class ModelServer:
                     # pass whether to log request latency into the model
                     model.enable_latency_logging = self.enable_latency_logging
                 else:
-                    raise RuntimeError("Model type should be Model")
+                    raise RuntimeError("Model type should be 'Model'")
         elif isinstance(models, dict):
             if all([isinstance(v, Deployment) for v in models.values()]):
+                # TODO: make this port number a variable
                 serve.start(detached=True, http_options={"host": "0.0.0.0", "port": 9071})
                 for key in models:
                     models[key].deploy()
@@ -132,30 +164,17 @@ class ModelServer:
         else:
             raise RuntimeError("Unknown model collection types")
 
-        if self.max_asyncio_workers is None:
-            # formula as suggest in https://bugs.python.org/issue35279
-            self.max_asyncio_workers = min(32, utils.cpu_count()+4)
+        cfg = uvicorn.Config(
+            self.create_application(),
+            host="0.0.0.0",
+            port=self.http_port,
+            workers=self.workers
+        )
 
-        self._http_server = tornado.httpserver.HTTPServer(
-            self.create_application(), max_buffer_size=self.max_buffer_size)
-
-        logging.info("Listening on port %s", self.http_port)
-        self._http_server.bind(self.http_port)
-        logging.info("Will fork %d workers", self.workers)
-        self._http_server.start(self.workers)
-
-        logging.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
-        asyncio.get_event_loop().set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
-
-        # Need to start the IOLoop after workers have been started
-        # https://github.com/tornadoweb/tornado/issues/2426
-        # The nest_asyncio package needs to be installed by the downstream module
-        if nest_asyncio:
-            import nest_asyncio
-            nest_asyncio.apply()
-
-        tornado.ioloop.IOLoop.current().start()
+        self._server = uvicorn.Server(cfg)
+        servers = [self._server.serve()]
+        servers_task = asyncio.gather(*servers)
+        await servers_task
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)
@@ -167,15 +186,3 @@ class ModelServer:
                 "Failed to register model, model.name must be provided.")
         self.registered_models.update(model)
         logging.info("Registering model: %s", model.name)
-
-
-def validate_enable_latency_logging(enable_latency_logging):
-    if isinstance(enable_latency_logging, str):
-        if enable_latency_logging.lower() == "true":
-            enable_latency_logging = True
-        elif enable_latency_logging.lower() == "false":
-            enable_latency_logging = False
-    if not isinstance(enable_latency_logging, bool):
-        raise TypeError(f"enable_latency_logging must be one of [True, true, False, false], "
-                        f"got {enable_latency_logging} instead.")
-    return enable_latency_logging
