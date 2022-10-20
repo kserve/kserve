@@ -100,7 +100,7 @@ class V2Endpoints:
         Returns:
             Dict: {"name": model_name, "load": True}
         """
-        self.model_repository_extension.load(model_name)
+        await self.model_repository_extension.load(model_name)
         return {"name": model_name, "load": True}
 
     async def unload(self, model_name: str) -> Dict:
@@ -112,5 +112,5 @@ class V2Endpoints:
         Returns:
             Dict: {"name": model_name, "unload": True}
         """
-        self.model_repository_extension.unload(model_name)
+        await self.model_repository_extension.unload(model_name)
         return {"name": model_name, "unload": True}

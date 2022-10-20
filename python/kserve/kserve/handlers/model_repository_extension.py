@@ -1,6 +1,6 @@
 import inspect
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from kserve.errors import ModelNotFound, ModelNotReady
 from kserve.model_repository import ModelRepository
@@ -19,21 +19,20 @@ class ModelRepositoryExtension:
     def __init__(self, model_registry: ModelRepository):
         self._model_registry = model_registry
 
-    def index(self, filter_ready=False) -> List[Dict[str, str]]:
-        """
-        Returns information about every model available in a model repository.
+    def index(self, filter_ready: Optional[bool] = False) -> List[Dict[str, str]]:
+        """Returns information about every model available in a model repository.
 
         Args:
             filter_ready: When set True, the function returns only the models that are ready
 
         Returns:
-            A list with metadata for models as below
-            {
-                name: model_name,
-                state: "Ready" or "NotReady"
-                reason: ""
-            }
+            List[Dict[str, str]]: list with metadata for models as below:
 
+                {
+                    name: model_name,
+                    state: "Ready" or "NotReady"
+                    reason: ""
+                }
         """
         model_list = []
         for model_name in self._model_registry.get_models().keys():
@@ -50,20 +49,20 @@ class ModelRepositoryExtension:
 
         return model_list
 
-    def load(self, model_name: str) -> None:
-        """
-        Loads the Specified model.
+    async def load(self, model_name: str) -> None:
+        """Loads the specified model.
 
         Args:
-            model_name (str): name of the model to load
+            model_name (str): name of the model to load.
 
         Returns: None
-        Raises: 'ModelNotReady' exception if model loading fails
 
+        Raises:
+            ModelNotReady: Exception if model loading fails.
         """
         try:
             if inspect.iscoroutinefunction(self._model_registry.load):
-                self._model_registry.load(model_name)
+                await self._model_registry.load(model_name)
             else:
                 self._model_registry.load(model_name)
         except Exception:
@@ -73,14 +72,16 @@ class ModelRepositoryExtension:
         if not self._model_registry.is_model_ready(model_name):
             raise ModelNotReady(model_name)
 
-    def unload(self, model_name: str) -> None:
-        """
-        Unloads the specified model.
+    async def unload(self, model_name: str) -> None:
+        """Unload the specified model.
 
         Args:
-            model_name (str): Name of the model to unload
+            model_name (str): Name of the model to unload.
+
         Returns: None
-        Raises: 'ModelNotFound' exception if the requested model is not found.
+
+        Raises:
+            ModelNotFound: Exception if the requested model is not found.
         """
         try:
             self._model_registry.unload(model_name)
