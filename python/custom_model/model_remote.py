@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import kserve
 from torchvision import models, transforms
 from typing import Dict
@@ -68,6 +67,4 @@ class AlexNetModel(kserve.Model):
 
 
 if __name__ == "__main__":
-    asyncio.run(
-        kserve.ModelServer(workers=1).start({"custom-model": AlexNetModel})
-    )
+    kserve.ModelServer(workers=1).start({"custom-model": AlexNetModel})

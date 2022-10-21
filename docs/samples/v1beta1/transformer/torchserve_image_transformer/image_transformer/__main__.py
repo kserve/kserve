@@ -12,7 +12,6 @@
 # limitations under the License.
 
 import argparse
-import asyncio
 import json
 import kserve
 from .image_transformer import ImageTransformer
@@ -69,8 +68,6 @@ if __name__ == "__main__":
     for model_name in model_names:
         transformer = ImageTransformer(model_name, predictor_host=args.predictor_host)
         models.append(transformer)
-    asyncio.run(
-        kserve.ModelServer(
-            registered_models=TransformerModelRepository(args.predictor_host)
-        ).start(models=models)
-    )
+    kserve.ModelServer(
+        registered_models=TransformerModelRepository(args.predictor_host)
+    ).start(models=models)

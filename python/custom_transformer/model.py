@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import argparse
-import asyncio
 import base64
 import io
 from typing import Dict
@@ -102,4 +101,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = ImageTransformer(args.model_name, predictor_host=args.predictor_host,
                              protocol=args.protocol)
-    asyncio.run(ModelServer(workers=1).start([model]))
+    ModelServer(workers=1).start([model])

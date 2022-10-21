@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import asyncio
 import kserve
 from torchvision import models, transforms
 from typing import Dict
@@ -67,4 +66,4 @@ class AlexNetModel(kserve.Model):
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
     model.load()
-    asyncio.run(kserve.ModelServer(workers=1).start([model]))
+    kserve.ModelServer(workers=1).start([model])

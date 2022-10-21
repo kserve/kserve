@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import argparse
-import asyncio
 
 from pmmlserver import PmmlModel
 
@@ -32,4 +31,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = PmmlModel(args.model_name, args.model_dir)
     model.load()
-    asyncio.run(kserve.ModelServer().start([model]))
+    kserve.ModelServer().start([model])

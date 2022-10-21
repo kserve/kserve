@@ -121,9 +121,12 @@ class ModelServer:
                              v1_endpoints.explain, methods=["POST"], tags=["V1"]),
                 # V2 Inference Protocol
                 # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
-                FastAPIRoute(r"/v2", v2_endpoints.metadata, response_model=ServerMetadataResponse, tags=["V2"]),
-                FastAPIRoute(r"/v2/health/live", v2_endpoints.live, response_model=ServerLiveResponse, tags=["V2"]),
-                FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready, response_model=ServerReadyResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2", v2_endpoints.metadata,
+                             response_model=ServerMetadataResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/live", v2_endpoints.live,
+                             response_model=ServerLiveResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready,
+                             response_model=ServerReadyResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}",
                              v2_endpoints.model_metadata, response_model=ModelMetadataResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}",
@@ -146,7 +149,7 @@ class ModelServer:
             }
         )
 
-    async def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
+    def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):
@@ -176,9 +179,12 @@ class ModelServer:
         )
 
         self._server = uvicorn.Server(cfg)
-        servers = [self._server.serve(), self._grpc_server.start(self.workers)]
-        servers_task = asyncio.gather(*servers)
-        await servers_task
+
+        async def servers_task():
+            servers = [self._server.serve(), self._grpc_server.start(self.workers)]
+            await asyncio.gather(*servers)
+
+        asyncio.run(servers_task())
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)

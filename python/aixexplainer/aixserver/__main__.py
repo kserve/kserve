@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import argparse
-import asyncio
 
 import kserve
 from .model import AIXModel
@@ -52,4 +51,4 @@ if __name__ == "__main__":
                      top_labels=args.top_labels, min_weight=args.min_weight,
                      positive_only=args.positive_only, explainer_type=args.explainer_type)
     model.load()
-    asyncio.run(kserve.ModelServer().start([model]))
+    kserve.ModelServer().start([model])

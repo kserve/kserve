@@ -88,6 +88,7 @@ class V2Endpoints:
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
 
+        # TODO: support to read headers
         response, _ = await self.dataplane.infer(model_name=model_name, body=request_body.dict())
         return InferenceResponse.parse_obj(response)
 

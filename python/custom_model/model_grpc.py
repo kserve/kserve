@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import base64
 import io
 from typing import Dict, Union
@@ -94,6 +93,4 @@ class AlexNetModel(kserve.Model):
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
     model.load()
-    asyncio.run(
-        kserve.ModelServer(workers=1).start([model])
-    )
+    kserve.ModelServer(workers=1).start([model])

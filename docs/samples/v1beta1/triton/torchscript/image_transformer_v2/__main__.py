@@ -11,7 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import kserve
 import argparse
 from .image_transformer_v2 import ImageTransformerV2
@@ -29,6 +28,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     transformer = ImageTransformerV2(args.model_name, predictor_host=args.predictor_host, protocol=args.protocol)
     server = kserve.ModelServer()
-    asyncio.run(
-        server.start(models=[transformer])
-    )
+    server.start(models=[transformer])
