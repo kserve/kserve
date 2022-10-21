@@ -4,6 +4,7 @@ import logging
 from kserve.grpc import grpc_predict_v2_pb2_grpc
 from kserve.grpc.servicer import InferenceServicer
 from kserve.handlers.dataplane import DataPlane
+from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 
 from grpc import aio
 
@@ -12,13 +13,17 @@ class GRPCServer:
     def __init__(
         self,
         port: int,
-        data_plane: DataPlane
+        data_plane: DataPlane,
+        model_repository_extension: ModelRepositoryExtension
     ):
         self._port = port
         self._data_plane = data_plane
+        self._model_repository_extension = model_repository_extension
 
     def _create_server(self, max_workers):
-        self._inference_servicer = InferenceServicer(self._data_plane)
+        self._inference_servicer = InferenceServicer(
+            self._data_plane,
+            self._model_repository_extension)
         self._server = aio.server(futures.ThreadPoolExecutor(max_workers=max_workers))
         grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(
             self._inference_servicer, self._server

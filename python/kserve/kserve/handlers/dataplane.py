@@ -240,7 +240,7 @@ class DataPlane:
                 except orjson.JSONDecodeError as e:
                     raise InvalidInput(f"Unrecognized request format: {e}")
 
-            if is_structured_cloudevent(body):
+            if isinstance(body, dict) and is_structured_cloudevent(body):
                 is_cloudevent = True
 
         # call model locally or remote model workers

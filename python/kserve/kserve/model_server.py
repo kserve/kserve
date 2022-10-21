@@ -29,6 +29,7 @@ from ray.serve.api import Deployment, RayServeHandle
 
 import kserve.errors as errors
 from kserve import Model
+from kserve.grpc.server import GRPCServer
 from kserve.handlers import V1Endpoints, V2Endpoints
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
@@ -78,8 +79,6 @@ class ModelServer:
                  registered_models: ModelRepository = ModelRepository(),
                  enable_docs_url: bool = args.enable_docs_url,
                  enable_latency_logging: bool = args.enable_latency_logging):
-        dataplane = handlers.DataPlane(model_registry=registered_models)
-        self._grpc_server = GRPCServer(port=grpc_port, data_plane=dataplane)
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -87,6 +86,10 @@ class ModelServer:
         self._server = None
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
+        self.dataplane = DataPlane(model_registry=registered_models)
+        self.model_repository_extension = ModelRepositoryExtension(
+            model_registry=self.registered_models)
+        self._grpc_server = GRPCServer(grpc_port, self.dataplane, self.model_repository_extension)
 
     def create_application(self) -> FastAPI:
         """Create a KServe ModelServer application with API routes.
@@ -94,10 +97,8 @@ class ModelServer:
         Returns:
             FastAPI: An application instance.
         """
-        dataplane = DataPlane(model_registry=self.registered_models)
-        model_repository_extension = ModelRepositoryExtension(model_registry=self.registered_models)
-        v1_endpoints = V1Endpoints(dataplane, model_repository_extension)
-        v2_endpoints = V2Endpoints(dataplane, model_repository_extension)
+        v1_endpoints = V1Endpoints(self.dataplane, self.model_repository_extension)
+        v2_endpoints = V2Endpoints(self.dataplane, self.model_repository_extension)
 
         return FastAPI(
             title="KServe ModelServer",
@@ -107,7 +108,7 @@ class ModelServer:
             default_response_class=ORJSONResponse,
             routes=[
                 # Server Liveness API returns 200 if server is alive.
-                FastAPIRoute(r"/", dataplane.live),
+                FastAPIRoute(r"/", self.dataplane.live),
                 # Metrics
                 FastAPIRoute(r"/metrics", metrics_handler, methods=["GET"]),
                 # V1 Inference Protocol

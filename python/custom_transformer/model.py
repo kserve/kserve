@@ -22,8 +22,7 @@ import numpy
 
 from PIL import Image
 from torchvision import transforms
-from tritonclient.grpc import InferResult, InferInput
-from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
+from kserve.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 
 from kserve import Model, ModelServer, model_server
 from kserve.model import PredictorProtocol

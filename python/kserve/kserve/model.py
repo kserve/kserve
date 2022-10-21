@@ -23,8 +23,10 @@ import httpx
 import orjson
 from cloudevents.http import CloudEvent
 from prometheus_client import Histogram
-from tritonclient.grpc import InferResult, service_pb2_grpc
-from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
+from google.protobuf.json_format import MessageToJson
+from kserve.grpc import grpc_predict_v2_pb2_grpc
+from kserve.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
+                                             ModelInferResponse)
 
 from kserve.errors import InvalidInput
 from kserve.utils.utils import is_structured_cloudevent
@@ -79,8 +81,7 @@ class Model:
         self._grpc_client_stub = None
         self.enable_latency_logging = False
 
-
-    async def __call__(self, body: Union[Dict, CloudEvent],
+    async def __call__(self, body: Union[Dict, CloudEvent, ModelInferRequest],
                        model_type: ModelType = ModelType.PREDICTOR,
                        headers: Dict[str, str] = None) -> Dict:
         """Method to call predictor or explainer with the given input.
@@ -172,7 +173,6 @@ class Model:
         self.ready = True
         return self.ready
 
-
     def get_input_types(self) -> List[Dict]:
         # Override this function to return appropriate input format expected by your model.
         # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
@@ -189,7 +189,7 @@ class Model:
         # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
-    async def preprocess(self, payload: Union[Dict, CloudEvent],
+    async def preprocess(self, payload: Union[Dict, CloudEvent, ModelInferRequest],
                          headers: Dict[str, str] = None) -> Union[Dict, ModelInferRequest]:
         """`preprocess` handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
@@ -224,8 +224,7 @@ class Model:
 
         return response
 
-
-    def postprocess(self, response: Union[Dict, ModelInferResponse]) -> Dict:
+    def postprocess(self, response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) -> Dict:
         """The postprocess handler can be overridden for inference response transformation
 
         Args:
@@ -238,7 +237,7 @@ class Model:
             if "grpc" in headers.get("user-agent", "") and isinstance(response, ModelInferResponse):
                 return response
             if "application/json" in headers.get("Content-Type", "") and isinstance(response, ModelInferResponse):
-                return json.loads(
+                return orjson.loads(
                     MessageToJson(response, preserving_proto_field_name=True, including_default_value_fields=True))
         return response
 

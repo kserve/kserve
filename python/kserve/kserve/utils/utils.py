@@ -21,6 +21,7 @@ import psutil
 
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
+from grpc import ServicerContext
 
 
 def is_running_in_k8s():

@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
-
-import asyncio
 import kserve
 from torchvision import models, transforms
 from typing import Dict

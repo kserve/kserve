@@ -83,12 +83,6 @@ def test_custom_model_grpc():
     response = predict_grpc(service_name=service_name, payload=payload)
     fields = response.outputs[0].contents.ListFields()
     _, field_value = fields[0]
-    points = list(field_value)
-    assert points == [
-        14.975619316101074,
-        14.036808967590332,
-        13.966033935546875,
-        12.252279281616211,
-        12.086268424987793
-    ]
+    points = ['%.3f' % (point) for point in list(field_value)]
+    assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
