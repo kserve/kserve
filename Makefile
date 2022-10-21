@@ -150,21 +150,21 @@ manifests: controller-gen
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_inferencegraphs.yaml
 	perl -pi -e 's/Any/string/g' config/crd/serving.kserve.io_inferencegraphs.yaml
 	#remove the required property on framework as name field needs to be optional
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required'
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.initContainers'
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.initContainers)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
 	#knative does not allow setting port on liveness or readiness probe
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required'
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
 	#With v1 and newer kubernetes protocol requires default
-	yq read config/crd/serving.kserve.io_inferenceservices.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_inferenceservices.yaml {} TCP
-	yq read config/crd/serving.kserve.io_clusterservingruntimes.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_clusterservingruntimes.yaml {} TCP
-	yq read config/crd/serving.kserve.io_servingruntimes.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_servingruntimes.yaml {} TCP
+	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_clusterservingruntimes.yaml
+	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_servingruntimes.yaml
 	kustomize build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
 
 # Run go fmt against code
