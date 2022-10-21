@@ -451,15 +451,23 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         tenant_id = os.getenv("AZ_TENANT_ID", "")
         client_id = os.getenv("AZ_CLIENT_ID", "")
         client_secret = os.getenv("AZ_CLIENT_SECRET", "")
-        subscription_id = os.getenv("AZ_SUBSCRIPTION_ID", "")
 
-        if tenant_id == "" or client_id == "" or client_secret == "" or subscription_id == "":
+        # convert old environment variable to conform Azure defaults
+        # see azure/identity/_constants.py
+        if tenant_id:
+            os.environ["AZURE_TENANT_ID"] = tenant_id
+        if client_id:
+            os.environ["AZURE_CLIENT_ID"] = client_id
+        if client_secret:
+            os.environ["AZURE_CLIENT_SECRET"] = client_secret
+
+        client_id = os.getenv("AZURE_CLIENT_ID", "")
+        if not client_id:
             return None
 
         # note the SP must have "Storage Blob Data Owner" perms for this to work
-        from azure.identity import ClientSecretCredential
-        token_credential = ClientSecretCredential(tenant_id,
-                                                  client_id, client_secret)
+        from azure.identity import DefaultAzureCredential
+        token_credential = DefaultAzureCredential()
 
         logging.info("Retrieved SP token credential for client_id: %s",
                      client_id)
