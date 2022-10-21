@@ -19,6 +19,9 @@ import kserve
 import numpy as np
 from aix360.algorithms.lime import LimeImageExplainer
 from lime.wrappers.scikit_image import SegmentationAlgorithm
+from aix360.algorithms.lime import LimeTextExplainer
+import nest_asyncio
+nest_asyncio.apply()
 
 
 class AIXModel(kserve.Model):  # pylint:disable=c-extension-no-member
@@ -31,8 +34,9 @@ class AIXModel(kserve.Model):  # pylint:disable=c-extension-no-member
         self.segmentation_alg = segm_alg
         self.predictor_host = predictor_host
         self.min_weight = float(min_weight)
-        self.positive_only = (positive_only.lower() == "true") | (positive_only.lower() == "t")
-        if str.lower(explainer_type) != "limeimages":
+        self.positive_only = (positive_only.lower() == "true") | (
+            positive_only.lower() == "t")
+        if str.lower(explainer_type) != "limeimages" and str.lower(explainer_type) != "limetexts":
             raise Exception("Invalid explainer type: %s" % explainer_type)
         self.explainer_type = explainer_type
         self.ready = False
@@ -42,7 +46,8 @@ class AIXModel(kserve.Model):  # pylint:disable=c-extension-no-member
         return self.ready
 
     def _predict(self, input_im):
-        scoring_data = {'instances': input_im.tolist()}
+        scoring_data = {'instances': input_im.tolist()if type(
+            input_im) != list else input_im}
 
         loop = asyncio.get_running_loop()
         resp = loop.run_until_complete(self.predict(scoring_data))
@@ -70,8 +75,13 @@ class AIXModel(kserve.Model):  # pylint:disable=c-extension-no-member
             raise Exception("Failed to specify parameters: %s", (err,))
 
         try:
-            inputs = np.array(instances[0])
-            logging.info("Calling explain on image of shape %s", (inputs.shape,))
+            if str.lower(self.explainer_type) == "limeimages":
+                inputs = np.array(instances[0])
+                logging.info(
+                    "Calling explain on image of shape %s", (inputs.shape,))
+            elif str.lower(self.explainer_type) == "limetexts":
+                inputs = str(instances[0])
+                logging.info("Calling explain on text %s", (len(inputs),))
         except Exception as err:
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s" % (err, instances))
@@ -102,6 +112,16 @@ class AIXModel(kserve.Model):  # pylint:disable=c-extension-no-member
                     "masks": masks,
                     "top_labels": np.array(explanation.top_labels).astype(np.int32).tolist()
                 }}
+            elif str.lower(self.explainer_type) == "limetexts":
+                explainer = LimeTextExplainer(verbose=False)
+                explaination = explainer.explain_instance(inputs,
+                                                          classifier_fn=self._predict,
+                                                          top_labels=top_labels)
+                m = explaination.as_map()
+                exp = {str(k): explaination.as_list(int(k))
+                       for k, _ in m.items()}
+
+                return {"explanations": exp}
 
         except Exception as err:
             raise Exception("Failed to explain %s" % err)

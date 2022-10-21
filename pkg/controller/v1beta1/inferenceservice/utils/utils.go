@@ -59,10 +59,13 @@ func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory
 /*
 GetDeploymentMode returns the current deployment mode, supports Serverless and RawDeployment
 case 1: no serving.kserve.org/deploymentMode annotation
-        return config.deploy.defaultDeploymentMode
+
+	return config.deploy.defaultDeploymentMode
+
 case 2: serving.kserve.org/deploymentMode is set
-        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
-		else return config.deploy.defaultDeploymentMode
+
+	        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
+			else return config.deploy.defaultDeploymentMode
 */
 func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.DeployConfig) constants.DeploymentModeType {
 	deploymentMode, ok := annotations[constants.DeploymentMode]
@@ -116,10 +119,11 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
 
 	runtimePodSpecJson, err := json.Marshal(v1.PodSpec{
-		NodeSelector: runtimePodSpec.NodeSelector,
-		Affinity:     runtimePodSpec.Affinity,
-		Tolerations:  runtimePodSpec.Tolerations,
-		Volumes:      runtimePodSpec.Volumes,
+		NodeSelector:     runtimePodSpec.NodeSelector,
+		Affinity:         runtimePodSpec.Affinity,
+		Tolerations:      runtimePodSpec.Tolerations,
+		Volumes:          runtimePodSpec.Volumes,
+		ImagePullSecrets: runtimePodSpec.ImagePullSecrets,
 	})
 	if err != nil {
 		return nil, err

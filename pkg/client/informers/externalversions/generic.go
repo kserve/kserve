@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KServe Authors.
+Copyright 2022 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=serving, Version=v1beta1
+	// Group=serving.kserve.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("inferenceservices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1beta1().InferenceServices().Informer()}, nil
 

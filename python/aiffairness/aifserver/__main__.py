@@ -14,13 +14,13 @@
 
 import argparse
 import asyncio
+
 import kserve
 import json
 
 from .model import AIFModel
 
 DEFAULT_MODEL_NAME = "aifserver"
-
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 
@@ -57,7 +57,6 @@ parser.add_argument('--unprivileged_groups',
                     nargs='+',
                     required=True)
 
-
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
@@ -72,6 +71,4 @@ if __name__ == "__main__":
         unprivileged_groups=args.unprivileged_groups
     )
     model.load()
-    asyncio.run(
-        kserve.ModelServer().start([model], nest_asyncio=True)
-    )
+    asyncio.run(kserve.ModelServer().start([model]))

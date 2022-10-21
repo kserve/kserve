@@ -124,7 +124,7 @@ func validateInferenceServiceName(isvc *InferenceService) error {
 	return nil
 }
 
-//Validation of isvc autoscaler class
+// Validation of isvc autoscaler class
 func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 	annotations := isvc.ObjectMeta.Annotations
 	value, ok := annotations[constants.AutoscalerClass]
@@ -150,7 +150,7 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 	return nil
 }
 
-//Validate of autoscaler HPA metrics
+// Validate of autoscaler HPA metrics
 func validateHPAMetrics(metric ScaleMetric) error {
 	for _, item := range constants.AutoscalerAllowedMetricsList {
 		if item == constants.AutoscalerMetricsType(metric) {
@@ -161,7 +161,7 @@ func validateHPAMetrics(metric ScaleMetric) error {
 
 }
 
-//Validate of autoscaler targetUtilizationPercentage
+// Validate of autoscaler targetUtilizationPercentage
 func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error {
 	annotations := isvc.ObjectMeta.Annotations
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {

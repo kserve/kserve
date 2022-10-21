@@ -41,7 +41,7 @@ all: test manager agent router
 
 # Run tests
 test: fmt vet manifests envtest
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 # Build manager binary
 manager: generate fmt vet lint
@@ -187,8 +187,7 @@ generate: controller-gen
 	go env -w GOFLAGS=-mod=mod
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
-	#TODO update-codegen.sh is not used and requires vendor
-	#hack/update-codegen.sh
+	hack/update-codegen.sh
 	hack/update-openapigen.sh
 
 # Build the docker image

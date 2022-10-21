@@ -18,8 +18,9 @@ import uuid
 from typing import Dict, Union
 
 import psutil
-from cloudevents.http import CloudEvent, to_binary, to_structured
-from grpc import ServicerContext
+
+from cloudevents.conversion import to_binary, to_structured
+from cloudevents.http import CloudEvent
 
 
 def is_running_in_k8s():

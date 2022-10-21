@@ -3,6 +3,9 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-tritonserver
 spec:
+  annotations:
+    prometheus.kserve.io/port: '8002'
+    prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: tensorrt
       version: "8"

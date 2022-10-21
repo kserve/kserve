@@ -21,7 +21,7 @@ import (
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
-//TODO MemoryStrategy will be implemented in another PR
+// TODO MemoryStrategy will be implemented in another PR
 type MemoryStrategy struct {
 }
 

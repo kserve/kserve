@@ -18,8 +18,7 @@ from lightgbm import Booster
 import os
 from typing import Dict
 import pandas as pd
-from kserve.model import ModelMissingError, InferenceError
-
+from kserve.errors import InferenceError, ModelMissingError
 
 MODEL_EXTENSIONS = (".bst")
 

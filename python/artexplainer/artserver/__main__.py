@@ -14,9 +14,10 @@
 
 import argparse
 import asyncio
-import kserve
 
 from artserver import ARTModel
+
+import kserve
 
 DEFAULT_MODEL_NAME = "art-explainer"
 DEFAULT_ADVERSARY_TYPE = "SquareAttack"
@@ -41,6 +42,4 @@ if __name__ == "__main__":
     model = ARTModel(args.model_name, args.predictor_host, adversary_type=args.adversary_type,
                      nb_classes=args.nb_classes, max_iter=args.max_iter)
     model.load()
-    asyncio.run(
-        kserve.ModelServer().start([model], nest_asyncio=True)
-    )
+    asyncio.run(kserve.ModelServer().start([model]))

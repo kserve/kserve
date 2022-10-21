@@ -1063,6 +1063,13 @@ spec:
                   type: string
                 httpDataEndpoint:
                   type: string
+                imagePullSecrets:
+                  items:
+                    properties:
+                      name:
+                        type: string
+                    type: object
+                  type: array
                 labels:
                   additionalProperties:
                     type: string

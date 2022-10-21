@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-import kserve
 import argparse
+import asyncio
 
 from pmmlserver import PmmlModel
+
+import kserve
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -31,6 +32,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = PmmlModel(args.model_name, args.model_dir)
     model.load()
-    asyncio.run(
-        kserve.ModelServer().start([model])
-    )
+    asyncio.run(kserve.ModelServer().start([model]))

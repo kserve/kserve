@@ -14,8 +14,8 @@
 
 import argparse
 import asyncio
-import kserve
 
+import kserve
 from .model import AIXModel
 
 DEFAULT_MODEL_NAME = "aixserver"
@@ -52,6 +52,4 @@ if __name__ == "__main__":
                      top_labels=args.top_labels, min_weight=args.min_weight,
                      positive_only=args.positive_only, explainer_type=args.explainer_type)
     model.load()
-    asyncio.run(
-        kserve.ModelServer().start([model], nest_asyncio=True)
-    )
+    asyncio.run(kserve.ModelServer().start([model]))

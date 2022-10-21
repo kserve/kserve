@@ -12,7 +12,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-
+    
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
       with:
@@ -31,9 +31,27 @@ jobs:
         make fmt
 
     - name: Test
+      id: test
       run: |
         export GOPATH=/home/runner/go
         export PATH=$PATH:/usr/local/kubebuilder/bin:/home/runner/go/bin
         wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64
         chmod +x $GOPATH/bin/yq
         make test
+        ./coverage.sh
+        echo ::set-output name=coverage::$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)
+
+    - name: Print coverage
+      run: |
+        echo "Coverage output is ${{ steps.test.outputs.coverage }}"
+    
+    - name: Update coverage badge
+      if: github.ref == 'refs/heads/master'
+      uses: schneegans/dynamic-badges-action@v1.4.0
+      with:
+        auth: ${{ secrets.GIST_SECRET }}
+        gistID: 5174bd748ac63a6e4803afea902e9810
+        filename: coverage.json
+        label: coverage
+        message: ${{ steps.test.outputs.coverage }}
+        color: green

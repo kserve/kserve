@@ -35,7 +35,7 @@ type Autoscaler struct {
 	HPA             *hpa.HPAReconciler
 }
 
-//AutoscalerReconciler is the struct of Raw K8S Object
+// AutoscalerReconciler is the struct of Raw K8S Object
 type AutoscalerReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
@@ -83,7 +83,7 @@ func createAutoscaler(client client.Client,
 	return as, nil
 }
 
-//Reconcile ...
+// Reconcile ...
 func (r *AutoscalerReconciler) Reconcile() (*Autoscaler, error) {
 	//reconcile Autoscaler
 	if r.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {

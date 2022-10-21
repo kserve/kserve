@@ -17,7 +17,7 @@ import kserve
 import joblib
 import pathlib
 from typing import Dict
-from kserve.model import ModelMissingError, InferenceError
+from kserve.errors import InferenceError, ModelMissingError
 
 MODEL_EXTENSIONS = (".joblib", ".pkl", ".pickle")
 ENV_PREDICT_PROBA = "PREDICT_PROBA"

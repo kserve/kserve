@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KServe Authors.
+Copyright 2022 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,8 +26,10 @@ import (
 )
 
 // InferenceServiceLister helps list InferenceServices.
+// All objects returned here must be treated as read-only.
 type InferenceServiceLister interface {
 	// List lists all InferenceServices in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1beta1.InferenceService, err error)
 	// InferenceServices returns an object that can list and get InferenceServices.
 	InferenceServices(namespace string) InferenceServiceNamespaceLister
@@ -58,10 +60,13 @@ func (s *inferenceServiceLister) InferenceServices(namespace string) InferenceSe
 }
 
 // InferenceServiceNamespaceLister helps list and get InferenceServices.
+// All objects returned here must be treated as read-only.
 type InferenceServiceNamespaceLister interface {
 	// List lists all InferenceServices in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1beta1.InferenceService, err error)
 	// Get retrieves the InferenceService from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1beta1.InferenceService, error)
 	InferenceServiceNamespaceListerExpansion
 }

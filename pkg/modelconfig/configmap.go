@@ -50,32 +50,35 @@ func NewConfigsDelta(updatedConfigs ModelConfigs, deletedConfigs []string) *Conf
 	}
 }
 
-//multi-model ConfigMap
-//apiVersion: v1
-//kind: ConfigMap
-//metadata:
-//  name: models-config
-//  namespace: <user-model-namespace>
-//data:
-//  models.json: |
-//    [
-//      {
-//        "modelName": "model1",
-//        "modelSpec": {
-//          "storageUri": "s3://example-bucket/path/to/model1",
-//          "framework": "sklearn",
-//          "memory": "1G"
-//        }
-//      },
-//      {
-//        "modelName": "model2",
-//        "modelSpec": {
-//          "storageUri": "s3://example-bucket/path/to/model2",
-//          "framework": "sklearn",
-//          "memory": "1G"
-//        }
-//      }
-//   ]
+// multi-model ConfigMap
+// apiVersion: v1
+// kind: ConfigMap
+// metadata:
+//
+//	name: models-config
+//	namespace: <user-model-namespace>
+//
+// data:
+//
+//	models.json: |
+//	  [
+//	    {
+//	      "modelName": "model1",
+//	      "modelSpec": {
+//	        "storageUri": "s3://example-bucket/path/to/model1",
+//	        "framework": "sklearn",
+//	        "memory": "1G"
+//	      }
+//	    },
+//	    {
+//	      "modelName": "model2",
+//	      "modelSpec": {
+//	        "storageUri": "s3://example-bucket/path/to/model2",
+//	        "framework": "sklearn",
+//	        "memory": "1G"
+//	      }
+//	    }
+//	 ]
 func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
 	if len(config.updated) == 0 && len(config.deleted) == 0 {
 		return nil
