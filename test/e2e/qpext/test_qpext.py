@@ -26,8 +26,6 @@ from kserve import (
     V1beta1SKLearnSpec,
 )
 from kubernetes.client import V1ResourceRequirements
-import pytest
-
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
@@ -38,7 +36,6 @@ METRICS_AGG_PORT = 9088
 METRICS_PATH = "/metrics"
 
 
-@pytest.mark.fast
 def test_qpext_kserve():
     # test the qpext using the sklearn predictor
     service_name = "isvc-sklearn-v2"
@@ -90,7 +87,7 @@ def send_metrics_request(kserve_client, service_name):
     url = f"http://localhost:{METRICS_AGG_PORT}/{METRICS_PATH}"
     with portforward.forward(KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT):
         response = requests.get(url)
-        logging.info(f"response: {response}")
+        logging.info(f"response: {response}, content: {response.content}")
         logging.info("Got response code %s, content %s", response.status_code, response.content)
 
         assert response.status_code == 200

@@ -45,7 +45,7 @@ The qpext uses the environment variables to configure which port/path to expose 
 | KSERVE_CONTAINER_PROMETHEUS_METRICS_PORT | 8080     | The default metrics port for the `kserve-container`. If present, the default ClusterServingRuntime overrides this value with each runtime's default prometheus port.            |
 | KSERVE_CONTAINER_PROMETHEUS_METRICS_PATH | /metrics | The default metrics path for the `kserve-container`. If present, the default ClusterServingRuntime annotation overrides this value with each runtime's default prometheus path. |   
 
-To implement this feature, configure the InferenceService YAML annotations.
+To implement this feature, configure the InferenceService YAML annotations. 
 
 ```yaml
 apiVersion: "serving.kserve.io/v1beta1"
@@ -82,7 +82,38 @@ spec:
       storageUri: "gs://seldon-models/sklearn/iris"
 ```
 The default port for sklearn runtime is `8080`, and the default path is `/metrics`. 
-By setting the annotations in the InferenceService YAML, the default runtime configurations are overridden. 
+By setting the annotations in the InferenceService YAML, the default runtime configurations are overridden.
+
+**KServe Developer's Note:** If the qpext is implemented in the cluster and you wish to set the default annotation values to `true`, 
+the defaults in the configMap can be overridden via patching the configMap or setting up a webhook to override the values.
+To check the default values in your cluster, run 
+
+```shell
+kubectl get configmaps inferenceservice-config -n kserve -oyaml
+```
+
+the values are in the output of the YAML like
+
+```yaml
+    metricsAggregator: |-
+      {
+        "enableMetricAggregation": "false",
+        "enablePrometheusScraping" : "false"
+      }
+```
+
+If these values are overridden to default to `true` 
+
+```yaml
+    metricsAggregator: |-
+      {
+        "enableMetricAggregation": "true",
+        "enablePrometheusScraping" : "true"
+      }
+```
+then the annotations should be inserted into the YAML with `false` values when
+an InferenceService does not want to aggregate metrics and/or set the prometheus 
+scraping port annotation. 
 
 ## Developer's guide
 
