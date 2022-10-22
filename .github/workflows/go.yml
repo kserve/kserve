@@ -35,7 +35,7 @@ jobs:
       run: |
         export GOPATH=/home/runner/go
         export PATH=$PATH:/usr/local/kubebuilder/bin:/home/runner/go/bin
-        wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64
+        wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/v4.28.1/yq_linux_amd64
         chmod +x $GOPATH/bin/yq
         make test
         ./coverage.sh

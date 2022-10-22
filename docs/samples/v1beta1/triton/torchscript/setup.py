@@ -10,6 +10,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 
 from setuptools import setup, find_packages
 
@@ -18,6 +19,9 @@ tests_require = [
     'pytest-tornasync',
     'mypy'
 ]
+
+with open(os.path.join(os.getcwd(), '../../../../../python/VERSION')) as version_file:
+    version = version_file.read().strip()
 
 setup(
     name='image_transformer_v2',
@@ -30,7 +34,7 @@ setup(
     python_requires='>=3.7',
     packages=find_packages("image_transformer_v2"),
     install_requires=[
-        "kserve",
+        f"kserve>={version}",
         "torchvision>=0.4.0",
         "pillow==9.0.1"
     ],

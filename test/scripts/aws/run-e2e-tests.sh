@@ -102,8 +102,9 @@ kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --time
 echo "Install KServe ..."
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
+export YQ_VERSION="v4.28.1"
 
-wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64
+wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/$YQ_VERSION/yq_linux_amd64
 chmod +x $GOPATH/bin/yq
 sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
 sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/runtimes/kustomization.yaml
