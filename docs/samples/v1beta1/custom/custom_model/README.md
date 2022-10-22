@@ -16,7 +16,6 @@ remote model storage, a general good practice is to call the `load` handler in t
 is loaded on startup and ready to serve when user is making the prediction calls.
 
 ```python
-import asyncio
 import kserve
 from typing import Dict
 
@@ -34,9 +33,7 @@ class AlexNetModel(kserve.Model):
 
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
-    asyncio.run(
-        kserve.ModelServer().start([model])
-    )
+    kserve.ModelServer().start([model])
 ```
 
 ## Build the custom image with Buildpacks
@@ -59,7 +56,6 @@ KServe integrates [RayServe](https://docs.ray.io/en/master/serve/index.html) whi
 as separate python workers so the inference can be ran in parallel.
 
 ```python
-import asyncio
 import kserve
 from typing import Dict
 from ray import serve
@@ -78,9 +74,7 @@ class AlexNetModel(kserve.Model):
         pass
 
 if __name__ == "__main__":
-    asyncio.run(
-        kserve.ModelServer().start({"custom-model": AlexNetModel})
-    )
+    kserve.ModelServer().start({"custom-model": AlexNetModel})
 ```
 
 Modify the `Procfile` to `web: python -m model_remote` and then run the above `pack` command, it builds the serving image which launches
@@ -116,7 +110,7 @@ kubectl apply -f custom.yaml
 Expected Output
 
 ```
-$ inferenceservice.serving.kubeflow.org/custom-model created
+$ inferenceservice.serving.kserve.io/custom-model created
 ```
 
 ### Arguments and Environment Variables
@@ -126,7 +120,6 @@ you need to make sure model object is fork friendly for multi-processing to work
 class with replicas and in this case each model server is created as a python worker independent of the server.
 - `--http_port`: the http port model server is listening on, the default port is 8080 
 - `--max_buffer_size`: Max socker buffer size for tornado http client, the default limit is 10Mi.
-- `--max_asyncio_workers`: Max number of workers to spawn for python async io loop, by default it is `min(32,cpu.limit + 4)`
 
 ### Run a prediction
 The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
