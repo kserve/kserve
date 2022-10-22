@@ -153,12 +153,6 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 										"--graph-json",
 										string(bytes),
 									},
-									Env: []v1.EnvVar{
-										{
-											Name:  "PROPAGATE_HEADERS",
-											Value: strings.Join(config.Headers["propagate"], ","),
-										},
-									},
 									Resources: v1.ResourceRequirements{
 										Limits: v1.ResourceList{
 											v1.ResourceCPU:    resource.MustParse(config.CpuLimit),
@@ -177,6 +171,18 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 			},
 		},
 	}
+
+	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
+	value, exists := config.Headers["propagate"]
+	if exists {
+		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []v1.EnvVar{
+			{
+				Name:  "PROPAGATE_HEADERS",
+				Value: strings.Join(value, ","),
+			},
+		}
+	}
+
 	//Call setDefaults on desired knative service here to avoid diffs generated because knative defaulter webhook is
 	//called when creating or updating the knative service
 	service.SetDefaults(context.TODO())

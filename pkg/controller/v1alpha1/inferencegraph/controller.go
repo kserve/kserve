@@ -66,12 +66,24 @@ const (
 )
 
 type RouterConfig struct {
-	Image         string              `json:"image"`
-	CpuRequest    string              `json:"cpuRequest"`
-	CpuLimit      string              `json:"cpuLimit"`
-	MemoryRequest string              `json:"memoryRequest"`
-	MemoryLimit   string              `json:"memoryLimit"`
-	Headers       map[string][]string `json:"headers"`
+	Image         string `json:"image"`
+	CpuRequest    string `json:"cpuRequest"`
+	CpuLimit      string `json:"cpuLimit"`
+	MemoryRequest string `json:"memoryRequest"`
+	MemoryLimit   string `json:"memoryLimit"`
+	/*
+		Example of how to add headers in router config:
+		headers: {
+		 "propagate": [
+			"Custom-Header1",
+			"Custom-Header2"
+		  ]
+		}
+		Note: Making Headers, a map of strings, gives the flexibility to extend it in the future to support adding more
+		operations on headers. For example: Similar to "propagate" operation, one can add "transform" operation if they
+		want to transform headers keys or values before passing down to nodes.
+	*/
+	Headers map[string][]string `json:"headers"`
 }
 
 func getRouterConfigs(configMap *v1.ConfigMap) (*RouterConfig, error) {
