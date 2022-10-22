@@ -36,8 +36,6 @@ EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
 
-logging.basicConfig(level=logging.INFO)
-
 PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'pre-processing request latency')
 POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'post-processing request latency')
 PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds', 'prediction request latency')
