@@ -20,6 +20,8 @@ import numpy as np
 from aix360.algorithms.lime import LimeImageExplainer
 from lime.wrappers.scikit_image import SegmentationAlgorithm
 from aix360.algorithms.lime import LimeTextExplainer
+import nest_asyncio
+nest_asyncio.apply()
 
 
 class AIXModel(kserve.Model):  # pylint:disable=c-extension-no-member

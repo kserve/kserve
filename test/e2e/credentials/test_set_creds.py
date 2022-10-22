@@ -123,7 +123,7 @@ def test_azure_credentials():
     created_sa = get_created_sa(sa_name)
     created_secret_name = created_sa.secrets[0].name
     created_secret = get_created_secret(created_secret_name)
-    assert created_secret.data['AZ_CLIENT_ID'] == 'dXNlcgo='
-    assert created_secret.data['AZ_CLIENT_SECRET'] == 'cGFzc3dvcmQ='
-    assert created_secret.data['AZ_SUBSCRIPTION_ID'] == 'MzMzMzMzMzMtMzMzMy0zMzMzLTMzMzMtMzMzMzMz'
-    assert created_secret.data['AZ_TENANT_ID'] == 'MTIzNAo='
+    assert created_secret.data['AZURE_CLIENT_ID'] == 'dXNlcgo='
+    assert created_secret.data['AZURE_CLIENT_SECRET'] == 'cGFzc3dvcmQ='
+    assert created_secret.data['AZURE_SUBSCRIPTION_ID'] == 'MzMzMzMzMzMtMzMzMy0zMzMzLTMzMzMtMzMzMzMz'
+    assert created_secret.data['AZURE_TENANT_ID'] == 'MTIzNAo='

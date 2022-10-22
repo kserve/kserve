@@ -195,10 +195,10 @@ def test_set_azure_credentials(mock_create_secret, mock_set_service_account):
         "tenantId": "XXXXXXXXXXX"
     }
     data = {
-        'AZ_CLIENT_ID': creds['clientId'],
-        'AZ_CLIENT_SECRET': creds['clientSecret'],
-        'AZ_SUBSCRIPTION_ID': creds['subscriptionId'],
-        'AZ_TENANT_ID': creds['tenantId'],
+        'AZURE_CLIENT_ID': creds['clientId'],
+        'AZURE_CLIENT_SECRET': creds['clientSecret'],
+        'AZURE_SUBSCRIPTION_ID': creds['subscriptionId'],
+        'AZURE_TENANT_ID': creds['tenantId'],
     }
     with tempfile.NamedTemporaryFile(suffix=".json") as creds_file:
         creds_file.write(json.dumps(creds).encode("utf-8"))

@@ -11,8 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pathlib
 
 from setuptools import setup, find_packages
+
+with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
+    version = version_file.read().strip()
 
 tests_require = [
     'pytest',
@@ -22,7 +26,7 @@ tests_require = [
 ]
 setup(
     name='pmmlserver',
-    version='0.7.0',
+    version=version,
     author_email='anyisalin@gmail.com',
     license='https://github.com/kserve/kserve/LICENSE',
     url='https://github.com/kserve/kserve/python/pmmlserver',
