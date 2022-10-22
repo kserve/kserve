@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import argparse
+import asyncio
 import logging
 
-import kserve
 from sklearnserver import SKLearnModel, SKLearnModelRepository
-from kserve.model import ModelMissingError
+
+import kserve
+from kserve.errors import ModelMissingError
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -38,4 +40,7 @@ if __name__ == "__main__":
         logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
                       f"trying loading from model repository.")
 
-    kserve.ModelServer(registered_models=SKLearnModelRepository(args.model_dir)).start([model] if model.ready else [])
+    asyncio.run(
+        kserve.ModelServer(registered_models=SKLearnModelRepository(args.model_dir)).start(
+            [model] if model.ready else [])
+    )

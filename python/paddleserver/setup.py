@@ -11,12 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pathlib
 
 from setuptools import setup, find_packages
 
+with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
+    version = version_file.read().strip()
+
 setup(
     name='paddleserver',
-    version='0.7.0',
+    version=version,
     author_email='zhangzhengyuan0604@gmail.com',
     license='https://github.com/kserve/kserve/LICENSE',
     description='Model Server implementation for Paddle. \
@@ -25,7 +29,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("paddleserver"),
     install_requires=[
-        "kserve>=0.7.0",
+        "kserve",
         "paddlepaddle>=2.0.2"
     ],
     extras_require={'test': ['opencv-python']}

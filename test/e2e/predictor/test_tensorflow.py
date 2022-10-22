@@ -52,7 +52,7 @@ def test_tensorflow_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, './data/flower_input.json')
-    assert(np.argmax(res["predictions"][0].get('scores')) == 0)
+    assert (np.argmax(res["predictions"][0].get('scores')) == 0)
 
     # Delete the InferenceService
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
@@ -85,7 +85,7 @@ def test_tensorflow_runtime_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, './data/flower_input.json')
-    assert(np.argmax(res["predictions"][0].get('scores')) == 0)
+    assert (np.argmax(res["predictions"][0].get('scores')) == 0)
 
     # Delete the InferenceService
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)

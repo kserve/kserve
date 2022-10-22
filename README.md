@@ -1,6 +1,6 @@
 # KServe
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/kserve/kserve)
-[![Coverage Status](https://coveralls.io/repos/github/kserve/kserve/badge.svg?branch=master)](https://coveralls.io/github/kserve/kserve?branch=master)
+[![Coverage Status](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/andyi2it/5174bd748ac63a6e4803afea902e9810/raw/coverage.json)](https://github.com/kserve/kserve/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kserve/kserve)](https://goreportcard.com/report/github.com/kserve/kserve)
 [![Releases](https://img.shields.io/github/release-pre/kserve/kserve.svg?sort=semver)](https://github.com/kserve/kserve/releases)
 [![LICENSE](https://img.shields.io/github/license/kserve/kserve.svg)](https://github.com/kserve/kserve/blob/master/LICENSE)
@@ -8,44 +8,47 @@
 
 KServe provides a Kubernetes [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) for serving machine learning (ML) models on arbitrary frameworks. It aims to solve production model serving use cases by providing performant, high abstraction interfaces for common ML frameworks like Tensorflow, XGBoost, ScikitLearn, PyTorch, and ONNX.
 
-It encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for Production ML Serving including prediction, pre-processing, post-processing and explainability. KServe is being [used across various organizations.](https://kserve.github.io/website/community/adopters/)
+It encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for Production ML Serving including prediction, pre-processing, post-processing and explainability. KServe is being [used across various organizations.](https://kserve.github.io/website/master/community/adopters/)
 
-For more details, visit [KServe website](https://kserve.github.io/website/)
+For more details, visit the [KServe website](https://kserve.github.io/website/).
 
 ![KServe](/docs/diagrams/kserve.png)
 
-_Since 0.7 [KFServing is rebranded to KServe](https://blog.kubeflow.org/release/official/2021/09/27/kfserving-transition.html), we still support previous KFServing [0.5.x](https://github.com/kserve/kserve/tree/release-0.5) and 
-[0.6.x](https://github.com/kserve/kserve/tree/release-0.6) releases, please refer to corresponding release branch for docs_.
+_Since 0.7 [KFServing is rebranded to KServe](https://blog.kubeflow.org/release/official/2021/09/27/kfserving-transition.html), we still support the RTS release
+[0.6.x](https://github.com/kserve/kserve/tree/release-0.6), please refer to corresponding release branch for docs_.
+
+### Why KServe?
+- KServe is a standard, cloud agnostic **Model Inference Platform** on Kubernetes, built for highly scalable use cases.
+- Provides performant, **standardized inference protocol** across ML frameworks.
+- Support modern **serverless inference workload** with **request based autoscaling including scale-to-zero** on **CPU and GPU**.
+- Provides **high scalability, density packing and intelligent routing** using **ModelMesh**.
+- **Simple and pluggable production serving** for **inference**, **pre/post processing**, **monitoring** and **explainability**.
+- Advanced deployments for **canary rollout**, **pipeline**, **ensembles** with **InferenceGraph**.
 
 ### Learn More
-To learn more about KServe, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KServe community, 
+To learn more about KServe, how to use various supported features, and how to participate in the KServe community, 
 please follow the [KServe website documentation](https://kserve.github.io/website). 
-Additionally, we have compiled a list of [presentations and demoes](/docs/PRESENTATIONS.md) to dive through various details.
+Additionally, we have compiled a list of [presentations and demos](https://kserve.github.io/website/master/community/presentations/) to dive through various details.
 
-### Installation
+### :hammer_and_wrench: Installation
 
 #### Standalone Installation
-KServe by default installs Knative for serverless deployment, please follow [Serverless installation guide](https://kserve.github.io/website/admin/serverless) to
-install KServe. If you are looking to install KServe without Knative(this feature is still alpha), please follow [Raw Kubernetes Deployment installation guide](https://kserve.github.io/website/admin/kubernetes_deployment).
+- **[Serverless Installation](https://kserve.github.io/website/master/admin/serverless)**: KServe by default installs Knative for **serverless deployment** for InferenceService.
+- **[Raw Deployment Installation](https://kserve.github.io/website/master/admin/kubernetes_deployment)**: Compared to Serverless Installation, this is a more **lightweight** installation. However, this option does not support canary deployment and request based autoscaling with scale-to-zero.
+- **[ModelMesh Installation](https://kserve.github.io/website/master/admin/modelmesh/)**: You can optionally install ModelMesh to enable **high-scale**, **high-density** and **frequently-changing model serving** use cases. 
+- **[Quick Installation](https://kserve.github.io/website/master/get_started/)**: Install KServe on your local machine.
 
-#### Quick Install
-Please follow [quick install](https://kserve.github.io/website/get_started) to install KServe on your local machine.
+#### Kubeflow Installation
+KServe is an important addon component of Kubeflow, please learn more from the [Kubeflow KServe documentation](https://www.kubeflow.org/docs/external-add-ons/kserve/kserve) and follow [KServe with Kubeflow on AWS](https://awslabs.github.io/kubeflow-manifests/main/docs/component-guides/kserve) to learn how to use KServe on AWS.
 
-#### Create test inference service
+### :flight_departure: [Create your first InferenceService](https://kserve.github.io/website/master/get_started/first_isvc)
 
-Please follow [getting started](https://kserve.github.io/website/get_started/first_isvc) to create your first `InferenceService`.
+### :bulb: [Roadmap](./ROADMAP.md)
 
-### Roadmap
-[Roadmap](./ROADMAP.md)
+### :blue_book: [InferenceService API Reference](https://kserve.github.io/website/master/reference/api/)
 
-### API Reference
-[InferenceService v1beta1 API Docs](https://kserve.github.io/website/reference/api)
+### :toolbox: [Developer Guide](https://kserve.github.io/website/master/developer/developer/)
 
-### Developer Guide
-[Developer Guide](https://kserve.github.io/website/developer/developer/).
+### :writing_hand: [Contributor Guide](./CONTRIBUTING.md)
 
-### Contributor Guide
-[Contributor Guide](./CONTRIBUTING.md)
-
-### Adopters
-[Adopters](https://kserve.github.io/website/community/adopters/)
+### :handshake: [Adopters](https://kserve.github.io/website/master/community/adopters/)

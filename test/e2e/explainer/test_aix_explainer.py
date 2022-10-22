@@ -82,9 +82,9 @@ def test_tabular_explainer():
         raise e
 
     res = predict(service_name, './data/mnist_input.json')
-    assert(res["predictions"] == [[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+    assert (res["predictions"] == [[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 
     mask = explain_aix(service_name, './data/mnist_input.json')
     percent_in_mask = np.count_nonzero(mask) / np.size(np.array(mask))
-    assert(percent_in_mask > 0.6)
+    assert (percent_in_mask > 0.6)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

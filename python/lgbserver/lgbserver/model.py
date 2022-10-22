@@ -18,10 +18,9 @@ from lightgbm import Booster
 import os
 from typing import Dict
 import pandas as pd
-from kserve.model import ModelMissingError, InferenceError
+from kserve.errors import InferenceError, ModelMissingError
 
-
-BOOSTER_FILE = "model.bst"
+MODEL_EXTENSIONS = (".bst")
 
 
 class LightGBMModel(kserve.Model):
@@ -36,19 +35,26 @@ class LightGBMModel(kserve.Model):
             self.ready = True
 
     def load(self) -> bool:
-        model_file = os.path.join(
-            kserve.Storage.download(self.model_dir), BOOSTER_FILE)
-        if not os.path.exists(model_file):
-            raise ModelMissingError(model_file)
+        model_path = kserve.Storage.download(self.model_dir)
+        model_files = []
+        for file in os.listdir(model_path):
+            file_path = os.path.join(model_path, file)
+            if os.path.isfile(file_path) and file.endswith(MODEL_EXTENSIONS):
+                model_files.append(file_path)
+        if len(model_files) == 0:
+            raise ModelMissingError(model_path)
+        elif len(model_files) > 1:
+            raise RuntimeError('More than one model file is detected, '
+                               f'Only one is allowed within model_dir: {model_files}')
         self._booster = lgb.Booster(params={"nthread": self.nthread},
-                                    model_file=model_file)
+                                    model_file=model_files[0])
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict) -> Dict:
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         try:
             dfs = []
-            for input in request['inputs']:
+            for input in payload['inputs']:
                 dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
             inputs = pd.concat(dfs, axis=0)
 

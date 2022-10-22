@@ -393,6 +393,10 @@ spec:
                           type: array
                       type: object
                   type: object
+                annotations:
+                  additionalProperties:
+                    type: string
+                  type: object
                 builtInAdapter:
                   properties:
                     env:
@@ -675,6 +679,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                              - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -769,6 +783,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                              - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -917,6 +941,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                              - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -1029,6 +1063,17 @@ spec:
                   type: string
                 httpDataEndpoint:
                   type: string
+                imagePullSecrets:
+                  items:
+                    properties:
+                      name:
+                        type: string
+                    type: object
+                  type: array
+                labels:
+                  additionalProperties:
+                    type: string
+                  type: object
                 multiModel:
                   type: boolean
                 nodeSelector:

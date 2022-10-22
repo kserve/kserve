@@ -24,6 +24,7 @@ RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda$CONDA_PYTHON_VERS
 RUN conda install -y python=$PYTHON_VERSION
 
 COPY kserve kserve
+COPY VERSION VERSION
 RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kserve
 
 COPY pmmlserver pmmlserver

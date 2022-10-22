@@ -1,0 +1,21 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "aix-explainer"
+  namespace: default
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: "gs://kfserving-examples/models/sklearn/newsgroup"
+      env:
+        - name: PREDICT_PROBA
+          value: "true"
+  explainer:
+    aix:
+      type: LimeTexts
+      config:
+        top_labels: "10"
+
+

@@ -20,6 +20,9 @@ import pandas as pd
 from aif360.metrics import BinaryLabelDatasetMetric
 from aif360.datasets import BinaryLabelDataset
 
+import nest_asyncio
+nest_asyncio.apply()
+
 
 class AIFModel(kserve.Model):
     def __init__(self, name: str, predictor_host: str, feature_names: list, label_names: list, favorable_label: float,
@@ -45,9 +48,9 @@ class AIFModel(kserve.Model):
         resp = loop.run_until_complete(self.predict(scoring_data))
         return np.array(resp["predictions"])
 
-    def explain(self, request: Dict) -> Dict:
-        inputs = request["instances"]
-        predictions = np.array(request["outputs"])
+    def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        inputs = payload["instances"]
+        predictions = np.array(payload["outputs"])
 
         dataframe_predicted = pd.DataFrame(inputs, columns=self.feature_names)
         dataframe_predicted[self.label_names[0]] = predictions

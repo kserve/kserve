@@ -3,6 +3,9 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-sklearnserver
 spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: sklearn
       version: "1"

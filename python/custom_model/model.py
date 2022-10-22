@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 
 import kserve
 from torchvision import models, transforms
@@ -33,8 +34,8 @@ class AlexNetModel(kserve.Model):
         self.model = model
         self.ready = True
 
-    def predict(self, request: Dict) -> Dict:
-        inputs = request["instances"]
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        inputs = payload["instances"]
 
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
@@ -66,4 +67,4 @@ class AlexNetModel(kserve.Model):
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
     model.load()
-    kserve.ModelServer(workers=1).start([model])
+    asyncio.run(kserve.ModelServer(workers=1).start([model]))

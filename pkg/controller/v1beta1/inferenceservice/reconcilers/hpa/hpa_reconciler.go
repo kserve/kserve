@@ -32,7 +32,7 @@ import (
 
 var log = logf.Log.WithName("HPAReconciler")
 
-//HPAReconciler is the struct of Raw K8S Object
+// HPAReconciler is the struct of Raw K8S Object
 type HPAReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
@@ -123,7 +123,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 	return hpa
 }
 
-//checkHPAExist checks if the hpa exists?
+// checkHPAExist checks if the hpa exists?
 func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResultType, *v2beta2.HorizontalPodAutoscaler, error) {
 	//get hpa
 	existingHPA := &v2beta2.HorizontalPodAutoscaler{}
@@ -151,7 +151,7 @@ func semanticHPAEquals(desired, existing *v2beta2.HorizontalPodAutoscaler) bool 
 		equality.Semantic.DeepEqual(*desired.Spec.MinReplicas, *existing.Spec.MinReplicas)
 }
 
-//Reconcile ...
+// Reconcile ...
 func (r *HPAReconciler) Reconcile() (*v2beta2.HorizontalPodAutoscaler, error) {
 	//reconcile Service
 	checkResult, existingHPA, err := r.checkHPAExist(r.client)

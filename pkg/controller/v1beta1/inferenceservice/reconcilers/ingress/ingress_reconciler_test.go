@@ -17,11 +17,11 @@ limitations under the License.
 package ingress
 
 import (
-	"testing"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/onsi/gomega"
+	gomegaTypes "github.com/onsi/gomega/types"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +29,8 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
+	"net/url"
+	"testing"
 )
 
 func TestCreateVirtualService(t *testing.T) {
@@ -541,5 +543,142 @@ func createInferenceServiceWithHostname(hostName string) *v1beta1.InferenceServi
 				},
 			},
 		},
+	}
+}
+
+func TestGetServiceUrl(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	serviceName := "my-model"
+	namespace := "test"
+	isvcAnnotations := map[string]string{"test": "test", "kubectl.kubernetes.io/last-applied-configuration": "test"}
+	labels := map[string]string{"test": "test"}
+	predictorUrl, _ := url.Parse("http://my-model-predictor-default.example.com")
+	transformerUrl, _ := url.Parse("http://my-model-transformer-default.example.com")
+	urlScheme := "http"
+
+	cases := map[string]struct {
+		isvc    *v1beta1.InferenceService
+		matcher gomegaTypes.GomegaMatcher
+	}{
+		"component is empty": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+			},
+			matcher: gomega.Equal(""),
+		},
+		"predictor url is empty": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status:  duckv1.Status{},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{},
+					},
+					ModelStatus: v1beta1.ModelStatus{},
+				},
+			},
+			matcher: gomega.Equal(""),
+		},
+		"predictor url is not empty": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status:  duckv1.Status{},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+							URL: (*apis.URL)(predictorUrl),
+						},
+					},
+				},
+			},
+			matcher: gomega.Equal("http://my-model.example.com"),
+		},
+		"transformer is not empty": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+					Transformer: &v1beta1.TransformerSpec{},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status:  duckv1.Status{},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+							URL: (*apis.URL)(predictorUrl),
+						},
+						v1beta1.TransformerComponent: v1beta1.ComponentStatusSpec{
+							URL: (*apis.URL)(transformerUrl),
+						},
+					},
+				},
+			},
+			matcher: gomega.Equal("http://my-model.example.com"),
+		},
+		"predictor is empty": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{},
+				Status: v1beta1.InferenceServiceStatus{
+					Status:     duckv1.Status{},
+					Address:    nil,
+					URL:        nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{},
+				},
+			},
+			matcher: gomega.Equal(""),
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			url := getServiceUrl(tc.isvc, urlScheme, false)
+			g.Expect(url).Should(tc.matcher)
+		})
 	}
 }

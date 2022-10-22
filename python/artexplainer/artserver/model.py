@@ -21,6 +21,9 @@ from art.estimators.classification import BlackBoxClassifierNeuralNetwork
 
 import kserve
 
+import nest_asyncio
+nest_asyncio.apply()
+
 
 class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, predictor_host: str, adversary_type: str,
@@ -50,16 +53,16 @@ class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
         prediction = np.array(resp["predictions"])
         return [1 if x == prediction else 0 for x in range(0, self.nb_classes)]
 
-    def explain(self, request: Dict) -> Dict:
-        image = request["instances"][0]
-        label = request["instances"][1]
+    def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        image = payload["instances"][0]
+        label = payload["instances"][1]
         try:
             inputs = np.array(image)
             label = np.array(label)
             logging.info("Calling explain on image of shape %s", (inputs.shape,))
         except Exception as e:
             raise Exception(
-                "Failed to initialize NumPy array from inputs: %s, %s" % (e, request["instances"]))
+                "Failed to initialize NumPy array from inputs: %s, %s" % (e, payload["instances"]))
         try:
             if str.lower(self.adversary_type) == "squareattack":
                 classifier = BlackBoxClassifierNeuralNetwork(self._predict, inputs.shape, self.nb_classes,

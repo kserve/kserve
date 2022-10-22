@@ -61,7 +61,6 @@ type ComponentImplementation interface {
 	GetStorageUri() *string
 	GetStorageSpec() *StorageSpec
 	GetProtocol() constants.InferenceServiceProtocol
-	IsMMS(config *InferenceServicesConfig) bool
 }
 
 // Component interface is implemented by all specs that contain component implementations, e.g. PredictorSpec, ExplainerSpec, TransformerSpec.
