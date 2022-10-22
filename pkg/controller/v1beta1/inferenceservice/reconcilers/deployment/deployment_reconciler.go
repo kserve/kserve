@@ -36,7 +36,7 @@ import (
 
 var log = logf.Log.WithName("DeploymentReconciler")
 
-//DeploymentReconciler reconciles the raw kubernetes deployment resource
+// DeploymentReconciler reconciles the raw kubernetes deployment resource
 type DeploymentReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
@@ -81,7 +81,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 	return deployment
 }
 
-//checkDeploymentExist checks if the deployment exists?
+// checkDeploymentExist checks if the deployment exists?
 func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (constants.CheckResultType, *appsv1.Deployment, error) {
 	//get deployment
 	existingDeployment := &appsv1.Deployment{}
@@ -140,7 +140,7 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 			if container.ReadinessProbe == nil {
 				if len(container.Ports) == 0 {
 					container.ReadinessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							TCPSocket: &corev1.TCPSocketAction{
 								Port: intstr.IntOrString{
 									IntVal: 8080,
@@ -154,7 +154,7 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 					}
 				} else {
 					container.ReadinessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							TCPSocket: &corev1.TCPSocketAction{
 								Port: intstr.IntOrString{
 									IntVal: container.Ports[0].ContainerPort,
@@ -192,7 +192,7 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	}
 }
 
-//Reconcile ...
+// Reconcile ...
 func (r *DeploymentReconciler) Reconcile() (*appsv1.Deployment, error) {
 	//reconcile Deployment
 	checkResult, deployment, err := r.checkDeploymentExist(r.client)

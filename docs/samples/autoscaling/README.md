@@ -24,7 +24,7 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
-3. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
+3. [Metrics installation](https://knative.dev/docs/eventing/observability/metrics/collecting-metrics/) for viewing scaling graphs (optional).
 4. The [hey](https://github.com/rakyll/hey) load generator installed (go get -u github.com/rakyll/hey).
 
 ## Load your InferenceService with target concurrency
@@ -217,7 +217,7 @@ kubectl port-forward --namespace knative-monitoring $(kubectl get pods --namespa
 ![scaling dashboard](scaling_debug_qps.png)
 
 Autoscaler calculates average concurrency over 60 second window so it takes a minute to stabilize at the desired concurrency level,
-however it also calculates the 6 second panic window and will enter into [panic mode](https://github.com/knative/serving/blob/master/docs/scaling/DEVELOPMENT.md#panic-mode) if that window reaches 2x target concurrency.
+however it also calculates the 6 second panic window and will enter into [panic mode](https://knative.dev/docs/serving/autoscaling/kpa-specific/#panic-mode-threshold) if that window reaches 2x target concurrency.
 From the dashboard you can see that it enters panic mode in which autoscaler operates on shorter and more sensitive window. Once the panic
 conditions are no longer met for 60 seconds, autoscaler will return back to 60 seconds stable window.
 

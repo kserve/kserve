@@ -72,7 +72,7 @@ def test_canary_rollout():
     canary_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
     for traffic in canary_isvc['status']['components']['predictor']['traffic']:
         if traffic['latestRevision']:
-            assert(traffic['percent'] == 10)
+            assert (traffic['percent'] == 10)
 
     # Delete the InferenceService
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
@@ -126,7 +126,7 @@ def test_canary_rollout_runtime():
     canary_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
     for traffic in canary_isvc['status']['components']['predictor']['traffic']:
         if traffic['latestRevision']:
-            assert(traffic['percent'] == 10)
+            assert (traffic['percent'] == 10)
 
     # Delete the InferenceService
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)

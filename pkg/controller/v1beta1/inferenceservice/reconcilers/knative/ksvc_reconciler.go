@@ -94,6 +94,14 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		annotations[autoscaling.MetricAnnotationKey] = fmt.Sprint(*componentExtension.ScaleMetric)
 	}
 
+	// ksvc metadata.annotations
+	// rollout-duration must be put under metadata.annotations
+	ksvcAnnotations := make(map[string]string)
+	if value, ok := annotations[constants.RollOutDurationAnnotationKey]; ok {
+		ksvcAnnotations[constants.RollOutDurationAnnotationKey] = value
+		delete(annotations, constants.RollOutDurationAnnotationKey)
+	}
+
 	lastRolledoutRevision := componentStatus.LatestRolledoutRevision
 
 	// Log component status and canary traffic percent
@@ -135,11 +143,13 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
 	})
+
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      componentMeta.Name,
-			Namespace: componentMeta.Namespace,
-			Labels:    componentMeta.Labels,
+			Name:        componentMeta.Name,
+			Namespace:   componentMeta.Namespace,
+			Labels:      componentMeta.Labels,
+			Annotations: ksvcAnnotations,
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{

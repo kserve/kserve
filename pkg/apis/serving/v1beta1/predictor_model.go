@@ -70,23 +70,6 @@ func (m *ModelSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
 
-func (m *ModelSpec) IsMMS(config *InferenceServicesConfig) bool {
-	predictorConfig := m.getPredictorConfig(config)
-	if predictorConfig != nil {
-		return predictorConfig.MultiModelServer
-	}
-	return false
-}
-
-func (m *ModelSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
-	predictorConfig := m.getPredictorConfig(config)
-	if predictorConfig != nil {
-		supportedFrameworks := predictorConfig.SupportedFrameworks
-		return isFrameworkIncluded(supportedFrameworks, framework)
-	}
-	return false
-}
-
 type stringSet map[string]struct{}
 
 func (ss stringSet) add(s string) {
@@ -174,41 +157,6 @@ func (m *ModelSpec) getServingRuntimeSupportedModelFormatLabelSet(supportedModel
 		}
 	}
 	return set
-}
-
-func (m *ModelSpec) getPredictorConfig(config *InferenceServicesConfig) *PredictorConfig {
-	switch {
-	case m.ModelFormat.Name == constants.SupportedModelSKLearn:
-		if m.ProtocolVersion != nil &&
-			constants.ProtocolV2 == *m.ProtocolVersion {
-			return config.Predictors.SKlearn.V2
-		} else {
-			return config.Predictors.SKlearn.V1
-		}
-
-	case m.ModelFormat.Name == constants.SupportedModelXGBoost:
-		if m.ProtocolVersion != nil &&
-			constants.ProtocolV2 == *m.ProtocolVersion {
-			return config.Predictors.XGBoost.V2
-		} else {
-			return config.Predictors.XGBoost.V1
-		}
-	case m.ModelFormat.Name == constants.SupportedModelTensorflow:
-		return &config.Predictors.Tensorflow
-	case m.ModelFormat.Name == constants.SupportedModelPyTorch:
-		return &config.Predictors.PyTorch
-	case m.ModelFormat.Name == constants.SupportedModelONNX:
-		return &config.Predictors.ONNX
-	case m.ModelFormat.Name == constants.SupportedModelPMML:
-		return &config.Predictors.PMML
-	case m.ModelFormat.Name == constants.SupportedModelLightGBM:
-		return &config.Predictors.LightGBM
-	case m.ModelFormat.Name == constants.SupportedModelPaddle:
-		return &config.Predictors.Paddle
-	case m.ModelFormat.Name == constants.SupportedModelTriton:
-		return &config.Predictors.Triton
-	}
-	return nil
 }
 
 func sortServingRuntimeList(runtimes *v1alpha1.ServingRuntimeList) {

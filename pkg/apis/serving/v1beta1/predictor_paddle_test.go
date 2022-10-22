@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -24,8 +25,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestPaddleValidation(t *testing.T) {
@@ -79,21 +78,12 @@ func TestPaddleValidation(t *testing.T) {
 
 func TestPaddleDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			Paddle: PredictorConfig{
-				ContainerImage:      "paddleserver",
-				DefaultImageVersion: "latest",
-				MultiModelServer:    false,
-			},
-		},
-	}
 
 	scenarios := map[string]struct {
 		spec     PredictorSpec
 		expected PredictorSpec
 	}{
-		"DefaultRuntimeVersion": {
+		"DefaultResource": {
 			spec: PredictorSpec{
 				Paddle: &PaddleServerSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{},
@@ -102,7 +92,6 @@ func TestPaddleDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				Paddle: &PaddleServerSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("latest"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -118,7 +107,7 @@ func TestPaddleDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Paddle.Default(&config)
+			scenario.spec.Paddle.Default(nil)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -126,268 +115,74 @@ func TestPaddleDefaulter(t *testing.T) {
 	}
 }
 
-func TestCreatePaddleContainer(t *testing.T) {
+func TestPaddleServerSpec_GetContainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			Paddle: PredictorConfig{
-				ContainerImage:      "paddleserver",
-				DefaultImageVersion: "latest",
-				MultiModelServer:    false,
-			},
-		},
-	}
 
-	requestedResource := v1.ResourceRequirements{
-		Limits: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "100",
-			},
-		},
-		Requests: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "90",
-			},
-		},
-	}
-
+	metadata := metav1.ObjectMeta{Name: constants.InferenceServiceContainerName}
 	scenarios := map[string]struct {
-		isvc                  InferenceService
-		expectedContainerSpec *v1.Container
+		spec PredictorSpec
 	}{
-		"ContainerSpecWithoutRuntime": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "paddleserver",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						Paddle: &PaddleServerSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
+		"simple": {
+			spec: PredictorSpec{
+				Paddle: &PaddleServerSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Name:      constants.InferenceServiceContainerName,
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
 						},
 					},
 				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "paddleserver:latest",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-				},
-			},
-		},
-		"ContainerSpecWithDefaultImage": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "paddleserver",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						Paddle: &PaddleServerSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: proto.String("customtag"),
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "paddleserver:customtag",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-				},
-			},
-		},
-		"ContainerSpecWithCustomImage": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "paddleserver",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						Paddle: &PaddleServerSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
-									Image:     "customImage:latest",
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "customImage:latest",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-				},
-			},
-		},
-		"ContainerSpecWithContainerConcurrency": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "paddleserver",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: proto.Int64(1),
-						},
-						Paddle: &PaddleServerSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: proto.String("customtag"),
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "paddleserver:customtag",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-					"--workers=1",
-				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
 		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
-			predictor.Default(&config)
-			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
-			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
-				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			res := scenario.spec.Paddle.GetContainer(metadata, &scenario.spec.ComponentExtensionSpec, nil)
+			if !g.Expect(res).To(gomega.Equal(&scenario.spec.Paddle.Container)) {
+				t.Errorf("got %v, want %v", res, scenario.spec.Paddle.Container)
 			}
 		})
 	}
 }
 
-func TestPaddleIsMMS(t *testing.T) {
+func TestPaddleServerSpec_GetProtocol(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	multiModelServerCases := [2]bool{true, false}
 
-	for _, mmsCase := range multiModelServerCases {
-		config := InferenceServicesConfig{
-			Predictors: PredictorsConfig{
-				Paddle: PredictorConfig{
-					ContainerImage:      "paddleserver",
-					DefaultImageVersion: "latest",
-					MultiModelServer:    mmsCase,
-				},
-			},
-		}
-		defaultResource = v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse("1"),
-			v1.ResourceMemory: resource.MustParse("2Gi"),
-		}
-
-		scenarios := map[string]struct {
-			spec     PredictorSpec
-			expected bool
-		}{
-			"DefaultRuntimeVersion": {
-				spec: PredictorSpec{
-					Paddle: &PaddleServerSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{},
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected constants.InferenceServiceProtocol
+	}{
+		"default": {
+			spec: PredictorSpec{
+				Paddle: &PaddleServerSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
+						},
 					},
 				},
-				expected: mmsCase,
+				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
-		}
-
-		for name, scenario := range scenarios {
-			t.Run(name, func(t *testing.T) {
-				scenario.spec.Paddle.Default(&config)
-				res := scenario.spec.Paddle.IsMMS(&config)
-				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-					t.Errorf("got %t, want %t", res, scenario.expected)
-				}
-			})
-		}
-	}
-}
-
-func TestPaddleIsFrameworkSupported(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	paddle := "paddle"
-	unsupportedFramework := "framework"
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			Paddle: PredictorConfig{
-				ContainerImage:      "paddlerserver",
-				DefaultImageVersion: "latest",
-				SupportedFrameworks: []string{paddle},
-			},
-		},
-	}
-
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
-	scenarios := map[string]struct {
-		spec      PredictorSpec
-		framework string
-		expected  bool
-	}{
-		"SupportedFramework": {
-			spec: PredictorSpec{
-				Paddle: &PaddleServerSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{},
-				},
-			},
-			framework: paddle,
-			expected:  true,
-		},
-		"UnsupportedFramework": {
-			spec: PredictorSpec{
-				Paddle: &PaddleServerSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{},
-				},
-			},
-			framework: unsupportedFramework,
-			expected:  false,
+			expected: constants.ProtocolV1,
 		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Paddle.Default(&config)
-			res := scenario.spec.Paddle.IsFrameworkSupported(scenario.framework, &config)
+			res := scenario.spec.Paddle.GetProtocol()
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %t, want %t", res, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec.Triton, scenario.expected)
 			}
 		})
 	}
-
 }

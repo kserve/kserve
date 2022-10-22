@@ -12,6 +12,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers/legacy"
 	"github.com/golang/protobuf/proto"
 	"github.com/onsi/gomega"
 
@@ -152,11 +153,11 @@ func TestGenerateOpenAPIForRowFmtMultipleTensors(t *testing.T) {
 	spec, specErr := generator.GenerateOpenAPI(model)
 	g.Expect(specErr).Should(gomega.BeNil())
 
-	swagger := &openapi3.Swagger{}
+	swagger := &openapi3.T{}
 	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
 
 	expectedSpec := string(openAPI(t, "TestRowFmtMultipleTensors"))
-	expectedSwagger := &openapi3.Swagger{}
+	expectedSwagger := &openapi3.T{}
 	// remove any formatting from expectedSpec
 	buffer := new(bytes.Buffer)
 	if err := json.Compact(buffer, []byte(expectedSpec)); err != nil {
@@ -185,11 +186,11 @@ func TestGenerateOpenAPIForColFmtMultipleTensors(t *testing.T) {
 	spec, specErr := generator.GenerateOpenAPI(model)
 	g.Expect(specErr).Should(gomega.BeNil())
 
-	swagger := &openapi3.Swagger{}
+	swagger := &openapi3.T{}
 	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
 
 	expectedSpec := string(openAPI(t, "TestColFmtMultipleTensors"))
-	expectedSwagger := &openapi3.Swagger{}
+	expectedSwagger := &openapi3.T{}
 	// remove any formatting from expectedSpec
 	buffer := new(bytes.Buffer)
 	if err := json.Compact(buffer, []byte(expectedSpec)); err != nil {
@@ -281,13 +282,13 @@ func openAPI(t *testing.T, fName string) []byte {
 }
 
 func acceptsValidReq(t *testing.T, fName string) error {
-	router := openapi3filter.NewRouter().WithSwagger(loadSwagger(t, fName))
+	router, _ := legacy.NewRouter(loadSwagger(t, fName))
 	req, reqErr := http.NewRequest(http.MethodPost, "/v1/models/model/versions/1:predict",
 		bytes.NewReader(loadPayload(t, fName)))
 	if reqErr != nil {
 		t.Fatalf("error creating request: %s", reqErr)
 	}
-	route, pathParams, routeErr := router.FindRoute(req.Method, req.URL)
+	route, pathParams, routeErr := router.FindRoute(req)
 	if routeErr != nil {
 		t.Fatalf("error finding route: %s", routeErr)
 	}
@@ -300,9 +301,9 @@ func acceptsValidReq(t *testing.T, fName string) error {
 	return openapi3filter.ValidateRequest(context.TODO(), requestValidationInput)
 }
 
-func loadSwagger(t *testing.T, fName string) *openapi3.Swagger {
+func loadSwagger(t *testing.T, fName string) *openapi3.T {
 	fPath := filepath.Join("testdata", fName+".golden.json")
-	swagger, err := openapi3.NewSwaggerLoader().LoadSwaggerFromFile(fPath)
+	swagger, err := openapi3.NewLoader().LoadFromFile(fPath)
 	if err != nil {
 		t.Fatalf("failed reading %s: %s", fPath, err)
 	}

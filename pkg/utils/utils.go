@@ -111,3 +111,29 @@ func IsPrefixSupported(input string, prefixes []string) bool {
 	}
 	return false
 }
+
+// Merge a slice of EnvVars (`O`) into another slice of EnvVars (`B`), which does the following:
+// 1. If an EnvVar is present in B but not in O, value remains unchanged in the result
+// 2. If an EnvVar is present in `O` but not in `B`, appends to the result
+// 3. If an EnvVar is present in both O and B, uses the value from O in the result
+func MergeEnvs(baseEnvs []v1.EnvVar, overrideEnvs []v1.EnvVar) []v1.EnvVar {
+	var extra []v1.EnvVar
+
+	for _, override := range overrideEnvs {
+		inBase := false
+
+		for i, base := range baseEnvs {
+			if override.Name == base.Name {
+				inBase = true
+				baseEnvs[i].Value = override.Value
+				break
+			}
+		}
+
+		if !inBase {
+			extra = append(extra, override)
+		}
+	}
+
+	return append(baseEnvs, extra...)
+}

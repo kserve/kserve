@@ -20,18 +20,18 @@ from alibi.api.interfaces import Explanation
 from alibi.utils.download import spacy_model
 from alibi.utils.wrappers import ArgmaxTransformer
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Dict
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
 class AnchorText(ExplainerWrapper):
     def __init__(
-        self,
-        predict_fn: Callable,
-        explainer: Optional[alibi.explainers.AnchorText],
-        spacy_language_model: str = "en_core_web_md",
-        **kwargs
+            self,
+            predict_fn: Callable,
+            explainer: Optional[alibi.explainers.AnchorText],
+            spacy_language_model: str = "en_core_web_md",
+            **kwargs
     ):
         self.predict_fn = predict_fn
         self.kwargs = kwargs
@@ -43,7 +43,7 @@ class AnchorText(ExplainerWrapper):
             logging.info("Language model loaded")
         self.anchors_text = explainer
 
-    def explain(self, inputs: List) -> Explanation:
+    def explain(self, inputs: List, headers: Dict[str, str] = None) -> Explanation:
         if self.anchors_text is None:
             self.anchors_text = alibi.explainers.AnchorText(predictor=self.predict_fn,
                                                             sampling_strategy='unknown',

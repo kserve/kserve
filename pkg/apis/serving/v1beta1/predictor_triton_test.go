@@ -17,10 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
@@ -80,15 +80,7 @@ func TestTritonValidation(t *testing.T) {
 
 func TestTritonDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			Triton: PredictorConfig{
-				ContainerImage:      "tritonserver",
-				DefaultImageVersion: "20.03-py3",
-				MultiModelServer:    true,
-			},
-		},
-	}
+
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
@@ -97,27 +89,6 @@ func TestTritonDefaulter(t *testing.T) {
 		spec     PredictorSpec
 		expected PredictorSpec
 	}{
-		"DefaultRuntimeVersion": {
-			spec: PredictorSpec{
-				Triton: &TritonSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{},
-				},
-			},
-			expected: PredictorSpec{
-				Triton: &TritonSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("20.03-py3"),
-						Container: v1.Container{
-							Name: constants.InferenceServiceContainerName,
-							Resources: v1.ResourceRequirements{
-								Requests: defaultResource,
-								Limits:   defaultResource,
-							},
-						},
-					},
-				},
-			},
-		},
 		"DefaultResources": {
 			spec: PredictorSpec{
 				Triton: &TritonSpec{
@@ -145,7 +116,7 @@ func TestTritonDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Triton.Default(&config)
+			scenario.spec.Triton.Default(nil)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -153,252 +124,129 @@ func TestTritonDefaulter(t *testing.T) {
 	}
 }
 
-func TestCreateTritonContainer(t *testing.T) {
-
-	var requestedResource = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "100",
-			},
-		},
-		Requests: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "90",
-			},
-		},
-	}
-	var config = InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			Triton: PredictorConfig{
-				ContainerImage:      "tritonserver",
-				DefaultImageVersion: "20.03-py3",
-				MultiModelServer:    true,
-			},
-		},
-	}
+func TestTritonSpec_GetContainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
+	metadata := metav1.ObjectMeta{Name: constants.InferenceServiceContainerName}
 	scenarios := map[string]struct {
-		isvc                  InferenceService
-		expectedContainerSpec *v1.Container
+		spec PredictorSpec
 	}{
-		"ContainerSpecWithDefaultImage": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "triton",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						Triton: &TritonSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: proto.String("20.03-py3"),
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
+		"simple": {
+			spec: PredictorSpec{
+				Triton: &TritonSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Name:      constants.InferenceServiceContainerName,
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
 						},
 					},
 				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "tritonserver:20.03-py3",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"tritonserver",
-					"--model-store=/mnt/models",
-					"--grpc-port=9000",
-					"--http-port=8080",
-					"--allow-grpc=true",
-					"--allow-http=true",
-				},
-			},
-		},
-		"ContainerSpecWithCustomImage": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "triton",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						Triton: &TritonSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
-									Image:     "tritonserver:19.10-py3",
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "tritonserver:19.10-py3",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"tritonserver",
-					"--model-store=/mnt/models",
-					"--grpc-port=9000",
-					"--http-port=8080",
-					"--allow-grpc=true",
-					"--allow-http=true",
-				},
-			},
-		},
-		"ContainerSpecWithContainerConcurrency": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "triton",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: proto.Int64(4),
-						},
-						Triton: &TritonSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: proto.String("20.03-py3"),
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "tritonserver:20.03-py3",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"tritonserver",
-					"--model-store=/mnt/models",
-					"--grpc-port=9000",
-					"--http-port=8080",
-					"--allow-grpc=true",
-					"--allow-http=true",
-					"--http-thread-count=4",
-				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
 		},
 	}
+
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
-			predictor.Default(&config)
-			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.DeepCopy().ComponentExtensionSpec, &config)
-			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
-				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			res := scenario.spec.Triton.GetContainer(metadata, &scenario.spec.ComponentExtensionSpec, nil)
+			if !g.Expect(res).To(gomega.Equal(&scenario.spec.Triton.Container)) {
+				t.Errorf("got %v, want %v", res, scenario.spec.Triton.Container)
 			}
 		})
 	}
 }
 
-func TestTritonIsMMS(t *testing.T) {
+func TestTritonSpec_Default(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	multiModelServerCases := [2]bool{true, false}
 
-	for _, mmsCase := range multiModelServerCases {
-		config := InferenceServicesConfig{
-			Predictors: PredictorsConfig{
-				Triton: PredictorConfig{
-					ContainerImage:      "tritonserver",
-					DefaultImageVersion: "20.03-py3",
-					MultiModelServer:    mmsCase,
-				},
-			},
-		}
-		defaultResource = v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse("1"),
-			v1.ResourceMemory: resource.MustParse("2Gi"),
-		}
-		scenarios := map[string]struct {
-			spec     PredictorSpec
-			expected bool
-		}{
-			"DefaultRuntimeVersion": {
-				spec: PredictorSpec{
-					Triton: &TritonSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{},
-					},
-				},
-				expected: mmsCase,
-			},
-			"DefaultResources": {
-				spec: PredictorSpec{
-					Triton: &TritonSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{
-							RuntimeVersion: proto.String("20.05-py3"),
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected *TritonSpec
+	}{
+		"simple": {
+			spec: PredictorSpec{
+				Triton: &TritonSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
 						},
 					},
 				},
-				expected: mmsCase,
+				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
-		}
-
-		for name, scenario := range scenarios {
-			t.Run(name, func(t *testing.T) {
-				scenario.spec.Triton.Default(&config)
-				res := scenario.spec.Triton.IsMMS(&config)
-				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-					t.Errorf("got %t, want %t", res, scenario.expected)
-				}
-			})
-		}
-	}
-}
-
-func TestTritonIsFrameworkSupported(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tensorrt := "tensorrt"
-	unsupportedFramework := "framework"
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			Triton: PredictorConfig{
-				ContainerImage:      "tritonserver",
-				DefaultImageVersion: "20.08-py3",
-				SupportedFrameworks: []string{tensorrt},
-			},
-		},
-	}
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
-	scenarios := map[string]struct {
-		spec      PredictorSpec
-		framework string
-		expected  bool
-	}{
-		"SupportedFramework": {
-			spec: PredictorSpec{
-				Triton: &TritonSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{},
+			expected: &TritonSpec{
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					StorageURI: proto.String("s3://modelzoo"),
+					Container: v1.Container{
+						Name:  constants.InferenceServiceContainerName,
+						Image: "image:0.1",
+						Args:  nil,
+						Env:   nil,
+						Resources: v1.ResourceRequirements{
+							Limits: v1.ResourceList{
+								"cpu":    resource.MustParse("1"),
+								"memory": resource.MustParse("2Gi"),
+							},
+							Requests: v1.ResourceList{
+								"memory": resource.MustParse("2Gi"),
+								"cpu":    resource.MustParse("1"),
+							},
+						},
+					},
 				},
 			},
-			framework: tensorrt,
-			expected:  true,
-		},
-		"UnsupportedFramework": {
-			spec: PredictorSpec{
-				Triton: &TritonSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{},
-				},
-			},
-			framework: unsupportedFramework,
-			expected:  false,
 		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Triton.Default(&config)
-			res := scenario.spec.Triton.IsFrameworkSupported(scenario.framework, &config)
+			scenario.spec.Triton.Default(nil)
+			if !g.Expect(scenario.spec.Triton).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", scenario.spec.Triton, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestTritonSpec_GetProtocol(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected constants.InferenceServiceProtocol
+	}{
+		"default": {
+			spec: PredictorSpec{
+				Triton: &TritonSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
+						},
+					},
+				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
+			},
+			expected: constants.ProtocolV2,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.Triton.GetProtocol()
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %t, want %t", res, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec.Triton, scenario.expected)
 			}
 		})
 	}

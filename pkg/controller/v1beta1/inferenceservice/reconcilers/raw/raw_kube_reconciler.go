@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//RawKubeReconciler reconciles the Native K8S Resources
+// RawKubeReconciler reconciles the Native K8S Resources
 type RawKubeReconciler struct {
 	client     client.Client
 	scheme     *runtime.Scheme
@@ -84,7 +84,7 @@ func createRawURL(client client.Client, metadata metav1.ObjectMeta) (*knapis.URL
 	return url, nil
 }
 
-//Reconcile ...
+// Reconcile ...
 func (r *RawKubeReconciler) Reconcile() (*appsv1.Deployment, error) {
 	//reconcile Deployment
 	deployment, err := r.Deployment.Reconcile()

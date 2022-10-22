@@ -17,11 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -100,15 +99,6 @@ func TestOnnxRuntimeValidation(t *testing.T) {
 
 func TestONNXRuntimeDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			ONNX: PredictorConfig{
-				ContainerImage:      "onnxruntime",
-				DefaultImageVersion: "v1.0.0",
-				MultiModelServer:    false,
-			},
-		},
-	}
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
@@ -117,27 +107,6 @@ func TestONNXRuntimeDefaulter(t *testing.T) {
 		spec     PredictorSpec
 		expected PredictorSpec
 	}{
-		"DefaultRuntimeVersion": {
-			spec: PredictorSpec{
-				ONNX: &ONNXRuntimeSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{},
-				},
-			},
-			expected: PredictorSpec{
-				ONNX: &ONNXRuntimeSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("v1.0.0"),
-						Container: v1.Container{
-							Name: constants.InferenceServiceContainerName,
-							Resources: v1.ResourceRequirements{
-								Requests: defaultResource,
-								Limits:   defaultResource,
-							},
-						},
-					},
-				},
-			},
-		},
 		"DefaultResources": {
 			spec: PredictorSpec{
 				ONNX: &ONNXRuntimeSpec{
@@ -165,7 +134,7 @@ func TestONNXRuntimeDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.ONNX.Default(&config)
+			scenario.spec.ONNX.Default(nil)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -173,271 +142,73 @@ func TestONNXRuntimeDefaulter(t *testing.T) {
 	}
 }
 
-func TestCreateONNXRuntimeContainer(t *testing.T) {
-
-	var requestedResource = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "100",
-			},
-		},
-		Requests: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "90",
-			},
-		},
-	}
-	var config = InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			ONNX: PredictorConfig{
-				ContainerImage:      "mcr.microsoft.com/onnxruntime/server",
-				DefaultImageVersion: "v1.0.0",
-				MultiModelServer:    false,
-			},
-		},
-	}
+func TestONNXRuntimeSpec_GetContainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
+	metadata := metav1.ObjectMeta{Name: constants.InferenceServiceContainerName}
 	scenarios := map[string]struct {
-		isvc                  InferenceService
-		expectedContainerSpec *v1.Container
+		spec PredictorSpec
 	}{
-		"ContainerSpecWithDefaultImage": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "onnx",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						ONNX: &ONNXRuntimeSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: proto.String("v1.0.0"),
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
+		"simple": {
+			spec: PredictorSpec{
+				ONNX: &ONNXRuntimeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Name:      constants.InferenceServiceContainerName,
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
 						},
 					},
 				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "mcr.microsoft.com/onnxruntime/server:v1.0.0",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_path=/mnt/models/model.onnx",
-					"--http_port=8080",
-					"--grpc_port=9000",
-				},
-			},
-		},
-		"ContainerSpecWithCustomImage": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "onnx",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						ONNX: &ONNXRuntimeSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
-									Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_path=/mnt/models/model.onnx",
-					"--http_port=8080",
-					"--grpc_port=9000",
-				},
-			},
-		},
-		"ContainerSpecWithContainerConcurrency": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "onnx",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: proto.Int64(1),
-						},
-						ONNX: &ONNXRuntimeSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: proto.String("v1.0.0"),
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "mcr.microsoft.com/onnxruntime/server:v1.0.0",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_path=/mnt/models/model.onnx",
-					"--http_port=8080",
-					"--grpc_port=9000",
-				},
-			},
-		},
-		"ContainerSpecWithNonDefaultFileName": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "onnx",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						ONNX: &ONNXRuntimeSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://my_model.onnx"),
-								RuntimeVersion: proto.String("v1.0.0"),
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "mcr.microsoft.com/onnxruntime/server:v1.0.0",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_path=/mnt/models/my_model.onnx",
-					"--http_port=8080",
-					"--grpc_port=9000",
-				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
 		},
 	}
+
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
-			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
-			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
-				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			res := scenario.spec.ONNX.GetContainer(metadata, &scenario.spec.ComponentExtensionSpec, nil)
+			if !g.Expect(res).To(gomega.Equal(&scenario.spec.ONNX.Container)) {
+				t.Errorf("got %v, want %v", res, scenario.spec.ONNX.Container)
 			}
 		})
 	}
 }
 
-func TestONNXRuntimeIsMMS(t *testing.T) {
+func TestONNXRuntimeSpec_GetProtocol(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	multiModelServerCases := [2]bool{true, false}
 
-	for _, mmsCase := range multiModelServerCases {
-		config := InferenceServicesConfig{
-			Predictors: PredictorsConfig{
-				ONNX: PredictorConfig{
-					ContainerImage:      "onnxruntime",
-					DefaultImageVersion: "v1.0.0",
-					MultiModelServer:    mmsCase,
-				},
-			},
-		}
-		defaultResource = v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse("1"),
-			v1.ResourceMemory: resource.MustParse("2Gi"),
-		}
-		scenarios := map[string]struct {
-			spec     PredictorSpec
-			expected bool
-		}{
-			"DefaultRuntimeVersion": {
-				spec: PredictorSpec{
-					ONNX: &ONNXRuntimeSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{},
-					},
-				},
-				expected: mmsCase,
-			},
-			"DefaultResources": {
-				spec: PredictorSpec{
-					ONNX: &ONNXRuntimeSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{
-							RuntimeVersion: proto.String("v1.0.0"),
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected constants.InferenceServiceProtocol
+	}{
+		"default": {
+			spec: PredictorSpec{
+				ONNX: &ONNXRuntimeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
 						},
 					},
 				},
-				expected: mmsCase,
+				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
-		}
-
-		for name, scenario := range scenarios {
-			t.Run(name, func(t *testing.T) {
-				scenario.spec.ONNX.Default(&config)
-				res := scenario.spec.ONNX.IsMMS(&config)
-				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-					t.Errorf("got %t, want %t", res, scenario.expected)
-				}
-			})
-		}
-	}
-}
-
-func TestONNXRuntimeIsFrameworkSupported(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	onnx := "onnx"
-	unsupportedFramework := "framework"
-
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			ONNX: PredictorConfig{
-				ContainerImage:      "onnxruntime",
-				SupportedFrameworks: []string{onnx},
-			},
-		},
-	}
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
-	scenarios := map[string]struct {
-		spec      PredictorSpec
-		framework string
-		expected  bool
-	}{
-		"SupportedFramework": {
-			spec: PredictorSpec{
-				ONNX: &ONNXRuntimeSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{},
-				},
-			},
-			framework: onnx,
-			expected:  true,
-		},
-		"UnsupportedFramework": {
-			spec: PredictorSpec{
-				ONNX: &ONNXRuntimeSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{},
-				},
-			},
-			framework: unsupportedFramework,
-			expected:  false,
+			expected: constants.ProtocolV1,
 		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.ONNX.Default(&config)
-			res := scenario.spec.ONNX.IsFrameworkSupported(scenario.framework, &config)
+			res := scenario.spec.ONNX.GetProtocol()
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %t, want %t", res, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec.Triton, scenario.expected)
 			}
 		})
 	}

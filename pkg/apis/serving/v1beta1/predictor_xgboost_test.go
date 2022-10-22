@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -81,22 +81,6 @@ func TestXGBoostValidation(t *testing.T) {
 
 func TestXGBoostDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			XGBoost: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "xgboost",
-					DefaultImageVersion: "v0.4.0",
-					MultiModelServer:    true,
-				},
-				V2: &PredictorConfig{
-					ContainerImage:      "mlserver",
-					DefaultImageVersion: "v0.1.2",
-					MultiModelServer:    true,
-				},
-			},
-		},
-	}
 
 	protocolV1 := constants.ProtocolV1
 	protocolV2 := constants.ProtocolV2
@@ -119,7 +103,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("v0.4.0"),
+						//RuntimeVersion:  proto.String("v0.4.0"),
 						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -143,7 +127,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("v0.1.2"),
+						//RuntimeVersion:  proto.String("v0.1.2"),
 						ProtocolVersion: &protocolV2,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -184,7 +168,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.XGBoost.Default(&config)
+			scenario.spec.XGBoost.Default(nil)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -202,17 +186,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 			"cpu": resource.MustParse("90m"),
 		},
 	}
-	var config = InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			XGBoost: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "someOtherImage",
-					DefaultImageVersion: "0.1.0",
-					MultiModelServer:    true,
-				},
-			},
-		},
-	}
+	var config = InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
@@ -238,15 +212,8 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-					"--nthread=1",
-				},
 			},
 		},
 		"ContainerSpecWithCustomImage": {
@@ -272,12 +239,6 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 				Image:     "customImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-					"--nthread=1",
-				},
 			},
 		},
 		"ContainerSpecWithContainerConcurrency": {
@@ -303,16 +264,8 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-					"--nthread=1",
-					"--workers=1",
-				},
 			},
 		},
 		"ContainerSpecWithWorker": {
@@ -341,14 +294,9 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-					"--nthread=1",
 					"--workers=1",
 				},
 			},
@@ -381,22 +329,7 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			XGBoost: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "someOtherImage",
-					DefaultImageVersion: "0.1.0",
-					MultiModelServer:    true,
-				},
-				V2: &PredictorConfig{
-					ContainerImage:      "mlserver",
-					DefaultImageVersion: "0.1.2",
-					MultiModelServer:    true,
-				},
-			},
-		},
-	}
+	var config = InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
@@ -423,35 +356,8 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "mlserver:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Env: []v1.EnvVar{
-					{
-						Name:  constants.MLServerHTTPPortEnv,
-						Value: fmt.Sprint(constants.MLServerISRestPort),
-					},
-					{
-						Name:  constants.MLServerGRPCPortEnv,
-						Value: fmt.Sprint(constants.MLServerISGRPCPort),
-					},
-					{
-						Name:  constants.MLServerModelsDirEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-					{
-						Name:  constants.MLServerModelImplementationEnv,
-						Value: constants.MLServerXGBoostImplementation,
-					},
-					{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "xgboost",
-					},
-					{
-						Name:  constants.MLServerModelURIEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-				},
 			},
 		},
 		"ContainerSpecWithCustomImage": {
@@ -478,32 +384,6 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 				Image:     "customImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Env: []v1.EnvVar{
-					{
-						Name:  constants.MLServerHTTPPortEnv,
-						Value: fmt.Sprint(constants.MLServerISRestPort),
-					},
-					{
-						Name:  constants.MLServerGRPCPortEnv,
-						Value: fmt.Sprint(constants.MLServerISGRPCPort),
-					},
-					{
-						Name:  constants.MLServerModelsDirEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-					{
-						Name:  constants.MLServerModelImplementationEnv,
-						Value: constants.MLServerXGBoostImplementation,
-					},
-					{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "xgboost",
-					},
-					{
-						Name:  constants.MLServerModelURIEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-				},
 			},
 		},
 		"ContainerSpecWithoutStorageURI": {
@@ -525,31 +405,8 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "mlserver:0.1.2",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Env: []v1.EnvVar{
-					{
-						Name:  constants.MLServerHTTPPortEnv,
-						Value: fmt.Sprint(constants.MLServerISRestPort),
-					},
-					{
-						Name:  constants.MLServerGRPCPortEnv,
-						Value: fmt.Sprint(constants.MLServerISGRPCPort),
-					},
-					{
-						Name:  constants.MLServerModelsDirEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-					{
-						Name:  constants.MLServerLoadModelsStartupEnv,
-						Value: fmt.Sprint(false),
-					},
-					{
-						Name:  constants.MLServerModelImplementationEnv,
-						Value: constants.MLServerXGBoostImplementation,
-					},
-				},
 			},
 		},
 	}
@@ -565,167 +422,157 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 	}
 }
 
-func TestXGBoostIsMMS(t *testing.T) {
+func TestXGBoostGetProtocol(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	multiModelServerCases := [2]bool{true, false}
-
-	for _, mmsCase := range multiModelServerCases {
-		config := InferenceServicesConfig{
-			Predictors: PredictorsConfig{
-				XGBoost: PredictorProtocols{
-					V1: &PredictorConfig{
-						ContainerImage:      "xgboost",
-						DefaultImageVersion: "v0.4.0",
-						MultiModelServer:    mmsCase,
-					},
-					V2: &PredictorConfig{
-						ContainerImage:      "mlserver",
-						DefaultImageVersion: "v0.1.2",
-						MultiModelServer:    mmsCase,
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"DefaultProtocol": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV1),
+		},
+		"ProtocolV2": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
 					},
 				},
 			},
-		}
-
-		protocolV1 := constants.ProtocolV1
-		protocolV2 := constants.ProtocolV2
-
-		defaultResource = v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse("1"),
-			v1.ResourceMemory: resource.MustParse("2Gi"),
-		}
-
-		scenarios := map[string]struct {
-			spec     PredictorSpec
-			expected bool
-		}{
-			"DefaultRuntimeVersion": {
-				spec: PredictorSpec{
-					XGBoost: &XGBoostSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{},
-					},
-				},
-				expected: mmsCase,
-			},
-			"DefaultRuntimeVersionAndProtocol": {
-				spec: PredictorSpec{
-					XGBoost: &XGBoostSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{
-							ProtocolVersion: &protocolV1,
-						},
-					},
-				},
-				expected: mmsCase,
-			},
-			"DefaultRuntimeVersionAndProtocol2": {
-				spec: PredictorSpec{
-					XGBoost: &XGBoostSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{
-							ProtocolVersion: &protocolV2,
-						},
-					},
-				},
-				expected: mmsCase,
-			},
-		}
-
-		for name, scenario := range scenarios {
-			t.Run(name, func(t *testing.T) {
-				scenario.spec.XGBoost.Default(&config)
-				res := scenario.spec.XGBoost.IsMMS(&config)
-				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-					t.Errorf("got %t, want %t", res, scenario.expected)
-				}
-			})
-		}
+			matcher: gomega.Equal(constants.ProtocolV2),
+		},
+	}
+	for _, scenario := range scenarios {
+		protocol := scenario.spec.XGBoost.GetProtocol()
+		g.Expect(protocol).To(scenario.matcher)
 	}
 }
 
-func TestXGBoostIsFrameworkSupported(t *testing.T) {
+func TestXGBoostSpec_GetEnvVarsV2(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	xgboost := "xgboost"
-	unsupportedFramework := "framework"
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{
-			XGBoost: PredictorProtocols{
-				V1: &PredictorConfig{
-					ContainerImage:      "xgboost",
-					DefaultImageVersion: "latest",
-					SupportedFrameworks: []string{xgboost},
-				},
-				V2: &PredictorConfig{
-					ContainerImage:      "mlserver",
-					DefaultImageVersion: "0.1.2",
-					SupportedFrameworks: []string{xgboost},
-				},
-			},
-		},
-	}
 
-	protocolV1 := constants.ProtocolV1
-	protocolV2 := constants.ProtocolV2
-
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
 	scenarios := map[string]struct {
-		spec      PredictorSpec
-		framework string
-		expected  bool
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
 	}{
-		"SupportedFrameworkV1": {
+		"storage uri is nil": {
 			spec: PredictorSpec{
 				XGBoost: &XGBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV1,
-					},
+					PredictorExtensionSpec: PredictorExtensionSpec{},
 				},
 			},
-			framework: xgboost,
-			expected:  true,
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerHTTPPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISRestPort)),
+				},
+				{
+					Name:  constants.MLServerGRPCPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
+				},
+				{
+					Name:  constants.MLServerModelsDirEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+				{
+					Name:  constants.MLServerLoadModelsStartupEnv,
+					Value: strconv.FormatBool(false),
+				},
+			}),
 		},
-		"SupportedFrameworkV2": {
+		"storage uri is not nil": {
 			spec: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV2,
+						StorageURI: proto.String("gs://kserve/model"),
 					},
 				},
 			},
-			framework: xgboost,
-			expected:  true,
-		},
-		"UnsupportedFrameworkV1": {
-			spec: PredictorSpec{
-				XGBoost: &XGBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV1,
-					},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerHTTPPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISRestPort)),
 				},
-			},
-			framework: unsupportedFramework,
-			expected:  false,
-		},
-		"UnsupportedFrameworkV2": {
-			spec: PredictorSpec{
-				XGBoost: &XGBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV2,
-					},
+				{
+					Name:  constants.MLServerGRPCPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
 				},
-			},
-			framework: unsupportedFramework,
-			expected:  false,
+				{
+					Name:  constants.MLServerModelsDirEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+			}),
 		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.XGBoost.Default(&config)
-			res := scenario.spec.XGBoost.IsFrameworkSupported(scenario.framework, &config)
-			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %t, want %t", res, scenario.expected)
+			res := scenario.spec.XGBoost.getEnvVarsV2()
+			if !g.Expect(res).To(scenario.matcher) {
+				t.Errorf("got %q, want %q", res, scenario.matcher)
+			}
+		})
+	}
+}
+
+func TestXGBoostSpec_GetDefaultsV2(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	metadata := metav1.ObjectMeta{
+		Name: "test",
+	}
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"storage uri is nil": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerModelImplementationEnv,
+					Value: constants.MLServerXGBoostImplementation,
+				},
+			}),
+		},
+		"storage uri is not nil": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://kserve/model"),
+					},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerModelImplementationEnv,
+					Value: constants.MLServerXGBoostImplementation,
+				},
+				{
+					Name:  constants.MLServerModelNameEnv,
+					Value: metadata.Name,
+				},
+				{
+					Name:  constants.MLServerModelURIEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+			}),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.XGBoost.getDefaultsV2(metadata)
+			if !g.Expect(res).To(scenario.matcher) {
+				t.Errorf("got %q, want %q", res, scenario.matcher)
 			}
 		})
 	}

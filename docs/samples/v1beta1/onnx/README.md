@@ -18,7 +18,7 @@ $ inferenceservice.serving.kserve.io/style-sample configured
 ## Run a sample inference
 
 1. Setup env vars
-The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/get_started/first_isvc/#3-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/master/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 export MODEL_NAME=style-sample

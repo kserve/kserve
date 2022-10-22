@@ -23,6 +23,8 @@ import (
 	"knative.dev/pkg/kmp"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -148,5 +150,75 @@ func TestBatcherInjector(t *testing.T) {
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
+	}
+}
+
+func TestGetBatcherConfigs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cases := []struct {
+		name      string
+		configMap *v1.ConfigMap
+		matchers  []types.GomegaMatcher
+	}{
+		{
+			name: "Valid Batcher Config",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					BatcherConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/batcher:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&BatcherConfig{
+					Image:         "gcr.io/kfserving/batcher:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Invalid Resource Value",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					BatcherConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/batcher:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200mc",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&BatcherConfig{
+					Image:         "gcr.io/kfserving/batcher:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200mc",
+					MemoryLimit:   "1Gi",
+				}),
+				gomega.HaveOccurred(),
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		loggerConfigs, err := getBatcherConfigs(tc.configMap)
+		g.Expect(err).Should(tc.matchers[1])
+		g.Expect(loggerConfigs).Should(tc.matchers[0])
 	}
 }

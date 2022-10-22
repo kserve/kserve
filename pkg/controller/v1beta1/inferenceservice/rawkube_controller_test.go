@@ -19,6 +19,7 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -66,27 +67,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 	Context("When creating inference service with raw kube predictor", func() {
 		configs := map[string]string{
-			"predictors": `{
-               "tensorflow": {
-                  "image": "tensorflow/serving",
-				  "defaultTimeout": "60",
- 				  "multiModelServer": false
-               },
-               "sklearn": {
-                 "v1": {
-                  	"image": "kfserving/sklearnserver",
-					"multiModelServer": true
-                 },
-                 "v2": {
-                  	"image": "kfserving/sklearnserver",
-					"multiModelServer": true
-                 }
-               },
-               "xgboost": {
-				  	"image": "kfserving/xgbserver",
-				  	"multiModelServer": true
-               }
-	         }`,
 			"explainers": `{
                "alibi": {
                   "image": "kfserving/alibi-explainer",
@@ -114,6 +94,41 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-foo"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -149,6 +164,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
+			isvc.DefaultInferenceService(nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -192,7 +208,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
+								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 								"serving.kserve.io/deploymentMode":                         "RawDeployment",
 								"serving.kserve.io/autoscalerClass":                        "hpa",
 								"serving.kserve.io/metrics":                                "cpu",
@@ -203,19 +219,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Containers: []v1.Container{
 								{
 									Image: "tensorflow/serving:" +
-										*isvc.Spec.Predictor.Tensorflow.RuntimeVersion,
+										*isvc.Spec.Predictor.Model.RuntimeVersion,
 									Name:    constants.InferenceServiceContainerName,
 									Command: []string{v1beta1.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + v1beta1.TensorflowServingGRPCPort,
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
-										"--model_name=" + isvc.Name,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &v1.Probe{
-										Handler: v1.Handler{
+										ProbeHandler: v1.ProbeHandler{
 											TCPSocket: &v1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,
@@ -483,27 +498,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 	Context("When creating inference service with raw kube predictor and empty ingressClassName", func() {
 		configs := map[string]string{
-			"predictors": `{
-               "tensorflow": {
-                  "image": "tensorflow/serving",
-				  "defaultTimeout": "60",
- 				  "multiModelServer": false
-               },
-               "sklearn": {
-                 "v1": {
-                  	"image": "kfserving/sklearnserver",
-					"multiModelServer": true
-                 },
-                 "v2": {
-                  	"image": "kfserving/sklearnserver",
-					"multiModelServer": true
-                 }
-               },
-               "xgboost": {
-				  	"image": "kfserving/xgbserver",
-				  	"multiModelServer": true
-               }
-	         }`,
 			"explainers": `{
                "alibi": {
                   "image": "kfserving/alibi-explainer",
@@ -531,6 +525,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			// Create InferenceService
 			serviceName := "raw-foo-no-ingress-class"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -566,6 +596,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
+			isvc.DefaultInferenceService(nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -609,7 +640,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
+								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 								"serving.kserve.io/deploymentMode":                         "RawDeployment",
 								"serving.kserve.io/autoscalerClass":                        "hpa",
 								"serving.kserve.io/metrics":                                "cpu",
@@ -620,19 +651,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Containers: []v1.Container{
 								{
 									Image: "tensorflow/serving:" +
-										*isvc.Spec.Predictor.Tensorflow.RuntimeVersion,
+										*isvc.Spec.Predictor.Model.RuntimeVersion,
 									Name:    constants.InferenceServiceContainerName,
 									Command: []string{v1beta1.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + v1beta1.TensorflowServingGRPCPort,
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
-										"--model_name=" + isvc.Name,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &v1.Probe{
-										Handler: v1.Handler{
+										ProbeHandler: v1.ProbeHandler{
 											TCPSocket: &v1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,
@@ -900,27 +930,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 	Context("When creating inference service with raw kube predictor with domain template", func() {
 		configs := map[string]string{
-			"predictors": `{
-               "tensorflow": {
-                  "image": "tensorflow/serving",
-				  "defaultTimeout": "60",
- 				  "multiModelServer": false
-               },
-               "sklearn": {
-                 "v1": {
-                  	"image": "kfserving/sklearnserver",
-					"multiModelServer": true
-                 },
-                 "v2": {
-                  	"image": "kfserving/sklearnserver",
-					"multiModelServer": true
-                 }
-               },
-               "xgboost": {
-				  	"image": "kfserving/xgbserver",
-				  	"multiModelServer": true
-               }
-	         }`,
 			"explainers": `{
                "alibi": {
                   "image": "kfserving/alibi-explainer",
@@ -949,6 +958,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			// Create InferenceService
 			serviceName := "model"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -984,6 +1029,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
+			isvc.DefaultInferenceService(nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -1027,7 +1073,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
+								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 								"serving.kserve.io/deploymentMode":                         "RawDeployment",
 								"serving.kserve.io/autoscalerClass":                        "hpa",
 								"serving.kserve.io/metrics":                                "cpu",
@@ -1038,19 +1084,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Containers: []v1.Container{
 								{
 									Image: "tensorflow/serving:" +
-										*isvc.Spec.Predictor.Tensorflow.RuntimeVersion,
+										*isvc.Spec.Predictor.Model.RuntimeVersion,
 									Name:    constants.InferenceServiceContainerName,
 									Command: []string{v1beta1.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + v1beta1.TensorflowServingGRPCPort,
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
-										"--model_name=" + isvc.Name,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &v1.Probe{
-										Handler: v1.Handler{
+										ProbeHandler: v1.ProbeHandler{
 											TCPSocket: &v1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,

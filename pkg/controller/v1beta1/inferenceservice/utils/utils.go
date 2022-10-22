@@ -41,17 +41,16 @@ import (
 
 // IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
 // storage uri nor storage spec is set
-func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
-	return predictor.GetImplementation().IsMMS(isvcConfig) &&
-		predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
+func IsMMSPredictor(predictor *v1beta1api.PredictorSpec) bool {
+	return predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
 }
 
-func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
+func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity) bool {
 	if isvc.Spec.Predictor.GetExtensions() == nil || len(isvc.Spec.Predictor.GetImplementations()) == 0 {
 		return false
 	}
 
-	container := isvc.Spec.Predictor.GetImplementation().GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), isvcConfig)
+	container := isvc.Spec.Predictor.GetImplementation().GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), nil)
 
 	predictorMemoryLimit := container.Resources.Limits.Memory()
 	return predictorMemoryLimit.Cmp(totalReqMemory) >= 0
@@ -60,10 +59,13 @@ func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory
 /*
 GetDeploymentMode returns the current deployment mode, supports Serverless and RawDeployment
 case 1: no serving.kserve.org/deploymentMode annotation
-        return config.deploy.defaultDeploymentMode
+
+	return config.deploy.defaultDeploymentMode
+
 case 2: serving.kserve.org/deploymentMode is set
-        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
-		else return config.deploy.defaultDeploymentMode
+
+	        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
+			else return config.deploy.defaultDeploymentMode
 */
 func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.DeployConfig) constants.DeploymentModeType {
 	deploymentMode, ok := annotations[constants.DeploymentMode]
@@ -117,10 +119,11 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
 
 	runtimePodSpecJson, err := json.Marshal(v1.PodSpec{
-		NodeSelector: runtimePodSpec.NodeSelector,
-		Affinity:     runtimePodSpec.Affinity,
-		Tolerations:  runtimePodSpec.Tolerations,
-		Volumes:      runtimePodSpec.Volumes,
+		NodeSelector:     runtimePodSpec.NodeSelector,
+		Affinity:         runtimePodSpec.Affinity,
+		Tolerations:      runtimePodSpec.Tolerations,
+		Volumes:          runtimePodSpec.Volumes,
+		ImagePullSecrets: runtimePodSpec.ImagePullSecrets,
 	})
 	if err != nil {
 		return nil, err
@@ -183,7 +186,7 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
-func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig *v1beta1.InferenceServicesConfig) {
+func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRuntime *string) {
 	image := container.Image
 	if runtimeVersion != nil {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
@@ -192,14 +195,16 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, isvcConfig 
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
 		}
-		return
-	}
-	if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
-		imageName := strings.Split(image, ":")[0]
-		if imageName == isvcConfig.Predictors.Tensorflow.ContainerImage {
-			container.Image = imageName + ":" + isvcConfig.Predictors.Tensorflow.DefaultGpuImageVersion
-		} else if imageName == isvcConfig.Predictors.PyTorch.ContainerImage {
-			container.Image = imageName + ":" + isvcConfig.Predictors.PyTorch.DefaultGpuImageVersion
+	} else {
+		if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
+			re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+			if len(re.FindString(image)) > 0 {
+				// For TFServing/TorchServe the GPU image is tagged with suffix "-gpu", when the version is found in the tag
+				// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
+				if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe) {
+					container.Image = image + "-gpu"
+				}
+			}
 		}
 	}
 }

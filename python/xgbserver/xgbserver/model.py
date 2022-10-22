@@ -13,14 +13,14 @@
 # limitations under the License.
 
 from kserve import Model, Storage
-from kserve.model import ModelMissingError, InferenceError
+from kserve.errors import InferenceError, ModelMissingError
 import xgboost as xgb
 import numpy as np
 from xgboost import XGBModel
 import os
 from typing import Dict
 
-BOOSTER_FILE = "model.bst"
+BOOSTER_FILE_EXTENSION = ".bst"
 
 
 class XGBoostModel(Model):
@@ -35,19 +35,27 @@ class XGBoostModel(Model):
             self.ready = True
 
     def load(self) -> bool:
-        model_file = os.path.join(
-            Storage.download(self.model_dir), BOOSTER_FILE)
-        if not os.path.exists(model_file):
-            raise ModelMissingError(model_file)
+        model_path = Storage.download(self.model_dir)
+        model_files = []
+        for file in os.listdir(model_path):
+            file_path = os.path.join(model_path, file)
+            if os.path.isfile(file_path) and file.endswith(BOOSTER_FILE_EXTENSION):
+                model_files.append(file_path)
+        if len(model_files) == 0:
+            raise ModelMissingError(model_path)
+        elif len(model_files) > 1:
+            raise RuntimeError('More than one model file is detected, '
+                               f'Only one is allowed within model_dir: {model_files}')
+
         self._booster = xgb.Booster(params={"nthread": self.nthread},
-                                    model_file=model_file)
+                                    model_file=model_files[0])
         self.ready = True
         return self.ready
 
-    def predict(self, request: Dict) -> Dict:
+    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
-            dmatrix = xgb.DMatrix(np.array(request["instances"]), nthread=self.nthread)
+            dmatrix = xgb.DMatrix(np.array(payload["instances"]), nthread=self.nthread)
             result: xgb.DMatrix = self._booster.predict(dmatrix)
             return {"predictions": result.tolist()}
         except Exception as e:

@@ -18,7 +18,7 @@ from sklearnserver import SKLearnModel
 import joblib
 import pickle
 import os
-from kserve.model import ModelMissingError
+from kserve.errors import ModelMissingError
 
 import pytest
 

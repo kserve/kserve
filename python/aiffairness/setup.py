@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pathlib
 
 from setuptools import setup, find_packages
 
@@ -20,19 +21,22 @@ tests_require = [
     'mypy'
 ]
 
+with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
+    version = version_file.read().strip()
+
 setup(
     name='aifserver',
-    version='0.7.0',
+    version=version,
     author_email='Andrew.Butler@ibm.com',
     license='https://github.com/kserve/kserve/LICENSE',
     url='https://github.com/kserve/kserve/python/aifserver',
     description='Model Server implementation for AI fairness. \
                  Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
-    python_requires='>3.4',
+    python_requires='>3.7',
     packages=find_packages("aifserver"),
     install_requires=[
-        "kserve>=0.7.0",
+        f"kserve>={version}",
         "aif360 >= 0.2.3",
         "nest_asyncio>=1.4.0",
         "requests[security]>=2.24.0"

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pathlib
 
 from setuptools import setup, find_packages
 
@@ -20,24 +21,27 @@ tests_require = [
     'mypy'
 ]
 
+with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
+    version = version_file.read().strip()
+
 setup(
     name='alibiexplainer',
-    version='0.7.0',
+    version=version,
     author_email='cc@seldon.io',
     license='../../LICENSE.txt',
     url='https://github.com/kserve/kserve/python/alibiexplainer',
     description='Model Explanation Server. \
                  Not intended for use outside KServe Frameworks Images',
     long_description=open('README.md').read(),
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     packages=find_packages("alibiexplainer"),
     install_requires=[
-        "kserve>=0.7.0",
+        f"kserve>={version}",
         "nest_asyncio>=1.4.0",
         "alibi==0.6.4",
         "joblib>=0.13.2",
-        "xgboost==1.5.0",
-        "shap==0.40.0",
+        "xgboost==1.6.1",
+        "shap==0.41.0",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

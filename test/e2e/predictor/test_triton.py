@@ -74,7 +74,7 @@ def test_triton():
             print(deployment)
         raise e
     res = predict(service_name, "./data/image.json", model_name='cifar10')
-    assert(np.argmax(res.get("predictions")[0]) == 5)
+    assert (np.argmax(res.get("predictions")[0]) == 5)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -126,5 +126,5 @@ def test_triton_runtime():
             print(deployment)
         raise e
     res = predict(service_name, "./data/image.json", model_name='cifar10')
-    assert(np.argmax(res.get("predictions")[0]) == 5)
+    assert (np.argmax(res.get("predictions")[0]) == 5)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

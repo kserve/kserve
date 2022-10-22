@@ -147,9 +147,6 @@ func TestCustomPredictorValidation(t *testing.T) {
 
 func TestCustomPredictorDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{},
-	}
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
@@ -198,7 +195,7 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
-			customPredictor.Default(&config)
+			customPredictor.Default(nil)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -222,9 +219,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 			"memory": resource.MustParse("1Gi"),
 		},
 	}
-	var config = InferenceServicesConfig{
-		Predictors: PredictorsConfig{},
-	}
+	var config = InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
@@ -293,9 +288,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 
 func TestCustomPredictorIsMMS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{},
-	}
+	config := InferenceServicesConfig{}
 
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
@@ -340,9 +333,7 @@ func TestCustomPredictorIsMMS(t *testing.T) {
 func TestCustomPredictorIsFrameworkSupported(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	framework := "framework"
-	config := InferenceServicesConfig{
-		Predictors: PredictorsConfig{},
-	}
+	config := InferenceServicesConfig{}
 
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
@@ -380,5 +371,57 @@ func TestCustomPredictorIsFrameworkSupported(t *testing.T) {
 				t.Errorf("got %t, want %t", res, scenario.expected)
 			}
 		})
+	}
+}
+
+func TestCustomPredictorGetProtocol(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"Default protocol": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV1),
+		},
+		"protocol v2": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
+								},
+								{
+									Name:  constants.CustomSpecProtocolEnvVarKey,
+									Value: string(constants.ProtocolV2),
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV2),
+		},
+	}
+	for _, scenario := range scenarios {
+		customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+		protocol := customPredictor.GetProtocol()
+		g.Expect(protocol).To(scenario.matcher)
 	}
 }

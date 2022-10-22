@@ -63,5 +63,5 @@ def test_pytorch():
             print(pod)
         raise e
     res = predict(service_name, './data/cifar_input.json')
-    assert(np.argmax(res["predictions"]) == 3)
+    assert (np.argmax(res["predictions"]) == 3)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
