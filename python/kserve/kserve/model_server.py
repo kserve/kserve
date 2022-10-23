@@ -192,7 +192,8 @@ class ModelServer:
             raise RuntimeError("Unknown model collection types")
 
         logging.info(f"starting uvicorn with {self.workers} workers")
-        # TODO: multiprocessing does not work programmatically https://www.uvicorn.org/deployment/#running-programmatically
+        # TODO: multiprocessing does not work programmatically
+        # https://www.uvicorn.org/deployment/#running-programmatically
         cfg = uvicorn.Config(
             self.create_application(),
             host="0.0.0.0",
@@ -210,7 +211,8 @@ class ModelServer:
                     "access": {
                         "()": "uvicorn.logging.AccessFormatter",
                         "datefmt": DATE_FORMAT,
-                        "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+                        "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s - '
+                               '"%(request_line)s" %(status_code)s',
                         # noqa: E501
                     },
                 },
