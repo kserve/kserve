@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/kserve/kserve/pkg/constants"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -42,9 +43,8 @@ var log = logf.Log.WithName("InferenceGraphRouter")
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, error) {
 	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
 	for _, h := range headersToPropagate {
-		_, exists := headers[h]
-		if exists {
-			for _, v := range headers[h] {
+		if values, ok := headers[h]; ok {
+			for _, v := range values {
 				req.Header.Add(h, v)
 			}
 		}
@@ -195,7 +195,7 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 
 var (
 	jsonGraph          = flag.String("graph-json", "", "serialized json graph def")
-	headersToPropagate = strings.Split(os.Getenv("PROPAGATE_HEADERS"), ",")
+	headersToPropagate = strings.Split(os.Getenv(constants.RouterHeadersPropagateEnvVar), ",")
 )
 
 func main() {

@@ -47,6 +47,11 @@ var (
 	InferenceServiceConfigMapName = "inferenceservice-config"
 )
 
+// InferenceGraph Constants
+const (
+	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
+)
+
 // TrainedModel Constants
 var (
 	TrainedModelAllocated = KServeAPIGroupName + "/" + "trainedmodel-allocated"

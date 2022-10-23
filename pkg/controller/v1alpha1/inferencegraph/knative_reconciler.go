@@ -177,7 +177,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	if exists {
 		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []v1.EnvVar{
 			{
-				Name:  "PROPAGATE_HEADERS",
+				Name:  constants.RouterHeadersPropagateEnvVar,
 				Value: strings.Join(value, ","),
 			},
 		}
