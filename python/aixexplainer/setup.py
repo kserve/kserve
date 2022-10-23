@@ -38,7 +38,7 @@ setup(
     install_requires=[
         f"kserve>={version}",
         "argparse >= 1.4.0",
-        "aix360 >= 0.2.0",
+        "aix360 >= 0.2.1",
         "lime >= 0.1.1.37",
         "nest_asyncio>=1.4.0",
         "cvxpy == 1.1.13"
