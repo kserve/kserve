@@ -83,6 +83,7 @@ func (ma *MetricsAggregator) InjectMetricsAggregator(pod *v1.Pod) error {
 			pod.ObjectMeta.Annotations = make(map[string]string)
 		}
 		pod.ObjectMeta.Annotations[constants.EnableMetricAggregation] = ma.EnableMetricAggregation
+		enableMetricAggregation = ma.EnableMetricAggregation
 	}
 	if enableMetricAggregation == "true" {
 		setMetricAggregationEnvVars(pod)
@@ -92,9 +93,10 @@ func (ma *MetricsAggregator) InjectMetricsAggregator(pod *v1.Pod) error {
 	setPromAnnotation, ok := pod.ObjectMeta.Annotations[constants.SetPrometheusAnnotation]
 	if !ok {
 		pod.ObjectMeta.Annotations[constants.SetPrometheusAnnotation] = ma.EnablePrometheusScraping
+		setPromAnnotation = ma.EnablePrometheusScraping
 	}
 	if setPromAnnotation == "true" {
-	    // Set prometheus port to default queue proxy prometheus metrics port.
+		// Set prometheus port to default queue proxy prometheus metrics port.
 		// If enableMetricAggregation is true, set it as the queue proxy metrics aggregation port.
 		podPromPort := constants.DefaultPodPrometheusPort
 		if enableMetricAggregation == "true" {
