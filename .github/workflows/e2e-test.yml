@@ -295,8 +295,7 @@ jobs:
 
   test-qpext:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build]
-      #, predictor-runtime-build]
+    needs: [kserve-image-build, predictor-runtime-build]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
@@ -304,11 +303,6 @@ jobs:
           go-version: '1.17.3'
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
-      - name: Build runtime server images
-        run: |
-          ./test/scripts/gh-actions/build-server-runtimes.sh predictor,transformer
-          docker image ls
-          cat ./config/overlays/test/configmap/inferenceservice.yaml
       - name: Build queue proxy extension image
         run: |
           ./test/scripts/gh-actions/build-qpext-image.sh
