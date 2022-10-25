@@ -95,7 +95,7 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.EnableMetricAggregation: "true",
+						constants.EnableMetricAggregation: "false",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -147,14 +147,14 @@ func TestInjectMetricsAggregator(t *testing.T) {
 				},
 			},
 		},
-		"setPromAnnotationTrue": {
+		"setPromAnnotationTrueWithAggTrue": {
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.EnableMetricAggregation:          "true",
-						constants.SetPrometheusAggregateAnnotation: "true",
+						constants.EnableMetricAggregation: "true",
+						constants.SetPrometheusAnnotation: "true",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -172,10 +172,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.EnableMetricAggregation:          "true",
-						constants.SetPrometheusAggregateAnnotation: "true",
-						constants.PrometheusPortAnnotationKey:      constants.QueueProxyAggregatePrometheusMetricsPort,
-						constants.PrometheusPathAnnotationKey:      constants.DefaultPrometheusPath,
+						constants.EnableMetricAggregation:     "true",
+						constants.SetPrometheusAnnotation:     "true",
+						constants.PrometheusPortAnnotationKey: constants.QueueProxyAggregatePrometheusMetricsPort,
+						constants.PrometheusPathAnnotationKey: constants.DefaultPrometheusPath,
 					},
 				},
 				Spec: v1.PodSpec{
@@ -194,14 +194,14 @@ func TestInjectMetricsAggregator(t *testing.T) {
 				},
 			},
 		},
-		"SetPromAnnotationFalse": {
+		"setPromAnnotationTrueWithAggFalse": {
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.EnableMetricAggregation:          "true",
-						constants.SetPrometheusAggregateAnnotation: "false",
+						constants.EnableMetricAggregation: "false",
+						constants.SetPrometheusAnnotation: "true",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -219,8 +219,50 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.EnableMetricAggregation:          "true",
-						constants.SetPrometheusAggregateAnnotation: "false",
+						constants.EnableMetricAggregation:     "false",
+						constants.SetPrometheusAnnotation:     "true",
+						constants.PrometheusPortAnnotationKey: constants.DefaultPodPrometheusPort,
+						constants.PrometheusPathAnnotationKey: constants.DefaultPrometheusPath,
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{
+						Name: "sklearn",
+					},
+						{
+							Name: "queue-proxy",
+						},
+					},
+				},
+			},
+		},
+		"SetPromAnnotationFalse": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.EnableMetricAggregation: "true",
+						constants.SetPrometheusAnnotation: "false",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{
+						Name: "sklearn",
+					},
+						{
+							Name: "queue-proxy",
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.EnableMetricAggregation: "true",
+						constants.SetPrometheusAnnotation: "false",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -241,11 +283,14 @@ func TestInjectMetricsAggregator(t *testing.T) {
 		},
 	}
 
+	cfgMap := v1.ConfigMap{Data: map[string]string{"enableMetricAggregation": "false", "enablePrometheusScraping": "false"}}
+	ma, err := newMetricsAggregator(&cfgMap)
+	if err != nil {
+		t.Errorf("Error creating the metrics aggregator %v", err)
+	}
+
 	for name, scenario := range scenarios {
-		err := InjectMetricsAggregator(scenario.original)
-		if err != nil {
-			t.Errorf("Test %q unexpected error %e", name, err)
-		}
+		ma.InjectMetricsAggregator(scenario.original)
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}

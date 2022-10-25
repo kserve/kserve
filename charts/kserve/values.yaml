@@ -10,6 +10,9 @@ kserve:
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+  metricsaggregator:
+    enableMetricAggregation: "false"
+    enablePrometheusScraping: "false"
   controller:
     deploymentMode: "Serverless"
     gateway:

@@ -20,7 +20,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-echo "Starting E2E functional tests ..."
+echo "Starting E2E queue proxy extension tests ..."
 pushd test/e2e >/dev/null
-  pytest -m "$1" --ignore=qpext
+  pytest qpext
 popd

@@ -12,6 +12,7 @@ PADDLE_IMG ?= paddleserver
 ALIBI_IMG ?= alibi-explainer
 AIX_IMG ?= aix-explainer
 STORAGE_INIT_IMG ?= storage-initializer
+QPEXT_IMG ?= qpext
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -262,6 +263,12 @@ docker-build-storageInitializer:
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+
+docker-build-qpext:
+	cd qpext && docker build -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext.Dockerfile .
+
+docker-build-push-qpext: docker-build-qpext
+	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
 
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)
