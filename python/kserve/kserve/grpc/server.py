@@ -13,10 +13,11 @@
 # limitations under the License.
 
 
-from concurrent import futures
 import logging
+from concurrent import futures
 
 from kserve.grpc import grpc_predict_v2_pb2_grpc
+from kserve.grpc.interceptors import LoggingInterceptor
 from kserve.grpc.servicer import InferenceServicer
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
@@ -40,13 +41,16 @@ class GRPCServer:
         inference_servicer = InferenceServicer(
             self._data_plane,
             self._model_repository_extension)
-        self._server = aio.server(futures.ThreadPoolExecutor(max_workers=max_workers))
+        self._server = aio.server(
+            futures.ThreadPoolExecutor(max_workers=max_workers),
+            interceptors=(LoggingInterceptor(),)
+        )
         grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(
             inference_servicer, self._server)
 
         listen_addr = f'[::]:{self._port}'
         self._server.add_insecure_port(listen_addr)
-        logging.info("Starting server on %s", listen_addr)
+        logging.info("Starting gRPC server on %s", listen_addr)
         await self._server.start()
         await self._server.wait_for_termination()
 
