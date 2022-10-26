@@ -23,13 +23,12 @@ import httpx
 import orjson
 from cloudevents.http import CloudEvent
 from prometheus_client import Histogram
-from google.protobuf.json_format import MessageToJson
 from kserve.grpc import grpc_predict_v2_pb2_grpc
 from kserve.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
                                              ModelInferResponse)
 
 from kserve.errors import InvalidInput
-from kserve.utils.utils import is_structured_cloudevent
+from kserve.utils.utils import convert_grpc_response_to_dict, is_structured_cloudevent
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -235,9 +234,7 @@ class Model:
             if "grpc" in headers.get("user-agent", "") and isinstance(response, ModelInferResponse):
                 return response
             if "application/json" in headers.get("content-type", "") and isinstance(response, ModelInferResponse):
-                # TODO convert grpc_predict_v2_pb2.ModelInferResponse to InferenceResponse dict structure
-                return orjson.loads(
-                    MessageToJson(response, preserving_proto_field_name=True, including_default_value_fields=True))
+                return convert_grpc_response_to_dict(response)
         return response
 
     async def _http_predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:

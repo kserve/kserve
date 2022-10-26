@@ -15,13 +15,18 @@
 import os
 import sys
 import uuid
-from typing import Dict, Union
+from typing import Any, Dict, Union
 
+import orjson
 import psutil
 
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
+from google.protobuf.json_format import MessageToJson
 from grpc import ServicerContext
+from kserve.grpc.grpc_predict_v2_pb2 import ModelInferResponse
+
+from ..constants import constants
 
 
 def is_running_in_k8s():
@@ -135,3 +140,17 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
         headers[metadatum.key] = metadatum.value
 
     return headers
+
+
+def convert_grpc_response_to_dict(response: ModelInferResponse) -> Dict[str, Any]:
+    res = orjson.loads(
+        MessageToJson(response, preserving_proto_field_name=True, including_default_value_fields=True))
+    outputs = res["outputs"]
+    if not outputs:
+        return res
+    for output in outputs:
+        datatype = output["datatype"]
+        datatype_key = constants.GRPC_CONTENT_DATATYPE_MAPPINGS[datatype]
+        output["data"] = output["contents"][datatype_key]
+        del output["contents"]
+    return res
