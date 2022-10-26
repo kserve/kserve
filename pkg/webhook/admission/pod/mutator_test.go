@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"sort"
 	"testing"
 )
 
@@ -255,8 +256,16 @@ func TestMutator_Handle(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.Equal(admission.Response{
+			matcher: gomega.BeEquivalentTo(admission.Response{
 				Patches: []jsonpatch.JsonPatchOperation{
+					{
+						Operation: "add",
+						Path:      "/metadata/annotations",
+						Value: map[string]interface{}{
+							"serving.kserve.io/enable-metric-aggregation":  "",
+							"serving.kserve.io/enable-prometheus-scraping": "",
+						},
+					},
 					{
 						Operation: "add",
 						Path:      "/metadata/namespace",
@@ -287,11 +296,21 @@ func TestMutator_Handle(t *testing.T) {
 			}
 			tc.request.Object.Raw = byteData
 			res := mutator.Handle(context.TODO(), tc.request)
+			sortPatches(res.Patches)
 			g.Expect(res).Should(tc.matcher)
 			if err := c.Delete(context.TODO(), &tc.configMap); err != nil {
 				t.Errorf("failed to delete configmap %v", err)
 			}
 		})
 	}
+}
 
+// sortPatches sorts the slice of patches by Path so that the comparison works
+// when there are > 1 patches. Note: make sure the matcher Patches are sorted.
+func sortPatches(patches []jsonpatch.JsonPatchOperation) {
+	if len(patches) > 1 {
+		sort.Slice(patches, func(i, j int) bool {
+			return patches[i].Path < patches[j].Path
+		})
+	}
 }
