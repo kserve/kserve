@@ -34,20 +34,21 @@ class GRPCServer:
         self._port = port
         self._data_plane = data_plane
         self._model_repository_extension = model_repository_extension
+        self._server = None
 
     async def start(self, max_workers):
         inference_servicer = InferenceServicer(
             self._data_plane,
             self._model_repository_extension)
-        server = aio.server(futures.ThreadPoolExecutor(max_workers=max_workers))
+        self._server = aio.server(futures.ThreadPoolExecutor(max_workers=max_workers))
         grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(
-            inference_servicer, server)
+            inference_servicer, self._server)
 
         listen_addr = f'[::]:{self._port}'
-        server.add_insecure_port(listen_addr)
+        self._server.add_insecure_port(listen_addr)
         logging.info("Starting server on %s", listen_addr)
-        await server.start()
-        await server.wait_for_termination()
+        await self._server.start()
+        await self._server.wait_for_termination()
 
     async def stop(self, sig: int = None):
         logging.info("Waiting for gRPC server shutdown")

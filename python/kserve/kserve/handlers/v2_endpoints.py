@@ -13,6 +13,8 @@
 # limitations under the License.
 from typing import Optional, Dict
 
+from fastapi.requests import Request
+from fastapi.responses import Response
 from kserve.handlers.v2_datamodels import (
     InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
     ModelMetadataResponse, InferenceResponse
@@ -72,11 +74,19 @@ class V2Endpoints:
         metadata = await self.dataplane.model_metadata(model_name)
         return ModelMetadataResponse.parse_obj(metadata)
 
-    async def infer(self, model_name: str, request_body: InferenceRequest,
-                    model_version: Optional[str] = None) -> InferenceResponse:
+    async def infer(
+        self,
+        raw_request: Request,
+        raw_response: Response,
+        model_name: str,
+        request_body: InferenceRequest,
+        model_version: Optional[str] = None
+    ) -> InferenceResponse:
         """Infer handler.
 
         Args:
+            raw_request (Request): fastapi request object,
+            raw_response (Response): fastapi response object,
             model_name (str): Model name.
             request_body (InferenceRequest): Inference request body.
             model_version (Optional[str]): Model version (optional).
@@ -88,8 +98,11 @@ class V2Endpoints:
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
 
-        # TODO: support to read headers
-        response, _ = await self.dataplane.infer(model_name=model_name, body=request_body.dict())
+        request_headers = dict(raw_request.headers)
+        response, response_headers = await self.dataplane.infer(
+            model_name=model_name, body=request_body.dict(), headers=request_headers)
+        if response_headers:
+            raw_response.headers.update(response_headers)
         return InferenceResponse.parse_obj(response)
 
     async def load(self, model_name: str) -> Dict:

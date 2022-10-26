@@ -45,10 +45,10 @@ class AlexNetModel(kserve.Model):
     ) -> Union[Dict, ModelInferResponse]:
         raw_img_data = ""
         if isinstance(payload, Dict):
-            inputs = payload["instances"]
+            input = payload["inputs"][0]
             # Input follows the Tensorflow V1 HTTP API for binary values
             # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-            data = inputs[0]["image"]["b64"]
+            data = input["data"][0]
             raw_img_data = base64.b64decode(data)
         elif isinstance(payload, ModelInferRequest):
             req = payload.inputs[0]
@@ -71,23 +71,34 @@ class AlexNetModel(kserve.Model):
         torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
         result = values.tolist()
+        id = generate_uuid()
         if isinstance(payload, Dict):
-            return {"predictions": values.tolist()}
+            response = {
+                "id": id,
+                "model_name": self.name,
+                "outputs": [
+                    {
+                        "data": result,
+                        "datatype": "FP32",
+                        "name": "output-0",
+                        "shape": list(values.shape)
+                    }
+                ]}
         else:
-            return {
-                "id": generate_uuid(),
+            response = {
+                "id": id,
                 "model_name": payload.model_name,
                 "outputs": [
-                  {
-                    "contents": {
-                        "fp32_contents": result[0],
-                    },
-                    "datatype": "FP32",
-                    "name": "output-0",
-                    "shape": list(values.shape)
-                  }
-                ]
-            }
+                    {
+                        "contents": {
+                            "fp32_contents": result[0],
+                        },
+                        "datatype": "FP32",
+                        "name": "output-0",
+                        "shape": list(values.shape)
+                    }
+                ]}
+        return response
 
 
 if __name__ == "__main__":

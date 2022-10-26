@@ -234,7 +234,8 @@ class Model:
         if headers:
             if "grpc" in headers.get("user-agent", "") and isinstance(response, ModelInferResponse):
                 return response
-            if "application/json" in headers.get("Content-Type", "") and isinstance(response, ModelInferResponse):
+            if "application/json" in headers.get("content-type", "") and isinstance(response, ModelInferResponse):
+                # TODO convert grpc_predict_v2_pb2.ModelInferResponse to InferenceResponse dict structure
                 return orjson.loads(
                     MessageToJson(response, preserving_proto_field_name=True, including_default_value_fields=True))
         return response
