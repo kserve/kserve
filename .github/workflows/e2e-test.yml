@@ -83,6 +83,11 @@ jobs:
         with:
           image: "kserve/custom-model-grpc:${{ github.sha }}"
 
+      - name: Upload custom model transformer grpc image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
+  
   explainer-runtime-build:
     runs-on: ubuntu-latest
     steps:
@@ -358,6 +363,11 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/custom-model-grpc:${{ github.sha }}"
+
+      - name: Download custom transformer grpc image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
 
       - name: Install KServe
         run: |

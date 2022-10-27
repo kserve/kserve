@@ -32,6 +32,7 @@ LGB_IMG=kserve/lgbserver:${GITHUB_SHA}
 PMML_IMG=kserve/pmmlserver:${GITHUB_SHA}
 PADDLE_IMG=kserve/paddleserver:${GITHUB_SHA}
 CUSTOM_MODEL_GRPC=kserve/custom-model-grpc:${GITHUB_SHA}
+CUSTOM_TRANSFORMER_GRPC=kserve/custom-image-transformer-grpc:${GITHUB_SHA}
 # Explainer images
 ALIBI_IMG=kserve/alibi-explainer:${GITHUB_SHA}
 AIX_IMG=kserve/aix-explainer:${GITHUB_SHA}
@@ -54,6 +55,8 @@ pushd python >/dev/null
     docker build -t ${PADDLE_IMG} -f paddle.Dockerfile .
     echo "Building Custom model gRPC image"
     docker build -t ${CUSTOM_MODEL_GRPC} -f custom_model_grpc.Dockerfile .
+    echo "Building image transformer gRPC image"
+    docker build -t ${CUSTOM_TRANSFORMER_GRPC} -f custom_transformer_grpc.Dockerfile .
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then
