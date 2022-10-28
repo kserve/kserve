@@ -329,6 +329,10 @@ def main():
                         type=str,
                         help="Specifies the number of seconds to wait before timing out a request to the component.",
                         default="60")
+    parser.add_argument("--enable-isvc-status",
+                        type=strtobool,
+                        help="Specifies whether to store the inference service status as the output parameter",
+                        default="True")
 
     args = parser.parse_args()
 
@@ -348,6 +352,7 @@ def main():
     min_replicas = int(args.min_replicas)
     max_replicas = int(args.max_replicas)
     request_timeout = int(args.request_timeout)
+    enable_isvc_status = args.enable_isvc_status
 
     # Default the namespace.
     if not namespace:
@@ -410,19 +415,22 @@ def main():
             sys.exit(1)
 
     if output_path:
-        try:
-            # Remove some less needed fields to reduce output size.
-            del model_status['metadata']['managedFields']
-            del model_status['status']['conditions']
-            if sys.getsizeof(model_status) > 3000:
-                del model_status['components']['predictor']['address']['url']
-                del model_status['components']['predictor']['latestCreatedRevision']
-                del model_status['components']['predictor']['latestReadyRevision']
-                del model_status['components']['predictor']['latestRolledoutRevision']
-                del model_status['components']['predictor']['url']
-                del model_status['spec']
-        except KeyError:
-            pass
+        if not enable_isvc_status:
+            model_status = {}
+        else:
+            try:
+                # Remove some less needed fields to reduce output size.
+                del model_status['metadata']['managedFields']
+                del model_status['status']['conditions']
+                if sys.getsizeof(model_status) > 3000:
+                    del model_status['components']['predictor']['address']['url']
+                    del model_status['components']['predictor']['latestCreatedRevision']
+                    del model_status['components']['predictor']['latestReadyRevision']
+                    del model_status['components']['predictor']['latestRolledoutRevision']
+                    del model_status['components']['predictor']['url']
+                    del model_status['spec']
+            except KeyError:
+                pass
 
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))

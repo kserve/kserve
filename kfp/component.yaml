@@ -16,6 +16,7 @@ inputs:
   - {name: Min Replicas,              type: String, default: '-1',         description: 'Minimum number of InferenceService replicas'}
   - {name: Max Replicas,              type: String, default: '-1',         description: 'Maximum number of InferenceService replicas'}
   - {name: Request Timeout,           type: String, default: '60',         description: "Specifies the number of seconds to wait before timing out a request to the component."}
+  - {name: Enable ISVC Status,        type: Bool,   default: 'True',       description: "Specifies whether to store the inference service status as the output parameter"}
 
 outputs:
   - {name: InferenceService Status,   type: String,                        description: 'Status JSON output of InferenceService'}
@@ -40,5 +41,6 @@ implementation:
       --watch-timeout,          {inputValue: Watch Timeout},
       --min-replicas,           {inputValue: Min Replicas},
       --max-replicas,           {inputValue: Max Replicas},
-      --request-timeout,        {inputValue: Request Timeout}
+      --request-timeout,        {inputValue: Request Timeout},
+      --enable-isvc-status,     {inputValue: Enable ISVC Status}
     ]
