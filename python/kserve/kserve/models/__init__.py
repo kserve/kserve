@@ -80,17 +80,12 @@ from kserve.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
 from kserve.models.v1beta1_pmml_spec import V1beta1PMMLSpec
 from kserve.models.v1beta1_paddle_server_spec import V1beta1PaddleServerSpec
 from kserve.models.v1beta1_pod_spec import V1beta1PodSpec
-from kserve.models.v1beta1_predictor_config import V1beta1PredictorConfig
 from kserve.models.v1beta1_predictor_extension_spec import V1beta1PredictorExtensionSpec
-from kserve.models.v1beta1_predictor_protocols import V1beta1PredictorProtocols
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
-from kserve.models.v1beta1_predictors_config import V1beta1PredictorsConfig
 from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
 from kserve.models.v1beta1_storage_spec import V1beta1StorageSpec
 from kserve.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kserve.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec
-from kserve.models.v1beta1_transformer_config import V1beta1TransformerConfig
 from kserve.models.v1beta1_transformer_spec import V1beta1TransformerSpec
-from kserve.models.v1beta1_transformers_config import V1beta1TransformersConfig
 from kserve.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kserve.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec

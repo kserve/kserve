@@ -57,41 +57,6 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
                     alibi = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
                         default_image_version = '0', 
                         image = '0', ), ), 
-                predictors = kserve.models.v1beta1_predictors_config.V1beta1PredictorsConfig(
-                    onnx = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0', 
-                        supported_frameworks=['none'],),
-                    pytorch = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0', 
-                        supported_frameworks=['none'],),
-                    sklearn = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'],),
-                    tensorflow = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0', 
-                        supported_frameworks=['none'],),
-                    triton = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'],),
-                    xgboost = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'], ), ),
-                transformers = kserve.models.v1beta1_transformers_config.V1beta1TransformersConfig(
-                    feast = kserve.models.v1beta1_transformer_config.V1beta1TransformerConfig(
-                        default_image_version = '0', 
-                        image = '0', ), )
             )
         else :
             return V1beta1InferenceServicesConfig(
@@ -102,41 +67,6 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
                     alibi = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
                         default_image_version = '0', 
                         image = '0', ), ), 
-                predictors = kserve.models.v1beta1_predictors_config.V1beta1PredictorsConfig(
-                    onnx = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'],), 
-                    pytorch = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'],), 
-                    sklearn = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'],), 
-                    tensorflow = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'],), 
-                    triton = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'],), 
-                    xgboost = kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
-                        default_gpu_image_version = '0', 
-                        default_image_version = '0', 
-                        image = '0',
-                        supported_frameworks=['none'], ), ),
-                transformers = kserve.models.v1beta1_transformers_config.V1beta1TransformersConfig(
-                    feast = kserve.models.v1beta1_transformer_config.V1beta1TransformerConfig(
-                        default_image_version = '0', 
-                        image = '0', ), ),
         )
 
     def testV1beta1InferenceServicesConfig(self):
