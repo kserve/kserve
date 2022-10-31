@@ -64,7 +64,9 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var webhookPort int
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	flag.IntVar(&webhookPort, "webhook-port", 9443, "The port that the webhook server binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for kserve controller manager. "+
 			"Enabling this will ensure there is only one active kserve controller manager.")
@@ -84,7 +86,7 @@ func main() {
 	log.Info("Setting up manager")
 	mgr, err := manager.New(cfg, manager.Options{
 		MetricsBindAddress: metricsAddr,
-		Port:               9443,
+		Port:               webhookPort,
 		LeaderElection:     enableLeaderElection,
 		LeaderElectionID:   LeaderLockName,
 	})
