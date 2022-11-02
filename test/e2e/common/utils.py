@@ -26,6 +26,7 @@ from kserve.grpc import grpc_predict_v2_pb2 as pb
 from kserve.grpc import grpc_predict_v2_pb2_grpc
 
 from . import inference_pb2_grpc
+from . import inference_pb2
 
 logging.basicConfig(level=logging.INFO)
 
@@ -232,3 +233,18 @@ def predict_grpc(service_name, payload, version=constants.KSERVE_V1BETA1_VERSION
         options=(('grpc.ssl_target_name_override', host),))
     stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(channel)
     return stub.ModelInfer(pb.ModelInferRequest(model_name=model_name, inputs=payload))
+
+
+def predict_grpc_v1(service_name, model_name, input_path):
+    stub = grpc_stub(service_name, KSERVE_TEST_NAMESPACE)
+    with open(input_path, "rb") as f:
+        data = f.read()
+
+    input_data = {"data": data}
+    response = stub.Predictions(
+        inference_pb2.PredictionsRequest(
+            model_name=model_name,
+            input=input_data,
+        )
+    )
+    return json.loads(response.prediction)
