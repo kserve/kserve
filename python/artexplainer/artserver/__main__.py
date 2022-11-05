@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import argparse
-import asyncio
 
 from artserver import ARTModel
 
@@ -42,4 +41,4 @@ if __name__ == "__main__":
     model = ARTModel(args.model_name, args.predictor_host, adversary_type=args.adversary_type,
                      nb_classes=args.nb_classes, max_iter=args.max_iter)
     model.load()
-    asyncio.run(kserve.ModelServer().start([model]))
+    kserve.ModelServer().start([model])

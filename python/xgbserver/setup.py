@@ -27,7 +27,7 @@ tests_require = [
 
 setup(
     name='xgbserver',
-    version='0.9.0',
+    version=version,
     author_email='ellisbigelow@google.com',
     license='../../LICENSE.txt',
     url='https://github.com/kserve/kserve/python/xgbserver',

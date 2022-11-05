@@ -11,17 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import argparse
-import asyncio
 import base64
 import io
 from typing import Dict
 
 import numpy
+
 from PIL import Image
 from torchvision import transforms
-from tritonclient.grpc import InferResult, InferInput
-from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
+from kserve.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 
 from kserve import Model, ModelServer, model_server
 from kserve.model import PredictorProtocol
@@ -69,17 +69,19 @@ class ImageTransformer(Model):
     def v2_request_transform(self, input_tensors):
         request = ModelInferRequest()
         request.model_name = self.name
-        input_0 = InferInput("INPUT__0", input_tensors.shape, "FP32")
-        input_0.set_data_from_numpy(input_tensors)
-        request.inputs.extend([input_0._get_tensor()])
-        if input_0._get_content() is not None:
-            request.raw_input_contents.extend([input_0._get_content()])
+        tensor = {
+            'name': "INPUT__0",
+            'shape': input_tensors.shape,
+            'datatype': "FP32",
+        }
+        request.inputs.extend([tensor])
+        request.raw_input_contents.extend([input_tensors.tobytes()])
         return request
 
-    def postprocess(self, infer_response: ModelInferResponse) -> Dict:
+    def postprocess(self, infer_response: ModelInferResponse, headers: Dict[str, str] = None) -> Dict:
         if self.protocol == PredictorProtocol.GRPC_V2.value:
-            response = InferResult(infer_response)
-            return {"predictions": response.as_numpy("OUTPUT__0").tolist()}
+            res = super.postprocess(infer_response, headers)
+            return {"predictions": res["contents"]["fp32_contents"]}
         else:
             return infer_response
 
@@ -99,4 +101,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = ImageTransformer(args.model_name, predictor_host=args.predictor_host,
                              protocol=args.protocol)
-    asyncio.run(ModelServer(workers=1).start([model]))
+    ModelServer(workers=1).start([model])

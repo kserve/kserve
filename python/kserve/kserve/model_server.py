@@ -14,6 +14,7 @@
 
 import argparse
 import asyncio
+import concurrent.futures
 import logging
 from distutils.util import strtobool
 from typing import List, Dict, Union
@@ -26,15 +27,17 @@ from fastapi.responses import ORJSONResponse
 from prometheus_client import REGISTRY, exposition
 from ray import serve
 from ray.serve.api import Deployment, RayServeHandle
-
+from .utils import utils
 import kserve.errors as errors
 from kserve import Model
+from kserve.grpc.server import GRPCServer
 from kserve.handlers import V1Endpoints, V2Endpoints
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 from kserve.handlers.v2_datamodels import InferenceResponse, ServerMetadataResponse, ServerLiveResponse, \
     ServerReadyResponse, ModelMetadataResponse
 from kserve.model_repository import ModelRepository
+
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -45,13 +48,23 @@ parser.add_argument("--http_port", default=DEFAULT_HTTP_PORT, type=int,
 parser.add_argument("--grpc_port", default=DEFAULT_GRPC_PORT, type=int,
                     help="The GRPC Port listened to by the model server.")
 parser.add_argument("--workers", default=1, type=int,
-                    help="The number of works to fork.")
+                    help="The number of workers for multi-processing.")
+parser.add_argument("--max_threads", default=4, type=int,
+                    help="The number of max processing threads in each worker.")
+parser.add_argument('--max_asyncio_workers', default=None, type=int,
+                    help='Max number of asyncio workers to spawn')
+parser.add_argument("--enable_grpc", default=True, type=lambda x: bool(strtobool(x)),
+                    help="Enable gRPC for the model server")
 parser.add_argument("--enable_docs_url", default=False, type=lambda x: bool(strtobool(x)),
                     help="Enable docs url '/docs' to display Swagger UI.")
 parser.add_argument("--enable_latency_logging", default=False, type=lambda x: bool(strtobool(x)),
                     help="Output a log per request with latency metrics.")
 
 args, _ = parser.parse_known_args()
+
+FORMAT = '%(asctime)s.%(msecs)03d %(name)s %(levelname)s [%(funcName)s():%(lineno)s] %(message)s'
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+logging.basicConfig(level=logging.INFO, format=FORMAT, datefmt=DATE_FORMAT)
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -66,7 +79,10 @@ class ModelServer:
         http_port (int): HTTP port. Default: ``8080``.
         grpc_port (int): GRPC port. Default: ``8081``.
         workers (int): Number of workers for uvicorn. Default: ``1``.
+        max_threads (int): Max number of processing threads. Default: ``4``
+        max_asyncio_workers (int): Max number of AsyncIO threads. Default: ``None``
         registered_models (ModelRepository): Model repository with registered models.
+        enable_grpc (bool): Whether to turn on grpc server. Default: ``True``
         enable_docs_url (bool): Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
         enable_latency_logging (bool): Whether to log latency metric. Default: ``False``.
     """
@@ -74,16 +90,26 @@ class ModelServer:
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers,
+                 max_threads: int = args.max_threads,
+                 max_asyncio_workers: int = args.max_asyncio_workers,
                  registered_models: ModelRepository = ModelRepository(),
+                 enable_grpc: bool = args.enable_grpc,
                  enable_docs_url: bool = args.enable_docs_url,
                  enable_latency_logging: bool = args.enable_latency_logging):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
+        self.max_threads = max_threads
+        self.max_asyncio_workers = max_asyncio_workers
         self._server = None
+        self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
+        self.dataplane = DataPlane(model_registry=registered_models)
+        self.model_repository_extension = ModelRepositoryExtension(
+            model_registry=self.registered_models)
+        self._grpc_server = GRPCServer(grpc_port, self.dataplane, self.model_repository_extension)
 
     def create_application(self) -> FastAPI:
         """Create a KServe ModelServer application with API routes.
@@ -91,10 +117,8 @@ class ModelServer:
         Returns:
             FastAPI: An application instance.
         """
-        dataplane = DataPlane(model_registry=self.registered_models)
-        model_repository_extension = ModelRepositoryExtension(model_registry=self.registered_models)
-        v1_endpoints = V1Endpoints(dataplane, model_repository_extension)
-        v2_endpoints = V2Endpoints(dataplane, model_repository_extension)
+        v1_endpoints = V1Endpoints(self.dataplane, self.model_repository_extension)
+        v2_endpoints = V2Endpoints(self.dataplane, self.model_repository_extension)
 
         return FastAPI(
             title="KServe ModelServer",
@@ -104,7 +128,7 @@ class ModelServer:
             default_response_class=ORJSONResponse,
             routes=[
                 # Server Liveness API returns 200 if server is alive.
-                FastAPIRoute(r"/", dataplane.live),
+                FastAPIRoute(r"/", self.dataplane.live),
                 # Metrics
                 FastAPIRoute(r"/metrics", metrics_handler, methods=["GET"]),
                 # V1 Inference Protocol
@@ -117,9 +141,12 @@ class ModelServer:
                              v1_endpoints.explain, methods=["POST"], tags=["V1"]),
                 # V2 Inference Protocol
                 # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
-                FastAPIRoute(r"/v2", v2_endpoints.metadata, response_model=ServerMetadataResponse, tags=["V2"]),
-                FastAPIRoute(r"/v2/health/live", v2_endpoints.live, response_model=ServerLiveResponse, tags=["V2"]),
-                FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready, response_model=ServerReadyResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2", v2_endpoints.metadata,
+                             response_model=ServerMetadataResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/live", v2_endpoints.live,
+                             response_model=ServerLiveResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready,
+                             response_model=ServerReadyResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}",
                              v2_endpoints.model_metadata, response_model=ModelMetadataResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}",
@@ -142,7 +169,7 @@ class ModelServer:
             }
         )
 
-    async def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
+    def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):
@@ -164,17 +191,65 @@ class ModelServer:
         else:
             raise RuntimeError("Unknown model collection types")
 
+        logging.info(f"starting uvicorn with {self.workers} workers")
+        # TODO: multiprocessing does not work programmatically
+        # https://www.uvicorn.org/deployment/#running-programmatically
         cfg = uvicorn.Config(
             self.create_application(),
             host="0.0.0.0",
             port=self.http_port,
-            workers=self.workers
+            workers=self.workers,
+            log_config={
+                "version": 1,
+                "formatters": {
+                    "default": {
+                        "()": "uvicorn.logging.DefaultFormatter",
+                        "datefmt": DATE_FORMAT,
+                        "fmt": "%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(message)s",
+                        "use_colors": None,
+                    },
+                    "access": {
+                        "()": "uvicorn.logging.AccessFormatter",
+                        "datefmt": DATE_FORMAT,
+                        "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s - '
+                               '"%(request_line)s" %(status_code)s',
+                        # noqa: E501
+                    },
+                },
+                "handlers": {
+                    "default": {
+                        "formatter": "default",
+                        "class": "logging.StreamHandler",
+                        "stream": "ext://sys.stderr",
+                    },
+                    "access": {
+                        "formatter": "access",
+                        "class": "logging.StreamHandler",
+                        "stream": "ext://sys.stdout",
+                    },
+                },
+                "loggers": {
+                    "uvicorn": {"handlers": ["default"], "level": "INFO"},
+                    "uvicorn.error": {"level": "INFO"},
+                    "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
+                },
+            }
         )
 
         self._server = uvicorn.Server(cfg)
-        servers = [self._server.serve()]
-        servers_task = asyncio.gather(*servers)
-        await servers_task
+        if self.max_asyncio_workers is None:
+            # formula as suggest in https://bugs.python.org/issue35279
+            self.max_asyncio_workers = min(32, utils.cpu_count()+4)
+        logging.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
+        asyncio.get_event_loop().set_default_executor(
+            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
+
+        async def servers_task():
+            servers = [self._server.serve()]
+            if self.enable_grpc:
+                servers.append(self._grpc_server.start(self.max_threads))
+            await asyncio.gather(*servers)
+        asyncio.run(servers_task())
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)
