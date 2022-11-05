@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import asyncio
+
 import logging
 import os
 import sys
@@ -49,7 +49,7 @@ def main():
         alibi_model,
     )
     explainer.load()
-    asyncio.run(kserve.ModelServer().start(models=[explainer]))
+    kserve.ModelServer().start(models=[explainer])
 
 
 if __name__ == "__main__":

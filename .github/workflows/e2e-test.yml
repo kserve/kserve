@@ -77,7 +77,17 @@ jobs:
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
           image: "kserve/image-transformer:${{ github.sha }}"
+      
+      - name: Upload custom model grpc image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/custom-model-grpc:${{ github.sha }}"
 
+      - name: Upload custom model transformer grpc image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
+  
   explainer-runtime-build:
     runs-on: ubuntu-latest
     steps:
@@ -322,7 +332,6 @@ jobs:
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
-
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
       - name: Patch qpext image
@@ -333,6 +342,42 @@ jobs:
         timeout-minutes: 30
         run: |
           ./test/scripts/gh-actions/run-qpext-test.sh
+          kubectl get pods -n kserve
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+  test-grpc:
+    runs-on: ubuntu-latest
+    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.3'
+      - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/base-download
+
+      - name: Download custom model grpc image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/custom-model-grpc:${{ github.sha }}"
+
+      - name: Download custom transformer grpc image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+      - name: Run E2E tests
+        timeout-minutes: 40
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "grpc"
           kubectl get pods -n kserve
       - name: Check system status
         if: always()

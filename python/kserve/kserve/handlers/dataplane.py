@@ -240,13 +240,13 @@ class DataPlane:
                 except orjson.JSONDecodeError as e:
                     raise InvalidInput(f"Unrecognized request format: {e}")
 
-            if is_structured_cloudevent(body):
+            if isinstance(body, dict) and is_structured_cloudevent(body):
                 is_cloudevent = True
 
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if not isinstance(model, RayServeHandle):
-            response = await model(body)
+            response = await model(body, headers=headers)
         else:
             model_handle: RayServeHandle = model
             response = await model_handle.remote(body)
