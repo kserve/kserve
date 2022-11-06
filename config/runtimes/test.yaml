@@ -1,0 +1,11 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: identity
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: pytorch
+      storageUri: https://djl-ai.s3.amazonaws.com/resources/demo/pytorch/identity.zip
+      runtime: kserve-djlserving
