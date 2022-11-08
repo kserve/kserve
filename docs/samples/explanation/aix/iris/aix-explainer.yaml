@@ -8,7 +8,6 @@ spec:
     model:
       modelFormat:
         name: sklearn
-      #storageUri: "https://github.com/Cheng8994/joblibs/blob/main/iris/model.joblib?raw=true"
       storageUri: "gs://seldon-models/sklearn/mms/lr_model"
       env:
         - name: PREDICT_PROBA
