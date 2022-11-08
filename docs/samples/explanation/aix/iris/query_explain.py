@@ -74,7 +74,7 @@ for i in temp.keys():
     print(class_names[int(i)])
     for j in temp[i]:
         str_tokens = j[0].split('<')
-        if(len(str_tokens) == 2):
+        if len(str_tokens) == 2:
             feature_num = int(str_tokens[0].strip())
             s1 = feature_names[feature_num] + ' <' + str_tokens[1].strip()
         else:
