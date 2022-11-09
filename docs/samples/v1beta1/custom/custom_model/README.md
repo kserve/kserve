@@ -110,7 +110,7 @@ kubectl apply -f custom.yaml
 Expected Output
 
 ```
-$ inferenceservice.serving.kubeflow.org/custom-model created
+$ inferenceservice.serving.kserve.io/custom-model created
 ```
 
 ### Arguments and Environment Variables
@@ -119,7 +119,7 @@ You can supply additional command arguments on the container spec to configure t
 you need to make sure model object is fork friendly for multi-processing to work. Alternatively you can decorate your model server
 class with replicas and in this case each model server is created as a python worker independent of the server.
 - `--http_port`: the http port model server is listening on, the default port is 8080 
-- `--max_buffer_size`: Max socker buffer size for tornado http client, the default limit is 10Mi.
+- `--max_buffer_size`: Max socker buffer size, the default gRPC limit is 4Mi.
 - `--max_asyncio_workers`: Max number of workers to spawn for python async io loop, by default it is `min(32,cpu.limit + 4)`
 
 ### Run a prediction

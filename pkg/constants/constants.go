@@ -47,6 +47,11 @@ var (
 	InferenceServiceConfigMapName = "inferenceservice-config"
 )
 
+// InferenceGraph Constants
+const (
+	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
+)
+
 // TrainedModel Constants
 var (
 	TrainedModelAllocated = KServeAPIGroupName + "/" + "trainedmodel-allocated"
@@ -77,6 +82,15 @@ var (
 	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/minScale"
 	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/maxScale"
 	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
+	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
+	SetPrometheusAnnotation                     = KServeAPIGroupName + "/enable-prometheus-scraping"
+	KserveContainerPrometheusPortKey            = "prometheus.kserve.io/port"
+	KServeContainerPrometheusPathKey            = "prometheus.kserve.io/path"
+	PrometheusPortAnnotationKey                 = "prometheus.io/port"
+	PrometheusPathAnnotationKey                 = "prometheus.io/path"
+	DefaultPrometheusPath                       = "/metrics"
+	QueueProxyAggregatePrometheusMetricsPort    = "9088"
+	DefaultPodPrometheusPort                    = "9090"
 )
 
 // InferenceService Internal Annotations
@@ -176,9 +190,12 @@ const (
 
 // InferenceService Environment Variables
 const (
-	CustomSpecStorageUriEnvVarKey       = "STORAGE_URI"
-	CustomSpecProtocolEnvVarKey         = "PROTOCOL"
-	CustomSpecMultiModelServerEnvVarKey = "MULTI_MODEL_SERVER"
+	CustomSpecStorageUriEnvVarKey                     = "STORAGE_URI"
+	CustomSpecProtocolEnvVarKey                       = "PROTOCOL"
+	CustomSpecMultiModelServerEnvVarKey               = "MULTI_MODEL_SERVER"
+	KServeContainerPrometheusMetricsPortEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PORT"
+	KServeContainerPrometheusMetricsPathEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PATH"
+	QueueProxyAggregatePrometheusMetricsPortEnvVarKey = "AGGREGATE_PROMETHEUS_METRICS_PORT"
 )
 
 type InferenceServiceComponent string

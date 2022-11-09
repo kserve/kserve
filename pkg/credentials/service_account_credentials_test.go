@@ -18,6 +18,7 @@ package credentials
 
 import (
 	"context"
+	"github.com/onsi/gomega/types"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/credentials/azure"
@@ -399,7 +400,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 	}
 }
 
-func TestAzureCredentialBuilder(t *testing.T) {
+func TestLegacyAzureCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	customOnlyServiceAccount := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -462,7 +463,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 														LocalObjectReference: v1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
-														Key: azure.AzureSubscriptionId,
+														Key: azure.LegacyAzureSubscriptionId,
 													},
 												},
 											},
@@ -473,7 +474,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 														LocalObjectReference: v1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
-														Key: azure.AzureTenantId,
+														Key: azure.LegacyAzureTenantId,
 													},
 												},
 											},
@@ -484,7 +485,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 														LocalObjectReference: v1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
-														Key: azure.AzureClientId,
+														Key: azure.LegacyAzureClientId,
 													},
 												},
 											},
@@ -495,7 +496,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 														LocalObjectReference: v1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
-														Key: azure.AzureClientSecret,
+														Key: azure.LegacyAzureClientSecret,
 													},
 												},
 											},
@@ -650,6 +651,146 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
+func TestAzureCredentialBuilder(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	customOnlyServiceAccount := &v1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "custom-sa",
+			Namespace: "default",
+		},
+		Secrets: []v1.ObjectReference{
+			{
+				Name:      "az-custom-secret",
+				Namespace: "default",
+			},
+		},
+	}
+	customAzureSecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "az-custom-secret",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"AZURE_SUBSCRIPTION_ID": {},
+			"AZURE_TENANT_ID":       {},
+			"AZURE_CLIENT_ID":       {},
+			"AZURE_CLIENT_SECRET":   {},
+		},
+	}
+
+	scenarios := map[string]struct {
+		serviceAccount        *v1.ServiceAccount
+		inputConfiguration    *knservingv1.Configuration
+		expectedConfiguration *knservingv1.Configuration
+		shouldFail            bool
+	}{
+		"Custom Azure Secret": {
+			serviceAccount: customOnlyServiceAccount,
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Env: []v1.EnvVar{
+											{
+												Name: azure.AzureSubscriptionId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureSubscriptionId,
+													},
+												},
+											},
+											{
+												Name: azure.AzureTenantId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureTenantId,
+													},
+												},
+											},
+											{
+												Name: azure.AzureClientId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureClientId,
+													},
+												},
+											},
+											{
+												Name: azure.AzureClientSecret,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureClientSecret,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
+	}
+
+	g.Expect(c.Create(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+
+	builder := NewCredentialBulder(c, configMap)
+	for name, scenario := range scenarios {
+
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
+			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+		)
+		if scenario.shouldFail && err == nil {
+			t.Errorf("Test %q failed: returned success but expected error", name)
+		}
+		// Validate
+		if !scenario.shouldFail {
+			if err != nil {
+				t.Errorf("Test %q failed: returned error: %v", name, err)
+			}
+			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
+			}
+		}
+	}
+
+	g.Expect(c.Delete(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+}
+
 func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	customOnlyServiceAccount := &v1.ServiceAccount{
@@ -752,4 +893,515 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 
 	g.Expect(c.Delete(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+}
+
+func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	namespace := "default"
+	builder := NewCredentialBulder(c, configMap)
+
+	scenarios := map[string]struct {
+		secret            *v1.Secret
+		storageKey        string
+		storageSecretName string
+		overrideParams    map[string]string
+		container         *v1.Container
+		shouldFail        bool
+		matcher           types.GomegaMatcher
+	}{
+		"fail on storage secret name is empty": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "Secret",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-secret",
+					Namespace: namespace,
+				},
+				Data: nil,
+			},
+			storageKey:        "",
+			storageSecretName: "",
+			overrideParams:    make(map[string]string),
+			container:         &v1.Container{},
+			shouldFail:        true,
+			matcher:           gomega.HaveOccurred(),
+		},
+		"storage spec with empty override params": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "minio",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "", "bucket": ""},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: false,
+			matcher: gomega.Equal(&v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_CONFIG",
+						Value: "",
+						ValueFrom: &v1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "storage-secret",
+								},
+								Key:      "minio",
+								Optional: nil,
+							},
+						},
+					},
+					{
+						Name:  "STORAGE_OVERRIDE_CONFIG",
+						Value: "{\"bucket\":\"\",\"type\":\"\"}",
+					},
+				},
+			}),
+		},
+		"simple storage spec": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "minio",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: false,
+			matcher: gomega.Equal(&v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_CONFIG",
+						Value: "",
+						ValueFrom: &v1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "storage-secret",
+								},
+								Key:      "minio",
+								Optional: nil,
+							},
+						},
+					},
+					{
+						Name:  "STORAGE_OVERRIDE_CONFIG",
+						Value: "{\"bucket\":\"test-bucket\",\"type\":\"s3\"}",
+					},
+				},
+			}),
+		},
+		"wrong storage key": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "wrong-key",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: true,
+			matcher:    gomega.HaveOccurred(),
+		},
+		"default storage key": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{DefaultStorageSecretKey + "_s3": "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: false,
+			matcher: gomega.Equal(&v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_CONFIG",
+						Value: "",
+						ValueFrom: &v1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "storage-secret",
+								},
+								Key:      "default_s3",
+								Optional: nil,
+							},
+						},
+					},
+					{
+						Name:  "STORAGE_OVERRIDE_CONFIG",
+						Value: "{\"bucket\":\"test-bucket\",\"type\":\"s3\"}",
+					},
+				},
+			}),
+		},
+		"default storage key with empty storage type": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{DefaultStorageSecretKey: "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: false,
+			matcher: gomega.Equal(&v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_CONFIG",
+						Value: "",
+						ValueFrom: &v1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "storage-secret",
+								},
+								Key:      "default",
+								Optional: nil,
+							},
+						},
+					},
+					{
+						Name:  "STORAGE_OVERRIDE_CONFIG",
+						Value: "{\"bucket\":\"test-bucket\",\"type\":\"\"}",
+					},
+				},
+			}),
+		},
+		"storage spec with uri scheme placeholder": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "minio",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"<scheme-placeholder>://models/example-model/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: false,
+			matcher: gomega.Equal(&v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/example-model/",
+					"/mnt/models/",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_CONFIG",
+						Value: "",
+						ValueFrom: &v1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "storage-secret",
+								},
+								Key:      "minio",
+								Optional: nil,
+							},
+						},
+					},
+					{
+						Name:  "STORAGE_OVERRIDE_CONFIG",
+						Value: "{\"bucket\":\"test-bucket\",\"type\":\"s3\"}",
+					},
+				},
+			}),
+		},
+		"hdfs with uri scheme placeholder": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"hdfs": "{\n      \"type\": \"hdfs\",\n      \"access_key_id\": \"hdfs34\",\n      \"secret_access_key\": \"hdfs123\",\n      \"endpoint_url\": \"http://hdfs-service.kubeflow\",\n     \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "hdfs",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "hdfs", "bucket": ""},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"<scheme-placeholder>://models/example-model/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: false,
+			matcher: gomega.Equal(&v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"hdfs://models/example-model/",
+					"/mnt/models/",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_CONFIG",
+						Value: "",
+						ValueFrom: &v1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "storage-secret",
+								},
+								Key:      "hdfs",
+								Optional: nil,
+							},
+						},
+					},
+					{
+						Name:  "STORAGE_OVERRIDE_CONFIG",
+						Value: "{\"bucket\":\"\",\"type\":\"hdfs\"}",
+					},
+				},
+			}),
+		},
+		"unsupported storage type": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n     \"type\": \"gs\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "minio",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"gs://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: true,
+			matcher:    gomega.HaveOccurred(),
+		},
+		"secret data with syntax error": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n   {  \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "minio",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: true,
+			matcher:    gomega.HaveOccurred(),
+		},
+		"fail on storage type is empty": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n    \"type\": \"\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "minio",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: true,
+			matcher:    gomega.HaveOccurred(),
+		},
+		"fail on bucket is empty on s3 storage": {
+			secret: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n    \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:        "minio",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "s3", "bucket": ""},
+			container: &v1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"<scheme-placeholder>://models/example-model/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: true,
+			matcher:    gomega.HaveOccurred(),
+		},
+	}
+
+	for _, tc := range scenarios {
+		if err := c.Create(context.TODO(), tc.secret); err != nil {
+			t.Errorf("Failed to create secret %s: %v", "storage-secret", err)
+		}
+		err := builder.CreateStorageSpecSecretEnvs(namespace, tc.storageKey, tc.storageSecretName, tc.overrideParams, tc.container)
+		if !tc.shouldFail {
+			g.Expect(err).Should(gomega.BeNil())
+			g.Expect(tc.container).Should(tc.matcher)
+		} else {
+			g.Expect(err).To(tc.matcher)
+		}
+		if err := c.Delete(context.TODO(), tc.secret); err != nil {
+			t.Errorf("Failed to delete secret %s because of: %v", tc.secret.Name, err)
+		}
+	}
 }

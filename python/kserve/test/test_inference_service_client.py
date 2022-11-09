@@ -57,7 +57,7 @@ def generate_inferenceservice():
     return isvc
 
 
-def test_inferenceservice_client_creat():
+def test_inferenceservice_client_create():
     '''Unit test for kserve create api'''
     with patch('kserve.api.kserve_client.KServeClient.create',
                return_value=mocked_unit_result):

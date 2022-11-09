@@ -102,3 +102,8 @@ data:
     {
       "defaultDeploymentMode": "Serverless"
     }
+  metricsAggregator: |-
+    {
+      "enableMetricAggregation": "false",
+      "enablePrometheusScraping" : "false"
+    }

@@ -14,11 +14,12 @@
 
 import argparse
 import logging
-import kserve
 
-from kserve.model import ModelMissingError
 from lgbserver.lightgbm_model_repository import LightGBMModelRepository
 from lgbserver.model import LightGBMModel
+
+import kserve
+from kserve.errors import ModelMissingError
 
 DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"

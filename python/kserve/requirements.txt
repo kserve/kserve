@@ -3,7 +3,6 @@ python_dateutil>=2.8.0
 setuptools>=59.5.0
 urllib3>=1.26.8
 kubernetes>=18.20.0
-tornado>=6.1
 argparse>=1.4.0
 minio>=4.0.9,<=7.1.3
 google-cloud-storage>=1.20.0
@@ -13,7 +12,7 @@ numpy>=1.21.5
 azure-storage-blob==12.9.0
 azure-storage-file-share==12.7.0
 azure-identity>=1.8.0
-cloudevents>=1.2.0
+cloudevents>=1.6.2
 avro>=1.11.0
 boto3==1.21.0
 psutil>=5.9.0
@@ -22,3 +21,7 @@ grpcio>=1.34.0
 tritonclient==2.18.0
 protobuf~=3.19.0
 prometheus-client>=0.13.1
+orjson>=3.8.0
+httpx>=0.23.0
+fastapi>=0.85.0
+uvicorn>=0.16.0

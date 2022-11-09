@@ -349,9 +349,9 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                      account_name,
                      container_name,
                      prefix)
-        token = Storage._get_azure_storage_token()
+        token = Storage._get_azure_storage_token() or Storage._get_azure_storage_access_key()
         if token is None:
-            logging.warning("Azure credentials not found, retrying anonymous access")
+            logging.warning("Azure credentials or shared access signature token not found, retrying anonymous access")
 
         blob_service_client = BlobServiceClient(account_url, credential=token)
         container_client = blob_service_client.get_container_client(container_name)
@@ -451,15 +451,23 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         tenant_id = os.getenv("AZ_TENANT_ID", "")
         client_id = os.getenv("AZ_CLIENT_ID", "")
         client_secret = os.getenv("AZ_CLIENT_SECRET", "")
-        subscription_id = os.getenv("AZ_SUBSCRIPTION_ID", "")
 
-        if tenant_id == "" or client_id == "" or client_secret == "" or subscription_id == "":
+        # convert old environment variable to conform Azure defaults
+        # see azure/identity/_constants.py
+        if tenant_id:
+            os.environ["AZURE_TENANT_ID"] = tenant_id
+        if client_id:
+            os.environ["AZURE_CLIENT_ID"] = client_id
+        if client_secret:
+            os.environ["AZURE_CLIENT_SECRET"] = client_secret
+
+        client_id = os.getenv("AZURE_CLIENT_ID", "")
+        if not client_id:
             return None
 
         # note the SP must have "Storage Blob Data Owner" perms for this to work
-        from azure.identity import ClientSecretCredential
-        token_credential = ClientSecretCredential(tenant_id,
-                                                  client_id, client_secret)
+        from azure.identity import DefaultAzureCredential
+        token_credential = DefaultAzureCredential()
 
         logging.info("Retrieved SP token credential for client_id: %s",
                      client_id)

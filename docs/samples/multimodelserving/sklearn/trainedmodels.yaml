@@ -5,7 +5,7 @@ metadata:
 spec:
   inferenceService: "sklearn-iris-example"
   model:
-    storageUri: "gs://kfserving-examples/models/sklearn/v1/model"
+    storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
     framework: "sklearn"
     memory: "256Mi"
 ---
@@ -16,6 +16,6 @@ metadata:
 spec:
   inferenceService: "sklearn-iris-example"
   model:
-    storageUri: "gs://kfserving-examples/models/sklearn/v1/model"
+    storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
     framework: "sklearn"
     memory: "256Mi"

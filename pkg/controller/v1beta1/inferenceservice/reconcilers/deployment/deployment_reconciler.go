@@ -36,7 +36,7 @@ import (
 
 var log = logf.Log.WithName("DeploymentReconciler")
 
-//DeploymentReconciler reconciles the raw kubernetes deployment resource
+// DeploymentReconciler reconciles the raw kubernetes deployment resource
 type DeploymentReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
@@ -81,7 +81,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 	return deployment
 }
 
-//checkDeploymentExist checks if the deployment exists?
+// checkDeploymentExist checks if the deployment exists?
 func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (constants.CheckResultType, *appsv1.Deployment, error) {
 	//get deployment
 	existingDeployment := &appsv1.Deployment{}
@@ -192,7 +192,7 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	}
 }
 
-//Reconcile ...
+// Reconcile ...
 func (r *DeploymentReconciler) Reconcile() (*appsv1.Deployment, error) {
 	//reconcile Deployment
 	checkResult, deployment, err := r.checkDeploymentExist(r.client)

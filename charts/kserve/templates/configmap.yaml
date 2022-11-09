@@ -200,6 +200,11 @@ data:
   transformers: |-
     {
     }
+  metricsAggregator: |-
+    {
+      "enableMetricAggregation": {{ .Values.kserve.metricsaggregator.enableMetricAggregation }},
+      "enablePrometheusScraping" : {{ .Values.kserve.metricsaggregator.enablePrometheusScraping }}
+    }
 kind: ConfigMap
 metadata:
   name: inferenceservice-config

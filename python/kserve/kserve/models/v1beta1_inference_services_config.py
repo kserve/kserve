@@ -47,31 +47,23 @@ class V1beta1InferenceServicesConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'explainers': 'V1beta1ExplainersConfig',
-        'predictors': 'V1beta1PredictorsConfig',
-        'transformers': 'V1beta1TransformersConfig'
+        'explainers': 'V1beta1ExplainersConfig'
     }
 
     attribute_map = {
-        'explainers': 'explainers',
-        'predictors': 'predictors',
-        'transformers': 'transformers'
+        'explainers': 'explainers'
     }
 
-    def __init__(self, explainers=None, predictors=None, transformers=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, explainers=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServicesConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._explainers = None
-        self._predictors = None
-        self._transformers = None
         self.discriminator = None
 
         self.explainers = explainers
-        self.predictors = predictors
-        self.transformers = transformers
 
     @property
     def explainers(self):
@@ -95,52 +87,6 @@ class V1beta1InferenceServicesConfig(object):
             raise ValueError("Invalid value for `explainers`, must not be `None`")  # noqa: E501
 
         self._explainers = explainers
-
-    @property
-    def predictors(self):
-        """Gets the predictors of this V1beta1InferenceServicesConfig.  # noqa: E501
-
-
-        :return: The predictors of this V1beta1InferenceServicesConfig.  # noqa: E501
-        :rtype: V1beta1PredictorsConfig
-        """
-        return self._predictors
-
-    @predictors.setter
-    def predictors(self, predictors):
-        """Sets the predictors of this V1beta1InferenceServicesConfig.
-
-
-        :param predictors: The predictors of this V1beta1InferenceServicesConfig.  # noqa: E501
-        :type: V1beta1PredictorsConfig
-        """
-        if self.local_vars_configuration.client_side_validation and predictors is None:  # noqa: E501
-            raise ValueError("Invalid value for `predictors`, must not be `None`")  # noqa: E501
-
-        self._predictors = predictors
-
-    @property
-    def transformers(self):
-        """Gets the transformers of this V1beta1InferenceServicesConfig.  # noqa: E501
-
-
-        :return: The transformers of this V1beta1InferenceServicesConfig.  # noqa: E501
-        :rtype: V1beta1TransformersConfig
-        """
-        return self._transformers
-
-    @transformers.setter
-    def transformers(self, transformers):
-        """Sets the transformers of this V1beta1InferenceServicesConfig.
-
-
-        :param transformers: The transformers of this V1beta1InferenceServicesConfig.  # noqa: E501
-        :type: V1beta1TransformersConfig
-        """
-        if self.local_vars_configuration.client_side_validation and transformers is None:  # noqa: E501
-            raise ValueError("Invalid value for `transformers`, must not be `None`")  # noqa: E501
-
-        self._transformers = transformers
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pathlib
 
 import setuptools
 
@@ -20,15 +21,19 @@ TESTS_REQUIRES = [
     'pytest-cov',
     'pytest-asyncio',
     'pytest-tornasync',
-    'mypy'
+    'mypy',
+    'portforward',
 ]
 
 with open('requirements.txt') as f:
     REQUIRES = f.readlines()
 
+with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
+    version = version_file.read().strip()
+
 setuptools.setup(
     name='kserve',
-    version='0.9.0',
+    version=version,
     author="The KServe Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net',
     license="Apache License Version 2.0",
@@ -43,6 +48,7 @@ setuptools.setup(
         'kserve.models',
         'kserve.handlers',
         'kserve.utils',
+        'kserve.grpc'
     ],
     package_data={'': ['requirements.txt']},
     include_package_data=True,

@@ -128,6 +128,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Resources: defaultResource,
 							},
 						},
+						ImagePullSecrets: []v1.LocalObjectReference{
+							{Name: "sr-image-pull-secret"},
+						},
 					},
 					Disabled: proto.Bool(false),
 				},
@@ -208,6 +211,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								ContainerConcurrency: isvc.Spec.Predictor.ContainerConcurrency,
 								TimeoutSeconds:       isvc.Spec.Predictor.TimeoutSeconds,
 								PodSpec: v1.PodSpec{
+									ImagePullSecrets: []v1.LocalObjectReference{
+										{Name: "sr-image-pull-secret"},
+									},
 									Containers: []v1.Container{
 										{
 											Image: "tensorflow/serving:" +
@@ -1145,6 +1151,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Labels: map[string]string{
+							"key1": "val1FromSR",
+							"key2": "val2FromSR",
+						},
+						Annotations: map[string]string{
+							"key1": "val1FromSR",
+							"key2": "val2FromSR",
+						},
 						Containers: []v1.Container{
 							{
 								Name:    constants.InferenceServiceContainerName,
@@ -1159,13 +1173,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Resources: defaultResource,
 							},
 						},
-						Labels: map[string]string{
-							"key1": "val1FromSR",
-							"key2": "val2FromSR",
-						},
-						Annotations: map[string]string{
-							"key1": "val1FromSR",
-							"key2": "val2FromSR",
+						ImagePullSecrets: []v1.LocalObjectReference{
+							{Name: "sr-image-pull-secret"},
 						},
 					},
 					Disabled: proto.Bool(false),
@@ -1197,6 +1206,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI: proto.String("s3://test/mnist/export"),
+							},
+						},
+						PodSpec: v1beta1.PodSpec{
+							ImagePullSecrets: []v1.LocalObjectReference{
+								{Name: "isvc-image-pull-secret"},
 							},
 						},
 					},
@@ -1270,6 +1284,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											},
 											Resources: defaultResource,
 										},
+									},
+									ImagePullSecrets: []v1.LocalObjectReference{
+										{Name: "isvc-image-pull-secret"},
+										{Name: "sr-image-pull-secret"},
 									},
 								},
 							},

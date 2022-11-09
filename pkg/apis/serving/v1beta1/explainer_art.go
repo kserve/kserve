@@ -81,12 +81,13 @@ func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 		args = append(args, s.Config[k])
 	}
 	args = append(args, s.Args...)
-	return &v1.Container{
-		Image:     config.Explainers.ARTExplainer.ContainerImage + ":" + *s.RuntimeVersion,
-		Name:      constants.InferenceServiceContainerName,
-		Resources: s.Resources,
-		Args:      args,
+
+	if s.Container.Image == "" {
+		s.Container.Image = config.Explainers.ARTExplainer.ContainerImage + ":" + *s.RuntimeVersion
 	}
+	s.Container.Name = constants.InferenceServiceContainerName
+	s.Container.Args = append(args, s.Container.Args...)
+	return &s.Container
 }
 
 func (s *ARTExplainerSpec) Default(config *InferenceServicesConfig) {

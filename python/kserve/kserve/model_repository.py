@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,13 +21,16 @@ MODEL_MOUNT_DIRS = "/mnt/models"
 
 
 class ModelRepository:
-    """
-    Model repository interface, follows NVIDIA Triton's `model-repository`
-    extension.
+    """Model repository interface.
+
+    It follows NVIDIA Triton's `Model Repository Extension`_.
+
+    .. _Model Repository Extension:
+        https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md
     """
 
     def __init__(self, models_dir: str = MODEL_MOUNT_DIRS):
-        self.models = {}
+        self.models: Dict[str, Union[Model, RayServeHandle]] = {}
         self.models_dir = models_dir
 
     def load_models(self):

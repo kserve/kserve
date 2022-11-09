@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KServe Authors.
+Copyright 2022 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	time "time"
 
 	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -61,13 +62,13 @@ func NewFilteredInferenceServiceInformer(client versioned.Interface, namespace s
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1beta1().InferenceServices(namespace).List(options)
+				return client.ServingV1beta1().InferenceServices(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1beta1().InferenceServices(namespace).Watch(options)
+				return client.ServingV1beta1().InferenceServices(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&servingv1beta1.InferenceService{},

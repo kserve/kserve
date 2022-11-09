@@ -18,6 +18,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	logger "log"
@@ -33,6 +34,7 @@ import (
 	"github.com/kserve/kserve/pkg/agent/mocks"
 	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/modelconfig"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,7 +65,6 @@ var _ = Describe("Watcher", func() {
 			It("should download and load the new models", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
-				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -82,7 +83,19 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs, false)
+				_, err := os.Stat("/tmp/configs")
+				if os.IsNotExist(err) {
+					if err := os.MkdirAll("/tmp/configs", os.ModePerm); err != nil {
+						logger.Fatal(err, " Failed to create configs directory")
+					}
+				}
+
+				file, _ := json.MarshalIndent(modelConfigs, "", " ")
+				if err := ioutil.WriteFile("/tmp/configs/"+constants.ModelConfigFileName, file, os.ModePerm); err != nil {
+					logger.Fatal(err, " Failed to write config files")
+				}
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
@@ -100,12 +113,18 @@ var _ = Describe("Watcher", func() {
 					},
 					logger: sugar,
 				}
+				puller.waitGroup.wg.Add(len(watcher.ModelEvents))
 				go puller.processCommands(watcher.ModelEvents)
+
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
 				modelSpecMap, _ := SyncModelDir(modelDir+"/test1", watcher.logger)
 				Expect(watcher.ModelTracker).Should(Equal(modelSpecMap))
+
+				DeferCleanup(func() {
+					os.RemoveAll("/tmp/configs")
+				})
 			})
 		})
 	})

@@ -65,16 +65,17 @@ type AgentInjector struct {
 	batcherConfig     *BatcherConfig
 }
 
-//TODO agent config
+// TODO agent config
 func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 	agentConfig := &AgentConfig{}
 	if agentConfigValue, ok := configMap.Data[constants.AgentConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &agentConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall agent json string due to %v ", err))
+			panic(fmt.Errorf("unable to unmarshall agent json string due to %v", err))
 		}
 	}
-	//Ensure that we set proper values for CPU/Memory Limit/Request
+
+	//Ensure that we set proper values
 	resourceDefaults := []string{agentConfig.MemoryRequest,
 		agentConfig.MemoryLimit,
 		agentConfig.CpuRequest,
@@ -82,7 +83,7 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
-			return agentConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q",
+			return agentConfig, fmt.Errorf("failed to parse resource configuration for %q: %s",
 				constants.AgentConfigMapKeyName, err.Error())
 		}
 	}

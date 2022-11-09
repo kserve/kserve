@@ -47,3 +47,22 @@ GCS_DEFAULT_CREDS_FILE = '~/.config/gcloud/application_default_credentials.json'
 
 # Azure credentials constants
 AZ_DEFAULT_CREDS_FILE = '~/.azure/azure_credentials.json'
+
+# Model Serve Constants
+KSERVE_MODEL_SERVER_NAME = "kserve"
+
+# GRPC content datatype mappings constants
+GRPC_CONTENT_DATATYPE_MAPPINGS = {
+    "BOOL": "bool_contents",
+    "INT8": "int_contents",
+    "INT16": "int_contents",
+    "INT32": "int_contents",
+    "INT64": "int64_contents",
+    "UINT8": "uint_contents",
+    "UINT16": "uint_contents",
+    "UINT32": "uint_contents",
+    "UINT64": "uint64_contents",
+    "FP32": "fp32_contents",
+    "FP64": "fp64_contents",
+    "BYTES": "bytes_contents"
+}

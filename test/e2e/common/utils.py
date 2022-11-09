@@ -22,6 +22,9 @@ from kubernetes import client
 
 from kserve import KServeClient
 from kserve import constants
+from kserve.grpc import grpc_predict_v2_pb2 as pb
+from kserve.grpc import grpc_predict_v2_pb2_grpc
+
 from . import inference_pb2_grpc
 
 logging.basicConfig(level=logging.INFO)
@@ -78,7 +81,7 @@ def predict_str(service_name, input_json, protocol_version="v1",
     time.sleep(10)
     cluster_ip = get_cluster_ip()
     host = urlparse(isvc["status"]["url"]).netloc
-    headers = {"Host": host}
+    headers = {"Host": host, "Content-Type": "application/json"}
 
     if model_name is None:
         model_name = service_name
@@ -204,3 +207,28 @@ def get_cluster_ip():
         else:
             cluster_ip = service.status.load_balancer.ingress[0].ip
     return os.environ.get("KSERVE_INGRESS_HOST_PORT", cluster_ip)
+
+
+def predict_grpc(service_name, payload, version=constants.KSERVE_V1BETA1_VERSION, model_name=None):
+    cluster_ip = get_cluster_ip()
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    isvc = kfs_client.get(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        version=version,
+    )
+    host = urlparse(isvc["status"]["url"]).netloc
+    if ":" not in cluster_ip:
+        cluster_ip = cluster_ip + ":80"
+
+    if model_name is None:
+        model_name = service_name
+    logging.info("Cluster IP: %s", cluster_ip)
+    logging.info("gRPC target host: %s", host)
+
+    channel = grpc.insecure_channel(
+        cluster_ip,
+        options=(('grpc.ssl_target_name_override', host),))
+    stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(channel)
+    return stub.ModelInfer(pb.ModelInferRequest(model_name=model_name, inputs=payload))

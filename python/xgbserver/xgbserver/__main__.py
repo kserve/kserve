@@ -14,11 +14,11 @@
 
 import argparse
 import logging
-import kserve
-from kserve.model import ModelMissingError
-
 
 from xgbserver import XGBoostModel, XGBoostModelRepository
+
+import kserve
+from kserve.errors import ModelMissingError
 
 DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -41,5 +41,6 @@ if __name__ == "__main__":
         logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
                       f"trying loading from model repository.")
 
-    kserve.ModelServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread))\
-        .start([model] if model.ready else [])
+    kserve.ModelServer(
+        registered_models=XGBoostModelRepository(args.model_dir, args.nthread)
+    ).start([model] if model.ready else [])

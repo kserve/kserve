@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import dill
-import kserve
 import logging
 import os
 import sys
+
+import dill
 from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 from alibiexplainer.parser import parse_args
+
+import kserve
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
@@ -47,7 +49,7 @@ def main():
         alibi_model,
     )
     explainer.load()
-    kserve.ModelServer().start(models=[explainer], nest_asyncio=True)
+    kserve.ModelServer().start(models=[explainer])
 
 
 if __name__ == "__main__":

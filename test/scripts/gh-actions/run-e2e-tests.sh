@@ -22,5 +22,5 @@ set -o pipefail
 
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
-  pytest -m "$1"
+  pytest -m "$1" --ignore=qpext
 popd

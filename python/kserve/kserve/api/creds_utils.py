@@ -132,10 +132,10 @@ def set_azure_credentials(namespace, credentials_file, service_account):
         azure_creds = json.load(azure_creds_file)
 
     data = {
-        'AZ_CLIENT_ID': azure_creds['clientId'],
-        'AZ_CLIENT_SECRET': azure_creds['clientSecret'],
-        'AZ_SUBSCRIPTION_ID': azure_creds['subscriptionId'],
-        'AZ_TENANT_ID': azure_creds['tenantId'],
+        'AZURE_CLIENT_ID': azure_creds['clientId'],
+        'AZURE_CLIENT_SECRET': azure_creds['clientSecret'],
+        'AZURE_SUBSCRIPTION_ID': azure_creds['subscriptionId'],
+        'AZURE_TENANT_ID': azure_creds['tenantId'],
         }
 
     secret_name = create_secret(

@@ -19,7 +19,6 @@ from kserve.model_repository import ModelRepository
 from kserve.storage import Storage
 from kserve.constants import constants
 from kserve.utils import utils
-from kserve.handlers import base
 
 # import client apis into kserve package
 from kserve.api.kserve_client import KServeClient

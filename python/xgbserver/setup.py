@@ -11,8 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pathlib
 
 from setuptools import setup, find_packages
+
+with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
+    version = version_file.read().strip()
 
 tests_require = [
     'pytest',
@@ -23,7 +27,7 @@ tests_require = [
 
 setup(
     name='xgbserver',
-    version='0.9.0',
+    version=version,
     author_email='ellisbigelow@google.com',
     license='../../LICENSE.txt',
     url='https://github.com/kserve/kserve/python/xgbserver',
@@ -33,7 +37,7 @@ setup(
     python_requires='>3.7',
     packages=find_packages("xgbserver"),
     install_requires=[
-        "kserve",
+        f"kserve>={version}",
         "xgboost == 1.5.0",
         "scikit-learn == 1.0.1",
     ],
