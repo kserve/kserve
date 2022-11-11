@@ -208,7 +208,7 @@ type InferenceServiceProtocol string
 const (
 	KnativeLocalGateway   = "knative-serving/knative-local-gateway"
 	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
-	VisibilityLabel       = "serving.knative.dev/visibility"
+	VisibilityLabel       = "networking.knative.dev/visibility"
 )
 
 var (
