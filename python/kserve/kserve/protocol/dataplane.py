@@ -32,6 +32,8 @@ from .grpc import grpc_predict_v2_pb2 as pb
 import time
 import logging
 
+JSON_HEADERS = ["application/json"]
+
 
 class DataPlane:
     """KServe DataPlane
