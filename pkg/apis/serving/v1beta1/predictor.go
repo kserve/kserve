@@ -27,7 +27,6 @@ import (
 // PredictorImplementation defines common functions for all predictors e.g Tensorflow, Triton, etc
 // +kubebuilder:object:generate=false
 type PredictorImplementation interface {
-	IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool
 }
 
 // PredictorSpec defines the configuration for a predictor,

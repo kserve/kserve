@@ -84,7 +84,7 @@ func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
 	return nil
 }
 
-// GetContainers transforms the resource into a container spec
+// GetContainer transforms the resource into a container spec
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	return &c.Containers[0]
 }
@@ -107,9 +107,4 @@ func (c *CustomPredictor) IsMMS(config *InferenceServicesConfig) bool {
 		}
 	}
 	return false
-}
-
-func (c *CustomPredictor) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
-	//TODO: Figure out how to check if custom predictor is supports framework
-	return true
 }

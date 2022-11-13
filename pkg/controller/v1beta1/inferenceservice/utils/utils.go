@@ -56,6 +56,50 @@ func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory
 	return predictorMemoryLimit.Cmp(totalReqMemory) >= 0
 }
 
+func GetModelName(isvc *v1beta1api.InferenceService) string {
+	modelName := isvc.Name
+	if isvc.Spec.Predictor.Model != nil {
+		// Return model name from env variable for MLServer
+		for _, env := range isvc.Spec.Predictor.Model.Env {
+			if env.Name == constants.MLServerModelNameEnv {
+				return env.Value
+			}
+		}
+		// Return model name from args for tfserving or KServe model server
+		for _, arg := range isvc.Spec.Predictor.Model.Args {
+			if strings.HasPrefix(arg, constants.ArgumentModelName) {
+				modelNameValueArr := strings.Split(arg, "=")
+				if len(modelNameValueArr) == 2 {
+					return modelNameValueArr[1]
+				}
+			}
+		}
+	} else {
+		// Return model name from args for KServe custom model server
+		if isvc.Spec.Transformer != nil && len(isvc.Spec.Transformer.Containers) > 0 {
+			for _, arg := range isvc.Spec.Transformer.Containers[0].Args {
+				if strings.HasPrefix(arg, constants.ArgumentModelName) {
+					modelNameValueArr := strings.Split(arg, "=")
+					if len(modelNameValueArr) == 2 {
+						return modelNameValueArr[1]
+					}
+				}
+			}
+		}
+		if len(isvc.Spec.Predictor.Containers) > 0 {
+			for _, arg := range isvc.Spec.Predictor.Containers[0].Args {
+				if strings.HasPrefix(arg, constants.ArgumentModelName) {
+					modelNameValueArr := strings.Split(arg, "=")
+					if len(modelNameValueArr) == 2 {
+						return modelNameValueArr[1]
+					}
+				}
+			}
+		}
+	}
+	return modelName
+}
+
 /*
 GetDeploymentMode returns the current deployment mode, supports Serverless and RawDeployment
 case 1: no serving.kserve.org/deploymentMode annotation
