@@ -413,7 +413,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 				Uri: "/",
 			},
 			Route: []*istiov1alpha3.HTTPRouteDestination{
-				createHTTPRouteDestination(backend, isvc.Namespace, config.LocalGatewayServiceName),
+				createHTTPRouteDestination(config.LocalGatewayServiceName),
 			},
 			Headers: &istiov1alpha3.Headers{
 				Request: &istiov1alpha3.Headers_HeaderOperations{
