@@ -101,7 +101,7 @@ func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client) (cons
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
 	if err := client.Update(context.TODO(), r.Deployment, kclient.DryRunAll); err != nil {
-		log.Error(err, "Failed to perform dry-run update of deployment")
+		log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", r.Deployment.Name)
 		return constants.CheckResultUnknown, nil, err
 	}
 	if diff, err := kmp.SafeDiff(r.Deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil {
