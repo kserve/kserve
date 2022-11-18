@@ -4,15 +4,15 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
-  name: clusterservingruntimes.serving.kserve.io
+  name: servingruntimes.serving.kserve.io
 spec:
   group: serving.kserve.io
   names:
-    kind: ClusterServingRuntime
-    listKind: ClusterServingRuntimeList
-    plural: clusterservingruntimes
-    singular: clusterservingruntime
-  scope: Cluster
+    kind: ServingRuntime
+    listKind: ServingRuntimeList
+    plural: servingruntimes
+    singular: servingruntime
+  scope: Namespaced
   versions:
     - additionalPrinterColumns:
         - jsonPath: .spec.disabled

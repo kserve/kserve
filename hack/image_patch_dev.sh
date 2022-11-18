@@ -7,19 +7,6 @@ IMG=$(ko resolve -f config/manager/manager.yaml | grep 'image:' | head -1 | awk 
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/${OVERLAY}/manager_image_patch.yaml << EOF
 apiVersion: apps/v1
-kind: StatefulSet 
-metadata:
-  name: kserve-controller-manager
-  namespace: kserve
-spec:
-  template:
-    spec:
-      containers:
-        - name: manager
-          command:
-          image: ${IMG}
----
-apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kserve-controller-manager

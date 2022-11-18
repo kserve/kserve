@@ -28,13 +28,13 @@ Release branches serve several purposes:
 ## Publish the release
 It's generally a good idea to search the repo for control-f for strings of the old version number and replace them with the new, keeping in mind conflicts with other library version numbers.
 
-1. Update configmap to point to $VERSION for all images in the release branch.
-2. Update kserve and dependent python libraries to $VERSION in `setup.py`.
-3. Generate install manifest `./hack/generate-install.sh $VERSION`.
-4. Submit your PR and wait for it to merge.
-5. Once everything has settled, tag and push the release with `git tag $VERSION` and `git push upstream $VERSION`.
-6. KServe python sdk and images are published from github actions.
-7. Upload kserve install manifests to github release artifacts.
+
+1. Update the [VERSION](../python/VERSION) 
+2. Generate install manifest `./hack/generate-install.sh $VERSION`.
+3. Submit your PR and wait for it to merge.
+4. Once everything has settled, tag and push the release with `git tag $VERSION` and `git push upstream $VERSION`.
+5. KServe python sdk and images are published from github actions.
+6. Upload kserve install manifests to github release artifacts.
 
 ## Cherry pick to release branch
 After the release-X.Y release branch is cut, pull requests(PRs) merged to master will be only get merged in the next minor release X.(Y+1).0
