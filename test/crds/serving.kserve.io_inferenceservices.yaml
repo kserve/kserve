@@ -1873,6 +1873,11 @@ spec:
                             type: string
                           data:
                             type: string
+                          dependency:
+                            enum:
+                            - Soft
+                            - Hard
+                            type: string
                           name:
                             type: string
                           nodeName:

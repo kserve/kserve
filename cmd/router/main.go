@@ -21,10 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kserve/kserve/pkg/constants"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -40,7 +39,8 @@ import (
 
 var log = logf.Log.WithName("InferenceGraphRouter")
 
-func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, error) {
+func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, int, error) {
+	log.Info("Entered callService", "serviceUrl", serviceUrl)
 	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
 	for _, h := range headersToPropagate {
 		if values, ok := headers[h]; ok {
@@ -54,14 +54,15 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 
 	if err != nil {
 		log.Error(err, "An error has occurred from service", "service", serviceUrl)
-		return nil, err
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Error(err, "error while reading the response")
 	}
-	return body, err
+	log.Info("Exiting callService", "serviceUrl", serviceUrl)
+	return body, resp.StatusCode, err
 }
 
 func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
@@ -95,7 +96,7 @@ func timeTrack(start time.Time, name string) {
 	log.Info("elapsed time", "node", name, "time", elapsed)
 }
 
-func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, error) {
+func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), nodeName)
 	currentNode := graph.Nodes[nodeName]
 
@@ -105,45 +106,48 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 	if currentNode.RouterType == v1alpha1.Switch {
 		route := pickupRouteByCondition(input, currentNode.Steps)
 		if route == nil {
-			return input, nil //TODO maybe should fail in this case?
+			// TODO Check what response to return if no matching route could be found. For now using 500
+			// One idea is to return 400 saying no matching route was found. But check other 4xx too
+			return input, 500, nil //TODO maybe should fail in this case?
 		}
 		return executeStep(route, graph, input, headers)
 	}
-	if currentNode.RouterType == v1alpha1.Ensemble {
-		ensembleRes := make([]chan map[string]interface{}, len(currentNode.Steps))
-		errChan := make(chan error)
-		for i := range currentNode.Steps {
-			step := &currentNode.Steps[i]
-			resultChan := make(chan map[string]interface{})
-			ensembleRes[i] = resultChan
-			go func() {
-				output, err := executeStep(step, graph, input, headers)
-				if err == nil {
-					var res map[string]interface{}
-					if err = json.Unmarshal(output, &res); err == nil {
-						resultChan <- res
-						return
-					}
-				}
-				errChan <- err
-			}()
-		}
-		// merge responses from parallel steps
-		response := map[string]interface{}{}
-		for i, resultChan := range ensembleRes {
-			key := currentNode.Steps[i].StepName
-			if key == "" {
-				key = strconv.Itoa(i) // Use index if no step name
-			}
-			select {
-			case response[key] = <-resultChan:
-			case err := <-errChan:
-				return nil, err
-			}
-		}
-		return json.Marshal(response)
-	}
+	//if currentNode.RouterType == v1alpha1.Ensemble {
+	//	ensembleRes := make([]chan map[string]interface{}, len(currentNode.Steps))
+	//	errChan := make(chan error)
+	//	for i := range currentNode.Steps {
+	//		step := &currentNode.Steps[i]
+	//		resultChan := make(chan map[string]interface{})
+	//		ensembleRes[i] = resultChan
+	//		go func() {
+	//			output, err := executeStep(step, graph, input, headers)
+	//			if err == nil {
+	//				var res map[string]interface{}
+	//				if err = json.Unmarshal(output, &res); err == nil {
+	//					resultChan <- res
+	//					return
+	//				}
+	//			}
+	//			errChan <- err
+	//		}()
+	//	}
+	//	// merge responses from parallel steps
+	//	response := map[string]interface{}{}
+	//	for i, resultChan := range ensembleRes {
+	//		key := currentNode.Steps[i].StepName
+	//		if key == "" {
+	//			key = strconv.Itoa(i) // Use index if no step name
+	//		}
+	//		select {
+	//		case response[key] = <-resultChan:
+	//		case err := <-errChan:
+	//			return nil, err
+	//		}
+	//	}
+	//	return json.Marshal(response)
+	//}
 	if currentNode.RouterType == v1alpha1.Sequence {
+		var statusCode int
 		var responseBytes []byte
 		var err error
 		for i := range currentNode.Steps {
@@ -155,24 +159,42 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 
 			if step.Condition != "" {
 				if !gjson.ValidBytes(responseBytes) {
-					return nil, fmt.Errorf("invalid response")
+					return nil, 0, fmt.Errorf("invalid response")
 				}
 				// if the condition does not match for the step in the sequence we stop and return the response
+				// TODO Check what response to return if condition at the very first node doesn't match
+				// One idea is to return 400 saying no matching route was found. But check other 4xx too
 				if !gjson.GetBytes(responseBytes, step.Condition).Exists() {
-					return responseBytes, nil
+					return responseBytes, statusCode, nil
 				}
 			}
-			if responseBytes, err = executeStep(step, graph, request, headers); err != nil {
-				return nil, err
+			if responseBytes, statusCode, err = executeStep(step, graph, request, headers); err != nil {
+				return nil, 0, err
+			}
+			// Only if a step is a hard dependency, we will check for it's successfulness
+			if step.Dependency == v1alpha1.Hard {
+				log.Info("This step is a hard dependency")
+				if !isSuccessFul(statusCode) {
+					log.Info("And this hard dependency is unsuccessful", "statusCode", statusCode)
+					// Stop the execution right away if step is hard and is unsuccessful
+					return responseBytes, statusCode, nil
+				}
 			}
 		}
-		return responseBytes, nil
+		return responseBytes, statusCode, nil
 	}
 	log.Error(nil, "invalid route type", "type", currentNode.RouterType)
-	return nil, fmt.Errorf("invalid route type: %v", currentNode.RouterType)
+	return nil, 0, fmt.Errorf("invalid route type: %v", currentNode.RouterType)
 }
 
-func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, error) {
+func isSuccessFul(statusCode int) bool {
+	if statusCode >= 200 && statusCode <= 299 {
+		return true
+	}
+	return false
+}
+
+func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, int, error) {
 	if step.NodeName != "" {
 		// when nodeName is specified make a recursive call for routing to next step
 		return routeStep(step.NodeName, graph, input, headers)
@@ -183,12 +205,13 @@ func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec
 var inferenceGraph *v1alpha1.InferenceGraphSpec
 
 func graphHandler(w http.ResponseWriter, req *http.Request) {
-	inputBytes, _ := io.ReadAll(req.Body)
-	if response, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes, req.Header); err != nil {
+	inputBytes, _ := ioutil.ReadAll(req.Body)
+	if response, statusCode, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes, req.Header); err != nil {
 		log.Error(err, "failed to process request")
 		w.WriteHeader(500) //TODO status code tbd
 		w.Write([]byte(fmt.Sprintf("Failed to process request: %v", err)))
 	} else {
+		w.WriteHeader(statusCode)
 		w.Write(response)
 	}
 }
