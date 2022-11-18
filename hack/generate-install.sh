@@ -65,3 +65,4 @@ cp config/crd/serving.kserve.io_clusterservingruntimes.yaml charts/kserve/crds/s
 cp config/crd/serving.kserve.io_inferenceservices.yaml charts/kserve/crds/serving.kserve.io_inferenceservices.yaml
 cp config/crd/serving.kserve.io_trainedmodels.yaml charts/kserve/crds/serving.kserve.io_trainedmodels.yaml
 cp config/crd/serving.kserve.io_inferencegraphs.yaml charts/kserve/crds/serving.kserve.io_inferencegraphs.yaml
+cp config/crd/serving.kserve.io_servingruntimes.yaml charts/kserve/crds/serving.kserve.io_servingruntimes.yaml
