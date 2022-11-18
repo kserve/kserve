@@ -6,4 +6,9 @@ spec:
   predictor:
     pytorch:
       storageUri: pvc://model-cache
-  nodeName: kube-01            
+      resources:
+          limits:
+            cpu: 4
+            memory: 16Gi
+            nvidia.com/gpu: 1
+  nodeName: ip-xxx-xxx-xxx-xxx.us-west-2.compute.internal

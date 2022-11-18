@@ -36,9 +36,9 @@ $ sudo mkfs.xfs /dev/nvme1n1
 ```
 
 ```bash
-$ sudo mkdir -p /mnt/fast-disks/vol1
+$ sudo mkdir -p /mnt/data/vol1
 $ sudo chmod -R 777 /mnt     
-$ sudo mount /dev/nvme1n1 /mnt/fast-disks/vol1
+$ sudo mount /dev/nvme1n1 /mnt/data/vol1
 ```
 
 Permanently mount the device:
@@ -77,10 +77,13 @@ $ kubectl apply -f storageclass.yaml
 
 Create Local Persistent Volumes for Kubernetes
 
+- Change `hostDir` to the mount path
+
 ```bash
 cd sig-storage-local-static-provisioner
 helm template ./helm/provisioner > ./provisioner/deployment/kubernetes/provisioner_generated.yaml
-kubectl apply -f ./provisioner/deployment/kubernetes/provisioner_generated.yaml
+
+kubectl apply -f ./deployment/kubernetes/provisioner_generated.yaml
 ```
 
 Output of the command line that shows the result of running the kubectl get pods command.
@@ -96,6 +99,32 @@ $ kubectl get pv
 
 NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM                     STORAGECLASS   REASON   AGE
 local-pv-2a85b8ac                          116Gi      RWO            Delete           Bound       kserve-test/model-cache   fast-disks              4d3h
+```
+## Create PVC and helper pod.
+
+```bash
+kubectl apply -f pvc-pod.yaml
+```
+
+## Move model to PVC
+
+Refer: [Bloom Model Example](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Largemodels)
+
+Move the config.properties and MAR file to PVC in the below structure.
+
+```bash
+|_model-store
+  |_bloom-560m.mar
+|_config
+  |_config.properties
+```
+
+```bash
+kubectl exec -it pv-pod -- mkdir /pv/config
+kubectl exec -it pv-pod -- mkdir /pv/model-store
+
+kubectl cp config.properties pv-pod:/pv/config
+kubectl cp bloom-560m.mar -it pv-pod:/pv/config
 ```
 
 ## Create the InferenceService
@@ -150,3 +179,5 @@ Expected Output
 * Connection #0 to host torchserve-bloom-560m.kserve-test.example.com left intact
 Accepted
 ```
+
+**__Note__** For larger models use `A100 80g` GPU instances. 

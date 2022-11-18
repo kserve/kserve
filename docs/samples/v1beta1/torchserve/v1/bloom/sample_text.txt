@@ -1,7 +1,7 @@
 {
   "instances": [
     {
-      "data": "Bloomberg has reported on the economy"
+      "data": "My dog is cute"
     }
   ]
 }
