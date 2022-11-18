@@ -77,9 +77,9 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "100m"
     }
-    metricsAggregator: |-
-      {
+  metricsAggregator: |-
+    {
         "enableMetricAggregation": "false",
         "enablePrometheusScraping" : "false"
-      }
+    }
 EOF
