@@ -29,7 +29,7 @@ Release branches serve several purposes:
 It's generally a good idea to search the repo for control-f for strings of the old version number and replace them with the new, keeping in mind conflicts with other library version numbers.
 
 
-1. Update the [VERSION](python/VERSION) 
+1. Update the [VERSION](../python/VERSION) 
 2. Generate install manifest `./hack/generate-install.sh $VERSION`.
 3. Submit your PR and wait for it to merge.
 4. Once everything has settled, tag and push the release with `git tag $VERSION` and `git push upstream $VERSION`.
