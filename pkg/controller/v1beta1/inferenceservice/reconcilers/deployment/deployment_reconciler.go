@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmp"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -38,13 +38,13 @@ var log = logf.Log.WithName("DeploymentReconciler")
 
 // DeploymentReconciler reconciles the raw kubernetes deployment resource
 type DeploymentReconciler struct {
-	client       client.Client
+	client       kclient.Client
 	scheme       *runtime.Scheme
 	Deployment   *appsv1.Deployment
 	componentExt *v1beta1.ComponentExtensionSpec
 }
 
-func NewDeploymentReconciler(client client.Client,
+func NewDeploymentReconciler(client kclient.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
@@ -82,7 +82,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 }
 
 // checkDeploymentExist checks if the deployment exists?
-func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (constants.CheckResultType, *appsv1.Deployment, error) {
+func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client) (constants.CheckResultType, *appsv1.Deployment, error) {
 	//get deployment
 	existingDeployment := &appsv1.Deployment{}
 	err := client.Get(context.TODO(), types.NamespacedName{
@@ -98,6 +98,12 @@ func (r *DeploymentReconciler) checkDeploymentExist(client client.Client) (const
 	//existed, check equivalence
 	//for HPA scaling, we should ignore Replicas of Deployment
 	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
+	// Do a dry-run update. This will populate our local deployment object with any default values
+	// that are present on the remote version.
+	if err := client.Update(context.TODO(), r.Deployment, kclient.DryRunAll); err != nil {
+		log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", r.Deployment.Name)
+		return constants.CheckResultUnknown, nil, err
+	}
 	if diff, err := kmp.SafeDiff(r.Deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil {
 		return constants.CheckResultUnknown, nil, err
 	} else if diff != "" {
