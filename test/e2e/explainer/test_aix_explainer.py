@@ -57,7 +57,8 @@ def test_tabular_explainer():
             type='LimeImages',
             resources=V1ResourceRequirements(
                 requests={'cpu': '10m', 'memory': '128Mi'},
-                limits={'cpu': '100m', 'memory': '256Mi'}
+                limits={'cpu': '100m', 'memory': '256Mi'},
+                config={'top_labels': '10', 'min_weight': '0.01', 'num_samples': '100'}
             )
         )
     )
