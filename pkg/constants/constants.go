@@ -79,8 +79,8 @@ var (
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
 	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
-	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/minScale"
-	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/maxScale"
+	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/min-scale"
+	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/max-scale"
 	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
 	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
 	SetPrometheusAnnotation                     = KServeAPIGroupName + "/enable-prometheus-scraping"
@@ -208,7 +208,7 @@ type InferenceServiceProtocol string
 const (
 	KnativeLocalGateway   = "knative-serving/knative-local-gateway"
 	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
-	VisibilityLabel       = "serving.knative.dev/visibility"
+	VisibilityLabel       = "networking.knative.dev/visibility"
 )
 
 var (
