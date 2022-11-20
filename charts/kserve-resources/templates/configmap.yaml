@@ -121,13 +121,10 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1"
     }
-  transformers: |-
-    {
-    }
   metricsAggregator: |-
     {
-      "enableMetricAggregation": {{ .Values.kserve.metricsaggregator.enableMetricAggregation }},
-      "enablePrometheusScraping" : {{ .Values.kserve.metricsaggregator.enablePrometheusScraping }}
+      "enableMetricAggregation": "{{ .Values.kserve.metricsaggregator.enableMetricAggregation }}",
+      "enablePrometheusScraping" : "{{ .Values.kserve.metricsaggregator.enablePrometheusScraping }}"
     }
 kind: ConfigMap
 metadata:
