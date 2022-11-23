@@ -3,7 +3,7 @@
 ## Objective: "Graduate core inference capability to stable/GA"
 - Promote `InferenceService` and `ClusterServingRuntime`/`ServingRuntime` CRD from v1beta1 to v1 
   * Improve gRPC yaml interface.
-  * Unifying model storage spec and implementation between KServe and ModelMesh
+  * Unify model storage spec and implementation between KServe and ModelMesh
   * Add Status to `ServingRuntime` for both ModelMesh and KServe, surface `ServingRuntime` validation errors and deployment status.
   * Deprecate `TrainedModel` CRD.
   * Collocate transformer and predictor in the pod.
@@ -50,7 +50,7 @@ Reference: [InferenceGraph issues](https://github.com/kserve/kserve/issues?q=is%
 ## Objective: "Secure InferenceService"
 - Document KServe ServiceMesh setup with mTLS
 - Support programmatic authentication token
-- Per service level auth
-- SPIFFE/SPIRE identity integration with `InferenceService`
+- Implement per service level auth
+- Add support for SPIFFE/SPIRE identity integration with `InferenceService`
 
 Reference: [Auth related issues](https://github.com/kserve/kserve/issues?q=is%3Aissue+is%3Aopen+label%3Akserve%2Fauth)
