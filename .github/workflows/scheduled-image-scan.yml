@@ -1,11 +1,8 @@
-name: Twice a week scan
+name: Twice a week image scan
 # Temporarily adding on push for testing
 on:
-  # on pull request will be removed before merge
-  pull_request:
-    branches: [master]
   schedule:
-    - cron: '0 0 * * 0'
+    - cron: '0 0 * * 0,3'
   workflow_dispatch: {}
 
 jobs:
