@@ -46,10 +46,10 @@ def test_custom_model_grpc():
     )
 
     logger_isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(predictor=logger_predictor))
+                                          kind=constants.KSERVE_KIND,
+                                          metadata=client.V1ObjectMeta(
+                                            name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
+                                          spec=V1beta1InferenceServiceSpec(predictor=logger_predictor))
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
@@ -125,4 +125,3 @@ def test_custom_model_grpc():
     assert ("org.kubeflow.serving.inference.response" in log)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(msg_dumper, KSERVE_TEST_NAMESPACE)
-
