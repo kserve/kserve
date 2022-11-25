@@ -26,3 +26,30 @@ spec:
   - port: 8443
     targetPort: https
     protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: modelmesh-serving
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+spec:
+  type: ClusterIP
+  selector:
+    modelmesh-service: modelmesh-serving
+  ports:
+  - name: grpc
+    port: 8033
+    protocol: TCP
+    targetPort: grpc
+  - name: http
+    port: 8008
+    protocol: TCP
+    targetPort: http
+  - name: prometheus
+    port: 2112
+    protocol: TCP
+    targetPort: prometheus
