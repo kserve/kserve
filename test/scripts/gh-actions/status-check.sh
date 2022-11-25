@@ -9,4 +9,4 @@ kubectl get pods -n kserve-ci-e2e-test
 kubectl describe pods -n kserve-ci-e2e-test
 kubectl get events -n kserve-ci-e2e-test
 kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager
-kubectl logs -l 'component in (predictor, explainer, transfomer)' -c kserve-container -n kserve-ci-e2e-test
+kubectl logs -l 'component in (predictor, explainer, transformer)' -c kserve-container -n kserve-ci-e2e-test
