@@ -181,7 +181,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             target_key = (
                 obj.key.rsplit("/", 1)[-1]
                 if bucket_path == obj.key
-                else obj.key.replace(bucket_path.rsplit("/",1)[0], "", 1).lstrip("/")
+                else obj.key.replace(bucket_path.rsplit("/", 1)[0], "", 1).lstrip("/")
             )
             target = f"{temp_dir}/{target_key}"
             if not os.path.exists(os.path.dirname(target)):
