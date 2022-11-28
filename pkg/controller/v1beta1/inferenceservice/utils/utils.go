@@ -56,8 +56,20 @@ func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory
 	return predictorMemoryLimit.Cmp(totalReqMemory) >= 0
 }
 
+// GetModelName returns the model name for single model serving case
 func GetModelName(isvc *v1beta1api.InferenceService) string {
 	modelName := isvc.Name
+	// Return model name from args for KServe custom model server if transformer presents
+	if isvc.Spec.Transformer != nil && len(isvc.Spec.Transformer.Containers) > 0 {
+		for _, arg := range isvc.Spec.Transformer.Containers[0].Args {
+			if strings.HasPrefix(arg, constants.ArgumentModelName) {
+				modelNameValueArr := strings.Split(arg, "=")
+				if len(modelNameValueArr) == 2 {
+					return modelNameValueArr[1]
+				}
+			}
+		}
+	}
 	if isvc.Spec.Predictor.Model != nil {
 		// Return model name from env variable for MLServer
 		for _, env := range isvc.Spec.Predictor.Model.Env {
@@ -76,16 +88,6 @@ func GetModelName(isvc *v1beta1api.InferenceService) string {
 		}
 	} else {
 		// Return model name from args for KServe custom model server
-		if isvc.Spec.Transformer != nil && len(isvc.Spec.Transformer.Containers) > 0 {
-			for _, arg := range isvc.Spec.Transformer.Containers[0].Args {
-				if strings.HasPrefix(arg, constants.ArgumentModelName) {
-					modelNameValueArr := strings.Split(arg, "=")
-					if len(modelNameValueArr) == 2 {
-						return modelNameValueArr[1]
-					}
-				}
-			}
-		}
 		if len(isvc.Spec.Predictor.Containers) > 0 {
 			for _, arg := range isvc.Spec.Predictor.Containers[0].Args {
 				if strings.HasPrefix(arg, constants.ArgumentModelName) {
