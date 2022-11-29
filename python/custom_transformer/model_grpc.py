@@ -18,7 +18,6 @@ from typing import Dict, Union
 
 from kserve import Model, ModelServer, model_server
 from kserve.grpc.grpc_predict_v2_pb2 import ModelInferRequest
-from kserve.handlers.v2_datamodels import InferenceRequest
 
 
 class ImageTransformer(Model):
@@ -28,7 +27,7 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.model_name = name
 
-    def preprocess(self, request: Union[Dict, ModelInferRequest, InferenceRequest], headers=None) -> ModelInferRequest:
+    def preprocess(self, request: Union[Dict, ModelInferRequest], headers=None) -> ModelInferRequest:
         if isinstance(request, ModelInferRequest):
             return request
         else:

@@ -378,16 +378,18 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService, disableIs
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
 		isvc.Status.URL = url
 		path := ""
+		modelName := isvcutils.GetModelName(isvc)
 		if isvc.Spec.Transformer != nil {
 			// As of now transformer only supports protocol V1
-			path = constants.PredictPath(isvc.Name, constants.ProtocolV1)
+			path = constants.PredictPath(modelName, constants.ProtocolV1)
 		} else if !isvcutils.IsMMSPredictor(&isvc.Spec.Predictor) {
 
 			protocol := isvc.Spec.Predictor.GetImplementation().GetProtocol()
+
 			if protocol == constants.ProtocolV1 {
-				path = constants.PredictPath(isvc.Name, constants.ProtocolV1)
+				path = constants.PredictPath(modelName, constants.ProtocolV1)
 			} else if protocol == constants.ProtocolV2 {
-				path = constants.PredictPath(isvc.Name, constants.ProtocolV2)
+				path = constants.PredictPath(modelName, constants.ProtocolV2)
 			}
 
 		}
