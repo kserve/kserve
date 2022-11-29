@@ -191,11 +191,13 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # If 'uri' is set to "s3://test-bucket/a/b/c/model.bin", then
             # the downloader will add to temp dir: model.bin
             # (without any subpaths).
-            target_key = (
-                obj.key.rsplit("/", 1)[-1]
-                if bucket_path == obj.key
-                else obj.key.replace(bucket_path.rsplit("/", 1)[0], "", 1).lstrip("/")
-            )
+            if bucket_path == obj.key:
+                target_key = obj.key.rsplit("/", 1)[-1]
+            elif bucket_path.rsplit("/", 1)[-1] in obj.key.rsplit("/", 1)[-1]:
+                target_key = obj.key.replace(bucket_path.rsplit("/", 1)[0], "", 1).lstrip("/")
+            else:
+                target_key = obj.key.replace(bucket_path, "").lstrip("/")
+
             target = f"{temp_dir}/{target_key}"
             if not os.path.exists(os.path.dirname(target)):
                 os.makedirs(os.path.dirname(target), exist_ok=True)
