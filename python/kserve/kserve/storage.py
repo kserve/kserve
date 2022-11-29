@@ -180,7 +180,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # (without any subpaths).
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
-            elif bucket_path.rsplit("/", 1)[-1] in obj.key.rsplit("/", 1)[-1]:
+            elif obj.key.rsplit("/", 1)[-1].startswith(bucket_path.rsplit("/", 1)[-1]):
                 target_key = obj.key.replace(bucket_path.rsplit("/", 1)[0], "", 1).lstrip("/")
             else:
                 target_key = obj.key.replace(bucket_path, "").lstrip("/")
