@@ -42,7 +42,17 @@ import (
 // IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
 // storage uri nor storage spec is set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec) bool {
-	return predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
+	if len(predictor.Containers) > 0 {
+		container := predictor.Containers[0]
+		for _, envVar := range container.Env {
+			if envVar.Name == constants.CustomSpecMultiModelServerEnvVarKey && envVar.Value == "true" {
+				return true
+			}
+		}
+		return false
+	} else {
+		return predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
+	}
 }
 
 func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity) bool {
