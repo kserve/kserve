@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -141,7 +140,7 @@ func TestOutputToFileTargetDirectoryError(t *testing.T) {
 
 func readFile(fName string, t *testing.T) []byte {
 	fPath := filepath.Join("testdata", fName)
-	openAPI, err := ioutil.ReadFile(fPath)
+	openAPI, err := os.ReadFile(fPath)
 	if err != nil {
 		t.Fatalf("failed reading %s: %s", fPath, err)
 	}

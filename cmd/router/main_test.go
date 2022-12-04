@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/stretchr/testify/assert"
-	"io/ioutil"
+	"io"
 	"knative.dev/pkg/apis"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +15,7 @@ import (
 func TestSimpleModelChainer(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -29,7 +29,7 @@ func TestSimpleModelChainer(t *testing.T) {
 	}
 	defer model1.Close()
 	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -89,7 +89,7 @@ func TestSimpleModelChainer(t *testing.T) {
 func TestSimpleModelEnsemble(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -103,7 +103,7 @@ func TestSimpleModelEnsemble(t *testing.T) {
 	}
 	defer model1.Close()
 	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -166,7 +166,7 @@ func TestSimpleModelEnsemble(t *testing.T) {
 func TestInferenceGraphWithCondition(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -189,7 +189,7 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 	}
 	defer model1.Close()
 	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -214,7 +214,7 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 
 	// Start a local HTTP server
 	model3 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -237,7 +237,7 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 	}
 	defer model3.Close()
 	model4 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -359,7 +359,7 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -404,7 +404,7 @@ func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 	// Start a local HTTP serverq
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
@@ -450,7 +450,7 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := ioutil.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
