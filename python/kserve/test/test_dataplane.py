@@ -120,7 +120,8 @@ class TestDataPlane:
 
     async def test_infer(self, dataplane_with_model):
         body = b'{"instances":[[1,2]]}'
-        resp = await dataplane_with_model.infer(self.MODEL_NAME, body)
+        headers = {"content-type": "application/json"}
+        resp = await dataplane_with_model.infer(self.MODEL_NAME, body, headers)
         assert resp == (
             {"predictions": [[1, 2]]},  # body
             {}  # headers

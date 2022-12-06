@@ -7,7 +7,8 @@ if len(sys.argv) < 3:
     raise Exception("No endpoint specified. ")
 endpoint = sys.argv[1]
 headers = {
-    'Host': sys.argv[2]
+    "Host": sys.argv[2],
+    "content-type": "application/json"
 }
 
 with open('input.json') as file:
