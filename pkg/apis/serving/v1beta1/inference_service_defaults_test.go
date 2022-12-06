@@ -31,63 +31,290 @@ import (
 
 func TestInferenceServiceDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	config := &InferenceServicesConfig{
-		Explainers: ExplainersConfig{
-			AlibiExplainer: ExplainerConfig{
-				ContainerImage:      "alibi",
-				DefaultImageVersion: "v0.4.0",
-			},
-		},
-	}
-	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
-	}
-	isvc := InferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-		},
-		Spec: InferenceServiceSpec{
-			Predictor: PredictorSpec{
-				Tensorflow: &TFServingSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("gs://testbucket/testmodel"),
+	scenarios := map[string]struct {
+		config       *InferenceServicesConfig
+		deployConfig *DeployConfig
+		isvc         InferenceService
+		runtime      string
+		matcher      map[string]types.GomegaMatcher
+	}{
+		"Serverless": {
+			config: &InferenceServicesConfig{
+				Explainers: ExplainersConfig{
+					AlibiExplainer: ExplainerConfig{
+						ContainerImage:      "alibi",
+						DefaultImageVersion: "v0.4.0",
 					},
 				},
 			},
-			Transformer: &TransformerSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
+			deployConfig: &DeployConfig{
+				DefaultDeploymentMode: "Serverless",
+			},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket/testmodel"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
 								{
-									Name:  "STORAGE_URI",
-									Value: "s3://transformer",
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "s3://transformer",
+										},
+									},
 								},
+							},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						Alibi: &AlibiExplainerSpec{
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								StorageURI: "gs://testbucket/testmodel",
 							},
 						},
 					},
 				},
 			},
-			Explainer: &ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					ExplainerExtensionSpec: ExplainerExtensionSpec{
-						StorageURI: "gs://testbucket/testmodel",
+			matcher: map[string]types.GomegaMatcher{
+				"Annotations": gomega.BeNil(),
+			},
+		},
+		"When annotations is nil in raw deployment": {
+			config: &InferenceServicesConfig{
+				Explainers: ExplainersConfig{
+					AlibiExplainer: ExplainerConfig{
+						ContainerImage:      "alibi",
+						DefaultImageVersion: "v0.4.0",
 					},
 				},
 			},
+			deployConfig: &DeployConfig{
+				DefaultDeploymentMode: string(constants.RawDeployment),
+			},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket/testmodel"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "s3://transformer",
+										},
+									},
+								},
+							},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						Alibi: &AlibiExplainerSpec{
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								StorageURI: "gs://testbucket/testmodel",
+							},
+						},
+					},
+				},
+			},
+			matcher: map[string]types.GomegaMatcher{
+				"Annotations": gomega.Equal(map[string]string{constants.DeploymentMode: string(constants.RawDeployment)}),
+			},
+		},
+		"ONNX": {
+			config: &InferenceServicesConfig{
+				Explainers: ExplainersConfig{
+					AlibiExplainer: ExplainerConfig{
+						ContainerImage:      "alibi",
+						DefaultImageVersion: "v0.4.0",
+					},
+				},
+			},
+			deployConfig: &DeployConfig{
+				DefaultDeploymentMode: "Serverless",
+			},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ONNX: &ONNXRuntimeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket/testmodel"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "s3://transformer",
+										},
+									},
+								},
+							},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						Alibi: &AlibiExplainerSpec{
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								StorageURI: "gs://testbucket/testmodel",
+							},
+						},
+					},
+				},
+			},
+			matcher: map[string]types.GomegaMatcher{
+				"Annotations": gomega.BeNil(),
+			},
+		},
+		"PMML": {
+			config: &InferenceServicesConfig{
+				Explainers: ExplainersConfig{
+					AlibiExplainer: ExplainerConfig{
+						ContainerImage:      "alibi",
+						DefaultImageVersion: "v0.4.0",
+					},
+				},
+			},
+			deployConfig: &DeployConfig{
+				DefaultDeploymentMode: "Serverless",
+			},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PMML: &PMMLSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket/testmodel"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "s3://transformer",
+										},
+									},
+								},
+							},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						Alibi: &AlibiExplainerSpec{
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								StorageURI: "gs://testbucket/testmodel",
+							},
+						},
+					},
+				},
+			},
+			matcher: map[string]types.GomegaMatcher{
+				"Annotations": gomega.BeNil(),
+			},
+		},
+		"Paddle": {
+			config: &InferenceServicesConfig{
+				Explainers: ExplainersConfig{
+					AlibiExplainer: ExplainerConfig{
+						ContainerImage:      "alibi",
+						DefaultImageVersion: "v0.4.0",
+					},
+				},
+			},
+			deployConfig: &DeployConfig{
+				DefaultDeploymentMode: "Serverless",
+			},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Paddle: &PaddleServerSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket/testmodel"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "s3://transformer",
+										},
+									},
+								},
+							},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						Alibi: &AlibiExplainerSpec{
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								StorageURI: "gs://testbucket/testmodel",
+							},
+						},
+					},
+				},
+			},
+			matcher: map[string]types.GomegaMatcher{
+				"Annotations": gomega.BeNil(),
+			},
 		},
 	}
-	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
-	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config, deployConfig)
-	g.Expect(*&isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
-	g.Expect(*&isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
 
-	g.Expect(isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
-	g.Expect(isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
-	g.Expect(*isvc.Spec.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("v0.4.0"))
-	g.Expect(isvc.Spec.Explainer.Alibi.Resources).To(gomega.Equal(resources))
+	for _, scenario := range scenarios {
+		resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
+		scenario.isvc.Spec.DeepCopy()
+		scenario.isvc.DefaultInferenceService(scenario.config, scenario.deployConfig)
+
+		g.Expect(*&scenario.isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
+		g.Expect(scenario.isvc.Spec.Predictor.ONNX).To(gomega.BeNil())
+		g.Expect(scenario.isvc.Spec.Predictor.PMML).To(gomega.BeNil())
+		g.Expect(scenario.isvc.Spec.Predictor.Paddle).To(gomega.BeNil())
+		g.Expect(scenario.isvc.ObjectMeta.Annotations).To(scenario.matcher["Annotations"])
+		g.Expect(scenario.isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
+		g.Expect(scenario.isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
+		g.Expect(*scenario.isvc.Spec.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("v0.4.0"))
+		g.Expect(scenario.isvc.Spec.Explainer.Alibi.Resources).To(gomega.Equal(resources))
+	}
 }
 
 func TestCustomPredictorDefaults(t *testing.T) {
@@ -348,6 +575,24 @@ func TestSetTritonDefaults(t *testing.T) {
 			},
 			matcher: gomega.ContainElement("--model-control-mode=explicit"),
 		},
+		"Default Protocol": {
+			config: &InferenceServicesConfig{},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "triton"},
+							PredictorExtensionSpec: PredictorExtensionSpec{},
+						},
+					},
+				},
+			},
+			matcher: gomega.ContainElement("--model-control-mode=explicit"),
+		},
 	}
 	runtime := constants.TritonServer
 	for _, scenario := range scenarios {
@@ -355,6 +600,7 @@ func TestSetTritonDefaults(t *testing.T) {
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetTritonDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
+		g.Expect(*scenario.isvc.Spec.Predictor.Model.ProtocolVersion).To(gomega.Equal(constants.ProtocolV2))
 		g.Expect(scenario.isvc.Spec.Predictor.Triton).To(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.Model.Args).To(scenario.matcher)
 	}
