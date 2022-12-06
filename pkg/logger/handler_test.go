@@ -18,7 +18,7 @@ package logger
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -42,7 +42,7 @@ func TestLogger(t *testing.T) {
 	responseChan := make(chan string)
 	// Start a local HTTP server
 	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := ioutil.ReadAll(req.Body)
+		b, err := io.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
 		println(string(b))
 		responseChan <- string(b)
@@ -55,7 +55,7 @@ func TestLogger(t *testing.T) {
 
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := ioutil.ReadAll(req.Body)
+		b, err := io.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		_, err = rw.Write(predictorResponse)
@@ -82,7 +82,7 @@ func TestLogger(t *testing.T) {
 
 	oh.ServeHTTP(w, r)
 
-	b2, _ := ioutil.ReadAll(w.Result().Body)
+	b2, _ := io.ReadAll(w.Result().Body)
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
 	// get logRequest
 	<-responseChan
@@ -99,7 +99,7 @@ func TestBadResponse(t *testing.T) {
 
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := ioutil.ReadAll(req.Body)
+		b, err := io.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		http.Error(rw, "BadRequest", http.StatusBadRequest)

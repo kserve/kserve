@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	logger "log"
 	"net/http"
 	"net/http/httptest"
@@ -46,7 +45,7 @@ var _ = Describe("Watcher", func() {
 	var modelDir string
 	var sugar *zap.SugaredLogger
 	BeforeEach(func() {
-		dir, err := ioutil.TempDir("", "example")
+		dir, err := os.MkdirTemp("", "example")
 		if err != nil {
 			logger.Fatal(err)
 		}
@@ -91,7 +90,7 @@ var _ = Describe("Watcher", func() {
 				}
 
 				file, _ := json.MarshalIndent(modelConfigs, "", " ")
-				if err := ioutil.WriteFile("/tmp/configs/"+constants.ModelConfigFileName, file, os.ModePerm); err != nil {
+				if err := os.WriteFile("/tmp/configs/"+constants.ModelConfigFileName, file, os.ModePerm); err != nil {
 					logger.Fatal(err, " Failed to write config files")
 				}
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
@@ -375,7 +374,7 @@ var _ = Describe("Watcher", func() {
 				Expect(err).To(BeNil())
 
 				testFile := filepath.Join(modelDir, modelName, "testModel1")
-				dat, err := ioutil.ReadFile(testFile)
+				dat, err := os.ReadFile(testFile)
 				Expect(err).To(BeNil())
 				Expect(string(dat)).To(Equal(modelContents))
 			})
@@ -590,7 +589,7 @@ var _ = Describe("Watcher", func() {
 					Expect(err).To(BeNil())
 
 					testFile := filepath.Join(modelDir, modelName, modelFile)
-					dat, err := ioutil.ReadFile(testFile)
+					dat, err := os.ReadFile(testFile)
 					Expect(err).To(BeNil())
 					Expect(string(dat)).To(Equal(modelContents + "\n"))
 				}

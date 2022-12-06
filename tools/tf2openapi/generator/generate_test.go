@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -262,7 +262,7 @@ func defaultGenerator() Generator {
 func model(t *testing.T, fName string) *pb.SavedModel {
 	model := &pb.SavedModel{}
 	fPath := filepath.Join("testdata", fName+".pb")
-	modelPb, err := ioutil.ReadFile(fPath)
+	modelPb, err := os.ReadFile(fPath)
 	if err != nil {
 		t.Fatalf("failed reading %s: %s", fPath, err)
 	}
@@ -274,7 +274,7 @@ func model(t *testing.T, fName string) *pb.SavedModel {
 
 func openAPI(t *testing.T, fName string) []byte {
 	fPath := filepath.Join("testdata", fName+".golden.json")
-	openAPI, err := ioutil.ReadFile(fPath)
+	openAPI, err := os.ReadFile(fPath)
 	if err != nil {
 		t.Fatalf("failed reading %s: %s", fPath, err)
 	}
@@ -312,7 +312,7 @@ func loadSwagger(t *testing.T, fName string) *openapi3.T {
 
 func loadPayload(t *testing.T, fName string) []byte {
 	fPath := filepath.Join("testdata", fName+"Req.json")
-	payload, err := ioutil.ReadFile(fPath)
+	payload, err := os.ReadFile(fPath)
 	if err != nil {
 		t.Fatalf("failed reading %s: %s", fPath, err)
 	}

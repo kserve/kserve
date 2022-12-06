@@ -17,7 +17,6 @@ limitations under the License.
 package storage
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -34,7 +33,7 @@ func TestCreate(t *testing.T) {
 	// This would get called in StartPullerAndProcessModels
 	syscall.Umask(0)
 
-	tmpDir, _ := ioutil.TempDir("", "test-create-")
+	tmpDir, _ := os.MkdirTemp("", "test-create-")
 	defer os.RemoveAll(tmpDir)
 
 	folderPath := path.Join(tmpDir, "foo")
@@ -54,7 +53,7 @@ func TestCreate(t *testing.T) {
 func TestFileExists(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	syscall.Umask(0)
-	tmpDir, _ := ioutil.TempDir("", "test")
+	tmpDir, _ := os.MkdirTemp("", "test")
 	defer os.RemoveAll(tmpDir)
 
 	// Test case for existing file
@@ -74,8 +73,8 @@ func TestFileExists(t *testing.T) {
 func TestRemoveDir(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	syscall.Umask(0)
-	tmpDir, _ := ioutil.TempDir("", "test")
-	subDir, _ := ioutil.TempDir(tmpDir, "test")
+	tmpDir, _ := os.MkdirTemp("", "test")
+	subDir, _ := os.MkdirTemp(tmpDir, "test")
 	os.CreateTemp(subDir, "tmp")
 	os.CreateTemp(tmpDir, "tmp")
 
