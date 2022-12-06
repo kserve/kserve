@@ -19,7 +19,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +52,7 @@ func SyncModelDir(modelDir string, logger *zap.SugaredLogger) (map[string]modelW
 				if err != nil {
 					return errors.Wrapf(err, "failed to parse success file")
 				}
-				byteValue, err := ioutil.ReadAll(jsonFile)
+				byteValue, err := io.ReadAll(jsonFile)
 				if err != nil {
 					return errors.Wrapf(err, "failed to read from model spec")
 				}

@@ -19,7 +19,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
@@ -62,7 +62,7 @@ type modelWrapper struct {
 }
 
 func (w *Watcher) syncModelConfig(modelConfigFile string, initializing bool) error {
-	file, err := ioutil.ReadFile(modelConfigFile)
+	file, err := os.ReadFile(modelConfigFile)
 	if err != nil {
 		return err
 	} else {

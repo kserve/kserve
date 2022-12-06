@@ -21,8 +21,8 @@ import grpc
 
 import httpx
 import orjson
+from kserve.metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
 from cloudevents.http import CloudEvent
-from prometheus_client import Histogram
 from kserve.grpc import grpc_predict_v2_pb2_grpc
 from kserve.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
                                              ModelInferResponse)
@@ -34,11 +34,6 @@ PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
-
-PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'pre-processing request latency')
-POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'post-processing request latency')
-PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds', 'prediction request latency')
-EXPLAIN_HIST_TIME = Histogram('request_explain_processing_seconds', 'explain request latency')
 
 
 class ModelType(Enum):
@@ -98,21 +93,22 @@ class Model:
         explain_ms = 0
         predict_ms = 0
         postprocess_ms = 0
+        prom_labels = get_labels()
 
-        with PRE_HIST_TIME.time():
+        with PRE_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
             payload = await self.preprocess(body, headers) if inspect.iscoroutinefunction(self.preprocess) \
                 else self.preprocess(body, headers)
             preprocess_ms = get_latency_ms(start, time.time())
         payload = self.validate(payload)
         if model_type == ModelType.EXPLAINER:
-            with EXPLAIN_HIST_TIME.time():
+            with EXPLAIN_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
                 response = (await self.explain(payload, headers)) if inspect.iscoroutinefunction(self.explain) \
                     else self.explain(payload, headers)
                 explain_ms = get_latency_ms(start, time.time())
         elif model_type == ModelType.PREDICTOR:
-            with PREDICT_HIST_TIME.time():
+            with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
                 response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(payload, headers)
@@ -120,7 +116,7 @@ class Model:
         else:
             raise NotImplementedError
 
-        with POST_HIST_TIME.time():
+        with POST_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
             response = self.postprocess(response, headers)
             postprocess_ms = get_latency_ms(start, time.time())

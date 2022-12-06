@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/onsi/gomega"
-	"io/ioutil"
+	"io"
 	pkglogging "knative.dev/pkg/logging"
 	"net/http"
 	"net/http/httptest"
@@ -41,7 +41,7 @@ func serveRequest(batchHandler *BatchHandler, wg *sync.WaitGroup, index int) {
 	w := httptest.NewRecorder()
 	batchHandler.ServeHTTP(w, r)
 
-	b2, _ := ioutil.ReadAll(w.Result().Body)
+	b2, _ := io.ReadAll(w.Result().Body)
 	var res Response
 	_ = json.Unmarshal(b2, &res)
 	fmt.Printf("Got response %v\n", res)
@@ -55,7 +55,7 @@ func TestBatcher(t *testing.T) {
 	responseChan := make(chan Response)
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := ioutil.ReadAll(req.Body)
+		b, err := io.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
 		var request Request
 		err = json.Unmarshal(b, &request)
@@ -96,7 +96,7 @@ func TestBatcherFail(t *testing.T) {
 	responseChan := make(chan Response)
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := ioutil.ReadAll(req.Body)
+		b, err := io.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
 		var request Request
 		err = json.Unmarshal(b, &request)
@@ -136,7 +136,7 @@ func TestBatcherDefaults(t *testing.T) {
 	responseChan := make(chan Response)
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := ioutil.ReadAll(req.Body)
+		b, err := io.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
 		var request Request
 		err = json.Unmarshal(b, &request)

@@ -18,7 +18,7 @@ package logger
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -76,7 +76,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Read Payload
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "can't read body", http.StatusBadRequest)
 		return
@@ -104,7 +104,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Proxy Request
-	r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 	eh.next.ServeHTTP(rr, r)
 	responseBody := rr.Body.Bytes()
