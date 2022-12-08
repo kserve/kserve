@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	logger "github.com/kserve/kserve/qpext"
 	"github.com/prometheus/client_golang/prometheus"
+	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
 	"io"
@@ -37,6 +38,8 @@ import "knative.dev/serving/pkg/queue/sharedmain"
 
 var (
 	promRegistry *prometheus.Registry
+	EnvVars      = []string{"SERVING_SERVICE", "SERVING_CONFIGURATION", "SERVING_REVISION"}
+	LabelKeys    = []string{"service_name", "configuration_name", "revision_name"}
 )
 
 const (
@@ -98,6 +101,50 @@ func scrapeAndWriteAgentMetrics(w io.Writer) error {
 	var errs error
 	for _, mf := range mfs {
 		if err = enc.Encode(mf); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
+}
+
+func getServerlessLabelVals() []string {
+	var labelValues []string
+	for _, envVar := range EnvVars {
+		labelValues = append(labelValues, os.Getenv(envVar))
+	}
+	return labelValues
+}
+
+// addServerlessLabels adds the serverless labels to the prometheus metrics that are imported in from the application.
+// this is done so that the prometheus metrics (both queue-proxy's and kserve-container's) can be easily queried together.
+func addServerlessLabels(metric *io_prometheus_client.Metric, labelKeys []string, labelValues []string) *io_prometheus_client.Metric {
+	// LabelKeys, EnvVars, and LabelVals are []string to enforce setting them in order (helps with testing)
+	for idx, name := range labelKeys {
+		labelName := name
+		labelValue := labelValues[idx]
+		newLabelPair := &io_prometheus_client.LabelPair{
+			Name:  &labelName,
+			Value: &labelValue,
+		}
+		metric.Label = append(metric.Label, newLabelPair)
+	}
+	return metric
+}
+
+func scrapeAndWriteMetrics(mfs map[string]*io_prometheus_client.MetricFamily, w io.Writer, logger *zap.Logger) error {
+	enc := expfmt.NewEncoder(w, expfmt.FmtText)
+	var errs error
+	labelValues := getServerlessLabelVals()
+	for _, mf := range mfs {
+		var newMetric []*io_prometheus_client.Metric
+		// create a new list of Metric with the added serverless labels to each individual Metric
+		for _, metric := range mf.Metric {
+			m := addServerlessLabels(metric, LabelKeys, labelValues)
+			newMetric = append(newMetric, m)
+		}
+		mf.Metric = newMetric
+
+		if err := enc.Encode(mf); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -171,7 +218,7 @@ func (sc *ScrapeConfigurations) handleStats(w http.ResponseWriter, r *http.Reque
 	if sc.QueueProxyPort != "" {
 		queueProxyURL := getURL(sc.QueueProxyPort, sc.QueueProxyPath)
 		if queueProxy, queueProxyCancel, _, err = scrape(queueProxyURL, r.Header, sc.logger); err != nil {
-			sc.logger.Error("failed scraping envoy metrics", zap.Error(err))
+			sc.logger.Error("failed scraping queue proxy metrics", zap.Error(err))
 		}
 	}
 
@@ -192,6 +239,7 @@ func (sc *ScrapeConfigurations) handleStats(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", string(format))
 
 	// Write out the metrics
+	//TODO: do we need this?
 	if err = scrapeAndWriteAgentMetrics(io.Writer(w)); err != nil {
 		sc.logger.Error("failed scraping and writing agent metrics", zap.Error(err))
 	}
@@ -206,9 +254,14 @@ func (sc *ScrapeConfigurations) handleStats(w http.ResponseWriter, r *http.Reque
 	// App metrics must go last because if they are FmtOpenMetrics,
 	// they will have a trailing "# EOF" which terminates the full exposition
 	if application != nil {
-		_, err = io.Copy(w, application)
+		var parser expfmt.TextParser
+		var mfs map[string]*io_prometheus_client.MetricFamily
+		mfs, err = parser.TextToMetricFamilies(application)
 		if err != nil {
-			sc.logger.Error("failed to scraping and writing application metrics", zap.Error(err))
+			sc.logger.Error("error text to metric families", zap.Error(err))
+		}
+		if err = scrapeAndWriteMetrics(mfs, w, sc.logger); err != nil {
+			sc.logger.Error("failed scraping and writing metrics", zap.Error(err))
 		}
 	}
 }

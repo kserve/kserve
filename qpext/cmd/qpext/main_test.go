@@ -19,13 +19,58 @@ package main
 import (
 	logger "github.com/kserve/kserve/qpext"
 	"github.com/prometheus/client_golang/prometheus"
+	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
+
+var testEnvVarVal = "something"
+
+func setEnvVars(t *testing.T) {
+	for _, key := range EnvVars {
+		t.Setenv(key, testEnvVarVal)
+	}
+}
+
+func TestGetServerlessLabelVals(t *testing.T) {
+	setEnvVars(t)
+	labelVals := getServerlessLabelVals()
+	for idx, val := range labelVals {
+		assert.Equal(t, os.Getenv(EnvVars[idx]), val)
+	}
+}
+
+func TestAddServerlessLabels(t *testing.T) {
+	testName := "test_name"
+	testValue := "test_value"
+	metric := &io_prometheus_client.Metric{
+		Label: []*io_prometheus_client.LabelPair{
+			{Name: &testName, Value: &testValue},
+		},
+	}
+
+	labelOne := "LABEL_ONE"
+	labelOneVal := "value_one"
+	labelTwo := "LABEL_TWO"
+	labelTwoVal := "value_two"
+	labelNames := []string{labelOne, labelTwo}
+	labelValues := []string{labelOneVal, labelTwoVal}
+
+	result := addServerlessLabels(metric, labelNames, labelValues)
+	expected := &io_prometheus_client.Metric{
+		Label: []*io_prometheus_client.LabelPair{
+			{Name: &testName, Value: &testValue},
+			{Name: &labelOne, Value: &labelOneVal},
+			{Name: &labelTwo, Value: &labelTwoVal},
+		},
+	}
+	assert.Equal(t, result.Label, expected.Label)
+}
 
 func TestGetHeaderTimeout(t *testing.T) {
 	inputs := []string{"1.23", "100", "notvalid", "12.wrong"}
@@ -123,9 +168,13 @@ func TestHandleStats(t *testing.T) {
 	metricExample := `# TYPE my_metric counter
 	my_metric{} 0
 	`
+	metricExampleWLabels := `# TYPE my_metric counter
+my_metric{service_name="something",configuration_name="something",revision_name="something"} 0
+`
 	otherMetricExample := `# TYPE my_other_metric counter
-	my_other_metric{} 0
-	`
+my_other_metric{} 0
+`
+	setEnvVars(t)
 	tests := []struct {
 		name             string
 		queueproxy       string
@@ -141,20 +190,21 @@ func TestHandleStats(t *testing.T) {
 		{
 			name:   "app metric only",
 			app:    metricExample,
-			output: metricExample,
+			output: metricExampleWLabels,
 		},
 		{
 			name:       "multiple metric",
-			queueproxy: metricExample,
-			app:        otherMetricExample,
-			output:     metricExample + otherMetricExample,
+			queueproxy: otherMetricExample,
+			app:        metricExample,
+			// since app metrics adds labels, the output should contain labels only for the app metrics
+			output: otherMetricExample + metricExampleWLabels,
 		},
 		// when app and queueproxy share a metric, Prometheus will fail.
 		{
 			name:             "conflict metric",
 			queueproxy:       metricExample + otherMetricExample,
 			app:              metricExample,
-			output:           metricExample + otherMetricExample + metricExample,
+			output:           metricExample + otherMetricExample + metricExampleWLabels,
 			expectParseError: true,
 		},
 	}
