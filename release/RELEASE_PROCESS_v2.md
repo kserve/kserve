@@ -56,5 +56,6 @@ Process for getting those bug fixes is as follows:
 2. Contributors should ask OWNERs who approved the PR to add a `cherrypick-approved` so that release manager/coordinator can cherry-pick them while creating next release candidate
 3. Once all the PRs with `cherrypick-approved` labels are approved and merged, release manager should take following steps to create next release candidate:
     1. Cherry pick the merged commits from master to the release branch. // TODO Do we have any specific process for cherry-picking merged commits from the master into release branch ? Add git commands
-    2. 
+    2. Make sure merged commits are cherry picked in the order they were merged. Cherry picking should not result in any sort of merge conflicts since no one is working on release branch.  
+    3. 
 
