@@ -37,7 +37,7 @@ spec:
       - command:
         - /manager
         image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: manager
         args:
         - "--metrics-addr=127.0.0.1:8080"
