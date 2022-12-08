@@ -14,9 +14,9 @@ spec:
     - v1
   containers:
     - name: kserve-container
-      image: kserve-lgbserver:replace
+      image: "{{ .Values.kserve.servingruntime.lgbserver.image }}:{{ .Values.kserve.servingruntime.lgbserver.tag }}"
       args:
-        - --model_name={{.Name}}
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
         - --http_port=8080
         - --nthread=1
@@ -54,10 +54,10 @@ spec:
     - v2
   containers:
     - name: kserve-container
-      image: mlserver:replace
+      image: "{{ .Values.kserve.servingruntime.mlserver.image }}:{{ .Values.kserve.servingruntime.mlserver.tag }}"
       env:
         - name: "MLSERVER_MODEL_IMPLEMENTATION"
-          value: "{{.Labels.modelClass}}"
+          value: "{{ .Values.kserve.servingruntime.mlserver.modelClassPlaceholder }}"
         - name: "MLSERVER_HTTP_PORT"
           value: "8080"
         - name: "MLSERVER_GRPC_PORT"
@@ -88,9 +88,9 @@ spec:
     - v1
   containers:
     - name: kserve-container
-      image: kserve-paddleserver:replace
+      image: "{{ .Values.kserve.servingruntime.paddleserver.image }}:{{ .Values.kserve.servingruntime.paddleserver.tag }}"
       args:
-        - --model_name={{.Name}}
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
         - --http_port=8080
       resources:
@@ -120,9 +120,9 @@ spec:
     - v1
   containers:
     - name: kserve-container
-      image: kserve-pmmlserver:replace
+      image: "{{ .Values.kserve.servingruntime.pmmlserver.image }}:{{ .Values.kserve.servingruntime.pmmlserver.tag }}"
       args:
-        - --model_name={{.Name}}
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
         - --http_port=8080
       resources:
@@ -149,9 +149,9 @@ spec:
     - v1
   containers:
     - name: kserve-container
-      image: kserve-sklearnserver:replace
+      image: "{{ .Values.kserve.servingruntime.sklearnserver.image }}:{{ .Values.kserve.servingruntime.sklearnserver.tag }}"
       args:
-        - --model_name={{.Name}}
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
         - --http_port=8080
       resources:
@@ -182,10 +182,10 @@ spec:
     - grpc-v1
   containers:
     - name: kserve-container
-      image: tensorflow-serving:replace
+      image: "{{ .Values.kserve.servingruntime.tensorflow.image }}:{{ .Values.kserve.servingruntime.tensorflow.tag }}"
       command: [/usr/bin/tensorflow_model_server]
       args:
-        - --model_name={{.Name}}
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --port=9000
         - --rest_api_port=8080
         - --model_base_path=/mnt/models
@@ -216,7 +216,7 @@ spec:
     - grpc-v1
   containers:
     - name: kserve-container
-      image: kserve-torchserve:replace
+      image: "{{ .Values.kserve.servingruntime.torchserve.image }}:{{ .Values.kserve.servingruntime.torchserve.tag }}"
       args:
         - torchserve
         - --start
@@ -224,7 +224,7 @@ spec:
         - --ts-config=/mnt/models/config/config.properties
       env:
         - name: "TS_SERVICE_ENVELOPE"
-          value: "{{.Labels.serviceEnvelope}}"
+          value: "{{ .Values.kserve.servingruntime.torchserve.serviceEnvelopePlaceholder }}"
       resources:
         requests:
           cpu: "1"
@@ -264,7 +264,7 @@ spec:
     - grpc-v2
   containers:
     - name: kserve-container
-      image: kserve-tritonserver:replace
+      image: "{{ .Values.kserve.servingruntime.tritonserver.image }}:{{ .Values.kserve.servingruntime.tritonserver.tag }}"
       args:
         - tritonserver
         - --model-store=/mnt/models
@@ -296,9 +296,9 @@ spec:
     - v1
   containers:
     - name: kserve-container
-      image: kserve-xgbserver:replace
+      image: "{{ .Values.kserve.servingruntime.xgbserver.image }}:{{ .Values.kserve.servingruntime.xgbserver.tag }}"
       args:
-        - --model_name={{.Name}}
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
         - --http_port=8080
         - --nthread=1
