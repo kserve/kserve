@@ -7,11 +7,11 @@ runs:
     - name: Setup Minikube
       shell: bash
       run: |
-        wget --no-verbose https://github.com/kubernetes/minikube/releases/download/v1.25.1/minikube-linux-amd64
+        wget --no-verbose https://github.com/kubernetes/minikube/releases/download/v1.28.0/minikube-linux-amd64
         sudo cp minikube-linux-amd64 /usr/local/bin/minikube
         sudo chmod 755 /usr/local/bin/minikube
         sudo apt-get install -y conntrack socat
-        minikube start --driver=none --kubernetes-version v1.22.10
+        minikube start --driver=none --kubernetes-version v1.24.9
     - name: Check Kubernetes pods
       shell: bash
       run: |
