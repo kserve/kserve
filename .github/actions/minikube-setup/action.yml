@@ -5,18 +5,15 @@ runs:
   using: "composite"
   steps:
     - name: Setup Minikube
-      shell: bash
-      run: |
-        wget --no-verbose https://github.com/kubernetes/minikube/releases/download/v1.28.0/minikube-linux-amd64
-        sudo cp minikube-linux-amd64 /usr/local/bin/minikube
-        sudo chmod 755 /usr/local/bin/minikube
-        sudo apt-get install -y conntrack socat
-        minikube start --driver=none --kubernetes-version v1.24.9
+      uses: manusa/actions-setup-minikube@v2.7.1
+      with:
+        minikube version: 'v1.28.0'
+        kubernetes version: 'v1.24.9'
+        driver: 'none'
+        start args: --wait-timeout=60s
     - name: Check Kubernetes pods
       shell: bash
-      run: |
-        sleep 40
-        kubectl get pods -n kube-system
+      run: kubectl get pods -n kube-system
     - name: Setup KServe dependencies
       shell: bash
       run: |
