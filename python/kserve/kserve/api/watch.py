@@ -59,19 +59,16 @@ def isvc_watch(name=None, namespace=None, timeout_seconds=600, generation=0):
                             traffic_percent = t["percent"]
 
                     if generation != 0 and observed_generation != generation:
-                        time.sleep(2)
                         continue
                     for condition in isvc['status'].get('conditions', {}):
                         if condition.get('type', '') == 'Ready':
                             status = condition.get('status', 'Unknown')
                     tbl(isvc_name, status, 100-traffic_percent, traffic_percent, url)
+                    if status == 'True':
+                       break
 
             else:
                 tbl(isvc_name, status, '', '', '')
                 # Sleep 2 to avoid status section is not generated within a very short time.
                 time.sleep(2)
                 continue
-
-            if name == isvc_name and status == 'True':
-                time.sleep(2)
-                break
