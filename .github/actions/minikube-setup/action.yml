@@ -11,6 +11,9 @@ runs:
         kubernetes version: 'v1.24.9'
         driver: 'none'
         start args: --wait-timeout=60s
+    - name: Setup port-forward
+      shell: bash
+      run: sudo apt-get install -y conntrack socat
     - name: Check Kubernetes pods
       shell: bash
       run: kubectl get pods -n kube-system
