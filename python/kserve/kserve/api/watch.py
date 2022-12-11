@@ -65,7 +65,7 @@ def isvc_watch(name=None, namespace=None, timeout_seconds=600, generation=0):
                             status = condition.get('status', 'Unknown')
                     tbl(isvc_name, status, 100-traffic_percent, traffic_percent, url)
                     if status == 'True':
-                       break
+                        break
 
             else:
                 tbl(isvc_name, status, '', '', '')
