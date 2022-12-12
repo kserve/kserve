@@ -66,3 +66,8 @@ GRPC_CONTENT_DATATYPE_MAPPINGS = {
     "FP64": "fp64_contents",
     "BYTES": "bytes_contents"
 }
+# K8S status key constants
+OBSERVED_GENERATION = 'observedGeneration'
+
+# K8S metadata key constants
+GENERATION = 'generation'
