@@ -1,6 +1,6 @@
 
 dev_install:
-	pip install -e .[test]
+	poetry install --with test
 
 # Requires sklearnserver to be installed
 test: type_check lint
