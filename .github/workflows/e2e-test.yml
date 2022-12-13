@@ -148,6 +148,16 @@ jobs:
         with:
           image: "kserve/pmmlserver:${{ github.sha }}"
 
+      # This is workaround.
+      # TODO (tenzen-y): Once the cri-dockerd is upgraded to v0.2.6 in manusa/actions-setup-minikube, we can remove the below.
+      # ref:
+      # - https://github.com/kubernetes/minikube/issues/14806
+      # - https://github.com/kubernetes/minikube/issues/14789
+      # - https://github.com/Mirantis/cri-dockerd/releases/tag/v0.2.6
+      # - https://github.com/manusa/actions-setup-minikube/pull/77
+      - name: Download seldonio/mlserver
+        run: docker pull docker.io/seldonio/mlserver:1.0.0
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -195,6 +205,16 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/paddleserver:${{ github.sha }}"
+
+      # This is workaround.
+      # TODO (tenzen-y): Once the cri-dockerd is upgraded to v0.2.6 in manusa/actions-setup-minikube, we can remove the below.
+      # ref:
+      # - https://github.com/kubernetes/minikube/issues/14806
+      # - https://github.com/kubernetes/minikube/issues/14789
+      # - https://github.com/Mirantis/cri-dockerd/releases/tag/v0.2.6
+      # - https://github.com/manusa/actions-setup-minikube/pull/77
+      - name: Download seldonio/mlserver
+        run: docker pull docker.io/seldonio/mlserver:1.0.0
 
       - name: Install KServe
         run: |
@@ -244,6 +264,16 @@ jobs:
         with:
           image: "kserve/art-explainer:${{ github.sha }}"
 
+      # This is workaround.
+      # TODO (tenzen-y): Once the cri-dockerd is upgraded to v0.2.6 in manusa/actions-setup-minikube, we can remove the below.
+      # ref:
+      # - https://github.com/kubernetes/minikube/issues/14806
+      # - https://github.com/kubernetes/minikube/issues/14789
+      # - https://github.com/Mirantis/cri-dockerd/releases/tag/v0.2.6
+      # - https://github.com/manusa/actions-setup-minikube/pull/77
+      - name: Download seldonio/mlserver
+        run: docker pull docker.io/seldonio/mlserver:1.0.0
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -289,6 +319,16 @@ jobs:
         with:
           image: "kserve/xgbserver:${{ github.sha }}"
 
+      # This is workaround.
+      # TODO (tenzen-y): Once the cri-dockerd is upgraded to v0.2.6 in manusa/actions-setup-minikube, we can remove the below.
+      # ref:
+      # - https://github.com/kubernetes/minikube/issues/14806
+      # - https://github.com/kubernetes/minikube/issues/14789
+      # - https://github.com/Mirantis/cri-dockerd/releases/tag/v0.2.6
+      # - https://github.com/manusa/actions-setup-minikube/pull/77
+      - name: Download seldonio/mlserver
+        run: docker pull docker.io/seldonio/mlserver:1.0.0
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -332,6 +372,17 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
+
+      # This is workaround.
+      # TODO (tenzen-y): Once the cri-dockerd is upgraded to v0.2.6 in manusa/actions-setup-minikube, we can remove the below.
+      # ref:
+      # - https://github.com/kubernetes/minikube/issues/14806
+      # - https://github.com/kubernetes/minikube/issues/14789
+      # - https://github.com/Mirantis/cri-dockerd/releases/tag/v0.2.6
+      # - https://github.com/manusa/actions-setup-minikube/pull/77
+      - name: Download seldonio/mlserver
+        run: docker pull docker.io/seldonio/mlserver:1.0.0
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -371,6 +422,16 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
+
+      # This is workaround.
+      # TODO (tenzen-y): Once the cri-dockerd is upgraded to v0.2.6 in manusa/actions-setup-minikube, we can remove the below.
+      # ref:
+      # - https://github.com/kubernetes/minikube/issues/14806
+      # - https://github.com/kubernetes/minikube/issues/14789
+      # - https://github.com/Mirantis/cri-dockerd/releases/tag/v0.2.6
+      # - https://github.com/manusa/actions-setup-minikube/pull/77
+      - name: Download seldonio/mlserver
+        run: docker pull docker.io/seldonio/mlserver:1.0.0
 
       - name: Install KServe
         run: |
