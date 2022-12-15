@@ -1,8 +1,7 @@
 .PHONY: test
 
 dev_install:
-	pip install -e .
-	pip install -e .[test]
+	poetry install --with test
 
 test:
 	cd ../ && pytest -W ignore kserve/test

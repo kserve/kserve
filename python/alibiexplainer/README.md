@@ -5,10 +5,10 @@
 To start the server locally for development needs, run the following command under this folder in your github repository. 
 
 ```
-pip install -e .
+poetry install
 ```
 
-After pip has installed dependencies you should see:
+After poetry has installed dependencies you should see:
 
 ```
 	      Successfully installed alibiexplainer
@@ -31,7 +31,7 @@ To run a local example follow the [income classifier explanation sample](../../d
 Install the development dependencies with:
 
 ```bash
-pip install -e .[test]
+poetry install --with test
 ```
 
 The following indicates a successful install.

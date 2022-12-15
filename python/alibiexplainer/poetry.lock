@@ -1795,9 +1795,9 @@ develop = true
 
 [package.dependencies]
 azure-identity = "^1.8.0"
-azure-storage-blob = "12.9.0"
-azure-storage-file-share = "12.7.0"
-boto3 = "1.21.0"
+azure-storage-blob = "~12.9.0"
+azure-storage-file-share = "~12.7.0"
+boto3 = "~1.21.0"
 cloudevents = "^1.6.2"
 fastapi = "^0.85.0"
 google-cloud-storage = "^1.20.0"
@@ -1810,7 +1810,7 @@ prometheus-client = "^0.13.1"
 protobuf = "~3.19.0"
 psutil = "^5.9.0"
 python-dateutil = "^2.8.0"
-ray = {version = "2.0.0", extras = ["serve"]}
+ray = {version = "~2.0.0", extras = ["serve"]}
 six = "^1.16.0"
 table-logger = "^0.3.6"
 urllib3 = "^1.26.8"
@@ -2355,14 +2355,14 @@ files = [
 
 [[package]]
 name = "nest-asyncio"
-version = "1.4.0"
+version = "1.4.3"
 description = "Patch asyncio to allow nested event loops"
 category = "main"
 optional = false
 python-versions = ">=3.5"
 files = [
-    {file = "nest_asyncio-1.4.0-py3-none-any.whl", hash = "sha256:ea51120725212ef02e5870dd77fc67ba7343fc945e3b9a7ff93384436e043b6a"},
-    {file = "nest_asyncio-1.4.0.tar.gz", hash = "sha256:5773054bbc14579b000236f85bc01ecced7ffd045ec8ca4a9809371ec65a59c8"},
+    {file = "nest_asyncio-1.4.3-py3-none-any.whl", hash = "sha256:dbe032f3e9ff7f120e76be22bf6e7958e867aed1743e6894b8a9585fe8495cc9"},
+    {file = "nest_asyncio-1.4.3.tar.gz", hash = "sha256:eaa09ef1353ebefae19162ad423eef7a12166bcc63866f8bff8f3635353cd9fa"},
 ]
 
 [[package]]
@@ -4821,4 +4821,4 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.7, <3.11"
-content-hash = "69dbae48e76af4a4e4f22d6c420d1c9ad913dd030e0a01558db67c471c7cce33"
+content-hash = "6a3ac0812f746037fce4d45526819675530a0576867af8facc5c5befe8217c33"
