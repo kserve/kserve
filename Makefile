@@ -12,6 +12,7 @@ PADDLE_IMG ?= paddleserver
 ALIBI_IMG ?= alibi-explainer
 AIX_IMG ?= aix-explainer
 STORAGE_INIT_IMG ?= storage-initializer
+QPEXT_IMG ?= qpext
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -41,7 +42,7 @@ all: test manager agent router
 
 # Run tests
 test: fmt vet manifests envtest
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 # Build manager binary
 manager: generate fmt vet lint
@@ -150,21 +151,20 @@ manifests: controller-gen
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_inferencegraphs.yaml
 	perl -pi -e 's/Any/string/g' config/crd/serving.kserve.io_inferencegraphs.yaml
 	#remove the required property on framework as name field needs to be optional
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required'
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.initContainers'
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
 	#knative does not allow setting port on liveness or readiness probe
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required'
-	yq d -i config/crd/serving.kserve.io_inferenceservices.yaml 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required'
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
 	#With v1 and newer kubernetes protocol requires default
-	yq read config/crd/serving.kserve.io_inferenceservices.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_inferenceservices.yaml {} TCP
-	yq read config/crd/serving.kserve.io_clusterservingruntimes.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_clusterservingruntimes.yaml {} TCP
-	yq read config/crd/serving.kserve.io_servingruntimes.yaml spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.**.protocol -p p | awk '{print $$0".default"}' | xargs -n1 -I{} yq w -i config/crd/serving.kserve.io_servingruntimes.yaml {} TCP
+	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_clusterservingruntimes.yaml
+	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_servingruntimes.yaml
 	kustomize build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
 
 # Run go fmt against code
@@ -185,10 +185,9 @@ endif
 # Generate code
 generate: controller-gen
 	go env -w GOFLAGS=-mod=mod
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 	hack/update-codegen.sh
 	hack/update-openapigen.sh
+	hack/python-sdk/client-gen.sh
 
 # Build the docker image
 docker-build: test
@@ -262,6 +261,12 @@ docker-build-storageInitializer:
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+
+docker-build-qpext:
+	cd qpext && docker build -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext.Dockerfile .
+
+docker-build-push-qpext: docker-build-qpext
+	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
 
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)

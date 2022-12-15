@@ -1,0 +1,86 @@
+kserve:
+  version: &defaultVersion v0.10.0-rc0
+  modelmeshVersion: &defaultModelMeshVersion v0.9.0
+  agent:
+    image: kserve/agent
+    tag: *defaultVersion
+  storage:
+    image: kserve/storage-initializer
+    tag: *defaultVersion
+    s3:
+      accessKeyIdName: AWS_ACCESS_KEY_ID
+      secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+  metricsaggregator:
+    enableMetricAggregation: "false"
+    enablePrometheusScraping: "false"
+  controller:
+    deploymentMode: "Serverless"
+    gateway:
+      domain: example.com
+      localGateway:
+        gateway: knative-serving/knative-local-gateway
+        gatewayService: knative-local-gateway.istio-system.svc.cluster.local
+      ingressGateway:
+        gateway: knative-serving/knative-ingress-gateway
+        gatewayService: istio-ingressgateway.istio-system.svc.cluster.local
+    image: kserve/kserve-controller
+    tag: *defaultVersion
+    resources:
+      limits:
+        cpu: 100m
+        memory: 300Mi
+      requests:
+        cpu: 100m
+        memory: 300Mi
+  modelmesh:
+    controller:
+      image: kserve/modelmesh-controller
+      tag: *defaultModelMeshVersion
+    config:
+      modelmeshImage: kserve/modelmesh
+      modelmeshImageTag: *defaultModelMeshVersion
+      modelmeshRuntimeAdapterImage: kserve/modelmesh-runtime-adapter
+      modelmeshRuntimeAdapterImageTag: *defaultModelMeshVersion
+      restProxyImage: kserve/rest-proxy
+      restProxyImageTag: v0.1.4
+      podsPerRuntime: 2
+  servingruntime:
+    modelNamePlaceholder: '{{.Name}}'
+    tensorflow:
+      image: tensorflow/serving
+      tag: 2.6.2
+    mlserver:
+      image: docker.io/seldonio/mlserver
+      tag: 1.0.0
+      modelClassPlaceholder: '{{.Labels.modelClass}}'
+    sklearnserver:
+      image: kserve/sklearnserver
+      tag: *defaultVersion
+    xgbserver:
+      image: kserve/xgbserver
+      tag: *defaultVersion
+    tritonserver:
+      image: nvcr.io/nvidia/tritonserver
+      tag: 21.09-py3
+    pmmlserver:
+      image: kserve/pmmlserver
+      tag: *defaultVersion
+    paddleserver:
+      image: kserve/paddleserver
+      tag: *defaultVersion
+    lgbserver:
+      image: kserve/lgbserver
+      tag: *defaultVersion
+    torchserve:
+      image: pytorch/torchserve-kfs
+      tag: 0.6.1
+      serviceEnvelopePlaceholder: '{{.Labels.serviceEnvelope}}'
+    alibi:
+      image: kserve/alibi-explainer
+      defaultVersion: *defaultVersion
+    art:
+      image: kserve/art-explainer
+      defaultVersion: *defaultVersion
+    aix:
+      image: kserve/aix-explainer
+      defaultVersion: *defaultVersion

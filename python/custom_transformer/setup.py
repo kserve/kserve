@@ -32,5 +32,6 @@ setup(
     python_requires='>=3.7',
     install_requires=REQUIRES,
     tests_require=tests_require,
-    extras_require={'test': tests_require}
+    extras_require={'test': tests_require},
+    py_modules=[]
 )

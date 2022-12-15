@@ -17,7 +17,6 @@ limitations under the License.
 package agent
 
 import (
-	"io/ioutil"
 	logger "log"
 	"os"
 
@@ -34,7 +33,7 @@ var _ = Describe("Downloader", func() {
 	var modelDir string
 	var downloader *Downloader
 	BeforeEach(func() {
-		dir, err := ioutil.TempDir("", "example")
+		dir, err := os.MkdirTemp("", "example")
 		if err != nil {
 			logger.Fatal(err)
 		}

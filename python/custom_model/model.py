@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import kserve
 from torchvision import models, transforms
 from typing import Dict
@@ -26,11 +25,12 @@ class AlexNetModel(kserve.Model):
         super().__init__(name)
         self.name = name
         self.load()
+        self.model = None
+        self.ready = False
 
     def load(self):
-        model = models.alexnet(pretrained=True)
-        model.eval()
-        self.model = model
+        self.model = models.alexnet(pretrained=True)
+        self.model.eval()
         self.ready = True
 
     def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
@@ -56,7 +56,7 @@ class AlexNetModel(kserve.Model):
 
         output = self.model(input_batch)
 
-        torch.nn.functional.softmax(output, dim=1)[0]
+        torch.nn.functional.softmax(output, dim=1)
 
         values, top_5 = torch.topk(output, 5)
 

@@ -47,6 +47,11 @@ var (
 	InferenceServiceConfigMapName = "inferenceservice-config"
 )
 
+// InferenceGraph Constants
+const (
+	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
+)
+
 // TrainedModel Constants
 var (
 	TrainedModelAllocated = KServeAPIGroupName + "/" + "trainedmodel-allocated"
@@ -74,17 +79,18 @@ var (
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
 	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
-	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/minScale"
-	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/maxScale"
+	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/min-scale"
+	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/max-scale"
 	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
 	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
-	SetPrometheusAggregateAnnotation            = KServeAPIGroupName + "/enable-prometheus-aggregate-scraping"
+	SetPrometheusAnnotation                     = KServeAPIGroupName + "/enable-prometheus-scraping"
 	KserveContainerPrometheusPortKey            = "prometheus.kserve.io/port"
 	KServeContainerPrometheusPathKey            = "prometheus.kserve.io/path"
 	PrometheusPortAnnotationKey                 = "prometheus.io/port"
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
 	DefaultPrometheusPath                       = "/metrics"
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
+	DefaultPodPrometheusPort                    = "9090"
 )
 
 // InferenceService Internal Annotations
@@ -202,7 +208,7 @@ type InferenceServiceProtocol string
 const (
 	KnativeLocalGateway   = "knative-serving/knative-local-gateway"
 	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
-	VisibilityLabel       = "serving.knative.dev/visibility"
+	VisibilityLabel       = "networking.knative.dev/visibility"
 )
 
 var (

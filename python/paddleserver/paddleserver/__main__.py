@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import argparse
+
 from paddleserver import PaddleModel
+
 import kserve
 
 DEFAULT_MODEL_NAME = "model"

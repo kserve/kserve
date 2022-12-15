@@ -108,11 +108,11 @@ func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 	if ingress, ok := configMap.Data[IngressConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(ingress), &ingressConfig)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse ingress config json: %v", err)
+			return nil, fmt.Errorf("unable to parse ingress config json: %v", err)
 		}
 
 		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
-			return nil, fmt.Errorf("Invalid ingress config, ingressGateway, ingressService are required.")
+			return nil, fmt.Errorf("invalid ingress config - ingressGateway and ingressService are required")
 		}
 	}
 

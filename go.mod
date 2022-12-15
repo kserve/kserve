@@ -25,7 +25,9 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/gjson v1.14.1
 	go.uber.org/zap v1.19.1
+	gomodules.xyz/jsonpatch/v2 v2.2.0
 	google.golang.org/api v0.93.0
+	google.golang.org/protobuf v1.28.1
 	istio.io/api v0.0.0-20200715212100-dbf5277541ef
 	istio.io/client-go v0.0.0-20201005161859-d8818315d678
 	k8s.io/api v0.23.9
@@ -105,11 +107,9 @@ require (
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
 	golang.org/x/tools v0.1.9 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
-	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220815135757-37a418bb8959 // indirect
 	google.golang.org/grpc v1.48.0 // indirect
-	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

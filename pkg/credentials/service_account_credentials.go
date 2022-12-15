@@ -228,7 +228,11 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 					Name:  gcs.GCSCredentialEnvKey,
 					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
 				})
-		} else if _, ok := secret.Data[azure.AzureClientSecret]; ok {
+		} else if _, ok := secret.Data[azure.LegacyAzureClientId]; ok {
+			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
+			envs := azure.BuildSecretEnvs(secret)
+			container.Env = append(container.Env, envs...)
+		} else if _, ok := secret.Data[azure.AzureClientId]; ok {
 			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
 			envs := azure.BuildSecretEnvs(secret)
 			container.Env = append(container.Env, envs...)

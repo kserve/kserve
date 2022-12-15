@@ -48,7 +48,10 @@ class V1alpha1ServingRuntimePodSpec(object):
     """
     openapi_types = {
         'affinity': 'V1Affinity',
+        'annotations': 'dict(str, str)',
         'containers': 'list[V1Container]',
+        'image_pull_secrets': 'list[V1LocalObjectReference]',
+        'labels': 'dict(str, str)',
         'node_selector': 'dict(str, str)',
         'tolerations': 'list[V1Toleration]',
         'volumes': 'list[V1Volume]'
@@ -56,20 +59,26 @@ class V1alpha1ServingRuntimePodSpec(object):
 
     attribute_map = {
         'affinity': 'affinity',
+        'annotations': 'annotations',
         'containers': 'containers',
+        'image_pull_secrets': 'imagePullSecrets',
+        'labels': 'labels',
         'node_selector': 'nodeSelector',
         'tolerations': 'tolerations',
         'volumes': 'volumes'
     }
 
-    def __init__(self, affinity=None, containers=None, node_selector=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, containers=None, image_pull_secrets=None, labels=None, node_selector=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimePodSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._affinity = None
+        self._annotations = None
         self._containers = None
+        self._image_pull_secrets = None
+        self._labels = None
         self._node_selector = None
         self._tolerations = None
         self._volumes = None
@@ -77,7 +86,13 @@ class V1alpha1ServingRuntimePodSpec(object):
 
         if affinity is not None:
             self.affinity = affinity
+        if annotations is not None:
+            self.annotations = annotations
         self.containers = containers
+        if image_pull_secrets is not None:
+            self.image_pull_secrets = image_pull_secrets
+        if labels is not None:
+            self.labels = labels
         if node_selector is not None:
             self.node_selector = node_selector
         if tolerations is not None:
@@ -107,6 +122,29 @@ class V1alpha1ServingRuntimePodSpec(object):
         self._affinity = affinity
 
     @property
+    def annotations(self):
+        """Gets the annotations of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        Annotations that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/annotations  # noqa: E501
+
+        :return: The annotations of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._annotations
+
+    @annotations.setter
+    def annotations(self, annotations):
+        """Sets the annotations of this V1alpha1ServingRuntimePodSpec.
+
+        Annotations that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/annotations  # noqa: E501
+
+        :param annotations: The annotations of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._annotations = annotations
+
+    @property
     def containers(self):
         """Gets the containers of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
 
@@ -130,6 +168,52 @@ class V1alpha1ServingRuntimePodSpec(object):
             raise ValueError("Invalid value for `containers`, must not be `None`")  # noqa: E501
 
         self._containers = containers
+
+    @property
+    def image_pull_secrets(self):
+        """Gets the image_pull_secrets of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod  # noqa: E501
+
+        :return: The image_pull_secrets of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: list[V1LocalObjectReference]
+        """
+        return self._image_pull_secrets
+
+    @image_pull_secrets.setter
+    def image_pull_secrets(self, image_pull_secrets):
+        """Sets the image_pull_secrets of this V1alpha1ServingRuntimePodSpec.
+
+        ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod  # noqa: E501
+
+        :param image_pull_secrets: The image_pull_secrets of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: list[V1LocalObjectReference]
+        """
+
+        self._image_pull_secrets = image_pull_secrets
+
+    @property
+    def labels(self):
+        """Gets the labels of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        Labels that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/labels  # noqa: E501
+
+        :return: The labels of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._labels
+
+    @labels.setter
+    def labels(self, labels):
+        """Sets the labels of this V1alpha1ServingRuntimePodSpec.
+
+        Labels that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/labels  # noqa: E501
+
+        :param labels: The labels of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._labels = labels
 
     @property
     def node_selector(self):

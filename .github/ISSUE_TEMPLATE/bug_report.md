@@ -13,6 +13,9 @@ about: Tell us about a problem you are experiencing
 **What did you expect to happen:**
 
 
+**What's the InferenceService yaml:**
+[To help us debug please run `kubectl get isvc $name -n $namespace -oyaml` and paste the output]
+
 **Anything else you would like to add:**
 [Miscellaneous information that will assist in solving the issue.]
 
@@ -21,9 +24,9 @@ about: Tell us about a problem you are experiencing
 
 - Istio Version:
 - Knative Version:
-- KFServing Version:
+- KServe Version:
 - Kubeflow version:
-- Kfdef:[k8s_istio/istio_dex/gcp_basic_auth/gcp_iap/aws/aws_cognito/ibm]
-- Minikube version:
+- Cloud Environment:[k8s_istio/istio_dex/gcp_basic_auth/gcp_iap/aws/aws_cognito/ibm]
+- Minikube/Kind version:
 - Kubernetes version: (use `kubectl version`):
 - OS (e.g. from `/etc/os-release`):
