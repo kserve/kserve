@@ -21,9 +21,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-echo "Creating a namespace kserve-ci-test ..."
-kubectl create namespace kserve
-
 sed -i -e "s/*defaultVersion/${GITHUB_SHA}/g" charts/kserve-resources/values.yaml
 
 cat ./charts/kserve-resources/values.yaml
@@ -31,12 +28,12 @@ cat ./charts/kserve-resources/values.yaml
 make deploy-helm
 
 echo "Waiting for KServe started ..."
-kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
+kubectl wait --for=condition=Ready pods --all --timeout=180s
 kubectl get events -A
 
 echo "Add testing models to minio storage ..."
-kubectl apply -f config/overlays/test/minio/minio-init-job.yaml -n kserve
-kubectl wait --for=condition=complete --timeout=90s job/minio-init -n kserve
+kubectl apply -f config/overlays/test/minio/minio-init-job.yaml
+kubectl wait --for=condition=complete --timeout=90s job/minio-init
 
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test

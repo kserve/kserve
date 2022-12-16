@@ -196,10 +196,9 @@ def explain_response(service_name, input_json):
         return json_response
 
 
-def get_cluster_ip():
+def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
     api_instance = client.CoreV1Api(client.ApiClient())
-    service = api_instance.read_namespaced_service("istio-ingressgateway",
-                                                   "istio-system")
+    service = api_instance.read_namespaced_service(name, namespace)
     if service.status.load_balancer.ingress is None:
         cluster_ip = service.spec.cluster_ip
     else:
@@ -233,3 +232,19 @@ def predict_grpc(service_name, payload, version=constants.KSERVE_V1BETA1_VERSION
         options=(('grpc.ssl_target_name_override', host),))
     stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(channel)
     return stub.ModelInfer(pb.ModelInferRequest(model_name=model_name, inputs=payload))
+
+
+def predict_modelmesh(service_name, input_json, model_name=None):
+    with open(input_json) as json_file:
+        data = json.load(json_file)
+        cluster_ip = get_cluster_ip("modelmesh-serving", "default")
+
+        if ":" not in cluster_ip:
+            cluster_ip = cluster_ip + ":8003"
+
+        if model_name is None:
+            model_name = service_name
+
+        url = f"http://{cluster_ip}/v2/models/{model_name}/infer"
+        response = requests.post(url, json.dumps(data))
+        return json.loads(response.content.decode("utf-8"))

@@ -401,6 +401,7 @@ jobs:
 
       - name: Install Kserve from helm
         run: |
+          ./test/scripts/gh-actions/setup-modelmesh-dep.sh
           ./test/scripts/gh-actions/setup-kserve-helm.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -412,4 +413,5 @@ jobs:
       - name: Check system status
         if: always()
         run: |
+          kubectl get pods --all-namespaces
           ./test/scripts/gh-actions/status-check.sh
