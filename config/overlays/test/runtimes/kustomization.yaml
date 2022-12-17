@@ -17,3 +17,6 @@ images:
   - name: kserve/lgbserver
     newTag: latest
 
+  - name: mlserver
+    newName: docker.io/seldonio/mlserver
+    newTag: 1.0.1-slim
