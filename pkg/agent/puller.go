@@ -19,7 +19,7 @@ package agent
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"path/filepath"
 	"sync"
@@ -167,7 +167,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 					if resp.StatusCode == 200 {
 						p.logger.Infof("Successfully loaded model %s", modelName)
 					} else {
-						body, err := ioutil.ReadAll(resp.Body)
+						body, err := io.ReadAll(resp.Body)
 						if err == nil {
 							p.logger.Infof("Failed to load model %s with status [%d] and resp:%v", modelName, resp.StatusCode, body)
 						}
@@ -192,7 +192,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 					if resp.StatusCode == 200 {
 						p.logger.Infof("Successfully unloaded model %s", modelName)
 					} else {
-						body, err := ioutil.ReadAll(resp.Body)
+						body, err := io.ReadAll(resp.Body)
 						if err == nil {
 							p.logger.Infof("Failed to unload model %s with status [%d] and resp:%v", modelName, resp.StatusCode, body)
 						}

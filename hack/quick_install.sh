@@ -98,8 +98,10 @@ cd ..
 echo "😀 Successfully installed Cert Manager"
 
 # Install KServe
-KSERVE_CONFIG=kfserving.yaml
-if [ ${KSERVE_VERSION:3:1} -gt 6 ]; then KSERVE_CONFIG=kserve.yaml; fi
+KSERVE_CONFIG=kserve.yaml
+MAJOR_VERSION=$(echo ${KSERVE_VERSION:1} | cut -d "." -f1)
+MINOR_VERSION=$(echo ${KSERVE_VERSION} | cut -d "." -f2)
+if [ ${MAJOR_VERSION} -eq 0 ] && [ ${MINOR_VERSION} -le 6 ]; then KSERVE_CONFIG=kfserving.yaml; fi
 
 # Retry inorder to handle that it may take a minute or so for the TLS assets required for the webhook to function to be provisioned
 kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/${KSERVE_CONFIG}

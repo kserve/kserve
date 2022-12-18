@@ -201,8 +201,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-									"autoscaling.knative.dev/max-scale":                         "3",
-									"autoscaling.knative.dev/min-scale":                         "1",
+									"autoscaling.knative.dev/max-scale":                        "3",
+									"autoscaling.knative.dev/min-scale":                        "1",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"key1":                                                     "val1FromSR",
 								},
@@ -467,7 +467,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									constants.KServiceComponentLabel: constants.Transformer.String(),
 								},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/max-scale": "3",
 									"autoscaling.knative.dev/min-scale": "1",
 								},
@@ -688,8 +688,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/max-scale":                         "3",
-									"autoscaling.knative.dev/min-scale":                         "1",
+									"autoscaling.knative.dev/max-scale":                        "3",
+									"autoscaling.knative.dev/min-scale":                        "1",
 									"internal.serving.kserve.io/storage-initializer-sourceuri": "s3://test/mnist/explainer",
 								},
 							},
@@ -1261,8 +1261,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/mnist/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/max-scale":                         "3",
-									"autoscaling.knative.dev/min-scale":                         "1",
+									"autoscaling.knative.dev/max-scale":                        "3",
+									"autoscaling.knative.dev/min-scale":                        "1",
 									"key1":                                                     "val1FromSR",
 									"key2":                                                     "val2FromISVC",
 								},

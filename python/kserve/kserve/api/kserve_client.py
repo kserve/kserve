@@ -251,7 +251,8 @@ class KServeClient(object):
             isvc_watch(
                 name=outputs['metadata']['name'],
                 namespace=namespace,
-                timeout_seconds=timeout_seconds)
+                timeout_seconds=timeout_seconds,
+                generation=outputs['metadata']['generation'])
         else:
             return outputs
 

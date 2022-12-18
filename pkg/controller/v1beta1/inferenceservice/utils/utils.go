@@ -42,7 +42,17 @@ import (
 // IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
 // storage uri nor storage spec is set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec) bool {
-	return predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
+	if len(predictor.Containers) > 0 {
+		container := predictor.Containers[0]
+		for _, envVar := range container.Env {
+			if envVar.Name == constants.CustomSpecMultiModelServerEnvVarKey && envVar.Value == "true" {
+				return true
+			}
+		}
+		return false
+	} else {
+		return predictor.GetImplementation().GetStorageUri() == nil && predictor.GetImplementation().GetStorageSpec() == nil
+	}
 }
 
 func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity) bool {
@@ -54,6 +64,52 @@ func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory
 
 	predictorMemoryLimit := container.Resources.Limits.Memory()
 	return predictorMemoryLimit.Cmp(totalReqMemory) >= 0
+}
+
+// GetModelName returns the model name for single model serving case
+func GetModelName(isvc *v1beta1api.InferenceService) string {
+	modelName := isvc.Name
+	// Return model name from args for KServe custom model server if transformer presents
+	if isvc.Spec.Transformer != nil && len(isvc.Spec.Transformer.Containers) > 0 {
+		for _, arg := range isvc.Spec.Transformer.Containers[0].Args {
+			if strings.HasPrefix(arg, constants.ArgumentModelName) {
+				modelNameValueArr := strings.Split(arg, "=")
+				if len(modelNameValueArr) == 2 {
+					return modelNameValueArr[1]
+				}
+			}
+		}
+	}
+	if isvc.Spec.Predictor.Model != nil {
+		// Return model name from env variable for MLServer
+		for _, env := range isvc.Spec.Predictor.Model.Env {
+			if env.Name == constants.MLServerModelNameEnv {
+				return env.Value
+			}
+		}
+		// Return model name from args for tfserving or KServe model server
+		for _, arg := range isvc.Spec.Predictor.Model.Args {
+			if strings.HasPrefix(arg, constants.ArgumentModelName) {
+				modelNameValueArr := strings.Split(arg, "=")
+				if len(modelNameValueArr) == 2 {
+					return modelNameValueArr[1]
+				}
+			}
+		}
+	} else {
+		// Return model name from args for KServe custom model server
+		if len(isvc.Spec.Predictor.Containers) > 0 {
+			for _, arg := range isvc.Spec.Predictor.Containers[0].Args {
+				if strings.HasPrefix(arg, constants.ArgumentModelName) {
+					modelNameValueArr := strings.Split(arg, "=")
+					if len(modelNameValueArr) == 2 {
+						return modelNameValueArr[1]
+					}
+				}
+			}
+		}
+	}
+	return modelName
 }
 
 /*
