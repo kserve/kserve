@@ -10,6 +10,9 @@ on:
       - '!**.md'
       - '.github/workflows/e2e-test.yml'
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   kserve-image-build:
     runs-on: ubuntu-latest
@@ -329,6 +332,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
