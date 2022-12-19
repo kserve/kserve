@@ -8,7 +8,7 @@ runs:
       uses: manusa/actions-setup-minikube@v2.7.2
       with:
         minikube version: 'v1.28.0'
-        kubernetes version: 'v1.24.9'
+        kubernetes version: 'v1.23.15'
         driver: 'none'
         start args: --wait-timeout=60s
         github token: ${{ env.GITHUB_TOKEN }}

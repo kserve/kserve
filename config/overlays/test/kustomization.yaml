@@ -5,4 +5,3 @@ bases:
 patches:
   - configmap/inferenceservice.yaml
   - manager_image_patch.yaml
-  - runtimes/
