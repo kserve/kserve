@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aixserver"
-version = "0.10.0rc0"
+version = "0.10.0rc1"
 description = "Model Server implementation for AI eXplainability with LIME. Not intended for use outside KServe Frameworks Images."
 authors = ["Andrew Butler <Andrew.Butler@ibm.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = ">=3.7,<3.11"
 kserve = {path = "../kserve", develop = true}
 lime = "^0.1.1.37"
 nest-asyncio = "^1.4.0"
@@ -21,6 +21,7 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
 mypy = "^0.991"
 
 

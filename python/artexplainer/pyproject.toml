@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "artserver"
-version = "0.10.0rc0"
+version = "0.10.0rc1"
 description = "Model Server implementation for AI Robustness Toolbox. Not intended for use outside KServe Frameworks Images."
 authors = ["Andrew Butler <Andrew.Butler@ibm.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -10,17 +10,19 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.11"
 kserve = {path = "../kserve", develop = true}
 numpy = "^1.8.2"
 adversarial-robustness-toolbox = {version = "^1.10.3", extras = ["keras"]}
 nest-asyncio = "^1.4.0"
+pillow = "^9.0.0"
 
 [tool.poetry.group.test]
 optional = true
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
 mypy = "^0.991"
 
 [build-system]

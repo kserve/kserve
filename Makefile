@@ -16,6 +16,8 @@ PMML_IMG ?= pmmlserver
 PADDLE_IMG ?= paddleserver
 ALIBI_IMG ?= alibi-explainer
 AIX_IMG ?= aix-explainer
+AIF_IMG ?= aiffairness
+ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
 QPEXT_IMG ?= qpext
 CRD_OPTIONS ?= "crd:maxDescLen=0"
@@ -264,6 +266,18 @@ docker-build-aix:
 
 docker-push-aix: docker-build-aix
 	docker push ${KO_DOCKER_REPO}/${AIX_IMG}
+
+docker-build-aif:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .
+
+docker-push-aif: docker-build-aif
+	docker push ${KO_DOCKER_REPO}/${AIF_IMG}
+
+docker-build-art:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${ART_IMG} -f artexplainer.Dockerfile .
+
+docker-push-art: docker-build-art
+	docker push ${KO_DOCKER_REPO}/${ART_IMG}
 
 docker-build-storageInitializer:
 	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .

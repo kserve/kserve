@@ -1,7 +1,7 @@
 .PHONY: test
 
 dev_install:
-	poetry install --with test
+	poetry install --with test,dev
 
 test:
 	cd ../ && pytest -W ignore kserve/test

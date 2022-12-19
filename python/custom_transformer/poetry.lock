@@ -1177,11 +1177,11 @@ format-nongpl = ["fqdn", "idna", "isoduration", "jsonpointer (>1.13)", "rfc3339-
 
 [[package]]
 name = "kserve"
-version = "0.10.0rc0"
+version = "0.10.0rc1"
 description = "KServe Python SDK"
 category = "main"
 optional = false
-python-versions = "^3.7"
+python-versions = ">=3.7,<3.11"
 files = []
 develop = true
 
@@ -1191,12 +1191,12 @@ azure-storage-blob = "~12.9.0"
 azure-storage-file-share = "~12.7.0"
 boto3 = "~1.21.0"
 cloudevents = "^1.6.2"
-fastapi = "^0.85.0"
+fastapi = ">=0.85.0,<=0.88.0"
 google-cloud-storage = "^1.20.0"
 grpcio = "^1.34.0"
 httpx = "^0.23.0"
 kubernetes = "^18.20.0"
-numpy = "^1.21.1"
+numpy = ">=1.21.5,<1.24.0"
 orjson = "^3.8.0"
 prometheus-client = "^0.13.1"
 protobuf = "~3.19.0"
@@ -2642,5 +2642,5 @@ multidict = ">=4.0"
 
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.9"
-content-hash = "d31a5e5469cfe18a924add09d1d726d64d0334b43c3b129fafd4071580a7e821"
+python-versions = ">=3.9,<3.11"
+content-hash = "e0fe610fd72375123f42525c048d82ebfabf26747e5980ea3b69272dafe77e83"

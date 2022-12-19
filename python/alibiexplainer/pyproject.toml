@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "alibiexplainer"
-version = "0.10.0rc0"
+version = "0.10.0rc1"
 description = "Model Explanation Server. Not intended for use outside KServe Frameworks Images."
 authors = ["cliveseldon <cc@seldon.io>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.7, <3.11"
+python = ">=3.7,<3.11"
 kserve = {path = "../kserve", develop = true}
 tensorflow = "^2.5.0"  # see https://github.com/python-poetry/poetry/issues/4605
 alibi = {version = "^0.6.4", extras = ["shap"]}
@@ -22,6 +22,7 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
 mypy = "^0.991"
 
 [build-system]

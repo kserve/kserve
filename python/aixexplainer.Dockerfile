@@ -1,17 +1,40 @@
 ARG BASE_IMAGE=python:3.7-slim
-FROM $BASE_IMAGE
+FROM $BASE_IMAGE as builder
+
+ENV POETRY_VERSION=1.3.1 \
+    POETRY_HOME=/opt/poetry
+RUN python3 -m venv $POETRY_HOME && $POETRY_HOME/bin/pip install poetry==$POETRY_VERSION
+ENV PATH="$PATH:$POETRY_HOME/bin"
+
+# activate virtual env
+ENV VIRTUAL_ENV=/prod_venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+COPY kserve/pyproject.toml kserve/poetry.lock kserve/
+RUN cd kserve && poetry install --no-root --no-interaction --no-cache
+COPY kserve kserve
+RUN cd kserve && poetry install --no-interaction --no-cache
+
+RUN apt update && apt install -y build-essential
+
+COPY aixexplainer/pyproject.toml aixexplainer/poetry.lock aixexplainer/
+RUN cd aixexplainer && poetry install --no-root --no-interaction --no-cache
+COPY aixexplainer aixexplainer
+RUN cd aixexplainer && poetry install --no-interaction --no-cache
+
+
+FROM python:3.7-slim as prod
 
 COPY third_party third_party
 
-COPY kserve kserve
-COPY VERSION VERSION
+# activate virtual env
+ENV VIRTUAL_ENV=/prod_venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
-
-RUN apt update && apt install -y build-essential
-COPY aixexplainer aixexplainer
-RUN pip install --no-cache-dir -e ./aixexplainer
-RUN apt remove -y build-essential
+COPY --from=builder $VIRTUAL_ENV $VIRTUAL_ENV
+COPY --from=builder kserve kserve
+COPY --from=builder aixexplainer aixexplainer
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 USER 1000

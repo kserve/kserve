@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pmmlserver"
-version = "0.10.0rc0"
+version = "0.10.0rc1"
 description = "Model Server implementation for PMML. Not intended for use outside KServe Frameworks Images."
 authors = ["AnyISalIn <anyisalin@gmail.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = ">=3.7,<3.11"
 kserve = {path = "../kserve", develop = true}
 jpmml-evaluator = "~0.5.1"
 
@@ -19,6 +19,7 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
 mypy = "^0.991"
 pytest-asyncio = "^0.20.3"
 
