@@ -34,7 +34,7 @@ Additionally, we have compiled a list of [presentations and demos](https://kserv
 ### :hammer_and_wrench: Installation
 
 #### Standalone Installation
-- **[Serverless Installation](https://kserve.github.io/website/master/admin/serverless)**: KServe by default installs Knative for **serverless deployment** for InferenceService.
+- **[Serverless Installation](https://kserve.github.io/website/master/admin/serverless/serverless/)**: KServe by default installs Knative for **serverless deployment** for InferenceService.
 - **[Raw Deployment Installation](https://kserve.github.io/website/master/admin/kubernetes_deployment)**: Compared to Serverless Installation, this is a more **lightweight** installation. However, this option does not support canary deployment and request based autoscaling with scale-to-zero.
 - **[ModelMesh Installation](https://kserve.github.io/website/master/admin/modelmesh/)**: You can optionally install ModelMesh to enable **high-scale**, **high-density** and **frequently-changing model serving** use cases. 
 - **[Quick Installation](https://kserve.github.io/website/master/get_started/)**: Install KServe on your local machine.
