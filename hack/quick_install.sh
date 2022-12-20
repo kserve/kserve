@@ -69,14 +69,25 @@ spec:
   meshConfig:
     accessLogFile: /dev/stdout
 
-  addonComponents:
-    pilot:
-      enabled: true
-
   components:
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
+        k8s:
+          podAnnotations:
+            cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+    pilot:
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 200m
+            memory: 200Mi
+        podAnnotations:
+          cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+        env:
+        - name: PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING
+          value: "false"
 EOF
 
 bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
