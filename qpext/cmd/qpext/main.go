@@ -302,8 +302,7 @@ func (sc *ScrapeConfigurations) handleStats(w http.ResponseWriter, r *http.Reque
 		var mfs map[string]*io_prometheus_client.MetricFamily
 		mfs, err = parser.TextToMetricFamilies(application)
 		if err != nil {
-			sc.logger.Error("error text to metric families", zap.Error(err), zap.Any("mfs returns: ", mfs), zap.Any("app", application))
-			sc.logger.Error("context timeout value", zap.Any("is ctx cancelled", context.Canceled), zap.Any("ctx timeout", r.Header.Get(prometheusTimeoutHeader)))
+			sc.logger.Error("error converting text to metric families", zap.Error(err), zap.Any("metric families return value", mfs))
 		}
 		if err = scrapeAndWriteAppMetrics(mfs, w, format, sc.logger); err != nil {
 			sc.logger.Error("failed scraping and writing metrics", zap.Error(err))
