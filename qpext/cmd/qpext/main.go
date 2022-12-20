@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
 	logger "github.com/kserve/kserve/qpext"
-	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
@@ -37,9 +36,8 @@ import (
 import "knative.dev/serving/pkg/queue/sharedmain"
 
 var (
-	promRegistry *prometheus.Registry
-	EnvVars      = []string{"SERVING_SERVICE", "SERVING_CONFIGURATION", "SERVING_REVISION"}
-	LabelKeys    = []string{"service_name", "configuration_name", "revision_name"}
+	EnvVars   = []string{"SERVING_SERVICE", "SERVING_CONFIGURATION", "SERVING_REVISION"}
+	LabelKeys = []string{"service_name", "configuration_name", "revision_name"}
 )
 
 const (
@@ -107,6 +105,9 @@ func addServerlessLabels(metric *io_prometheus_client.Metric, labelKeys []string
 	return metric
 }
 
+// sanitizeMetrics attempts to convert UNTYPED metrics into either a gauge or counter.
+// counter metric names with _created and gauge metric names with _total are converted due to irregularities
+// observed in the conversion of these metrics from text to metric families.
 func sanitizeMetrics(mf *io_prometheus_client.MetricFamily) *io_prometheus_client.MetricFamily {
 	if strings.HasSuffix(*mf.Name, "_created") {
 		counter := io_prometheus_client.MetricType_COUNTER
@@ -158,8 +159,8 @@ func scrapeAndWriteAppMetrics(mfs map[string]*io_prometheus_client.MetricFamily,
 		var newMetric []*io_prometheus_client.Metric
 		var mf *io_prometheus_client.MetricFamily
 
-		// Some metrics from kserve-container are UNTYPED. This is an issue for the promtheus scraper.
-		// These metrics seems to be either gauges or counters. For now, avoid these errors by sanitizing the metrics
+		// Some metrics from kserve-container are UNTYPED. This can cause errors in the promtheus scraper.
+		// These metrics seem to be either gauges or counters. For now, avoid these errors by sanitizing the metrics
 		// based on the metric name. If the metric can't be converted, we log an error. In the future, we should
 		// figure out the root cause of this. (Possibly due to open metrics being read in as text and converted to MetricFamily)
 		if *metricFamily.Type == io_prometheus_client.MetricType_UNTYPED {
@@ -312,7 +313,6 @@ func (sc *ScrapeConfigurations) handleStats(w http.ResponseWriter, r *http.Reque
 
 func main() {
 	zapLogger := logger.InitializeLogger()
-	promRegistry = prometheus.NewRegistry()
 	mux := http.NewServeMux()
 	ctx := context.Background()
 	sc := NewScrapeConfigs(
