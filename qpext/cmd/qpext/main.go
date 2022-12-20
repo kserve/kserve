@@ -181,12 +181,7 @@ func scrapeAndWriteAppMetrics(mfs map[string]*io_prometheus_client.MetricFamily,
 		}
 		mf.Metric = newMetric
 
-		var err error
-		if format == expfmt.OpenMetricsType {
-			_, err = expfmt.MetricFamilyToOpenMetrics(w, mf)
-		} else {
-			_, err = expfmt.MetricFamilyToText(w, mf)
-		}
+		_, err := expfmt.MetricFamilyToText(w, mf)
 		if err != nil {
 			logger.Error("multierr", zap.Error(err))
 			errs = multierror.Append(errs, err)

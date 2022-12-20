@@ -3,9 +3,7 @@ module github.com/kserve/kserve/qpext
 go 1.18
 
 require (
-	github.com/google/martian v2.1.0+incompatible
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.37.0
 	github.com/stretchr/testify v1.7.0
@@ -44,6 +42,7 @@ require (
 	github.com/openzipkin/zipkin-go v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/prometheus/client_golang v1.13.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
