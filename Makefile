@@ -268,6 +268,9 @@ docker-build-qpext:
 docker-build-push-qpext: docker-build-qpext
 	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
 
+test-qpext:
+	cd qpext && go test -v ./... -cover
+
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
