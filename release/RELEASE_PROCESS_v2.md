@@ -5,7 +5,6 @@ These are the timelines proposed for the process
 
 | Week | Event (Ideal timelines with 3 months of cadence)                                                        |
 | ---- | ------------------------------------------------------------------------------------------------------- |
-| 0    | Gap week between releases. 0.9.0 release happened on July 22, 2022                                      |
 | 1    | Development                                                                                             |
 | 2    | Development                                                                                             |
 | 3    | Development                                                                                             |
@@ -25,6 +24,7 @@ These are the timelines proposed for the process
 | 17   | RC2 Released if necessary                                                                               |
 | 18   | Testing + End of documentation                                                                          |
 | 19   | Final release                                                                                           |
+
 
 
 
