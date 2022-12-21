@@ -28,11 +28,11 @@ These are the timelines proposed for the process
 
 
 
-In 8th week,
+In 11th week,
 - Create an issue of type feature in [kserve/kserve](https://github.com/kserve/kserve) to start tracking the release process
     - Copy paste the above timeline table in that issue and fill in the dates accordingly
 - Label the issue with `priority p0`
-- Label the issue with `kind process`
+- Label the issue with the kind `process`
 - Announce the feature freeze and rest of the dates in the #kserve channel
 
 
@@ -44,17 +44,19 @@ Create a branch and do the following:
 1. Update the version number in following places:
     1. [VERSION](../python/VERSION) to `${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     2. [quick_install.sh](../hack/quick_install.sh#L35) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
-    3. [values.yaml](../charts/kserve/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
-    4. [Chart.yaml](../charts/kserve/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
-2. Generate install manifest `./hack/generate-install.sh $VERSION`.
-3. Submit your PR and wait for it to merge.
-4. After it is merged,
+    3. [Chart.yaml in kserve-crd](../charts/kserve-crd/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+    4. [Chart.yaml in kserve-resources](../charts/kserve-resources/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+    5. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+2. Add a new version `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}` in the `RELEASES` array in [generate-install.sh](../hack/generate-install.sh). Example: Refer [this commit](https://github.com/rachitchauhan43/kserve/commit/6e9bd24ea137a3619da3297b4ff000379f7b2b38#diff-5f8f3e3a8ca601067664c7bf00c05aa2290a6ba625312754856ec873b840b6dbR42)
+3. Generate install manifest `./hack/generate-install.sh $VERSION`.
+4. Submit your PR and wait for it to merge.
+5. After it is merged,
     1. Create a release branch of the form release-X.Y.Z from the master // TODO add git commands
     2. Create a release candidate tag X.Y.Z-rc0 from that branch and do git push for both the branch and tag // TODO do mention only KServe owners can do it
-    3. from that tag create a release-candidate (basically a pre-release) on github
+    3. From that tag create a release-candidate (basically a pre-release) on github
     4. With this you are done with the creation of RC0 for upcoming release
-5. Announce in the community about the availability of release-candidate so that community can start consuming and testing. And ask them to report bugs as soon as possible.
-6. After feature freeze date, now only bug fixes will be merged into the release branch.
+6. Announce in the community about the availability of release-candidate so that community can start consuming and testing. And ask them to report bugs as soon as possible.
+7. After feature freeze date, now only bug fixes will be merged into the release branch.
 
 ### 1 week after feature freeze:
 After feature freeze,we will be merging only bug fixes into the release branch and creating another release candidate (RC1).
@@ -66,4 +68,29 @@ Process for getting those bug fixes is as follows:
     1. Cherry-pick the merged commits from master to the release branch. // TODO Do we have any specific process for cherry-picking merged commits from the master into release branch ? Add git commands
     2. Make sure merged commits are cherry-picked in the order they were merged. Cherry-picking should not result in any sort of merge conflicts since no one is working on release branch.  
     3. 
+
+
+### On the release day:
+
+#### Updating the version in master 
+This will be the last commit before the release and last one to be cherry-picked. So, we have to update the release version in master to reflect the latest release we are at.  
+1. Update the version number in following places:
+   1. [VERSION](../python/VERSION) to `${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+   2. [quick_install.sh](../hack/quick_install.sh#L35) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+   3. [Chart.yaml in kserve-crd](../charts/kserve-crd/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+   4. [Chart.yaml in kserve-resources](../charts/kserve-resources/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+   5. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+2. Add a new version `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}` in the `RELEASES` array in [generate-install.sh](../hack/generate-install.sh). Example: Refer [this commit](https://github.com/rachitchauhan43/kserve/commit/6e9bd24ea137a3619da3297b4ff000379f7b2b38#diff-5f8f3e3a8ca601067664c7bf00c05aa2290a6ba625312754856ec873b840b6dbR42)
+3. Generate install manifest `./hack/generate-install.sh $VERSION`.
+4. Submit your PR and wait for it to merge.
+
+#### Cherry-picking the merge commit from master in to release branch and creating release
+1. Cherry-pick the merged commits from master to the release branch. // TODO Do we have any specific process for cherry-picking merged commits from the master into release branch ? Add git commands 
+2. Make sure merged commits are cherry-picked in the order they were merged. Cherry-picking should not result in any sort of merge conflicts since no one is working on release branch.
+3. Once done cherry-picking, you are ready to create a release tag out of this release branch. Steps: 
+   1. Create a release tag X.Y.Z from that branch and do git push for both the branch and tag // TODO do mention only KServe owners can do it. Add commands as well
+   2. From that tag create a release on Github
+   3. With this you are done with the creation of release
+
+
 
