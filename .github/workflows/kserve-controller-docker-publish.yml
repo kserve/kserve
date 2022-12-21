@@ -46,14 +46,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Build image
-        run: |
-          docker build . --file Dockerfile --tag $IMAGE_NAME
-
       - name: Log into registry
         run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push image
+      - name: Generate IMAGE_TAG
         run: |
           IMAGE_ID=kserve/$IMAGE_NAME
 
@@ -72,6 +68,17 @@ jobs:
           echo IMAGE_ID=$IMAGE_ID
           echo VERSION=$VERSION
 
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          echo "IMAGE_TAG=$IMAGE_ID:$VERSION" >> $GITHUB_ENV
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{ env.IMAGE_TAG }}
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
