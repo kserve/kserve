@@ -1,13 +1,16 @@
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: kfserving-ingress
   namespace: istio-system
 spec:
   rules:
-    - host: "<*.custom_domain>"
-      http:
-        paths:
-          - backend:
-              serviceName: istio-ingressgateway
-              servicePort: 80
+  - host: "<*.custom_domain>"
+    http:
+      paths:
+      - backend:
+          service:
+            name: istio-ingressgateway
+            port:
+              number: 80
+        pathType: ImplementationSpecific

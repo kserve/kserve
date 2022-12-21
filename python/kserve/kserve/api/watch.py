@@ -21,7 +21,7 @@ from ..constants import constants
 from ..utils import utils
 
 
-def isvc_watch(name=None, namespace=None, timeout_seconds=600):
+def isvc_watch(name=None, namespace=None, timeout_seconds=600, generation=0):
     """Watch the created or patched InferenceService in the specified namespace"""
 
     if namespace is None:
@@ -46,24 +46,29 @@ def isvc_watch(name=None, namespace=None, timeout_seconds=600):
         if name and name != isvc_name:
             continue
         else:
+            status = 'Unknown'
             if isvc.get('status', ''):
                 url = isvc['status'].get('url', '')
                 traffic = isvc['status'].get('components', {}).get(
                     'predictor', {}).get('traffic', [])
                 traffic_percent = 100
-                for t in traffic:
-                    if t["latestRevision"]:
-                        traffic_percent = t["percent"]
-                status = 'Unknown'
-                for condition in isvc['status'].get('conditions', {}):
-                    if condition.get('type', '') == 'Ready':
-                        status = condition.get('status', 'Unknown')
-                tbl(isvc_name, status, 100-traffic_percent, traffic_percent, url)
+                if constants.OBSERVED_GENERATION in isvc['status']:
+                    observed_generation = isvc['status'][constants.OBSERVED_GENERATION]
+                    for t in traffic:
+                        if t["latestRevision"]:
+                            traffic_percent = t["percent"]
+
+                    if generation != 0 and observed_generation != generation:
+                        continue
+                    for condition in isvc['status'].get('conditions', {}):
+                        if condition.get('type', '') == 'Ready':
+                            status = condition.get('status', 'Unknown')
+                    tbl(isvc_name, status, 100-traffic_percent, traffic_percent, url)
+                    if status == 'True':
+                        break
+
             else:
-                tbl(isvc_name, 'Unknown', '', '', '')
+                tbl(isvc_name, status, '', '', '')
                 # Sleep 2 to avoid status section is not generated within a very short time.
                 time.sleep(2)
                 continue
-
-            if name == isvc_name and status == 'True':
-                break

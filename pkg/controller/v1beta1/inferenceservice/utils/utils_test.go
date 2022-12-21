@@ -126,7 +126,28 @@ func TestIsMMSPredictor(t *testing.T) {
 							Containers: []v1.Container{
 								{Name: constants.InferenceServiceContainerName,
 									Image: "some-image",
-									Env:   []v1.EnvVar{{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(false)}, {Name: constants.CustomSpecStorageUriEnvVarKey, Value: "gs://some-uri"}},
+									Env: []v1.EnvVar{
+										{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(false)},
+										{Name: constants.CustomSpecStorageUriEnvVarKey, Value: "gs://some-uri"}},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		"CustomSpecWithoutURI": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "CustomSpecMMSWithURI",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{Name: constants.InferenceServiceContainerName,
+									Image: "some-image",
 								},
 							},
 						},
@@ -1232,6 +1253,174 @@ func TestGetDeploymentMode(t *testing.T) {
 			deploymentMode := GetDeploymentMode(scenario.annotations, scenario.deployConfig)
 			if !g.Expect(deploymentMode).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", deploymentMode, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestModelName(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.MustParse("100m"),
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.MustParse("90m"),
+		},
+	}
+
+	scenarios := map[string]struct {
+		isvc     InferenceService
+		expected string
+	}{
+		"ModelSpec": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "sklearn",
+		},
+		"CustomModelName": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn-iris",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://someUri"),
+								Container: v1.Container{
+									Args:      []string{"--model_name=sklearn-custom"},
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "sklearn-custom",
+		},
+		"CustomSpec": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "CustomSpecMMS",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{Name: constants.InferenceServiceContainerName,
+									Image: "some-image",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "CustomSpecMMS",
+		},
+		"CustomSpecWithModelNameArg": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "Custom",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{Name: constants.InferenceServiceContainerName,
+									Image: "some-image",
+									Args:  []string{"--model_name=custom-model"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "custom-model",
+		},
+		"ModelSpecWithModelNameEnv": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn-iris-v2",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Env:       []v1.EnvVar{{Name: constants.MLServerModelNameEnv, Value: "sklearn-custom"}},
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "sklearn-custom",
+		},
+		"TransformerWithModelNameArg": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn-iris-transformer",
+				},
+				Spec: InferenceServiceSpec{
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{Name: constants.InferenceServiceContainerName,
+									Image: "some-image",
+									Args:  []string{"--model_name=custom-model"},
+								},
+							},
+						},
+					},
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "custom-model",
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := GetModelName(&scenario.isvc)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %s, want %s", res, scenario.expected)
 			}
 		})
 	}

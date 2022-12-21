@@ -35,10 +35,10 @@ EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
 
-PRE_HIST_TIME = Histogram('request_preprocessing_seconds', 'pre-processing request latency')
-POST_HIST_TIME = Histogram('request_postprocessing_seconds', 'post-processing request latency')
-PREDICT_HIST_TIME = Histogram('request_predict_processing_seconds', 'prediction request latency')
-EXPLAIN_HIST_TIME = Histogram('request_explain_processing_seconds', 'explain request latency')
+PRE_HIST_TIME = Histogram('request_preprocess_seconds', 'pre-process request latency')
+POST_HIST_TIME = Histogram('request_postprocess_seconds', 'post-process request latency')
+PREDICT_HIST_TIME = Histogram('request_predict_seconds', 'predict request latency')
+EXPLAIN_HIST_TIME = Histogram('request_explain_seconds', 'explain request latency')
 
 
 class ModelType(Enum):

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -53,7 +52,7 @@ func main() {
 }
 
 func viewAPI(cmd *cobra.Command, args []string) {
-	modelPb, err := ioutil.ReadFile(modelBasePath)
+	modelPb, err := os.ReadFile(modelBasePath)
 	if err != nil {
 		log.Fatalf(ModelBasePathError, modelBasePath, err.Error())
 	}
