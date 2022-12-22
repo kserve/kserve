@@ -43,7 +43,7 @@ pushd istio_tmp >/dev/null
   curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
   cd istio-${ISTIO_VERSION}
   export PATH=$PWD/bin:$PATH
-  istioctl manifest generate > ${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
+  istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout > ${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
 popd
 
 kubectl create ns istio-system
