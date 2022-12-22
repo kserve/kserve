@@ -97,6 +97,19 @@ class ModelMetadataResponse(BaseModel):
     outputs: List[MetadataTensor]
 
 
+class ModelReadyResponse(BaseModel):
+    """ModelReadyResponse
+
+        $ready_model_response =
+        {
+          "name": $string,
+          "ready": $bool
+        }
+    """
+    name: str
+    ready: bool
+
+
 class RequestInput(BaseModel):
     """RequestInput Model
 
