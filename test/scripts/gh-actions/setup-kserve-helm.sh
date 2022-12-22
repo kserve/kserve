@@ -27,6 +27,9 @@ cat ./charts/kserve-resources/values.yaml
 
 make deploy-helm
 
+echo "Updating modelmesh default replicas count..."
+kubectl patch servingruntimes mlserver-0.x --type='merge' -p '{"spec":{"replicas":1}}'
+
 echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s
 kubectl get events -A

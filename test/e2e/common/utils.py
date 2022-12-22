@@ -17,6 +17,7 @@ import time
 from urllib.parse import urlparse
 
 import grpc
+import portforward
 import requests
 from kubernetes import client
 
@@ -234,17 +235,13 @@ def predict_grpc(service_name, payload, version=constants.KSERVE_V1BETA1_VERSION
     return stub.ModelInfer(pb.ModelInferRequest(model_name=model_name, inputs=payload))
 
 
-def predict_modelmesh(service_name, input_json, model_name=None):
+def predict_modelmesh(service_name, input_json, pod_name, model_name=None):
     with open(input_json) as json_file:
         data = json.load(json_file)
-        cluster_ip = get_cluster_ip("modelmesh-serving", "default")
-
-        if ":" not in cluster_ip:
-            cluster_ip = cluster_ip + ":8003"
 
         if model_name is None:
             model_name = service_name
-
-        url = f"http://{cluster_ip}/v2/models/{model_name}/infer"
-        response = requests.post(url, json.dumps(data))
-        return json.loads(response.content.decode("utf-8"))
+        with portforward.forward("default", pod_name, 8008, 8008):
+            url = f"http://localhost:8008/v2/models/{model_name}/infer"
+            response = requests.post(url, json.dumps(data))
+            return json.loads(response.content.decode("utf-8"))
