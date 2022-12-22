@@ -19706,7 +19706,7 @@ apiVersion: v1
 data:
   agent: |-
     {
-        "image" : "kserve/agent:v0.10.0",
+        "image" : "kserve/agent:v0.10.0-rc1",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -19714,7 +19714,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kserve/agent:v0.10.0",
+        "image" : "kserve/agent:v0.10.0-rc1",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -19770,7 +19770,7 @@ data:
     }
   logger: |-
     {
-        "image" : "kserve/agent:v0.10.0",
+        "image" : "kserve/agent:v0.10.0-rc1",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -19784,7 +19784,7 @@ data:
     }
   router: |-
     {
-        "image" : "kserve/router:v0.10.0",
+        "image" : "kserve/router:v0.10.0-rc1",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -19792,7 +19792,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:v0.10.0",
+        "image" : "kserve/storage-initializer:v0.10.0-rc1",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -19894,7 +19894,7 @@ spec:
               fieldPath: metadata.namespace
         - name: SECRET_NAME
           value: kserve-webhook-server-cert
-        image: kserve/kserve-controller:v0.10.0
+        image: kserve/kserve-controller:v0.10.0-rc1
         imagePullPolicy: Always
         name: manager
         ports:
