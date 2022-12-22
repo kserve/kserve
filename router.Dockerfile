@@ -12,7 +12,7 @@ COPY pkg/    pkg/
 COPY cmd/    cmd/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o router ./cmd/router
+RUN CGO_ENABLED=0  go build -a -o router ./cmd/router
 
 # Copy the inference-router into a thin image
 FROM gcr.io/distroless/static:latest
