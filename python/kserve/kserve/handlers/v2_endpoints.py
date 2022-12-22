@@ -96,7 +96,6 @@ class V2Endpoints:
 
         return ModelReadyResponse.parse_obj({"name": model_name, "ready": model_ready})
 
-
     async def infer(
         self,
         raw_request: Request,
