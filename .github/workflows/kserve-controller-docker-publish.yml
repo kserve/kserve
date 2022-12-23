@@ -15,7 +15,7 @@ on:
 
 env:
   IMAGE_NAME: kserve-controller
-  DOCKER_USER: ${{secrets.DOCKER_USER}}
+
 jobs:
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
@@ -60,7 +60,7 @@ jobs:
 
       - name: export version variable
         run: |
-          IMAGE_ID=$DOCKER_USER/$IMAGE_NAME
+          IMAGE_ID=kserve/$IMAGE_NAME
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
