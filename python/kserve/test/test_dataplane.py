@@ -108,6 +108,14 @@ class TestDataPlane:
         }
         assert dataplane.metadata() == expected_metadata
 
+    async def test_model_metadata(self, dataplane_with_model):
+        assert await dataplane_with_model.model_metadata(self.MODEL_NAME) == {
+            "name": self.MODEL_NAME,
+            "platform": "",
+            "inputs": [],
+            "outputs": []
+        }
+
     async def test_infer(self, dataplane_with_model):
         body = b'{"instances":[[1,2]]}'
         resp = await dataplane_with_model.infer(self.MODEL_NAME, body)
