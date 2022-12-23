@@ -12,7 +12,7 @@ COPY cmd/qpext cmd/qpext
 COPY logger.go logger.go
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o qpext ./cmd/qpext
+RUN CGO_ENABLED=0 go build -a -o qpext ./cmd/qpext
 
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /ko-app
