@@ -55,11 +55,11 @@ parser.add_argument("--max_threads", default=4, type=int,
                     help="The number of max processing threads in each worker.")
 parser.add_argument('--max_asyncio_workers', default=None, type=int,
                     help='Max number of asyncio workers to spawn')
-parser.add_argument("--enable_grpc", default=True, type=lambda x: bool(strtobool(x)),
+parser.add_argument("--enable_grpc", default=False, type=lambda x: bool(strtobool(x)),
                     help="Enable gRPC for the model server")
 parser.add_argument("--enable_docs_url", default=False, type=lambda x: bool(strtobool(x)),
                     help="Enable docs url '/docs' to display Swagger UI.")
-parser.add_argument("--enable_latency_logging", default=False, type=lambda x: bool(strtobool(x)),
+parser.add_argument("--enable_latency_logging", default=True, type=lambda x: bool(strtobool(x)),
                     help="Output a log per request with latency metrics.")
 
 args, _ = parser.parse_known_args()
