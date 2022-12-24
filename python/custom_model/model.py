@@ -44,8 +44,8 @@ class AlexNetModel(kserve.Model):
             headers["request-type"] = "v1"
             if "data" in payload["instances"][0]:
                 # assume the data is already preprocessed in transformer
-                input_tensor = torch.Tensor(payload["instances"][0]["data"])
-                return torch.Tensor(input_tensor)
+                input_tensor = torch.Tensor(np.asarray(payload["instances"][0]["data"]))
+                return input_tensor.unsqueeze(0)
             elif "image" in payload["instances"][0]:
                 # Input follows the Tensorflow V1 HTTP API for binary values
                 # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values

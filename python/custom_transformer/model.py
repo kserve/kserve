@@ -61,7 +61,7 @@ class ImageTransformer(Model):
         # Transform to KServe v1/v2 inference protocol
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             return self.v2_request_transform(input_tensors)
-        elif self.protocol == PredictorProtocol.REST_V1:
+        elif self.protocol == PredictorProtocol.REST_V1.value:
             inputs = [{"data": input_tensor.tolist()} for input_tensor in input_tensors]
             payload = {"instances": inputs}
             return payload
@@ -90,6 +90,8 @@ class ImageTransformer(Model):
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             res = super().postprocess(infer_response, headers)
             return {"predictions": res["outputs"][0]["data"]}
+        elif self.protocol == PredictorProtocol.REST_V2.value:
+            return {"predictions": infer_response["outputs"][0]["data"]}
         else:
             return infer_response
 

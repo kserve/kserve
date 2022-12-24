@@ -20,6 +20,7 @@ from typing import Dict, Union, List
 import grpc
 
 import httpx
+from httpx import HTTPStatusError
 import orjson
 from cloudevents.http import CloudEvent
 from kserve.metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
@@ -253,7 +254,17 @@ class Model:
             headers=predict_headers,
             content=data
         )
-        response.raise_for_status()
+        if not response.is_success:
+            message = (
+                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
+            )
+            error_message = ""
+            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
+                error_message = response.json()
+                if "error" in error_message:
+                    error_message = error_message["error"]
+            message = message.format(response, error_message=error_message)
+            raise HTTPStatusError(message, request=response.request, response=response)
         return orjson.loads(response.content)
 
     async def _grpc_predict(self, payload: ModelInferRequest, headers: Dict[str, str] = None) -> ModelInferResponse:

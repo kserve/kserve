@@ -182,7 +182,7 @@ class ModelServer:
                 errors.ModelNotFound: errors.model_not_found_handler,
                 errors.ModelNotReady: errors.model_not_ready_handler,
                 NotImplementedError: errors.not_implemented_error_handler,
-                Exception: errors.exception_handler
+                Exception: errors.generic_exception_handler
             }
         )
 
