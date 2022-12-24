@@ -10,6 +10,9 @@ on:
       - '!**.md'
       - '.github/workflows/e2e-test.yml'
 
+env:
+   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   kserve-image-build:
     runs-on: ubuntu-latest
