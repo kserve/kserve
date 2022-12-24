@@ -86,7 +86,7 @@ class Model:
         Returns:
             Dict: Response output from preprocess -> predictor/explainer -> postprocess
         """
-        request_id = headers.get("X-Request-Id", "N.A.") if headers else "N.A."
+        request_id = headers.get("x-request-id", "N.A.") if headers else "N.A."
 
         # latency vars
         preprocess_ms = 0
@@ -151,8 +151,8 @@ class Model:
         if self.protocol == PredictorProtocol.REST_V2.value:
             if "inputs" in payload and not isinstance(payload["inputs"], list):
                 raise InvalidInput("Expected \"inputs\" to be a list")
-        elif isinstance(payload, Dict) or self.protocol == PredictorProtocol.REST_V1.value:
-            if "instances" in payload and not isinstance(payload["instances"], list):
+        elif self.protocol == PredictorProtocol.REST_V1.value:
+            if isinstance(payload, Dict) and "instances" in payload and not isinstance(payload["instances"], list):
                 raise InvalidInput("Expected \"instances\" to be a list")
         return payload
 
@@ -242,16 +242,16 @@ class Model:
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
         predict_headers = {'Content-Type': 'application/json'}
         if headers is not None:
-            if 'X-Request-Id' in headers:
-                predict_headers['X-Request-Id'] = headers['X-Request-Id']
-            if 'X-B3-Traceid' in headers:
-                predict_headers['X-B3-Traceid'] = headers['X-B3-Traceid']
-
+            if 'x-request-id' in headers:
+                predict_headers['x-request-id'] = headers['x-request-id']
+            if 'x-b3-traceid' in headers:
+                predict_headers['x-b3-traceid'] = headers['x-b3-traceid']
+        data = orjson.dumps(payload)
         response = await self._http_client.post(
             predict_url,
             timeout=self.timeout,
             headers=predict_headers,
-            content=orjson.dumps(payload)
+            content=data
         )
         response.raise_for_status()
         return orjson.loads(response.content)
@@ -260,7 +260,9 @@ class Model:
         async_result = await self._grpc_client.ModelInfer(
             request=payload,
             timeout=self.timeout,
-            metadata=(('request_type', 'grpc_v2'), ('response_type', 'grpc_v2'))
+            metadata=(('request_type', 'grpc_v2'),
+                      ('response_type', 'grpc_v2'),
+                      ('x-request-id', headers.get('x-request-id', '')))
         )
         return async_result
 

@@ -25,6 +25,9 @@ from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 from grpc import aio
 
 
+MAX_GRPC_MESSAGE_LENGTH = 8388608
+
+
 class GRPCServer:
     def __init__(
         self,
@@ -43,7 +46,12 @@ class GRPCServer:
             self._model_repository_extension)
         self._server = aio.server(
             futures.ThreadPoolExecutor(max_workers=max_workers),
-            interceptors=(LoggingInterceptor(),)
+            interceptors=(LoggingInterceptor(),),
+            options=[
+                ("grpc.max_message_length", MAX_GRPC_MESSAGE_LENGTH),
+                ("grpc.max_send_message_length", MAX_GRPC_MESSAGE_LENGTH),
+                ("grpc.max_receive_message_length", MAX_GRPC_MESSAGE_LENGTH)
+            ]
         )
         grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(
             inference_servicer, self._server)

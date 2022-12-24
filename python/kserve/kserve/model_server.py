@@ -225,7 +225,7 @@ class ModelServer:
                     "access": {
                         "()": "uvicorn.logging.AccessFormatter",
                         "datefmt": DATE_FORMAT,
-                        "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s - '
+                        "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s %(process)s - '
                                '"%(request_line)s" %(status_code)s',
                         # noqa: E501
                     },

@@ -27,7 +27,7 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.model_name = name
 
-    def preprocess(self, request: Union[Dict, ModelInferRequest], headers=None) -> ModelInferRequest:
+    def preprocess(self, request: Union[Dict, ModelInferRequest], headers: Dict[str, str] = None) -> ModelInferRequest:
         if isinstance(request, ModelInferRequest):
             return request
         else:
