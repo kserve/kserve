@@ -16,8 +16,10 @@ import argparse
 import asyncio
 import concurrent.futures
 import logging
+import multiprocessing
+import socket
 from distutils.util import strtobool
-from typing import List, Dict, Union
+from typing import List, Dict, Optional, Union
 
 import pkg_resources
 import uvicorn
@@ -57,7 +59,7 @@ parser.add_argument("--enable_grpc", default=True, type=lambda x: bool(strtobool
                     help="Enable gRPC for the model server")
 parser.add_argument("--enable_docs_url", default=False, type=lambda x: bool(strtobool(x)),
                     help="Enable docs url '/docs' to display Swagger UI.")
-parser.add_argument("--enable_latency_logging", default=False, type=lambda x: bool(strtobool(x)),
+parser.add_argument("--enable_latency_logging", default=True, type=lambda x: bool(strtobool(x)),
                     help="Output a log per request with latency metrics.")
 
 args, _ = parser.parse_known_args()
@@ -70,6 +72,21 @@ logging.basicConfig(level=logging.INFO, format=FORMAT, datefmt=DATE_FORMAT)
 async def metrics_handler(request: Request) -> Response:
     encoder, content_type = exposition.choose_encoder(request.headers.get("accept"))
     return Response(content=encoder(REGISTRY), headers={"content-type": content_type})
+
+
+class UvicornCustomServer(multiprocessing.Process):
+
+    def __init__(self, config: uvicorn.Config, sockets: Optional[List[socket.socket]] = None):
+        super().__init__()
+        self.sockets = sockets
+        self.config = config
+
+    def stop(self):
+        self.terminate()
+
+    def run(self):
+        server = uvicorn.Server(config=self.config)
+        asyncio.run(server.serve(sockets=self.sockets))
 
 
 class ModelServer:
@@ -165,7 +182,7 @@ class ModelServer:
                 errors.ModelNotFound: errors.model_not_found_handler,
                 errors.ModelNotReady: errors.model_not_ready_handler,
                 NotImplementedError: errors.not_implemented_error_handler,
-                Exception: errors.exception_handler
+                Exception: errors.generic_exception_handler
             }
         )
 
@@ -191,9 +208,6 @@ class ModelServer:
         else:
             raise RuntimeError("Unknown model collection types")
 
-        logging.info(f"starting uvicorn with {self.workers} workers")
-        # TODO: multiprocessing does not work programmatically
-        # https://www.uvicorn.org/deployment/#running-programmatically
         cfg = uvicorn.Config(
             self.create_application(),
             host="0.0.0.0",
@@ -211,7 +225,7 @@ class ModelServer:
                     "access": {
                         "()": "uvicorn.logging.AccessFormatter",
                         "datefmt": DATE_FORMAT,
-                        "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s - '
+                        "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s %(process)s - '
                                '"%(request_line)s" %(status_code)s',
                         # noqa: E501
                     },
@@ -236,7 +250,6 @@ class ModelServer:
             }
         )
 
-        self._server = uvicorn.Server(cfg)
         if self.max_asyncio_workers is None:
             # formula as suggest in https://bugs.python.org/issue35279
             self.max_asyncio_workers = min(32, utils.cpu_count()+4)
@@ -244,8 +257,19 @@ class ModelServer:
         asyncio.get_event_loop().set_default_executor(
             concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
 
+        async def serve():
+            serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            serversocket.bind((cfg.host, cfg.port))
+            serversocket.listen(5)
+
+            logging.info(f"starting uvicorn with {self.workers} workers")
+            for _ in range(cfg.workers):
+                server = UvicornCustomServer(config=cfg, sockets=[serversocket])
+                server.start()
+
         async def servers_task():
-            servers = [self._server.serve()]
+            servers = [serve()]
             if self.enable_grpc:
                 servers.append(self._grpc_server.start(self.max_threads))
             await asyncio.gather(*servers)

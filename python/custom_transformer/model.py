@@ -42,7 +42,6 @@ def image_transform(instance):
     byte_array = base64.b64decode(instance["image"]["b64"])
     image = Image.open(io.BytesIO(byte_array))
     tensor = image_processing(image).numpy()
-    print(tensor.shape)
     return tensor
 
 
@@ -57,31 +56,42 @@ class ImageTransformer(Model):
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
         input_tensors = [image_transform(instance) for instance in payload["instances"]]
-
+        input_tensors = numpy.asarray(input_tensors)
+        print(input_tensors.shape)
         # Transform to KServe v1/v2 inference protocol
         if self.protocol == PredictorProtocol.GRPC_V2.value:
-            return self.v2_request_transform(numpy.asarray(input_tensors))
-        else:
+            return self.v2_request_transform(input_tensors)
+        elif self.protocol == PredictorProtocol.REST_V1.value:
             inputs = [{"data": input_tensor.tolist()} for input_tensor in input_tensors]
             payload = {"instances": inputs}
             return payload
+        else:
+            return {
+                'inputs': [
+                    {
+                        'name': "INPUT__0",
+                        'shape': input_tensors.shape,
+                        'datatype': 'FP32',
+                        'data': input_tensors.tolist()
+                    }
+                ]
+            }
 
     def v2_request_transform(self, input_tensors):
-        request = ModelInferRequest()
-        request.model_name = self.name
-        tensor = {
+        payload = [{
             'name': "INPUT__0",
             'shape': input_tensors.shape,
-            'datatype': "FP32",
-        }
-        request.inputs.extend([tensor])
-        request.raw_input_contents.extend([input_tensors.tobytes()])
-        return request
+            'datatype': "FP32"
+        }]
+        return ModelInferRequest(model_name=self.name, inputs=payload,
+                                 raw_input_contents=[input_tensors.tobytes()])
 
     def postprocess(self, infer_response: ModelInferResponse, headers: Dict[str, str] = None) -> Dict:
         if self.protocol == PredictorProtocol.GRPC_V2.value:
-            res = super.postprocess(infer_response, headers)
-            return {"predictions": res["contents"]["fp32_contents"]}
+            res = super().postprocess(infer_response, headers)
+            return {"predictions": res["outputs"][0]["data"]}
+        elif self.protocol == PredictorProtocol.REST_V2.value:
+            return {"predictions": infer_response["outputs"][0]["data"]}
         else:
             return infer_response
 

@@ -81,6 +81,11 @@ async def inference_error_handler(_, exc):
     return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)})
 
 
+async def generic_exception_handler(_, exc):
+    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                        content={"error": f"{type(exc).__name__} : {str(exc)}"})
+
+
 async def model_not_found_handler(_, exc):
     return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content={"error": str(exc)})
 

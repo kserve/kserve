@@ -95,8 +95,11 @@ def predict_str(service_name, input_json, protocol_version="v1",
     logging.info("Sending request data: %s", input_json)
     response = requests.post(url, input_json, headers=headers)
     logging.info("Got response code %s, content %s", response.status_code, response.content)
-    preds = json.loads(response.content.decode("utf-8"))
-    return preds
+    if response.status_code == 200:
+        preds = json.loads(response.content.decode("utf-8"))
+        return preds
+    else:
+        response.raise_for_status()
 
 
 def predict_ig(ig_name, input_json, protocol_version="v1",
@@ -122,8 +125,11 @@ def predict_ig(ig_name, input_json, protocol_version="v1",
         logging.info("Sending request data: %s", input_json)
         response = requests.post(url, data, headers=headers)
         logging.info("Got response code %s, content %s", response.status_code, response.content)
-        preds = json.loads(response.content.decode("utf-8"))
-        return preds
+        if response.status_code == 200:
+            preds = json.loads(response.content.decode("utf-8"))
+            return preds
+        else:
+            response.raise_for_status()
 
 
 def explain(service_name, input_json):
@@ -164,17 +170,12 @@ def explain_response(service_name, input_json):
                 response.status_code,
                 response.content,
             )
-            json_response = json.loads(response.content.decode("utf-8"))
+            if response.status_code == 200:
+                json_response = json.loads(response.content.decode("utf-8"))
+            else:
+                response.raise_for_status()
         except (RuntimeError, json.decoder.JSONDecodeError) as e:
             logging.info("Explain error -------")
-            logging.info(
-                kfs_client.api_instance.get_namespaced_custom_object(
-                    "serving.knative.dev",
-                    "v1",
-                    KSERVE_TEST_NAMESPACE,
-                    "services",
-                    service_name + "-explainer",
-                ))
             pods = kfs_client.core_api.list_namespaced_pod(
                 KSERVE_TEST_NAMESPACE,
                 label_selector="serving.kserve.io/inferenceservice={}".format(
