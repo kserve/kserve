@@ -70,7 +70,6 @@ class V1Endpoints:
 
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)
-
         return response
 
     async def explain(self, model_name: str, request: Request) -> Dict:

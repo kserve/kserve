@@ -29,6 +29,8 @@ from fastapi.responses import ORJSONResponse
 from prometheus_client import REGISTRY, exposition
 from ray import serve
 from ray.serve.api import Deployment, RayServeHandle
+from timing_asgi.integrations import StarletteScopeToName
+
 from .utils import utils
 import kserve.errors as errors
 from kserve import Model
@@ -39,6 +41,7 @@ from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 from kserve.handlers.v2_datamodels import InferenceResponse, ServerMetadataResponse, ServerLiveResponse, \
     ServerReadyResponse, ModelMetadataResponse, ModelReadyResponse
 from kserve.model_repository import ModelRepository
+from timing_asgi import TimingMiddleware, TimingClient
 
 
 DEFAULT_HTTP_PORT = 8080
@@ -87,6 +90,11 @@ class UvicornCustomServer(multiprocessing.Process):
     def run(self):
         server = uvicorn.Server(config=self.config)
         asyncio.run(server.serve(sockets=self.sockets))
+
+
+class PrintTimings(TimingClient):
+    def timing(self, metric_name, timing, tags):
+        logging.info(f"{metric_name} {timing}, {tags}")
 
 
 class ModelServer:
@@ -211,9 +219,14 @@ class ModelServer:
                 raise RuntimeError("Model type should be RayServe Deployment")
         else:
             raise RuntimeError("Unknown model collection types")
-
+        app = self.create_application()
+        app.add_middleware(
+            TimingMiddleware,
+            client=PrintTimings(),
+            metric_namer=StarletteScopeToName(prefix="myapp", starlette_app=app)
+        )
         cfg = uvicorn.Config(
-            self.create_application(),
+            app,
             host="0.0.0.0",
             port=self.http_port,
             workers=self.workers,

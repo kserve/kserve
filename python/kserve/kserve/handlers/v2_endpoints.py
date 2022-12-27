@@ -102,7 +102,7 @@ class V2Endpoints:
         raw_response: Response,
         model_name: str,
         request_body: InferenceRequest,
-        model_version: Optional[str] = None
+        model_version: Optional[str] = None,
     ) -> InferenceResponse:
         """Infer handler.
 
@@ -122,10 +122,12 @@ class V2Endpoints:
 
         request_headers = dict(raw_request.headers)
         response, response_headers = await self.dataplane.infer(
-            model_name=model_name, body=request_body.dict(), headers=request_headers)
+            model_name=model_name, body=request_body, headers=request_headers)
+
         if response_headers:
             raw_response.headers.update(response_headers)
-        return InferenceResponse.parse_obj(response)
+        res = InferenceResponse.parse_obj(response)
+        return res
 
     async def load(self, model_name: str) -> Dict:
         """Model load handler.

@@ -15,7 +15,7 @@
 import argparse
 import base64
 import io
-from typing import Dict
+from typing import Dict, Union
 
 import numpy
 
@@ -34,13 +34,16 @@ def image_transform(instance):
     Returns:
         numpy.array: Returns the numpy array after the image preprocessing.
     """
-    image_processing = transforms.Compose([
+    preprocess = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225]),
     ])
     byte_array = base64.b64decode(instance["image"]["b64"])
     image = Image.open(io.BytesIO(byte_array))
-    tensor = image_processing(image).numpy()
+    tensor = preprocess(image).numpy()
     return tensor
 
 
@@ -51,7 +54,7 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.ready = True
 
-    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> ModelInferRequest:
+    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Union[Dict, ModelInferRequest]:
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
         input_tensors = [image_transform(instance) for instance in payload["instances"]]
@@ -83,7 +86,7 @@ class ImageTransformer(Model):
         return ModelInferRequest(model_name=self.name, inputs=payload,
                                  raw_input_contents=[input_tensors.tobytes()])
 
-    def postprocess(self, infer_response: ModelInferResponse, headers: Dict[str, str] = None) -> Dict:
+    def postprocess(self, infer_response: Union[ModelInferResponse, Dict], headers: Dict[str, str] = None) -> Dict:
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             res = super().postprocess(infer_response, headers)
             return {"predictions": res["outputs"][0]["data"]}

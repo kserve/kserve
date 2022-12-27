@@ -25,7 +25,10 @@ from kserve.errors import InvalidInput, ModelNotFound
 from kserve.model import ModelType
 from kserve.model_repository import ModelRepository
 from kserve.utils.utils import is_structured_cloudevent, create_response_cloudevent
+from .v2_datamodels import InferenceRequest
 from ..constants import constants
+import time
+import logging
 
 
 class DataPlane:
@@ -200,12 +203,46 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
+    def decode(self, body, headers) -> Union[Dict, InferenceRequest]:
+        if isinstance(body, InferenceRequest):
+            return body
+        if headers and has_binary_headers(headers):
+            body = self.get_binary_cloudevent(body, headers)
+        else:
+            if type(body) is bytes:
+                try:
+                    body = orjson.loads(body)
+                except orjson.JSONDecodeError as e:
+                    raise InvalidInput(f"Unrecognized request format: {e}")
+        return body
+
+    def encode(self, response, headers) -> Tuple[Dict, Dict[str, str]]:
+        response_headers = {}
+        # if we received a cloudevent, then also return a cloudevent
+        is_cloudevent = False
+        is_binary_cloudevent = False
+        if headers:
+            if has_binary_headers(headers):
+                is_cloudevent = True
+                is_binary_cloudevent = True
+            if "content-type" in headers and "application/cloudevents+json" == headers["content-type"]:
+                is_cloudevent = True
+        if is_cloudevent:
+            response_headers, response = create_response_cloudevent(self.name, response, response,
+                                                                    is_binary_cloudevent)
+
+            if is_binary_cloudevent:
+                response_headers["content-type"] = "application/json"
+            else:
+                response_headers["content-type"] = "application/cloudevents+json"
+        return response, response_headers
+
     async def infer(
             self,
             model_name: str,
-            body: Union[bytes, Dict],
+            body: Union[bytes, Dict, InferenceRequest],
             headers: Optional[Dict[str, str]] = None
-    ) -> Tuple[Union[str, bytes, Dict], Dict[str, str]]:
+    ) -> Tuple[Union[str, bytes, Dict, InferenceRequest], Dict[str, str]]:
         """Performs inference on the specified model with the provided body and headers.
 
         If the ``body`` contains an encoded `CloudEvent`_, then it will be decoded and processed.
@@ -226,22 +263,10 @@ class DataPlane:
 
         .. _CloudEvent: https://cloudevents.io/
         """
-        is_cloudevent = False
-        is_binary_cloudevent = False
-
-        if headers and has_binary_headers(headers):
-            is_cloudevent = True
-            is_binary_cloudevent = True
-            body = self.get_binary_cloudevent(body, headers)
-        else:
-            if type(body) is bytes:
-                try:
-                    body = orjson.loads(body)
-                except orjson.JSONDecodeError as e:
-                    raise InvalidInput(f"Unrecognized request format: {e}")
-
-            if isinstance(body, dict) and is_structured_cloudevent(body):
-                is_cloudevent = True
+        t1 = time.time()
+        body = self.decode(body, headers)
+        t2 = time.time()
+        logging.info(f"decode takes {round((t2 - t1) * 1000, 9)}")
 
         # call model locally or remote model workers
         model = self.get_model(model_name)
@@ -251,25 +276,19 @@ class DataPlane:
             model_handle: RayServeHandle = model
             response = await model_handle.remote(body)
 
-        response_headers = {}
-        # if we received a cloudevent, then also return a cloudevent
-        if is_cloudevent:
-            response_headers, response = create_response_cloudevent(model_name, body, response,
-                                                                    is_binary_cloudevent)
-
-            if is_binary_cloudevent:
-                response_headers["content-type"] = "application/json"
-            else:
-                response_headers["content-type"] = "application/cloudevents+json"
-
+        response, response_headers = self.encode(response, headers)
         return response, response_headers
 
-    async def explain(self, model_name: str, body: bytes) -> Dict:
+    async def explain(self, model_name: str,
+                      body: Union[bytes, Dict, InferenceRequest],
+                      headers: Optional[Dict[str, str]] = None
+                      ) -> Tuple[Union[str, bytes, Dict, InferenceRequest], Dict[str, str]]:
         """Performs explanation for the specified model.
 
         Args:
             model_name (str): Model name to be used for explanation.
-            body (bytes): Raw HTTP request body.
+            body (bytes|Dict): Request body data.
+            headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
             Dict: Explanation result.
@@ -277,10 +296,10 @@ class DataPlane:
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
-        try:
-            body = orjson.loads(body)
-        except orjson.JSONDecodeError as e:
-            raise InvalidInput(f"Unrecognized request format: {e}")
+        t1 = time.time()
+        body = self.decode(body, headers)
+        t2 = time.time()
+        logging.info(f"decode takes {round((t2 - t1) * 1000, 9)}")
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if not isinstance(model, RayServeHandle):
@@ -288,4 +307,5 @@ class DataPlane:
         else:
             model_handle = model
             response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
-        return response
+        response, response_headers = self.encode(response, headers)
+        return response, response_headers

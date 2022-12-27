@@ -11,14 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import kserve
 from torchvision import models, transforms
-from typing import Dict
+from typing import Dict, Union
 import torch
 from PIL import Image
 import base64
 import io
 import numpy as np
+
+from kserve.handlers.v2_datamodels import InferenceRequest
 from kserve.utils.utils import generate_uuid
 
 
@@ -38,9 +41,10 @@ class AlexNetModel(kserve.Model):
         self.model.eval()
         self.ready = True
 
-    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> torch.Tensor:
+    def preprocess(self, payload: Union[Dict, InferenceRequest], headers: Dict[str, str] = None) -> torch.Tensor:
+        print(type(payload))
         raw_img_data = None
-        if "instances" in payload:
+        if isinstance(payload, Dict) and "instances" in payload:
             headers["request-type"] = "v1"
             if "data" in payload["instances"][0]:
                 # assume the data is already preprocessed in transformer
@@ -51,13 +55,23 @@ class AlexNetModel(kserve.Model):
                 # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
                 data = payload["instances"][0]["image"]["b64"]
                 raw_img_data = base64.b64decode(data)
-        elif "inputs" in payload:
+        elif isinstance(payload, Dict) and "inputs" in payload:
             headers["request-type"] = "v2"
             inputs = payload["inputs"]
             data = inputs[0]["data"][0]
             if inputs[0]["datatype"] == "BYTES":
                 raw_img_data = base64.b64decode(data)
             elif inputs[0]["datatype"] == "FP32":
+                # assume the data is already preprocessed in transformer
+                input_tensor = torch.Tensor(np.asarray(data))
+                return input_tensor.unsqueeze(0)
+        elif isinstance(payload, InferenceRequest):
+            headers["request-type"] = "v2"
+            inputs = payload.inputs
+            data = inputs[0].data[0]
+            if inputs[0].datatype == "BYTES":
+                raw_img_data = base64.b64decode(data)
+            elif inputs[0].datatype == "FP32":
                 # assume the data is already preprocessed in transformer
                 input_tensor = torch.Tensor(np.asarray(data))
                 return input_tensor.unsqueeze(0)
