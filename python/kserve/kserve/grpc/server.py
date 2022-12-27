@@ -31,16 +31,14 @@ MAX_GRPC_MESSAGE_LENGTH = 8388608
 class GRPCServer:
     def __init__(
         self,
-        port: int,
         data_plane: DataPlane,
         model_repository_extension: ModelRepositoryExtension
     ):
-        self._port = port
         self._data_plane = data_plane
         self._model_repository_extension = model_repository_extension
         self._server = None
 
-    async def start(self, max_workers):
+    async def start(self, max_workers, bind_address):
         inference_servicer = InferenceServicer(
             self._data_plane,
             self._model_repository_extension)
@@ -50,15 +48,16 @@ class GRPCServer:
             options=[
                 ("grpc.max_message_length", MAX_GRPC_MESSAGE_LENGTH),
                 ("grpc.max_send_message_length", MAX_GRPC_MESSAGE_LENGTH),
-                ("grpc.max_receive_message_length", MAX_GRPC_MESSAGE_LENGTH)
+                ("grpc.max_receive_message_length", MAX_GRPC_MESSAGE_LENGTH),
+                ('grpc.so_reuseport', 1),
+                ("grpc.use_local_subchannel_pool", 1),
             ]
         )
         grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(
             inference_servicer, self._server)
 
-        listen_addr = f'[::]:{self._port}'
-        self._server.add_insecure_port(listen_addr)
-        logging.info("Starting gRPC server on %s", listen_addr)
+        self._server.add_insecure_port(bind_address)
+        logging.info("Starting gRPC server on %s", bind_address)
         await self._server.start()
         await self._server.wait_for_termination()
 

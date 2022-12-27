@@ -43,7 +43,6 @@ from kserve.handlers.v2_datamodels import InferenceResponse, ServerMetadataRespo
 from kserve.model_repository import ModelRepository
 from timing_asgi import TimingMiddleware, TimingClient
 
-
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
 
@@ -67,7 +66,7 @@ parser.add_argument("--enable_latency_logging", default=True, type=lambda x: boo
 
 args, _ = parser.parse_known_args()
 
-FORMAT = '%(asctime)s.%(msecs)03d %(name)s %(levelname)s [%(funcName)s():%(lineno)s] %(message)s'
+FORMAT = '%(asctime)s.%(msecs)03d %(process)s %(name)s %(levelname)s [%(funcName)s():%(lineno)s] %(message)s'
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 logging.basicConfig(level=logging.INFO, format=FORMAT, datefmt=DATE_FORMAT)
 
@@ -77,7 +76,7 @@ async def metrics_handler(request: Request) -> Response:
     return Response(content=encoder(REGISTRY), headers={"content-type": content_type})
 
 
-class UvicornCustomServer(multiprocessing.Process):
+class UvicornProcess(multiprocessing.Process):
 
     def __init__(self, config: uvicorn.Config, sockets: Optional[List[socket.socket]] = None):
         super().__init__()
@@ -90,6 +89,27 @@ class UvicornCustomServer(multiprocessing.Process):
     def run(self):
         server = uvicorn.Server(config=self.config)
         asyncio.run(server.serve(sockets=self.sockets))
+
+
+class GRPCProcess(multiprocessing.Process):
+
+    def __init__(self,
+                 bind_address: str,
+                 data_plane: DataPlane,
+                 model_repository_extension: ModelRepositoryExtension,
+                 ):
+        super().__init__()
+        self.data_plane = data_plane
+        self.model_repository_extension = model_repository_extension
+        self.bind_address = bind_address
+        self.server = None
+
+    def stop(self):
+        self.server.stop()
+
+    def run(self):
+        self.server = GRPCServer(self.data_plane, self.model_repository_extension)
+        asyncio.run(self.server.start(5, self.bind_address))
 
 
 class PrintTimings(TimingClient):
@@ -134,7 +154,6 @@ class ModelServer:
         self.dataplane = DataPlane(model_registry=registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models)
-        self._grpc_server = GRPCServer(grpc_port, self.dataplane, self.model_repository_extension)
 
     def create_application(self) -> FastAPI:
         """Create a KServe ModelServer application with API routes.
@@ -282,15 +301,24 @@ class ModelServer:
 
             logging.info(f"starting uvicorn with {self.workers} workers")
             for _ in range(cfg.workers):
-                server = UvicornCustomServer(config=cfg, sockets=[serversocket])
+                server = UvicornProcess(config=cfg, sockets=[serversocket])
+                server.start()
+
+        def grpc_serve():
+            bind_address = '0.0.0.0:{}'.format(self.grpc_port)
+
+            logging.info(f"starting grpc with {self.workers} workers")
+            for _ in range(cfg.workers):
+                server = GRPCProcess(bind_address, self.dataplane, self.model_repository_extension)
                 server.start()
 
         async def servers_task():
             servers = [serve()]
-            if self.enable_grpc:
-                servers.append(self._grpc_server.start(self.max_threads))
             await asyncio.gather(*servers)
         asyncio.run(servers_task())
+
+        if self.enable_grpc:
+            grpc_serve()
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)

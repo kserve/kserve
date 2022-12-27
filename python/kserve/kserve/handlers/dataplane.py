@@ -24,9 +24,10 @@ from kserve import Model
 from kserve.errors import InvalidInput, ModelNotFound
 from kserve.model import ModelType
 from kserve.model_repository import ModelRepository
-from kserve.utils.utils import is_structured_cloudevent, create_response_cloudevent
+from kserve.utils.utils import create_response_cloudevent
 from .v2_datamodels import InferenceRequest
 from ..constants import constants
+from ..grpc import grpc_predict_v2_pb2 as pb
 import time
 import logging
 
@@ -216,7 +217,7 @@ class DataPlane:
                     raise InvalidInput(f"Unrecognized request format: {e}")
         return body
 
-    def encode(self, response, headers) -> Tuple[Dict, Dict[str, str]]:
+    def encode(self, model_name, response, headers) -> Tuple[Dict, Dict[str, str]]:
         response_headers = {}
         # if we received a cloudevent, then also return a cloudevent
         is_cloudevent = False
@@ -228,7 +229,7 @@ class DataPlane:
             if "content-type" in headers and "application/cloudevents+json" == headers["content-type"]:
                 is_cloudevent = True
         if is_cloudevent:
-            response_headers, response = create_response_cloudevent(self.name, response, response,
+            response_headers, response = create_response_cloudevent(model_name, response, response,
                                                                     is_binary_cloudevent)
 
             if is_binary_cloudevent:
@@ -240,9 +241,9 @@ class DataPlane:
     async def infer(
             self,
             model_name: str,
-            body: Union[bytes, Dict, InferenceRequest],
+            body: Union[bytes, Dict, InferenceRequest, pb.ModelInferRequest],
             headers: Optional[Dict[str, str]] = None
-    ) -> Tuple[Union[str, bytes, Dict, InferenceRequest], Dict[str, str]]:
+    ) -> Tuple[Union[str, bytes, Dict, pb.ModelInferResponse], Dict[str, str]]:
         """Performs inference on the specified model with the provided body and headers.
 
         If the ``body`` contains an encoded `CloudEvent`_, then it will be decoded and processed.
@@ -276,7 +277,7 @@ class DataPlane:
             model_handle: RayServeHandle = model
             response = await model_handle.remote(body)
 
-        response, response_headers = self.encode(response, headers)
+        response, response_headers = self.encode(model_name, response, headers)
         return response, response_headers
 
     async def explain(self, model_name: str,
