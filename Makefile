@@ -120,8 +120,8 @@ deploy-ci: manifests
 	kustomize build config/overlays/test/runtimes | kubectl apply -f -
 
 deploy-helm: manifests
-	helm install kserve-crd charts/kserve-crd/
-	helm install kserve charts/kserve-resources/
+	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
+	helm install kserve charts/kserve-resources/ --wait --timeout 180s
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -

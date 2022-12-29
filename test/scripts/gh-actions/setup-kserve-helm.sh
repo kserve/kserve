@@ -30,8 +30,7 @@ make deploy-helm
 echo "Updating modelmesh default replicas count..."
 kubectl patch servingruntimes mlserver-0.x --type='merge' -p '{"spec":{"replicas":1}}'
 
-echo "Waiting for KServe started ..."
-kubectl wait --for=condition=Ready pods --all --timeout=180s
+echo "Get events of all pods ..."
 kubectl get events -A
 
 echo "Add testing models to minio storage ..."
