@@ -1,8 +1,8 @@
-# Predict on a InferenceService with transformer using Torchserve
+# Deploy InferenceService with Transformer using TorchServe Runtime
 
 Please refer to [transformer example on website doc repo](https://github.com/kserve/website/tree/main/docs/modelserving/v1beta1/transformer/torchserve_image_transformer#deploy-the-inferenceservice-with-rest-predictor)
 
-## Testing with a local transformer & predictor in Kubernetes (Kserve developer guide)
+## Testing with a local transformer & predictor in Kubernetes (KServe developer guide)
 
 If you are making changes to the code and would like to test running a transformer on your local machine with the predictor running in Kubernetes,
 
