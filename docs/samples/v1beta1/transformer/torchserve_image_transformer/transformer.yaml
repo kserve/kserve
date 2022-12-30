@@ -7,10 +7,6 @@ spec:
     containers:
     - image: kserve/image-transformer:latest
       name: kserve-container
-      env:
-        - name: STORAGE_URI
-          value: gs://kfserving-examples/models/torchserve/image_classifier/v1
-            #value: pvc://model-pv-claim
   predictor:
     pytorch:
       storageUri: gs://kfserving-examples/models/torchserve/image_classifier/v1

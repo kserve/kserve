@@ -1,6 +1,6 @@
-# Deploy InferenceService with Transformer using TorchServe Runtime
+# Deploy InferenceService with Transformer and PyTorch Runtimes
 
-Please refer to [transformer example on website doc repo](https://github.com/kserve/website/tree/main/docs/modelserving/v1beta1/transformer/torchserve_image_transformer#deploy-the-inferenceservice-with-rest-predictor)
+Please refer to [transformer example doc](https://github.com/kserve/website/tree/main/docs/modelserving/v1beta1/transformer/torchserve_image_transformer) on KServe website repository for deploying PyTorch models with pre-processing in Transformer.
 
 ## Testing with a local transformer & predictor in Kubernetes (KServe developer guide)
 
@@ -8,7 +8,7 @@ If you are making changes to the code and would like to test running a transform
 
 (1) Follow the above steps to deploy the transformer.yaml to Kubernetes. You can comment out the transformer section in the YAML if you wish to only deploy the predictor to Kubernetes.
 
-(2) Run `pip install -e .` in this directory. If you are using a local version of Kserve, you should also run this command in the appropriate directory with a setup.py file so that you pick up any changes from there. 
+(2) Run `pip install -e .` in this directory. If you are using a local version of KServe, you should also run this command in the appropriate directory with a setup.py file so that you pick up any changes from there.
 
 (3) Port-forward the predictor pod by running 
 ```
