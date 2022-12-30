@@ -30,10 +30,9 @@ from kserve.model import PredictorProtocol
 def image_transform(instance):
     """converts the input image of Bytes Array into Tensor
     Args:
-        request input instance: The request input instance for image.
+        instance: The input image bytes.
     Returns:
-        List: Returns the data key's value and converts that into a list
-        after converting it into a tensor
+        numpy.array: Returns the numpy array after the image preprocessing.
     """
     image_processing = transforms.Compose([
         transforms.ToTensor(),
@@ -62,9 +61,7 @@ class ImageTransformer(Model):
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             return self.v2_request_transform(input_tensors)
         elif self.protocol == PredictorProtocol.REST_V1.value:
-            inputs = [{"data": input_tensor.tolist()} for input_tensor in input_tensors]
-            payload = {"instances": inputs}
-            return payload
+            return {"instances": [{"data": input_tensor.tolist()} for input_tensor in input_tensors]}
         else:
             return {
                 'inputs': [
@@ -111,4 +108,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = ImageTransformer(args.model_name, predictor_host=args.predictor_host,
                              protocol=args.protocol)
-    ModelServer(workers=1).start([model])
+    ModelServer().start([model])
