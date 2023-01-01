@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import inspect
 import logging
 import time
@@ -23,13 +24,14 @@ import httpx
 from httpx import HTTPStatusError
 import orjson
 from cloudevents.http import CloudEvent
-from kserve.metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
-from kserve.grpc import grpc_predict_v2_pb2_grpc
-from kserve.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
-                                             ModelInferResponse)
 
-from kserve.errors import InvalidInput
-from kserve.utils.utils import convert_grpc_response_to_dict, is_structured_cloudevent
+from .protocol.infer_input import InferRequest
+from .metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
+from .grpc import grpc_predict_v2_pb2_grpc
+from .grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+
+from .errors import InvalidInput
+from .utils.utils import convert_grpc_response_to_dict, is_structured_cloudevent
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -54,7 +56,7 @@ def get_latency_ms(start: float, end: float) -> float:
 
 class Model:
     def __init__(self, name: str):
-        """KServe Model
+        """KServe Model Public Interface
 
         Model is intended to be subclassed by various components within KServe.
 
@@ -148,6 +150,8 @@ class Model:
     def validate(self, payload):
         if isinstance(payload, ModelInferRequest):
             return payload
+        if isinstance(payload, InferRequest):
+            return payload
         # TODO: validate the request if self.get_input_types() defines the input types.
         if self.protocol == PredictorProtocol.REST_V2.value:
             if "inputs" in payload and not isinstance(payload["inputs"], list):
@@ -218,11 +222,13 @@ class Model:
 
         return response
 
-    def postprocess(self, response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) -> Dict:
+    def postprocess(self, response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) \
+            -> Union[Dict, ModelInferResponse]:
         """The postprocess handler can be overridden for inference response transformation
 
         Args:
             response (Dict|ModelInferResponse): The response passed from ``predict`` handler.
+            headers (Dict): Request headers.
 
         Returns:
             Dict: post-processed response.
@@ -234,7 +240,7 @@ class Model:
                 return convert_grpc_response_to_dict(response)
         return response
 
-    async def _http_predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
@@ -247,6 +253,8 @@ class Model:
                 predict_headers['x-request-id'] = headers['x-request-id']
             if 'x-b3-traceid' in headers:
                 predict_headers['x-b3-traceid'] = headers['x-b3-traceid']
+        if isinstance(payload, InferRequest):
+            payload = payload.to_rest()
         data = orjson.dumps(payload)
         response = await self._http_client.post(
             predict_url,
@@ -267,7 +275,10 @@ class Model:
             raise HTTPStatusError(message, request=response.request, response=response)
         return orjson.loads(response.content)
 
-    async def _grpc_predict(self, payload: ModelInferRequest, headers: Dict[str, str] = None) -> ModelInferResponse:
+    async def _grpc_predict(self, payload: Union[ModelInferRequest, InferRequest], headers: Dict[str, str] = None) \
+            -> ModelInferResponse:
+        if isinstance(payload, InferRequest):
+            payload = payload.to_grpc(model_name=self.name)
         async_result = await self._grpc_client.ModelInfer(
             request=payload,
             timeout=self.timeout,
@@ -277,7 +288,7 @@ class Model:
         )
         return async_result
 
-    async def predict(self, payload: Union[Dict, ModelInferRequest],
+    async def predict(self, payload: Union[Dict, ModelInferRequest, InferRequest],
                       headers: Dict[str, str] = None) -> Union[Dict, ModelInferResponse]:
         """
 

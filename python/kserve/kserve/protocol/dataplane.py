@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from typing import Dict, Union, Tuple, Optional
 
 import cloudevents.exceptions as ce
@@ -20,12 +21,12 @@ from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.api import RayServeHandle
 
-from kserve import Model
-from kserve.errors import InvalidInput, ModelNotFound
-from kserve.model import ModelType
-from kserve.model_repository import ModelRepository
-from kserve.utils.utils import create_response_cloudevent
-from .v2_datamodels import InferenceRequest
+from ..model import Model
+from ..errors import InvalidInput, ModelNotFound
+from ..model import ModelType
+from ..model_repository import ModelRepository
+from ..utils.utils import create_response_cloudevent
+from kserve.protocol.infer_input import InferRequest
 from ..constants import constants
 from ..grpc import grpc_predict_v2_pb2 as pb
 import time
@@ -177,7 +178,7 @@ class DataPlane:
         }
 
     @staticmethod
-    def ready() -> bool:
+    async def ready() -> bool:
         """Server ready.
 
         Returns ``True``. Primarily meant to be used as Kubernetes readiness check.
@@ -204,8 +205,8 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    def decode(self, body, headers) -> Union[Dict, InferenceRequest]:
-        if isinstance(body, InferenceRequest):
+    def decode(self, body, headers) -> Union[Dict, InferRequest]:
+        if isinstance(body, InferRequest):
             return body
         if headers and has_binary_headers(headers):
             body = self.get_binary_cloudevent(body, headers)
@@ -241,7 +242,7 @@ class DataPlane:
     async def infer(
             self,
             model_name: str,
-            body: Union[bytes, Dict, InferenceRequest, pb.ModelInferRequest],
+            body: Union[bytes, Dict, InferRequest],
             headers: Optional[Dict[str, str]] = None
     ) -> Tuple[Union[str, bytes, Dict, pb.ModelInferResponse], Dict[str, str]]:
         """Performs inference on the specified model with the provided body and headers.
@@ -281,9 +282,9 @@ class DataPlane:
         return response, response_headers
 
     async def explain(self, model_name: str,
-                      body: Union[bytes, Dict, InferenceRequest],
+                      body: Union[bytes, Dict, InferRequest],
                       headers: Optional[Dict[str, str]] = None
-                      ) -> Tuple[Union[str, bytes, Dict, InferenceRequest], Dict[str, str]]:
+                      ) -> Tuple[Union[str, bytes, Dict], Dict[str, str]]:
         """Performs explanation for the specified model.
 
         Args:

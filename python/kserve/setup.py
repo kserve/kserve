@@ -46,7 +46,7 @@ setuptools.setup(
         'kserve.api',
         'kserve.constants',
         'kserve.models',
-        'kserve.handlers',
+        'kserve.rest',
         'kserve.utils',
         'kserve.grpc'
     ],

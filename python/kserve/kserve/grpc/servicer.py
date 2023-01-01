@@ -13,11 +13,12 @@
 # limitations under the License.
 
 
-from kserve.grpc import grpc_predict_v2_pb2 as pb
-from kserve.grpc import grpc_predict_v2_pb2_grpc
-from kserve.handlers.dataplane import DataPlane
-from kserve.handlers.model_repository_extension import ModelRepositoryExtension
-from kserve.utils.utils import to_headers
+from . import grpc_predict_v2_pb2 as pb
+from . import grpc_predict_v2_pb2_grpc
+from ..protocol.infer_input import InferInput, InferRequest
+from ..protocol.dataplane import DataPlane
+from ..protocol.model_repository_extension import ModelRepositoryExtension
+from ..utils.utils import to_headers
 
 from grpc import ServicerContext
 
@@ -52,13 +53,13 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
 
     async def ServerReady(
         self, request: pb.ServerReadyRequest, context
-    ) -> pb.ServerLiveResponse:
+    ) -> pb.ServerReadyResponse:
         is_ready = await self._data_plane.ready()
         return pb.ServerReadyResponse(ready=is_ready)
 
     async def ModelReady(
         self, request: pb.ModelReadyRequest, context
-    ) -> pb.ModelMetadataResponse:
+    ) -> pb.ModelReadyResponse:
         is_ready = self._data_plane.model_ready(model_name=request.name)
         return pb.ModelReadyResponse(ready=is_ready)
 
@@ -89,7 +90,11 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
         self, request: pb.ModelInferRequest, context: ServicerContext
     ) -> pb.ModelInferResponse:
         headers = to_headers(context)
-        response_body, _ = await self._data_plane.infer(body=request, headers=headers, model_name=request.model_name)
+
+        infer_inputs = [InferInput(name=input.name, shape=input.shape, datatype=input.datatype) for input in request.inputs]
+        infer_request = InferRequest(infer_inputs, request.raw_input_contents)
+
+        response_body, _ = await self._data_plane.infer(body=infer_request, headers=headers, model_name=request.model_name)
         if isinstance(response_body, pb.ModelInferResponse):
             return response_body
         return pb.ModelInferResponse(id=response_body["id"],

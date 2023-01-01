@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import inspect
 import sys
 from typing import Dict, List, Optional
 
-from kserve.errors import ModelNotFound, ModelNotReady
-from kserve.model_repository import ModelRepository
+from ..errors import ModelNotFound, ModelNotReady
+from ..model_repository import ModelRepository
 
 
 class ModelRepositoryExtension:

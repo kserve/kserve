@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kserve
 from torchvision import models, transforms
 from typing import Dict, Union
 import torch
@@ -21,14 +20,14 @@ import base64
 import io
 import numpy as np
 
-from kserve.handlers.v2_datamodels import InferenceRequest
+from kserve import Model, ModelServer, InferRequest
 from kserve.utils.utils import generate_uuid
 
 
 # This custom predictor example implements the custom model following KServe REST v1/v2 protocol,
 # the input can be raw image base64 encoded bytes or image tensor which is pre-processed by transformer
 # and then passed to predictor, the output is the prediction response.
-class AlexNetModel(kserve.Model):
+class AlexNetModel(Model):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -41,8 +40,7 @@ class AlexNetModel(kserve.Model):
         self.model.eval()
         self.ready = True
 
-    def preprocess(self, payload: Union[Dict, InferenceRequest], headers: Dict[str, str] = None) -> torch.Tensor:
-        print(type(payload))
+    def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> torch.Tensor:
         raw_img_data = None
         if isinstance(payload, Dict) and "instances" in payload:
             headers["request-type"] = "v1"
@@ -55,25 +53,16 @@ class AlexNetModel(kserve.Model):
                 # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
                 data = payload["instances"][0]["image"]["b64"]
                 raw_img_data = base64.b64decode(data)
-        elif isinstance(payload, Dict) and "inputs" in payload:
-            headers["request-type"] = "v2"
-            inputs = payload["inputs"]
-            data = inputs[0]["data"][0]
-            if inputs[0]["datatype"] == "BYTES":
-                raw_img_data = base64.b64decode(data)
-            elif inputs[0]["datatype"] == "FP32":
-                # assume the data is already preprocessed in transformer
-                input_tensor = torch.Tensor(np.asarray(data))
-                return input_tensor.unsqueeze(0)
-        elif isinstance(payload, InferenceRequest):
+        elif isinstance(payload, InferRequest):
             headers["request-type"] = "v2"
             inputs = payload.inputs
-            data = inputs[0].data[0]
             if inputs[0].datatype == "BYTES":
-                raw_img_data = base64.b64decode(data)
+                raw_img_data = base64.b64decode(inputs[0].data[0])
             elif inputs[0].datatype == "FP32":
+                print(inputs[0])
                 # assume the data is already preprocessed in transformer
-                input_tensor = torch.Tensor(np.asarray(data))
+                input_np = inputs[0].as_numpy()[0]
+                input_tensor = torch.Tensor(input_np)
                 return input_tensor.unsqueeze(0)
 
         input_image = Image.open(io.BytesIO(raw_img_data))
@@ -113,4 +102,4 @@ class AlexNetModel(kserve.Model):
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
     model.load()
-    kserve.ModelServer().start([model])
+    ModelServer().start([model])

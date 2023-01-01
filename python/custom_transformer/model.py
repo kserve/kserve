@@ -22,8 +22,7 @@ import numpy
 from PIL import Image
 from torchvision import transforms
 from kserve.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
-
-from kserve import Model, ModelServer, model_server
+from kserve import Model, ModelServer, model_server, InferInput, InferRequest
 from kserve.model import PredictorProtocol
 
 
@@ -59,34 +58,19 @@ class ImageTransformer(Model):
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
         input_tensors = [image_transform(instance) for instance in payload["instances"]]
         input_tensors = numpy.asarray(input_tensors)
-        print(input_tensors.shape)
+        infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=input_tensors.shape,
+                                   data=input_tensors)]
+        infer_request = InferRequest(infer_inputs)
+
         # Transform to KServe v1/v2 inference protocol
-        if self.protocol == PredictorProtocol.GRPC_V2.value:
-            return self.v2_request_transform(input_tensors)
-        elif self.protocol == PredictorProtocol.REST_V1.value:
-            return {"instances": [{"data": input_tensor.tolist()} for input_tensor in input_tensors]}
+        if self.protocol == PredictorProtocol.REST_V1.value:
+            inputs = [{"data": input_tensor.tolist()} for input_tensor in input_tensors]
+            payload = {"instances": inputs}
+            return payload
         else:
-            return {
-                'inputs': [
-                    {
-                        'name': "INPUT__0",
-                        'shape': input_tensors.shape,
-                        'datatype': 'FP32',
-                        'data': input_tensors.tolist()
-                    }
-                ]
-            }
+            return infer_request
 
-    def v2_request_transform(self, input_tensors):
-        payload = [{
-            'name': "INPUT__0",
-            'shape': input_tensors.shape,
-            'datatype': "FP32"
-        }]
-        return ModelInferRequest(model_name=self.name, inputs=payload,
-                                 raw_input_contents=[input_tensors.tobytes()])
-
-    def postprocess(self, infer_response: Union[ModelInferResponse, Dict], headers: Dict[str, str] = None) -> Dict:
+    def postprocess(self, infer_response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) -> Dict:
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             res = super().postprocess(infer_response, headers)
             return {"predictions": res["outputs"][0]["data"]}

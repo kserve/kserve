@@ -16,8 +16,8 @@ from typing import Optional, Union, Dict, List
 from fastapi import Request, Response
 
 from kserve.errors import ModelNotReady
-from kserve.handlers.dataplane import DataPlane
-from kserve.handlers.model_repository_extension import ModelRepositoryExtension
+from ..protocol.dataplane import DataPlane
+from ..protocol.model_repository_extension import ModelRepositoryExtension
 
 
 class V1Endpoints:

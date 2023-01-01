@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kserve
+from kserve import Model, ModelServer
 from torchvision import models, transforms
 from typing import Dict
 import torch
@@ -24,7 +24,7 @@ from ray import serve
 
 # the model handle name should match the model endpoint name
 @serve.deployment(name="custom-model", num_replicas=2)
-class AlexNetModel(kserve.Model):
+class AlexNetModel(Model):
     def __init__(self):
         self.name = "custom-model"
         super().__init__(self.name)
@@ -67,4 +67,4 @@ class AlexNetModel(kserve.Model):
 
 
 if __name__ == "__main__":
-    kserve.ModelServer(workers=1).start({"custom-model": AlexNetModel})
+    ModelServer(workers=1).start({"custom-model": AlexNetModel})

@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import asyncio
 import logging
+import multiprocessing
 from concurrent import futures
 
-from kserve.grpc import grpc_predict_v2_pb2_grpc
-from kserve.grpc.interceptors import LoggingInterceptor
-from kserve.grpc.servicer import InferenceServicer
-from kserve.handlers.dataplane import DataPlane
-from kserve.handlers.model_repository_extension import ModelRepositoryExtension
+from . import grpc_predict_v2_pb2_grpc
+from .interceptors import LoggingInterceptor
+from .servicer import InferenceServicer
+from ..protocol.dataplane import DataPlane
+from ..protocol.model_repository_extension import ModelRepositoryExtension
 
 from grpc import aio
 
@@ -65,3 +66,26 @@ class GRPCServer:
         logging.info("Waiting for gRPC server shutdown")
         await self._server.stop(grace=10)
         logging.info("gRPC server shutdown complete")
+
+
+class GRPCProcess(multiprocessing.Process):
+
+    def __init__(self,
+                 bind_address: str,
+                 max_threads: int,
+                 data_plane: DataPlane,
+                 model_repository_extension: ModelRepositoryExtension,
+                 ):
+        super().__init__()
+        self._data_plane = data_plane
+        self._model_repository_extension = model_repository_extension
+        self._bind_address = bind_address
+        self._max_threads = max_threads
+        self._server = None
+
+    def stop(self):
+        self._server.stop()
+
+    def run(self):
+        self._server = GRPCServer(self._data_plane, self._model_repository_extension)
+        asyncio.run(self._server.start(self._max_threads, self._bind_address))

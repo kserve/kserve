@@ -18,7 +18,7 @@ import numpy as np
 
 import kserve
 import torch
-from kserve.grpc.grpc_predict_v2_pb2 import ModelInferRequest
+from kserve import InferRequest, Model, ModelServer
 from kserve.utils.utils import generate_uuid
 from PIL import Image
 from torchvision import models, transforms
@@ -27,7 +27,7 @@ from torchvision import models, transforms
 # This custom predictor example implements the custom model following KServe v2 inference gPPC protocol,
 # the input can be raw image bytes or image tensor which is pre-processed by transformer
 # and then passed to predictor, the output is the prediction response.
-class AlexNetModel(kserve.Model):
+class AlexNetModel(Model):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -40,7 +40,7 @@ class AlexNetModel(kserve.Model):
         self.model.eval()
         self.ready = True
 
-    def preprocess(self, payload: ModelInferRequest, headers: Dict[str, str] = None) -> torch.Tensor:
+    def preprocess(self, payload: InferRequest, headers: Dict[str, str] = None) -> torch.Tensor:
         req = payload.inputs[0]
         if req.datatype == "BYTES":
             raw_img_data = req.contents.bytes_contents[0]
@@ -56,8 +56,7 @@ class AlexNetModel(kserve.Model):
             input_tensor = preprocess(input_image)
             return input_tensor.unsqueeze(0)
         elif req.datatype == "FP32":
-            result = np.frombuffer(payload.raw_input_contents[0], dtype="float32")
-            batched_result = np.reshape(result, req.shape)
+            batched_result = payload.inputs[0].as_numpy()
             return torch.Tensor(batched_result)
 
     def predict(self, input_tensor: torch.Tensor, headers: Dict[str, str] = None) -> Dict:
