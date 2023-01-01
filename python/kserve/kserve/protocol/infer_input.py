@@ -19,7 +19,7 @@ import numpy as np
 from tritonclient.utils import raise_error, serialize_byte_tensor
 
 from ..errors import InvalidInput
-from ..grpc.grpc_predict_v2_pb2 import ModelInferRequest
+from ..protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest
 from ..utils.numpy_codec import to_np_dtype, from_np_dtype
 
 
@@ -120,8 +120,7 @@ class InferInput:
         dtype = from_np_dtype(input_tensor.dtype)
         if self._datatype != dtype:
             raise_error(
-                "got unexpected datatype {} from numpy array, expected {}".
-                    format(dtype, self._datatype))
+                "got unexpected datatype {} from numpy array, expected {}".format(dtype, self._datatype))
         valid_shape = True
         if len(self._shape) != len(input_tensor.shape):
             valid_shape = False
@@ -206,8 +205,8 @@ class InferRequest:
                 "datatype": infer_input.datatype
             }
             if isinstance(infer_input._data, numpy.ndarray):
-               infer_input.set_data_from_numpy(infer_input._data, binary_data=False)
-               infer_input_dict["data"] = infer_input._data
+                infer_input.set_data_from_numpy(infer_input._data, binary_data=False)
+                infer_input_dict["data"] = infer_input._data
             infer_inputs.append(infer_input_dict)
         return {
             'inputs': infer_inputs

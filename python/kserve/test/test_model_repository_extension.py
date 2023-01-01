@@ -14,7 +14,7 @@
 
 import pytest
 from kserve.errors import ModelNotFound, ModelNotReady
-from kserve.handlers.model_repository_extension import ModelRepositoryExtension
+from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.model_repository import ModelRepository
 from test.test_server import DummyModel, DummyModelRepository
 

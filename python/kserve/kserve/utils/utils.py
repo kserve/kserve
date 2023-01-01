@@ -24,7 +24,7 @@ from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from google.protobuf.json_format import MessageToJson
 from grpc import ServicerContext
-from kserve.grpc.grpc_predict_v2_pb2 import ModelInferResponse
+from ..protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 
 from ..constants import constants
 

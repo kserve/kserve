@@ -20,8 +20,8 @@ from concurrent import futures
 from . import grpc_predict_v2_pb2_grpc
 from .interceptors import LoggingInterceptor
 from .servicer import InferenceServicer
-from ..protocol.dataplane import DataPlane
-from ..protocol.model_repository_extension import ModelRepositoryExtension
+from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 
 from grpc import aio
 

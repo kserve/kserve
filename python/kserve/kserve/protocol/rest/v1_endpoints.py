@@ -16,8 +16,8 @@ from typing import Optional, Union, Dict, List
 from fastapi import Request, Response
 
 from kserve.errors import ModelNotReady
-from ..protocol.dataplane import DataPlane
-from ..protocol.model_repository_extension import ModelRepositoryExtension
+from ..dataplane import DataPlane
+from ..model_repository_extension import ModelRepositoryExtension
 
 
 class V1Endpoints:
@@ -72,7 +72,7 @@ class V1Endpoints:
             return Response(content=response, headers=response_headers)
         return response
 
-    async def explain(self, model_name: str, request: Request) -> Dict:
+    async def explain(self, model_name: str, request: Request) -> Union[Response, Dict]:
         """Explain handler.
 
         Args:
@@ -83,6 +83,9 @@ class V1Endpoints:
             Dict: Explainer output.
         """
         body = await request.body()
-        response = await self.dataplane.explain(model_name=model_name, body=body)
+        headers = dict(request.headers.items())
+        response, response_headers = await self.dataplane.explain(model_name=model_name, body=body, headers=headers)
 
+        if not isinstance(response, dict):
+            return Response(content=response, headers=response_headers)
         return response

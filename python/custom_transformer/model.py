@@ -21,7 +21,7 @@ import numpy
 
 from PIL import Image
 from torchvision import transforms
-from kserve.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+from kserve.protocol.grpc import ModelInferRequest, ModelInferResponse
 from kserve import Model, ModelServer, model_server, InferInput, InferRequest
 from kserve.model import PredictorProtocol
 

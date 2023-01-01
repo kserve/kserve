@@ -11,18 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from typing import Optional, Dict
 
 from fastapi.requests import Request
 from fastapi.responses import Response
 
-from kserve.protocol.infer_input import InferInput, InferRequest
+from ..infer_input import InferInput, InferRequest
 from .v2_datamodels import (
     InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
     ModelMetadataResponse, InferenceResponse, ModelReadyResponse
 )
-from ..protocol.dataplane import DataPlane
-from ..protocol.model_repository_extension import ModelRepositoryExtension
+from ..dataplane import DataPlane
+from ..model_repository_extension import ModelRepositoryExtension
 
 
 class V2Endpoints:
@@ -103,7 +104,7 @@ class V2Endpoints:
         raw_response: Response,
         model_name: str,
         request_body: InferenceRequest,
-        model_version: Optional[str] = None,
+        model_version: Optional[str] = None
     ) -> InferenceResponse:
         """Infer handler.
 

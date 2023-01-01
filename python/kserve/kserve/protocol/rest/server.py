@@ -28,10 +28,10 @@ from .v1_endpoints import V1Endpoints
 from .v2_datamodels import InferenceResponse, ModelMetadataResponse, ServerReadyResponse, ServerLiveResponse, \
     ServerMetadataResponse
 from .v2_endpoints import V2Endpoints
-from ..errors import InvalidInput, InferenceError, ModelNotFound, ModelNotReady, invalid_input_handler, \
+from kserve.errors import InvalidInput, InferenceError, ModelNotFound, ModelNotReady, invalid_input_handler, \
     inference_error_handler, model_not_found_handler, model_not_ready_handler, not_implemented_error_handler, \
     generic_exception_handler
-from ..protocol.dataplane import DataPlane
+from kserve.protocol.dataplane import DataPlane
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -40,7 +40,7 @@ async def metrics_handler(request: Request) -> Response:
 
 
 class RESTServer:
-    def __init__(self, data_plane: DataPlane, model_repository_extension, enable_docs_url):
+    def __init__(self, data_plane: DataPlane, model_repository_extension, enable_docs_url=False):
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
         self.enable_docs_url = enable_docs_url

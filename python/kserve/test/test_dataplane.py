@@ -26,7 +26,7 @@ from cloudevents.http import CloudEvent
 from ray import serve
 
 from kserve.errors import InvalidInput, ModelNotFound
-from kserve.handlers import DataPlane
+from kserve.protocol.dataplane import DataPlane
 from kserve.model_repository import ModelRepository
 from test.test_server import DummyModel, dummy_cloud_event, DummyCEModel, DummyAvroCEModel, \
     DummyServeModel
@@ -74,14 +74,14 @@ class TestDataPlane:
         assert (await DataPlane.live()) == {'status': 'alive'}
 
     async def test_server_readiness(self, dataplane_with_model):
-        assert dataplane_with_model.ready() is True
+        assert (await dataplane_with_model.ready()) is True
 
         not_ready_model = DummyModel("NotReadyModel")
         # model.load()  # Model not loaded, i.e. model not ready
         dataplane_with_model._model_registry.update(not_ready_model)
         # The model server readiness endpoint should return 'True' irrespective of the readiness
         # of the model loaded into it.
-        assert dataplane_with_model.ready() is True
+        assert (await dataplane_with_model.ready()) is True
 
     async def test_model_readiness(self):
         dataplane = DataPlane(model_registry=ModelRepository())
@@ -128,7 +128,10 @@ class TestDataPlane:
         body = b'{"instances":[[1,2]]}'
         resp = await dataplane_with_model.explain(self.MODEL_NAME, body)
 
-        assert resp == {"predictions": [[1, 2]]}
+        assert resp == (
+            {"predictions": [[1, 2]]},
+            {}
+        )
 
 
 @pytest.mark.asyncio
@@ -156,7 +159,7 @@ class TestDataPlaneCloudEvent:
         assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
         assert body["data"] == {"predictions": [[1, 2]]}
         assert body['specversion'] == "1.0"
-        assert body['source'] == "io.kserve.kfserver.TestModel"
+        assert body['source'] == "io.kserve.inference.TestModel"
         assert body['type'] == "io.kserve.inference.response"
         assert body['time'] > "2021-01-28T21:04:43.144141+00:00"
 
@@ -164,7 +167,7 @@ class TestDataPlaneCloudEvent:
         with mock.patch.dict(
                 os.environ,
                 {
-                    "CE_SOURCE": "io.kserve.kfserver.CustomSource",
+                    "CE_SOURCE": "io.kserve.inference.CustomSource",
                     "CE_TYPE": "io.kserve.custom_type"
                 }
         ):
@@ -179,7 +182,7 @@ class TestDataPlaneCloudEvent:
 
             assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
             assert body["data"] == {"predictions": [[1, 2]]}
-            assert body['source'] == "io.kserve.kfserver.CustomSource"
+            assert body['source'] == "io.kserve.inference.CustomSource"
             assert body['type'] == "io.kserve.custom_type"
 
     async def test_infer_merge_structured_ce_attributes(self, dataplane_with_ce_model):
@@ -195,7 +198,7 @@ class TestDataPlaneCloudEvent:
 
             assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
             assert body["data"] == {"predictions": [[1, 2]]}
-            assert body['source'] == "io.kserve.kfserver.TestModel"
+            assert body['source'] == "io.kserve.inference.TestModel"
             assert body['type'] == "io.kserve.inference.response"
             assert body[
                        "custom-extension"] == "custom-value"  # Added by add_extension=True in dummy_cloud_event
@@ -216,7 +219,7 @@ class TestDataPlaneCloudEvent:
             assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
             # Added by add_extension=True in dummy_cloud_event
             assert headers['ce-custom-extension'] == 'custom-value'
-            assert headers['ce-source'] == "io.kserve.kfserver.TestModel"
+            assert headers['ce-source'] == "io.kserve.inference.TestModel"
             assert headers['ce-type'] == "io.kserve.inference.response"
             assert headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
             assert body == b'{"predictions": [[1, 2]]}'
@@ -232,7 +235,7 @@ class TestDataPlaneCloudEvent:
         assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
         assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
-        assert headers['ce-source'] == "io.kserve.kfserver.TestModel"
+        assert headers['ce-source'] == "io.kserve.inference.TestModel"
         assert headers['ce-type'] == "io.kserve.inference.response"
         assert headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert body == b'{"predictions": [[1, 2]]}'
@@ -248,7 +251,7 @@ class TestDataPlaneCloudEvent:
         assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
         assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
-        assert headers['ce-source'] == "io.kserve.kfserver.TestModel"
+        assert headers['ce-source'] == "io.kserve.inference.TestModel"
         assert headers['ce-type'] == "io.kserve.inference.response"
         assert headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert body == b'{"predictions": [[1, 2]]}'
@@ -323,7 +326,7 @@ class TestDataPlaneAvroCloudEvent:
         assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
         assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
-        assert headers['ce-source'] == "io.kserve.kfserver.TestModel"
+        assert headers['ce-source'] == "io.kserve.inference.TestModel"
         assert headers['ce-type'] == "io.kserve.inference.response"
         assert headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert body == b'{"predictions": [["foo", 1, "pink"]]}'

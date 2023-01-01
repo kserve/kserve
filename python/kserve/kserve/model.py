@@ -27,8 +27,8 @@ from cloudevents.http import CloudEvent
 
 from .protocol.infer_input import InferRequest
 from .metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
-from .grpc import grpc_predict_v2_pb2_grpc
-from .grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+from .protocol.grpc import grpc_predict_v2_pb2_grpc
+from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 
 from .errors import InvalidInput
 from .utils.utils import convert_grpc_response_to_dict, is_structured_cloudevent

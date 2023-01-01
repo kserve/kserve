@@ -15,10 +15,10 @@
 
 from . import grpc_predict_v2_pb2 as pb
 from . import grpc_predict_v2_pb2_grpc
-from ..protocol.infer_input import InferInput, InferRequest
-from ..protocol.dataplane import DataPlane
-from ..protocol.model_repository_extension import ModelRepositoryExtension
-from ..utils.utils import to_headers
+from kserve.protocol.infer_input import InferInput, InferRequest
+from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.model_repository_extension import ModelRepositoryExtension
+from kserve.utils.utils import to_headers
 
 from grpc import ServicerContext
 
@@ -91,10 +91,12 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
     ) -> pb.ModelInferResponse:
         headers = to_headers(context)
 
-        infer_inputs = [InferInput(name=input.name, shape=input.shape, datatype=input.datatype) for input in request.inputs]
+        infer_inputs = [InferInput(name=input.name, shape=input.shape, datatype=input.datatype)
+                        for input in request.inputs]
         infer_request = InferRequest(infer_inputs, request.raw_input_contents)
 
-        response_body, _ = await self._data_plane.infer(body=infer_request, headers=headers, model_name=request.model_name)
+        response_body, _ = await self._data_plane.infer(body=infer_request, headers=headers,
+                                                        model_name=request.model_name)
         if isinstance(response_body, pb.ModelInferResponse):
             return response_body
         return pb.ModelInferResponse(id=response_body["id"],

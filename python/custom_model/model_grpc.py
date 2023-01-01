@@ -14,9 +14,7 @@
 
 import io
 from typing import Dict
-import numpy as np
 
-import kserve
 import torch
 from kserve import InferRequest, Model, ModelServer
 from kserve.utils.utils import generate_uuid
@@ -84,4 +82,4 @@ class AlexNetModel(Model):
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
     model.load()
-    kserve.ModelServer().start([model])
+    ModelServer().start([model])

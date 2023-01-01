@@ -40,7 +40,7 @@ from six.moves.urllib.parse import quote
 
 from kserve.configuration import Configuration
 import kserve.models
-from kserve import rest
+from kserve.protocol import rest
 from kserve.exceptions import ApiValueError, ApiException
 
 

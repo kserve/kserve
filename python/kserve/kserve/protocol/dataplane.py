@@ -26,9 +26,9 @@ from ..errors import InvalidInput, ModelNotFound
 from ..model import ModelType
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent
-from kserve.protocol.infer_input import InferRequest
+from .infer_input import InferRequest
 from ..constants import constants
-from ..grpc import grpc_predict_v2_pb2 as pb
+from .grpc import grpc_predict_v2_pb2 as pb
 import time
 import logging
 
@@ -218,7 +218,7 @@ class DataPlane:
                     raise InvalidInput(f"Unrecognized request format: {e}")
         return body
 
-    def encode(self, model_name, response, headers) -> Tuple[Dict, Dict[str, str]]:
+    def encode(self, model_name, body, response, headers) -> Tuple[Dict, Dict[str, str]]:
         response_headers = {}
         # if we received a cloudevent, then also return a cloudevent
         is_cloudevent = False
@@ -230,7 +230,7 @@ class DataPlane:
             if "content-type" in headers and "application/cloudevents+json" == headers["content-type"]:
                 is_cloudevent = True
         if is_cloudevent:
-            response_headers, response = create_response_cloudevent(model_name, response, response,
+            response_headers, response = create_response_cloudevent(model_name, body, response,
                                                                     is_binary_cloudevent)
 
             if is_binary_cloudevent:
@@ -278,7 +278,7 @@ class DataPlane:
             model_handle: RayServeHandle = model
             response = await model_handle.remote(body)
 
-        response, response_headers = self.encode(model_name, response, headers)
+        response, response_headers = self.encode(model_name, body, response, headers)
         return response, response_headers
 
     async def explain(self, model_name: str,
@@ -302,6 +302,7 @@ class DataPlane:
         body = self.decode(body, headers)
         t2 = time.time()
         logging.info(f"decode takes {round((t2 - t1) * 1000, 9)}")
+
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if not isinstance(model, RayServeHandle):
@@ -309,5 +310,5 @@ class DataPlane:
         else:
             model_handle = model
             response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
-        response, response_headers = self.encode(response, headers)
+        response, response_headers = self.encode(model_name, body, response, headers)
         return response, response_headers

@@ -23,8 +23,8 @@ from typing import List, Dict, Union
 from ray import serve as rayserve
 from ray.serve.api import Deployment, RayServeHandle
 
-from .grpc.server import GRPCProcess
-from .rest.server import UvicornProcess
+from .protocol.grpc.server import GRPCProcess
+from .protocol.rest.server import UvicornProcess
 from .utils import utils
 
 from .model import Model

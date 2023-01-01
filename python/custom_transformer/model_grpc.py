@@ -48,17 +48,17 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.model_name = name
 
-    def preprocess(self, request: Union[Dict, ModelInferRequest], headers: Dict[str, str] = None) -> ModelInferRequest:
+    def preprocess(self, request: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> InferRequest:
         input_tensors = None
-        if isinstance(request, ModelInferRequest):
-            input_tensors = [image_transform(instance) for instance in request.inputs[0].contents.byte_contents]
+        if isinstance(request, InferRequest):
+            input_tensors = [image_transform(instance) for instance in request.inputs[0]._raw_data]
         elif headers and "application/json" in headers["content-type"]:
             input_tensors = [image_transform(instance) for instance in request["inputs"][0]["data"]]
         input_tensors = np.asarray(input_tensors)
         infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=input_tensors.shape,
                                    data=input_tensors)]
         infer_request = InferRequest(infer_inputs)
-        return infer_request.to_grpc(model_name=self.model_name)
+        return infer_request
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])
