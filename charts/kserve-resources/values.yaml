@@ -23,6 +23,10 @@ kserve:
       ingressGateway:
         gateway: knative-serving/knative-ingress-gateway
         gatewayService: istio-ingressgateway.istio-system.svc.cluster.local
+    nodeSelector: {}
+    tolerations: []
+    topologySpreadConstraints: []
+    affinity: {}
     image: kserve/kserve-controller
     tag: *defaultVersion
     resources:
@@ -34,6 +38,10 @@ kserve:
         memory: 300Mi
   modelmesh:
     controller:
+      nodeSelector: {}
+      tolerations: []
+      topologySpreadConstraints: []
+      affinity: {}
       image: kserve/modelmesh-controller
       tag: *defaultModelMeshVersion
     config:
