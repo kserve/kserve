@@ -95,7 +95,7 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
                                    datatype=input_tensor.datatype, data=input_tensor.contents)
                         for input_tensor in request.inputs]
         infer_request = InferRequest(infer_inputs=infer_inputs,
-                                     raw_inputs=request.raw_input_contents)
+                                     raw_inputs=request.raw_input_contents, from_grpc=True)
 
         response_body, _ = await self._data_plane.infer(body=infer_request, headers=headers,
                                                         model_name=request.model_name)

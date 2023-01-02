@@ -46,7 +46,8 @@ class AlexNetModel(Model):
             headers["request-type"] = "v1"
             if "data" in payload["instances"][0]:
                 # assume the data is already preprocessed in transformer
-                input_tensor = torch.Tensor(np.asarray(payload["instances"][0]["data"]))
+                np_array = np.asarray(payload["instances"][0]["data"])
+                input_tensor = torch.Tensor(np_array)
                 return input_tensor.unsqueeze(0)
             elif "image" in payload["instances"][0]:
                 # Input follows the Tensorflow V1 HTTP API for binary values
@@ -55,15 +56,15 @@ class AlexNetModel(Model):
                 raw_img_data = base64.b64decode(data)
         elif isinstance(payload, InferRequest):
             headers["request-type"] = "v2"
-            inputs = payload.inputs
-            if inputs[0].datatype == "BYTES":
-                raw_img_data = base64.b64decode(inputs[0].data[0])
-            elif inputs[0].datatype == "FP32":
-                print(inputs[0])
+            if payload.from_grpc:
+                headers["request-type"] = "grpc-v2"
+            infer_input = payload.inputs[0]
+            if infer_input.datatype == "BYTES":
+                raw_img_data = base64.b64decode(infer_input.data[0])
+            elif infer_input.datatype == "FP32":
                 # assume the data is already preprocessed in transformer
-                input_np = inputs[0].as_numpy()[0]
-                input_tensor = torch.Tensor(input_np)
-                return input_tensor.unsqueeze(0)
+                input_np = infer_input.as_numpy()
+                return torch.Tensor(input_np)
 
         input_image = Image.open(io.BytesIO(raw_img_data))
         preprocess = transforms.Compose([
@@ -80,11 +81,26 @@ class AlexNetModel(Model):
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
+        result = values.tolist()
+        response_id = generate_uuid()
         if headers["request-type"] == "v1":
-            return {"predictions": values.tolist()}
+            return {"predictions": result}
+        elif headers["request-type"] == "grpc-v2":
+            response = {
+                "id": response_id,
+                "model_name": "custom-model",
+                "outputs": [
+                    {
+                        "contents": {
+                            "fp32_contents": result[0],
+                        },
+                        "datatype": "FP32",
+                        "name": "output-0",
+                        "shape": list(values.shape)
+                    }
+                ]}
+            return response
         else:
-            result = values.tolist()
-            response_id = generate_uuid()
             response = {
                 "id": response_id,
                 "model_name": "custom-model",

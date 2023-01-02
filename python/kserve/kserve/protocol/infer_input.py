@@ -216,9 +216,11 @@ class InferRequest:
     id: Optional[str]
     inputs: List[InferInput]
     raw_inputs: List
+    from_grpc: bool
 
-    def __init__(self, infer_inputs: List[InferInput], raw_inputs=None):
+    def __init__(self, infer_inputs: List[InferInput], raw_inputs=None, from_grpc=False):
         self.inputs = infer_inputs
+        self.from_grpc = from_grpc
         if raw_inputs:
             for i, raw_input in enumerate(raw_inputs):
                 self.inputs[i]._raw_data = raw_input
