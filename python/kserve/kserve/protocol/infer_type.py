@@ -219,7 +219,8 @@ class InferRequest:
     raw_inputs: List
     from_grpc: bool
 
-    def __init__(self, model_name: str, infer_inputs: List[InferInput], request_id=None, raw_inputs=None, from_grpc=False):
+    def __init__(self, model_name: str, infer_inputs: List[InferInput],
+                 request_id=None, raw_inputs=None, from_grpc=False):
         self.id = request_id
         self.model_name = model_name
         self.inputs = infer_inputs

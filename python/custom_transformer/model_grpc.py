@@ -57,7 +57,7 @@ class ImageTransformer(Model):
         input_tensors = np.asarray(input_tensors)
         infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=list(input_tensors.shape),
                                    data=input_tensors)]
-        infer_request = InferRequest(infer_inputs)
+        infer_request = InferRequest(model_name=self.model_name, infer_inputs=infer_inputs)
         return infer_request
 
 

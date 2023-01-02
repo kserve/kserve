@@ -40,9 +40,11 @@ async def metrics_handler(request: Request) -> Response:
     encoder, content_type = exposition.choose_encoder(request.headers.get("accept"))
     return Response(content=encoder(REGISTRY), headers={"content-type": content_type})
 
+
 class PrintTimings(TimingClient):
     def timing(self, metric_name, timing, tags):
         logging.info(f"{metric_name} {timing}, {tags}")
+
 
 class RESTServer:
     def __init__(self, data_plane: DataPlane, model_repository_extension, enable_docs_url=False):
