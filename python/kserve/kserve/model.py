@@ -25,7 +25,7 @@ from httpx import HTTPStatusError
 import orjson
 from cloudevents.http import CloudEvent
 
-from .protocol.infer_input import InferRequest
+from .protocol.infer_type import InferRequest
 from .metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
 from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse

@@ -15,7 +15,7 @@
 
 from . import grpc_predict_v2_pb2 as pb
 from . import grpc_predict_v2_pb2_grpc
-from kserve.protocol.infer_input import InferInput, InferRequest
+from kserve.protocol.infer_type import InferInput, InferRequest
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.utils.utils import to_headers

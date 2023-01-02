@@ -16,7 +16,7 @@ from __future__ import absolute_import
 
 from .model import Model
 from .model_server import ModelServer
-from .protocol.infer_input import InferRequest, InferInput
+from .protocol.infer_type import InferRequest, InferInput
 from .model_repository import ModelRepository
 from .storage import Storage
 from .constants import constants

@@ -26,7 +26,7 @@ from ..errors import InvalidInput, ModelNotFound
 from ..model import ModelType
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent
-from .infer_input import InferRequest
+from .infer_type import InferRequest
 from ..constants import constants
 from .grpc import grpc_predict_v2_pb2 as pb
 import time

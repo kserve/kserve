@@ -17,7 +17,7 @@ from typing import Optional, Dict
 from fastapi.requests import Request
 from fastapi.responses import Response
 
-from ..infer_input import InferInput, InferRequest
+from ..infer_type import InferInput, InferRequest
 from .v2_datamodels import (
     InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
     ModelMetadataResponse, InferenceResponse, ModelReadyResponse
