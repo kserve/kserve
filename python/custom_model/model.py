@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
+
 from torchvision import models, transforms
 from typing import Dict, Union
 import torch
@@ -20,24 +22,27 @@ import base64
 import io
 import numpy as np
 
-from kserve import Model, ModelServer, InferRequest
+from kserve import Model, ModelServer, model_server, InferRequest
+from kserve.errors import InvalidInput
 from kserve.utils.utils import generate_uuid
 
 
 # This custom predictor example implements the custom model following KServe REST v1/v2 protocol,
 # the input can be raw image base64 encoded bytes or image tensor which is pre-processed by transformer
-# and then passed to predictor, the output is the prediction response.
+# and then passed to the custom predictor, the output is the prediction response.
 class AlexNetModel(Model):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
-        self.load()
         self.model = None
         self.ready = False
+        self.load()
 
     def load(self):
         self.model = models.alexnet(pretrained=True)
         self.model.eval()
+        # The ready flag is used by model ready endpoint for readiness probes,
+        # set to True when model is loaded successfully without exceptions.
         self.ready = True
 
     def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> torch.Tensor:
@@ -52,8 +57,8 @@ class AlexNetModel(Model):
             elif "image" in payload["instances"][0]:
                 # Input follows the Tensorflow V1 HTTP API for binary values
                 # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-                data = payload["instances"][0]["image"]["b64"]
-                raw_img_data = base64.b64decode(data)
+                img_data = payload["instances"][0]["image"]["b64"]
+                raw_img_data = base64.b64decode(img_data)
         elif isinstance(payload, InferRequest):
             headers["request-type"] = "v2"
             if payload.from_grpc:
@@ -65,6 +70,8 @@ class AlexNetModel(Model):
                 # assume the data is already preprocessed in transformer
                 input_np = infer_input.as_numpy()
                 return torch.Tensor(input_np)
+        else:
+            raise InvalidInput("invalid payload")
 
         input_image = Image.open(io.BytesIO(raw_img_data))
         preprocess = transforms.Compose([
@@ -115,7 +122,13 @@ class AlexNetModel(Model):
             return response
 
 
+parser = argparse.ArgumentParser(parents=[model_server.parser])
+parser.add_argument(
+    "--model_name", help="The name that the model is served under."
+)
+args, _ = parser.parse_known_args()
+
 if __name__ == "__main__":
-    model = AlexNetModel("custom-model")
+    model = AlexNetModel(args.model_name)
     model.load()
     ModelServer().start([model])

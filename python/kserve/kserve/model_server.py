@@ -31,7 +31,6 @@ from .model import Model
 from .protocol.dataplane import DataPlane
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .model_repository import ModelRepository
-from timing_asgi import TimingClient
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -59,11 +58,6 @@ args, _ = parser.parse_known_args()
 FORMAT = '%(asctime)s.%(msecs)03d %(process)s %(name)s %(levelname)s [%(funcName)s():%(lineno)s] %(message)s'
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 logging.basicConfig(level=logging.INFO, format=FORMAT, datefmt=DATE_FORMAT)
-
-
-class PrintTimings(TimingClient):
-    def timing(self, metric_name, timing, tags):
-        logging.info(f"{metric_name} {timing}, {tags}")
 
 
 class ModelServer:

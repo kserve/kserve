@@ -26,7 +26,7 @@ from kserve import Model, ModelServer, model_server, InferInput, InferRequest
 from kserve.model import PredictorProtocol
 
 
-def image_transform(instance):
+def image_transform(model_name, instance):
     """converts the input image of Bytes Array into Tensor
     Args:
         instance: The input image bytes.
@@ -40,6 +40,11 @@ def image_transform(instance):
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225]),
     ])
+    if model_name == "mnist":
+        preprocess = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
     byte_array = base64.b64decode(instance["image"]["b64"])
     image = Image.open(io.BytesIO(byte_array))
     tensor = preprocess(image).numpy()
@@ -56,11 +61,11 @@ class ImageTransformer(Model):
     def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-        input_tensors = [image_transform(instance) for instance in payload["instances"]]
+        input_tensors = [image_transform(self.name, instance) for instance in payload["instances"]]
         input_tensors = numpy.asarray(input_tensors)
         infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=list(input_tensors.shape),
                                    data=input_tensors)]
-        infer_request = InferRequest(infer_inputs)
+        infer_request = InferRequest(model_name=self.name, infer_inputs=infer_inputs)
 
         # Transform to KServe v1/v2 inference protocol
         if self.protocol == PredictorProtocol.REST_V1.value:

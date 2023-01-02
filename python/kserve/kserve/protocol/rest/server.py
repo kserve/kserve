@@ -23,7 +23,9 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute as FastAPIRoute
 from fastapi.responses import ORJSONResponse
-
+from timing_asgi import TimingMiddleware, TimingClient
+from timing_asgi.integrations import StarletteScopeToName
+import logging
 from .v1_endpoints import V1Endpoints
 from .v2_datamodels import InferenceResponse, ModelMetadataResponse, ServerReadyResponse, ServerLiveResponse, \
     ServerMetadataResponse
@@ -38,6 +40,9 @@ async def metrics_handler(request: Request) -> Response:
     encoder, content_type = exposition.choose_encoder(request.headers.get("accept"))
     return Response(content=encoder(REGISTRY), headers={"content-type": content_type})
 
+class PrintTimings(TimingClient):
+    def timing(self, metric_name, timing, tags):
+        logging.info(f"{metric_name} {timing}, {tags}")
 
 class RESTServer:
     def __init__(self, data_plane: DataPlane, model_repository_extension, enable_docs_url=False):
@@ -111,8 +116,14 @@ class UvicornProcess(multiprocessing.Process):
         super().__init__()
         self.sockets = sockets
         self.server = RESTServer(data_plane, model_repository_extension, enable_docs_url)
+        app = self.server.create_application()
+        app.add_middleware(
+            TimingMiddleware,
+            client=PrintTimings(),
+            metric_namer=StarletteScopeToName(prefix="kserve.io", starlette_app=app)
+        )
         self.cfg = uvicorn.Config(
-            self.server.create_application(),
+            app=app,
             host="0.0.0.0",
             port=http_port,
             log_config={

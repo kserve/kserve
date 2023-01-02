@@ -26,7 +26,7 @@ from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from grpc import aio
 
 
-MAX_GRPC_MESSAGE_LENGTH = 8388608
+MAX_GRPC_MESSAGE_LENGTH = -1
 
 
 class GRPCServer:

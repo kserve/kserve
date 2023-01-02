@@ -278,7 +278,7 @@ class Model:
     async def _grpc_predict(self, payload: Union[ModelInferRequest, InferRequest], headers: Dict[str, str] = None) \
             -> ModelInferResponse:
         if isinstance(payload, InferRequest):
-            payload = payload.to_grpc(model_name=self.name)
+            payload = payload.to_grpc()
         async_result = await self._grpc_client.ModelInfer(
             request=payload,
             timeout=self.timeout,
