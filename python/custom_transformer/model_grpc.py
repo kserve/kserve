@@ -51,11 +51,11 @@ class ImageTransformer(Model):
     def preprocess(self, request: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> InferRequest:
         input_tensors = None
         if isinstance(request, InferRequest):
-            input_tensors = [image_transform(instance) for instance in request.inputs[0]._raw_data]
+            input_tensors = [image_transform(instance) for instance in request.inputs[0].data]
         elif headers and "application/json" in headers["content-type"]:
             input_tensors = [image_transform(instance) for instance in request["inputs"][0]["data"]]
         input_tensors = np.asarray(input_tensors)
-        infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=input_tensors.shape,
+        infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=list(input_tensors.shape),
                                    data=input_tensors)]
         infer_request = InferRequest(infer_inputs)
         return infer_request

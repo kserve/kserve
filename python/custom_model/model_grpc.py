@@ -41,8 +41,7 @@ class AlexNetModel(Model):
     def preprocess(self, payload: InferRequest, headers: Dict[str, str] = None) -> torch.Tensor:
         req = payload.inputs[0]
         if req.datatype == "BYTES":
-            raw_img_data = req.contents.bytes_contents[0]
-            input_image = Image.open(io.BytesIO(raw_img_data))
+            input_image = Image.open(io.BytesIO(req.data))
             preprocess = transforms.Compose([
                 transforms.Resize(256),
                 transforms.CenterCrop(224),
@@ -54,8 +53,8 @@ class AlexNetModel(Model):
             input_tensor = preprocess(input_image)
             return input_tensor.unsqueeze(0)
         elif req.datatype == "FP32":
-            batched_result = payload.inputs[0].as_numpy()
-            return torch.Tensor(batched_result)
+            np_array = payload.inputs[0].as_numpy()
+            return torch.Tensor(np_array)
 
     def predict(self, input_tensor: torch.Tensor, headers: Dict[str, str] = None) -> Dict:
         output = self.model(input_tensor)

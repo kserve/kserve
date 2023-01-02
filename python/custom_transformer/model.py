@@ -21,7 +21,7 @@ import numpy
 
 from PIL import Image
 from torchvision import transforms
-from kserve.protocol.grpc import ModelInferRequest, ModelInferResponse
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 from kserve import Model, ModelServer, model_server, InferInput, InferRequest
 from kserve.model import PredictorProtocol
 
@@ -53,12 +53,12 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.ready = True
 
-    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Union[Dict, ModelInferRequest]:
+    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         # Input follows the Tensorflow V1 HTTP API for binary values
         # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
         input_tensors = [image_transform(instance) for instance in payload["instances"]]
         input_tensors = numpy.asarray(input_tensors)
-        infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=input_tensors.shape,
+        infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=list(input_tensors.shape),
                                    data=input_tensors)]
         infer_request = InferRequest(infer_inputs)
 
