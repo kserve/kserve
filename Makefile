@@ -119,6 +119,10 @@ deploy-ci: manifests
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	kustomize build config/overlays/test/runtimes | kubectl apply -f -
 
+deploy-helm: manifests
+	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
+	helm install kserve charts/kserve-resources/ --wait --timeout 180s
+
 undeploy:
 	kustomize build config/default | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
