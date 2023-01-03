@@ -17,8 +17,9 @@ from fastapi.requests import Request
 from fastapi.responses import Response
 from kserve.handlers.v2_datamodels import (
     InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
-    ModelMetadataResponse, InferenceResponse
+    ModelMetadataResponse, InferenceResponse, ModelReadyResponse
 )
+from kserve.errors import ModelNotReady
 from kserve.handlers.dataplane import DataPlane
 from kserve.handlers.model_repository_extension import ModelRepositoryExtension
 
@@ -73,6 +74,27 @@ class V2Endpoints:
 
         metadata = await self.dataplane.model_metadata(model_name)
         return ModelMetadataResponse.parse_obj(metadata)
+
+    async def model_ready(self, model_name: str, model_version: Optional[str] = None) -> ModelReadyResponse:
+        """Check if a given model is ready.
+
+        Args:
+            model_name (str): Model name.
+            model_version (str): Model version.
+
+        Returns:
+            ModelReadyResponse: Model ready object
+        """
+        # TODO: support model_version
+        if model_version:
+            raise NotImplementedError("Model versioning not supported yet.")
+
+        model_ready = self.dataplane.model_ready(model_name)
+
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
+        return ModelReadyResponse.parse_obj({"name": model_name, "ready": model_ready})
 
     async def infer(
         self,
