@@ -23,7 +23,7 @@ from typing import List, Dict, Union
 from ray import serve as rayserve
 from ray.serve.api import Deployment, RayServeHandle
 
-from .protocol.grpc.server import GRPCProcess
+from .protocol.grpc.server import GRPCServer
 from .protocol.rest.server import UvicornProcess
 from .utils import utils
 
@@ -90,7 +90,6 @@ class ModelServer:
         self.workers = workers
         self.max_threads = max_threads
         self.max_asyncio_workers = max_asyncio_workers
-        self._server = None
         self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
@@ -139,22 +138,14 @@ class ModelServer:
                                         self.dataplane, self.model_repository_extension, self.enable_docs_url)
                 server.start()
 
-        def grpc_serve():
-            bind_address = '0.0.0.0:{}'.format(self.grpc_port)
-
-            logging.info(f"starting grpc with {self.workers} workers")
-            for _ in range(self.workers):
-                server = GRPCProcess(bind_address, self.max_threads, self.dataplane, self.model_repository_extension)
-                server.start()
-
         async def servers_task():
             servers = [serve()]
+            if self.enable_grpc:
+                grpc_server = GRPCServer(self.dataplane, self.model_repository_extension)
+                servers.append(grpc_server.start(self.max_threads, f'[::]:{self.grpc_port}'))
             await asyncio.gather(*servers)
 
         asyncio.run(servers_task())
-
-        if self.enable_grpc:
-            grpc_serve()
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)
