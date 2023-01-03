@@ -25,7 +25,7 @@ from httpx import HTTPStatusError
 import orjson
 from cloudevents.http import CloudEvent
 
-from .protocol.infer_type import InferRequest
+from .protocol.infer_type import InferRequest, InferResponse
 from .metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
 from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
@@ -187,14 +187,14 @@ class Model:
         # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
-    async def preprocess(self, payload: Union[Dict, CloudEvent, ModelInferRequest],
-                         headers: Dict[str, str] = None) -> Union[Dict, ModelInferRequest]:
+    async def preprocess(self, payload: Union[Dict, CloudEvent, InferRequest, ModelInferRequest],
+                         headers: Dict[str, str] = None) -> Union[Dict, InferRequest, ModelInferRequest]:
         """`preprocess` handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
 
         Args:
-            payload (Dict|CloudEvent|ModelInferRequest): Body of the request.
+            payload (Dict|CloudEvent|InferRequest|ModelInferRequest): Body of the request.
             headers (Dict): Request headers.
 
         Returns:
@@ -222,7 +222,7 @@ class Model:
 
         return response
 
-    def postprocess(self, response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) \
+    def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
             -> Union[Dict, ModelInferResponse]:
         """The postprocess handler can be overridden for inference response transformation
 
@@ -234,10 +234,16 @@ class Model:
             Dict: post-processed response.
         """
         if headers:
-            if "grpc" in headers.get("user-agent", "") and isinstance(response, ModelInferResponse):
-                return response
-            if "application/json" in headers.get("content-type", "") and isinstance(response, ModelInferResponse):
-                return convert_grpc_response_to_dict(response)
+            if "grpc" in headers.get("user-agent", ""):
+                if isinstance(response, ModelInferResponse):
+                    return response
+                elif isinstance(response, InferResponse):
+                    return response.to_grpc()
+            if "application/json" in headers.get("content-type", ""):
+                if isinstance(response, ModelInferResponse):
+                    return convert_grpc_response_to_dict(response)
+                elif isinstance(response, InferResponse):
+                    return response.to_rest()
         return response
 
     async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
@@ -288,16 +294,16 @@ class Model:
         )
         return async_result
 
-    async def predict(self, payload: Union[Dict, ModelInferRequest, InferRequest],
-                      headers: Dict[str, str] = None) -> Union[Dict, ModelInferResponse]:
+    async def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest],
+                      headers: Dict[str, str] = None) -> Union[Dict, InferResponse, ModelInferResponse]:
         """
 
         Args:
-            payload (Dict|ModelInferRequest): Prediction data passed from ``preprocess`` handler.
+            payload (Dict|InferRequest|ModelInferRequest): Prediction data passed from ``preprocess`` handler.
             headers (Dict): Request headers.
 
         Returns:
-            Dict|ModelInferResponse: Prediction result from the model.
+            Dict|InferResponse|ModelInferResponse: Prediction result from the model.
         """
         if not self.predictor_host:
             raise NotImplementedError("Could not find predictor_host.")

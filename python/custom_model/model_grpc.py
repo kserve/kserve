@@ -41,7 +41,7 @@ class AlexNetModel(Model):
     def preprocess(self, payload: InferRequest, headers: Dict[str, str] = None) -> torch.Tensor:
         req = payload.inputs[0]
         if req.datatype == "BYTES":
-            input_image = Image.open(io.BytesIO(req.data))
+            input_image = Image.open(io.BytesIO(req.data[0]))
             preprocess = transforms.Compose([
                 transforms.Resize(256),
                 transforms.CenterCrop(224),
@@ -60,7 +60,7 @@ class AlexNetModel(Model):
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
-        result = values.tolist()
+        result = values.flatten().tolist()
         id = generate_uuid()
         response = {
             "id": id,
@@ -68,7 +68,7 @@ class AlexNetModel(Model):
             "outputs": [
                 {
                     "contents": {
-                        "fp32_contents": result[0],
+                        "fp32_contents": result,
                     },
                     "datatype": "FP32",
                     "name": "output-0",

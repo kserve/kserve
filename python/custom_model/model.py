@@ -24,6 +24,7 @@ import numpy as np
 
 from kserve import Model, ModelServer, model_server, InferRequest
 from kserve.errors import InvalidInput
+from kserve.protocol.infer_type import InferOutput, InferResponse
 from kserve.utils.utils import generate_uuid
 
 
@@ -60,12 +61,12 @@ class AlexNetModel(Model):
                 img_data = payload["instances"][0]["image"]["b64"]
                 raw_img_data = base64.b64decode(img_data)
         elif isinstance(payload, InferRequest):
-            headers["request-type"] = "v2"
-            if payload.from_grpc:
-                headers["request-type"] = "grpc-v2"
             infer_input = payload.inputs[0]
             if infer_input.datatype == "BYTES":
-                raw_img_data = base64.b64decode(infer_input.data[0])
+                if payload.from_grpc:
+                    raw_img_data = infer_input.data[0]
+                else:
+                    raw_img_data = base64.b64decode(infer_input.data[0])
             elif infer_input.datatype == "FP32":
                 # assume the data is already preprocessed in transformer
                 input_np = infer_input.as_numpy()
@@ -84,42 +85,18 @@ class AlexNetModel(Model):
         input_tensor = preprocess(input_image)
         return input_tensor.unsqueeze(0)
 
-    def predict(self, input_tensor: torch.Tensor, headers: Dict[str, str] = None) -> Dict:
+    def predict(self, input_tensor: torch.Tensor, headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
-        result = values.tolist()
+        result = values.flatten().tolist()
         response_id = generate_uuid()
-        if headers["request-type"] == "v1":
+        infer_output = InferOutput(name="output-0", shape=list(values.shape), datatype="FP32", data=result)
+        infer_response = InferResponse(model_name=self.name, infer_outputs=[infer_output], request_id=response_id)
+        if "request-type" in headers and headers["request-type"] == "v1":
             return {"predictions": result}
-        elif headers["request-type"] == "grpc-v2":
-            response = {
-                "id": response_id,
-                "model_name": "custom-model",
-                "outputs": [
-                    {
-                        "contents": {
-                            "fp32_contents": result[0],
-                        },
-                        "datatype": "FP32",
-                        "name": "output-0",
-                        "shape": list(values.shape)
-                    }
-                ]}
-            return response
         else:
-            response = {
-                "id": response_id,
-                "model_name": "custom-model",
-                "outputs": [
-                    {
-                        "data": result,
-                        "datatype": "FP32",
-                        "name": "output-0",
-                        "shape": list(values.shape)
-                    }
-                ]}
-            return response
+            return infer_response
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])

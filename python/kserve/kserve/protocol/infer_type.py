@@ -243,8 +243,11 @@ class InferRequest:
             if isinstance(infer_input.data, numpy.ndarray):
                 infer_input.set_data_from_numpy(infer_input.data, binary_data=False)
                 infer_input_dict["data"] = infer_input.data
+            else:
+                infer_input_dict["data"] = infer_input.data
             infer_inputs.append(infer_input_dict)
         return {
+            'id': self.id,
             'inputs': infer_inputs
         }
 
@@ -267,6 +270,7 @@ class InferRequest:
             else:
                 if not isinstance(infer_input.data, List):
                     raise InvalidInput("input data is not a List")
+                infer_input_dict["contents"] = {}
                 if infer_input.datatype == "BOOL":
                     infer_input_dict["contents"]["bool_contents"] = infer_input.data
                 elif infer_input.datatype == "UINT8" or infer_input.datatype == "UINT16" or \
@@ -355,7 +359,7 @@ class InferOutput:
             elif self._datatype == "BYTES":
                 return self._data.bytes_contents
             else:
-                raise InvalidInput("invalid input datatype")
+                raise InvalidInput("invalid output datatype")
         else:
             return self._data
 
@@ -479,14 +483,15 @@ class InferResponse:
           "outputs" : [ $response_output, ... ]
         }
     """
+    id: str
     model_name: str
     outputs: List[InferOutput]
     raw_outputs: List
     from_grpc: bool
 
-    def __init__(self, request_id, model_name: str,
-                 infer_outputs: List[InferOutput], raw_outputs=None, from_grpc=False):
-        self.id = request_id,
+    def __init__(self, request_id: str, model_name: str, infer_outputs: List[InferOutput],
+                 raw_outputs=None, from_grpc=False):
+        self.id = request_id
         self.model_name = model_name
         self.outputs = infer_outputs
         self.from_grpc = from_grpc
@@ -508,9 +513,13 @@ class InferResponse:
             if isinstance(infer_output.data, numpy.ndarray):
                 infer_output.set_data_from_numpy(infer_output.data, binary_data=False)
                 infer_output_dict["data"] = infer_output.data
+            else:
+                infer_output_dict["data"] = infer_output.data
             infer_outputs.append(infer_output_dict)
         return {
-            'inputs': infer_outputs
+            'id': self.id,
+            'model_name': self.model_name,
+            'outputs': infer_outputs
         }
 
     def to_grpc(self) -> ModelInferResponse:
@@ -532,6 +541,7 @@ class InferResponse:
             else:
                 if not isinstance(infer_output.data, List):
                     raise InvalidInput("input data is not a List")
+                infer_output_dict["contents"] = {}
                 if infer_output.datatype == "BOOL":
                     infer_output_dict["contents"]["bool_contents"] = infer_output.data
                 elif infer_output.datatype == "UINT8" or infer_output.datatype == "UINT16" or \
@@ -544,9 +554,9 @@ class InferResponse:
                     infer_output_dict["contents"]["int_contents"] = infer_output.data
                 elif infer_output.datatype == "INT64":
                     infer_output_dict["contents"]["uint64_contents"] = infer_output.data
-                elif infer_output.datatype == "FLOAT32":
+                elif infer_output.datatype == "FP32":
                     infer_output_dict["contents"]["fp32_contents"] = infer_output.data
-                elif infer_output.datatype == "FLOAT64":
+                elif infer_output.datatype == "FP64":
                     infer_output_dict["contents"]["fp64_contents"] = infer_output.data
                 elif infer_output.datatype == "BYTES":
                     infer_output_dict["contents"]["bytes_contents"] = infer_output.data

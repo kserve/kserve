@@ -206,6 +206,7 @@ class DataPlane:
         return self._model_registry.is_model_ready(model_name)
 
     def decode(self, body, headers) -> Union[Dict, InferRequest]:
+        t1 = time.time()
         if isinstance(body, InferRequest):
             return body
         if headers and has_binary_headers(headers):
@@ -216,6 +217,8 @@ class DataPlane:
                     body = orjson.loads(body)
                 except orjson.JSONDecodeError as e:
                     raise InvalidInput(f"Unrecognized request format: {e}")
+        t2 = time.time()
+        logging.info(f"decode takes {round((t2 - t1) * 1000, 9)}")
         return body
 
     def encode(self, model_name, body, response, headers) -> Tuple[Dict, Dict[str, str]]:
@@ -265,10 +268,7 @@ class DataPlane:
 
         .. _CloudEvent: https://cloudevents.io/
         """
-        t1 = time.time()
         body = self.decode(body, headers)
-        t2 = time.time()
-        logging.info(f"decode takes {round((t2 - t1) * 1000, 9)}")
 
         # call model locally or remote model workers
         model = self.get_model(model_name)
@@ -298,10 +298,7 @@ class DataPlane:
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
-        t1 = time.time()
         body = self.decode(body, headers)
-        t2 = time.time()
-        logging.info(f"decode takes {round((t2 - t1) * 1000, 9)}")
 
         # call model locally or remote model workers
         model = self.get_model(model_name)
