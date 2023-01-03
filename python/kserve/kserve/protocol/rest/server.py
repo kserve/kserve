@@ -28,7 +28,7 @@ from timing_asgi.integrations import StarletteScopeToName
 import logging
 from .v1_endpoints import V1Endpoints
 from .v2_datamodels import InferenceResponse, ModelMetadataResponse, ServerReadyResponse, ServerLiveResponse, \
-    ServerMetadataResponse
+    ServerMetadataResponse, ModelReadyResponse
 from .v2_endpoints import V2Endpoints
 from kserve.errors import InvalidInput, InferenceError, ModelNotFound, ModelNotReady, invalid_input_handler, \
     inference_error_handler, model_not_found_handler, model_not_ready_handler, not_implemented_error_handler, \
@@ -92,6 +92,10 @@ class RESTServer:
                              v2_endpoints.model_metadata, response_model=ModelMetadataResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}",
                              v2_endpoints.model_metadata, tags=["V2"], include_in_schema=False),
+                FastAPIRoute(r"/v2/models/{model_name}/ready",
+                             v2_endpoints.model_ready, response_model=ModelReadyResponse, tags=["V2"]),
+                FastAPIRoute(r"v2/models/{model_name}/versions/{model_version}/ready",
+                             v2_endpoints.model_ready, response_model=ModelReadyResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}/infer",
                              v2_endpoints.infer, methods=["POST"], response_model=InferenceResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}/infer",

@@ -24,6 +24,7 @@ from .v2_datamodels import (
 )
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
+from ...errors import ModelNotReady
 
 
 class V2Endpoints:

@@ -119,11 +119,6 @@ class ModelServer:
                 raise RuntimeError("Model type should be RayServe Deployment")
         else:
             raise RuntimeError("Unknown model collection types")
-        """app.add_middleware(
-            TimingMiddleware,
-            client=PrintTimings(),
-            metric_namer=StarletteScopeToName(prefix="myapp", starlette_app=app)
-        )"""
 
         if self.max_asyncio_workers is None:
             # formula as suggest in https://bugs.python.org/issue35279
