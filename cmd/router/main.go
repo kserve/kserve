@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kserve/kserve/pkg/constants"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -57,7 +57,7 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		return nil, 0, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Error(err, "error while reading the response")
 	}
@@ -205,7 +205,7 @@ func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec
 var inferenceGraph *v1alpha1.InferenceGraphSpec
 
 func graphHandler(w http.ResponseWriter, req *http.Request) {
-	inputBytes, _ := ioutil.ReadAll(req.Body)
+	inputBytes, _ := io.ReadAll(req.Body)
 	if response, statusCode, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes, req.Header); err != nil {
 		log.Error(err, "failed to process request")
 		w.WriteHeader(500) //TODO status code tbd
