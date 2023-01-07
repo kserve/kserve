@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import argparse
-from typing import Dict, Union
+from typing import Dict
 import numpy as np
 import io
 from PIL import Image
@@ -21,7 +21,7 @@ from torchvision import transforms
 from kserve import Model, ModelServer, model_server, InferInput, InferRequest
 
 
-def image_transform(byte_array):
+def image_transform(data):
     """converts the input image of Bytes Array into Tensor
     Args:
         request input instance: The request input instance for image.
@@ -36,7 +36,7 @@ def image_transform(byte_array):
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225]),
     ])
-    image = Image.open(io.BytesIO(byte_array))
+    image = Image.open(io.BytesIO(data))
     tensor = preprocess(image).numpy()
     return tensor
 
@@ -48,12 +48,8 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.model_name = name
 
-    def preprocess(self, request: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> InferRequest:
-        input_tensors = None
-        if isinstance(request, InferRequest):
-            input_tensors = [image_transform(instance) for instance in request.inputs[0].data]
-        elif headers and "application/json" in headers["content-type"]:
-            input_tensors = [image_transform(instance) for instance in request["inputs"][0]["data"]]
+    def preprocess(self, request: InferRequest, headers: Dict[str, str] = None) -> InferRequest:
+        input_tensors = [image_transform(instance) for instance in request.inputs[0].data]
         input_tensors = np.asarray(input_tensors)
         infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=list(input_tensors.shape),
                                    data=input_tensors)]

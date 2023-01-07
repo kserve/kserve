@@ -96,6 +96,7 @@ class ModelServer:
         self.dataplane = DataPlane(model_registry=registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models)
+        self._grpc_server = GRPCServer(grpc_port, self.dataplane, self.model_repository_extension)
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if isinstance(models, list):
@@ -141,8 +142,7 @@ class ModelServer:
         async def servers_task():
             servers = [serve()]
             if self.enable_grpc:
-                grpc_server = GRPCServer(self.dataplane, self.model_repository_extension)
-                servers.append(grpc_server.start(self.max_threads, f'[::]:{self.grpc_port}'))
+                servers.append(self._grpc_server.start(self.max_threads))
             await asyncio.gather(*servers)
 
         asyncio.run(servers_task())

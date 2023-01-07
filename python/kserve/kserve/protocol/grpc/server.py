@@ -32,14 +32,16 @@ MAX_GRPC_MESSAGE_LENGTH = -1
 class GRPCServer:
     def __init__(
         self,
+        port: int,
         data_plane: DataPlane,
         model_repository_extension: ModelRepositoryExtension
     ):
+        self._port = port
         self._data_plane = data_plane
         self._model_repository_extension = model_repository_extension
         self._server = None
 
-    async def start(self, max_workers, bind_address):
+    async def start(self, max_workers):
         inference_servicer = InferenceServicer(
             self._data_plane,
             self._model_repository_extension)
@@ -50,15 +52,14 @@ class GRPCServer:
                 ("grpc.max_message_length", MAX_GRPC_MESSAGE_LENGTH),
                 ("grpc.max_send_message_length", MAX_GRPC_MESSAGE_LENGTH),
                 ("grpc.max_receive_message_length", MAX_GRPC_MESSAGE_LENGTH),
-                ('grpc.so_reuseport', 1),
-                ("grpc.use_local_subchannel_pool", 1),
             ]
         )
         grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(
             inference_servicer, self._server)
 
-        self._server.add_insecure_port(bind_address)
-        logging.info("Starting gRPC server on %s", bind_address)
+        listen_addr = f'[::]:{self._port}'
+        self._server.add_insecure_port(listen_addr)
+        logging.info("Starting gRPC server on %s", listen_addr)
         await self._server.start()
         await self._server.wait_for_termination()
 
@@ -71,7 +72,7 @@ class GRPCServer:
 class GRPCProcess(multiprocessing.Process):
 
     def __init__(self,
-                 bind_address: str,
+                 port: int,
                  max_threads: int,
                  data_plane: DataPlane,
                  model_repository_extension: ModelRepositoryExtension,
@@ -79,7 +80,7 @@ class GRPCProcess(multiprocessing.Process):
         super().__init__()
         self._data_plane = data_plane
         self._model_repository_extension = model_repository_extension
-        self._bind_address = bind_address
+        self._port = port
         self._max_threads = max_threads
         self._server = None
 
@@ -87,5 +88,5 @@ class GRPCProcess(multiprocessing.Process):
         self._server.stop()
 
     def run(self):
-        self._server = GRPCServer(self._data_plane, self._model_repository_extension)
-        asyncio.run(self._server.start(self._max_threads, self._bind_address))
+        self._server = GRPCServer(self._port, self._data_plane, self._model_repository_extension)
+        asyncio.run(self._server.start(self._max_threads))

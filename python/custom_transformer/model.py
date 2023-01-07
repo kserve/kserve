@@ -26,10 +26,11 @@ from kserve import Model, ModelServer, model_server, InferInput, InferRequest
 from kserve.model import PredictorProtocol
 
 
-def image_transform(model_name, instance):
+def image_transform(model_name, data):
     """converts the input image of Bytes Array into Tensor
     Args:
-        instance: The input image bytes.
+        model_name: The model name
+        data: The input image bytes.
     Returns:
         numpy.array: Returns the numpy array after the image preprocessing.
     """
@@ -45,7 +46,7 @@ def image_transform(model_name, instance):
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ])
-    byte_array = base64.b64decode(instance["image"]["b64"])
+    byte_array = base64.b64decode(data)
     image = Image.open(io.BytesIO(byte_array))
     tensor = preprocess(image).numpy()
     return tensor
@@ -58,10 +59,14 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.ready = True
 
-    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
-        # Input follows the Tensorflow V1 HTTP API for binary values
-        # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-        input_tensors = [image_transform(self.name, instance) for instance in payload["instances"]]
+    def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) \
+            -> Union[Dict, InferRequest]:
+        if isinstance(payload, InferRequest):
+            input_tensors = [image_transform(self.name, instance) for instance in payload.inputs[0].data]
+        else:
+            # Input follows the Tensorflow V1 HTTP API for binary values
+            # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
+            input_tensors = [image_transform(self.name, instance["image"]["b64"]) for instance in payload["instances"]]
         input_tensors = numpy.asarray(input_tensors)
         infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=list(input_tensors.shape),
                                    data=input_tensors)]
