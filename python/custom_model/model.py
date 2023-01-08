@@ -22,9 +22,8 @@ import base64
 import io
 import numpy as np
 
-from kserve import Model, ModelServer, model_server, InferRequest
+from kserve import Model, ModelServer, model_server, InferRequest, InferOutput, InferResponse
 from kserve.errors import InvalidInput
-from kserve.protocol.infer_type import InferOutput, InferResponse
 from kserve.utils.utils import generate_uuid
 
 

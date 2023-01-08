@@ -22,7 +22,7 @@ import numpy
 from PIL import Image
 from torchvision import transforms
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-from kserve import Model, ModelServer, model_server, InferInput, InferRequest
+from kserve import Model, ModelServer, model_server, InferInput, InferRequest, InferResponse
 from kserve.model import PredictorProtocol
 
 
@@ -64,6 +64,7 @@ class ImageTransformer(Model):
         if isinstance(payload, InferRequest):
             input_tensors = [image_transform(self.name, instance) for instance in payload.inputs[0].data]
         else:
+            headers["request-type"] = "v1"
             # Input follows the Tensorflow V1 HTTP API for binary values
             # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
             input_tensors = [image_transform(self.name, instance["image"]["b64"]) for instance in payload["instances"]]
@@ -80,14 +81,16 @@ class ImageTransformer(Model):
         else:
             return infer_request
 
-    def postprocess(self, infer_response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) -> Dict:
-        if self.protocol == PredictorProtocol.GRPC_V2.value:
-            res = super().postprocess(infer_response, headers)
-            return {"predictions": res["outputs"][0]["data"]}
-        elif self.protocol == PredictorProtocol.REST_V2.value:
-            return {"predictions": infer_response["outputs"][0]["data"]}
+    def postprocess(self, infer_response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) \
+            -> Union[Dict, InferResponse]:
+        if "request-type" in headers and headers["request-type"] == "v1":
+            if self.protocol == PredictorProtocol.REST_V1.value:
+                return infer_response
+            else:
+                res = super().postprocess(infer_response, headers)
+                return {"predictions": res["outputs"][0]["data"]}
         else:
-            return infer_response
+            return super().postprocess(infer_response, headers)
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])

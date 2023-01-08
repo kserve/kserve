@@ -76,13 +76,13 @@ class Model:
         self._grpc_client_stub = None
         self.enable_latency_logging = False
 
-    async def __call__(self, body: Union[Dict, CloudEvent, ModelInferRequest],
+    async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        model_type: ModelType = ModelType.PREDICTOR,
                        headers: Dict[str, str] = None) -> Dict:
         """Method to call predictor or explainer with the given input.
 
         Args:
-            body (Dict|CloudEvent): Request payload body.
+            body (Dict|CloudEvent|InferRequest): Request payload body.
             model_type (ModelType): Model type enum. Can be either predictor or explainer.
             headers (Dict): Request headers.
 
@@ -187,18 +187,18 @@ class Model:
         # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
-    async def preprocess(self, payload: Union[Dict, CloudEvent, InferRequest, ModelInferRequest],
-                         headers: Dict[str, str] = None) -> Union[Dict, InferRequest, ModelInferRequest]:
+    async def preprocess(self, payload: Union[Dict, CloudEvent, InferRequest],
+                         headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         """`preprocess` handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
 
         Args:
-            payload (Dict|CloudEvent|InferRequest|ModelInferRequest): Body of the request.
+            payload (Dict|CloudEvent|InferRequest): Body of the request, v2 endpoints pass InferRequest.
             headers (Dict): Request headers.
 
         Returns:
-            Transformed Dict|ModelInferRequest which passes to ``predict`` handler
+            Dict|InferRequest: Transformed inputs to ``predict`` handler or return InferRequest for predictor call.
         """
         response = payload
 
@@ -224,10 +224,14 @@ class Model:
 
     def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
             -> Union[Dict, ModelInferResponse]:
-        """The postprocess handler can be overridden for inference response transformation
+        """The postprocess handler can be overridden for inference response transformation.
+        The default implementation converts the v2 infer response types to gRPC or REST.
+        For gRPC request it converts InferResponse to gRPC message or directly returns ModelInferResponse from
+        predictor call.
+        For REST request it converts ModelInferResponse to Dict or directly returns from predictor call.
 
         Args:
-            response (Dict|ModelInferResponse): The response passed from ``predict`` handler.
+            response (Dict|InferResponse|ModelInferResponse): The response passed from ``predict`` handler.
             headers (Dict): Request headers.
 
         Returns:
@@ -240,6 +244,7 @@ class Model:
                 elif isinstance(response, InferResponse):
                     return response.to_grpc()
             if "application/json" in headers.get("content-type", ""):
+                # If the original request is REST, convert the gRPC predict response to dict
                 if isinstance(response, ModelInferResponse):
                     return convert_grpc_response_to_dict(response)
                 elif isinstance(response, InferResponse):
@@ -299,11 +304,12 @@ class Model:
         """
 
         Args:
-            payload (Dict|InferRequest|ModelInferRequest): Prediction data passed from ``preprocess`` handler.
+            payload (Dict|InferRequest|ModelInferRequest): Prediction inputs passed from ``preprocess`` handler.
             headers (Dict): Request headers.
 
         Returns:
-            Dict|InferResponse|ModelInferResponse: Prediction result from the model.
+            Dict|InferResponse|ModelInferResponse: Return InferResponse for serializing the prediction result or
+            return the response from the predictor call.
         """
         if not self.predictor_host:
             raise NotImplementedError("Could not find predictor_host.")
