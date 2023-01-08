@@ -114,10 +114,10 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-ci: manifests
-	kustomize build config/overlays/test | kubectl apply -f -
+	kubectl apply -k config/overlays/test
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kustomize build config/overlays/test/runtimes | kubectl apply -f -
+	kubectl apply -k config/overlays/test/runtimes
 
 deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
