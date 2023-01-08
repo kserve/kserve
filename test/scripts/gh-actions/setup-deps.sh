@@ -41,7 +41,7 @@ pushd istio_tmp >/dev/null
 popd
 
 kubectl create ns istio-system
-kubectl apply -k test/overlays/istio
+for i in 1 2 3 ; do kubectl apply -k test/overlays/istio && break || sleep 15; done
 
 echo "Waiting for Istio to be ready ..."
 kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
@@ -66,7 +66,7 @@ pushd ${SCRIPT_DIR}/../../overlays/knative >/dev/null
   sed -i 's/8443:/"8443":/g' release.yaml
 popd
 
-kubectl apply -k test/overlays/knative
+for i in 1 2 3 ; do kubectl apply -k test/overlays/knative && break || sleep 15; done
 
 echo "Waiting for Knative to be ready ..."
 kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
