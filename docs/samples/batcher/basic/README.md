@@ -15,7 +15,7 @@ spec:
       maxBatchSize: 32
       maxLatency: 5000
     pytorch:
-      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier/v1"
 ```
 
 Let's apply this yaml:
