@@ -17,18 +17,14 @@ import sys
 import uuid
 from typing import Any, Dict, Union
 
-import orjson
 import psutil
 
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
-from google.protobuf.json_format import MessageToJson
 from grpc import ServicerContext
 
 from ..protocol.infer_type import InferOutput, InferResponse
 from ..protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-
-from ..constants import constants
 
 
 def is_running_in_k8s():
@@ -143,18 +139,9 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
 
 
 def convert_grpc_response_to_dict(response: ModelInferResponse) -> Dict[str, Any]:
-    infer_outputs = []
-    for i, output in enumerate(response.outputs):
-        if output.HasField("contents"):
-            infer_output = InferOutput(name=output.name, datatype=output.datatype, shape=output.shape,
-                                       data=output.contents)
-        else:
-            infer_output = InferOutput(name=output.name, datatype=output.datatype, shape=output.shape)
-        infer_outputs.append(infer_output)
-    if len(response.raw_output_contents) > 0:
-        infer_response = InferResponse(model_name=response.model_name, response_id=response.id,
-                                       infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents)
-    else:
-        infer_response = InferResponse(model_name=response.model_name, response_id=response.id,
-                                       infer_outputs=infer_outputs)
+    infer_outputs = [InferOutput(name=output.name, shape=list(output.shape),
+                                 datatype=output.datatype, data=output.contents)
+                     for output in response.outputs]
+    infer_response = InferResponse(model_name=response.model_name, response_id=response.id,
+                                   infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents)
     return infer_response.to_rest()

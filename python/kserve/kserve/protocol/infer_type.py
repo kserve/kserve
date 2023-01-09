@@ -75,21 +75,21 @@ class InferInput:
     def data(self):
         if isinstance(self._data, InferTensorContents):
             if self._datatype == "BOOL":
-                return self._data.bool_contents
+                return list(self._data.bool_contents)
             elif self._datatype == "UINT8" or self._datatype == "UINT16" or self._datatype == "UINT32":
-                return self._data.uint_contents
+                return list(self._data.uint_contents)
             elif self._datatype == "UINT64":
-                return self._data.uint64_contents
+                return list(self._data.uint64_contents)
             elif self._datatype == "INT8" or self._datatype == "INT16" or self._datatype == "INT32":
-                return self._data.int_contents
+                return list(self._data.int_contents)
             elif self._datatype == "INT64":
-                return self._data.int64_contents
-            elif self._datatype == "FLOAT32":
-                return self._data.fp32_contents
-            elif self._datatype == "FLOAT64":
-                return self._data.fp64_contents
+                return list(self._data.int64_contents)
+            elif self._datatype == "FP32":
+                return list(self._data.fp32_contents)
+            elif self._datatype == "FP64":
+                return list(self._data.fp64_contents)
             elif self._datatype == "BYTES":
-                return self._data.bytes_contents
+                return list(self._data.bytes_contents)
             else:
                 raise InvalidInput("invalid input datatype")
         else:
@@ -328,21 +328,21 @@ class InferOutput:
     def data(self):
         if isinstance(self._data, InferTensorContents):
             if self._datatype == "BOOL":
-                return self._data.bool_contents
+                return list(self._data.bool_contents)
             elif self._datatype == "UINT8" or self._datatype == "UINT16" or self._datatype == "UINT32":
-                return self._data.uint_contents
+                return list(self._data.uint_contents)
             elif self._datatype == "UINT64":
-                return self._data.uint64_contents
+                return list(self._data.uint64_contents)
             elif self._datatype == "INT8" or self._datatype == "INT16" or self._datatype == "INT32":
-                return self._data.int_contents
+                return list(self._data.int_contents)
             elif self._datatype == "INT64":
-                return self._data.int64_contents
-            elif self._datatype == "FLOAT32":
-                return self._data.fp32_contents
-            elif self._datatype == "FLOAT64":
-                return self._data.fp64_contents
+                return list(self._data.int64_contents)
+            elif self._datatype == "FP32":
+                return list(self._data.fp32_contents)
+            elif self._datatype == "FP64":
+                return list(self._data.fp64_contents)
             elif self._datatype == "BYTES":
-                return self._data.bytes_contents
+                return list(self._data.bytes_contents)
             else:
                 raise InvalidInput("invalid output datatype")
         else:
@@ -533,7 +533,7 @@ class InferResponse:
                 if data_key is not None:
                     infer_output_dict["contents"][data_key] = infer_output.data
                 else:
-                    raise InvalidInput("invalid output datatype")
+                    raise InvalidInput("to_grpc: invalid output datatype")
             infer_outputs.append(infer_output_dict)
 
         return ModelInferResponse(model_name=self.model_name, outputs=infer_outputs,
