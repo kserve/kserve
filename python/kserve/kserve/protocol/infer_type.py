@@ -18,7 +18,7 @@ import numpy
 import numpy as np
 from tritonclient.utils import raise_error, serialize_byte_tensor
 
-from .. import constants
+from ..constants.constants import GRPC_CONTENT_DATATYPE_MAPPINGS
 from ..errors import InvalidInput
 from ..protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, InferTensorContents, ModelInferResponse
 from ..utils.numpy_codec import to_np_dtype, from_np_dtype
@@ -73,27 +73,10 @@ class InferInput:
 
     @property
     def data(self):
-        if isinstance(self._data, InferTensorContents):
-            if self._datatype == "BOOL":
-                return list(self._data.bool_contents)
-            elif self._datatype == "UINT8" or self._datatype == "UINT16" or self._datatype == "UINT32":
-                return list(self._data.uint_contents)
-            elif self._datatype == "UINT64":
-                return list(self._data.uint64_contents)
-            elif self._datatype == "INT8" or self._datatype == "INT16" or self._datatype == "INT32":
-                return list(self._data.int_contents)
-            elif self._datatype == "INT64":
-                return list(self._data.int64_contents)
-            elif self._datatype == "FP32":
-                return list(self._data.fp32_contents)
-            elif self._datatype == "FP64":
-                return list(self._data.fp64_contents)
-            elif self._datatype == "BYTES":
-                return list(self._data.bytes_contents)
-            else:
-                raise InvalidInput("invalid input datatype")
-        else:
-            return self._data
+        """Get the data of InferInput
+
+        """
+        return self._data
 
     @property
     def shape(self):
@@ -203,6 +186,27 @@ class InferInput:
             self._parameters['binary_data_size'] = len(self._raw_data)
 
 
+def get_content(datatype: str, data: InferTensorContents):
+    if datatype == "BOOL":
+        return list(data.bool_contents)
+    elif datatype == "UINT8" or datatype == "UINT16" or datatype == "UINT32":
+        return list(data.uint_contents)
+    elif datatype == "UINT64":
+        return list(data.uint64_contents)
+    elif datatype == "INT8" or datatype == "INT16" or datatype == "INT32":
+        return list(data.int_contents)
+    elif datatype == "INT64":
+        return list(data.int64_contents)
+    elif datatype == "FP32":
+        return list(data.fp32_contents)
+    elif datatype == "FP64":
+        return list(data.fp64_contents)
+    elif datatype == "BYTES":
+        return list(data.bytes_contents)
+    else:
+        raise InvalidInput("invalid content type")
+
+
 class InferRequest:
     """InferenceRequest Model
 
@@ -228,6 +232,15 @@ class InferRequest:
         if raw_inputs:
             for i, raw_input in enumerate(raw_inputs):
                 self.inputs[i]._raw_data = raw_input
+
+    @classmethod
+    def from_grpc(cls, request: ModelInferRequest):
+        infer_inputs = [InferInput(name=input_tensor.name, shape=list(input_tensor.shape),
+                                   datatype=input_tensor.datatype, data=get_content(input_tensor.datatype,
+                                                                                    input_tensor.contents))
+                        for input_tensor in request.inputs]
+        return cls(request_id=request.id, model_name=request.model_name, infer_inputs=infer_inputs,
+                   raw_inputs=request.raw_input_contents, from_grpc=True)
 
     def to_rest(self) -> Dict:
         """ Converts the InferRequest object to v2 REST InferenceRequest message
@@ -271,7 +284,7 @@ class InferRequest:
                 if not isinstance(infer_input.data, List):
                     raise InvalidInput("input data is not a List")
                 infer_input_dict["contents"] = {}
-                data_key = constants.GRPC_CONTENT_DATATYPE_MAPPINGS.get(infer_input.datatype, None)
+                data_key = GRPC_CONTENT_DATATYPE_MAPPINGS.get(infer_input.datatype, None)
                 if data_key is not None:
                     infer_input_dict["contents"][data_key] = infer_input.data
                 else:
@@ -326,27 +339,10 @@ class InferOutput:
 
     @property
     def data(self):
-        if isinstance(self._data, InferTensorContents):
-            if self._datatype == "BOOL":
-                return list(self._data.bool_contents)
-            elif self._datatype == "UINT8" or self._datatype == "UINT16" or self._datatype == "UINT32":
-                return list(self._data.uint_contents)
-            elif self._datatype == "UINT64":
-                return list(self._data.uint64_contents)
-            elif self._datatype == "INT8" or self._datatype == "INT16" or self._datatype == "INT32":
-                return list(self._data.int_contents)
-            elif self._datatype == "INT64":
-                return list(self._data.int64_contents)
-            elif self._datatype == "FP32":
-                return list(self._data.fp32_contents)
-            elif self._datatype == "FP64":
-                return list(self._data.fp64_contents)
-            elif self._datatype == "BYTES":
-                return list(self._data.bytes_contents)
-            else:
-                raise InvalidInput("invalid output datatype")
-        else:
-            return self._data
+        """Get the data of InferOutput
+
+        """
+        return self._data
 
     @property
     def shape(self):
@@ -483,6 +479,14 @@ class InferResponse:
             for i, raw_output in enumerate(raw_outputs):
                 self.outputs[i]._raw_data = raw_output
 
+    @classmethod
+    def from_grpc(cls, response: ModelInferResponse):
+        infer_outputs = [InferOutput(name=output.name, shape=list(output.shape),
+                                     datatype=output.datatype, data=get_content(output.datatype, output.contents))
+                         for output in response.outputs]
+        return cls(model_name=response.model_name, response_id=response.id,
+                   infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents, from_grpc=True)
+
     def to_rest(self) -> Dict:
         """ Converts the InferResponse object to v2 REST InferenceRequest message
 
@@ -529,7 +533,7 @@ class InferResponse:
                 if not isinstance(infer_output.data, List):
                     raise InvalidInput("output data is not a List")
                 infer_output_dict["contents"] = {}
-                data_key = constants.GRPC_CONTENT_DATATYPE_MAPPINGS.get(infer_output.datatype, None)
+                data_key = GRPC_CONTENT_DATATYPE_MAPPINGS.get(infer_output.datatype, None)
                 if data_key is not None:
                     infer_output_dict["contents"][data_key] = infer_output.data
                 else:

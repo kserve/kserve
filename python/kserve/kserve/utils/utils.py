@@ -15,16 +15,13 @@
 import os
 import sys
 import uuid
-from typing import Any, Dict, Union
+from typing import Dict, Union
 
 import psutil
 
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
-
-from ..protocol.infer_type import InferOutput, InferResponse
-from ..protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 
 
 def is_running_in_k8s():
@@ -136,12 +133,3 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
         headers[metadatum.key] = metadatum.value
 
     return headers
-
-
-def convert_grpc_response_to_dict(response: ModelInferResponse) -> Dict[str, Any]:
-    infer_outputs = [InferOutput(name=output.name, shape=list(output.shape),
-                                 datatype=output.datatype, data=output.contents)
-                     for output in response.outputs]
-    infer_response = InferResponse(model_name=response.model_name, response_id=response.id,
-                                   infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents)
-    return infer_response.to_rest()

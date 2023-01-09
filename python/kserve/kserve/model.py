@@ -31,7 +31,7 @@ from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 
 from .errors import InvalidInput
-from .utils.utils import convert_grpc_response_to_dict, is_structured_cloudevent
+from .utils.utils import is_structured_cloudevent
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -246,7 +246,7 @@ class Model:
             if "application/json" in headers.get("content-type", ""):
                 # If the original request is REST, convert the gRPC predict response to dict
                 if isinstance(response, ModelInferResponse):
-                    return convert_grpc_response_to_dict(response)
+                    return InferResponse.from_grpc(response).to_rest()
                 elif isinstance(response, InferResponse):
                     return response.to_rest()
         return response
