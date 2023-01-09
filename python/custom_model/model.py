@@ -91,7 +91,7 @@ class AlexNetModel(Model):
         result = values.flatten().tolist()
         response_id = generate_uuid()
         infer_output = InferOutput(name="output-0", shape=list(values.shape), datatype="FP32", data=result)
-        infer_response = InferResponse(model_name=self.name, infer_outputs=[infer_output], request_id=response_id)
+        infer_response = InferResponse(model_name=self.name, infer_outputs=[infer_output], response_id=response_id)
         if "request-type" in headers and headers["request-type"] == "v1":
             return {"predictions": result}
         else:

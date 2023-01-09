@@ -41,7 +41,7 @@ def image_transform(model_name, data):
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225]),
     ])
-    if model_name == "mnist":
+    if model_name == "mnist" or model_name == "cifar10":
         preprocess = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))

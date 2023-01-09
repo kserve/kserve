@@ -24,6 +24,8 @@ from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from google.protobuf.json_format import MessageToJson
 from grpc import ServicerContext
+
+from ..protocol.infer_type import InferOutput, InferResponse
 from ..protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 
 from ..constants import constants
@@ -141,14 +143,18 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
 
 
 def convert_grpc_response_to_dict(response: ModelInferResponse) -> Dict[str, Any]:
-    res = orjson.loads(
-        MessageToJson(response, preserving_proto_field_name=True, including_default_value_fields=True))
-    outputs = res["outputs"]
-    if not outputs:
-        return res
-    for output in outputs:
-        datatype = output["datatype"]
-        datatype_key = constants.GRPC_CONTENT_DATATYPE_MAPPINGS[datatype]
-        output["data"] = output["contents"][datatype_key]
-        del output["contents"]
-    return res
+    infer_outputs = []
+    for i, output in enumerate(response.outputs):
+        if output.HasField("contents"):
+            infer_output = InferOutput(name=output.name, datatype=output.datatype, shape=output.shape,
+                                       data=output.contents)
+        else:
+            infer_output = InferOutput(name=output.name, datatype=output.datatype, shape=output.shape)
+        infer_outputs.append(infer_output)
+    if len(response.raw_output_contents) > 0:
+        infer_response = InferResponse(model_name=response.model_name, response_id=response.id,
+                                       infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents)
+    else:
+        infer_response = InferResponse(model_name=response.model_name, response_id=response.id,
+                                       infer_outputs=infer_outputs)
+    return infer_response.to_rest()
