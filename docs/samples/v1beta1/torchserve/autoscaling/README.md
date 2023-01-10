@@ -32,7 +32,7 @@ metadata:
 spec:
   predictor:
     pytorch:
-      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier/v1"
 ```
 
 ### Hard limit
@@ -49,7 +49,7 @@ spec:
   predictor:
     containerConcurrency: 10
     pytorch:
-      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier/v1"
 ```
 
 ### Create the InferenceService
