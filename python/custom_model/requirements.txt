@@ -1,3 +1,6 @@
+# Custom model uses from kserve.utils.utils import generate_uuid
+# which is only present in this release candidate
 kserve==v0.10.0-rc1
 torchvision
+# Without pinning this, it gives an error on response_model typing
 fastapi==0.85.0
