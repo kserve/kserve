@@ -189,11 +189,11 @@ class InferInput:
 def get_content(datatype: str, data: InferTensorContents):
     if datatype == "BOOL":
         return list(data.bool_contents)
-    elif datatype == "UINT8" or datatype == "UINT16" or datatype == "UINT32":
+    elif datatype in ["UINT8", "UINT16", "UINT32"]:
         return list(data.uint_contents)
     elif datatype == "UINT64":
         return list(data.uint64_contents)
-    elif datatype == "INT8" or datatype == "INT16" or datatype == "INT32":
+    elif datatype in ["INT8", "INT16", "INT32"]:
         return list(data.int_contents)
     elif datatype == "INT64":
         return list(data.int64_contents)

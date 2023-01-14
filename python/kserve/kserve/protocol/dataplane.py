@@ -218,7 +218,7 @@ class DataPlane:
                 except orjson.JSONDecodeError as e:
                     raise InvalidInput(f"Unrecognized request format: {e}")
         t2 = time.time()
-        logging.info(f"decode takes {round((t2 - t1) * 1000, 9)}")
+        logging.debug(f"decoded request in {round((t2 - t1) * 1000, 9)}ms")
         return body
 
     def encode(self, model_name, body, response, headers) -> Tuple[Dict, Dict[str, str]]:
@@ -230,7 +230,7 @@ class DataPlane:
             if has_binary_headers(headers):
                 is_cloudevent = True
                 is_binary_cloudevent = True
-            if "content-type" in headers and "application/cloudevents+json" == headers["content-type"]:
+            if headers.get("content-type", "") == "application/cloudevents+json":
                 is_cloudevent = True
         if is_cloudevent:
             response_headers, response = create_response_cloudevent(model_name, body, response,
