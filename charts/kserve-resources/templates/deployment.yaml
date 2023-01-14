@@ -103,6 +103,17 @@ spec:
                 operator: In
                 values:
                 - amd64
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: control-plane
+                      operator: In
+                      values:
+                        - modelmesh-controller
+                topologyKey: topology.kubernetes.io/zone
       containers:
       - args:
         - --enable-leader-election
@@ -141,7 +152,7 @@ spec:
             drop:
             - ALL
         volumeMounts:
-        - mountPath: /etc/model-serving/config-defaults.yaml
+        - mountPath: /etc/model-serving/config/default
           name: config-defaults
           readOnly: true
       serviceAccountName: modelmesh-controller

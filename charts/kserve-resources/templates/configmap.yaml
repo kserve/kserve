@@ -41,6 +41,11 @@ data:
     serviceAccountName: ""
     metrics:
       enabled: true
+    builtInServerTypes:
+      - triton
+      - mlserver
+      - ovms
+      - torchserve
 kind: ConfigMap
 metadata:
   labels:

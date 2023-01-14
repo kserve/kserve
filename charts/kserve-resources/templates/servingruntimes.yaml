@@ -1,5 +1,5 @@
 apiVersion: serving.kserve.io/v1alpha1
-kind: ServingRuntime
+kind: ClusterServingRuntime
 metadata:
   labels:
     app.kubernetes.io/instance: modelmesh-controller
@@ -55,7 +55,7 @@ spec:
       autoSelect: true
 ---
 apiVersion: serving.kserve.io/v1alpha1
-kind: ServingRuntime
+kind: ClusterServingRuntime
 metadata:
   labels:
     app.kubernetes.io/instance: modelmesh-controller
@@ -77,7 +77,7 @@ spec:
     - --file_system_poll_wait_seconds=0
     - --grpc_bind_address=127.0.0.1
     - --rest_bind_address=127.0.0.1
-    image: openvino/model_server:2022.1
+    image: openvino/model_server:2022.2
     name: ovms
     resources:
       limits:
@@ -99,7 +99,7 @@ spec:
       version: "1"
 ---
 apiVersion: serving.kserve.io/v1alpha1
-kind: ServingRuntime
+kind: ClusterServingRuntime
 metadata:
   annotations:
     maxLoadingConcurrency: "2"
@@ -170,3 +170,48 @@ spec:
     - name: tensorrt
       version: "7"
       autoSelect: true
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  annotations:
+    maxLoadingConcurrency: "2"
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+    name: modelmesh-serving-torchserve-0.x-SR
+  name: torchserve-0.x
+spec:
+  supportedModelFormats:
+    - name: pytorch-mar
+      version: "0"
+      autoSelect: true
+  multiModel: true
+  grpcEndpoint: "port:8085"
+  grpcDataEndpoint: "port:7070"
+  containers:
+    - name: torchserve
+      image: pytorch/torchserve:0.6.0-cpu
+      args:
+        # Adapter creates the config file; wait for it to exist before starting
+        - while [ ! -e "$TS_CONFIG_FILE" ]; do echo "waiting for config file..."; sleep 1; done;
+        - exec
+        - torchserve
+        - --start
+        - --foreground
+      env:
+        - name: TS_CONFIG_FILE
+          value: /models/_torchserve_models/mmconfig.properties
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: "5"
+          memory: 1Gi
+  builtInAdapter:
+    serverType: torchserve
+    runtimeManagementPort: 7071
+    memBufferBytes: 134217728
+    modelLoadingTimeoutMillis: 90000
