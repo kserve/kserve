@@ -1,5 +1,5 @@
 apiVersion: serving.kserve.io/v1alpha1
-kind: ClusterServingRuntime
+kind: ServingRuntime
 metadata:
   labels:
     app.kubernetes.io/instance: modelmesh-controller
@@ -55,7 +55,7 @@ spec:
       autoSelect: true
 ---
 apiVersion: serving.kserve.io/v1alpha1
-kind: ClusterServingRuntime
+kind: ServingRuntime
 metadata:
   labels:
     app.kubernetes.io/instance: modelmesh-controller
@@ -99,7 +99,7 @@ spec:
       version: "1"
 ---
 apiVersion: serving.kserve.io/v1alpha1
-kind: ClusterServingRuntime
+kind: ServingRuntime
 metadata:
   annotations:
     maxLoadingConcurrency: "2"
@@ -172,7 +172,7 @@ spec:
       autoSelect: true
 ---
 apiVersion: serving.kserve.io/v1alpha1
-kind: ClusterServingRuntime
+kind: ServingRuntime
 metadata:
   annotations:
     maxLoadingConcurrency: "2"
