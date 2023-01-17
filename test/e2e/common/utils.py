@@ -82,14 +82,15 @@ def predict_str(service_name, input_json, protocol_version="v1",
     time.sleep(10)
     cluster_ip = get_cluster_ip()
     host = urlparse(isvc["status"]["url"]).netloc
+    path = urlparse(isvc["status"]["url"]).path
     headers = {"Host": host, "Content-Type": "application/json"}
 
     if model_name is None:
         model_name = service_name
 
-    url = f"http://{cluster_ip}/v1/models/{model_name}:predict"
+    url = f"http://{cluster_ip}{path}/v1/models/{model_name}:predict"
     if protocol_version == "v2":
-        url = f"http://{cluster_ip}/v2/models/{model_name}/infer"
+        url = f"http://{cluster_ip}{path}/v2/models/{model_name}/infer"
 
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
