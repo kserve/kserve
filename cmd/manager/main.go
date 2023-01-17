@@ -180,7 +180,7 @@ func main() {
 		Scheme: mgr.GetScheme(),
 		Recorder: eventBroadcaster.NewRecorder(
 			mgr.GetScheme(), v1.EventSource{Component: "v1beta1Controllers"}),
-	}).SetupWithManager(mgr, deployConfig, ingressConfig.DisableIstioVirtualHost); err != nil {
+	}).SetupWithManager(mgr, deployConfig, ingressConfig); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1beta1Controller", "InferenceService")
 		os.Exit(1)
 	}

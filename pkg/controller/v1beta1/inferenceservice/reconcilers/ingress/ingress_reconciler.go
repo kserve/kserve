@@ -89,7 +89,9 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	}
 }
 
-func getServiceUrl(isvc *v1beta1.InferenceService, urlScheme string, disableIstioVirtualHost bool) string {
+func getServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
+	urlScheme := config.UrlScheme
+	disableIstioVirtualHost := config.DisableIstioVirtualHost
 	if isvc.Status.Components == nil {
 		return ""
 	}
@@ -331,9 +333,10 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 	return desiredIngress
 }
 
-func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool) error {
+func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	serviceHost := getServiceHost(isvc)
-	serviceUrl := getServiceUrl(isvc, ir.ingressConfig.UrlScheme, disableIstioVirtualHost)
+	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
+	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 	if serviceHost == "" || serviceUrl == "" {
 		return nil
 	}

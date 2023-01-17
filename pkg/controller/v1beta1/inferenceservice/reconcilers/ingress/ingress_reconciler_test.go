@@ -554,7 +554,10 @@ func TestGetServiceUrl(t *testing.T) {
 	labels := map[string]string{"test": "test"}
 	predictorUrl, _ := url.Parse("http://my-model-predictor-default.example.com")
 	transformerUrl, _ := url.Parse("http://my-model-transformer-default.example.com")
-	urlScheme := "http"
+	ingressConfig := &v1beta1.IngressConfig{
+		UrlScheme:               "http",
+		DisableIstioVirtualHost: false,
+	}
 
 	cases := map[string]struct {
 		isvc    *v1beta1.InferenceService
@@ -677,7 +680,7 @@ func TestGetServiceUrl(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			url := getServiceUrl(tc.isvc, urlScheme, false)
+			url := getServiceUrl(tc.isvc, ingressConfig)
 			g.Expect(url).Should(tc.matcher)
 		})
 	}

@@ -95,12 +95,19 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressGateway:          constants.KnativeIngressGateway,
+		IngressServiceName:      "someIngressServiceName",
+		LocalGateway:            constants.KnativeLocalGateway,
+		LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+		DisableIstioVirtualHost: false,
+	}
 	err = (&InferenceServiceReconciler{
 		Client:   k8sClient,
 		Scheme:   k8sClient.Scheme(),
 		Log:      ctrl.Log.WithName("V1beta1InferenceServiceController"),
 		Recorder: k8sManager.GetEventRecorderFor("V1beta1InferenceServiceController"),
-	}).SetupWithManager(k8sManager, deployConfig, false)
+	}).SetupWithManager(k8sManager, deployConfig, ingressConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
