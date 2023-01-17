@@ -90,6 +90,34 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 }
 
 func getServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
+
+	url := getHostBasedServiceUrl(isvc, config)
+	if url == "" {
+		return ""
+	}
+	if config.PathTemplate == "" {
+		return url
+	} else {
+		return getPathBasedServiceUrl(isvc, config)
+	}
+
+}
+
+func getPathBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
+	path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, config)
+	if err != nil {
+		log.Error(err, "Failed to generate URL path from pathTemplate")
+		return ""
+	}
+	url := &apis.URL{}
+	url.Scheme = config.UrlScheme
+	url.Host = config.IngressDomain
+	url.Path = path
+
+	return url.String()
+}
+
+func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
 	urlScheme := config.UrlScheme
 	disableIstioVirtualHost := config.DisableIstioVirtualHost
 	if isvc.Status.Components == nil {
@@ -312,6 +340,62 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 	if !isInternal {
 		hosts = append(hosts, serviceHost)
 		gateways = append(gateways, config.IngressGateway)
+	}
+	if config.PathTemplate != "" {
+		path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, config)
+		if err != nil {
+			log.Error(err, "Failed to generate URL from pathTemplate")
+			return nil
+		}
+		url := &apis.URL{}
+		url.Path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
+		url.Host = config.IngressDomain
+		// In this case, we have a path-based URL so we add a path-based rule
+		httpRoutes = append(httpRoutes, &istiov1alpha3.HTTPRoute{
+			Match: []*istiov1alpha3.HTTPMatchRequest{
+				{
+					Uri: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Prefix{
+							Prefix: url.Path + "/",
+						},
+					},
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(url.Host),
+						},
+					},
+					Gateways: []string{config.IngressGateway},
+				},
+				{
+					Uri: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Exact{
+							Exact: url.Path,
+						},
+					},
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(url.Host),
+						},
+					},
+					Gateways: []string{config.IngressGateway},
+				},
+			},
+			Rewrite: &istiov1alpha3.HTTPRewrite{
+				Uri: "/",
+			},
+			Route: []*istiov1alpha3.HTTPRouteDestination{
+				createHTTPRouteDestination(backend, isvc.Namespace, config.LocalGatewayServiceName),
+			},
+			Headers: &istiov1alpha3.Headers{
+				Request: &istiov1alpha3.Headers_HeaderOperations{
+					Set: map[string]string{
+						"Host": network.GetServiceHostname(backend, isvc.Namespace),
+					},
+				},
+			},
+		})
+		// Include ingressDomain to the domains (both internal and external) derived by KNative
+		hosts = append(hosts, url.Host)
 	}
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
