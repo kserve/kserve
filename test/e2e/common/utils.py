@@ -241,7 +241,7 @@ def predict_modelmesh(service_name, input_json, pod_name, model_name=None):
 
         if model_name is None:
             model_name = service_name
-        with portforward.forward("default", pod_name, 8008, 8008):
+        with portforward.forward("default", pod_name, 8008, 8008, waiting=5):
             url = f"http://localhost:8008/v2/models/{model_name}/infer"
             response = requests.post(url, json.dumps(data))
             return json.loads(response.content.decode("utf-8"))
