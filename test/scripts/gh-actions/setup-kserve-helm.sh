@@ -28,7 +28,7 @@ cat ./charts/kserve-resources/values.yaml
 make deploy-helm
 
 echo "Updating modelmesh default replicas count..."
-kubectl patch servingruntimes mlserver-0.x --type='merge' -p '{"spec":{"replicas":1}}'
+kubectl patch clusterservingruntimes mlserver-0.x --type='merge' -p '{"spec":{"replicas":1}}'
 
 echo "Get events of all pods ..."
 kubectl get events -A
