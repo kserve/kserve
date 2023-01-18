@@ -120,6 +120,8 @@ spec:
         command:
         - /manager
         env:
+        - name: NAMESPACE_SCOPE
+          value: "true"
         - name: POD_NAME
           valueFrom:
             fieldRef:
