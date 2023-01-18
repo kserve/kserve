@@ -36,8 +36,8 @@ export KSERVE_VERSION=v0.10.0-rc1
 export CERT_MANAGER_VERSION=v1.3.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
-KUBE_VERSION=$(kubectl version --short=true)
-if [ ${KUBE_VERSION:43:2} -lt 22 ];
+KUBE_VERSION=$(kubectl version --short=true | awk 'FNR == 2 {print}'| awk -F '.' '{print $2}')
+if [ ${KUBE_VERSION} -lt 22 ];
 then
    echo "😱 install requires at least Kubernetes 1.22";
    exit 1;
