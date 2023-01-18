@@ -16,6 +16,9 @@ RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache
 
+# alibi tests requires sklearnserver. This is can be removed when this issue is fixed https://github.com/python-poetry/poetry/issues/668.
+COPY sklearnserver sklearnserver
+
 COPY alibiexplainer/pyproject.toml alibiexplainer/poetry.lock alibiexplainer/
 RUN cd alibiexplainer && poetry install --no-root --no-interaction --no-cache
 COPY alibiexplainer alibiexplainer
