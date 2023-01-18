@@ -264,7 +264,6 @@ type InferenceStep struct {
 	// +optional
 	Condition string `json:"condition,omitempty"`
 
-	// TODO: How to make "soft" as a default ?
 	// to decide whether a step is a hard or a soft dependency in the Inference Graph
 	// +optional
 	Dependency InferenceStepDependencyType `json:"dependency,omitempty"`
