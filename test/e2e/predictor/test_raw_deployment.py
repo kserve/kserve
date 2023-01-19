@@ -111,7 +111,7 @@ def test_raw_deployment_runtime_kserve():
 
 
 @pytest.mark.grpc
-def test_isvc_with_multiple_containerport():
+def test_isvc_with_multiple_container_port():
     service_name = "custom-model-grpc"
     model_name = "custom-model"
 
@@ -125,17 +125,17 @@ def test_isvc_with_multiple_containerport():
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"}),
                 ports=[
-                    V1ContainerPort(
-                        container_port=8081,
-                        name="grpc-port",
-                        protocol="TCP"
-                    ),
-                    V1ContainerPort(
-                        container_port=8080,
-                        name="http-port",
-                        protocol="TCP"
-                    )
-                ]
+                        V1ContainerPort(
+                            container_port=8081,
+                            name="grpc-port",
+                            protocol="TCP"
+                        ),
+                        V1ContainerPort(
+                            container_port=8080,
+                            name="http-port",
+                            protocol="TCP"
+                        )
+                      ]
             )
 
         ]
