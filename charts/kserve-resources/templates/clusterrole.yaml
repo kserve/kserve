@@ -472,3 +472,24 @@ rules:
       - get
       - patch
       - update
+  - apiGroups:
+      - serving.kserve.io
+    resources:
+      - clusterservingruntimes
+      - clusterservingruntimes/finalizers
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - serving.kserve.io
+    resources:
+      - clusterservingruntimes/status
+    verbs:
+      - get
+      - patch
+      - update
