@@ -58,21 +58,28 @@ func NewServiceReconciler(client client.Client,
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec) *corev1.Service {
-	var port int
-	if podSpec.Containers != nil && podSpec.Containers[0].Ports != nil {
-		port = int(podSpec.Containers[0].Ports[0].ContainerPort)
-	} else {
-		port, _ = strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
-	}
-	if componentExt.Batcher != nil {
-		port = int(constants.InferenceServiceDefaultAgentPort)
-	}
-	if componentExt.Logger != nil {
-		port = int(constants.InferenceServiceDefaultAgentPort)
-	}
+	servicePorts := []corev1.ServicePort{}
+	if len(podSpec.Containers) != 0 && len(podSpec.Containers[0].Ports) != 0 {
+		for _, port := range podSpec.Containers[0].Ports {
+			var servicePort corev1.ServicePort
 
-	ports := []corev1.ServicePort{
-		{
+			if port.Protocol == "" {
+				port.Protocol = corev1.ProtocolTCP
+			}
+			servicePort = corev1.ServicePort{
+				Name: port.Name,
+				Port: port.ContainerPort,
+				TargetPort: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: port.ContainerPort,
+				},
+				Protocol: port.Protocol,
+			}
+			servicePorts = append(servicePorts, servicePort)
+		}
+	} else if len(podSpec.Containers) != 0 && len(podSpec.Containers[0].Ports) == 0 {
+		port, _ := strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
+		servicePorts = append(servicePorts, corev1.ServicePort{
 			Name: componentMeta.Name,
 			Port: constants.CommonDefaultHttpPort,
 			TargetPort: intstr.IntOrString{
@@ -80,42 +87,28 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 				IntVal: int32(port),
 			},
 			Protocol: corev1.ProtocolTCP,
-		},
+		})
 	}
-	for i := 1; i < len(podSpec.Containers[0].Ports); i++ {
-		var servicePort corev1.ServicePort
-		port := podSpec.Containers[0].Ports[i]
-
-		if port.Protocol != "" {
-			servicePort = corev1.ServicePort{
-				Name: port.Name,
-				Port: int32(port.ContainerPort),
-				TargetPort: intstr.IntOrString{
-					Type:   intstr.Int,
-					IntVal: int32(port.ContainerPort),
-				},
-				Protocol: port.Protocol,
-			}
-		} else {
-			servicePort = corev1.ServicePort{
-				Name: port.Name,
-				Port: int32(port.ContainerPort),
-				TargetPort: intstr.IntOrString{
-					Type:   intstr.Int,
-					IntVal: int32(port.ContainerPort),
-				},
-				Protocol: corev1.ProtocolTCP,
-			}
+	if componentExt.Batcher != nil {
+		servicePorts[0].TargetPort = intstr.IntOrString{
+			Type:   intstr.Int,
+			IntVal: constants.InferenceServiceDefaultAgentPort,
 		}
-		ports = append(ports, servicePort)
 	}
+	if componentExt.Logger != nil {
+		servicePorts[0].TargetPort = intstr.IntOrString{
+			Type:   intstr.Int,
+			IntVal: constants.InferenceServiceDefaultAgentPort,
+		}
+	}
+
 	service := &corev1.Service{
 		ObjectMeta: componentMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
 				"app": constants.GetRawServiceLabel(componentMeta.Name),
 			},
-			Ports: ports,
+			Ports: servicePorts,
 		},
 	}
 	return service
