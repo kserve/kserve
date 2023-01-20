@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import Dict, Optional, Union
-from kserve import Model
+from .model import Model
 from ray.serve.api import RayServeHandle
 import os
 

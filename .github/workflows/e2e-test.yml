@@ -368,6 +368,11 @@ jobs:
         with:
           image: "kserve/custom-model-grpc:${{ github.sha }}"
 
+      - name: Download custom transformer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/image-transformer:${{ github.sha }}"
+
       - name: Download custom transformer grpc image
         uses: ishworkh/docker-image-artifact-download@v1
         with:

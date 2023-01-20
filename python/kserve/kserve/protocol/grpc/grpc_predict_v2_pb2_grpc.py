@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import kserve.grpc.grpc_predict_v2_pb2 as grpc__predict__v2__pb2
+import kserve.protocol.grpc.grpc_predict_v2_pb2 as grpc__predict__v2__pb2
 
 
 class GRPCInferenceServiceStub(object):
