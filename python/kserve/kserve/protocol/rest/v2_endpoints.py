@@ -11,17 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from typing import Optional, Dict
 
 from fastapi.requests import Request
 from fastapi.responses import Response
-from kserve.handlers.v2_datamodels import (
+
+from ..infer_type import InferInput, InferRequest
+from .v2_datamodels import (
     InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
     ModelMetadataResponse, InferenceResponse, ModelReadyResponse
 )
-from kserve.errors import ModelNotReady
-from kserve.handlers.dataplane import DataPlane
-from kserve.handlers.model_repository_extension import ModelRepositoryExtension
+from ..dataplane import DataPlane
+from ..model_repository_extension import ModelRepositoryExtension
+from ...errors import ModelNotReady
 
 
 class V2Endpoints:
@@ -121,11 +124,16 @@ class V2Endpoints:
             raise NotImplementedError("Model versioning not supported yet.")
 
         request_headers = dict(raw_request.headers)
+        infer_inputs = [InferInput(name=input.name, shape=input.shape, datatype=input.datatype,
+                                   data=input.data) for input in request_body.inputs]
+        infer_request = InferRequest(model_name=model_name, infer_inputs=infer_inputs)
         response, response_headers = await self.dataplane.infer(
-            model_name=model_name, body=request_body.dict(), headers=request_headers)
+            model_name=model_name, body=infer_request, headers=request_headers)
+
         if response_headers:
             raw_response.headers.update(response_headers)
-        return InferenceResponse.parse_obj(response)
+        res = InferenceResponse.parse_obj(response)
+        return res
 
     async def load(self, model_name: str) -> Dict:
         """Model load handler.

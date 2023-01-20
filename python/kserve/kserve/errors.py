@@ -25,11 +25,16 @@ class ModelMissingError(Exception):
 
 
 class InferenceError(RuntimeError):
-    def __init__(self, reason):
+    def __init__(self, reason, status=None, debug_details=None):
         self.reason = reason
+        self.status = status
+        self.debug_details = debug_details
 
     def __str__(self):
-        return self.reason
+        msg = super().__str__() if self.reason is None else self.reason
+        if self.status is not None:
+            msg = '[' + self.status + '] ' + msg
+        return msg
 
 
 class InvalidInput(ValueError):

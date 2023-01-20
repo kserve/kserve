@@ -29,6 +29,7 @@ from ray import serve
 from kserve import Model, ModelServer, ModelRepository
 from kserve.errors import InvalidInput
 from kserve.model import PredictorProtocol
+from kserve.protocol.rest.server import RESTServer
 
 test_avsc_schema = '''
         {
@@ -193,7 +194,8 @@ class TestTFHttpServer:
         model.load()
         server = ModelServer()
         server.register_model(model)
-        return server.create_application()
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
@@ -254,8 +256,8 @@ class TestRayServer:
 
         server = ModelServer()
         server.register_model_handle("TestModel", handle)
-
-        return server.create_application()
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
@@ -298,7 +300,8 @@ class TestTFHttpServerModelNotLoaded:
         model = DummyModel("TestModel")
         server = ModelServer()
         server.register_model(model)
-        return server.create_application()
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
@@ -315,7 +318,8 @@ class TestTFHttpServerCloudEvent:
         model = DummyCEModel("TestModel")
         server = ModelServer()
         server.register_model(model)
-        return server.create_application()
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
@@ -334,13 +338,13 @@ class TestTFHttpServerCloudEvent:
         assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
         assert body["data"] == {"predictions": [[1, 2]]}
         assert body['specversion'] == "1.0"
-        assert body['source'] == "io.kserve.kfserver.TestModel"
+        assert body['source'] == "io.kserve.inference.TestModel"
         assert body['type'] == "io.kserve.inference.response"
         assert body['time'] > "2021-01-28T21:04:43.144141+00:00"
 
     def test_predict_custom_ce_attributes(self, http_server_client):
         with mock.patch.dict(os.environ,
-                             {"CE_SOURCE": "io.kserve.kfserver.CustomSource", "CE_TYPE": "io.kserve.custom_type"}):
+                             {"CE_SOURCE": "io.kserve.inference.CustomSource", "CE_TYPE": "io.kserve.custom_type"}):
             event = dummy_cloud_event({"instances": [[1, 2]]})
             headers, body = to_structured(event)
 
@@ -352,7 +356,7 @@ class TestTFHttpServerCloudEvent:
 
             assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
             assert body["data"] == {"predictions": [[1, 2]]}
-            assert body['source'] == "io.kserve.kfserver.CustomSource"
+            assert body['source'] == "io.kserve.inference.CustomSource"
             assert body['type'] == "io.kserve.custom_type"
 
     def test_predict_merge_structured_ce_attributes(self, http_server_client):
@@ -368,7 +372,7 @@ class TestTFHttpServerCloudEvent:
 
             assert body["id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
             assert body["data"] == {"predictions": [[1, 2]]}
-            assert body['source'] == "io.kserve.kfserver.TestModel"
+            assert body['source'] == "io.kserve.inference.TestModel"
             assert body['type'] == "io.kserve.inference.response"
             assert body["custom-extension"] == "custom-value"  # Added by add_extension=True in dummy_cloud_event
             assert body['time'] > "2021-01-28T21:04:43.144141+00:00"
@@ -386,7 +390,7 @@ class TestTFHttpServerCloudEvent:
             assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
             # Added by add_extension=True in dummy_cloud_event
             assert resp.headers['ce-custom-extension'] == 'custom-value'
-            assert resp.headers['ce-source'] == "io.kserve.kfserver.TestModel"
+            assert resp.headers['ce-source'] == "io.kserve.inference.TestModel"
             assert resp.headers['ce-type'] == "io.kserve.inference.response"
             assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
             assert resp.content == b'{"predictions": [[1, 2]]}'
@@ -401,7 +405,7 @@ class TestTFHttpServerCloudEvent:
         assert resp.headers['content-type'] == "application/json"
         assert resp.headers['ce-specversion'] == "1.0"
         assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
-        assert resp.headers['ce-source'] == "io.kserve.kfserver.TestModel"
+        assert resp.headers['ce-source'] == "io.kserve.inference.TestModel"
         assert resp.headers['ce-type'] == "io.kserve.inference.response"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert resp.content == b'{"predictions": [[1, 2]]}'
@@ -415,7 +419,7 @@ class TestTFHttpServerCloudEvent:
         assert resp.headers['content-type'] == "application/json"
         assert resp.headers['ce-specversion'] == "1.0"
         assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
-        assert resp.headers['ce-source'] == "io.kserve.kfserver.TestModel"
+        assert resp.headers['ce-source'] == "io.kserve.inference.TestModel"
         assert resp.headers['ce-type'] == "io.kserve.inference.response"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert resp.content == b'{"predictions": [[1, 2]]}'
@@ -452,7 +456,8 @@ class TestTFHttpServerAvroCloudEvent:
         model = DummyAvroCEModel("TestModel")
         server = ModelServer()
         server.register_model(model)
-        return server.create_application()
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
@@ -477,7 +482,7 @@ class TestTFHttpServerAvroCloudEvent:
         assert resp.headers['content-type'] == "application/json"
         assert resp.headers['ce-specversion'] == "1.0"
         assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
-        assert resp.headers['ce-source'] == "io.kserve.kfserver.TestModel"
+        assert resp.headers['ce-source'] == "io.kserve.inference.TestModel"
         assert resp.headers['ce-type'] == "io.kserve.inference.response"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert resp.content == b'{"predictions": [["foo", 1, "pink"]]}'
@@ -488,7 +493,8 @@ class TestTFHttpServerLoadAndUnLoad:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         server = ModelServer(registered_models=DummyModelRepository(test_load_success=True))
-        return server.create_application()
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
@@ -509,7 +515,8 @@ class TestTFHttpServerLoadAndUnLoadFailure:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         server = ModelServer(registered_models=DummyModelRepository(test_load_success=False))
-        return server.create_application()
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):

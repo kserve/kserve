@@ -34,7 +34,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
 
 @pytest.mark.grpc
 def test_custom_model_grpc():
-    service_name = "custom-model-grpc"
+    service_name = "custom-grpc-logger"
     model_name = "custom-model"
 
     msg_dumper = 'message-dumper'
