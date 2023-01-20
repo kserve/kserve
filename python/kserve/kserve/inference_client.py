@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import grpc
 
+from .constants.constants import KSERVE_LOGLEVEL
 from .protocol.infer_type import InferRequest
 from .protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
+
+logging.basicConfig(level=KSERVE_LOGLEVEL)
 
 
 class InferenceServerClient:
@@ -82,14 +86,11 @@ class InferenceServerClient:
               infer_request: InferRequest,
               client_timeout=None,
               headers=None):
-        if headers is not None:
-            metadata = headers.items()
-        else:
-            metadata = ()
+        metadata = headers.items() if headers is not None else tuple()
 
         request = infer_request.to_grpc()
         if self._verbose:
-            print("infer, metadata {}\n{}".format(metadata, request))
+            logging.info("infer, metadata {}\n{}".format(metadata, request))
 
         try:
             response = self._client_stub.ModelInfer(
@@ -97,7 +98,7 @@ class InferenceServerClient:
                 metadata=metadata,
                 timeout=client_timeout)
             if self._verbose:
-                print(response)
+                logging.info(response)
             return response
         except grpc.RpcError as rpc_error:
             raise rpc_error

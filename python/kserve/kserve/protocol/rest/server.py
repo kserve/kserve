@@ -36,6 +36,9 @@ from kserve.errors import InvalidInput, InferenceError, ModelNotFound, ModelNotR
 from kserve.protocol.dataplane import DataPlane
 
 
+DATE_FMT = "%Y-%m-%d %H:%M:%S"
+
+
 async def metrics_handler(request: Request) -> Response:
     encoder, content_type = exposition.choose_encoder(request.headers.get("accept"))
     return Response(content=encoder(REGISTRY), headers={"content-type": content_type})
@@ -137,13 +140,13 @@ class UvicornProcess(multiprocessing.Process):
                 "formatters": {
                     "default": {
                         "()": "uvicorn.logging.DefaultFormatter",
-                        "datefmt": "%Y-%m-%d %H:%M:%S",
+                        "datefmt": DATE_FMT,
                         "fmt": "%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(message)s",
                         "use_colors": None,
                     },
                     "access": {
                         "()": "uvicorn.logging.AccessFormatter",
-                        "datefmt": "%Y-%m-%d %H:%M:%S",
+                        "datefmt": DATE_FMT,
                         "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s %(process)s - '
                                '"%(request_line)s" %(status_code)s',
                         # noqa: E501

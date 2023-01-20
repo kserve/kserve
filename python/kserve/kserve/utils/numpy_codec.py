@@ -16,33 +16,22 @@ import numpy as np
 
 
 def to_np_dtype(dtype):
-    if dtype == "BOOL":
-        return bool
-    elif dtype == "INT8":
-        return np.int8
-    elif dtype == "INT16":
-        return np.int16
-    elif dtype == "INT32":
-        return np.int32
-    elif dtype == "INT64":
-        return np.int64
-    elif dtype == "UINT8":
-        return np.uint8
-    elif dtype == "UINT16":
-        return np.uint16
-    elif dtype == "UINT32":
-        return np.uint32
-    elif dtype == "UINT64":
-        return np.uint64
-    elif dtype == "FP16":
-        return np.float16
-    elif dtype == "FP32":
-        return np.float32
-    elif dtype == "FP64":
-        return np.float64
-    elif dtype == "BYTES":
-        return np.object_
-    return None
+    dtype_map = {
+        "BOOL": bool,
+        "INT8": np.int8,
+        "INT16": np.int16,
+        "INT32": np.int32,
+        "INT64": np.int64,
+        "UINT8": np.uint8,
+        "UINT16": np.uint16,
+        "UINT32": np.uint32,
+        "UINT64": np.uint64,
+        "FP16": np.float16,
+        "FP32": np.float32,
+        "FP64": np.float64,
+        "BYTES": np.object_
+    }
+    return dtype_map.get(dtype, None)
 
 
 def from_np_dtype(np_dtype):
