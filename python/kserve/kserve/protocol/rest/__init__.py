@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,3 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+# coding: utf-8
+
+# flake8: noqa
+from __future__ import absolute_import

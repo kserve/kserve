@@ -18,7 +18,7 @@ spec:
       - --log-verbose=1
   transformer:
     containers:
-    - image: kserve/grpc-image-transformer:latest
+    - image: kserve/image-transformer:latest
       name: kserve-container
       command:
       - "python"

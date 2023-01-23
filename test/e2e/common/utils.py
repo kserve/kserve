@@ -23,8 +23,8 @@ from kubernetes import client
 
 from kserve import KServeClient
 from kserve import constants
-from kserve.grpc import grpc_predict_v2_pb2 as pb
-from kserve.grpc import grpc_predict_v2_pb2_grpc
+from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
+from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
 
 from . import inference_pb2_grpc
 

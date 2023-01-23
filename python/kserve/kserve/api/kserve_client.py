@@ -101,7 +101,7 @@ class KServeClient(object):
         version = inferenceservice.api_version.split("/")[1]
 
         if namespace is None:
-            namespace = utils.set_isvc_namespace(inferenceservice)
+            namespace = utils.get_isvc_namespace(inferenceservice)
 
         try:
             outputs = self.api_instance.create_namespaced_custom_object(
@@ -187,7 +187,7 @@ class KServeClient(object):
 
         version = inferenceservice.api_version.split("/")[1]
         if namespace is None:
-            namespace = utils.set_isvc_namespace(inferenceservice)
+            namespace = utils.get_isvc_namespace(inferenceservice)
 
         try:
             outputs = self.api_instance.patch_namespaced_custom_object(
@@ -227,7 +227,7 @@ class KServeClient(object):
         version = inferenceservice.api_version.split("/")[1]
 
         if namespace is None:
-            namespace = utils.set_isvc_namespace(inferenceservice)
+            namespace = utils.get_isvc_namespace(inferenceservice)
 
         if inferenceservice.metadata.resource_version is None:
             current_isvc = self.get(name, namespace=namespace)
@@ -428,7 +428,7 @@ class KServeClient(object):
         """
         version = inferencegraph.api_version.split("/")[1]
         if namespace is None:
-            namespace = utils.set_ig_namespace(inferencegraph)
+            namespace = utils.get_ig_namespace(inferencegraph)
 
         try:
             outputs = self.api_instance.create_namespaced_custom_object(

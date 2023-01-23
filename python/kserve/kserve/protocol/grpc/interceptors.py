@@ -12,14 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from prometheus_client import Histogram
+import logging
+from typing import Awaitable, Callable
 
-PROM_LABELS = ['model_name']
-PRE_HIST_TIME = Histogram('request_preprocess_seconds', 'pre-process request latency', PROM_LABELS)
-POST_HIST_TIME = Histogram('request_postprocess_seconds', 'post-process request latency', PROM_LABELS)
-PREDICT_HIST_TIME = Histogram('request_predict_seconds', 'predict request latency', PROM_LABELS)
-EXPLAIN_HIST_TIME = Histogram('request_explain_seconds', 'explain request latency', PROM_LABELS)
+from grpc import HandlerCallDetails, RpcMethodHandler
+from grpc.aio import ServerInterceptor
 
 
-def get_labels(model_name):
-    return {PROM_LABELS[0]: model_name}
+class LoggingInterceptor(ServerInterceptor):
+
+    async def intercept_service(
+        self,
+        continuation: Callable[[HandlerCallDetails], Awaitable[RpcMethodHandler]],
+        handler_call_details: HandlerCallDetails,
+    ) -> RpcMethodHandler:
+        logging.info(f"grpc method: {handler_call_details.method}")
+        return await continuation(handler_call_details)

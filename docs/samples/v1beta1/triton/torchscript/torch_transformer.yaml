@@ -14,12 +14,12 @@ spec:
       - --log-verbose=1
   transformer:
     containers:
-    - image: kfserving/image-transformer-v2:latest
-      name: kfserving-container
+    - image: kserve/image-transformer:latest
+      name: kserve-container
       command:
       - "python"
       - "-m"
-      - "image_transformer_v2"
+      - "model"
       args:
       - --model_name
       - cifar10

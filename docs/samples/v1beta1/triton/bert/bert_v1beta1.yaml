@@ -5,7 +5,7 @@ metadata:
 spec:
   transformer:
     containers:
-      - name: kfserving-container
+      - name: kserve-container
         image: kfserving/bert-transformer-v2:latest
         command:
           - "python"
