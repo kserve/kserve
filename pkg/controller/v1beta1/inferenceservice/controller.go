@@ -115,13 +115,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 
 	if deploymentMode == constants.ModelMeshDeployment {
-		if isvc.Spec.Transformer == nil {
-			// Skip if no transformers
+		if isvc.Spec.Transformer == nil && isvc.Spec.Explainer == nil {
+			// Skip when there is no transformer and explainer
 			r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 				"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 			return ctrl.Result{}, nil
 		}
-		// Continue to reconcile when there is a transformer
+		// Continue to reconcile when there is a transformer or explainer
 		r.Log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	}

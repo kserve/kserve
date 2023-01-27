@@ -1,0 +1,26 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "cifar10-mm"
+  annotations:
+    serving.kserve.io/deploymentMode: ModelMesh
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: tensorflow
+      storageUri: gs://seldon-models/tfserving/cifar10/resnet32
+  explainer:
+    alibi:
+      type: AnchorImages
+      storageUri: "gs://seldon-models/tfserving/cifar10/explainer-py36-0.5.2"
+      config:
+        batch_size: "40"
+        stop_on_first: "True"
+      resources:
+        requests:
+          cpu: 0.1
+          memory: 5Gi            
+        limits:
+          memory: 10Gi
+        

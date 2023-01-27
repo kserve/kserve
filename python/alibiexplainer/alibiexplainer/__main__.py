@@ -43,6 +43,7 @@ def main():
 
     explainer = AlibiExplainer(
         args.model_name,
+        args.protocol,
         args.predictor_host,
         ExplainerMethod(args.command),
         extra,

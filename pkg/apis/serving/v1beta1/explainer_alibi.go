@@ -26,6 +26,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // AlibiExplainerType is the explanation method
@@ -54,6 +55,11 @@ type AlibiExplainerSpec struct {
 	ExplainerExtensionSpec `json:",inline"`
 }
 
+var (
+	// logger for the alibi explainer
+	alibiExplainerLogger = logf.Log.WithName("inferenceservice-v1beta1-alibi-explainer")
+)
+
 var _ ComponentImplementation = &AlibiExplainerSpec{}
 
 func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
@@ -66,9 +72,24 @@ func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
+
+	argumentPredictorHost := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
+	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]
+
+	if ok && (deploymentMode == string(constants.ModelMeshDeployment)) {
+		// Get predictor host and protocol from annotations in modelmesh deployment mode
+		argumentPredictorHost = metadata.Annotations[constants.PredictorHostAnnotationKey]
+		argumentPredictorProtocol := metadata.Annotations[constants.PredictorProtocolAnnotationKey]
+
+		// Set predictor protocol if not provided in container arguments
+		if !utils.IncludesArg(args, "--protocol") {
+			alibiExplainerLogger.Info("Set predictor protocol based on ModelMesh predictor URL", "protocol", argumentPredictorProtocol)
+			args = append(args, "--protocol", argumentPredictorProtocol)
+		}
+	}
+
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentPredictorHost) {
-		args = append(args, constants.ArgumentPredictorHost,
-			fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace))
+		args = append(args, constants.ArgumentPredictorHost, argumentPredictorHost)
 
 	}
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentWorkers) {

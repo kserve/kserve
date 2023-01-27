@@ -17,6 +17,9 @@ limitations under the License.
 package components
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -70,6 +73,10 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
 	// Add StorageSpec annotations so mutator will mount storage credentials to InferenceService's explainer
 	addStorageSpecAnnotations(explainer.GetStorageSpec(), annotations)
+	deployConfig, err := v1beta1.NewDeployConfig(e.client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultExplainerServiceName(isvc.Name),
 		Namespace: isvc.Namespace,
@@ -79,6 +86,29 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}),
 		Annotations: annotations,
 	}
+
+	// Need to wait for predictor URL in ModelMesh deployment mode
+	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.ModelMeshDeployment {
+		// check if predictor URL is populated
+		predictorURL := isvc.Status.Components["predictor"].URL
+		if predictorURL == nil {
+			// explainer reconcile will retry every 3 second until predictor URL is populated
+			e.Log.Info("Explainer reconciliation is waiting for predictor URL to be populated")
+			return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+		}
+
+		// Add predictor host and protocol to metadata
+		isvc.ObjectMeta.Annotations[constants.PredictorHostAnnotationKey] = predictorURL.Host
+		if predictorURL.Scheme == "grpc" {
+			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolGRPCV2)
+		} else if predictorURL.Scheme == "http" || predictorURL.Scheme == "https" {
+			// ModelMesh supports v2 only
+			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolV2)
+		} else {
+			return ctrl.Result{}, fmt.Errorf("Predictor URL Scheme not supported: %v", predictorURL.Scheme)
+		}
+	}
+
 	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig)
 	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
 		isvc.Spec.Explainer.PodSpec.Containers = []v1.Container{
@@ -89,10 +119,6 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)
-	deployConfig, err := v1beta1.NewDeployConfig(e.client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 
 	// Here we allow switch between knative and vanilla deployment
 	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
