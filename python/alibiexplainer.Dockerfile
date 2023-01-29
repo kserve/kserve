@@ -1,4 +1,5 @@
-FROM python:3.9-slim-bullseye
+ARG BASE_IMAGE=python:3.9-slim-bullseye
+FROM $BASE_IMAGE
 
 COPY third_party third_party
 
