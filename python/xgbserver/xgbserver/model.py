@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import os
 from typing import Dict, Union
-
+            
 import numpy as np
 import xgboost as xgb
 from kserve.errors import InferenceError, ModelMissingError
@@ -60,12 +61,10 @@ class XGBoostModel(Model):
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
-            instance = get_predict_input(payload)
+            instances = get_predict_input(payload)
             dmatrix = xgb.DMatrix(
-                np.array(instance),
-                nthread=self.nthread
-            )
-            result: xgb.DMatrix = self._booster.predict(dmatrix)
+                np.array(instances), nthread=self.nthread)
+            result = self._booster.predict(dmatrix)
             return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise InferenceError(str(e))

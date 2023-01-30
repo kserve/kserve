@@ -133,4 +133,5 @@ def test_pmml_v2_kserve():
         {'name': 'Probability_versicolor', 'shape': [1], 'datatype': 'FP64', 'data': [0.0], 'parameters': None},
         {'name': 'Probability_virginica', 'shape': [1], 'datatype': 'FP64', 'data': [0.0], 'parameters': None},
         {'name': 'Node_Id', 'shape': [1], 'datatype': 'BYTES', 'data': ['2'], 'parameters': None}]
+
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

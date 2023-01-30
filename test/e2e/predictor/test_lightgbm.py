@@ -237,5 +237,4 @@ def test_lightgbm_v2_grpc():
         4.974786820804187e-06,
         0.9999919650711493,
         3.0601420299625077e-06]
-
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

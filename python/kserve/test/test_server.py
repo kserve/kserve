@@ -32,8 +32,8 @@ from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
 
 from kserve.protocol.infer_type import InferRequest
-
 from kserve.utils.utils import get_predict_input, get_predict_response
+
 
 test_avsc_schema = '''
         {
