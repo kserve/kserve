@@ -175,3 +175,4 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
             infer_outputs=infer_outputs,
             response_id=generate_uuid()
         )
+
