@@ -17,6 +17,7 @@ import sys
 import uuid
 from typing import Dict, Union
 
+import numpy as np
 import psutil
 
 from cloudevents.conversion import to_binary, to_structured
@@ -24,6 +25,8 @@ from cloudevents.http import CloudEvent
 from grpc import ServicerContext
 
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+
+from ..constants.constants import DATATYPE_TO_NUMPY, NUMPY_TO_DATATYPE
 
 
 def is_running_in_k8s():
@@ -137,21 +140,34 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
     return headers
 
 
-def get_predict_input(payload):
+def get_predict_input(payload, convert_to_numpy=False):
     if isinstance(payload, Dict):
         return payload["inputs"] if "inputs" in payload else payload["instances"]
     elif isinstance(payload, InferRequest):
-        return payload.inputs[0].data
-        # return [input.data for input in payload.inputs]
+        if convert_to_numpy:
+            data = np.array(payload.inputs[0].data, DATATYPE_TO_NUMPY[payload.inputs[0].datatype])
+            return data.reshape(list(payload.inputs[0].shape))
+        else:
+            return payload.inputs[0].data
 
 
-def get_predict_response(payload, result, model_name):
+def get_predict_response(payload, result, model_name, datatype=None, shape=None):
     if isinstance(payload, Dict):
         return {"predictions": result}
     elif isinstance(payload, InferRequest):
+        output_datatype = NUMPY_TO_DATATYPE[str(
+            datatype)] if datatype else payload.inputs[0].datatype
+        output_shape = shape if shape else payload.inputs[0].shape
         response_id = generate_uuid()
         infer_output = InferOutput(name="output-0", shape=list(
-            payload.inputs[0].shape), datatype=payload.inputs[0].datatype, data=result)
+            output_shape), datatype=output_datatype, data=result)
         infer_response = InferResponse(model_name=model_name, infer_outputs=[
-                                        infer_output], response_id=response_id)
+            infer_output], response_id=response_id)
         return infer_response
+
+
+def get_model_output_shape(shape):
+    if len(shape) > 1:
+        return shape
+
+    return shape + [1]

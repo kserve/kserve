@@ -21,7 +21,7 @@ from kserve.errors import InferenceError, ModelMissingError
 from kserve.storage import Storage
 
 from kserve.protocol.infer_type import InferRequest, InferResponse
-from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve.utils.utils import get_model_output_shape, get_predict_input, get_predict_response
 
 MODEL_EXTENSIONS = (".joblib", ".pkl", ".pickle")
 ENV_PREDICT_PROBA = "PREDICT_PROBA"
@@ -52,12 +52,14 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            instances = get_predict_input(payload)
+            instances = get_predict_input(payload, convert_to_numpy=True)
             if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
                     hasattr(self._model, "predict_proba"):
-                result = self._model.predict_proba(instances).tolist()
+                result = self._model.predict_proba(instances)
             else:
-                result = self._model.predict(instances).tolist()
-            return get_predict_response(payload, result, self.name)
+                result = self._model.predict(instances)
+            datatype = result.dtype
+            shape = get_model_output_shape(list(result.shape))
+            return get_predict_response(payload, result.tolist(), self.name, datatype, shape)
         except Exception as e:
             raise InferenceError(str(e))

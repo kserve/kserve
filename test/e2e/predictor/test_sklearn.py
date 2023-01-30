@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 from kubernetes import client
 from kserve import (
@@ -23,10 +24,10 @@ from kserve import (
     V1beta1ModelSpec,
     V1beta1ModelFormat,
 )
-from kubernetes.client import V1ResourceRequirements
+from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 import pytest
 
-from ..common.utils import predict
+from ..common.utils import predict, predict_grpc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
@@ -202,5 +203,55 @@ def test_sklearn_v2():
 
     res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
     assert res["outputs"][0]["data"] == [1, 1]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.fast
+def test_sklearn_v2_grpc():
+    service_name = "isvc-sklearn-v2-grpc"
+    model_name = "sklearn"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="sklearn",
+            ),
+            runtime="kserve-sklearnserver",
+            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
+            ),
+            ports=[
+                V1ContainerPort(
+                    container_port=8081,
+                    name="h2c",
+                    protocol="TCP"
+                )],
+            args=["--model_name", model_name, "--protocol", "grpc-v2"]
+        )
+    )
+
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    json_file = open("./data/iris_input_v2_grpc.json")
+    payload = json.load(json_file)["inputs"]
+
+    response = predict_grpc(service_name=service_name,
+                            payload=payload, model_name=model_name)
+    fields = response.outputs[0].contents.ListFields()
+    _, field_value = fields[0]
+    assert field_value == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
