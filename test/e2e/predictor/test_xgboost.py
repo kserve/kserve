@@ -14,7 +14,6 @@
 
 import json
 import os
-
 import pytest
 from kubernetes import client
 from kubernetes.client import V1ContainerPort, V1EnvVar, V1ResourceRequirements

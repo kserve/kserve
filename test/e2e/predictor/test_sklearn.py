@@ -202,7 +202,7 @@ def test_sklearn_v2():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.grpc
 def test_sklearn_v2_grpc():
     service_name = "isvc-sklearn-v2-grpc"
     model_name = "sklearn"
