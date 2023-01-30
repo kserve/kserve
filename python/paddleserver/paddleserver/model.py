@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import os
 import numpy as np
 from paddle import inference
-import kserve
+from kserve import Model
 from kserve.errors import InferenceError
 from kserve.storage import Storage
 from typing import Dict, Union
@@ -24,7 +25,7 @@ from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
 
 
-class PaddleModel(kserve.Model):
+class PaddleModel(Model):
 
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
@@ -65,8 +66,8 @@ class PaddleModel(kserve.Model):
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            instance = get_predict_input(payload)
-            np_array_input = np.array(instance, dtype='float32')
+            instances = get_predict_input(payload)
+            np_array_input = np.array(instances, dtype='float32')
             self.input_tensor.copy_from_cpu(np_array_input)
             self.predictor.run()
             result = self.output_tensor.copy_to_cpu()

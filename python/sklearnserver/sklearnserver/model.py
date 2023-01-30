@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os
 import pathlib
 from typing import Dict, Union
@@ -20,14 +21,13 @@ from kserve.storage import Storage
 import joblib
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
-
-import kserve
+from kserve import Model
 
 MODEL_EXTENSIONS = (".joblib", ".pkl", ".pickle")
 ENV_PREDICT_PROBA = "PREDICT_PROBA"
 
 
-class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
+class SKLearnModel(Model):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
@@ -52,12 +52,12 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            instance = get_predict_input(payload)
+            instances = get_predict_input(payload)
             if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
                     hasattr(self._model, "predict_proba"):
-                result = self._model.predict_proba(instance)
+                result = self._model.predict_proba(instances)
             else:
-                result = self._model.predict(instance)
+                result = self._model.predict(instances)
             return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise InferenceError(str(e))

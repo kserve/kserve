@@ -16,12 +16,17 @@ import os
 import sys
 import uuid
 from typing import Dict, Union, List
+
+import numpy as np
+
 from kserve.utils.numpy_codec import from_np_dtype
 import pandas as pd
 import psutil
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
+from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
 
 
@@ -144,8 +149,8 @@ def get_predict_input(payload: Union[Dict, InferRequest]):
         return input.as_numpy()
 
 
-def get_predict_response(payload: Union[Dict, InferRequest], result: Union[List, pd.DataFrame],
-                         model_name: str) -> InferResponse:
+def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.ndarray, pd.DataFrame],
+                         model_name: str) -> Union[Dict, InferResponse]:
     if isinstance(payload, Dict):
         return {"predictions": result.tolist()}
     elif isinstance(payload, InferRequest):
