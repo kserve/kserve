@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from typing import Dict
+from typing import Dict, Union
 
 import kserve
 from jpmml_evaluator import make_evaluator
@@ -21,6 +21,9 @@ from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
 
 from kserve.errors import ModelMissingError
 from kserve.storage import Storage
+
+from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_input, get_predict_response
 
 MODEL_EXTENSIONS = ('.pmml')
 
@@ -57,10 +60,11 @@ class PmmlModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        instances = payload["instances"]
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            result = [self.evaluator.evaluate(dict(zip(self.input_fields, instance))) for instance in instances]
-            return {"predictions": result}
+            instances = get_predict_input(payload)
+            result = [self.evaluator.evaluate(
+                dict(zip(self.input_fields, instance))) for instance in instances]
+            return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

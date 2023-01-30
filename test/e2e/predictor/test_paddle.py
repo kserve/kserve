@@ -119,3 +119,48 @@ def test_paddle_runtime():
     assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.slow
+def test_paddle_v2_kserve():
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="paddle",
+            ),
+            runtime="kserve-paddleserver",
+            storage_uri="https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "200m", "memory": "256Mi"},
+                limits={"cpu": "200m", "memory": "1Gi"},
+            )
+        )
+    )
+
+    service_name = 'isvc-paddle-v2-kserve'
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor)
+    )
+
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
+    except RuntimeError as e:
+        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
+                                                          label_selector='serving.kserve.io/inferenceservice={}'.format(
+                                                              service_name))
+        for pod in pods.items:
+            logging.info(pod)
+        raise e
+
+    res = predict(service_name, './data/jay-v2.json', protocol_version="v2")
+    assert np.argmax(res["outputs"][0]["data"][0]) == 17
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

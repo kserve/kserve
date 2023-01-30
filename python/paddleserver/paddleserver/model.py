@@ -12,12 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict
+from typing import Dict, Union
 import os
 import numpy as np
 from paddle import inference
 import kserve
 from kserve.storage import Storage
+
+from kserve.protocol.infer_type import InferRequest, InferResponse
+
+from kserve.utils.utils import get_predict_input, get_predict_response
 
 
 class PaddleModel(kserve.Model):
@@ -59,9 +63,9 @@ class PaddleModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        instances = payload["instances"]
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
+            instances = get_predict_input(payload)
             inputs = np.array(instances, dtype='float32')
         except Exception as e:
             raise Exception("Failed to initialize NumPy array from inputs:%s, %s"
@@ -70,6 +74,7 @@ class PaddleModel(kserve.Model):
         try:
             self.input_tensor.copy_from_cpu(inputs)
             self.predictor.run()
-            return {"predictions": self.output_tensor.copy_to_cpu().tolist()}
+            result = self.output_tensor.copy_to_cpu().tolist()
+            return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise Exception("Failed to predict %s" % e) from e

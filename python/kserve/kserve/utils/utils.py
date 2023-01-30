@@ -23,6 +23,8 @@ from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
 
+from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+
 
 def is_running_in_k8s():
     return os.path.isdir('/var/run/secrets/kubernetes.io/')
@@ -133,3 +135,23 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
         headers[metadatum.key] = metadatum.value
 
     return headers
+
+
+def get_predict_input(payload):
+    if isinstance(payload, Dict):
+        return payload["inputs"] if "inputs" in payload else payload["instances"]
+    elif isinstance(payload, InferRequest):
+        return payload.inputs[0].data
+        # return [input.data for input in payload.inputs]
+
+
+def get_predict_response(payload, result, model_name):
+    if isinstance(payload, Dict):
+        return {"predictions": result}
+    elif isinstance(payload, InferRequest):
+        response_id = generate_uuid()
+        infer_output = InferOutput(name="output-0", shape=list(
+            payload.inputs[0].shape), datatype=payload.inputs[0].datatype, data=result)
+        infer_response = InferResponse(model_name=model_name, infer_outputs=[
+                                        infer_output], response_id=response_id)
+        return infer_response

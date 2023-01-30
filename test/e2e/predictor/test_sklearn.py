@@ -166,3 +166,41 @@ def test_sklearn_v2_runtime_kserve():
     assert res["outputs"][0]["data"] == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.fast
+def test_sklearn_v2():
+    service_name = "isvc-sklearn-v2"
+
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="sklearn",
+            ),
+            runtime="kserve-sklearnserver",
+            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
+    assert res["outputs"][0]["data"] == [1, 1]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
