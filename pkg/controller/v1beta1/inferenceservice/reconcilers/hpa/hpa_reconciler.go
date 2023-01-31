@@ -57,10 +57,11 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 	var metrics []autoscalingv2.MetricSpec
 	var utilization int32
 	annotations := metadata.Annotations
+	resourceName := corev1.ResourceCPU
 
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
-		utilization, _ := strconv.Atoi(value)
-		cpuUtilization = int32(utilization)
+		utilizationInt, _ := strconv.Atoi(value)
+		utilization = int32(utilizationInt)
 	} else {
 		utilization = constants.DefaultCPUUtilization
 	}
