@@ -23,7 +23,7 @@ from kserve.storage import Storage
 
 from kserve.protocol.infer_type import InferRequest, InferResponse
 
-from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve.utils.utils import get_model_output_shape, get_predict_input, get_predict_response
 
 MODEL_EXTENSIONS = (".bst")
 
@@ -59,13 +59,16 @@ class LightGBMModel(kserve.Model):
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             dfs = []
-            instances = get_predict_input(payload)
-            for input in instances:
-                dfs.append(pd.DataFrame(
-                    input, columns=self._booster.feature_name()))
-            inputs = pd.concat(dfs, axis=0)
-            result = self._booster.predict(inputs)
-            return get_predict_response(payload, result.tolist(), self.name)
+            instances = get_predict_input(payload, convert_to_numpy=True)
+            # NOTE: without dataframe object, lightgbm given expecetd result for v2
+            # for input in instances:
+            #     dfs.append(pd.DataFrame(
+            #         input, columns=self._booster.feature_name()))
+            # inputs = pd.concat(dfs, axis=0)
+            result = self._booster.predict(instances)
+            datatype = result.dtype
+            shape = get_model_output_shape(list(result.shape))
+            return get_predict_response(payload, result.flatten().tolist(), self.name, datatype, shape)
 
         except Exception as e:
             raise InferenceError(str(e))
