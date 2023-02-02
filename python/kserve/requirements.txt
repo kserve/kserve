@@ -19,7 +19,7 @@ psutil>=5.9.0
 ray[serve]==2.0.0
 grpcio>=1.34.0
 tritonclient==2.18.0
-protobuf~=3.19.0
+protobuf>=3.19.0
 prometheus-client>=0.13.1
 orjson>=3.8.0
 httpx>=0.23.0
