@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/kserve/kserve/pkg/constants"
 
@@ -53,6 +54,9 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 			}
 		}
 	}
+
+	//TODO in "Binary Data Type" case, graph will make something error.
+	//TODO Content-Type get value from request's header or response's header.
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 
@@ -71,7 +75,7 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	//generate num [0,100)
-	point := r.Intn(99)
+	point := r.Intn(100)
 	end := 0
 	for _, route := range routes {
 		end += int(*route.Weight)
@@ -142,6 +146,37 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			return nil, 404, err
 		}
 		return handleSplitterORSwitchNode(route, graph, input, headers)
+	}
+	if currentNode.RouterType == v1alpha1.Mirroring {
+		//* check the step len, if step is nil, return input directly
+		if currentNode.Steps == nil {
+			return input, 200, nil
+		}
+
+		if len(currentNode.Steps) > 1 { //* exist mirroring type services.
+
+			//* create goroutines for mirror service, and ignore response
+			for i := range currentNode.Steps[1:] { //* ignore the main service (Steps[0])
+				step := currentNode.Steps[i]
+				//* get mirroring service weight.
+				var weight int64
+				if step.Weight != nil {
+					weight = *step.Weight
+				} else {
+					weight = 100
+				}
+				//* generate rand num [0,100)
+				r := rand.New(rand.NewSource(time.Now().UnixNano()))
+				point := r.Intn(100)
+
+				if point < int(weight) {
+					go callService(step.ServiceURL, input, headers)
+				}
+			}
+		}
+		//* As definition mentioned, the first one of step's is main service, others are mirror service.
+		//* handle main service
+		return executeStep(&currentNode.Steps[0], graph, input, headers)
 	}
 	if currentNode.RouterType == v1alpha1.Ensemble {
 		ensembleRes := make([]chan EnsembleStepOutput, len(currentNode.Steps))

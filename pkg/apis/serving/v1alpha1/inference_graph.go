@@ -54,7 +54,7 @@ type InferenceGraphSpec struct {
 
 // InferenceRouterType constant for inference routing types
 // +k8s:openapi-gen=true
-// +kubebuilder:validation:Enum=Sequence;Splitter;Ensemble;Switch
+// +kubebuilder:validation:Enum=Sequence;Splitter;Ensemble;Switch;Mirroring
 type InferenceRouterType string
 
 // InferenceRouterType Enum
@@ -70,6 +70,9 @@ const (
 
 	// Switch routes the request to the model based on certain condition
 	Switch InferenceRouterType = "Switch"
+
+	// Mirroring: Copy the request to mirror routes, and ignore mirror response.
+	Mirroring InferenceRouterType = "Mirroring"
 )
 
 const (
@@ -208,6 +211,7 @@ type InferenceRouter struct {
 	//
 	// - `Switch:` routes the request to one of the steps based on condition
 	//
+	// - `Mirroring:` routes the request to `main` service and `mirroring` service. `main` service is `step[0]`, other `steps` are `mirror` service
 	RouterType InferenceRouterType `json:"routerType"`
 
 	// Steps defines destinations for the current router node

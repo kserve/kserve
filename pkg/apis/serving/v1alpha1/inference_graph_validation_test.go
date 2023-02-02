@@ -18,11 +18,12 @@ package v1alpha1
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func makeTestInferenceGraph() InferenceGraph {
@@ -256,6 +257,25 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 				},
 			},
 			errMatcher:      gomega.MatchError(fmt.Errorf(DuplicateStepNameError, GraphRootNodeName, "foo-bar", "step1")),
+			warningsMatcher: gomega.BeEmpty(),
+		},
+		"mirroring node have less than 2 steps": {
+			ig: makeTestInferenceGraph(),
+			nodes: map[string]InferenceRouter{
+				GraphRootNodeName: {
+					RouterType: "Mirroring",
+					Steps: []InferenceStep{
+						{
+							StepName: "step1",
+							Weight:   proto.Int64(80),
+							InferenceTarget: InferenceTarget{
+								ServiceName: "service1",
+							},
+						},
+					},
+				},
+			},
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidMirroringSpecError, "foo-bar", GraphRootNodeName)),
 			warningsMatcher: gomega.BeEmpty(),
 		},
 	}
