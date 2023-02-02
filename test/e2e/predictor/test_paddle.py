@@ -67,7 +67,7 @@ def test_paddle():
         raise e
 
     res = predict(service_name, './data/jay.json')
-    assert np.argmax(res["predictions"][0]) == 17
+    assert np.argmax(res["predictions"]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -161,7 +161,7 @@ def test_paddle_v2_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.grpc
 def test_paddle_v2_grpc():
     service_name = "isvc-paddle-v2-grpc"
     model_name = "paddle"
