@@ -21,7 +21,7 @@ from kserve.storage import Storage
 
 from kserve.protocol.infer_type import InferRequest, InferResponse
 
-from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve.utils.utils import get_model_output_shape, get_predict_input, get_predict_response
 
 
 class PaddleModel(kserve.Model):
@@ -65,7 +65,7 @@ class PaddleModel(kserve.Model):
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            instances = get_predict_input(payload)
+            instances = get_predict_input(payload, convert_to_numpy=True)
             inputs = np.array(instances, dtype='float32')
         except Exception as e:
             raise Exception("Failed to initialize NumPy array from inputs:%s, %s"
@@ -74,7 +74,9 @@ class PaddleModel(kserve.Model):
         try:
             self.input_tensor.copy_from_cpu(inputs)
             self.predictor.run()
-            result = self.output_tensor.copy_to_cpu().tolist()
-            return get_predict_response(payload, result, self.name)
+            result = self.output_tensor.copy_to_cpu()
+            datatype = result.dtype
+            shape = get_model_output_shape(list(result.shape))
+            return get_predict_response(payload, result.flatten().tolist(), self.name, datatype, shape)
         except Exception as e:
             raise Exception("Failed to predict %s" % e) from e

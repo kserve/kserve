@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import os
 import numpy as np
@@ -18,6 +19,8 @@ import numpy as np
 from kubernetes.client import (
     V1ResourceRequirements,
     V1ObjectMeta,
+    V1ContainerPort,
+
 )
 
 from kserve import (
@@ -31,7 +34,7 @@ from kserve import (
     V1beta1ModelFormat,
 )
 import pytest
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 logging.basicConfig(level=logging.INFO)
 
@@ -72,7 +75,7 @@ def test_paddle():
         raise e
 
     res = predict(service_name, './data/jay.json')
-    assert np.argmax(res["predictions"][0]) == 17
+    assert np.argmax(res["predictions"]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -161,6 +164,60 @@ def test_paddle_v2_kserve():
         raise e
 
     res = predict(service_name, './data/jay-v2.json', protocol_version="v2")
-    assert np.argmax(res["outputs"][0]["data"][0]) == 17
+    assert np.argmax(res["outputs"][0]["data"]) == 17
+    
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+@pytest.mark.fast
+def test_paddle_v2_grpc():
+    service_name = "isvc-paddle-v2-grpc"
+    model_name = "paddle"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="paddle",
+            ),
+            runtime="kserve-paddleserver",
+            storage_uri="https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "200m", "memory": "256Mi"},
+                limits={"cpu": "200m", "memory": "1Gi"},
+            ),
+            ports=[
+                V1ContainerPort(
+                    container_port=8081,
+                    name="h2c",
+                    protocol="TCP"
+                )],
+            args=["--model_name", model_name, "--protocol", "grpc-v2"]
+        )
+    )
+
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
+                                   metadata=V1ObjectMeta(
+                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
+    except RuntimeError as e:
+        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
+                                                          label_selector='serving.kserve.io/inferenceservice={}'.format(
+                                                              service_name))
+        for pod in pods.items:
+            logging.info(pod)
+        raise e
+        
+    json_file = open("./data/jay-v2-grpc.json")
+    payload = json.load(json_file)["inputs"]
+    response = predict_grpc(service_name=service_name,
+                            payload=payload, model_name=model_name)
+    fields = response.outputs[0].contents.ListFields()
+    _, field_value = fields[0]
+    assert np.argmax(field_value) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
