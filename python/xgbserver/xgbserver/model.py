@@ -15,7 +15,7 @@
 
 import os
 from typing import Dict, Union
-            
+
 import numpy as np
 import xgboost as xgb
 from kserve.errors import InferenceError, ModelMissingError
