@@ -9,14 +9,16 @@ argparse>=1.4.0
 minio>=4.0.9,<7.0.0
 google-cloud-storage==1.41.1
 adal>=1.2.2
-table_logger>=0.3.5
+# AIP: we'll never use it (doesn't work with numpy 1.24+, as well as for some notebook use cases)
+# table_logger>=0.3.5
 numpy>=1.17.3
 azure-storage-blob==12.8.1
 azure-identity>=1.6.0
 cloudevents>=1.2.0
 avro>=1.10.1
-boto3>=1.18.18
-botocore>=1.21.18
+# AIP: remove boto dependencies as we are not using them and they will slow down dependency resolution
+# boto3>=1.18.18
+# botocore>=1.21.18
 psutil>=5.0
 ray[serve]==1.5.0
 grpcio==1.38.1
