@@ -24,7 +24,6 @@ import psutil
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
-
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
 
 
@@ -175,4 +174,3 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
             infer_outputs=infer_outputs,
             response_id=generate_uuid()
         )
-
