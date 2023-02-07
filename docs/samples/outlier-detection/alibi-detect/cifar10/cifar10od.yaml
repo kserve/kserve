@@ -10,7 +10,7 @@ spec:
         autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
-      - image: seldonio/alibi-detect-server:0.0.2
+      - image: seldonio/alibi-detect-server:1.12.0
         imagePullPolicy: IfNotPresent
         args:
         - --model_name
