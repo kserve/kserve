@@ -15,15 +15,14 @@
 import os
 from typing import Dict, Union
 
-import kserve
 from jpmml_evaluator import make_evaluator
-from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
-
+from jpmml_evaluator.py4j import Py4JBackend, launch_gateway
 from kserve.errors import ModelMissingError
 from kserve.storage import Storage
+from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+from kserve.utils.utils import generate_uuid
 
-from kserve.protocol.infer_type import InferRequest, InferResponse
-from kserve.utils.utils import get_predict_input, get_predict_response
+import kserve
 
 MODEL_EXTENSIONS = ('.pmml')
 
@@ -62,9 +61,26 @@ class PmmlModel(kserve.Model):
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            instances = get_predict_input(payload)
-            result = [self.evaluator.evaluate(
-                dict(zip(self.input_fields, instance))) for instance in instances]
-            return get_predict_response(payload, result, self.name)
+            if isinstance(payload, Dict):
+                instances = payload["instances"]
+                results = [self.evaluator.evaluate(
+                    dict(zip(self.input_fields, instance))) for instance in instances]
+                return {"predictions": results}
+            elif isinstance(payload, InferRequest):
+                infer_outputs = []
+                inputs = [input.data for input in payload.inputs]
+                for index, input_list in enumerate(inputs):
+                    result = [self.evaluator.evaluate(
+                        dict(zip(self.input_fields, input))) for input in input_list]
+                    output_datatype = 'mixed'  # As pmml prediction is dict with mixed key-value pairs
+                    output_shape = [len(result)]
+                    infer_output = InferOutput(name=f"output-{str(index)}", shape=list(
+                        output_shape), datatype=output_datatype, data=result)
+                    infer_outputs.append(infer_output)
+
+                response_id = generate_uuid()
+                infer_response = InferResponse(
+                    model_name=self.name, infer_outputs=infer_outputs, response_id=response_id)
+                return infer_response
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

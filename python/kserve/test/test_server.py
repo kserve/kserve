@@ -31,9 +31,9 @@ from kserve.errors import InvalidInput
 from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
 
-from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+from kserve.protocol.infer_type import InferRequest
 
-from kserve.utils.utils import generate_uuid
+from kserve.utils.utils import get_predict_input, get_predict_response
 
 test_avsc_schema = '''
         {
@@ -78,13 +78,8 @@ class DummyModel(Model):
 
     async def predict(self, request, headers=None):
         if isinstance(request, InferRequest):
-            infer_input = request.to_rest()
-            response_id = generate_uuid()
-            result = infer_input["inputs"][0]["data"]
-            infer_output = InferOutput(name="output-0", shape=list(
-                infer_input["inputs"][0]["shape"]), datatype=infer_input["inputs"][0]["datatype"], data=result)
-            infer_response = InferResponse(model_name=self.name, infer_outputs=[
-                                           infer_output], response_id=response_id)
+            inputs = get_predict_input(request)
+            infer_response = get_predict_response(request, inputs, self.name)
             return infer_response.to_rest()
         else:
             return {"predictions": request["instances"]}
@@ -105,13 +100,8 @@ class DummyServeModel(Model):
 
     async def predict(self, request, headers=None):
         if isinstance(request, InferRequest):
-            infer_input = request.to_rest()
-            response_id = generate_uuid()
-            result = infer_input["inputs"][0]["data"]
-            infer_output = InferOutput(name="output-0", shape=list(
-                infer_input["inputs"][0]["shape"]), datatype=infer_input["inputs"][0]["datatype"], data=result)
-            infer_response = InferResponse(model_name=self.name, infer_outputs=[
-                                           infer_output], response_id=response_id)
+            inputs = get_predict_input(request)
+            infer_response = get_predict_response(request, inputs, self.name)
             return infer_response.to_rest()
         else:
             return {"predictions": request["instances"]}
@@ -252,13 +242,13 @@ class TestTFHttpServer:
         assert resp.headers['content-type'] == "application/json"
 
     def test_infer(self, http_server_client):
-        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "FP32","data": [[1,2]]}]}'
+        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
         resp = http_server_client.post('/v2/models/TestModel/infer',
                                        data=input_data)
 
         result = json.loads(resp.content)
         assert resp.status_code == 200
-        assert result["outputs"][0]["data"] == [[1, 2]]
+        assert result["outputs"][0]["data"] == [1, 2]
         assert resp.headers['content-type'] == "application/json"
 
     def test_explain(self, http_server_client):
@@ -320,13 +310,13 @@ class TestRayServer:
         assert resp.headers['content-type'] == "application/json"
 
     def test_infer(self, http_server_client):
-        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "FP32","data": [[1,2]]}]}'
+        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
         resp = http_server_client.post('/v2/models/TestModel/infer',
                                        data=input_data)
 
         result = json.loads(resp.content)
         assert resp.status_code == 200
-        assert result["outputs"][0]["data"] == [[1, 2]]
+        assert result["outputs"][0]["data"] == [1, 2]
         assert resp.headers['content-type'] == "application/json"
 
     def test_explain(self, http_server_client):

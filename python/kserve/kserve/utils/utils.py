@@ -15,18 +15,14 @@
 import os
 import sys
 import uuid
-from typing import Dict, Union
+from typing import Dict, List, Union
 
-import numpy as np
 import psutil
-
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
-
+from kserve.constants.constants import NUMPY_TO_DATATYPE
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
-
-from ..constants.constants import DATATYPE_TO_NUMPY, NUMPY_TO_DATATYPE
 
 
 def is_running_in_k8s():
@@ -140,34 +136,34 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
     return headers
 
 
-def get_predict_input(payload, convert_to_numpy=False):
+def get_predict_input(payload: Union[Dict, InferRequest]):
     if isinstance(payload, Dict):
-        return payload["inputs"] if "inputs" in payload else payload["instances"]
+        inputs = payload["inputs"] if "inputs" in payload else payload["instances"]
+        return [inputs]
     elif isinstance(payload, InferRequest):
-        if convert_to_numpy:
-            data = np.array(payload.inputs[0].data, DATATYPE_TO_NUMPY[payload.inputs[0].datatype])
-            return data.reshape(list(payload.inputs[0].shape))
-        else:
-            return payload.inputs[0].data
+        infer_inputs = []
+        for input in payload.inputs:
+            if input.datatype == "MIXED":
+                infer_inputs.append(input.data)
+            else:
+                np_array = input.as_numpy()
+                infer_inputs.append(np_array)
+        return infer_inputs
 
 
-def get_predict_response(payload, result, model_name, datatype=None, shape=None):
+def get_predict_response(payload: Union[Dict, InferRequest], results: List, model_name: str) -> InferResponse:
     if isinstance(payload, Dict):
-        return {"predictions": result}
+        return {"predictions": results[0].tolist()}
     elif isinstance(payload, InferRequest):
-        output_datatype = NUMPY_TO_DATATYPE[str(
-            datatype)] if datatype else payload.inputs[0].datatype
-        output_shape = shape if shape else payload.inputs[0].shape
+        infer_outputs = []
+        for index, output in enumerate(results):
+            output_datatype = NUMPY_TO_DATATYPE.get(str(output.dtype))
+            output_shape = output.shape
+            infer_output = InferOutput(name=f"output-{str(index)}", shape=list(
+                output_shape), datatype=output_datatype, data=output.flatten().tolist())
+            infer_outputs.append(infer_output)
+
         response_id = generate_uuid()
-        infer_output = InferOutput(name="output-0", shape=list(
-            output_shape), datatype=output_datatype, data=result)
-        infer_response = InferResponse(model_name=model_name, infer_outputs=[
-            infer_output], response_id=response_id)
+        infer_response = InferResponse(
+            model_name=model_name, infer_outputs=infer_outputs, response_id=response_id)
         return infer_response
-
-
-def get_model_output_shape(shape):
-    if len(shape) > 1:
-        return shape
-
-    return shape + [1]

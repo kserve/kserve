@@ -14,26 +14,17 @@
 import json
 import logging
 import os
+
 import numpy as np
-
-from kubernetes.client import (
-    V1ResourceRequirements,
-    V1ObjectMeta,
-    V1ContainerPort,
-
-)
-
-from kserve import (
-    constants,
-    KServeClient,
-    V1beta1PredictorSpec,
-    V1beta1InferenceService,
-    V1beta1InferenceServiceSpec,
-    V1beta1PaddleServerSpec,
-    V1beta1ModelSpec,
-    V1beta1ModelFormat,
-)
 import pytest
+from kubernetes.client import (V1ContainerPort, V1ObjectMeta,
+                               V1ResourceRequirements)
+
+from kserve import (KServeClient, V1beta1InferenceService,
+                    V1beta1InferenceServiceSpec, V1beta1ModelFormat,
+                    V1beta1ModelSpec, V1beta1PaddleServerSpec,
+                    V1beta1PredictorSpec, constants)
+
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 logging.basicConfig(level=logging.INFO)
@@ -165,10 +156,11 @@ def test_paddle_v2_kserve():
 
     res = predict(service_name, './data/jay-v2.json', protocol_version="v2")
     assert np.argmax(res["outputs"][0]["data"]) == 17
-    
+
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
-@pytest.mark.fast
+
+@pytest.mark.slow
 def test_paddle_v2_grpc():
     service_name = "isvc-paddle-v2-grpc"
     model_name = "paddle"
@@ -211,7 +203,7 @@ def test_paddle_v2_grpc():
         for pod in pods.items:
             logging.info(pod)
         raise e
-        
+
     json_file = open("./data/jay-v2-grpc.json")
     payload = json.load(json_file)["inputs"]
     response = predict_grpc(service_name=service_name,

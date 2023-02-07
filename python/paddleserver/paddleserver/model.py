@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Union
 import os
 import numpy as np
 from paddle import inference
 import kserve
 from kserve.storage import Storage
+from typing import Dict, Union
 
+import numpy as np
 from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_input, get_predict_response
 
-from kserve.utils.utils import get_model_output_shape, get_predict_input, get_predict_response
+import kserve
 
 
 class PaddleModel(kserve.Model):
@@ -64,19 +66,23 @@ class PaddleModel(kserve.Model):
         return self.ready
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
+        np_array_inputs = []
+        results = []
         try:
-            instances = get_predict_input(payload, convert_to_numpy=True)
-            inputs = np.array(instances, dtype='float32')
+
+            instances = get_predict_input(payload)
+            np_array_inputs = [np.array(instance, dtype='float32')
+                               for instance in instances]
         except Exception as e:
             raise Exception("Failed to initialize NumPy array from inputs:%s, %s"
                             % (e, instances)) from e
 
         try:
-            self.input_tensor.copy_from_cpu(inputs)
-            self.predictor.run()
-            result = self.output_tensor.copy_to_cpu()
-            datatype = result.dtype
-            shape = get_model_output_shape(list(result.shape))
-            return get_predict_response(payload, result.flatten().tolist(), self.name, datatype, shape)
+            for inputs in np_array_inputs:
+                self.input_tensor.copy_from_cpu(inputs)
+                self.predictor.run()
+                result = self.output_tensor.copy_to_cpu()
+                results.append(result)
+            return get_predict_response(payload, results, self.name)
         except Exception as e:
             raise Exception("Failed to predict %s" % e) from e

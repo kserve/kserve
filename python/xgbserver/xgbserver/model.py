@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kserve import Model, Storage
-from kserve.errors import InferenceError, ModelMissingError
-from kserve.protocol.infer_type import InferRequest, InferResponse
-from kserve.utils.utils import get_model_output_shape, get_predict_input, get_predict_response
-import xgboost as xgb
-import numpy as np
-from xgboost import XGBModel
 import os
 from typing import Dict, Union
+
+import numpy as np
+import xgboost as xgb
+from kserve.errors import InferenceError, ModelMissingError
+from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_input, get_predict_response
+from xgboost import XGBModel
+
+from kserve import Model, Storage
 
 from kserve import Model
 from kserve.errors import InferenceError, ModelMissingError
@@ -61,12 +63,13 @@ class XGBoostModel(Model):
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
-            instances = get_predict_input(payload, convert_to_numpy=True)
-            dmatrix = xgb.DMatrix(
-                np.array(instances), nthread=self.nthread)
-            result: xgb.DMatrix = self._booster.predict(dmatrix)
-            datatype = result.dtype
-            shape = get_model_output_shape(list(result.shape))
-            return get_predict_response(payload, result.tolist(), self.name, datatype, shape)
+            results = []
+            instances = get_predict_input(payload)
+            for instance in instances:
+                dmatrix = xgb.DMatrix(
+                    np.array(instance), nthread=self.nthread)
+                result: xgb.DMatrix = self._booster.predict(dmatrix)
+                results.append(result)
+            return get_predict_response(payload, results, self.name)
         except Exception as e:
             raise InferenceError(str(e))

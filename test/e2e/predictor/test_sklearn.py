@@ -13,22 +13,17 @@
 
 import json
 import os
-from kubernetes import client
-from kserve import (
-    constants,
-    KServeClient,
-    V1beta1InferenceService,
-    V1beta1InferenceServiceSpec,
-    V1beta1PredictorSpec,
-    V1beta1SKLearnSpec,
-    V1beta1ModelSpec,
-    V1beta1ModelFormat,
-)
-from kubernetes.client import V1ResourceRequirements, V1ContainerPort
-import pytest
 
-from ..common.utils import predict, predict_grpc
-from ..common.utils import KSERVE_TEST_NAMESPACE
+import pytest
+from kubernetes import client
+from kubernetes.client import V1ContainerPort, V1ResourceRequirements
+
+from kserve import (KServeClient, V1beta1InferenceService,
+                    V1beta1InferenceServiceSpec, V1beta1ModelFormat,
+                    V1beta1ModelSpec, V1beta1PredictorSpec, V1beta1SKLearnSpec,
+                    constants)
+
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 
 @pytest.mark.fast
