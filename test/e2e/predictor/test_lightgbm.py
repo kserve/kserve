@@ -26,7 +26,6 @@ from kserve import (KServeClient, V1beta1InferenceService,
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 
-# NOTE: Below line commented due to this branch changes is not supported list of dict model inputs
 @pytest.mark.fast
 def test_lightgbm_kserve():
     service_name = "isvc-lightgbm"
