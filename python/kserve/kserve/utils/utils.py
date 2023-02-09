@@ -140,8 +140,7 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
 
 def get_predict_input(payload: Union[Dict, InferRequest]):
     if isinstance(payload, Dict):
-        inputs = payload["inputs"] if "inputs" in payload else payload["instances"]
-        return [inputs]
+        return payload["inputs"] if "inputs" in payload else payload["instances"]
     elif isinstance(payload, InferRequest):
         input = payload.inputs[0]
         return input.as_numpy()
@@ -175,4 +174,3 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
             infer_outputs=infer_outputs,
             response_id=generate_uuid()
         )
-
