@@ -59,18 +59,16 @@ class LightGBMModel(kserve.Model):
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            dfs = []
-            results = []
-            instances = get_predict_input(payload)
-            # NOTE: mixed type input needs to be dataframe conversion for lightgbm prediction
-            if isinstance(instances[0][0], Dict):
-                dfs = [pd.DataFrame(
-                        input, columns=self._booster.feature_name()) for input in instances[0]]
-                inputs = pd.concat(dfs, axis=0)
-                results = [self._booster.predict(inputs)]
+            if isinstance(payload, Dict):
+                dfs = []
+                for input in payload['inputs']:
+                    dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
+                    inputs = pd.concat(dfs, axis=0)
+                result = self._booster.predict(inputs)
+                return {"predictions": result.tolist()}
             else:
-                results = [self._booster.predict(instance) for instance in instances]
-            return get_predict_response(payload, results, self.name)
-
+                instance = get_predict_input(payload)
+                result = self._booster.predict(instance)
+                return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise InferenceError(str(e))

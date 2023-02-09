@@ -15,7 +15,7 @@
 import os
 import sys
 import uuid
-from typing import Dict, List, Union
+from typing import Dict, Union
 
 import psutil
 from cloudevents.conversion import to_binary, to_structured
@@ -138,32 +138,27 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
 
 def get_predict_input(payload: Union[Dict, InferRequest]):
     if isinstance(payload, Dict):
-        inputs = payload["inputs"] if "inputs" in payload else payload["instances"]
-        return [inputs]
+        return payload["inputs"] if "inputs" in payload else payload["instances"]
     elif isinstance(payload, InferRequest):
-        infer_inputs = []
-        for input in payload.inputs:
-            if input.datatype == "MIXED":
-                infer_inputs.append(input.data)
-            else:
-                np_array = input.as_numpy()
-                infer_inputs.append(np_array)
-        return infer_inputs
+        input = payload.inputs[0]
+        if input.datatype == "MIXED":
+            return input.data
+        else:
+            return input.as_numpy()
 
 
-def get_predict_response(payload: Union[Dict, InferRequest], results: List, model_name: str) -> InferResponse:
+def get_predict_response(payload: Union[Dict, InferRequest], result, model_name: str) -> InferResponse:
     if isinstance(payload, Dict):
-        return {"predictions": results[0].tolist()}
+        return {"predictions": result.tolist()}
     elif isinstance(payload, InferRequest):
-        infer_outputs = []
-        for index, output in enumerate(results):
-            output_datatype = NUMPY_TO_DATATYPE.get(str(output.dtype))
-            output_shape = output.shape
-            infer_output = InferOutput(name=f"output-{str(index)}", shape=list(
-                output_shape), datatype=output_datatype, data=output.flatten().tolist())
-            infer_outputs.append(infer_output)
-
-        response_id = generate_uuid()
-        infer_response = InferResponse(
-            model_name=model_name, infer_outputs=infer_outputs, response_id=response_id)
-        return infer_response
+        infer_output = InferOutput(
+            name="output-0",
+            shape=list(result.shape),
+            datatype=NUMPY_TO_DATATYPE.get(str(result.dtype)),
+            data=result.flatten().tolist()
+        )
+        return InferResponse(
+            model_name=model_name,
+            infer_outputs=[infer_output],
+            response_id=generate_uuid()
+        )

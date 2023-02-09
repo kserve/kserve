@@ -63,24 +63,22 @@ class PmmlModel(kserve.Model):
         try:
             if isinstance(payload, Dict):
                 instances = payload["instances"]
-                results = [self.evaluator.evaluate(
+                result = [self.evaluator.evaluate(
                     dict(zip(self.input_fields, instance))) for instance in instances]
-                return {"predictions": results}
+                return {"predictions": result}
             elif isinstance(payload, InferRequest):
-                infer_outputs = []
-                inputs = [input.data for input in payload.inputs]
-                for index, input_list in enumerate(inputs):
-                    result = [self.evaluator.evaluate(
-                        dict(zip(self.input_fields, input))) for input in input_list]
-                    output_datatype = 'mixed'  # As pmml prediction is dict with mixed key-value pairs
-                    output_shape = [len(result)]
-                    infer_output = InferOutput(name=f"output-{str(index)}", shape=list(
-                        output_shape), datatype=output_datatype, data=result)
-                    infer_outputs.append(infer_output)
-
-                response_id = generate_uuid()
-                infer_response = InferResponse(
-                    model_name=self.name, infer_outputs=infer_outputs, response_id=response_id)
-                return infer_response
+                result = [self.evaluator.evaluate(
+                    dict(zip(self.input_fields, instance))) for instance in payload.inputs[0].data]
+                infer_output = InferOutput(
+                    name="output-0",
+                    shape=[len(result)],
+                    datatype="MIXED",
+                    data=result
+                )
+                return InferResponse(
+                    model_name=self.name,
+                    infer_outputs=[infer_output],
+                    response_id=generate_uuid()
+                )
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

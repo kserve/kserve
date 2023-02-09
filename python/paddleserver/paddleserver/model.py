@@ -66,23 +66,16 @@ class PaddleModel(kserve.Model):
         return self.ready
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
-        np_array_inputs = []
-        results = []
         try:
-
-            instances = get_predict_input(payload)
-            np_array_inputs = [np.array(instance, dtype='float32')
-                               for instance in instances]
+            instance = get_predict_input(payload)
+            np_array_input = np.array(instance, dtype='float32')
         except Exception as e:
-            raise Exception("Failed to initialize NumPy array from inputs:%s, %s"
-                            % (e, instances)) from e
-
+            raise Exception("Failed to initialize NumPy array from input:%s, %s"
+                            % (e, instance)) from e
         try:
-            for inputs in np_array_inputs:
-                self.input_tensor.copy_from_cpu(inputs)
-                self.predictor.run()
-                result = self.output_tensor.copy_to_cpu()
-                results.append(result)
-            return get_predict_response(payload, results, self.name)
+            self.input_tensor.copy_from_cpu(np_array_input)
+            self.predictor.run()
+            result = self.output_tensor.copy_to_cpu()
+            return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise Exception("Failed to predict %s" % e) from e

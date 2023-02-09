@@ -66,7 +66,7 @@ def test_paddle():
         raise e
 
     res = predict(service_name, './data/jay.json')
-    assert np.argmax(res["predictions"]) == 17
+    assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 

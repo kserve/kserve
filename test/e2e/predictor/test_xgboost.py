@@ -22,7 +22,6 @@ from kserve import (KServeClient, V1beta1InferenceService,
                     V1beta1InferenceServiceSpec, V1beta1ModelFormat,
                     V1beta1ModelSpec, V1beta1PredictorSpec, V1beta1XGBoostSpec,
                     constants)
-
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 
