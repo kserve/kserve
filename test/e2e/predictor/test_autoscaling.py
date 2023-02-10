@@ -161,7 +161,7 @@ def test_sklearn_kserve_cpu():
 
 
 @pytest.mark.raw
-def test_sklearn_kserve_raw():
+def test_sklearn_scale_raw():
     service_name = "isvc-sklearn-scale-raw"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,

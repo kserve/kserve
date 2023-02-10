@@ -126,7 +126,11 @@ def test_sklearn_runtime_kserve():
 
 
 @pytest.mark.slow
+<<<<<<< HEAD
 def test_sklearn_v2_runtime_mlserver():
+=======
+def test_sklearn_v2_runtime_kserve():
+>>>>>>> e5077b4a (debug: moved sklearn, autoscalling e2e to test_slow group)
     service_name = "isvc-sklearn-v2-runtime"
 
     predictor = V1beta1PredictorSpec(
