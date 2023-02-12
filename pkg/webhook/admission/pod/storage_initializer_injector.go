@@ -38,6 +38,8 @@ const (
 	PvcURIPrefix                            = "pvc://"
 	PvcSourceMountName                      = "kserve-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
+	PvcMountViaStorageInitializer           = "StorageInitializer"
+	PvcMountViaVolumeMount                  = "VolumeMount"
 )
 
 type StorageInitializerConfig struct {
@@ -47,6 +49,7 @@ type StorageInitializerConfig struct {
 	MemoryRequest         string `json:"memoryRequest"`
 	MemoryLimit           string `json:"memoryLimit"`
 	StorageSpecSecretName string `json:"storageSpecSecretName"`
+	PVCMountOption        string `json:"pvcMountOption"`
 }
 
 type StorageInitializerInjector struct {
@@ -135,6 +138,38 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 		podVolumes = append(podVolumes, pvcSourceVolume)
 
+		// check if using direct volume mount to mount the pvc
+		// if yes, mount the pvc to model local mount path and return
+		if mi.config.PVCMountOption == PvcMountViaVolumeMount {
+
+			// add a corresponding pvc volume mount to the userContainer
+			// pvc will be mount to /mnt/models rather than /mnt/pvc
+			// pvcPath will be injected via SubPath, pvcPath must be a root or Dir
+			// it is user responsibility to ensure it is a root or Dir
+			pvcSourceVolumeMount := v1.VolumeMount{
+				Name:      PvcSourceMountName,
+				MountPath: constants.DefaultModelLocalMountPath,
+				// only path to volume's root ("") or folder is supported
+				SubPath:  pvcPath,
+				ReadOnly: true,
+			}
+			userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
+
+			// Change the CustomSpecStorageUri env variable value
+			// to the default model path if present
+			for index, envVar := range userContainer.Env {
+				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+					userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+				}
+			}
+
+			// Add volumes to the PodSpec
+			pod.Spec.Volumes = append(pod.Spec.Volumes, podVolumes...)
+
+			return nil
+		}
+
+		// below use storage initializer to handle the pvc
 		// add a corresponding PVC volume mount to the INIT container
 		pvcSourceVolumeMount := v1.VolumeMount{
 			Name:      PvcSourceMountName,
