@@ -21,10 +21,11 @@ import mimetypes
 from pathlib import Path
 
 import botocore
-import kserve
 import pytest
 
-STORAGE_MODULE = 'kserve.storage'
+from storage import Storage
+
+STORAGE_MODULE = 'storage'
 HTTPS_URI_TARGZ = 'https://foo.bar/model.tar.gz'
 HTTPS_URI_TARGZ_WITH_QUERY = HTTPS_URI_TARGZ + '?foo=bar'
 
@@ -43,21 +44,21 @@ FILE_ZIP_RAW = binascii.unhexlify('504b030414000800080035b6705200000000000000000
 def test_storage_local_path():
     abs_path = 'file:///'
     relative_path = 'file://.'
-    assert kserve.Storage.download(abs_path) == abs_path.replace("file://", "", 1)
-    assert kserve.Storage.download(relative_path) == relative_path.replace("file://", "", 1)
+    assert Storage.download(abs_path) == abs_path.replace("file://", "", 1)
+    assert Storage.download(relative_path) == relative_path.replace("file://", "", 1)
 
 
 def test_storage_local_path_exception():
     not_exist_path = 'file:///some/random/path'
     with pytest.raises(Exception):
-        kserve.Storage.download(not_exist_path)
+        Storage.download(not_exist_path)
 
 
 def test_no_prefix_local_path():
     abs_path = '/'
     relative_path = '.'
-    assert kserve.Storage.download(abs_path) == abs_path
-    assert kserve.Storage.download(relative_path) == relative_path
+    assert Storage.download(abs_path) == abs_path
+    assert Storage.download(relative_path) == relative_path
 
 
 class MockHttpResponse(object):
@@ -83,8 +84,8 @@ def test_http_uri_path(_):
     http_uri = 'http://foo.bar/model.joblib'
     http_with_query_uri = 'http://foo.bar/model.joblib?foo=bar'
     out_dir = '.'
-    assert kserve.Storage.download(http_uri, out_dir=out_dir) == out_dir
-    assert kserve.Storage.download(http_with_query_uri, out_dir=out_dir) == out_dir
+    assert Storage.download(http_uri, out_dir=out_dir) == out_dir
+    assert Storage.download(http_with_query_uri, out_dir=out_dir) == out_dir
     os.remove('./model.joblib')
 
 
@@ -93,8 +94,8 @@ def test_https_uri_path(_):
     https_uri = 'https://foo.bar/model.joblib'
     https_with_query_uri = 'https://foo.bar/model.joblib?foo=bar'
     out_dir = '.'
-    assert kserve.Storage.download(https_uri, out_dir=out_dir) == out_dir
-    assert kserve.Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
+    assert Storage.download(https_uri, out_dir=out_dir) == out_dir
+    assert Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
     os.remove('./model.joblib')
 
 
@@ -125,11 +126,11 @@ def test_http_uri_paths(uri, response, expected_error):
     if expected_error:
         def test(_):
             with pytest.raises(expected_error):
-                kserve.Storage.download(uri)
+                Storage.download(uri)
     else:
         def test(_):
             with tempfile.TemporaryDirectory() as out_dir:
-                assert kserve.Storage.download(uri, out_dir=out_dir) == out_dir
+                assert Storage.download(uri, out_dir=out_dir) == out_dir
                 assert os.path.exists(os.path.join(out_dir, 'model.pth'))
     mock.patch('requests.get', return_value=response)(test)()
 
@@ -140,13 +141,13 @@ def test_mock_gcs(mock_storage):
     mock_obj = mock.MagicMock()
     mock_obj.name = 'mock.object'
     mock_storage.Client().bucket().list_blobs().__iter__.return_value = [mock_obj]
-    assert kserve.Storage.download(gcs_path)
+    assert Storage.download(gcs_path)
 
 
 def test_storage_blob_exception():
     blob_path = 'https://accountname.blob.core.windows.net/container/some/blob/'
     with pytest.raises(Exception):
-        kserve.Storage.download(blob_path)
+        Storage.download(blob_path)
 
 
 @mock.patch(STORAGE_MODULE + '.boto3')
@@ -158,7 +159,7 @@ def test_storage_s3_exception(mock_boto3):
     mock_boto3.resource.return_value = mock_s3_resource
 
     with pytest.raises(Exception):
-        kserve.Storage.download(path)
+        Storage.download(path)
 
 
 @mock.patch(STORAGE_MODULE + '.boto3')
@@ -176,7 +177,7 @@ def test_no_permission_buckets(mock_connection, mock_boto3):
     mock_boto3.resource.return_value = mock_s3_resource
 
     with pytest.raises(botocore.exceptions.ClientError):
-        kserve.Storage.download(bad_s3_path)
+        Storage.download(bad_s3_path)
 
 
 def test_unpack_tar_file():
@@ -184,7 +185,7 @@ def test_unpack_tar_file():
     tar_file = os.path.join(out_dir, "model.tgz")
     Path(tar_file).write_bytes(FILE_TAR_GZ_RAW)
     mimetype, _ = mimetypes.guess_type(tar_file)
-    kserve.Storage._unpack_archive_file(tar_file, mimetype, out_dir)
+    Storage._unpack_archive_file(tar_file, mimetype, out_dir)
     assert os.path.exists(os.path.join(out_dir, 'model.pth'))
     os.remove(os.path.join(out_dir, 'model.pth'))
 
@@ -194,6 +195,6 @@ def test_unpack_zip_file():
     tar_file = os.path.join(out_dir, "model.zip")
     Path(tar_file).write_bytes(FILE_ZIP_RAW)
     mimetype, _ = mimetypes.guess_type(tar_file)
-    kserve.Storage._unpack_archive_file(tar_file, mimetype, out_dir)
+    Storage._unpack_archive_file(tar_file, mimetype, out_dir)
     assert os.path.exists(os.path.join(out_dir, 'model.pth'))
     os.remove(os.path.join(out_dir, 'model.pth'))

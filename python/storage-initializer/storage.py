@@ -38,7 +38,7 @@ import boto3
 from google.auth import exceptions
 from google.cloud import storage
 
-from .model_repository import MODEL_MOUNT_DIRS
+MODEL_MOUNT_DIRS = "/mnt/models"
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"

@@ -14,8 +14,9 @@
 
 import unittest.mock as mock
 import pytest
-import kserve
 import shutil
+
+from storage import Storage
 
 
 def create_mock_item(path):
@@ -81,8 +82,8 @@ def test_cleanup():
     shutil.rmtree('dest_path', ignore_errors=True)
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.BlobServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.BlobServiceClient')
 def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -91,7 +92,7 @@ def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
     mock_blob, mock_container = create_mock_blob(mock_storage, paths)
 
     # when
-    kserve.Storage._download_azure_blob(blob_path, "dest_path")
+    Storage._download_azure_blob(blob_path, "dest_path")
 
     # then
     arg_list = get_call_args(mock_container.download_blob.call_args_list)
@@ -102,9 +103,9 @@ def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
                                     credential=None)
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.Storage._get_azure_storage_token')
-@mock.patch('kserve.storage.BlobServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.Storage._get_azure_storage_token')
+@mock.patch('storage.BlobServiceClient')
 def test_secure_blob(mock_storage, mock_get_token, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -113,7 +114,7 @@ def test_secure_blob(mock_storage, mock_get_token, mock_makedirs):  # pylint: di
 
     # when
     with pytest.raises(RuntimeError):
-        kserve.Storage._download_azure_blob(blob_path, "dest_path")
+        Storage._download_azure_blob(blob_path, "dest_path")
 
     # then
     mock_get_token.assert_called()
@@ -124,8 +125,8 @@ def test_secure_blob(mock_storage, mock_get_token, mock_makedirs):  # pylint: di
     assert arg_list == [{'credential': 'some_token'}]
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.BlobServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.BlobServiceClient')
 def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -137,7 +138,7 @@ def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
     # when
     mock_blob, mock_container = create_mock_blob(mock_storage, fq_item_paths)
     try:
-        kserve.Storage._download_azure_blob(blob_path, "some/dest/path")
+        Storage._download_azure_blob(blob_path, "some/dest/path")
     except OSError:  # Permissions Error Handling
         pass
 
@@ -146,8 +147,8 @@ def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
     assert set(actual_calls) == set(expected_calls)
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.BlobServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.BlobServiceClient')
 def test_blob_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -158,15 +159,15 @@ def test_blob_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
 
     # when
     mock_blob, mock_container = create_mock_blob(mock_storage, paths)
-    kserve.Storage._download_azure_blob(blob_path, "some/dest/path")
+    Storage._download_azure_blob(blob_path, "some/dest/path")
 
     # then
     actual_calls = get_call_args(mock_container.download_blob.call_args_list)
     assert actual_calls == expected_calls
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.BlobServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.BlobServiceClient')
 def test_blob_fq_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -177,15 +178,15 @@ def test_blob_fq_file(mock_storage, mock_makedirs):  # pylint: disable=unused-ar
 
     # when
     mock_blob, mock_container = create_mock_blob(mock_storage, fq_item_paths)
-    kserve.Storage._download_azure_blob(blob_path, "some/dest/path")
+    Storage._download_azure_blob(blob_path, "some/dest/path")
 
     # then
     actual_calls = get_call_args(mock_container.download_blob.call_args_list)
     assert actual_calls == expected_calls
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.BlobServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.BlobServiceClient')
 def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -196,16 +197,16 @@ def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-
 
     # when
     mock_blob, mock_container = create_mock_blob(mock_storage, fq_item_paths)
-    kserve.Storage._download_azure_blob(blob_path, "some/dest/path")
+    Storage._download_azure_blob(blob_path, "some/dest/path")
 
     # then
     actual_calls = get_call_args(mock_container.download_blob.call_args_list)
     assert set(actual_calls) == set(expected_calls)
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.Storage._get_azure_storage_access_key')
-@mock.patch('kserve.storage.ShareServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.Storage._get_azure_storage_access_key')
+@mock.patch('storage.ShareServiceClient')
 def test_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -218,7 +219,7 @@ def test_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # pylint
                        []])
 
     # when
-    kserve.Storage._download_azure_file_share(file_share_path, "dest_path")
+    Storage._download_azure_file_share(file_share_path, "dest_path")
 
     # then
     arg_list = get_call_args(mock_file.get_file_client.call_args_list)
@@ -231,9 +232,9 @@ def test_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # pylint
                                     credential='some_token')
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.Storage._get_azure_storage_access_key')
-@mock.patch('kserve.storage.ShareServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.Storage._get_azure_storage_access_key')
+@mock.patch('storage.ShareServiceClient')
 def test_deep_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # pylint: disable=unused-argument
 
     file_share_path = 'https://accountname.file.core.windows.net/container/some/deep/blob/path'
@@ -251,7 +252,7 @@ def test_deep_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # p
                        [create_mock_file('f1231')],
                        []])
     try:
-        kserve.Storage._download_azure_file_share(file_share_path, "some/dest/path")
+        Storage._download_azure_file_share(file_share_path, "some/dest/path")
     except OSError:  # Permissions Error Handling
         pass
 
@@ -265,9 +266,9 @@ def test_deep_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # p
                                     credential='some_token')
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.Storage._get_azure_storage_access_key')
-@mock.patch('kserve.storage.ShareServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.Storage._get_azure_storage_access_key')
+@mock.patch('storage.ShareServiceClient')
 def test_file_share_fq_file(mock_storage, mock_get_access_key, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -281,7 +282,7 @@ def test_file_share_fq_file(mock_storage, mock_get_access_key, mock_makedirs):  
     mock_file_share, mock_file, mock_data = create_mock_objects_for_file_share(
         mock_storage, [[create_mock_file('somefile.text')],
                        []])
-    kserve.Storage._download_azure_file_share(file_share_path, "some/dest/path")
+    Storage._download_azure_file_share(file_share_path, "some/dest/path")
 
     # then
     actual_calls = get_call_args(mock_file.get_file_client.call_args_list)
@@ -293,9 +294,9 @@ def test_file_share_fq_file(mock_storage, mock_get_access_key, mock_makedirs):  
                                     credential='some_token')
 
 
-@mock.patch('kserve.storage.os.makedirs')
-@mock.patch('kserve.storage.Storage._get_azure_storage_access_key')
-@mock.patch('kserve.storage.ShareServiceClient')
+@mock.patch('storage.os.makedirs')
+@mock.patch('storage.Storage._get_azure_storage_access_key')
+@mock.patch('storage.ShareServiceClient')
 def test_file_share_no_prefix(mock_storage, mock_get_access_key, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -310,7 +311,7 @@ def test_file_share_no_prefix(mock_storage, mock_get_access_key, mock_makedirs):
         mock_storage, [[create_mock_dir('somefolder'), create_mock_file('somefile.text')],
                        [create_mock_file('somefile.text')],
                        []])
-    kserve.Storage._download_azure_file_share(file_share_path, "some/dest/path")
+    Storage._download_azure_file_share(file_share_path, "some/dest/path")
 
     # then
     arg_list = get_call_args(mock_file.get_file_client.call_args_list)
