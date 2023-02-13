@@ -300,7 +300,7 @@ class TestRayServer:
     def test_health_handler(self, http_server_client):
         resp = http_server_client.get('/v1/models/TestModel')
         assert resp.status_code == 200
-        assert resp.content == b'{"name":"TestModel","ready":true}'
+        assert resp.content == b'{"name":"TestModel","ready":"True"}'
 
     def test_predict(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict',
