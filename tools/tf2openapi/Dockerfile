@@ -12,7 +12,7 @@ COPY go.sum  go.sum
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o tf2openapi ./tools/tf2openapi/cmd
 
 # Copy tf2openapi into a thin image
-FROM gcr.io/distroless/static:latest
+FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY third_party/ third_party/
 COPY --from=builder /go/src/github.com/kserve/kserve/tf2openapi .

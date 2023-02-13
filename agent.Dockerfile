@@ -15,7 +15,7 @@ COPY cmd/    cmd/
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o agent ./cmd/agent
 
 # Copy the inference-agent into a thin image
-FROM gcr.io/distroless/static:latest
+FROM gcr.io/distroless/static:nonroot
 COPY third_party/ third_party/
 WORKDIR /ko-app
 COPY --from=builder /go/src/github.com/kserve/kserve/agent /ko-app/
