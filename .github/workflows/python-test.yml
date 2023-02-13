@@ -55,3 +55,5 @@ jobs:
         pytest --cov=paddleserver ./paddleserver
         pip install -e ./alibiexplainer
         pytest --cov=alibiexplainer ./alibiexplainer
+        pip install -e ./storage-initializer
+        pytest --cov=storage-initializer ./storage-initializer
