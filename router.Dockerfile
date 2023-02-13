@@ -15,7 +15,7 @@ COPY cmd/    cmd/
 RUN CGO_ENABLED=0  go build -a -o router ./cmd/router
 
 # Copy the inference-router into a thin image
-FROM gcr.io/distroless/static:latest
+FROM gcr.io/distroless/static:nonroot
 COPY third_party/ third_party/
 WORKDIR /ko-app
 COPY --from=builder /go/src/github.com/kserve/kserve/router /ko-app/
