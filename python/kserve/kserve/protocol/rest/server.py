@@ -83,10 +83,12 @@ class RESTServer:
                 FastAPIRoute(r"/v1/models", v1_endpoints.models, tags=["V1"]),
                 # Model Health API returns 200 if model is ready to serve.
                 FastAPIRoute(r"/v1/models/{model_name}", v1_endpoints.model_ready, tags=["V1"]),
+                # Note: Set response_model to None to resolve fastapi Response issue
+                # https://fastapi.tiangolo.com/tutorial/response-model/#disable-response-model
                 FastAPIRoute(r"/v1/models/{model_name}:predict",
-                             v1_endpoints.predict, methods=["POST"], tags=["V1"]),
+                             v1_endpoints.predict, methods=["POST"], tags=["V1"], response_model=None),
                 FastAPIRoute(r"/v1/models/{model_name}:explain",
-                             v1_endpoints.explain, methods=["POST"], tags=["V1"]),
+                             v1_endpoints.explain, methods=["POST"], tags=["V1"], response_model=None),
                 # V2 Inference Protocol
                 # https://github.com/kserve/kserve/tree/master/docs/predict-api/v2
                 FastAPIRoute(r"/v2", v2_endpoints.metadata,
