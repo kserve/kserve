@@ -188,7 +188,7 @@ def test_lightgbm_v2_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.grpc
 def test_lightgbm_v2_grpc():
     service_name = "isvc-lightgbm-v2-grpc"
     model_name = "lightgbm"

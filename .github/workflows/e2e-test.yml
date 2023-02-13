@@ -391,6 +391,16 @@ jobs:
         with:
           image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
 
+      - name: Download xgb server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/xgbserver:${{ github.sha }}"
+
+      - name: Download lgb server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/lgbserver:${{ github.sha }}"
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh

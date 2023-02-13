@@ -214,7 +214,7 @@ def test_xgboost_v2():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.grpc
 def test_xgboost_v2_grpc():
     service_name = "isvc-xgboost-v2-grpc"
     model_name = "xgboost"
