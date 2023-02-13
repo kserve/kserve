@@ -10,9 +10,7 @@ import pytest
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
 
-# DEBUG
-# @pytest.mark.graph
-@pytest.mark.skip()
+@pytest.mark.graph
 def test_inference_graph():
     sklearn_name = "isvc-sklearn"
     xgb_name = "isvc-xgboost"

@@ -12,19 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import kserve
+import lightgbm as lgb
+from lightgbm import Booster
 import os
 from typing import Dict, Union
-
-import lightgbm as lgb
 import pandas as pd
 from kserve.errors import InferenceError, ModelMissingError
 from kserve.storage import Storage
 
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
-from lightgbm import Booster
-
-import kserve
+from kserve.protocol.infer_type import InferRequest, InferResponse
 
 MODEL_EXTENSIONS = (".bst")
 
@@ -63,7 +62,7 @@ class LightGBMModel(kserve.Model):
                 dfs = []
                 for input in payload['inputs']:
                     dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
-                    inputs = pd.concat(dfs, axis=0)
+                inputs = pd.concat(dfs, axis=0)
                 result = self._booster.predict(inputs)
                 return {"predictions": result.tolist()}
             else:
