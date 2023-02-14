@@ -14,7 +14,12 @@
 import time
 from kubernetes import client
 from kubernetes import watch as k8s_watch
-from table_logger import TableLogger
+
+# AIP: we'll never use it
+try: 
+    from table_logger import TableLogger
+except ImportError:
+    TableLogger = None
 
 from ..constants import constants
 from ..utils import utils
