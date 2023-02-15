@@ -1,11 +1,25 @@
 # TorchServe example with Huggingface BLOOM model
-In this example we will show how to serve [Huggingface Transformers with TorchServe](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Transformers)
+In this example we will show how to serve [Large Huggingface models with TorchServe](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Largemodels)
 on KServe.
 
 ## Model archive file creation
 
 Clone [pytorch/serve](https://github.com/pytorch/serve) repository,
-navigate to `examples/Huggingface_Transformers` and follow the steps for creating the MAR file including serialized model and other dependent files.
+navigate to `examples/Huggingface_Largemodels` and follow the steps for creating the MAR file including serialized model and other dependent files.
+
+The above Torchserve example works on shard version on Huggingface models.
+
+The For sharding Huggingface models use the below script, and continue with [this step](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Largemodels#step-2-compress-downloaded-model)
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+model_name="bigscience/bloomz-7b1"
+model = AutoModelForCausalLM.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model.save_pretrained("model/"+model_name, max_shard_size="5GB")
+tokenizer.save_pretrained("model/"+model_name)
+```
+
 TorchServe supports both eager model and torchscript and here we save as the pretrained model. 
  
 ```bash
@@ -14,11 +28,12 @@ torch-model-archiver --model-name BLOOMSeqClassification --version 1.0 \
 --handler ./Transformer_handler_generalized.py \
 --extra-files "Transformer_model/config.json,./setup_config.json,./Seq_classification_artifacts/index_to_name.json"
 ```
+
 ## Create NVMe Persistent Volume
 
 Use SSH to connect to the worker nodes and prepare the NVMe drives for Kubernetes, as follows.
 
-Run the lsblk command on each worker node to identify NVMe devices. 
+Run the `lsblk`  command on each worker node to lists information about all available. 
 
 ```bash
 NAME          MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
@@ -100,13 +115,11 @@ $ kubectl get pv
 NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM                     STORAGECLASS   REASON   AGE
 local-pv-2a85b8ac                          116Gi      RWO            Delete           Bound       kserve-test/model-cache   fast-disks              4d3h
 ```
-## Create PVC and helper pod.
+## Create PVC and Mount the Model.
 
 ```bash
 kubectl apply -f pvc-pod.yaml
 ```
-
-## Move model to PVC
 
 Refer: [Bloom Model Example](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Largemodels)
 
@@ -143,7 +156,7 @@ $inferenceservice.serving.kubeflow.org/torchserve-bloom-560m created
 
 ## Run a prediction
 
-The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/0.10/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```bash
 MODEL_NAME=torchserve-bert
