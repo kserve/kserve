@@ -30,7 +30,7 @@ class InferInput:
     _datatype: str
     _parameters: Dict
 
-    def __init__(self, name, shape, datatype, data=None):
+    def __init__(self, name, shape, datatype, data=None, parameters={}):
         """An object of InferInput class is used to describe
         input tensor for an inference request.
         Parameters
@@ -47,7 +47,7 @@ class InferInput:
         self._name = name
         self._shape = shape
         self._datatype = datatype
-        self._parameters = {}
+        self._parameters = parameters
         self._data = data
         self._raw_data = None
 
@@ -87,6 +87,16 @@ class InferInput:
             The shape of input
         """
         return self._shape
+
+    @property
+    def parameters(self):
+        """Get the parameters of input associated with this object.
+        Returns
+        -------
+        dict
+            The key, value pair of string and InferParameter
+        """
+        return self._parameters
 
     def set_shape(self, shape):
         """Set the shape of input.
@@ -220,14 +230,16 @@ class InferRequest:
     """
     id: Optional[str]
     model_name: str
+    parameters: Optional[Dict]
     inputs: List[InferInput]
     from_grpc: bool
 
     def __init__(self, model_name: str, infer_inputs: List[InferInput],
-                 request_id=None, raw_inputs=None, from_grpc=False):
+                 request_id=None, raw_inputs=None, from_grpc=False, parameters={}):
         self.id = request_id
         self.model_name = model_name
         self.inputs = infer_inputs
+        self.parameters = parameters
         self.from_grpc = from_grpc
         if raw_inputs:
             for i, raw_input in enumerate(raw_inputs):
@@ -236,11 +248,12 @@ class InferRequest:
     @classmethod
     def from_grpc(cls, request: ModelInferRequest):
         infer_inputs = [InferInput(name=input_tensor.name, shape=list(input_tensor.shape),
-                                   datatype=input_tensor.datatype, data=get_content(input_tensor.datatype,
-                                                                                    input_tensor.contents))
+                                   datatype=input_tensor.datatype,
+                                   data=get_content(input_tensor.datatype, input_tensor.contents),
+                                   parameters=input_tensor.parameters)
                         for input_tensor in request.inputs]
         return cls(request_id=request.id, model_name=request.model_name, infer_inputs=infer_inputs,
-                   raw_inputs=request.raw_input_contents, from_grpc=True)
+                   raw_inputs=request.raw_input_contents, from_grpc=True, parameters=request.parameters)
 
     def to_rest(self) -> Dict:
         """ Converts the InferRequest object to v2 REST InferenceRequest message
@@ -296,7 +309,7 @@ class InferRequest:
 
 
 class InferOutput:
-    def __init__(self, name, shape, datatype, data=None):
+    def __init__(self, name, shape, datatype, data=None, parameters={}):
         """An object of InferOutput class is used to describe
         input tensor for an inference request.
         Parameters
@@ -313,7 +326,7 @@ class InferOutput:
         self._name = name
         self._shape = shape
         self._datatype = datatype
-        self._parameters = {}
+        self._parameters = parameters
         self._data = data
         self._raw_data = None
 
@@ -353,6 +366,16 @@ class InferOutput:
             The shape of input
         """
         return self._shape
+
+    @property
+    def parameters(self):
+        """Get the parameters of input associated with this object.
+        Returns
+        -------
+        dict
+            The key, value pair of string and InferParameter
+        """
+        return self._parameters
 
     def set_shape(self, shape):
         """Set the shape of input.
@@ -466,14 +489,16 @@ class InferResponse:
     """
     id: str
     model_name: str
+    parameters: Optional[Dict]
     outputs: List[InferOutput]
     from_grpc: bool
 
     def __init__(self, response_id: str, model_name: str, infer_outputs: List[InferOutput],
-                 raw_outputs=None, from_grpc=False):
+                 raw_outputs=None, from_grpc=False, parameters={}):
         self.id = response_id
         self.model_name = model_name
         self.outputs = infer_outputs
+        self.parameters = parameters
         self.from_grpc = from_grpc
         if raw_outputs:
             for i, raw_output in enumerate(raw_outputs):
@@ -482,9 +507,11 @@ class InferResponse:
     @classmethod
     def from_grpc(cls, response: ModelInferResponse):
         infer_outputs = [InferOutput(name=output.name, shape=list(output.shape),
-                                     datatype=output.datatype, data=get_content(output.datatype, output.contents))
+                                     datatype=output.datatype,
+                                     data=get_content(output.datatype, output.contents),
+                                     parameters=output.parameters)
                          for output in response.outputs]
-        return cls(model_name=response.model_name, response_id=response.id,
+        return cls(model_name=response.model_name, response_id=response.id, parameters=response.parameters,
                    infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents, from_grpc=True)
 
     def to_rest(self) -> Dict:
