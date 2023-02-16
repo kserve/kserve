@@ -126,7 +126,9 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
-	annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
+	if _, ok := annotations[autoscaling.MinScaleAnnotationKey]; !ok {
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
+	}
 
 	labels = utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
