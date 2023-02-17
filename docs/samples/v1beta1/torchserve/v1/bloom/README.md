@@ -81,7 +81,7 @@ storageclass.yaml
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
-name: fast-disks
+  name: fast-disks
 provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
 ```
@@ -151,7 +151,7 @@ kubectl apply -f bloom-560m.yaml
 Expected Output
 
 ```bash
-$inferenceservice.serving.kubeflow.org/torchserve-bloom-560m created
+$inferenceservice.serving.kserve.io/torchserve-bloom-560m created
 ```
 
 ## Run a prediction
@@ -159,10 +159,11 @@ $inferenceservice.serving.kubeflow.org/torchserve-bloom-560m created
 The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/0.10/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```bash
-MODEL_NAME=torchserve-bert
-SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+MODEL_NAME=BLOOMSeqClassification
+ISVC_NAME=torchserve-bloom-560m
+SERVICE_HOSTNAME=$(kubectl get inferenceservice ${ISVC_NAME} -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/BLOOMSeqClassification:predict -d ./sample_text.txt
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict -d ./sample_text.txt
 ```
 
 Expected Output
