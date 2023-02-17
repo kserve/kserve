@@ -22,6 +22,7 @@ from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-i
 from alibiexplainer.parser import parse_args
 
 import kserve
+from storage import Storage
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
@@ -35,7 +36,7 @@ def main():
     alibi_model = None
     if args.storage_uri is not None:
         alibi_model = os.path.join(
-            kserve.Storage.download(args.storage_uri), EXPLAINER_FILENAME
+            Storage.download(args.storage_uri), EXPLAINER_FILENAME
         )
         with open(alibi_model, "rb") as f:
             logging.info("Loading Alibi model")

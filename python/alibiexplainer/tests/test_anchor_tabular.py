@@ -21,6 +21,7 @@ from alibi.datasets import fetch_adult
 import numpy as np
 import json
 from .utils import Predictor
+from storage import Storage
 
 ADULT_EXPLAINER_URI = "gs://kfserving-examples/models/sklearn/1.0/income/explainer-py37-0.6.2"
 ADULT_MODEL_URI = "gs://kfserving-examples/models/sklearn/1.0/income/model"
@@ -30,7 +31,7 @@ EXPLAINER_FILENAME = "explainer.dill"
 def test_anchor_tabular():
     os.environ.clear()
     alibi_model = os.path.join(
-        kserve.Storage.download(ADULT_EXPLAINER_URI), EXPLAINER_FILENAME
+        Storage.download(ADULT_EXPLAINER_URI), EXPLAINER_FILENAME
     )
     with open(alibi_model, "rb") as f:
         skmodel = SKLearnModel("adult", ADULT_MODEL_URI)

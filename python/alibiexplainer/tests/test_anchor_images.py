@@ -19,6 +19,7 @@ import json
 import numpy as np
 import kserve
 import dill
+from storage import Storage
 
 
 CIFAR10_EXPLAINER_URI = "gs://seldon-models/tfserving/cifar10/explainer-py36-0.5.2"
@@ -28,7 +29,7 @@ EXPLAINER_FILENAME = "explainer.dill"
 def test_cifar10_images():  # pylint: disable-msg=too-many-locals
     os.environ.clear()
     alibi_model = os.path.join(
-        kserve.Storage.download(CIFAR10_EXPLAINER_URI), EXPLAINER_FILENAME
+        Storage.download(CIFAR10_EXPLAINER_URI), EXPLAINER_FILENAME
     )
     with open(alibi_model, "rb") as f:
         alibi_model = dill.load(f)

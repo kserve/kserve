@@ -29,7 +29,8 @@ setup(
     python_requires='>3.4',
     packages=find_packages("paddleserver"),
     install_requires=[
-        "kserve",
+        f"kserve>={version}",
+        f"kserve-storage>={version}",
         "paddlepaddle>=2.0.2"
     ],
     extras_require={'test': ['opencv-python']}

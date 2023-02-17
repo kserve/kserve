@@ -37,6 +37,7 @@ setup(
     packages=find_packages("sklearnserver"),
     install_requires=[
         f"kserve>={version}",
+        f"kserve-storage>={version}",
         "scikit-learn == 1.0.1",
         "joblib >= 0.13.0",
         "pandas >= 1.3.5"
