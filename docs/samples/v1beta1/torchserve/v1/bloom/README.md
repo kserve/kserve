@@ -20,20 +20,11 @@ model.save_pretrained("model/"+model_name, max_shard_size="5GB")
 tokenizer.save_pretrained("model/"+model_name)
 ```
 
-TorchServe supports both eager model and torchscript and here we save as the pretrained model. 
- 
-```bash
-torch-model-archiver --model-name BLOOMSeqClassification --version 1.0 \
---serialized-file Transformer_model/pytorch_model.bin \
---handler ./Transformer_handler_generalized.py \
---extra-files "Transformer_model/config.json,./setup_config.json,./Seq_classification_artifacts/index_to_name.json"
-```
-
 ## Create NVMe Persistent Volume
 
 Use SSH to connect to the worker nodes and prepare the NVMe drives for Kubernetes, as follows.
 
-Run the `lsblk`  command on each worker node to lists information about all available. 
+Run the `lsblk`  command on each worker node to lists the available disks. 
 
 ```bash
 NAME          MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
@@ -74,9 +65,8 @@ Clone the local provisioner repository:
 $ git clone https://github.com/kubernetes-sigs/sig-storage-local-static-provisioner.git
 ```
 
-Create a StorageClass 
+Create a StorageClass yaml file `storageclass.yaml`
 
-storageclass.yaml
 ```yaml
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
