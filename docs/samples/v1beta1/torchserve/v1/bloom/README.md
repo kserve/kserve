@@ -7,9 +7,9 @@ on KServe.
 Clone [pytorch/serve](https://github.com/pytorch/serve) repository,
 navigate to `examples/Huggingface_Largemodels` and follow the steps for creating the MAR file including serialized model and other dependent files.
 
-The above Torchserve example works on shard version on Huggingface models.
+The above Torchserve example works on shard version of Huggingface models.
 
-The For sharding Huggingface models use the below script, and continue with [this step](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Largemodels#step-2-compress-downloaded-model)
+For sharding the Huggingface models you can use the following script, and then [compress the model](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Largemodels#step-2-compress-downloaded-model)
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
