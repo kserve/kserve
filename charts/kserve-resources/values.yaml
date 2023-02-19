@@ -40,6 +40,7 @@ kserve:
         cpu: 100m
         memory: 300Mi
   modelmesh:
+    enabled: true
     controller:
       nodeSelector: {}
       tolerations: []
@@ -67,14 +68,14 @@ kserve:
       restProxyImageTag: *defaultModelMeshVersion
       podsPerRuntime: 2
   servingruntime:
-    modelNamePlaceholder: '{{.Name}}'
+    modelNamePlaceholder: "{{.Name}}"
     tensorflow:
       image: tensorflow/serving
       tag: 2.6.2
     mlserver:
       image: docker.io/seldonio/mlserver
       tag: 1.0.0
-      modelClassPlaceholder: '{{.Labels.modelClass}}'
+      modelClassPlaceholder: "{{.Labels.modelClass}}"
     sklearnserver:
       image: kserve/sklearnserver
       tag: *defaultVersion
@@ -96,7 +97,7 @@ kserve:
     torchserve:
       image: pytorch/torchserve-kfs
       tag: 0.6.1
-      serviceEnvelopePlaceholder: '{{.Labels.serviceEnvelope}}'
+      serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
     alibi:
       image: kserve/alibi-explainer
       defaultVersion: *defaultVersion
