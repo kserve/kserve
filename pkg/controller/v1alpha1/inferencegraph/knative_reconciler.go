@@ -175,12 +175,24 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	}
 
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
-	value, exists := config.Headers["propagate"]
-	if exists {
+	configHeaders, configHeadersExists := config.Headers["propagate"]
+	specHeaders, specHeadersExists := graph.Spec.Headers["propagate"]
+
+	// Use spec headers over router config headers
+	if specHeadersExists {
+		log.Info("Found spec header")
 		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []v1.EnvVar{
 			{
 				Name:  constants.RouterHeadersPropagateEnvVar,
-				Value: strings.Join(value, ","),
+				Value: strings.Join(specHeaders, ","),
+			},
+		}
+	} else if configHeadersExists {
+		log.Info("Found config header")
+		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []v1.EnvVar{
+			{
+				Name:  constants.RouterHeadersPropagateEnvVar,
+				Value: strings.Join(configHeaders, ","),
 			},
 		}
 	}

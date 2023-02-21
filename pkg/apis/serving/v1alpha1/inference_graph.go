@@ -42,6 +42,19 @@ type InferenceGraph struct {
 // InferenceGraphSpec defines the InferenceGraph spec
 // +k8s:openapi-gen=true
 type InferenceGraphSpec struct {
+	/*
+		Example of how to add headers in IG Spec:
+		headers: {
+		 "propagate": [
+			"Custom-Header1",
+			"Custom-Header2"
+		  ]
+		}
+		Note: Making Headers, a map of strings, gives the flexibility to extend it in the future to support adding more
+		operations on headers. For example: Similar to "propagate" operation, one can add "transform" operation if they
+		want to transform headers keys or values before passing down to nodes.
+	*/
+	Headers map[string][]string `json:"headers,omitempty"`
 	// Map of InferenceGraph router nodes
 	// Each node defines the router which can be different routing types
 	Nodes map[string]InferenceRouter `json:"nodes"`
