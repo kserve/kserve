@@ -70,7 +70,7 @@ iter8 k report -o html > report.html # view in a browser
 
 Below is a sample HTML report.
 
-![HTML report](report.html.png)
+![HTML report](http-report.png)
 
 You can also [assert various conditions](https://iter8.tools/0.13/getting-started/your-first-experiment/#assert-experiment-outcomes) about the outcome of the experiment and [view the execution logs](https://iter8.tools/0.13/getting-started/your-first-experiment/#view-experiment-logs) for the experiment.
 
