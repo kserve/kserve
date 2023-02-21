@@ -1,10 +1,15 @@
 # HTTP Performance test
 
-This tutorial demonstrates performance testing for KServe inference services using HTTP. We will use [Iter8](https://iter8.tools) for generating load and validing service-level objectives (SLOs) for the inference service. Performance testing of KServe inference services using gRPC is described [here](grpc.md).
-
-[Iter8](https://iter8.tools) is an open-source Kubernetes release optimizer that makes it easy to ensure that your ML models perform well and maximize business value.
+This tutorial demonstrates performance testing for KServe inference services using HTTP. We will use [Iter8](https://iter8.tools) for generating load and validing service-level objectives (SLOs) for the inference service. [Iter8](https://iter8.tools) is an open-source Kubernetes release optimizer that makes it easy to ensure that your ML models perform well and maximize business value.
 
 ![Iter8 HTTP performanc test](http.png)
+
+***
+
+> Performance testing of KServe inference services using gRPC is described [here](grpc.md). This tutorial focuses on KServe inference services with HTTP endpoints. The main steps in this tutorial are:
+> 1. [Deploy an InferenceService](#deploy-an-inferenceservice)
+> 2. [Launch an Iter8 experiment](#launch-an-iter8-experiment)
+> 3. [View experiment report](#view-experiment-report)
 
 ## Deploy an InferenceService
 
