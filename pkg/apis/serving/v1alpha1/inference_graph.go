@@ -45,9 +45,11 @@ type InferenceGraph struct {
 type InferenceGraphSpec struct {
 	// Map of InferenceGraph router nodes
 	// Each node defines the router which can be different routing types
-	Nodes     map[string]InferenceRouter  `json:"nodes"`
+	Nodes map[string]InferenceRouter `json:"nodes"`
+	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty" protobuf:"bytes,8,opt,name=resources"`
-	Affinity  *corev1.Affinity            `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
 }
 
 // InferenceRouterType constant for inference routing types
