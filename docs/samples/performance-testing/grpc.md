@@ -1,10 +1,17 @@
 # gRPC Performance test
 
-This tutorial demonstrates performance testing for KServe inference services using gRPC. We will use [Iter8](https://iter8.tools) for generating load and validing service-level objectives (SLOs) for the inference service. Performance testing of KServe inference services using HTTP is described [here](README.md).
-
-[Iter8](https://iter8.tools) is an open-source Kubernetes release optimizer that makes it easy to ensure that your ML models perform well and maximize business value.
+This tutorial demonstrates performance testing for KServe inference services using gRPC. We will use [Iter8](https://iter8.tools) for generating load and validing service-level objectives (SLOs) for the inference service. [Iter8](https://iter8.tools) is an open-source Kubernetes release optimizer that makes it easy to ensure that your ML models perform well and maximize business value.
 
 ![Iter8 gRPC performanc test](grpc.png)
+
+***
+
+> Performance testing of KServe inference services using HTTP is described [here](README.md). Canary testing using Prometheus metrics is described [here](../canary-testing/README.md). This tutorial focuses on performance testing of KServe inference services with gRPC endpoints. The main steps in this tutorial are:
+> 1. [Deploy an InferenceService](#deploy-an-inferenceservice)
+> 2. [Launch an Iter8 experiment](#launch-an-iter8-experiment)
+> 3. [View experiment report](#view-experiment-report)
+
+***
 
 ## Deploy an InferenceService
 
@@ -87,3 +94,7 @@ Delete the Iter8 experiment and KServe inference service.
 iter8 k delete
 kubectl delete isvc sklearn-irisv2
 ```
+
+***
+
+This tutorial just scratches the surface of Iter8 experimentation capabilities. For more features (for example, automatically sending [a notification](https://iter8.tools/0.13/user-guide/tasks/slack/#if-parameter) to slack or GitHub with experiment results), please see [Iter8 documentation](https://iter8.tools).

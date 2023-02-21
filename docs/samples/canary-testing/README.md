@@ -1,10 +1,16 @@
 # Canary testing
 
-This tutorial demonstrates canary testing for KServe inference services where model metrics are already being written to Prometheus. We will use [Iter8](https://iter8.tools) to read the metrics from Prometheus and valide service-level objectives (SLOs) for two versions of an inference service. 
+This tutorial demonstrates canary testing for KServe inference services using model metrics written to Prometheus. We will use [Iter8](https://iter8.tools) to read the metrics from Prometheus and validate service-level objectives (SLOs) for two model versions. [Iter8](https://iter8.tools) is an open-source Kubernetes release optimizer that makes it easy to ensure that your ML models perform well and maximize business value.
 
-[Iter8](https://iter8.tools) is an open-source Kubernetes release optimizer that makes it easy to ensure that your ML models perform well and maximize business value.
+![Canary testing](canary.png)
 
-![Canary test](grpc.png)
+***
+
+> Performance (load) testing of KServe inference services is described [here](../performance-testing/README.md). This tutorial focuses on canary testing using Prometheus metrics. The main steps in this tutorial are:
+> 1. [Deploy an InferenceService](#deploy-an-inferenceservice)
+> 2. [Deploy canary version](#deploy-canary-version)
+> 3. [Launch an Iter8 experiment](#launch-an-iter8-experiment)
+> 4. [View experiment report](#view-experiment-report)
 
 ## Setup
 
@@ -12,7 +18,7 @@ Install Prometheus monitoring for KServe [using these instructions](https://gith
 
 ## Deploy an InferenceService
 
-Create an InferenceService that exposes an gRPC port. The following serves the SciKit [iris model](https://kserve.github.io/website/0.10/modelserving/v1beta1/rollout/canary-example/):
+Create an InferenceService. The following serves the SciKit [iris model](https://kserve.github.io/website/0.10/modelserving/v1beta1/rollout/canary-example/):
 
 ```shell
 kubectl apply -f - <<EOF
@@ -28,6 +34,8 @@ spec:
       storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
 EOF
 ```
+
+## Deploy canary version
 
 Update the inference service with a canary model, `model-2`, configured to receive 10% of prediction requests.
 
@@ -125,3 +133,7 @@ Delete the Iter8 experiment and KServe inference service.
 iter8 k delete
 kubectl delete isvc sklearn-iris
 ```
+
+***
+
+This tutorial just scratches the surface of Iter8 experimentation capabilities. For more features (for example, automatically sending [a notification](https://iter8.tools/0.13/user-guide/tasks/slack/#if-parameter) to slack or GitHub with experiment results), please see [Iter8 documentation](https://iter8.tools).

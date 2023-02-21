@@ -6,10 +6,12 @@ This tutorial demonstrates performance testing for KServe inference services usi
 
 ***
 
-> Performance testing of KServe inference services using gRPC is described [here](grpc.md). This tutorial focuses on KServe inference services with HTTP endpoints. The main steps in this tutorial are:
+> Performance testing of KServe inference services using gRPC is described [here](grpc.md). Canary testing using Prometheus metrics is described [here](../canary-testing/README.md). This tutorial focuses on performance testing of KServe inference services with HTTP endpoints. The main steps in this tutorial are:
 > 1. [Deploy an InferenceService](#deploy-an-inferenceservice)
 > 2. [Launch an Iter8 experiment](#launch-an-iter8-experiment)
 > 3. [View experiment report](#view-experiment-report)
+
+***
 
 ## Deploy an InferenceService
 
@@ -86,3 +88,7 @@ Delete the Iter8 experiment and KServe inference service.
 iter8 k delete
 kubectl delete isvc sklearn-irisv2
 ```
+
+***
+
+This tutorial just scratches the surface of Iter8 experimentation capabilities. For more features (for example, automatically sending [a notification](https://iter8.tools/0.13/user-guide/tasks/slack/#if-parameter) to slack or GitHub with experiment results), please see [Iter8 documentation](https://iter8.tools).
