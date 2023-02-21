@@ -53,13 +53,13 @@ iter8 k launch \
 
 ### More about this Iter8 experiment
 
-1. This experiment consists of three [tasks](https://iter8.tools/0.13/getting-started/concepts/#iter8-experiment), namely, [ready](https://iter8.tools/0.13/user-guide/tasks/ready.md), [http](https://iter8.tools/0.13/user-guide/tasks/http.md), and [assess](https://iter8.tools/0.13/user-guide/tasks/assess.md).
+1. This experiment consists of three [tasks](https://iter8.tools/0.13/getting-started/concepts/#iter8-experiment), namely, [ready](https://iter8.tools/0.13/user-guide/tasks/ready), [http](https://iter8.tools/0.13/user-guide/tasks/http), and [assess](https://iter8.tools/0.13/user-guide/tasks/assess).
 
-    * The [ready](https://iter8.tools/0.13/user-guide/tasks/ready.md) task checks if the `sklearn-irisv2` inference service exists and is ready to serve user requests.
+    * The [ready](https://iter8.tools/0.13/user-guide/tasks/ready) task checks if the `sklearn-irisv2` inference service exists and is ready to serve user requests.
 
-    * The [http](https://iter8.tools/0.13/user-guide/tasks/http.md) task sends requests to the cluster-local HTTP service whose URL is `http://sklearn-irisv2.default.svc.cluster.local/v2/models/sklearn-irisv2/infer`, and collects [Iter8's built-in HTTP load test metrics](https://iter8.tools/0.13/user-guide/tasks/http.md#metrics). As part of these requests, it uses the JSON data at [this payloadURL](https://gist.githubusercontent.com/kalantar/d2dd03e8ebff2c57c3cfa992b44a54ad/raw/97a0480d0dfb1deef56af73a0dd31c80dc9b71f4/sklearn-irisv2-input.json) as the payload.
+    * The [http](https://iter8.tools/0.13/user-guide/tasks/http) task sends requests to the cluster-local HTTP service whose URL is `http://sklearn-irisv2.default.svc.cluster.local/v2/models/sklearn-irisv2/infer`, and collects [Iter8's built-in HTTP load test metrics](https://iter8.tools/0.13/user-guide/tasks/http#metrics). As part of these requests, it uses the JSON data at [this payloadURL](https://gist.githubusercontent.com/kalantar/d2dd03e8ebff2c57c3cfa992b44a54ad/raw/97a0480d0dfb1deef56af73a0dd31c80dc9b71f4/sklearn-irisv2-input.json) as the payload.
 
-    * The [assess](https://iter8.tools/0.13/user-guide/tasks/assess.md) task verifies if the app satisfies the specified SLOs: i) the mean latency of the service does not exceed 500 msec, ii) the 90th percentile latency of the service does not exceed 1000 msec, and iii) there are no errors (4xx or 5xx response codes) in the responses.
+    * The [assess](https://iter8.tools/0.13/user-guide/tasks/assess) task verifies if the app satisfies the specified SLOs: i) the mean latency of the service does not exceed 500 msec, ii) the 90th percentile latency of the service does not exceed 1000 msec, and iii) there are no errors (4xx or 5xx response codes) in the responses.
 
 2. This is a [single-loop experiment](https://iter8.tools/0.13/getting-started/concepts/#iter8-experiment) where all the previously mentioned tasks will run once and the experiment will finish. Hence, its [runner](https://iter8.tools/0.13/getting-started/concepts/#how-it-works) value is set to `job`.
 
