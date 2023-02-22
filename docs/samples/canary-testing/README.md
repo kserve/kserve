@@ -65,22 +65,30 @@ brew install iter8@0.13
 
 ## Generate Load
 
-In a production cluster with real users sending prediction requests, there would be no need to generate load. However, you can generate load as follows. First, port-forward local requests to the ingress gateway.
+In a production cluster with real users sending prediction requests, there would be no need to generate load. However, you can generate load as follows. First, [determine the ingress IP and ports](https://kserve.github.io/website/0.8/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) as in the [First Inference Service](https://kserve.github.io/website/0.8/get_started/first_isvc/) tutorial. For example, if using the [KServe quickstart environment](https://kserve.github.io/website/0.8/get_started/), you can port-forward requests through the ingress gateway:
 
 ```shell
-INGRESS_GATEWAY=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
-kubectl port-forward --namespace istio-system svc/$INGRESS_GATEWAY 8080:80
+INGRESS_GATEWAY_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
+kubectl port-forward --namespace istio-system svc/${INGRESS_GATEWAY_SERVICE} 8080:80
+export INGRESS_HOST=localhost
+export INGRESS_PORT=8080
 ```
 
-Then send prediction requests to the inference service. The following script generates about one request a second.
+Repeatedly send prediction requests to the inference service. For example the The following script generates about one request a second:
 
 ```shell
-while true; do 
-  curl -H 'Host: sklearn-iris.default.example.com' \
-    http://localhost:8080/v1/models/sklearn-iris:predict \
-    -d '{"instances": [[6.8,  2.8,  4.8,  1.4], [6.0,  3.4,  4.5,  1.6]]}'
+while true; do
+  CURL-REQUEST
   sleep 1
 done
+```
+
+Look at the [Perform Inference step](https://kserve.github.io/website/0.8/get_started/first_isvc/#5-perform-inference) of the [First Inference Service](https://kserve.github.io/website/0.8/get_started/first_isvc/) tutorial to determine `CURL-REQUEST`.  For example, if using an ingress gateway with a HOST header:
+
+```shell
+curl -H 'Host: sklearn-iris.default.example.com' \
+  http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict \
+  -d '{"instances": [[6.8,  2.8,  4.8,  1.4], [6.0,  3.4,  4.5,  1.6]]}'
 ```
 
 ## Launch an Iter8 experiment
