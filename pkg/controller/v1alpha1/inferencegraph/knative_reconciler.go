@@ -180,7 +180,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 
 	// Use spec headers over router config headers
 	if specHeadersExists {
-		log.Info("Found spec header")
+		log.Info("Found following inference graph spec headers to propagate ", "specHeaders", specHeaders)
 		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []v1.EnvVar{
 			{
 				Name:  constants.RouterHeadersPropagateEnvVar,
@@ -188,7 +188,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 			},
 		}
 	} else if configHeadersExists {
-		log.Info("Found config header")
+		log.Info("Found following headers to propagate in global router config", "configHeaders", configHeaders)
 		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []v1.EnvVar{
 			{
 				Name:  constants.RouterHeadersPropagateEnvVar,
