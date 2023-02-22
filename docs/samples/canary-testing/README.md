@@ -55,6 +55,12 @@ spec:
 EOF
 ```
 
+Verify that your inference service is ready.
+
+```shell
+kubectl wait --for=condition=Ready --timeout=60s isvc/sklearn-iris
+```
+
 ## Install Iter8 CLI
 Install the Iter8 CLI using `brew` as follows. You can also install using pre-built binaries as described [here](https://iter8.tools/0.13/getting-started/install/).
 
@@ -76,14 +82,15 @@ In a separate terminal, run the following command.
 ```shell
 while true; do
   curl -H 'Host: sklearn-iris.default.example.com' \
-    http://localhost:8080/v1/models/sklearn-iris:predict \
-    -d '{"instances": [[6.8,  2.8,  4.8,  1.4], [6.0,  3.4,  4.5,  1.6]]}'
+  http://localhost:8080/v1/models/sklearn-iris:predict \
+  -d '{"instances": [[6.8,  2.8,  4.8,  1.4], [6.0,  3.4,  4.5,  1.6]]}';
+  echo "";
   sleep 1
 done
 ```
 
 ## Launch an Iter8 experiment
-Iter8 introduces the notion of an *experiment* that makes it easy to verify that your inference service is ready, collect latency and error related metrics, and assess SLOs for performance validation. Launch the Iter8 experiment inside the Kubernetes cluster.
+Iter8 introduces the notion of an *experiment* that makes it easy to verify that your inference service is ready, fetch metrics for the stable and canary versions of your ML model from Prometheus, and assess service-level objectives (SLOs). Launch the Iter8 experiment inside the Kubernetes cluster.
 
 ```shell
 iter8 k launch \
@@ -104,7 +111,7 @@ iter8 k launch \
 
 ### More about this Iter8 experiment
 
-1. This experiment consists of three [tasks](https://iter8.tools/0.13/getting-started/concepts/#iter8-experiment), namely, [ready](https://iter8.tools/0.13/user-guide/tasks/ready), [custommetrics](https://iter8.tools/0.13/user-guide/tasks/custommetrics), and [assess](https://iter8.tools/0.13/user-guide/tasks/assess).
+1. This experiment consists of three tasks, namely, [ready](https://iter8.tools/0.13/user-guide/tasks/ready), [custommetrics](https://iter8.tools/0.13/user-guide/tasks/custommetrics), and [assess](https://iter8.tools/0.13/user-guide/tasks/assess).
 
     * The [ready](https://iter8.tools/0.13/user-guide/tasks/ready) task checks if the `sklearn-iris` inference service exists and is ready to serve user requests.
 
@@ -112,7 +119,7 @@ iter8 k launch \
 
     * The [assess](https://iter8.tools/0.13/user-guide/tasks/assess) task verifies if the app satisfies the specified SLOs: i) the mean latency of the service does not exceed 50 msec, ii) the 90th percentile latency of the service does not exceed 75 msec, and iii) there are no errors (4xx or 5xx response codes) in the responses.
 
-2. This is a [multi-loop experiment](https://iter8.tools/0.13/getting-started/concepts/#iter8-experiment) where all the previously mentioned tasks will run repeatedly per the `cronjobSchedule`. Hence, its [runner](https://iter8.tools/0.13/getting-started/concepts/#how-it-works) value is set to `cronjob`.
+2. This is a multi-loop experiment where all the previously mentioned tasks will run repeatedly per the `cronjobSchedule` (once per minute).
 
 ## View experiment report
 ```shell
