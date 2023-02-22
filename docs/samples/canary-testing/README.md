@@ -12,7 +12,7 @@ This tutorial demonstrates canary testing for KServe inference services using mo
 > 3. [Launch an Iter8 experiment](#launch-an-iter8-experiment)
 > 4. [View experiment report](#view-experiment-report)
 
-## Setup
+## Install Prometheus
 
 Install Prometheus monitoring for KServe [using these instructions](https://github.com/kserve/kserve/tree/master/docs/samples/metrics-and-monitoring#install-prometheus).
 
