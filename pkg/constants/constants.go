@@ -116,6 +116,13 @@ var (
 	PredictorProtocolAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/predictor-protocol"
 )
 
+// kserve networking constants
+const (
+	NetworkVisibility      = "networking.kserve.io/visibility"
+	ClusterLocalVisibility = "cluster-local"
+	ClusterLocalDomain     = "svc.cluster.local"
+)
+
 // StorageSpec Constants
 var (
 	DefaultStorageSpecSecret     = "storage-config"

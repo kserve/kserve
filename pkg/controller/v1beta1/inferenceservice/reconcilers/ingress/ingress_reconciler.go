@@ -282,7 +282,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 	}
 	isInternal := false
 	//if service is labelled with cluster local or knative domain is configured as internal
-	if val, ok := isvc.Labels[constants.VisibilityLabel]; ok && val == "cluster-local" {
+	if val, ok := isvc.Labels[constants.VisibilityLabel]; ok && val == constants.ClusterLocalVisibility {
 		isInternal = true
 	}
 	serviceInternalHostName := network.GetServiceHostname(isvc.Name, isvc.Namespace)
