@@ -37,7 +37,7 @@ from ..common.utils import predict
 api_version = constants.KSERVE_V1BETA1
 
 
-@pytest.mark.slow
+@pytest.mark.raw
 def test_raw_deployment_kserve():
     service_name = "raw-sklearn"
     annotations = dict()
@@ -72,7 +72,7 @@ def test_raw_deployment_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.raw
 def test_raw_deployment_runtime_kserve():
     service_name = "raw-sklearn-runtime"
     annotations = dict()

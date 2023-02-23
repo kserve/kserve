@@ -160,7 +160,7 @@ def test_sklearn_kserve_cpu():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.raw
 def test_sklearn_kserve_raw():
     service_name = "isvc-sklearn-scale-raw"
     predictor = V1beta1PredictorSpec(

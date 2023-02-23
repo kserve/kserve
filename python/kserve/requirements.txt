@@ -18,5 +18,4 @@ prometheus-client>=0.13.1
 orjson>=3.8.0
 httpx>=0.23.0
 fastapi>=0.89.1
-uvicorn>=0.16.0
 timing_asgi>=0.3.0

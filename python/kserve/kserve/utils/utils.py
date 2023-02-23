@@ -16,12 +16,12 @@ import os
 import sys
 import uuid
 from typing import Dict, Union
+from kserve.utils.numpy_codec import from_np_dtype
 
 import psutil
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
-from kserve.constants.constants import NUMPY_TO_DATATYPE
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
 
 
@@ -154,7 +154,7 @@ def get_predict_response(payload: Union[Dict, InferRequest], result, model_name:
         infer_output = InferOutput(
             name="output-0",
             shape=list(result.shape),
-            datatype=NUMPY_TO_DATATYPE.get(str(result.dtype)),
+            datatype=from_np_dtype(result.dtype),
             data=result.flatten().tolist()
         )
         return InferResponse(

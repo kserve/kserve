@@ -256,8 +256,7 @@ def test_xgboost_v2_grpc():
     payload = json.load(json_file)["inputs"]
     response = predict_grpc(service_name=service_name,
                             payload=payload, model_name=model_name)
-    fields = response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    assert field_value == [1.0, 1.0]
+    prediction = list(response.outputs[0].contents.fp32_contents)
+    assert prediction == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

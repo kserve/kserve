@@ -71,22 +71,3 @@ OBSERVED_GENERATION = 'observedGeneration'
 
 # K8S metadata key constants
 GENERATION = 'generation'
-
-# model input datatypes and numpy datatypes mapping
-DATATYPE_TO_NUMPY = {
-    "BOOL": "bool",
-    "UINT8": "uint8",
-    "UINT16": "uint16",
-    "UINT32": "uint32",
-    "UINT64": "uint64",
-    "INT8": "int8",
-    "INT16": "int16",
-    "INT32": "int32",
-    "INT64": "int64",
-    "FP16": "float16",
-    "FP32": "float32",
-    "FP64": "float64",
-    "BYTES": "byte",
-}
-
-NUMPY_TO_DATATYPE = {value: key for key, value in DATATYPE_TO_NUMPY.items()}

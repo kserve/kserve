@@ -228,9 +228,8 @@ def test_lightgbm_v2_grpc():
     payload = json.load(json_file)["inputs"]
 
     response = predict_grpc(service_name=service_name, payload=payload, model_name=model_name)
-    fields = response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    assert field_value == [
+    prediction = list(response.outputs[0].contents.fp64_contents)
+    assert prediction == [
         8.796664107010673e-06,
         0.9992300031041593,
         0.0007612002317336916,

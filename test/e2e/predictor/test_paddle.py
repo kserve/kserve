@@ -208,8 +208,7 @@ def test_paddle_v2_grpc():
     payload = json.load(json_file)["inputs"]
     response = predict_grpc(service_name=service_name,
                             payload=payload, model_name=model_name)
-    fields = response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    assert np.argmax(field_value) == 17
+    prediction = list(response.outputs[0].contents.fp32_contents)
+    assert np.argmax(prediction) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

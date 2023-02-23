@@ -245,8 +245,7 @@ def test_sklearn_v2_grpc():
 
     response = predict_grpc(service_name=service_name,
                             payload=payload, model_name=model_name)
-    fields = response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    assert field_value == [1, 1]
+    prediction = list(response.outputs[0].contents.int64_contents)
+    assert prediction == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

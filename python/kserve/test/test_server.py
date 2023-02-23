@@ -80,7 +80,7 @@ class DummyModel(Model):
         if isinstance(request, InferRequest):
             inputs = get_predict_input(request)
             infer_response = get_predict_response(request, inputs, self.name)
-            return infer_response.to_rest()
+            return infer_response
         else:
             return {"predictions": request["instances"]}
 
@@ -102,7 +102,7 @@ class DummyServeModel(Model):
         if isinstance(request, InferRequest):
             inputs = get_predict_input(request)
             infer_response = get_predict_response(request, inputs, self.name)
-            return infer_response.to_rest()
+            return infer_response
         else:
             return {"predictions": request["instances"]}
 
@@ -213,7 +213,7 @@ class TestTFHttpServer:
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
-        return TestClient(app)
+        return TestClient(app, headers={"content-type": "application/json"})
 
     def test_liveness(self, http_server_client):
         resp = http_server_client.get('/')
@@ -285,7 +285,7 @@ class TestRayServer:
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
-        return TestClient(app)
+        return TestClient(app, headers={"content-type": "application/json"})
 
     def test_liveness_handler(self, http_server_client):
         resp = http_server_client.get('/')
