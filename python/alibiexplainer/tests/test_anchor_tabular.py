@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from alibiexplainer.anchor_tabular import AnchorTabular
-import kserve
 import os
 import dill
 from sklearnserver.model import SKLearnModel

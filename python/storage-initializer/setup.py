@@ -34,8 +34,9 @@ setuptools.setup(
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net',
     license="Apache License Version 2.0",
     url="https://github.com/kserve/kserve/tree/master/python/storage-initializer",
-    description="KServe Storage",
-    long_description="Python SDK for KServe storage.",
+    description="Python module for kserve storage initializer.",
+    long_description="Kserve storage is used by storage initializer for downloading models from various storage \
+                      providers.",
     python_requires='>=3.7',
     package_data={'': ['requirements.txt']},
     include_package_data=True,

@@ -17,7 +17,6 @@ import os
 import tensorflow as tf
 import json
 import numpy as np
-import kserve
 import dill
 from storage import Storage
 
