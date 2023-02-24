@@ -97,7 +97,7 @@ iter8 k launch \
 --set "tasks={ready,custommetrics,assess}" \
 --set ready.isvc=sklearn-iris \
 --set ready.timeout=180s \
---set custommetrics.templates.kserve-prometheus="https://gist.githubusercontent.com/kalantar/adc6c9b0efe483c00b8f0c20605ac36c/raw/c4562e87b7ac0652b0e46f8f494d024307bff7a1/kserve-prometheus.tpl" \
+--set custommetrics.templates.kserve-prometheus="https://gist.githubusercontent.com/kalantar/adc6c9b0efe483c00b8f0c20605ac36c/raw/27a02f83d9786ed0ddf96b5c196508af9bf6e411/kserve-prometheus.tpl" \
 --set custommetrics.values.labels.service_name=sklearn-iris-predictor-default \
 --set 'custommetrics.versionValues[0].labels.revision_name=sklearn-iris-predictor-default-00001' \
 --set 'custommetrics.versionValues[1].labels.revision_name=sklearn-iris-predictor-default-00002' \
