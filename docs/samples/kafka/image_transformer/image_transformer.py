@@ -12,10 +12,14 @@
 # limitations under the License.
 
 import kserve
-from typing import Dict
+from typing import Dict, Union
 import logging
 import boto3
 import cv2
+from cloudevents.http import CloudEvent
+
+from kserve import InferRequest, InferResponse
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
@@ -37,7 +41,8 @@ class ImageTransformer(kserve.Model):
         self.predictor_host = predictor_host
         self._key = None
 
-    def preprocess(self, inputs: Dict) -> Dict:
+    def preprocess(self, inputs: Union[Dict, CloudEvent, InferRequest],
+                   headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         if inputs['EventName'] == 's3:ObjectCreated:Put':
             bucket = inputs['Records'][0]['s3']['bucket']['name']
             key = inputs['Records'][0]['s3']['object']['key']
@@ -47,9 +52,10 @@ class ImageTransformer(kserve.Model):
             return {"instances": [request]}
         raise Exception("unknown event")
 
-    def postprocess(self, inputs: Dict) -> Dict:
-        logging.info(inputs)
-        index = inputs["predictions"][0]["classes"]
+    def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
+            -> Union[Dict, ModelInferResponse]:
+        logging.info(response)
+        index = response["predictions"][0]["classes"]
         logging.info("digit:" + str(index))
-        client.upload_file('/tmp/' + self._key, 'digit-'+str(index), self._key)
-        return inputs
+        client.upload_file('/tmp/' + self._key, 'digit-' + str(index), self._key)
+        return response
