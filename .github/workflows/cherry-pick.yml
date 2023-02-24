@@ -23,3 +23,5 @@ jobs:
             cherry-pick
           reviewers: |
             yuzisun
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
