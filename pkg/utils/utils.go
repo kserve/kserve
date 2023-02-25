@@ -91,7 +91,7 @@ func FirstNonNilError(objects []error) error {
 	return nil
 }
 
-// Helper functions to remove string from a slice of strings.
+// RemoveString Helper functions to remove string from a slice of strings.
 func RemoveString(slice []string, s string) (result []string) {
 	for _, item := range slice {
 		if item == s {
@@ -102,7 +102,7 @@ func RemoveString(slice []string, s string) (result []string) {
 	return
 }
 
-// Check if a given string contains one of the prefixes in the provided list.
+// IsPrefixSupported Check if a given string contains one of the prefixes in the provided list.
 func IsPrefixSupported(input string, prefixes []string) bool {
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(input, prefix) {
@@ -112,7 +112,7 @@ func IsPrefixSupported(input string, prefixes []string) bool {
 	return false
 }
 
-// Merge a slice of EnvVars (`O`) into another slice of EnvVars (`B`), which does the following:
+// MergeEnvs Merge a slice of EnvVars (`O`) into another slice of EnvVars (`B`), which does the following:
 // 1. If an EnvVar is present in B but not in O, value remains unchanged in the result
 // 2. If an EnvVar is present in `O` but not in `B`, appends to the result
 // 3. If an EnvVar is present in both O and B, uses the value from O in the result
