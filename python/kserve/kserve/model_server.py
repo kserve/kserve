@@ -16,6 +16,7 @@ import argparse
 import asyncio
 import concurrent.futures
 import logging
+import multiprocessing
 import socket
 from distutils.util import strtobool
 from typing import List, Dict, Union
@@ -134,10 +135,14 @@ class ModelServer:
             serversocket.listen(5)
 
             logging.info(f"starting uvicorn with {self.workers} workers")
-            for _ in range(self.workers):
-                server = UvicornProcess(self.http_port, [serversocket],
-                                        self.dataplane, self.model_repository_extension, self.enable_docs_url)
-                server.start()
+
+            # make `spawn` as a default method for starting multiprocessing
+            with multiprocessing.get_context("spawn").Pool() as pool:
+                for _ in range(self.workers):
+                    server = UvicornProcess(self.http_port, [serversocket],
+                                            self.dataplane, self.model_repository_extension,
+                                            self.enable_docs_url)
+                    pool.apply_async(server.start())
 
         async def servers_task():
             servers = [serve()]
