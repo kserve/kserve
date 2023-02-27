@@ -93,14 +93,20 @@ done
 Iter8 introduces the notion of an *experiment* that makes it easy to verify that your inference service is ready, fetch metrics for the stable and canary versions of your ML model from Prometheus, and assess service-level objectives (SLOs). Launch the Iter8 experiment inside the Kubernetes cluster.
 
 ```shell
+ISVC="sklearn-iris"
+CURRENT_REVISION=$(kubectl get isvc ${ISVC} -o jsonpath='{.status.components.predictor.latestRolledoutRevision}')
+CANARY_REVISION=$(kubectl get isvc ${ISVC} -o jsonpath='{.status.components.predictor.latestCreatedRevision}')
+```
+
+```shell
 iter8 k launch \
 --set "tasks={ready,custommetrics,assess}" \
---set ready.isvc=sklearn-iris \
+--set ready.isvc=${ISVC} \
 --set ready.timeout=180s \
 --set custommetrics.templates.kserve-prometheus="https://gist.githubusercontent.com/kalantar/adc6c9b0efe483c00b8f0c20605ac36c/raw/27a02f83d9786ed0ddf96b5c196508af9bf6e411/kserve-prometheus.tpl" \
---set custommetrics.values.labels.service_name=sklearn-iris-predictor-default \
---set 'custommetrics.versionValues[0].labels.revision_name=sklearn-iris-predictor-default-00001' \
---set 'custommetrics.versionValues[1].labels.revision_name=sklearn-iris-predictor-default-00002' \
+--set custommetrics.values.labels.service_name=${ISVC}-predictor-default \
+--set "custommetrics.versionValues[0].labels.revision_name=${CURRENT_REVISION}" \
+--set "custommetrics.versionValues[1].labels.revision_name=${CANARY_REVISION}" \
 --set "custommetrics.values.latencyPercentiles={50,75,90,95}" \
 --set assess.SLOs.upper.kserve-prometheus/latency-mean=50 \
 --set assess.SLOs.upper.kserve-prometheus/latency-p90=75 \
