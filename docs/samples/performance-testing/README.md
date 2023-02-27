@@ -33,6 +33,12 @@ spec:
 EOF
 ```
 
+Verify that your inference service is ready.
+
+```shell
+kubectl wait --for=condition=Ready --timeout=60s isvc/sklearn-irisv2
+```
+
 ## Install Iter8 CLI
 Install the Iter8 CLI using `brew` as follows. You can also install using pre-built binaries as described [here](https://iter8.tools/0.13/getting-started/install/).
 
