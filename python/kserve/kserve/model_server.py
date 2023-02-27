@@ -17,6 +17,7 @@ import asyncio
 import concurrent.futures
 import logging
 import socket
+import multiprocessing as mp
 from distutils.util import strtobool
 from typing import List, Dict, Union
 
@@ -97,6 +98,7 @@ class ModelServer:
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models)
         self._grpc_server = GRPCServer(grpc_port, self.dataplane, self.model_repository_extension)
+        mp.set_start_method('fork')
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if isinstance(models, list):
