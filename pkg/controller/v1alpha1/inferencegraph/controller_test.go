@@ -180,7 +180,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			//defer k8sClient.Delete(context.TODO(), configMap)
+			defer k8sClient.Delete(context.TODO(), configMap)
 			graphName := "singlenode"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
