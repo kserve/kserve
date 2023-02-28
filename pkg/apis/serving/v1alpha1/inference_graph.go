@@ -42,9 +42,40 @@ type InferenceGraph struct {
 // InferenceGraphSpec defines the InferenceGraph spec
 // +k8s:openapi-gen=true
 type InferenceGraphSpec struct {
+	// Activate request/response logging and logger configurations for all steps in the graph
+	// +optional
+	Logger *GraphLoggerSpec `json:"logger"`
 	// Map of InferenceGraph router nodes
 	// Each node defines the router which can be different routing types
 	Nodes map[string]InferenceRouter `json:"nodes"`
+}
+
+// GraphLoggerType controls the scope of log publishing
+// +kubebuilder:validation:Enum=all;request;response
+type GraphLoggerType string
+
+// LoggerType Enum
+const (
+	// Logger mode to log both request and response
+	LogAll GraphLoggerType = "all"
+	// Logger mode to log only request
+	LogRequest GraphLoggerType = "request"
+	// Logger mode to log only response
+	LogResponse GraphLoggerType = "response"
+)
+
+// GraphLoggerSpec specifies optional payload logging available at the InferenceGraph level
+type GraphLoggerSpec struct {
+	// URL to send logging events
+	// +optional
+	URL *string `json:"url,omitempty"`
+	// Specifies the scope of the loggers. <br />
+	// Valid values are: <br />
+	// - "all" (default): log both request and response; <br />
+	// - "request": log only request; <br />
+	// - "response": log only response <br />
+	// +optional
+	Mode GraphLoggerType `json:"mode,omitempty"`
 }
 
 // InferenceRouterType constant for inference routing types
