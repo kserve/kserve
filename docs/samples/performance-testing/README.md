@@ -74,7 +74,7 @@ iter8 k launch \
 
     * The [assess](https://iter8.tools/0.13/user-guide/tasks/assess) task verifies if the app satisfies the specified SLOs: i) the mean latency of the service does not exceed 500 msec, ii) the 90th percentile latency of the service does not exceed 1000 msec, and iii) there are no errors (4xx or 5xx response codes) in the responses.
 
-2. This is a [single-loop experiment](https://iter8.tools/0.13/getting-started/concepts/#iter8-experiment) where all the previously mentioned tasks will run once and the experiment will finish. Hence, its [runner](https://iter8.tools/0.13/getting-started/concepts/#how-it-works) value is set to `job`.
+2. This is a single-loop in which all the previously mentioned tasks will run once and the experiment will finish.
 
 ## View experiment report
 ```shell
