@@ -18,7 +18,7 @@ This tutorial demonstrates performance testing for KServe inference services usi
 Create an InferenceService that exposes an gRPC port. The following serves the SciKit [irisv2 model](https://kserve.github.io/website/0.10/modelserving/v1beta1/sklearn/v2/#deploy-with-inferenceservice):
 
 ```shell
-cat <<EOF | kubectl create -f -
+cat <<EOF | kubectl apply -f -
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
