@@ -77,13 +77,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
-	//ingressConfig := &v1beta1.IngressConfig{
-	//	IngressGateway:          constants.KnativeIngressGateway,
-	//	IngressServiceName:      "someIngressServiceName",
-	//	LocalGateway:            constants.KnativeLocalGateway,
-	//	LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
-	//	DisableIstioVirtualHost: false,
-	//}
 
 	err = (&InferenceGraphReconciler{
 		Client:   k8sClient,
