@@ -53,7 +53,7 @@ brew install iter8@0.13
 ```
 
 ## Launch an Iter8 experiment
-Iter8 introduces the notion of an *experiment* that makes it easy to verify that your inference service is ready, generate load for the inference, collect latency and error related metrics, and assess SLOs for performance validation. Launch the Iter8 experiment inside the Kubernetes cluster.
+Iter8 introduces the notion of an *experiment* that makes it easy to verify that your inference service is ready, generate load for the inference, collect latency and error-related metrics, and assess SLOs for performance validation. Launch the Iter8 experiment inside the Kubernetes cluster.
 
 ```shell
 iter8 k launch \
@@ -103,4 +103,4 @@ kubectl delete isvc sklearn-irisv2
 
 ***
 
-This tutorial just scratches the surface of Iter8 experimentation capabilities. For more features (for example, automatically sending [a notification](https://iter8.tools/0.13/user-guide/tasks/slack/#if-parameter) to slack or GitHub with experiment results), please see [Iter8 documentation](https://iter8.tools).
+This tutorial just scratches the surface of Iter8 experimentation capabilities. For more features (for example, automatically sending [a notification](https://iter8.tools/0.13/user-guide/tasks/slack/#if-parameter) to Slack or GitHub with experiment results), please see [Iter8 documentation](https://iter8.tools).
