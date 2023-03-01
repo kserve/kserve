@@ -36,7 +36,7 @@ EOF
 Verify that your inference service is ready.
 
 ```shell
-kubectl wait --for=condition=Ready --timeout=60s isvc/sklearn-irisv2
+kubectl wait --for=condition=Ready --timeout=600s isvc/sklearn-irisv2
 ```
 
 ## Install Iter8 CLI
@@ -54,7 +54,7 @@ Iter8 introduces the notion of an *experiment* that makes it easy to verify that
 iter8 k launch \
 --set "tasks={ready,http,assess}" \
 --set ready.isvc=sklearn-irisv2 \
---set ready.timeout=180s \
+--set ready.timeout=600s \
 --set http.url=http://sklearn-irisv2.default.svc.cluster.local/v2/models/sklearn-irisv2/infer \
 --set http.payloadURL=https://gist.githubusercontent.com/kalantar/d2dd03e8ebff2c57c3cfa992b44a54ad/raw/97a0480d0dfb1deef56af73a0dd31c80dc9b71f4/sklearn-irisv2-input.json \
 --set http.contentType="application/json" \

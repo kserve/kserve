@@ -58,7 +58,7 @@ EOF
 Verify that your inference service is ready.
 
 ```shell
-kubectl wait --for=condition=Ready --timeout=60s isvc/sklearn-iris
+kubectl wait --for=condition=Ready --timeout=600s isvc/sklearn-iris
 ```
 
 ## Install Iter8 CLI
@@ -102,7 +102,7 @@ CANARY_REVISION=$(kubectl get isvc ${ISVC} -o jsonpath='{.status.components.pred
 iter8 k launch \
 --set "tasks={ready,custommetrics,assess}" \
 --set ready.isvc=${ISVC} \
---set ready.timeout=180s \
+--set ready.timeout=600s \
 --set custommetrics.templates.kserve-prometheus="https://gist.githubusercontent.com/kalantar/adc6c9b0efe483c00b8f0c20605ac36c/raw/27a02f83d9786ed0ddf96b5c196508af9bf6e411/kserve-prometheus.tpl" \
 --set custommetrics.values.labels.service_name=${ISVC}-predictor-default \
 --set "custommetrics.versionValues[0].labels.revision_name=${CURRENT_REVISION}" \

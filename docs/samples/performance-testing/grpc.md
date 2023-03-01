@@ -41,7 +41,7 @@ EOF
 Verify that your inference service is ready.
 
 ```shell
-kubectl wait --for=condition=Ready --timeout=60s isvc/sklearn-irisv2
+kubectl wait --for=condition=Ready --timeout=600s isvc/sklearn-irisv2
 ```
 
 ## Install Iter8 CLI
@@ -59,7 +59,7 @@ Iter8 introduces the notion of an *experiment* that makes it easy to verify that
 iter8 k launch \
 --set "tasks={ready,grpc,assess}" \
 --set ready.isvc=sklearn-irisv2 \
---set ready.timeout=180s \
+--set ready.timeout=600s \
 --set grpc.protoURL=https://raw.githubusercontent.com/kserve/kserve/master/docs/predict-api/v2/grpc_predict_v2.proto \
 --set grpc.host=sklearn-irisv2-predictor-default.default.svc.cluster.local:80 \
 --set grpc.call=inference.GRPCInferenceService.ModelInfer \
