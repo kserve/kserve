@@ -16,16 +16,19 @@ import argparse
 import asyncio
 import concurrent.futures
 import logging
+import signal
 import socket
 from distutils.util import strtobool
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment, RayServeHandle
 
 from .protocol.grpc.server import GRPCServer
-from .protocol.rest.server import UvicornProcess
+from .protocol.rest.server import UvicornServer
 from .utils import utils
+import multiprocessing
+from multiprocessing import Process
 
 from .model import Model
 from .protocol.dataplane import DataPlane
@@ -133,11 +136,27 @@ class ModelServer:
             serversocket.bind(('0.0.0.0', self.http_port))
             serversocket.listen(5)
 
-            logging.info(f"starting uvicorn with {self.workers} workers")
-            for _ in range(self.workers):
-                server = UvicornProcess(self.http_port, [serversocket],
-                                        self.dataplane, self.model_repository_extension, self.enable_docs_url)
-                server.start()
+            logging.info(f"Starting uvicorn with {self.workers} workers")
+            loop = asyncio.get_event_loop()
+            for sig in [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]:
+                loop.add_signal_handler(
+                    sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
+                )
+            self._rest_server = UvicornServer(self.http_port, [serversocket],
+                                              self.dataplane, self.model_repository_extension, self.enable_docs_url)
+            if self.workers == 1:
+                await self._rest_server.run()
+            else:
+                # Since py38 MacOS/Windows defaults to use spawn for starting multiprocessing.
+                # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
+                # Spawn does not work with FastAPI/uvicorn in multiprocessing mode, use fork for multiprocessing
+                # https://github.com/tiangolo/fastapi/issues/1586
+                multiprocessing.set_start_method('fork')
+                server = UvicornServer(self.http_port, [serversocket],
+                                       self.dataplane, self.model_repository_extension, self.enable_docs_url)
+                for _ in range(self.workers):
+                    p = Process(target=server.run_sync)
+                    p.start()
 
         async def servers_task():
             servers = [serve()]
@@ -146,6 +165,15 @@ class ModelServer:
             await asyncio.gather(*servers)
 
         asyncio.run(servers_task())
+
+    async def stop(self, sig: Optional[int] = None):
+        logging.info("Stopping the model server")
+        if self._rest_server:
+            logging.info("Stopping the rest server")
+            await self._rest_server.stop()
+        if self._grpc_server:
+            logging.info("Stopping the grpc server")
+            await self._grpc_server.stop(sig)
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)
