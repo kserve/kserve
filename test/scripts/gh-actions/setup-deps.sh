@@ -21,7 +21,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
 
 ISTIO_VERSION="1.12.0"
 KNATIVE_VERSION="knative-v1.4.0"
@@ -34,14 +34,14 @@ wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_am
 echo "Installing Istio ..."
 mkdir istio_tmp
 pushd istio_tmp >/dev/null
-  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
-  cd istio-${ISTIO_VERSION}
-  export PATH=$PWD/bin:$PATH
-  istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout > ${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
+cd istio-${ISTIO_VERSION}
+export PATH=$PWD/bin:$PATH
+istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout >${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
 popd
 
 kubectl create ns istio-system
-for i in 1 2 3 ; do kubectl apply -k test/overlays/istio && break || sleep 15; done
+for i in 1 2 3; do kubectl apply -k test/overlays/istio && break || sleep 15; done
 
 echo "Waiting for Istio to be ready ..."
 kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
@@ -59,23 +59,28 @@ EOF
 
 echo "Installing Knative serving ..."
 pushd ${SCRIPT_DIR}/../../overlays/knative >/dev/null
-  curl -s -O -L https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-  curl -s -O -L https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+curl -s -O -L https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
+curl -s -O -L https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
 
-  # Kustomize does not work with integer map keys
-  sed -i 's/8443:/"8443":/g' release.yaml
+# Kustomize does not work with integer map keys
+sed -i 's/8443:/"8443":/g' release.yaml
 popd
 
-for i in 1 2 3 ; do kubectl apply -k test/overlays/knative && break || sleep 15; done
+for i in 1 2 3; do kubectl apply -k test/overlays/knative && break || sleep 15; done
 
 echo "Waiting for Knative to be ready ..."
 kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
 
-echo "Add knative hpa..."
+# echo "Add knative hpa..."
 # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
 
 # Skip tag resolution for certain domains
-kubectl patch cm config-deployment --patch '{"data":{"registries-skipping-tag-resolving":"nvcr.io,index.docker.io"}}' -n knative-serving
+# sleep to avoid knative webhook timeout error
+sleep 5
+# Retry if configmap patch fails
+for i in 1 2 3; do
+  kubectl patch cm config-deployment --patch '{"data":{"registries-skipping-tag-resolving":"nvcr.io,index.docker.io"}}' -n knative-serving && break || sleep 15
+done
 
 echo "Installing cert-manager ..."
 kubectl create namespace cert-manager
