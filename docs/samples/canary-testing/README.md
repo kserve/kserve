@@ -103,7 +103,7 @@ iter8 k launch \
 --set "tasks={ready,custommetrics,assess}" \
 --set ready.isvc=${ISVC} \
 --set ready.timeout=600s \
---set custommetrics.templates.kserve-prometheus="https://gist.githubusercontent.com/kalantar/adc6c9b0efe483c00b8f0c20605ac36c/raw/27a02f83d9786ed0ddf96b5c196508af9bf6e411/kserve-prometheus.tpl" \
+--set custommetrics.templates.kserve-prometheus="https://gist.githubusercontent.com/kalantar/adc6c9b0efe483c00b8f0c20605ac36c/raw/fc0696233aa766ec4ba1d82c206c1b78f8f1f267/kserve-prometheus.tpl" \
 --set custommetrics.values.labels.service_name=${ISVC}-predictor-default \
 --set "custommetrics.versionValues[0].labels.revision_name=${CURRENT_REVISION}" \
 --set "custommetrics.versionValues[1].labels.revision_name=${CANARY_REVISION}" \

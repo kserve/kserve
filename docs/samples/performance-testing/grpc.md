@@ -64,6 +64,7 @@ iter8 k launch \
 --set grpc.host=sklearn-irisv2-predictor-default.default.svc.cluster.local:80 \
 --set grpc.call=inference.GRPCInferenceService.ModelInfer \
 --set grpc.dataURL=https://gist.githubusercontent.com/kalantar/6e9eaa03cad8f4e86b20eeb712efef45/raw/56496ed5fa9078b8c9cdad590d275ab93beaaee4/sklearn-irisv2-input-grpc.json \
+--set grpc.warmupNumRequests=10 \
 --set assess.SLOs.upper.grpc/latency/mean=500 \
 --set assess.SLOs.upper.grpc/latency/p90=900 \
 --set assess.SLOs.upper.grpc/error-count=0 \
