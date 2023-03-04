@@ -17,13 +17,14 @@ import time
 from urllib.parse import urlparse
 
 import grpc
+import portforward
 import requests
 from kubernetes import client
 
 from kserve import KServeClient
 from kserve import constants
-from kserve.grpc import grpc_predict_v2_pb2 as pb
-from kserve.grpc import grpc_predict_v2_pb2_grpc
+from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
+from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
 
 from . import inference_pb2_grpc
 
@@ -81,22 +82,26 @@ def predict_str(service_name, input_json, protocol_version="v1",
     time.sleep(10)
     cluster_ip = get_cluster_ip()
     host = urlparse(isvc["status"]["url"]).netloc
+    path = urlparse(isvc["status"]["url"]).path
     headers = {"Host": host, "Content-Type": "application/json"}
 
     if model_name is None:
         model_name = service_name
 
-    url = f"http://{cluster_ip}/v1/models/{model_name}:predict"
+    url = f"http://{cluster_ip}{path}/v1/models/{model_name}:predict"
     if protocol_version == "v2":
-        url = f"http://{cluster_ip}/v2/models/{model_name}/infer"
+        url = f"http://{cluster_ip}{path}/v2/models/{model_name}/infer"
 
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_json)
     response = requests.post(url, input_json, headers=headers)
     logging.info("Got response code %s, content %s", response.status_code, response.content)
-    preds = json.loads(response.content.decode("utf-8"))
-    return preds
+    if response.status_code == 200:
+        preds = json.loads(response.content.decode("utf-8"))
+        return preds
+    else:
+        response.raise_for_status()
 
 
 def predict_ig(ig_name, input_json, protocol_version="v1",
@@ -122,8 +127,11 @@ def predict_ig(ig_name, input_json, protocol_version="v1",
         logging.info("Sending request data: %s", input_json)
         response = requests.post(url, data, headers=headers)
         logging.info("Got response code %s, content %s", response.status_code, response.content)
-        preds = json.loads(response.content.decode("utf-8"))
-        return preds
+        if response.status_code == 200:
+            preds = json.loads(response.content.decode("utf-8"))
+            return preds
+        else:
+            response.raise_for_status()
 
 
 def explain(service_name, input_json):
@@ -164,17 +172,12 @@ def explain_response(service_name, input_json):
                 response.status_code,
                 response.content,
             )
-            json_response = json.loads(response.content.decode("utf-8"))
+            if response.status_code == 200:
+                json_response = json.loads(response.content.decode("utf-8"))
+            else:
+                response.raise_for_status()
         except (RuntimeError, json.decoder.JSONDecodeError) as e:
             logging.info("Explain error -------")
-            logging.info(
-                kfs_client.api_instance.get_namespaced_custom_object(
-                    "serving.knative.dev",
-                    "v1",
-                    KSERVE_TEST_NAMESPACE,
-                    "services",
-                    service_name + "-explainer",
-                ))
             pods = kfs_client.core_api.list_namespaced_pod(
                 KSERVE_TEST_NAMESPACE,
                 label_selector="serving.kserve.io/inferenceservice={}".format(
@@ -195,10 +198,9 @@ def explain_response(service_name, input_json):
         return json_response
 
 
-def get_cluster_ip():
+def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
     api_instance = client.CoreV1Api(client.ApiClient())
-    service = api_instance.read_namespaced_service("istio-ingressgateway",
-                                                   "istio-system")
+    service = api_instance.read_namespaced_service(name, namespace)
     if service.status.load_balancer.ingress is None:
         cluster_ip = service.spec.cluster_ip
     else:
@@ -232,3 +234,15 @@ def predict_grpc(service_name, payload, version=constants.KSERVE_V1BETA1_VERSION
         options=(('grpc.ssl_target_name_override', host),))
     stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(channel)
     return stub.ModelInfer(pb.ModelInferRequest(model_name=model_name, inputs=payload))
+
+
+def predict_modelmesh(service_name, input_json, pod_name, model_name=None):
+    with open(input_json) as json_file:
+        data = json.load(json_file)
+
+        if model_name is None:
+            model_name = service_name
+        with portforward.forward("default", pod_name, 8008, 8008, waiting=5):
+            url = f"http://localhost:8008/v2/models/{model_name}/infer"
+            response = requests.post(url, json.dumps(data))
+            return json.loads(response.content.decode("utf-8"))

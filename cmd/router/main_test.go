@@ -9,8 +9,14 @@ import (
 	"knative.dev/pkg/apis"
 	"net/http"
 	"net/http/httptest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"testing"
 )
+
+func init() {
+	logf.SetLogger(zap.New())
+}
 
 func TestSimpleModelChainer(t *testing.T) {
 	// Start a local HTTP server

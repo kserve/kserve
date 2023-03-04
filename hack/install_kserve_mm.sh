@@ -42,8 +42,8 @@ export CTLR_NS="kserve"
 export USER_NS=$(kubectl config  get-contexts $(kubectl config current-context) |tail -1|awk '{ print $5 }')
 export user_ns_array=()
 export C_DIR="$PWD"
-export KSERVE_BRANCH="release-0.9"
-export MMS_BRANCH="release-0.9"
+export KSERVE_BRANCH="release-0.10"
+export MMS_BRANCH="release-0.10"
 
 while (($# > 0)); do
   case "$1" in

@@ -11,14 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Dict
+from typing import List, Dict, Union
 import logging
-import kserve
+
 import http.client
 import json
 import numpy as np
+from cloudevents.http import CloudEvent
 from tritonclient.grpc import service_pb2 as pb
 from tritonclient.grpc import InferResult
+
+import kserve
+from kserve import InferRequest, InferResponse
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
@@ -31,6 +36,7 @@ class DriverTransformer(kserve.Model):
         kserve (class object): The Model class from the KServe
         module is passed here.
     """
+
     def __init__(self, name: str,
                  predictor_host: str,
                  protocol: str,
@@ -112,30 +118,32 @@ class DriverTransformer(kserve.Model):
                     "datatype": "FP32",
                     "data": request_data
                 }
-              ]
+            ]
             }
         if self.protocol == "grpc-v2":
             data = np.array(request_data, dtype=np.float32).flatten()
             tensor_contents = pb.InferTensorContents(fp32_contents=data)
             inputs = pb.ModelInferRequest().InferInputTensor(
-                    name="predict",
-                    shape=[len(features["field_values"]), len(self.feature_refs_key) + 1],
-                    datatype="FP32",
-                    contents=tensor_contents
+                name="predict",
+                shape=[len(features["field_values"]), len(self.feature_refs_key) + 1],
+                datatype="FP32",
+                contents=tensor_contents
             )
 
             result = pb.ModelInferRequest(model_name=self.name, inputs=[inputs])
 
         return result
 
-    def preprocess(self, inputs: Dict) -> Dict:
+    def preprocess(self, inputs: Union[Dict, CloudEvent, InferRequest],
+                   headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         """Pre-process activity of the driver input data.
 
         Args:
-            inputs (Dict): http request
+            inputs (Dict|CloudEvent|InferRequest): Body of the request, v2 endpoints pass InferRequest.
+            headers (Dict): Request headers.
 
         Returns:
-            Dict: Returns the request input after ingesting online features
+            Dict|InferRequest: Transformed inputs to ``predict`` handler or return InferRequest for predictor call.
         """
 
         headers = {"Content-type": "application/json", "Accept": "application/json"}
@@ -155,19 +163,21 @@ class DriverTransformer(kserve.Model):
 
         return outputs
 
-    def postprocess(self, inputs: Dict) -> Dict:
+    def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
+            -> Union[Dict, ModelInferResponse]:
         """Post process function of the driver ranking output data. Here we
         simply pass the raw rankings through. Convert gRPC response if needed.
 
         Args:
-            inputs (Dict): The inputs
+            response (Dict|InferResponse|ModelInferResponse): The response passed from ``predict`` handler.
+            headers (Dict): Request headers.
 
         Returns:
             Dict: If a post process functionality is specified, it could convert
             raw rankings into a different list.
         """
-        logging.info("The output from model predict is %s", inputs)
+        logging.info("The output from model predict is %s", response)
         if self.protocol == "grpc-v2":
-            response = InferResult(inputs)
+            response = InferResult(response)
             return response.get_response(as_json=True)
-        return inputs
+        return response

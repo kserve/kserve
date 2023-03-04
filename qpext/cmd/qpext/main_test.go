@@ -18,14 +18,59 @@ package main
 
 import (
 	logger "github.com/kserve/kserve/qpext"
-	"github.com/prometheus/client_golang/prometheus"
+	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+var testEnvVarVal = "something"
+
+func setEnvVars(t *testing.T) {
+	for _, key := range EnvVars {
+		t.Setenv(key, testEnvVarVal)
+	}
+}
+
+func TestGetServerlessLabelVals(t *testing.T) {
+	setEnvVars(t)
+	labelVals := getServerlessLabelVals()
+	for idx, val := range labelVals {
+		assert.Equal(t, os.Getenv(EnvVars[idx]), val)
+	}
+}
+
+func TestAddServerlessLabels(t *testing.T) {
+	testName := "test_name"
+	testValue := "test_value"
+	metric := &io_prometheus_client.Metric{
+		Label: []*io_prometheus_client.LabelPair{
+			{Name: &testName, Value: &testValue},
+		},
+	}
+
+	labelOne := "LABEL_ONE"
+	labelOneVal := "value_one"
+	labelTwo := "LABEL_TWO"
+	labelTwoVal := "value_two"
+	labelNames := []string{labelOne, labelTwo}
+	labelValues := []string{labelOneVal, labelTwoVal}
+
+	result := addServerlessLabels(metric, labelNames, labelValues)
+	expected := &io_prometheus_client.Metric{
+		Label: []*io_prometheus_client.LabelPair{
+			{Name: &testName, Value: &testValue},
+			{Name: &labelOne, Value: &labelOneVal},
+			{Name: &labelTwo, Value: &labelTwoVal},
+		},
+	}
+	assert.Equal(t, result.Label, expected.Label)
+}
 
 func TestGetHeaderTimeout(t *testing.T) {
 	inputs := []string{"1.23", "100", "notvalid", "12.wrong"}
@@ -38,16 +83,6 @@ func TestGetHeaderTimeout(t *testing.T) {
 		} else {
 			assert.Error(t, err)
 		}
-	}
-}
-
-func TestNegotiateMetricsFromat(t *testing.T) {
-	contentTypes := []string{"", "random", "text/plain;version=0.0.4;q=0.5,*/*;q=0.1", `application/openmetrics-text; version=1.0.0; charset=utf-8`}
-	expected := []expfmt.Format{expfmt.FmtText, expfmt.FmtText, expfmt.FmtText, expfmt.FmtOpenMetrics}
-
-	for i, contentType := range contentTypes {
-		result := negotiateMetricsFormat(contentType)
-		assert.Equal(t, expected[i], result)
 	}
 }
 
@@ -75,7 +110,6 @@ func TestScrapeHeaders(t *testing.T) {
 	zapLogger := logger.InitializeLogger()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			promRegistry = prometheus.NewRegistry()
 			qp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, err := w.Write([]byte(metricExample))
 				assert.NoError(t, err)
@@ -104,7 +138,6 @@ func TestScrapeErr(t *testing.T) {
 	my_metric{} 0
 	`
 	zapLogger := logger.InitializeLogger()
-	promRegistry = prometheus.NewRegistry()
 	qp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte(metricExample))
 		assert.NoError(t, err)
@@ -119,13 +152,191 @@ func TestScrapeErr(t *testing.T) {
 	assert.Nil(t, queueProxy)
 }
 
+func TestSanitizeMetrics(t *testing.T) {
+	testCreated := "testing_created"
+	testTotal := "testing_total"
+	testNoConvert := "random_metric"
+	untyped := io_prometheus_client.MetricType_UNTYPED
+	counter := io_prometheus_client.MetricType_COUNTER
+	gauge := io_prometheus_client.MetricType_GAUGE
+	value := float64(4.5)
+
+	tests := []struct {
+		name     string
+		input    *io_prometheus_client.MetricFamily
+		expected *io_prometheus_client.MetricFamily
+	}{
+		{
+			name: "test sanitize counter",
+			input: &io_prometheus_client.MetricFamily{
+				Name: &testCreated,
+				Help: nil,
+				Type: &untyped,
+				Metric: []*io_prometheus_client.Metric{
+					{
+						Untyped: &io_prometheus_client.Untyped{
+							Value: &value,
+						},
+					},
+				},
+			},
+			expected: &io_prometheus_client.MetricFamily{
+				Name: &testCreated,
+				Help: nil,
+				Type: &counter,
+				Metric: []*io_prometheus_client.Metric{
+					{
+						Counter: &io_prometheus_client.Counter{
+							Value: &value,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "test sanitize gauge",
+			input: &io_prometheus_client.MetricFamily{
+				Name: &testTotal,
+				Help: nil,
+				Type: &untyped,
+				Metric: []*io_prometheus_client.Metric{
+					{
+						Untyped: &io_prometheus_client.Untyped{
+							Value: &value,
+						},
+					},
+				},
+			},
+			expected: &io_prometheus_client.MetricFamily{
+				Name: &testTotal,
+				Help: nil,
+				Type: &gauge,
+				Metric: []*io_prometheus_client.Metric{
+					{
+						Gauge: &io_prometheus_client.Gauge{
+							Value: &value,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "test not able to convert",
+			input: &io_prometheus_client.MetricFamily{
+				Name: &testNoConvert,
+				Help: nil,
+				Type: &untyped,
+				Metric: []*io_prometheus_client.Metric{
+					{
+						Untyped: &io_prometheus_client.Untyped{
+							Value: &value,
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+	}
+
+	for _, test := range tests {
+		actual := sanitizeMetrics(test.input)
+		assert.True(t, reflect.DeepEqual(test.expected, actual))
+	}
+}
+
+func TestAppMetrics(t *testing.T) {
+	metricExample := `# HELP request_preprocess_seconds pre-process request latency
+# TYPE request_preprocess_seconds histogram
+request_preprocess_seconds_bucket{le="0.005",model_name="custom-server-test"} 3.0
+request_preprocess_seconds_bucket{le="+Inf",model_name="custom-server-test"} 3.0
+request_preprocess_seconds_sum{model_name="custom-server-test"} 0.00014145392924547195
+request_preprocess_seconds_count{model_name="custom-server-test"} 3
+`
+	expected := `# HELP request_preprocess_seconds pre-process request latency
+# TYPE request_preprocess_seconds histogram
+request_preprocess_seconds_bucket{model_name="custom-server-test",service_name="something",configuration_name="something",revision_name="something",le="0.005"} 3
+request_preprocess_seconds_bucket{model_name="custom-server-test",service_name="something",configuration_name="something",revision_name="something",le="+Inf"} 3
+request_preprocess_seconds_sum{model_name="custom-server-test",service_name="something",configuration_name="something",revision_name="something"} 0.00014145392924547195
+request_preprocess_seconds_count{model_name="custom-server-test",service_name="something",configuration_name="something",revision_name="something"} 3
+`
+	setEnvVars(t)
+	tests := []struct {
+		name             string
+		queueproxy       string
+		app              string
+		output           string
+		expectParseError bool
+	}{
+		{
+			name:   "queueproxy metric only",
+			app:    metricExample,
+			output: expected,
+		},
+	}
+
+	zapLogger := logger.InitializeLogger()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			qp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, err := w.Write([]byte(test.queueproxy))
+				assert.NoError(t, err)
+			}))
+			defer qp.Close()
+
+			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, err := w.Write([]byte(test.app))
+				assert.NoError(t, err)
+			}))
+			defer app.Close()
+
+			psc := &ScrapeConfigurations{
+				logger:         zapLogger,
+				QueueProxyPort: strings.Split(qp.URL, ":")[2],
+				AppPort:        strings.Split(app.URL, ":")[2],
+			}
+			req := &http.Request{}
+			psc.handleStats(rec, req)
+			assert.Equal(t, rec.Code, 200)
+			assert.Contains(t, rec.Body.String(), test.output)
+
+			parser := expfmt.TextParser{}
+			mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
+			if !test.expectParseError {
+				assert.NoErrorf(t, err, "failed to parse metrics: %v", err)
+			} else if err == nil && test.expectParseError {
+				assert.False(t, test.expectParseError, "expected a prse error, got %+v", mfMap)
+			}
+		})
+	}
+
+}
+
 func TestHandleStats(t *testing.T) {
 	metricExample := `# TYPE my_metric counter
 	my_metric{} 0
 	`
+	metricExampleWLabels := `# TYPE my_metric counter
+my_metric{service_name="something",configuration_name="something",revision_name="something"} 0
+`
 	otherMetricExample := `# TYPE my_other_metric counter
-	my_other_metric{} 0
-	`
+my_other_metric{} 0
+`
+	histogramMetricExample := `# HELP request_preprocess_seconds pre-process request latency
+# TYPE request_preprocess_seconds histogram
+request_preprocess_seconds_bucket{le="0.005",model_name="custom-server-test"} 3.0
+request_preprocess_seconds_bucket{le="+Inf",model_name="custom-server-test"} 3.0
+request_preprocess_seconds_sum{model_name="custom-server-test"} 0.00014145392924547195
+request_preprocess_seconds_count{model_name="custom-server-test"} 3
+`
+	histogramExpected := `# HELP request_preprocess_seconds pre-process request latency
+# TYPE request_preprocess_seconds histogram
+request_preprocess_seconds_bucket{model_name="custom-server-test",service_name="something",configuration_name="something",revision_name="something",le="0.005"} 3
+request_preprocess_seconds_bucket{model_name="custom-server-test",service_name="something",configuration_name="something",revision_name="something",le="+Inf"} 3
+request_preprocess_seconds_sum{model_name="custom-server-test",service_name="something",configuration_name="something",revision_name="something"} 0.00014145392924547195
+request_preprocess_seconds_count{model_name="custom-server-test",service_name="something",configuration_name="something",revision_name="something"} 3
+`
+	setEnvVars(t)
 	tests := []struct {
 		name             string
 		queueproxy       string
@@ -141,20 +352,26 @@ func TestHandleStats(t *testing.T) {
 		{
 			name:   "app metric only",
 			app:    metricExample,
-			output: metricExample,
+			output: metricExampleWLabels,
+		},
+		{
+			name:   "app metric histogram",
+			app:    histogramMetricExample,
+			output: histogramExpected,
 		},
 		{
 			name:       "multiple metric",
-			queueproxy: metricExample,
-			app:        otherMetricExample,
-			output:     metricExample + otherMetricExample,
+			queueproxy: otherMetricExample,
+			app:        metricExample,
+			// since app metrics adds labels, the output should contain labels only for the app metrics
+			output: otherMetricExample + metricExampleWLabels,
 		},
 		// when app and queueproxy share a metric, Prometheus will fail.
 		{
 			name:             "conflict metric",
 			queueproxy:       metricExample + otherMetricExample,
 			app:              metricExample,
-			output:           metricExample + otherMetricExample + metricExample,
+			output:           metricExample + otherMetricExample + metricExampleWLabels,
 			expectParseError: true,
 		},
 	}
@@ -162,7 +379,6 @@ func TestHandleStats(t *testing.T) {
 	zapLogger := logger.InitializeLogger()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			promRegistry = prometheus.NewRegistry()
 			rec := httptest.NewRecorder()
 			qp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, err := w.Write([]byte(test.queueproxy))

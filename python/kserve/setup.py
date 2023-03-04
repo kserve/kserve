@@ -20,9 +20,8 @@ TESTS_REQUIRES = [
     'pytest-xdist',
     'pytest-cov',
     'pytest-asyncio',
-    'pytest-tornasync',
     'mypy',
-    'portforward',
+    'portforward==0.4.0',
 ]
 
 with open('requirements.txt') as f:
@@ -46,9 +45,10 @@ setuptools.setup(
         'kserve.api',
         'kserve.constants',
         'kserve.models',
-        'kserve.handlers',
         'kserve.utils',
-        'kserve.grpc'
+        'kserve.protocol',
+        'kserve.protocol.rest',
+        'kserve.protocol.grpc',
     ],
     package_data={'': ['requirements.txt']},
     include_package_data=True,

@@ -16,7 +16,6 @@ from setuptools import setup
 
 tests_require = [
     'pytest',
-    'pytest-tornasync',
     'mypy'
 ]
 
@@ -24,11 +23,11 @@ with open('requirements.txt') as f:
     REQUIRES = f.readlines()
 
 setup(
-    name='grpc_image_transformer',
+    name='custom_transformer',
     version='0.1.0',
     author_email='dsun20@bloomberg.net',
     url='https://github.com/kserve/kserve/python/custom_transformer',
-    description='gRPCImageTransformer',
+    description='Custom Transformer Examples',
     python_requires='>=3.7',
     install_requires=REQUIRES,
     tests_require=tests_require,

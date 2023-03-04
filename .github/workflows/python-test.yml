@@ -23,7 +23,7 @@ jobs:
         uses: py-actions/flake8@v1
         with:
           max-line-length: "120"
-          exclude: "docs/samples/v1beta1/onnx/assets/*.py,python/kserve/test/test_v1*.py,python/kserve/kserve/__init__.py,python/kserve/test/test_knative*.py,python/kserve/kserve/grpc/grpc_predict_v2*.py"
+          exclude: "docs/samples/v1beta1/onnx/assets/*.py,python/kserve/test/test_v1*.py,python/kserve/kserve/__init__.py,python/kserve/test/test_knative*.py,python/kserve/kserve/protocol/grpc/grpc_predict_v2*.py"
   build:
     runs-on: ubuntu-latest
     strategy:

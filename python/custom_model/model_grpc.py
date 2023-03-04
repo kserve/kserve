@@ -12,20 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
 import io
-from typing import Dict, Union
+from typing import Dict
 
-import kserve
 import torch
-from kserve.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
-                                             ModelInferResponse)
+from kserve import InferRequest, Model, ModelServer
 from kserve.utils.utils import generate_uuid
 from PIL import Image
 from torchvision import models, transforms
 
 
-class AlexNetModel(kserve.Model):
+# This custom predictor example implements the custom model following KServe v2 inference gPPC protocol,
+# the input can be raw image bytes or image tensor which is pre-processed by transformer
+# and then passed to predictor, the output is the prediction response.
+class AlexNetModel(Model):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -38,70 +38,47 @@ class AlexNetModel(kserve.Model):
         self.model.eval()
         self.ready = True
 
-    def predict(
-        self,
-        payload: Union[Dict, ModelInferRequest],
-        headers: Dict[str, str] = None
-    ) -> Union[Dict, ModelInferResponse]:
-        raw_img_data = ""
-        if isinstance(payload, Dict):
-            input = payload["inputs"][0]
-            # Input follows the Tensorflow V1 HTTP API for binary values
-            # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-            data = input["data"][0]
-            raw_img_data = base64.b64decode(data)
-        elif isinstance(payload, ModelInferRequest):
-            req = payload.inputs[0]
-            raw_img_data = req.contents.bytes_contents[0]
+    def preprocess(self, payload: InferRequest, headers: Dict[str, str] = None) -> torch.Tensor:
+        req = payload.inputs[0]
+        if req.datatype == "BYTES":
+            input_image = Image.open(io.BytesIO(req.data[0]))
+            preprocess = transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225]),
+            ])
 
-        input_image = Image.open(io.BytesIO(raw_img_data))
-        preprocess = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),
-        ])
+            input_tensor = preprocess(input_image)
+            return input_tensor.unsqueeze(0)
+        elif req.datatype == "FP32":
+            np_array = payload.inputs[0].as_numpy()
+            return torch.Tensor(np_array)
 
-        input_tensor = preprocess(input_image)
-        input_batch = input_tensor.unsqueeze(0)
-
-        output = self.model(input_batch)
-
+    def predict(self, input_tensor: torch.Tensor, headers: Dict[str, str] = None) -> Dict:
+        output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
-        result = values.tolist()
+        result = values.flatten().tolist()
         id = generate_uuid()
-        if isinstance(payload, Dict):
-            response = {
-                "id": id,
-                "model_name": self.name,
-                "outputs": [
-                    {
-                        "data": result,
-                        "datatype": "FP32",
-                        "name": "output-0",
-                        "shape": list(values.shape)
-                    }
-                ]}
-        else:
-            response = {
-                "id": id,
-                "model_name": payload.model_name,
-                "outputs": [
-                    {
-                        "contents": {
-                            "fp32_contents": result[0],
-                        },
-                        "datatype": "FP32",
-                        "name": "output-0",
-                        "shape": list(values.shape)
-                    }
-                ]}
+        response = {
+            "id": id,
+            "model_name": "custom-model",
+            "outputs": [
+                {
+                    "contents": {
+                        "fp32_contents": result,
+                    },
+                    "datatype": "FP32",
+                    "name": "output-0",
+                    "shape": list(values.shape)
+                }
+            ]}
         return response
 
 
 if __name__ == "__main__":
     model = AlexNetModel("custom-model")
     model.load()
-    kserve.ModelServer(workers=1).start([model])
+    ModelServer().start([model])

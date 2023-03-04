@@ -114,10 +114,14 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-ci: manifests
-	kustomize build config/overlays/test | kubectl apply -f -
+	kubectl apply -k config/overlays/test
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kustomize build config/overlays/test/runtimes | kubectl apply -f -
+	kubectl apply -k config/overlays/test/runtimes
+
+deploy-helm: manifests
+	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
+	helm install kserve charts/kserve-resources/ --wait --timeout 180s
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
@@ -267,6 +271,9 @@ docker-build-qpext:
 
 docker-build-push-qpext: docker-build-qpext
 	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
+
+test-qpext:
+	cd qpext && go test -v ./... -cover
 
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)

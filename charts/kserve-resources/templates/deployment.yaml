@@ -25,7 +25,7 @@ spec:
       serviceAccountName: kserve-controller-manager
       containers:
       - name: kube-rbac-proxy
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
@@ -37,7 +37,7 @@ spec:
       - command:
         - /manager
         image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: manager
         args:
         - "--metrics-addr=127.0.0.1:8080"
@@ -103,12 +103,25 @@ spec:
                 operator: In
                 values:
                 - amd64
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: control-plane
+                      operator: In
+                      values:
+                        - modelmesh-controller
+                topologyKey: topology.kubernetes.io/zone
       containers:
       - args:
         - --enable-leader-election
         command:
         - /manager
         env:
+        - name: NAMESPACE_SCOPE
+          value: "false"
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -141,7 +154,7 @@ spec:
             drop:
             - ALL
         volumeMounts:
-        - mountPath: /etc/model-serving/config-defaults.yaml
+        - mountPath: /etc/model-serving/config/default
           name: config-defaults
           readOnly: true
       serviceAccountName: modelmesh-controller

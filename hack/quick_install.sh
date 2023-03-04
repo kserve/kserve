@@ -32,12 +32,12 @@ done
 
 export ISTIO_VERSION=1.15.0
 export KNATIVE_VERSION=knative-v1.7.0
-export KSERVE_VERSION=v0.10.0-rc0
+export KSERVE_VERSION=v0.10.0
 export CERT_MANAGER_VERSION=v1.3.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
-KUBE_VERSION=$(kubectl version --short=true)
-if [ ${KUBE_VERSION:43:2} -lt 22 ];
+KUBE_VERSION=$(kubectl version --short=true | grep "Server Version" | awk -F '.' '{print $2}')
+if [ ${KUBE_VERSION} -lt 22 ];
 then
    echo "😱 install requires at least Kubernetes 1.22";
    exit 1;
@@ -69,14 +69,25 @@ spec:
   meshConfig:
     accessLogFile: /dev/stdout
 
-  addonComponents:
-    pilot:
-      enabled: true
-
   components:
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
+        k8s:
+          podAnnotations:
+            cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+    pilot:
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 200m
+            memory: 200Mi
+        podAnnotations:
+          cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+        env:
+        - name: PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING
+          value: "false"
 EOF
 
 bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
