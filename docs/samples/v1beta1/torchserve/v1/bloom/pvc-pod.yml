@@ -1,0 +1,28 @@
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: model-local-claim
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 700Gi 
+  storageClassName: fast-disks
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pv-pod
+spec:
+  volumes:
+    - name: pv-storage
+      persistentVolumeClaim:
+        claimName: model-local-claim
+  containers:
+    - name: pv-container
+      image: alpine
+      volumeMounts:
+        - mountPath: "/pv"
+          name: pv-storage
