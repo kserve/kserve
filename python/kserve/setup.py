@@ -21,7 +21,7 @@ TESTS_REQUIRES = [
     'pytest-cov',
     'pytest-asyncio',
     'mypy',
-    'portforward',
+    'portforward==0.4.0',
 ]
 
 with open('requirements.txt') as f:

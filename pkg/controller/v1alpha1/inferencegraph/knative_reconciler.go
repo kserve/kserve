@@ -36,6 +36,7 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
@@ -120,7 +121,6 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	if labels == nil {
 		labels = make(map[string]string)
 	}
-
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
@@ -133,6 +133,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	labels = utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
 	})
+	labels[constants.InferenceGraphLabel] = componentMeta.Name
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      componentMeta.Name,
@@ -155,18 +156,10 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 										"--graph-json",
 										string(bytes),
 									},
-									Resources: v1.ResourceRequirements{
-										Limits: v1.ResourceList{
-											v1.ResourceCPU:    resource.MustParse(config.CpuLimit),
-											v1.ResourceMemory: resource.MustParse(config.MemoryLimit),
-										},
-										Requests: v1.ResourceList{
-											v1.ResourceCPU:    resource.MustParse(config.CpuRequest),
-											v1.ResourceMemory: resource.MustParse(config.MemoryRequest),
-										},
-									},
+									Resources: constructResourceRequirements(*graph, *config),
 								},
 							},
+							Affinity: graph.Spec.Affinity,
 						},
 					},
 				},
@@ -201,4 +194,27 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	//called when creating or updating the knative service
 	service.SetDefaults(context.TODO())
 	return service
+}
+
+func constructResourceRequirements(graph v1alpha1api.InferenceGraph, config RouterConfig) v1.ResourceRequirements {
+	var specResources v1.ResourceRequirements
+	if !reflect.ValueOf(graph.Spec.Resources).IsZero() {
+		log.Info("Ignoring defaults for ResourceRequirements as spec has resources mentioned", "specResources", graph.Spec.Resources)
+		specResources = v1.ResourceRequirements{
+			Limits:   graph.Spec.Resources.Limits,
+			Requests: graph.Spec.Resources.Requests,
+		}
+	} else {
+		specResources = v1.ResourceRequirements{
+			Limits: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse(config.CpuLimit),
+				v1.ResourceMemory: resource.MustParse(config.MemoryLimit),
+			},
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse(config.CpuRequest),
+				v1.ResourceMemory: resource.MustParse(config.MemoryRequest),
+			},
+		}
+	}
+	return specResources
 }

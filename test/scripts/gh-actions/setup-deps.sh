@@ -71,11 +71,16 @@ for i in 1 2 3 ; do kubectl apply -k test/overlays/knative && break || sleep 15;
 echo "Waiting for Knative to be ready ..."
 kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
 
-echo "Add knative hpa..."
+# echo "Add knative hpa..."
 # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
 
 # Skip tag resolution for certain domains
-kubectl patch cm config-deployment --patch '{"data":{"registries-skipping-tag-resolving":"nvcr.io,index.docker.io"}}' -n knative-serving
+# sleep to avoid knative webhook timeout error
+sleep 5
+# Retry if configmap patch fails
+for i in 1 2 3; do
+  kubectl patch cm config-deployment --patch '{"data":{"registries-skipping-tag-resolving":"nvcr.io,index.docker.io"}}' -n knative-serving && break || sleep 15
+done
 
 echo "Installing cert-manager ..."
 kubectl create namespace cert-manager

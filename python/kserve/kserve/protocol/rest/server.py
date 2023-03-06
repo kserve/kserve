@@ -13,9 +13,8 @@
 # limitations under the License.
 
 import asyncio
-import multiprocessing
 import socket
-from typing import List
+from typing import List, Optional
 from prometheus_client import REGISTRY, exposition
 
 import pkg_resources
@@ -47,6 +46,11 @@ async def metrics_handler(request: Request) -> Response:
 class PrintTimings(TimingClient):
     def timing(self, metric_name, timing, tags):
         logging.info(f"{metric_name} {timing}, {tags}")
+
+
+class _NoSignalUvicornServer(uvicorn.Server):
+    def install_signal_handlers(self) -> None:
+        pass
 
 
 class RESTServer:
@@ -118,14 +122,13 @@ class RESTServer:
         )
 
 
-class UvicornProcess(multiprocessing.Process):
-
+class UvicornServer:
     def __init__(self, http_port: int, sockets: List[socket.socket],
                  data_plane: DataPlane, model_repository_extension, enable_docs_url):
         super().__init__()
         self.sockets = sockets
-        self.server = RESTServer(data_plane, model_repository_extension, enable_docs_url)
-        app = self.server.create_application()
+        rest_server = RESTServer(data_plane, model_repository_extension, enable_docs_url)
+        app = rest_server.create_application()
         app.add_middleware(
             TimingMiddleware,
             client=PrintTimings(),
@@ -171,10 +174,15 @@ class UvicornProcess(multiprocessing.Process):
                 },
             }
         )
+        self.server = _NoSignalUvicornServer(config=self.cfg)
 
-    def stop(self):
-        self.terminate()
-
-    def run(self):
+    def run_sync(self):
         server = uvicorn.Server(config=self.cfg)
         asyncio.run(server.serve(sockets=self.sockets))
+
+    async def run(self):
+        await self.server.serve(sockets=self.sockets)
+
+    async def stop(self, sig: Optional[int] = None):
+        if self.server:
+            self.server.handle_exit(sig=sig, frame=None)
