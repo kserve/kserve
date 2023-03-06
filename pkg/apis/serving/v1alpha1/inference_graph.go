@@ -55,6 +55,7 @@ type InferenceGraphSpec struct {
 		operations on headers. For example: Similar to "propagate" operation, one can add "transform" operation if they
 		want to transform headers keys or values before passing down to nodes.
 	*/
+	// +optional
 	Headers map[string][]string `json:"headers,omitempty"`
 	// Map of InferenceGraph router nodes
 	// Each node defines the router which can be different routing types
