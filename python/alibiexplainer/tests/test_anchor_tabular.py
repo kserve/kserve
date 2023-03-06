@@ -20,7 +20,7 @@ from alibi.datasets import fetch_adult
 import numpy as np
 import json
 from .utils import Predictor
-from storage import Storage
+from kserve.storage import Storage
 
 ADULT_EXPLAINER_URI = "gs://kfserving-examples/models/sklearn/1.0/income/explainer-py37-0.6.2"
 ADULT_MODEL_URI = "gs://kfserving-examples/models/sklearn/1.0/income/model"

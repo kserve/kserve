@@ -20,7 +20,7 @@ from typing import Dict
 
 from kserve import Model
 from kserve.errors import InferenceError, ModelMissingError
-from storage import Storage
+from kserve.storage import Storage
 
 BOOSTER_FILE_EXTENSION = ".bst"
 

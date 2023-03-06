@@ -20,7 +20,7 @@ from jpmml_evaluator import make_evaluator
 from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
 
 from kserve.errors import ModelMissingError
-from storage import Storage
+from kserve.storage import Storage
 
 MODEL_EXTENSIONS = ('.pmml')
 

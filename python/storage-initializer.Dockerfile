@@ -4,6 +4,10 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 COPY third_party third_party
 
+COPY kserve kserve
+COPY VERSION VERSION
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve[storage]
+
 RUN apt-get update && apt-get install -y \
     gcc \
     libkrb5-dev \
@@ -13,8 +17,6 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0.14.0
 
 COPY ./storage-initializer /storage-initializer
-COPY VERSION VERSION
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./storage-initializer
 
 RUN chmod +x /storage-initializer/scripts/initializer-entrypoint
 RUN mkdir /work

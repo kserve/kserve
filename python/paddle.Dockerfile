@@ -4,10 +4,7 @@ COPY third_party third_party
 
 COPY kserve kserve
 COPY VERSION VERSION
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
-
-COPY storage-initializer storage-initializer
-RUN pip install --no-cache-dir -e ./storage-initializer
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve[storage]
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libgomp1 && \

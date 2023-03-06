@@ -17,7 +17,7 @@ import os
 import numpy as np
 from paddle import inference
 import kserve
-from storage import Storage
+from kserve.storage import Storage
 
 
 class PaddleModel(kserve.Model):

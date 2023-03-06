@@ -18,7 +18,7 @@ import tensorflow as tf
 import json
 import numpy as np
 import dill
-from storage import Storage
+from kserve.storage import Storage
 
 
 CIFAR10_EXPLAINER_URI = "gs://seldon-models/tfserving/cifar10/explainer-py36-0.5.2"

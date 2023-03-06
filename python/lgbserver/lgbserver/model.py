@@ -19,7 +19,7 @@ import os
 from typing import Dict
 import pandas as pd
 from kserve.errors import InferenceError, ModelMissingError
-from storage import Storage
+from kserve.storage import Storage
 
 MODEL_EXTENSIONS = (".bst")
 

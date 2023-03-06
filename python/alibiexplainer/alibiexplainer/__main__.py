@@ -22,7 +22,7 @@ from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-i
 from alibiexplainer.parser import parse_args
 
 import kserve
-from storage import Storage
+from kserve.storage import Storage
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 

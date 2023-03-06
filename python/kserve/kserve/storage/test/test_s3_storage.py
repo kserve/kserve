@@ -18,7 +18,9 @@ import unittest.mock as mock
 from botocore.client import Config
 from botocore import UNSIGNED
 
-from storage import Storage
+from kserve.storage import Storage
+
+STORAGE_MODULE = 'kserve.storage.storage'
 
 
 def create_mock_obj(path):
@@ -57,12 +59,12 @@ def expected_call_args_list(parent_key, dest, paths):
     return [(f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
             for p in paths]
 
+
 # pylint: disable=protected-access
 
 
-@mock.patch('storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_parent_key(mock_storage):
-
     # given
     bucket_name = 'foo'
     paths = ['models/weights.pt', '0002.h5', 'a/very/long/path/config.json']
@@ -79,9 +81,8 @@ def test_parent_key(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix='bar')
 
 
-@mock.patch('storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_no_key(mock_storage):
-
     # given
     bucket_name = 'foo'
     object_paths = ['models/weights.pt', '0002.h5', 'a/very/long/path/config.json']
@@ -97,9 +98,8 @@ def test_no_key(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix='')
 
 
-@mock.patch('storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_full_name_key(mock_storage):
-
     # given
     bucket_name = 'foo'
     object_key = 'path/to/model/name.pt'
@@ -116,9 +116,8 @@ def test_full_name_key(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
 
 
-@mock.patch('storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_full_name_key_root_bucket_dir(mock_storage):
-
     # given
     bucket_name = 'foo'
     object_key = 'name.pt'
@@ -142,7 +141,6 @@ AWS_TEST_CREDENTIALS = {"AWS_ACCESS_KEY_ID": "testing",
 
 
 def test_get_S3_config():
-
     ANON_CONFIG = Config(signature_version=UNSIGNED)
     DEFAULT_CONFIG = None
 

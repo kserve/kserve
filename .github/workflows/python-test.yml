@@ -41,10 +41,9 @@ jobs:
       - name: Test with pytest
         run: |
           cd python
+          pip install -e ./kserve[storage]
           pip install -e ./kserve[test]
           pytest --cov=kserve ./kserve
-          pip install -e ./storage-initializer[test]
-          pytest --cov=storage-initializer ./storage-initializer
           pip install -e ./sklearnserver[test]
           pytest --cov=sklearnserver ./sklearnserver
           pip install -e ./xgbserver[test]

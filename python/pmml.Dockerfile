@@ -25,10 +25,7 @@ RUN conda install -y python=$PYTHON_VERSION
 
 COPY kserve kserve
 COPY VERSION VERSION
-RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kserve
-
-COPY storage-initializer storage-initializer
-RUN pip install --no-cache-dir -e ./storage-initializer
+RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kserve[storage]
 
 COPY pmmlserver pmmlserver
 RUN pip install --no-cache-dir -e ./pmmlserver

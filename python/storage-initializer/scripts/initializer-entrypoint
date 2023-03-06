@@ -2,7 +2,7 @@
 import sys
 import logging
 
-from storage import Storage
+from kserve.storage import Storage
 
 if len(sys.argv) != 3:
     print("Usage: initializer-entrypoint src_uri dest_path")

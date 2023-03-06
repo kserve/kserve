@@ -23,9 +23,9 @@ from pathlib import Path
 import botocore
 import pytest
 
-from storage import Storage
+from kserve.storage import Storage
 
-STORAGE_MODULE = 'storage'
+STORAGE_MODULE = 'kserve.storage.storage'
 HTTPS_URI_TARGZ = 'https://foo.bar/model.tar.gz'
 HTTPS_URI_TARGZ_WITH_QUERY = HTTPS_URI_TARGZ + '?foo=bar'
 

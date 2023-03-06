@@ -36,8 +36,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("pmmlserver"),
     install_requires=[
-        f"kserve>={version}",
-        f"kserve-storage>={version}",
+        f"kserve[storage]>={version}",
         "jpmml-evaluator==0.5.1",
     ],
     tests_require=tests_require,

@@ -5,10 +5,7 @@ COPY third_party third_party
 COPY kserve kserve
 COPY VERSION VERSION
 # pip 20.x breaks xgboost wheels https://github.com/dmlc/xgboost/issues/5221
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
-
-COPY storage-initializer storage-initializer
-RUN pip install --no-cache-dir -e ./storage-initializer
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve[storage]
 
 RUN apt-get update && apt-get install libgomp1
 
