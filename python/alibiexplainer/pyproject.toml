@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "alibiexplainer"
-version = "0.10.0"
+version = "0.10.1"
 description = "Model Explanation Server. Not intended for use outside KServe Frameworks Images."
 authors = ["cliveseldon <cc@seldon.io>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -11,11 +11,11 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-kserve = {path = "../kserve", develop = true}
-tensorflow = "^2.5.0"  # see https://github.com/python-poetry/poetry/issues/4605
-alibi = {version = "^0.6.4", extras = ["shap"]}
+kserve = { path = "../kserve", extras = ["storage"], develop = true }
+alibi = { version = "^0.6.4", extras = ["shap"] }
 dill = "^0.3.6"
 nest-asyncio = "~1.4.0"
+llvmlite = "^0.38.1" # needed since poetry chooses lower version of llvmlite which is not supported by python 3.9 above
 
 [tool.poetry.group.test]
 optional = true
@@ -24,7 +24,7 @@ optional = true
 pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 mypy = "^0.991"
-sklearnserver = {path = "../sklearnserver", develop=true}
+sklearnserver = { path = "../sklearnserver", develop = true }
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -11,12 +11,25 @@ KServe Python SDK can be installed by `pip` or `poetry`.
 pip install kserve
 ```
 
+To install Kserve with storage support
+```sh
+pip install kserve[storage]
+```
+
 ### Poetry
 
 Install via [Poetry](https://python-poetry.org/).
 
 ```sh
 poetry install
+```
+To install Kserve with storage support
+```sh
+poetry install -E storage
+```
+or 
+```sh
+poetry install --extras "storage"
 ```
 
 ## KServe Python Server

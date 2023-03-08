@@ -1,27 +1,34 @@
-ARG BASE_IMAGE=openjdk:11-slim
-FROM $BASE_IMAGE as builder
+ARG PYTHON_VERSION=3.9
+ARG JAVA_VERSION=11
+ARG BASE_IMAGE=openjdk:${JAVA_VERSION}-slim
+ARG VENV_PATH=/prod_venv
 
-ENV PYTHON="python3.9"
-# install python
+FROM ${BASE_IMAGE} as builder
+
+ARG PYTHON_VERSION
+# Install python
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends $PYTHON ${PYTHON}-dev ${PYTHON}-venv && \
+    apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-ENV POETRY_VERSION=1.3.1 \
-    POETRY_HOME=/opt/poetry
-RUN $PYTHON -m venv $POETRY_HOME && $POETRY_HOME/bin/pip install poetry==$POETRY_VERSION
-ENV PATH="$PATH:$POETRY_HOME/bin"
+# Install Poetry
+ARG POETRY_HOME=/opt/poetry
+ARG POETRY_VERSION=1.4.0
 
-# activate virtual env
-ENV VIRTUAL_ENV=/prod_venv
-RUN $PYTHON -m venv $VIRTUAL_ENV
+RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
+ENV PATH="$PATH:${POETRY_HOME}/bin"
+
+# Activate virtual env
+ARG VENV_PATH
+ENV VIRTUAL_ENV=${VENV_PATH}
+RUN python${PYTHON_VERSION} -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache
+RUN cd kserve && poetry install --no-root --no-interaction --no-cache  --extras "storage"
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache
+RUN cd kserve && poetry install --no-interaction --no-cache --extras "storage"
 
 COPY pmmlserver/pyproject.toml pmmlserver/poetry.lock pmmlserver/
 RUN cd pmmlserver && poetry install --no-root --no-interaction --no-cache
@@ -29,19 +36,20 @@ COPY pmmlserver pmmlserver
 RUN cd pmmlserver && poetry install --no-interaction --no-cache
 
 
-FROM openjdk:11-slim as prod
+FROM ${BASE_IMAGE} as prod
 
 COPY third_party third_party
 
-ENV PYTHON="python3.9"
-# install python
+ARG PYTHON_VERSION
+# Install python
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends $PYTHON && \
+    apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# activate virtual env
-ENV VIRTUAL_ENV=/prod_venv
+# Activate virtual env
+ARG VENV_PATH
+ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY --from=builder $VIRTUAL_ENV $VIRTUAL_ENV

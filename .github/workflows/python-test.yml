@@ -39,7 +39,7 @@ jobs:
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
         with:
-          version: 1.3.1
+          version: 1.4.0
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
@@ -64,11 +64,11 @@ jobs:
         if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/kserve
-          poetry install --with=test --no-interaction --no-root
+          poetry install --with=test --no-interaction --no-root --extras "storage"
       - name: Install kserve
         run: |
           cd python/kserve
-          poetry install --no-interaction
+          poetry install --no-interaction --extras "storage"
       - name: Test kserve
         run: |
           cd python
@@ -233,7 +233,7 @@ jobs:
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
         with:
-          version: 1.3.1
+          version: 1.4.0
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
@@ -258,11 +258,11 @@ jobs:
         if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/kserve
-          poetry install --with=test --no-interaction --no-root
+          poetry install --with=test --no-interaction --no-root --extras "storage"
       - name: Install kserve
         run: |
           cd python/kserve
-          poetry install --no-interaction
+          poetry install --no-interaction  --extras "storage"
       - name: Test kserve
         run: |
           cd python

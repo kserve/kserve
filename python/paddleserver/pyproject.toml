@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "paddleserver"
-version = "0.10.0"
+version = "0.10.1"
 description = "Model Server implementation for Paddle. Not intended for use outside KServe Frameworks Images"
 authors = ["Zhengyuan Zhang <zhangzhengyuan0604@gmail.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -11,8 +11,8 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.7,<3.11"
-kserve = {path = "../kserve", develop = true}
-paddlepaddle = "^2.0.2"
+kserve = {path = "../kserve", extras = ["storage"], develop = true}
+paddlepaddle = "^2.4.2"
 
 [tool.poetry.group.test]
 optional = true

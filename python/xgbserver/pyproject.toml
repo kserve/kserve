@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "xgbserver"
-version = "0.10.0"
+version = "0.10.1"
 description = "Model Server implementation for XGBoost. Not intended for use outside KServe Frameworks Images."
 authors = ["Ellis Tarn <ellisbigelow@google.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -11,7 +11,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-kserve = {path = "../kserve", develop = true}
+kserve = { path = "../kserve", extras = ["storage"], develop = true }
 xgboost = "~1.5.0"
 
 [tool.poetry.group.test]

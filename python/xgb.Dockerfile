@@ -1,23 +1,26 @@
-ARG BASE_IMAGE=python:3.9-slim-bullseye
-FROM $BASE_IMAGE as builder
+ARG PYTHON_VERSION=3.9
+ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim
+ARG VENV_PATH=/prod_venv
 
-# pip 20.x breaks xgboost wheels https://github.com/dmlc/xgboost/issues/5221
-#RUN pip install --no-cache-dir pip==19.3.1 && pip install --no-cache-dir -e ./kserve
+FROM ${BASE_IMAGE} as builder
 
-ENV POETRY_VERSION=1.3.1 \
-    POETRY_HOME=/opt/poetry
-RUN python3 -m venv $POETRY_HOME && $POETRY_HOME/bin/pip install poetry==$POETRY_VERSION
-ENV PATH="$PATH:$POETRY_HOME/bin"
+# Install Poetry
+ARG POETRY_HOME=/opt/poetry
+ARG POETRY_VERSION=1.4.0
 
-# activate virtual env
-ENV VIRTUAL_ENV=/prod_venv
+RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
+ENV PATH="$PATH:${POETRY_HOME}/bin"
+
+# Activate virtual env
+ARG VENV_PATH
+ENV VIRTUAL_ENV=${VENV_PATH}
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache
+RUN cd kserve && poetry install --no-root --no-interaction --no-cache --extras "storage"
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache
+RUN cd kserve && poetry install --no-interaction --no-cache --extras "storage"
 
 COPY xgbserver/pyproject.toml xgbserver/poetry.lock xgbserver/
 RUN cd xgbserver && poetry install --no-root --no-interaction --no-cache
@@ -25,7 +28,7 @@ COPY xgbserver xgbserver
 RUN cd xgbserver && poetry install --no-interaction --no-cache
 
 
-FROM python:3.9-slim-bullseye as prod
+FROM ${BASE_IMAGE} as prod
 
 COPY third_party third_party
 
@@ -34,8 +37,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# activate virtual env
-ENV VIRTUAL_ENV=/prod_venv
+# Activate virtual env
+ARG VENV_PATH
+ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY --from=builder $VIRTUAL_ENV $VIRTUAL_ENV

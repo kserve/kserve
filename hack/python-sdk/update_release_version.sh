@@ -36,7 +36,7 @@ dirs=(
   "python/xgbserver"
 )
 
-hack/python-sdk/update_python_release_version.py "${VERSION}"
+hack/python-sdk/update_release_version_helper.py "${VERSION}"
 
 # update lock files of packages which depends on kserve sdk
 for dir in "${dirs[@]}"; do

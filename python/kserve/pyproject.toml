@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kserve"
-version = "0.10.0"
+version = "0.10.1"
 description = "KServe Python SDK"
 authors = [
     "The KServe Authors <dsun20@bloomberg.net>",
@@ -29,6 +29,7 @@ classifiers = [
 packages = [
     { include = "kserve" },
 ]
+exclude = ["kserve/storage/test"]
 
 [tool.poetry.dependencies]
 python = ">=3.7,<3.11"
@@ -36,17 +37,11 @@ uvicorn = "^0.16.0"
 fastapi = ">=0.85.0,<=0.88.0"
 cloudevents = "^1.6.2"
 six = "^1.16.0"
-urllib3 = "^1.26.8"
 kubernetes = "^18.20.0"
 python-dateutil = "^2.8.0"
-google-cloud-storage = "^1.20.0"
 numpy = "^1.21.5"
-azure-storage-blob = "~12.9.0"
-azure-storage-file-share = "~12.7.0"
-azure-identity = "^1.8.0"
-boto3 = "^1.21.0"
 psutil = "^5.9.0"
-ray = {version = "~2.0.0", extras = ["serve"]}
+ray = { version = "~2.0.0", extras = ["serve"] }
 grpcio = "^1.34.0"
 protobuf = "^3.19.0"
 prometheus-client = "^0.13.1"
@@ -56,11 +51,25 @@ timing-asgi = "^0.3.0"
 tritonclient = "~2.18.0"
 tabulate = "^0.9.0"
 
-[tool.poetry.group.dev]
-optional = true
+# Storage dependencies. They can be opted into by apps.
+urllib3 = { version = "^1.26.8", optional = true }
+requests = { version = "^2.20.0", optional = true }
+google-cloud-storage = { version = "^1.20.0", optional = true }
+azure-storage-blob = { version = "~12.9.0", optional = true }
+azure-storage-file-share = { version = "~12.7.0", optional = true }
+azure-identity = { version = "^1.8.0", optional = true }
+boto3 = { version = "^1.21.0", optional = true }
 
-[tool.poetry.group.dev.dependencies]
-tomlkit = "^0.11.6"
+[tool.poetry.extras]
+storage = [
+    "urllib3",
+    "requests",
+    "google-cloud-storage",
+    "azure-storage-blob",
+    "azure-storage-file-share",
+    "azure-identity",
+    "boto3",
+]
 
 [tool.poetry.group.test]
 optional = true
@@ -73,6 +82,7 @@ pytest-asyncio = "^0.20.2"
 mypy = "^0.991"
 portforward = "^0.3.0"
 avro = "^1.11.0"
+tomlkit = "^0.11.6"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
