@@ -18,7 +18,6 @@ from typing import Dict, Union
 
 import numpy as np
 import xgboost as xgb
-from kserve.errors import InferenceError, ModelMissingError
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
 from xgboost import XGBModel
