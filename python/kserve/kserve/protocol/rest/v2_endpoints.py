@@ -128,7 +128,8 @@ class V2Endpoints:
                                    data=input.data,
                                    parameters={} if input.parameters is None else input.parameters
                                    ) for input in request_body.inputs]
-        infer_request = InferRequest(model_name=model_name, infer_inputs=infer_inputs)
+        infer_request = InferRequest(model_name=model_name, infer_inputs=infer_inputs,
+                                     parameters=request_body.parameters)
         response, response_headers = await self.dataplane.infer(
             model_name=model_name, body=infer_request, headers=request_headers)
 

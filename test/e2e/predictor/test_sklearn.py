@@ -23,6 +23,8 @@ from kserve import (KServeClient, V1beta1InferenceService,
                     V1beta1ModelSpec, V1beta1PredictorSpec, V1beta1SKLearnSpec,
                     constants)
 
+import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
+
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 
@@ -247,5 +249,114 @@ def test_sklearn_v2_grpc():
                             payload=payload, model_name=model_name)
     prediction = list(response.outputs[0].contents.int64_contents)
     assert prediction == [1, 1]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.slow
+def test_sklearn_v2_mixed():
+    service_name = "isvc-sklearn-v2-mixed"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="sklearn",
+            ),
+            runtime="kserve-sklearnserver",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/mixedtype",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    response = predict(service_name, "./data/sklearn_mixed_v2.json", protocol_version="v2")
+    assert response["outputs"][0]["data"] == [12.202832815138274]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.slow
+def test_sklearn_v2_mixed_grpc():
+    service_name = "isvc-sklearn-v2-mixed-grpc"
+    model_name = "sklearn"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="sklearn",
+            ),
+            runtime="kserve-sklearnserver",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/mixedtype",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
+            ),
+            ports=[
+                V1ContainerPort(
+                    container_port=8081,
+                    name="h2c",
+                    protocol="TCP"
+                )],
+            args=["--model_name", model_name, "--protocol", "grpc-v2"]
+        )
+    )
+
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    json_file = open("./data/sklearn_mixed.json")
+    data = json.load(json_file)
+    payload = []
+    for key, val in data.items():
+        if isinstance(val, int):
+            payload.append(
+                {
+                    "name": key,
+                    "shape": [1],
+                    "datatype": "INT32",
+                    "contents": {
+                        "int_contents": [val]
+                    }
+                }
+            )
+        elif isinstance(val, str):
+            payload.append(
+                {
+                    "name": key,
+                    "shape": [1],
+                    "datatype": "BYTES",
+                    "contents": {
+                        "bytes_contents": [bytes(val, 'utf-8')]
+                    }
+                }
+            )
+    parameters = {"content_type": inference_pb2.InferParameter(string_param="pd")}
+    response = predict_grpc(service_name=service_name,
+                            payload=payload, model_name=model_name, parameters=parameters)
+    prediction = list(response.outputs[0].contents.fp64_contents)
+    assert prediction == [12.202832815138274]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
