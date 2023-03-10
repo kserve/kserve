@@ -18,6 +18,7 @@ import joblib
 import pathlib
 from typing import Dict
 from kserve.errors import InferenceError, ModelMissingError
+from kserve.storage import Storage
 
 MODEL_EXTENSIONS = (".joblib", ".pkl", ".pickle")
 ENV_PREDICT_PROBA = "PREDICT_PROBA"
@@ -31,7 +32,7 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
         self.ready = False
 
     def load(self) -> bool:
-        model_path = pathlib.Path(kserve.Storage.download(self.model_dir))
+        model_path = pathlib.Path(Storage.download(self.model_dir))
         model_files = []
         for file in os.listdir(model_path):
             file_path = os.path.join(model_path, file)

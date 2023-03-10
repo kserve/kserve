@@ -11,6 +11,11 @@ KServe Python SDK can be installed by `pip` or `Setuptools`.
 pip install kserve
 ```
 
+To install Kserve with storage support
+```sh
+ pip install kserve[storage]
+```
+
 ### Setuptools
 
 Install via [Setuptools](http://pypi.python.org/pypi/setuptools).
