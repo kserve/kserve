@@ -19,11 +19,8 @@ import kserve
 from kserve.storage import Storage
 from typing import Dict, Union
 
-import numpy as np
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
-
-import kserve
 
 
 class PaddleModel(kserve.Model):

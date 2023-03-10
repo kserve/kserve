@@ -22,10 +22,7 @@ from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
 from xgboost import XGBModel
 
-from kserve import Model, Storage
-
 from kserve import Model
-from kserve.errors import InferenceError, ModelMissingError
 from kserve.storage import Storage
 
 BOOSTER_FILE_EXTENSION = ".bst"
