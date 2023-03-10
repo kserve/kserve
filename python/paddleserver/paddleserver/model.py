@@ -14,19 +14,19 @@
 
 
 import os
+
+import numpy as np
 from paddle import inference
 from kserve import Model
 from kserve.errors import InferenceError
 from kserve.storage import Storage
 from typing import Dict, Union
 
-import numpy as np
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
 
 
 class PaddleModel(Model):
-
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
