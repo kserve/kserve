@@ -15,7 +15,7 @@ This tutorial demonstrates performance testing for KServe inference services usi
 
 ## Deploy an InferenceService
 
-Create an InferenceService that exposes an HTTP port. The following serves the SciKit [irisv2 model](https://kserve.github.io/website/0.10/modelserving/v1beta1/sklearn/v2/#deploy-with-inferenceservice):
+Create an InferenceService that exposes an HTTP port. The following serves the Scikit-learn [irisv2 model](https://kserve.github.io/website/0.10/modelserving/v1beta1/sklearn/v2/#deploy-with-inferenceservice):
 
 ```shell
 cat <<EOF | kubectl apply -f -
