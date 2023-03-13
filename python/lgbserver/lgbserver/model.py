@@ -19,6 +19,7 @@ import os
 from typing import Dict
 import pandas as pd
 from kserve.errors import InferenceError, ModelMissingError
+from kserve.storage import Storage
 
 MODEL_EXTENSIONS = (".bst")
 
@@ -35,7 +36,7 @@ class LightGBMModel(kserve.Model):
             self.ready = True
 
     def load(self) -> bool:
-        model_path = kserve.Storage.download(self.model_dir)
+        model_path = Storage.download(self.model_dir)
         model_files = []
         for file in os.listdir(model_path):
             file_path = os.path.join(model_path, file)

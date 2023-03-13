@@ -4,7 +4,7 @@ COPY third_party third_party
 
 COPY kserve kserve
 COPY VERSION VERSION
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve[storage]
 
 COPY sklearnserver sklearnserver
 RUN pip install --no-cache-dir -e ./sklearnserver

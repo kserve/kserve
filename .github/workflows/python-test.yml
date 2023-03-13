@@ -4,13 +4,13 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: []
+    branches: [ ]
 jobs:
   flake8-lint:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9"]
+        python-version: [ "3.7", "3.8", "3.9" ]
     name: Lint
     steps:
       - name: Check out source repository
@@ -28,30 +28,31 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, "3.8", "3.9"]
+        python-version: [ "3.7", "3.8", "3.9" ]
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-    - name: Test with pytest
-      run: |
-        cd python
-        pip install -e ./kserve[test]
-        pytest --cov=kserve ./kserve
-        pip install -e ./sklearnserver
-        pytest --cov=sklearnserver ./sklearnserver
-        pip install -e ./xgbserver
-        pytest --cov=xgbserver ./xgbserver
-        pip install -e ./pmmlserver
-        pytest --cov=pmmlserver ./pmmlserver
-        pip install -e ./lgbserver
-        pytest --cov=lgbserver ./lgbserver
-        pip install -e ./paddleserver[test]
-        pytest --cov=paddleserver ./paddleserver
-        pip install -e ./alibiexplainer
-        pytest --cov=alibiexplainer ./alibiexplainer
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+      - name: Test with pytest
+        run: |
+          cd python
+          pip install -e ./kserve[storage]
+          pip install -e ./kserve[test]
+          pytest --cov=kserve ./kserve
+          pip install -e ./sklearnserver[test]
+          pytest --cov=sklearnserver ./sklearnserver
+          pip install -e ./xgbserver[test]
+          pytest --cov=xgbserver ./xgbserver
+          pip install -e ./pmmlserver[test]
+          pytest --cov=pmmlserver ./pmmlserver
+          pip install -e ./lgbserver[test]
+          pytest --cov=lgbserver ./lgbserver
+          pip install -e ./paddleserver[test]
+          pytest --cov=paddleserver ./paddleserver
+          pip install -e ./alibiexplainer[test]
+          pytest --cov=alibiexplainer ./alibiexplainer

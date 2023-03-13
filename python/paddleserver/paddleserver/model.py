@@ -17,6 +17,7 @@ import os
 import numpy as np
 from paddle import inference
 import kserve
+from kserve.storage import Storage
 
 
 class PaddleModel(kserve.Model):
@@ -42,7 +43,7 @@ class PaddleModel(kserve.Model):
                 raise Exception("More than one {} model file".format(ext))
             return os.path.join(model_path, file_list[0])
 
-        model_path = kserve.Storage.download(self.model_dir)
+        model_path = Storage.download(self.model_dir)
         config = inference.Config(get_model_files('.pdmodel'), get_model_files('.pdiparams'))
         # TODO: add GPU support
         config.disable_gpu()

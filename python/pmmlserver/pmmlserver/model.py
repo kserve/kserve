@@ -20,6 +20,7 @@ from jpmml_evaluator import make_evaluator
 from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
 
 from kserve.errors import ModelMissingError
+from kserve.storage import Storage
 
 MODEL_EXTENSIONS = ('.pmml')
 
@@ -36,7 +37,7 @@ class PmmlModel(kserve.Model):
         self._backend = None
 
     def load(self) -> bool:
-        model_path = kserve.Storage.download(self.model_dir)
+        model_path = Storage.download(self.model_dir)
         model_files = []
         for file in os.listdir(model_path):
             file_path = os.path.join(model_path, file)

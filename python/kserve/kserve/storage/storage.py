@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ import boto3
 from google.auth import exceptions
 from google.cloud import storage
 
-from .model_repository import MODEL_MOUNT_DIRS
+MODEL_MOUNT_DIRS = "/mnt/models"
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
