@@ -34,22 +34,22 @@ import (
 )
 
 const (
-	StorageInitializerDefaultCPURequest            = "100m"
-	StorageInitializerDefaultCPULimit              = "1"
-	StorageInitializerDefaultMemoryRequest         = "200Mi"
-	StorageInitializerDefaultMemoryLimit           = "1Gi"
-	StorageInitializerDefaultStorageSpecSecretName = "storage-config"
-	StorageInitializerDefaultPVCMountOption        = "StorageInitializer"
+	StorageInitializerDefaultCPURequest                 = "100m"
+	StorageInitializerDefaultCPULimit                   = "1"
+	StorageInitializerDefaultMemoryRequest              = "200Mi"
+	StorageInitializerDefaultMemoryLimit                = "1Gi"
+	StorageInitializerDefaultStorageSpecSecretName      = "storage-config"
+	StorageInitializerDefaultEnableDirectPvcVolumeMount = "false"
 )
 
 var (
 	storageInitializerConfig = &StorageInitializerConfig{
-		CpuRequest:            StorageInitializerDefaultCPURequest,
-		CpuLimit:              StorageInitializerDefaultCPULimit,
-		MemoryRequest:         StorageInitializerDefaultMemoryRequest,
-		MemoryLimit:           StorageInitializerDefaultMemoryLimit,
-		StorageSpecSecretName: StorageInitializerDefaultStorageSpecSecretName,
-		PVCMountOption:        StorageInitializerDefaultPVCMountOption,
+		CpuRequest:                 StorageInitializerDefaultCPURequest,
+		CpuLimit:                   StorageInitializerDefaultCPULimit,
+		MemoryRequest:              StorageInitializerDefaultMemoryRequest,
+		MemoryLimit:                StorageInitializerDefaultMemoryLimit,
+		StorageSpecSecretName:      StorageInitializerDefaultStorageSpecSecretName,
+		EnableDirectPvcVolumeMount: StorageInitializerDefaultEnableDirectPvcVolumeMount,
 	}
 
 	resourceRequirement = v1.ResourceRequirements{
@@ -1269,7 +1269,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
-				PVCMountOption: PvcMountViaVolumeMount, // enable direct volume mount for PVC
+				EnableDirectPvcVolumeMount: "true", // enable direct volume mount for PVC
 			},
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {

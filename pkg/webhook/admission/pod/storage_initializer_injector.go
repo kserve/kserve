@@ -38,18 +38,16 @@ const (
 	PvcURIPrefix                            = "pvc://"
 	PvcSourceMountName                      = "kserve-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
-	PvcMountViaStorageInitializer           = "StorageInitializer"
-	PvcMountViaVolumeMount                  = "VolumeMount"
 )
 
 type StorageInitializerConfig struct {
-	Image                 string `json:"image"`
-	CpuRequest            string `json:"cpuRequest"`
-	CpuLimit              string `json:"cpuLimit"`
-	MemoryRequest         string `json:"memoryRequest"`
-	MemoryLimit           string `json:"memoryLimit"`
-	StorageSpecSecretName string `json:"storageSpecSecretName"`
-	PVCMountOption        string `json:"pvcMountOption"`
+	Image                      string `json:"image"`
+	CpuRequest                 string `json:"cpuRequest"`
+	CpuLimit                   string `json:"cpuLimit"`
+	MemoryRequest              string `json:"memoryRequest"`
+	MemoryLimit                string `json:"memoryLimit"`
+	StorageSpecSecretName      string `json:"storageSpecSecretName"`
+	EnableDirectPvcVolumeMount string `json:"enableDirectPvcVolumeMount"`
 }
 
 type StorageInitializerInjector struct {
@@ -140,7 +138,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 		// check if using direct volume mount to mount the pvc
 		// if yes, mount the pvc to model local mount path and return
-		if mi.config.PVCMountOption == PvcMountViaVolumeMount {
+		if mi.config.EnableDirectPvcVolumeMount == "true" {
 
 			// add a corresponding pvc volume mount to the userContainer
 			// pvc will be mount to /mnt/models rather than /mnt/pvc
@@ -155,7 +153,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			}
 			userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
 
-			// Change the CustomSpecStorageUri env variable value
+			// change the CustomSpecStorageUri env variable value
 			// to the default model path if present
 			for index, envVar := range userContainer.Env {
 				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
@@ -163,9 +161,10 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				}
 			}
 
-			// Add volumes to the PodSpec
+			// add volumes to the PodSpec
 			pod.Spec.Volumes = append(pod.Spec.Volumes, podVolumes...)
 
+			// not inject the storage initializer
 			return nil
 		}
 

@@ -27,7 +27,7 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1",
         "storageSpecSecretName": "storage-config",
-        "pvcMountOption": "StorageInitializer"
+        "enableDirectPvcVolumeMount": "false"
     }
   # ====================================== CREDENTIALS ======================================
   # For a quick reference about AWS ENV variables:
