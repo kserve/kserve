@@ -17,12 +17,6 @@ jobs:
   kserve-image-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Maximize build space
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 512
-          swap-size-mb: 1024
-          remove-dotnet: 'true'
       - uses: actions/checkout@v2
 
       - name: Build KServe images
@@ -57,6 +51,10 @@ jobs:
           docker image ls
           cat ./config/overlays/test/configmap/inferenceservice.yaml
 
+      - name: Build
+        run: |
+          echo "Free space:"
+          df -h
       - name: Upload sklearn server image
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
@@ -91,6 +89,11 @@ jobs:
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
           image: "kserve/custom-model-grpc:${{ github.sha }}"
+
+      - name: Build
+        run: |
+          echo "Free space:"
+          df -h
 
       - name: Upload custom model transformer grpc image
         uses: ishworkh/docker-image-artifact-upload@v1
