@@ -96,16 +96,7 @@ func generateRule(ingressHost string, componentName string, path string, port in
 }
 
 func generateMetadata(isvc *v1beta1api.InferenceService,
-	componentType constants.InferenceServiceComponent) metav1.ObjectMeta {
-	var name string
-	switch componentType {
-	case constants.Transformer:
-		name = constants.TransformerServiceName(isvc.Name)
-	case constants.Explainer:
-		name = constants.ExplainerServiceName(isvc.Name)
-	case constants.Predictor:
-		name = constants.PredictorServiceName(isvc.Name)
-	}
+	componentType constants.InferenceServiceComponent, name string) metav1.ObjectMeta {
 	//get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -126,9 +117,9 @@ func generateMetadata(isvc *v1beta1api.InferenceService,
 func generateIngressHost(ingressConfig *v1beta1api.IngressConfig,
 	isvc *v1beta1api.InferenceService,
 	componentType string,
-	topLevelFlag bool) (string, error) {
-
-	metadata := generateMetadata(isvc, constants.InferenceServiceComponent(componentType))
+	topLevelFlag bool,
+	name string) (string, error) {
+	metadata := generateMetadata(isvc, constants.InferenceServiceComponent(componentType), name)
 	if !topLevelFlag {
 		return GenerateDomainName(metadata.Name, isvc.ObjectMeta, ingressConfig)
 	} else {
@@ -137,7 +128,7 @@ func generateIngressHost(ingressConfig *v1beta1api.IngressConfig,
 }
 
 func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
-	ingressConfig *v1beta1api.IngressConfig) (*netv1.Ingress, error) {
+	ingressConfig *v1beta1api.IngressConfig, client client.Client) (*netv1.Ingress, error) {
 	if !isvc.Status.IsConditionReady(v1beta1api.PredictorReady) {
 		isvc.Status.SetCondition(v1beta1api.IngressReady, &apis.Condition{
 			Type:   v1beta1api.IngressReady,
@@ -147,6 +138,8 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 		return nil, nil
 	}
 	var rules []netv1.IngressRule
+	existing := &corev1.Service{}
+	predictorName := constants.PredictorServiceName(isvc.Name)
 	if isvc.Spec.Transformer != nil {
 		if !isvc.Status.IsConditionReady(v1beta1api.TransformerReady) {
 			isvc.Status.SetCondition(v1beta1api.IngressReady, &apis.Condition{
@@ -156,16 +149,22 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 			})
 			return nil, nil
 		}
-		host, err := generateIngressHost(ingressConfig, isvc, string(constants.Transformer), true)
+		transformerName := constants.TransformerServiceName(isvc.Name)
+		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+		host, err := generateIngressHost(ingressConfig, isvc, string(constants.Transformer), true, transformerName)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating top level transformer ingress host: %v", err)
 		}
-		transformerHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Transformer), false)
+		transformerHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Transformer), false, transformerName)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating transformer ingress host: %v", err)
 		}
 		if isvc.Spec.Explainer != nil {
-			explainerHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Explainer), false)
+			explainerHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Explainer), false, transformerName)
 			if err != nil {
 				return nil, fmt.Errorf("failed creating explainer ingress host: %v", err)
 			}
@@ -183,11 +182,17 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 			})
 			return nil, nil
 		}
-		host, err := generateIngressHost(ingressConfig, isvc, string(constants.Explainer), true)
+		explainerName := constants.ExplainerServiceName(isvc.Name)
+		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+		host, err := generateIngressHost(ingressConfig, isvc, string(constants.Explainer), true, explainerName)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating top level explainer ingress host: %v", err)
 		}
-		explainerHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Explainer), false)
+		explainerHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Explainer), false, explainerName)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating explainer ingress host: %v", err)
 		}
@@ -199,7 +204,11 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 		}
 		rules = append(rules, generateRule(explainerHost, constants.ExplainerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
 	} else {
-		host, err := generateIngressHost(ingressConfig, isvc, string(constants.Predictor), true)
+		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+		host, err := generateIngressHost(ingressConfig, isvc, string(constants.Predictor), true, predictorName)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating top level predictor ingress host: %v", err)
 		}
@@ -212,7 +221,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 		}
 	}
 	//add predictor rule
-	predictorHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Predictor), false)
+	predictorHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Predictor), false, predictorName)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating predictor ingress host: %v", err)
 	}
@@ -244,7 +253,7 @@ func semanticIngressEquals(desired, existing *netv1.Ingress) bool {
 }
 
 func (r *RawIngressReconciler) Reconcile(isvc *v1beta1api.InferenceService) error {
-	ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig)
+	ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.client)
 	if ingress == nil {
 		return nil
 	}

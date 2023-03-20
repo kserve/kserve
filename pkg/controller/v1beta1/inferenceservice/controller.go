@@ -167,13 +167,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	reconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
-		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Scheme, isvcConfig))
+		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Scheme, isvcConfig, deploymentMode))
 	}
 	if isvc.Spec.Transformer != nil {
-		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Scheme, isvcConfig))
+		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Scheme, isvcConfig, deploymentMode))
 	}
 	if isvc.Spec.Explainer != nil {
-		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Scheme, isvcConfig))
+		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Scheme, isvcConfig, deploymentMode))
 	}
 	for _, reconciler := range reconcilers {
 		result, err := reconciler.Reconcile(isvc)

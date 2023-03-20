@@ -27,7 +27,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	raw "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
@@ -51,14 +50,17 @@ type Transformer struct {
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder
+	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
 
-func NewTransformer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig) Component {
+func NewTransformer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig,
+	deploymentMode constants.DeploymentModeType) Component {
 	return &Transformer{
 		client:                 client,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
+		deploymentMode:         deploymentMode,
 		Log:                    ctrl.Log.WithName("TransformerReconciler"),
 	}
 }
@@ -78,19 +80,24 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)
 
-	deployConfig, err := v1beta1.NewDeployConfig(p.client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	existing := &knservingv1.Service{}
 	transformerName := constants.TransformerServiceName(isvc.Name)
 	predictorName := constants.PredictorServiceName(isvc.Name)
-	err = p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+	err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 	if err == nil {
 		transformerName = constants.DefaultTransformerServiceName(isvc.Name)
 		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 	}
+
+	if p.deploymentMode == constants.RawDeployment {
+		existing := &corev1.Service{}
+		err = p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+	}
+
 	objectMeta := metav1.ObjectMeta{
 		Name:      transformerName,
 		Namespace: isvc.Namespace,
@@ -102,7 +109,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	}
 
 	// Need to wait for predictor URL in modelmesh deployment mode
-	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.ModelMeshDeployment {
+	if p.deploymentMode == constants.ModelMeshDeployment {
 		// check if predictor URL is populated
 		predictorURL := (*url.URL)(isvc.Status.Components["predictor"].URL)
 		if predictorURL == nil {
@@ -138,7 +145,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 
 	// Here we allow switch between knative and vanilla deployment
-	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
+	if p.deploymentMode == constants.RawDeployment {
 		r, err := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
 			&podSpec)
 		if err != nil {

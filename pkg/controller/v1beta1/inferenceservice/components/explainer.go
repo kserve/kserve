@@ -23,7 +23,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
@@ -47,14 +46,17 @@ type Explainer struct {
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder
+	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
 
-func NewExplainer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig) Component {
+func NewExplainer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig,
+	deploymentMode constants.DeploymentModeType) Component {
 	return &Explainer{
 		client:                 client,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
+		deploymentMode:         deploymentMode,
 		Log:                    ctrl.Log.WithName("ExplainerReconciler"),
 	}
 }
@@ -80,6 +82,15 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		explainerName = constants.DefaultExplainerServiceName(isvc.Name)
 		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 	}
+
+	if e.deploymentMode == constants.RawDeployment {
+		existing := &v1.Service{}
+		err = e.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+	}
 	objectMeta := metav1.ObjectMeta{
 		Name:      explainerName,
 		Namespace: isvc.Namespace,
@@ -99,13 +110,9 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)
-	deployConfig, err := v1beta1.NewDeployConfig(e.client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 
 	// Here we allow switch between knative and vanilla deployment
-	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
+	if e.deploymentMode == constants.RawDeployment {
 		r, err := raw.NewRawKubeReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
 			&podSpec)
 		if err != nil {

@@ -51,14 +51,17 @@ type Predictor struct {
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder
+	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
 
-func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig) Component {
+func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig,
+	deploymentMode constants.DeploymentModeType) Component {
 	return &Predictor{
 		client:                 client,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
+		deploymentMode:         deploymentMode,
 		Log:                    ctrl.Log.WithName("PredictorReconciler"),
 	}
 }
@@ -252,6 +255,14 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	if err == nil {
 		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 	}
+
+	if p.deploymentMode == constants.RawDeployment {
+		existing := &v1.Service{}
+		err = p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+	}
 	// Labels and annotations from isvc will overwrite labels and annotations from ServingRuntimePodSpec
 	objectMeta := metav1.ObjectMeta{
 		Name:      predictorName,
@@ -264,18 +275,12 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 
 	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)
-
-	deployConfig, err := v1beta1.NewDeployConfig(p.client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	var rawDeployment bool
 	var podLabelKey string
 	var podLabelValue string
 
 	// Here we allow switch between knative and vanilla deployment
-	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
+	if p.deploymentMode == constants.RawDeployment {
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
 		r, err := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
