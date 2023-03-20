@@ -141,10 +141,7 @@ def get_predict_input(payload: Union[Dict, InferRequest]):
         return payload["inputs"] if "inputs" in payload else payload["instances"]
     elif isinstance(payload, InferRequest):
         input = payload.inputs[0]
-        if input.datatype == "MIXED":
-            return input.data
-        else:
-            return input.as_numpy()
+        return input.as_numpy()
 
 
 def get_predict_response(payload: Union[Dict, InferRequest], result, model_name: str) -> InferResponse:
