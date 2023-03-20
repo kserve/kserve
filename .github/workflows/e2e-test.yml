@@ -51,10 +51,6 @@ jobs:
           docker image ls
           cat ./config/overlays/test/configmap/inferenceservice.yaml
 
-      - name: Build
-        run: |
-          echo "Free space:"
-          df -h
       - name: Upload sklearn server image
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
@@ -85,21 +81,11 @@ jobs:
         with:
           image: "kserve/image-transformer:${{ github.sha }}"
       
-      - name: Upload custom model grpc image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "kserve/custom-model-grpc:${{ github.sha }}"
-
-      - name: Build
+      - name: Build free space
         run: |
           echo "Free space:"
           df -h
 
-      - name: Upload custom model transformer grpc image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
-  
   explainer-runtime-build:
     runs-on: ubuntu-latest
     steps:
