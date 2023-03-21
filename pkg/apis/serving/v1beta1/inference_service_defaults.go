@@ -307,9 +307,10 @@ func (isvc *InferenceService) SetTorchServeDefaults() {
 	} else {
 		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
 	}
-	if constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion {
+	if (constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion) || (constants.ProtocolGRPCV2 == *isvc.Spec.Predictor.Model.ProtocolVersion) {
 		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
 	}
+	isvc.ObjectMeta.Labels = map[string]string{constants.ISVCProtocol: string(*isvc.Spec.Predictor.Model.ProtocolVersion)}
 }
 
 func (isvc *InferenceService) SetTritonDefaults() {

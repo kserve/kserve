@@ -225,7 +225,9 @@ spec:
       env:
         - name: "TS_SERVICE_ENVELOPE"
           value: "{{ .Values.kserve.servingruntime.torchserve.serviceEnvelopePlaceholder }}"
-      resources:
+        - name: "PROTOCOL_VERSION"
+          value: "{{ .Values.kserve.servingruntime.torchserve.protocolVersionPlaceholder }}"
+    resources:
         requests:
           cpu: "1"
           memory: 2Gi

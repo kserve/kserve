@@ -13,7 +13,7 @@ spec:
   protocolVersions:
     - v1
     - v2
-    - grpc-v1
+    - grpc-v2
   containers:
     - name: kserve-container
       image: kserve-torchserve:replace
@@ -25,6 +25,8 @@ spec:
       env:
         - name: "TS_SERVICE_ENVELOPE"
           value: "{{.Labels.serviceEnvelope}}"
+        - name: "PROTOCOL_VERSION"
+          value: "{{.Labels.iscvProtocol}}"
       resources:
         requests:
           cpu: "1"

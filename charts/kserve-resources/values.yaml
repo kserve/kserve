@@ -75,6 +75,7 @@ kserve:
       image: pytorch/torchserve-kfs
       tag: 0.6.1
       serviceEnvelopePlaceholder: '{{.Labels.serviceEnvelope}}'
+      protocolVersionPlaceholder: '{{.Labels.iscvProtocol}}'
     alibi:
       image: kserve/alibi-explainer
       defaultVersion: *defaultVersion

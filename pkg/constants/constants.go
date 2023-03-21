@@ -339,6 +339,7 @@ const (
 const (
 	ModelClassLabel = "modelClass"
 	ServiceEnvelope = "serviceEnvelope"
+	ISVCProtocol    = "iscvProtocol"
 )
 
 // allowed model class implementation in mlserver
