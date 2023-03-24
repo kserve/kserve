@@ -39,7 +39,7 @@ const (
 	StorageInitializerDefaultMemoryRequest              = "200Mi"
 	StorageInitializerDefaultMemoryLimit                = "1Gi"
 	StorageInitializerDefaultStorageSpecSecretName      = "storage-config"
-	StorageInitializerDefaultEnableDirectPvcVolumeMount = "false"
+	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
 )
 
 var (
@@ -1269,7 +1269,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
-				EnableDirectPvcVolumeMount: "true", // enable direct volume mount for PVC
+				EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
 			},
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {

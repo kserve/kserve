@@ -47,7 +47,7 @@ type StorageInitializerConfig struct {
 	MemoryRequest              string `json:"memoryRequest"`
 	MemoryLimit                string `json:"memoryLimit"`
 	StorageSpecSecretName      string `json:"storageSpecSecretName"`
-	EnableDirectPvcVolumeMount string `json:"enableDirectPvcVolumeMount"`
+	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
 }
 
 type StorageInitializerInjector struct {
@@ -138,7 +138,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 		// check if using direct volume mount to mount the pvc
 		// if yes, mount the pvc to model local mount path and return
-		if mi.config.EnableDirectPvcVolumeMount == "true" {
+		if mi.config.EnableDirectPvcVolumeMount == true {
 
 			// add a corresponding pvc volume mount to the userContainer
 			// pvc will be mount to /mnt/models rather than /mnt/pvc
