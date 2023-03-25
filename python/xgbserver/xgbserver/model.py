@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kserve import Model, Storage
-from kserve.errors import InferenceError, ModelMissingError
 import xgboost as xgb
 import numpy as np
 from xgboost import XGBModel
 import os
 from typing import Dict
+
+from kserve import Model
+from kserve.errors import InferenceError, ModelMissingError
+from kserve.storage import Storage
 
 BOOSTER_FILE_EXTENSION = ".bst"
 

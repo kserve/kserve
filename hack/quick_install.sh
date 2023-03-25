@@ -99,6 +99,8 @@ if [ $deploymentMode = serverless ]; then
    kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
    kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
    kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+   # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress
+   kubectl patch cm config-domain --patch '{"data":{"example.com":""}}' -n knative-serving
    echo "😀 Successfully installed Knative"
 fi
 

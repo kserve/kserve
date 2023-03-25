@@ -107,7 +107,10 @@ data:
         "ingressService" : "{{ .Values.kserve.controller.gateway.ingressGateway.gatewayService }}",
         "localGateway" : "{{ .Values.kserve.controller.gateway.localGateway.gateway }}",
         "localGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.gatewayService }}",
-        "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}"
+        "ingressClassName" : "{{ .Values.kserve.controller.gateway.ingressGateway.className }}",
+        "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}",
+        "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
+        "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}"
     }
   logger: |-
     {

@@ -17,7 +17,10 @@ import unittest.mock as mock
 
 from botocore.client import Config
 from botocore import UNSIGNED
-import kserve
+
+from kserve.storage import Storage
+
+STORAGE_MODULE = 'kserve.storage.storage'
 
 
 def create_mock_obj(path):
@@ -56,12 +59,12 @@ def expected_call_args_list(parent_key, dest, paths):
     return [(f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
             for p in paths]
 
+
 # pylint: disable=protected-access
 
 
-@mock.patch('kserve.storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_parent_key(mock_storage):
-
     # given
     bucket_name = 'foo'
     paths = ['models/weights.pt', '0002.h5', 'a/very/long/path/config.json']
@@ -69,7 +72,7 @@ def test_parent_key(mock_storage):
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
-    kserve.Storage._download_s3(f's3://{bucket_name}/bar', 'dest_path')
+    Storage._download_s3(f's3://{bucket_name}/bar', 'dest_path')
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
@@ -78,16 +81,15 @@ def test_parent_key(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix='bar')
 
 
-@mock.patch('kserve.storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_no_key(mock_storage):
-
     # given
     bucket_name = 'foo'
     object_paths = ['models/weights.pt', '0002.h5', 'a/very/long/path/config.json']
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
-    kserve.Storage._download_s3(f's3://{bucket_name}/', 'dest_path')
+    Storage._download_s3(f's3://{bucket_name}/', 'dest_path')
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
@@ -96,16 +98,15 @@ def test_no_key(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix='')
 
 
-@mock.patch('kserve.storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_full_name_key(mock_storage):
-
     # given
     bucket_name = 'foo'
     object_key = 'path/to/model/name.pt'
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, [object_key])
-    kserve.Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
+    Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
@@ -115,16 +116,15 @@ def test_full_name_key(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
 
 
-@mock.patch('kserve.storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_full_name_key_root_bucket_dir(mock_storage):
-
     # given
     bucket_name = 'foo'
     object_key = 'name.pt'
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, [object_key])
-    kserve.Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
+    Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
@@ -141,28 +141,27 @@ AWS_TEST_CREDENTIALS = {"AWS_ACCESS_KEY_ID": "testing",
 
 
 def test_get_S3_config():
-
     ANON_CONFIG = Config(signature_version=UNSIGNED)
     DEFAULT_CONFIG = None
 
     with mock.patch.dict(os.environ, {}):
-        config1 = kserve.Storage.get_S3_config()
+        config1 = Storage.get_S3_config()
     assert config1 == DEFAULT_CONFIG
 
     with mock.patch.dict(os.environ, {"awsAnonymousCredential": "False"}):
-        config2 = kserve.Storage.get_S3_config()
+        config2 = Storage.get_S3_config()
     assert config2 == DEFAULT_CONFIG
 
     with mock.patch.dict(os.environ, AWS_TEST_CREDENTIALS):
-        config3 = kserve.Storage.get_S3_config()
+        config3 = Storage.get_S3_config()
     assert config3 == DEFAULT_CONFIG
 
     with mock.patch.dict(os.environ, {"awsAnonymousCredential": "True"}):
-        config4 = kserve.Storage.get_S3_config()
+        config4 = Storage.get_S3_config()
     assert config4.signature_version == ANON_CONFIG.signature_version
 
     # assuming Python 3.5 or greater for joining dictionaries
     credentials_and_anon = {**AWS_TEST_CREDENTIALS, "awsAnonymousCredential": "True"}
     with mock.patch.dict(os.environ, credentials_and_anon):
-        config5 = kserve.Storage.get_S3_config()
+        config5 = Storage.get_S3_config()
     assert config5.signature_version == ANON_CONFIG.signature_version

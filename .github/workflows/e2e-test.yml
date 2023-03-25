@@ -324,6 +324,9 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.3'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
       - name: Build queue proxy extension image

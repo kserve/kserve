@@ -36,7 +36,7 @@ setup(
     python_requires='>=3.7',
     packages=find_packages("alibiexplainer"),
     install_requires=[
-        f"kserve>={version}",
+        f"kserve[storage]>={version}",
         "nest_asyncio>=1.4.0",
         "alibi==0.6.4",
         "joblib>=0.13.2",

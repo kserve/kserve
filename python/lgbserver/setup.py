@@ -37,7 +37,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("lgbserver"),
     install_requires=[
-        f"kserve>={version}",
+        f"kserve[storage]>={version}",
         "lightgbm == 3.3.2",
         "pandas == 1.3.5",
         "argparse >= 1.4.0",

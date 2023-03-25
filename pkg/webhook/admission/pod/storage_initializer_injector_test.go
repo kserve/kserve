@@ -34,20 +34,22 @@ import (
 )
 
 const (
-	StorageInitializerDefaultCPURequest            = "100m"
-	StorageInitializerDefaultCPULimit              = "1"
-	StorageInitializerDefaultMemoryRequest         = "200Mi"
-	StorageInitializerDefaultMemoryLimit           = "1Gi"
-	StorageInitializerDefaultStorageSpecSecretName = "storage-config"
+	StorageInitializerDefaultCPURequest                 = "100m"
+	StorageInitializerDefaultCPULimit                   = "1"
+	StorageInitializerDefaultMemoryRequest              = "200Mi"
+	StorageInitializerDefaultMemoryLimit                = "1Gi"
+	StorageInitializerDefaultStorageSpecSecretName      = "storage-config"
+	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
 )
 
 var (
 	storageInitializerConfig = &StorageInitializerConfig{
-		CpuRequest:            StorageInitializerDefaultCPURequest,
-		CpuLimit:              StorageInitializerDefaultCPULimit,
-		MemoryRequest:         StorageInitializerDefaultMemoryRequest,
-		MemoryLimit:           StorageInitializerDefaultMemoryLimit,
-		StorageSpecSecretName: StorageInitializerDefaultStorageSpecSecretName,
+		CpuRequest:                 StorageInitializerDefaultCPURequest,
+		CpuLimit:                   StorageInitializerDefaultCPULimit,
+		MemoryRequest:              StorageInitializerDefaultMemoryRequest,
+		MemoryLimit:                StorageInitializerDefaultMemoryLimit,
+		StorageSpecSecretName:      StorageInitializerDefaultStorageSpecSecretName,
+		EnableDirectPvcVolumeMount: StorageInitializerDefaultEnableDirectPvcVolumeMount,
 	}
 
 	resourceRequirement = v1.ResourceRequirements{
@@ -1153,5 +1155,128 @@ func TestParsePvcURI(t *testing.T) {
 			g.Expect(err).Should(tc.matchers[2])
 		})
 
+	}
+}
+
+func TestDirectVolumeMountForPvc(t *testing.T) {
+	scenarios := map[string]struct {
+		original *v1.Pod
+		expected *v1.Pod
+	}{
+		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMount": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "mypvcname",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMountShortestPath": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/models",
+									SubPath:   "", // volume's root
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "mypvcname",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: &StorageInitializerConfig{
+				EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
+			},
+		}
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
 	}
 }
