@@ -80,18 +80,18 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)
 
-	existing := &knservingv1.Service{}
 	transformerName := constants.TransformerServiceName(isvc.Name)
 	predictorName := constants.PredictorServiceName(isvc.Name)
-	err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
-	if err == nil {
-		transformerName = constants.DefaultTransformerServiceName(isvc.Name)
-		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-	}
-
 	if p.deploymentMode == constants.RawDeployment {
 		existing := &corev1.Service{}
-		err = p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+	} else {
+		existing := &knservingv1.Service{}
+		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)

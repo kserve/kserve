@@ -150,10 +150,12 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 			return nil, nil
 		}
 		transformerName := constants.TransformerServiceName(isvc.Name)
+		explainerName := constants.ExplainerServiceName(isvc.Name)
 		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
 		}
 		host, err := generateIngressHost(ingressConfig, isvc, string(constants.Transformer), true, transformerName)
 		if err != nil {
@@ -168,11 +170,11 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 			if err != nil {
 				return nil, fmt.Errorf("failed creating explainer ingress host: %v", err)
 			}
-			rules = append(rules, generateRule(explainerHost, constants.ExplainerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
+			rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
 		}
 		// :predict routes to the transformer when there are both predictor and transformer
-		rules = append(rules, generateRule(host, constants.TransformerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
-		rules = append(rules, generateRule(transformerHost, constants.TransformerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(host, transformerName, "/", constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(transformerHost, predictorName, "/", constants.CommonDefaultHttpPort))
 	} else if isvc.Spec.Explainer != nil {
 		if !isvc.Status.IsConditionReady(v1beta1api.ExplainerReady) {
 			isvc.Status.SetCondition(v1beta1api.IngressReady, &apis.Condition{
@@ -198,11 +200,11 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 		}
 		// :predict routes to the predictor when there is only predictor and explainer
 		if len(isvc.Spec.Predictor.Containers) != 0 && len(isvc.Spec.Predictor.Containers[0].Ports) != 0 {
-			rules = append(rules, generateRule(host, constants.PredictorServiceName(isvc.Name), "/", isvc.Spec.Predictor.Containers[0].Ports[0].ContainerPort))
+			rules = append(rules, generateRule(host, predictorName, "/", isvc.Spec.Predictor.Containers[0].Ports[0].ContainerPort))
 		} else {
-			rules = append(rules, generateRule(host, constants.PredictorServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
+			rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
 		}
-		rules = append(rules, generateRule(explainerHost, constants.ExplainerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
 	} else {
 		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
@@ -214,10 +216,10 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 		}
 
 		if len(isvc.Spec.Predictor.Containers) != 0 && len(isvc.Spec.Predictor.Containers[0].Ports) != 0 {
-			rules = append(rules, generateRule(host, constants.PredictorServiceName(isvc.Name), "/", isvc.Spec.Predictor.Containers[0].Ports[0].ContainerPort))
+			rules = append(rules, generateRule(host, predictorName, "/", isvc.Spec.Predictor.Containers[0].Ports[0].ContainerPort))
 
 		} else {
-			rules = append(rules, generateRule(host, constants.PredictorServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
+			rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
 		}
 	}
 	//add predictor rule
@@ -226,9 +228,9 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 		return nil, fmt.Errorf("failed creating predictor ingress host: %v", err)
 	}
 	if len(isvc.Spec.Predictor.Containers) != 0 && len(isvc.Spec.Predictor.Containers[0].Ports) != 0 {
-		rules = append(rules, generateRule(predictorHost, constants.PredictorServiceName(isvc.Name), "/", isvc.Spec.Predictor.Containers[0].Ports[0].ContainerPort))
+		rules = append(rules, generateRule(predictorHost, predictorName, "/", isvc.Spec.Predictor.Containers[0].Ports[0].ContainerPort))
 	} else {
-		rules = append(rules, generateRule(predictorHost, constants.PredictorServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(predictorHost, predictorName, "/", constants.CommonDefaultHttpPort))
 	}
 
 	ingress := &netv1.Ingress{

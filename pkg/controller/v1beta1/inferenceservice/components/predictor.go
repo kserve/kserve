@@ -249,16 +249,16 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 
-	existing := &knservingv1.Service{}
 	predictorName := constants.PredictorServiceName(isvc.Name)
-	err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
-	if err == nil {
-		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-	}
-
 	if p.deploymentMode == constants.RawDeployment {
 		existing := &v1.Service{}
-		err = p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+	} else {
+		existing := &knservingv1.Service{}
+		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}

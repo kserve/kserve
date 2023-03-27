@@ -74,23 +74,25 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
-	existing := &knservingv1.Service{}
+
 	explainerName := constants.ExplainerServiceName(isvc.Name)
 	predictorName := constants.PredictorServiceName(isvc.Name)
-	err := e.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
-	if err == nil {
-		explainerName = constants.DefaultExplainerServiceName(isvc.Name)
-		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-	}
-
 	if e.deploymentMode == constants.RawDeployment {
 		existing := &v1.Service{}
-		err = e.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := e.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+	} else {
+		existing := &knservingv1.Service{}
+		err := e.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}
 	}
+
 	objectMeta := metav1.ObjectMeta{
 		Name:      explainerName,
 		Namespace: isvc.Namespace,
