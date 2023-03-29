@@ -12,7 +12,6 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
 kserve = {path = "../kserve", develop = true}
-numpy = "^1.8.2"
 adversarial-robustness-toolbox = {version = "^1.10.3", extras = ["keras"]}
 nest-asyncio = "^1.4.0"
 pillow = "^9.0.0"
