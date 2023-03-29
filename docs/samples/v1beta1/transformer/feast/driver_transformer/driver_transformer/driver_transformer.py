@@ -10,19 +10,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 from typing import List, Dict, Union
 import logging
 
-import http.client
-import json
+import requests
 import numpy as np
 from cloudevents.http import CloudEvent
-from tritonclient.grpc import service_pb2 as pb
-from tritonclient.grpc import InferResult
 
 import kserve
 from kserve import InferRequest, InferResponse
+from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
@@ -41,7 +39,7 @@ class DriverTransformer(kserve.Model):
                  predictor_host: str,
                  protocol: str,
                  feast_serving_url: str,
-                 entity_ids: List[str],
+                 entity_id_name: str,
                  feature_refs: List[str]):
         """Initialize the model name, predictor host, Feast serving URL,
            entity IDs, and feature references
@@ -52,7 +50,7 @@ class DriverTransformer(kserve.Model):
             protocol (str): The protocol in which the predictor runs.
             feast_serving_url (str): The Feast feature server URL, in the form
             of <host_name:port>
-            entity_ids (List[str]): The entity IDs for which to retrieve
+            entity_id_name (str): The entity ID name for which to retrieve
             features from the Feast feature store
             feature_refs (List[str]): The feature references for the
             features to be retrieved
@@ -61,14 +59,14 @@ class DriverTransformer(kserve.Model):
         self.predictor_host = predictor_host
         self.protocol = protocol
         self.feast_serving_url = feast_serving_url
-        self.entity_ids = entity_ids
+        self.entity_id_name = entity_id_name
         self.feature_refs = feature_refs
         self.feature_refs_key = [feature_refs[i].replace(":", "__") for i in range(len(feature_refs))]
         logging.info("Model name = %s", name)
         logging.info("Protocol = %s", protocol)
         logging.info("Predictor host = %s", predictor_host)
         logging.info("Feast serving URL = %s", feast_serving_url)
-        logging.info("Entity ids = %s", entity_ids)
+        logging.info("Entity id name = %s", entity_id_name)
         logging.info("Feature refs = %s", feature_refs)
 
         self.timeout = 100
@@ -84,9 +82,10 @@ class DriverTransformer(kserve.Model):
 
         """
         entity_rows = {}
-        for i in range(len(self.entity_ids)):
-            entity_rows[self.entity_ids[i]] = [instance[i] for instance in inputs['instances']]
-
+        entity_ids = []
+        for instance in inputs['instances']:
+            entity_ids += instance
+        entity_rows[self.entity_id_name] = entity_ids
         return entity_rows
 
     def buildPredictRequest(self, inputs, features) -> Dict:
@@ -101,12 +100,18 @@ class DriverTransformer(kserve.Model):
 
         """
         request_data = []
-        for i in range(len(features["field_values"])):
-            entity_req = [features["field_values"][i]["fields"][self.feature_refs_key[j]]
-                          for j in range(len(self.feature_refs_key))]
-            for j in range(len(self.entity_ids)):
-                entity_req.append(features["field_values"][i]["fields"][self.entity_ids[j]])
-                request_data.insert(i, entity_req)
+        acc_rate_index = features["metadata"]["feature_names"].index("driver_hourly_stats__acc_rate")
+        avg_daily_trips_index = features["metadata"]["feature_names"].index("driver_hourly_stats__avg_daily_trips")
+        conv_rate_index = features["metadata"]["feature_names"].index("driver_hourly_stats__conv_rate")
+        entity_ids_index = features["metadata"]["feature_names"].index("driver_id")
+
+        # input format [acc_rate, avg_daily_trips, conv_rate, driver_id]
+        for i in range(len(features["results"][entity_ids_index]["values"])):
+            single_entity_data = [features["results"][acc_rate_index]["values"][i],
+                                  features["results"][avg_daily_trips_index]["values"][i],
+                                  features["results"][conv_rate_index]["values"][i],
+                                  features["results"][entity_ids_index]["values"][i]]
+            request_data.append(single_entity_data)
 
         # The default protocol is v1
         result = {'instances': request_data}
@@ -114,7 +119,7 @@ class DriverTransformer(kserve.Model):
             result = {'inputs': [
                 {
                     "name": "predict",
-                    "shape": [len(features["field_values"]), len(self.feature_refs_key) + 1],
+                    "shape": [len(features["results"][entity_ids_index]), len(self.feature_refs_key) + 1],
                     "datatype": "FP32",
                     "data": request_data
                 }
@@ -125,7 +130,7 @@ class DriverTransformer(kserve.Model):
             tensor_contents = pb.InferTensorContents(fp32_contents=data)
             inputs = pb.ModelInferRequest().InferInputTensor(
                 name="predict",
-                shape=[len(features["field_values"]), len(self.feature_refs_key) + 1],
+                shape=[len(features["results"][entity_ids_index]), len(self.feature_refs_key) + 1],
                 datatype="FP32",
                 contents=tensor_contents
             )
@@ -149,16 +154,20 @@ class DriverTransformer(kserve.Model):
         headers = {"Content-type": "application/json", "Accept": "application/json"}
         params = {'features': self.feature_refs, 'entities': self.buildEntityRow(inputs),
                   'full_feature_names': True}
+        request_url = "{0}/get-online-features".format(self.feast_serving_url) if "http" in self.feast_serving_url \
+            else "http://{0}/get-online-features".format(self.feast_serving_url)
         json_params = json.dumps(params)
+        logging.info("feast request url %s", request_url)
+        logging.info("feast request headers %s", headers)
+        logging.info("feast request body %s", json_params)
 
-        conn = http.client.HTTPConnection(self.feast_serving_url)
-        conn.request("GET", "/get-online-features/", json_params, headers)
-        resp = conn.getresponse()
-        logging.info("The online feature rest request status is %s", resp.status)
-        features = json.loads(resp.read().decode())
+        resp = requests.post(request_url, data=json_params, headers=headers)
+        logging.info("feast response status is %s", resp.status_code)
+        logging.info("feast response headers %s", resp.headers)
+        features = resp.json()
+        logging.info("feast response body %s", features)
 
         outputs = self.buildPredictRequest(inputs, features)
-
         logging.info("The input for model predict is %s", outputs)
 
         return outputs
@@ -178,6 +187,5 @@ class DriverTransformer(kserve.Model):
         """
         logging.info("The output from model predict is %s", response)
         if self.protocol == "grpc-v2":
-            response = InferResult(response)
-            return response.get_response(as_json=True)
+            response = ModelInferResponse(response)
         return response
