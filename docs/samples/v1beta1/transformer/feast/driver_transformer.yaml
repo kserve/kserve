@@ -5,7 +5,7 @@ metadata:
 spec:
   transformer:
     containers:
-      - image: sivanantha/driver-transformer:latest
+      - image: "{username}/driver-transformer:latest"
         name: driver-container
         command:
           - "python"

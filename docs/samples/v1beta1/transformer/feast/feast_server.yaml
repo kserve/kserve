@@ -15,13 +15,13 @@ spec:
     spec:
       initContainers:
         - name: feature-store-initializer
-          image: sivanantha/feature-store-initializer:latest
+          image: "{username}/feature-store-initializer:latest"
           volumeMounts:
             - mountPath: /mnt
               name: feature-store-volume
       containers:
         - name: feature-server
-          image: sivanantha/feast-server:latest
+          image: "{username}/feast-server:latest"
           args: [ -c, /mnt/driver_feature_repo/feature_repo, serve, -h, 0.0.0.0 ]
           ports:
             - name: feature-server

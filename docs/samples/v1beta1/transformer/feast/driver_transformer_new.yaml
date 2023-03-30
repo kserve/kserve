@@ -2,8 +2,6 @@ apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "sklearn-driver-transformer"
-  annotations:
-    serving.kserve.io/deploymentMode: ModelMesh
 spec:
   transformer:
     containers:
@@ -23,6 +21,7 @@ spec:
           - "driver_hourly_stats:acc_rate"
           - "driver_hourly_stats:avg_daily_trips"
   predictor:
-    sklearn:
+    model:
+      modelFormat:
+        name: sklearn
       storageUri: "gs://kfserving-examples/models/feast/driver"
-          
