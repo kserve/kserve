@@ -75,7 +75,7 @@ class ModelServer:
         registered_models (ModelRepository): Model repository with registered models.
         enable_grpc (bool): Whether to turn on grpc server. Default: ``True``
         enable_docs_url (bool): Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
-        enable_latency_logging (bool): Whether to log latency metric. Default: ``False``.
+        enable_latency_logging (bool): Whether to log latency metric. Default: ``True``.
     """
 
     def __init__(self, http_port: int = args.http_port,
