@@ -16,7 +16,6 @@ import os
 import sys
 import uuid
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import InferParameter
-import pandas as pd
 from typing import Dict, Union
 
 from kserve.utils.numpy_codec import from_np_dtype
@@ -159,7 +158,8 @@ def get_predict_input(payload: Union[Dict, InferRequest]):
             for input in payload.inputs:
                 input_data = input.data
                 if input.datatype == "BYTES":
-                    input_data = [str(val, "utf-8") if isinstance(val, bytes) else val for val in input_data]
+                    input_data = [str(val, "utf-8") if isinstance(val, bytes)
+                                  else val for val in input_data]
                 dfs.append(pd.DataFrame(input_data, columns=[input.name]))
             return pd.concat(dfs, axis=1)
         else:
