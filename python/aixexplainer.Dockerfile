@@ -1,4 +1,5 @@
-FROM python:3.7-slim
+ARG BASE_IMAGE=python:3.7-slim
+FROM $BASE_IMAGE
 
 COPY third_party third_party
 
