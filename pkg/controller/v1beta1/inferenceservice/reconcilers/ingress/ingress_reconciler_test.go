@@ -695,7 +695,7 @@ func TestGetServiceUrlPathBased(t *testing.T) {
 	predictorUrl, _ := url.Parse("http://my-model-predictor-default.example.com")
 	ingressConfig := &v1beta1.IngressConfig{
 		UrlScheme:               "http",
-		IngressDomain:		 "my-domain.com",
+		IngressDomain:           "my-domain.com",
 		PathTemplate:            "/serving/{{ .Namespace }}/{{ .Name }}",
 		DisableIstioVirtualHost: false,
 	}

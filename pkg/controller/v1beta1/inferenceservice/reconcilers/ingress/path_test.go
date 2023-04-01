@@ -37,7 +37,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				name:      "model",
 				namespace: "user",
 				ingressConfig: &v1beta1.IngressConfig{
-					PathTemplate:   "/path/to/{{ .Namespace }}/{{ .Name }}",
+					PathTemplate: "/path/to/{{ .Namespace }}/{{ .Name }}",
 				},
 			},
 			want: "/path/to/user/model",
@@ -50,7 +50,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
-					PathTemplate:   "/{{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+					PathTemplate:  "/{{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
 				},
 			},
 			wantErr: true,
@@ -63,7 +63,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
-					PathTemplate:   "/{{ .Unknownfield }}/serving/{{ .Namespace }}/{{ .Name }}",
+					PathTemplate:  "/{{ .Unknownfield }}/serving/{{ .Namespace }}/{{ .Name }}",
 				},
 			},
 			wantErr: true,
@@ -76,7 +76,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
-					PathTemplate:   "myhost/serving/{{ .Namespace }}/{{ .Name }}",
+					PathTemplate:  "myhost/serving/{{ .Namespace }}/{{ .Name }}",
 				},
 			},
 			wantErr: true,
@@ -89,7 +89,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
-					PathTemplate:   "http://myhost/serving/{{ .Namespace }}/{{ .Name }}",
+					PathTemplate:  "http://myhost/serving/{{ .Namespace }}/{{ .Name }}",
 				},
 			},
 			wantErr: true,
