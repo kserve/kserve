@@ -16,7 +16,7 @@ import os
 
 from pmmlserver import PmmlModel
 
-model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
+model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
 
 
 def test_model():
