@@ -56,6 +56,10 @@ class PmmlModel(Model):
             self._backend, model_files[0]).verify()
         self.input_fields = [inputField.getName()
                              for inputField in self.evaluator.getInputFields()]
+        self.output_fields = [outputField.getName()
+                              for outputField in self.evaluator.getOutputFields()]
+        self.output_fields_types = [outputField.getDataType()
+                                    for outputField in self.evaluator.getOutputFields()]
         self.ready = True
         return self.ready
 
