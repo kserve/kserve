@@ -23,6 +23,7 @@ from kserve.storage import Storage
 from typing import Dict, Union
 
 from kserve.protocol.infer_type import InferRequest, InferResponse
+
 from kserve.utils.utils import get_predict_input, get_predict_response
 
 
@@ -49,7 +50,8 @@ class PaddleModel(Model):
             return os.path.join(model_path, file_list[0])
 
         model_path = Storage.download(self.model_dir)
-        config = inference.Config(get_model_files('.pdmodel'), get_model_files('.pdiparams'))
+        config = inference.Config(get_model_files(
+            '.pdmodel'), get_model_files('.pdiparams'))
         # TODO: add GPU support
         config.disable_gpu()
 

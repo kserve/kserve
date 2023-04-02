@@ -1,0 +1,19 @@
+load('ext://pack', 'pack')
+k8s_kind('InferenceService', api_version='serving.kserve.io/v1beta1', image_json_path='{.spec.predictor.containers[*].image}')
+
+allow_k8s_contexts('docker-desktop')
+
+pack(
+  'yuzisun/tilt-demo-2022',
+  ignore=[
+    'Tiltfile',
+    'service.yaml',
+    '.*',
+  ],
+  live_update = [
+    sync('.', '/workspace'),
+  ],
+  deps=["."],
+)
+k8s_yaml('service.yaml')
+k8s_resource('tilt-demo', extra_pod_selectors={'serving.kserve.io/inferenceservice':'tilt-demo'})

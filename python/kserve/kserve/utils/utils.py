@@ -17,13 +17,14 @@ import sys
 import uuid
 from typing import Dict, Union
 
-import numpy as np
 from kserve.utils.numpy_codec import from_np_dtype
 import pandas as pd
+import numpy as np
 import psutil
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
+
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
 
 

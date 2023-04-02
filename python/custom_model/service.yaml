@@ -1,0 +1,9 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "tilt-demo"
+spec:
+  predictor:
+    minReplicas: 1
+    containers:
+    - image: yuzisun/tilt-demo-2022:first 

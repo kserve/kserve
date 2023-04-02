@@ -21,8 +21,8 @@ from jpmml_evaluator.py4j import Py4JBackend, launch_gateway
 from kserve.errors import ModelMissingError, InferenceError
 from kserve.storage import Storage
 from kserve import Model
-from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve.protocol.infer_type import InferRequest, InferResponse
 
 MODEL_EXTENSIONS = ('.pmml')
 
@@ -35,9 +35,6 @@ class PmmlModel(Model):
         self.ready = False
         self.evaluator = None
         self.input_fields = []
-        self.output_names = []
-        self.output_types = []
-        self.output_field_types = {}
         self._gateway = None
         self._backend = None
 
@@ -59,8 +56,6 @@ class PmmlModel(Model):
             self._backend, model_files[0]).verify()
         self.input_fields = [inputField.getName()
                              for inputField in self.evaluator.getInputFields()]
-        self.output_names = [outputField.getName()
-                             for outputField in self.evaluator.getOutputFields()]
         self.ready = True
         return self.ready
 
