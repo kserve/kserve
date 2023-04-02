@@ -183,7 +183,7 @@ def test_paddle_v2_grpc():
                     name="h2c",
                     protocol="TCP"
                 )],
-            args=["--model_name", model_name, "--protocol", "grpc-v2"]
+            args=["--model_name", model_name]
         )
     )
 

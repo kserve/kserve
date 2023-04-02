@@ -15,8 +15,7 @@
 import os
 
 from pmmlserver import PmmlModel
-from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
-
+from kserve.protocol.infer_type import InferInput, InferRequest
 
 model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
 

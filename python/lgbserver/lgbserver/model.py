@@ -59,7 +59,8 @@ class LightGBMModel(kserve.Model):
         try:
             if isinstance(payload, Dict):
                 dfs = []
-                for input in payload['inputs'] or payload['instances']:
+                instances = payload['inputs'] if "inputs" in payload else payload['instances']
+                for input in instances:
                     dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
                 inputs = pd.concat(dfs, axis=0)
                 result = self._booster.predict(inputs)

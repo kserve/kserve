@@ -144,14 +144,14 @@ def get_predict_input(payload: Union[Dict, InferRequest]):
         return input.as_numpy()
 
 
-def get_predict_response(payload: Union[Dict, InferRequest], result: Union[List, pd.DataFrame], model_name: str) -> InferResponse:
+def get_predict_response(payload: Union[Dict, InferRequest], result: Union[List, pd.DataFrame],
+                         model_name: str) -> InferResponse:
     if isinstance(payload, Dict):
         return {"predictions": result.tolist()}
     elif isinstance(payload, InferRequest):
         infer_outputs = []
         if isinstance(result, pd.DataFrame):
             for col in result.columns:
-                print(result[col])
                 infer_output = InferOutput(
                     name=col,
                     shape=list(result[col].shape),

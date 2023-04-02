@@ -16,6 +16,7 @@ import os
 import numpy as np
 from paddle import inference
 import kserve
+from kserve.errors import InferenceError
 from kserve.storage import Storage
 from typing import Dict, Union
 
@@ -66,13 +67,9 @@ class PaddleModel(kserve.Model):
         try:
             instance = get_predict_input(payload)
             np_array_input = np.array(instance, dtype='float32')
-        except Exception as e:
-            raise Exception("Failed to initialize NumPy array from input:%s, %s"
-                            % (e, instance)) from e
-        try:
             self.input_tensor.copy_from_cpu(np_array_input)
             self.predictor.run()
             result = self.output_tensor.copy_to_cpu()
             return get_predict_response(payload, result, self.name)
         except Exception as e:
-            raise Exception("Failed to predict %s" % e) from e
+            raise InferenceError(str(e))
