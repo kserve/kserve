@@ -1,3 +1,4 @@
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -126,13 +127,11 @@ def test_pmml_v2_kserve():
         service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, './data/pmml-input-v2.json',
                   protocol_version="v2")
-    assert (res["outputs"][0]["data"] == [
-        {
-            "Species": "setosa",
-            "Probability_setosa": 1.0,
-            "Probability_versicolor": 0.0,
-            "Probability_virginica": 0.0,
-            "Node_Id": "2"
-        }
+    assert (res["outputs"] = [
+        {'name': 'Species', 'shape': [1], 'datatype': 'BYTES', 'data': ['setosa']},
+        {'name': 'Probability_setosa', 'shape': [1], 'datatype': 'FP64', 'data': [1.0]},
+        {'name': 'Probability_versicolor', 'shape': [1], 'datatype': 'FP64', 'data': [0.0]},
+        {'name': 'Probability_virginica', 'shape': [1], 'datatype': 'FP64', 'data': [0.0]},
+        {'name': 'Node_Id', 'shape': [1], 'datatype': 'BYTES', 'data': ['2']}]
     ])
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

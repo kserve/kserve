@@ -1,3 +1,4 @@
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,7 +95,7 @@ def test_lightgbm_runtime_kserve():
 
 
 @pytest.mark.fast
-def test_lightgbm_v2_runtime_kserve():
+def test_lightgbm_v2_runtime_mlserver():
     service_name = "isvc-lightgbm-v2-runtime"
 
     predictor = V1beta1PredictorSpec(

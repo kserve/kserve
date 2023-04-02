@@ -17,6 +17,7 @@ import os
 from sklearn.datasets import load_iris
 from lgbserver import LightGBMModel
 import pandas as pd
+import numpy
 
 model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
 BST_FILE = "model.bst"
@@ -44,5 +45,5 @@ def test_model():
                'petal_width_(cm)': {0: 0.2}, 'sepal_length_(cm)': {0: 5.1}}
 
     response = model.predict({"inputs": [request, request]})
-    import numpy
     assert numpy.argmax(response["predictions"][0]) == 0
+    

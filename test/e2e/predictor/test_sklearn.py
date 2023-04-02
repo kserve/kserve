@@ -58,7 +58,7 @@ def test_sklearn_kserve():
 
 
 @pytest.mark.slow
-def test_sklearn_v2_kserve():
+def test_sklearn_v2_mlserver():
     service_name = "isvc-sklearn-v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -126,7 +126,7 @@ def test_sklearn_runtime_kserve():
 
 
 @pytest.mark.slow
-def test_sklearn_v2_runtime_kserve():
+def test_sklearn_v2_runtime_mlserver():
     service_name = "isvc-sklearn-v2-runtime"
 
     predictor = V1beta1PredictorSpec(
@@ -224,7 +224,7 @@ def test_sklearn_v2_grpc():
                     name="h2c",
                     protocol="TCP"
                 )],
-            args=["--model_name", model_name, "--protocol", "grpc-v2"]
+            args=["--model_name", model_name]
         )
     )
 
