@@ -15,9 +15,9 @@
 import os
 import sys
 import uuid
-from typing import Dict, Union
+from typing import Dict, Union, List
 from kserve.utils.numpy_codec import from_np_dtype
-
+import pandas as pd
 import psutil
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
@@ -144,18 +144,31 @@ def get_predict_input(payload: Union[Dict, InferRequest]):
         return input.as_numpy()
 
 
-def get_predict_response(payload: Union[Dict, InferRequest], result, model_name: str) -> InferResponse:
+def get_predict_response(payload: Union[Dict, InferRequest], result: Union[List, pd.DataFrame], model_name: str) -> InferResponse:
     if isinstance(payload, Dict):
         return {"predictions": result.tolist()}
     elif isinstance(payload, InferRequest):
-        infer_output = InferOutput(
-            name="output-0",
-            shape=list(result.shape),
-            datatype=from_np_dtype(result.dtype),
-            data=result.flatten().tolist()
-        )
+        infer_outputs = []
+        if isinstance(result, pd.DataFrame):
+            for col in result.columns:
+                print(result[col])
+                infer_output = InferOutput(
+                    name=col,
+                    shape=list(result[col].shape),
+                    datatype=from_np_dtype(result[col].dtype),
+                    data=result[col].tolist()
+                )
+                infer_outputs.append(infer_output)
+        else:
+            infer_output = InferOutput(
+                name="output-0",
+                shape=list(result.shape),
+                datatype=from_np_dtype(result.dtype),
+                data=result.flatten().tolist()
+            )
+            infer_outputs.append(infer_output)
         return InferResponse(
             model_name=model_name,
-            infer_outputs=[infer_output],
+            infer_outputs=infer_outputs,
             response_id=generate_uuid()
         )

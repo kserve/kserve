@@ -15,12 +15,13 @@
 import os
 from typing import Dict, Union
 
+import pandas as pd
 from jpmml_evaluator import make_evaluator
 from jpmml_evaluator.py4j import Py4JBackend, launch_gateway
 from kserve.errors import ModelMissingError
 from kserve.storage import Storage
-from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
-from kserve.utils.utils import generate_uuid
+from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_response
 
 import kserve
 
@@ -35,6 +36,9 @@ class PmmlModel(kserve.Model):
         self.ready = False
         self.evaluator = None
         self.input_fields = []
+        self.output_names = []
+        self.output_types = []
+        self.output_field_types = {}
         self._gateway = None
         self._backend = None
 
@@ -56,10 +60,11 @@ class PmmlModel(kserve.Model):
             self._backend, model_files[0]).verify()
         self.input_fields = [inputField.getName()
                              for inputField in self.evaluator.getInputFields()]
-        self.output_fields = [outputField.getName()
-                              for outputField in self.evaluator.getOutputFields()]
-        self.output_fields_types = [outputField.getDataType()
-                                    for outputField in self.evaluator.getOutputFields()]
+        self.output_names = [outputField.getName()
+                             for outputField in self.evaluator.getOutputFields()]
+        self.output_types = [outputField.getDataType()
+                             for outputField in self.evaluator.getOutputFields()]
+        self.output_field_types = dict(zip(self.output_names, self.output_types))
         self.ready = True
         return self.ready
 
@@ -71,18 +76,8 @@ class PmmlModel(kserve.Model):
                     dict(zip(self.input_fields, instance))) for instance in instances]
                 return {"predictions": result}
             elif isinstance(payload, InferRequest):
-                result = [self.evaluator.evaluate(
+                results = [self.evaluator.evaluate(
                     dict(zip(self.input_fields, instance))) for instance in payload.inputs[0].data]
-                infer_output = InferOutput(
-                    name="output-0",
-                    shape=[len(result)],
-                    datatype="MIXED",
-                    data=result
-                )
-                return InferResponse(
-                    model_name=self.name,
-                    infer_outputs=[infer_output],
-                    response_id=generate_uuid()
-                )
+                return get_predict_response(payload, pd.DataFrame(results), self.name)
         except Exception as e:
             raise Exception("Failed to predict %s" % e)
