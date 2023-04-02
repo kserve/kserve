@@ -36,9 +36,6 @@ class PmmlModel(kserve.Model):
         self.ready = False
         self.evaluator = None
         self.input_fields = []
-        self.output_names = []
-        self.output_types = []
-        self.output_field_types = {}
         self._gateway = None
         self._backend = None
 
@@ -60,8 +57,6 @@ class PmmlModel(kserve.Model):
             self._backend, model_files[0]).verify()
         self.input_fields = [inputField.getName()
                              for inputField in self.evaluator.getInputFields()]
-        self.output_names = [outputField.getName()
-                             for outputField in self.evaluator.getOutputFields()]
         self.ready = True
         return self.ready
 
