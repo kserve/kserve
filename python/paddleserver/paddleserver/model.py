@@ -15,7 +15,6 @@
 
 import os
 
-import numpy as np
 from paddle import inference
 from kserve import Model
 from kserve.errors import InferenceError
@@ -68,8 +67,7 @@ class PaddleModel(Model):
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             instances = get_predict_input(payload)
-            np_array_input = np.array(instances, dtype='float32')
-            self.input_tensor.copy_from_cpu(np_array_input)
+            self.input_tensor.copy_from_cpu(instances)
             self.predictor.run()
             result = self.output_tensor.copy_to_cpu()
             return get_predict_response(payload, result, self.name)
