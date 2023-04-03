@@ -311,7 +311,7 @@ def test_sklearn_v2_mixed_grpc():
                     name="h2c",
                     protocol="TCP"
                 )],
-            args=["--model_name", model_name, "--protocol", "grpc-v2"]
+            args=["--model_name", model_name]
         )
     )
 

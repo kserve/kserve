@@ -16,9 +16,7 @@
 import os
 from typing import Dict, Union
 
-import lightgbm as lgb
 from lightgbm import Booster
-import pandas as pd
 
 from kserve import Model
 from kserve.errors import InferenceError, ModelMissingError
@@ -53,20 +51,15 @@ class LightGBMModel(Model):
         elif len(model_files) > 1:
             raise RuntimeError('More than one model file is detected, '
                                f'Only one is allowed within model_dir: {model_files}')
-        self._booster = lgb.Booster(params={"nthread": self.nthread},
-                                    model_file=model_files[0])
+        self._booster = Booster(params={"nthread": self.nthread},
+                                model_file=model_files[0])
         self.ready = True
         return self.ready
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            dfs = []
             instances = get_predict_input(payload)
-            for input in instances:
-                dfs.append(pd.DataFrame(
-                    input, columns=self._booster.feature_name()))
-            inputs = pd.concat(dfs, axis=0)
-            result = self._booster.predict(inputs)
+            result = self._booster.predict(instances)
             return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise InferenceError(str(e))

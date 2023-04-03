@@ -139,9 +139,20 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
     return headers
 
 
-def get_predict_input(payload: Union[Dict, InferRequest]):
+def get_predict_input(payload: Union[Dict, InferRequest]) -> Union[np.ndarray, pd.DataFrame]:
     if isinstance(payload, Dict):
-        return payload["inputs"] if "inputs" in payload else payload["instances"]
+        instances = payload["inputs"] if "inputs" in payload else payload["instances"]
+        if len(instances) == 0:
+            return np.array(instances)
+        if isinstance(instances[0], Dict):
+            dfs = []
+            for input in instances:
+                dfs.append(pd.DataFrame(input))
+            inputs = pd.concat(dfs, axis=0)
+            return inputs
+        else:
+            return np.array(instances)
+
     elif isinstance(payload, InferRequest):
         content_type = ''
         parameters = payload.parameters
@@ -170,7 +181,14 @@ def get_predict_input(payload: Union[Dict, InferRequest]):
 def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.ndarray, pd.DataFrame],
                          model_name: str) -> Union[Dict, InferResponse]:
     if isinstance(payload, Dict):
-        return {"predictions": result.tolist()}
+        infer_outputs = result
+        if isinstance(result, pd.DataFrame):
+            infer_outputs = []
+            for label, row in result.iterrows():
+                infer_outputs.append(row.to_dict())
+        elif isinstance(result, np.ndarray):
+            infer_outputs = result.tolist()
+        return {"predictions": infer_outputs}
     elif isinstance(payload, InferRequest):
         infer_outputs = []
         if isinstance(result, pd.DataFrame):

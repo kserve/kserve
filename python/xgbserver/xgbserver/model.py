@@ -16,7 +16,6 @@
 import os
 from typing import Dict, Union
 
-import numpy as np
 import xgboost as xgb
 from kserve.errors import InferenceError, ModelMissingError
 from kserve.protocol.infer_type import InferRequest, InferResponse
@@ -62,8 +61,7 @@ class XGBoostModel(Model):
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
             instances = get_predict_input(payload)
-            dmatrix = xgb.DMatrix(
-                np.array(instances), nthread=self.nthread)
+            dmatrix = xgb.DMatrix(instances, nthread=self.nthread)
             result = self._booster.predict(dmatrix)
             return get_predict_response(payload, result, self.name)
         except Exception as e:
