@@ -15,18 +15,14 @@
 import os
 import sys
 import uuid
-from typing import Any, Dict, Union
-
-import orjson
+from typing import Dict, Union, List
+from kserve.utils.numpy_codec import from_np_dtype
+import pandas as pd
 import psutil
-
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
-from google.protobuf.json_format import MessageToJson
 from grpc import ServicerContext
-from kserve.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-
-from ..constants import constants
+from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
 
 
 def is_running_in_k8s():
@@ -44,13 +40,11 @@ def get_default_target_namespace():
     return get_current_k8s_namespace()
 
 
-def set_isvc_namespace(inferenceservice):
-    isvc_namespace = inferenceservice.metadata.namespace
-    namespace = isvc_namespace or get_default_target_namespace()
-    return namespace
+def get_isvc_namespace(inferenceservice):
+    return inferenceservice.metadata.namespace or get_default_target_namespace()
 
 
-def set_ig_namespace(inferencegraph):
+def get_ig_namespace(inferencegraph):
     return inferencegraph.metadata.namespace or get_default_target_namespace()
 
 
@@ -115,7 +109,7 @@ def create_response_cloudevent(model_name: str, body: Union[Dict, CloudEvent], r
         del ce_attributes["time"]
 
     ce_attributes["type"] = os.getenv("CE_TYPE", "io.kserve.inference.response")
-    ce_attributes["source"] = os.getenv("CE_SOURCE", f"io.kserve.kfserver.{model_name}")
+    ce_attributes["source"] = os.getenv("CE_SOURCE", f"io.kserve.inference.{model_name}")
 
     event = CloudEvent(ce_attributes, response)
 
@@ -142,15 +136,39 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
     return headers
 
 
-def convert_grpc_response_to_dict(response: ModelInferResponse) -> Dict[str, Any]:
-    res = orjson.loads(
-        MessageToJson(response, preserving_proto_field_name=True, including_default_value_fields=True))
-    outputs = res["outputs"]
-    if not outputs:
-        return res
-    for output in outputs:
-        datatype = output["datatype"]
-        datatype_key = constants.GRPC_CONTENT_DATATYPE_MAPPINGS[datatype]
-        output["data"] = output["contents"][datatype_key]
-        del output["contents"]
-    return res
+def get_predict_input(payload: Union[Dict, InferRequest]):
+    if isinstance(payload, Dict):
+        return payload["inputs"] if "inputs" in payload else payload["instances"]
+    elif isinstance(payload, InferRequest):
+        input = payload.inputs[0]
+        return input.as_numpy()
+
+
+def get_predict_response(payload: Union[Dict, InferRequest], result: Union[List, pd.DataFrame],
+                         model_name: str) -> InferResponse:
+    if isinstance(payload, Dict):
+        return {"predictions": result.tolist()}
+    elif isinstance(payload, InferRequest):
+        infer_outputs = []
+        if isinstance(result, pd.DataFrame):
+            for col in result.columns:
+                infer_output = InferOutput(
+                    name=col,
+                    shape=list(result[col].shape),
+                    datatype=from_np_dtype(result[col].dtype),
+                    data=result[col].tolist()
+                )
+                infer_outputs.append(infer_output)
+        else:
+            infer_output = InferOutput(
+                name="output-0",
+                shape=list(result.shape),
+                datatype=from_np_dtype(result.dtype),
+                data=result.flatten().tolist()
+            )
+            infer_outputs.append(infer_output)
+        return InferResponse(
+            model_name=model_name,
+            infer_outputs=infer_outputs,
+            response_id=generate_uuid()
+        )

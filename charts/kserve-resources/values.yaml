@@ -1,6 +1,6 @@
 kserve:
-  version: &defaultVersion v0.10.0-rc1
-  modelmeshVersion: &defaultModelMeshVersion v0.9.0
+  version: &defaultVersion v0.10.1
+  modelmeshVersion: &defaultModelMeshVersion v0.10.0
   agent:
     image: kserve/agent
     tag: *defaultVersion
@@ -17,12 +17,15 @@ kserve:
     deploymentMode: "Serverless"
     gateway:
       domain: example.com
+      domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
+      urlScheme: http
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local
       ingressGateway:
         gateway: knative-serving/knative-ingress-gateway
         gatewayService: istio-ingressgateway.istio-system.svc.cluster.local
+        className: istio
     nodeSelector: {}
     tolerations: []
     topologySpreadConstraints: []
@@ -50,7 +53,7 @@ kserve:
       modelmeshRuntimeAdapterImage: kserve/modelmesh-runtime-adapter
       modelmeshRuntimeAdapterImageTag: *defaultModelMeshVersion
       restProxyImage: kserve/rest-proxy
-      restProxyImageTag: v0.1.4
+      restProxyImageTag: *defaultModelMeshVersion
       podsPerRuntime: 2
   servingruntime:
     modelNamePlaceholder: '{{.Name}}'

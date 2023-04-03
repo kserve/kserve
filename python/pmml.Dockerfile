@@ -1,4 +1,5 @@
-FROM openjdk:11-slim
+ARG BASE_IMAGE=openjdk:11-slim
+FROM $BASE_IMAGE
 
 ARG PYTHON_VERSION=3.9
 ARG CONDA_PYTHON_VERSION=3
@@ -25,7 +26,7 @@ RUN conda install -y python=$PYTHON_VERSION
 
 COPY kserve kserve
 COPY VERSION VERSION
-RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kserve
+RUN pip install --no-cache-dir --upgrade pip && pip3 install -e ./kserve[storage]
 
 COPY pmmlserver pmmlserver
 RUN pip install --no-cache-dir -e ./pmmlserver

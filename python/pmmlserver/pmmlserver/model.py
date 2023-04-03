@@ -13,13 +13,17 @@
 # limitations under the License.
 
 import os
-from typing import Dict
+from typing import Dict, Union
+
+import pandas as pd
+from jpmml_evaluator import make_evaluator
+from jpmml_evaluator.py4j import Py4JBackend, launch_gateway
+from kserve.errors import ModelMissingError, InferenceError
+from kserve.storage import Storage
+from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_response
 
 import kserve
-from jpmml_evaluator import make_evaluator
-from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
-
-from kserve.errors import ModelMissingError
 
 MODEL_EXTENSIONS = ('.pmml')
 
@@ -36,7 +40,7 @@ class PmmlModel(kserve.Model):
         self._backend = None
 
     def load(self) -> bool:
-        model_path = kserve.Storage.download(self.model_dir)
+        model_path = Storage.download(self.model_dir)
         model_files = []
         for file in os.listdir(model_path):
             file_path = os.path.join(model_path, file)
@@ -56,10 +60,16 @@ class PmmlModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        instances = payload["instances"]
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            result = [self.evaluator.evaluate(dict(zip(self.input_fields, instance))) for instance in instances]
-            return {"predictions": result}
+            if isinstance(payload, Dict):
+                instances = payload["instances"]
+                result = [self.evaluator.evaluate(
+                    dict(zip(self.input_fields, instance))) for instance in instances]
+                return {"predictions": result}
+            elif isinstance(payload, InferRequest):
+                results = [self.evaluator.evaluate(
+                    dict(zip(self.input_fields, instance))) for instance in payload.inputs[0].data]
+                return get_predict_response(payload, pd.DataFrame(results), self.name)
         except Exception as e:
-            raise Exception("Failed to predict %s" % e)
+            raise InferenceError(str(e))

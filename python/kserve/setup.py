@@ -20,13 +20,15 @@ TESTS_REQUIRES = [
     'pytest-xdist',
     'pytest-cov',
     'pytest-asyncio',
-    'pytest-tornasync',
     'mypy',
-    'portforward',
+    'portforward==0.4.0',
 ]
 
 with open('requirements.txt') as f:
     REQUIRES = f.readlines()
+
+with open('kserve/storage/requirements.txt') as f:
+    STORAGE_REQUIRES = f.readlines()
 
 with open(pathlib.Path(__file__).parent.parent / 'VERSION') as version_file:
     version = version_file.read().strip()
@@ -46,9 +48,11 @@ setuptools.setup(
         'kserve.api',
         'kserve.constants',
         'kserve.models',
-        'kserve.handlers',
         'kserve.utils',
-        'kserve.grpc'
+        'kserve.protocol',
+        'kserve.protocol.rest',
+        'kserve.protocol.grpc',
+        'kserve.storage'
     ],
     package_data={'': ['requirements.txt']},
     include_package_data=True,
@@ -71,5 +75,7 @@ setuptools.setup(
     ],
     install_requires=REQUIRES,
     tests_require=TESTS_REQUIRES,
-    extras_require={'test': TESTS_REQUIRES}
+    extras_require={'test': TESTS_REQUIRES,
+                    'storage': STORAGE_REQUIRES
+                    }
 )

@@ -1,10 +1,11 @@
-FROM python:3.9-slim-bullseye
+ARG BASE_IMAGE=python:3.9-slim-bullseye
+FROM $BASE_IMAGE
 
 COPY third_party third_party
 
 COPY kserve kserve
 COPY VERSION VERSION
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve[storage]
 
 COPY alibiexplainer alibiexplainer
 RUN pip install --no-cache-dir -e ./alibiexplainer

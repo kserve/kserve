@@ -9,4 +9,4 @@ spec:
       maxBatchSize: 16
       maxLatency: 300
     pytorch:
-      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier/v1"

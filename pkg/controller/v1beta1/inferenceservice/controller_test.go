@@ -159,7 +159,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfs",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -889,7 +889,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfs",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -1827,7 +1827,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfs",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},

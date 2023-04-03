@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -45,6 +46,10 @@ type InferenceGraphSpec struct {
 	// Map of InferenceGraph router nodes
 	// Each node defines the router which can be different routing types
 	Nodes map[string]InferenceRouter `json:"nodes"`
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
 }
 
 // InferenceRouterType constant for inference routing types

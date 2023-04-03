@@ -25,7 +25,7 @@ The KServe/TorchServe integration expects following model store layout.
 ```
 
 > **Note**: 
-> For remote storage you can choose to start the example using the prebuilt MNIST MAR file stored on KServe example GCS bucket `gs://kfserving-examples/models/torchserve/image_classifier`, or generate the MAR file with `torch-model-archiver` and create the model store on remote storage according to the above layout.
+> For remote storage you can choose to start the example using the prebuilt MNIST MAR file stored on KServe example GCS bucket `gs://kfserving-examples/models/torchserve/image_classifier/v1`, or generate the MAR file with `torch-model-archiver` and create the model store on remote storage according to the above layout.
 >   ```bash
 >    torch-model-archiver --model-name mnist --version 1.0 \
 >    --model-file model-archiver/model-store/mnist/mnist.py \

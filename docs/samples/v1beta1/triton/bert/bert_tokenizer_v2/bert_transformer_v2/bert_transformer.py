@@ -12,8 +12,12 @@
 # limitations under the License.
 
 import kserve
-from typing import Dict
+from typing import Dict, Union
 import numpy as np
+from cloudevents.http import CloudEvent
+
+from kserve import InferRequest, InferResponse
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 from . import tokenization
 from . import data_processing
 import tritonclient.http as httpclient
@@ -38,13 +42,15 @@ class BertTransformer(kserve.Model):
         self.model_name = "bert_tf_v2_large_fp16_128_v2"
         self.triton_client = None
 
-    def preprocess(self, inputs: Dict) -> Dict:
+    def preprocess(self, inputs: Union[Dict, CloudEvent, InferRequest],
+                   headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         self.doc_tokens = data_processing.convert_doc_tokens(self.short_paragraph_text)
         self.features = data_processing.convert_examples_to_features(self.doc_tokens, inputs["instances"][0],
                                                                      self.tokenizer, 128, 128, 64)
         return self.features
 
-    def predict(self, features: Dict) -> Dict:
+    def predict(self, features: Union[Dict, InferRequest, ModelInferRequest],
+                headers: Dict[str, str] = None) -> Union[Dict, InferResponse, ModelInferResponse]:
         if not self.triton_client:
             self.triton_client = httpclient.InferenceServerClient(
                 url=self.predictor_host, verbose=True)
@@ -68,7 +74,8 @@ class BertTransformer(kserve.Model):
         result = self.triton_client.infer(self.model_name, inputs, outputs=outputs)
         return result.get_response()
 
-    def postprocess(self, result: Dict) -> Dict:
+    def postprocess(self, result: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
+            -> Union[Dict, ModelInferResponse]:
         logging.info(result)
         end_logits = result['outputs'][0]['data']
         start_logits = result['outputs'][1]['data']

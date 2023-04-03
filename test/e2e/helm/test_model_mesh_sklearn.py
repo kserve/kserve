@@ -28,11 +28,13 @@ from kserve import (
     V1beta1StorageSpec,
     constants
 )
-
 from ..common.utils import predict_modelmesh
 
 
-@pytest.mark.helm
+# TODO: Enable e2e test post ingress implementation in model mesh serving
+# https://github.com/kserve/modelmesh-serving/issues/295
+# @pytest.mark.helm
+@pytest.mark.skip
 def test_sklearn_modelmesh():
     service_name = "isvc-sklearn-modelmesh"
     annotations = dict()

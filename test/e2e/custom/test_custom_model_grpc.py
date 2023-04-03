@@ -199,7 +199,7 @@ def test_predictor_grpc_with_transformer_http():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-image-transformer-grpc:"
+                image="kserve/image-transformer:"
                       + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},

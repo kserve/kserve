@@ -258,7 +258,10 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRunt
 				// For TFServing/TorchServe the GPU image is tagged with suffix "-gpu", when the version is found in the tag
 				// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
 				if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe) {
-					container.Image = image + "-gpu"
+					//check for the case when image field is specified directly with gpu tag
+					if !strings.HasSuffix(container.Image, "-gpu") {
+						container.Image = image + "-gpu"
+					}
 				}
 			}
 		}
