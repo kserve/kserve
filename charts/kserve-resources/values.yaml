@@ -44,7 +44,18 @@ kserve:
       nodeSelector: {}
       tolerations: []
       topologySpreadConstraints: []
-      affinity: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                      - key: control-plane
+                        operator: In
+                        values:
+                          - modelmesh-controller
+                  topologyKey: topology.kubernetes.io/zone
       image: kserve/modelmesh-controller
       tag: *defaultModelMeshVersion
     config:
