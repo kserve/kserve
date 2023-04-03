@@ -323,7 +323,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 	statusSpec, _ := isvc.Status.Components[v1beta1.PredictorComponent]
 	if rawDeployment {
-		podLabelValue = constants.GetRawServiceLabel(constants.PredictorServiceName(isvc.ObjectMeta.Name))
+		podLabelValue = constants.GetRawServiceLabel(predictorName)
 	} else {
 		podLabelValue = statusSpec.LatestCreatedRevision
 	}
