@@ -197,7 +197,8 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
                     name=col,
                     shape=list(result[col].shape),
                     datatype=from_np_dtype(result[col].dtype),
-                    data=result[col].tolist()
+                    data=[bytes(val, 'utf-8') if isinstance(val, str)
+                          else val for val in result[col].tolist()]  # str to byte conversion for grpc proto
                 )
                 infer_outputs.append(infer_output)
         else:
