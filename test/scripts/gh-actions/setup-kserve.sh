@@ -46,5 +46,5 @@ export PATH="$PATH:$POETRY_HOME/bin"
 echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null
     poetry config virtualenvs.in-project true
-    poetry install --with=test --no-interaction
+    poetry version $(cat ${../python/VERSION}) && poetry install --with=test --no-interaction
 popd

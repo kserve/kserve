@@ -18,14 +18,14 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache --extras "storage"
+RUN cd kserve && poetry version $(cat ${VERSION}) &&  poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache --extras "storage"
+RUN cd kserve && poetry version $(cat ${VERSION}) &&  poetry install --no-interaction --no-cache
 
 COPY lgbserver/pyproject.toml lgbserver/poetry.lock lgbserver/
-RUN cd lgbserver && poetry install --no-root --no-interaction --no-cache
+RUN cd lgbserver && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
 COPY lgbserver lgbserver
-RUN cd lgbserver && poetry install --no-interaction --no-cache
+RUN cd lgbserver && poetry version $(cat ${VERSION}) &&  poetry install --no-interaction --no-cache
 
 
 FROM ${BASE_IMAGE} as prod

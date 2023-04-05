@@ -5,7 +5,7 @@
 To start the server locally for development needs, run the following command under this folder in your github repository.
 
 ```
-poetry install
+make dev_install
 ```
 
 Once Scikit-learn server is up and running, you can check for successful installation by running the following command
@@ -24,7 +24,7 @@ You can now point to your `joblib` or `pkl` model file and use the server to loa
 Install the development dependencies with:
 
 ```bash
-poetry install --with test
+make dev_install
 ```
 
 To run tests, please change the test file to point to your model.joblib file. Then run the following command:

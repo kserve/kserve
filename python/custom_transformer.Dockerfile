@@ -18,14 +18,14 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache
+RUN cd kserve && poetry version $(cat ${VERSION}) &&  poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache
+RUN cd kserve && poetry version $(cat ${VERSION}) &&  poetry install --no-interaction --no-cache
 
 COPY custom_transformer/pyproject.toml custom_transformer/poetry.lock custom_transformer/
-RUN cd custom_transformer && poetry install --no-root --no-interaction --no-cache
+RUN cd custom_transformer && poetry version $(cat ${VERSION}) &&  poetry install --no-root --no-interaction --no-cache
 COPY custom_transformer custom_transformer
-RUN cd custom_transformer && poetry install --no-interaction --no-cache
+RUN cd custom_transformer && poetry version $(cat ${VERSION}) &&  poetry install --no-interaction --no-cache
 
 
 FROM ${BASE_IMAGE} as prod

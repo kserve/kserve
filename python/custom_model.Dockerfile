@@ -18,14 +18,14 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache
+RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache
+RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
 
 COPY custom_model/pyproject.toml custom_model/poetry.lock custom_model/
-RUN cd custom_model && poetry install --no-root --no-interaction --no-cache
+RUN cd custom_model && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
 COPY custom_model custom_model
-RUN cd custom_model && poetry install --no-interaction --no-cache
+RUN cd custom_model && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
 
 
 FROM ${BASE_IMAGE} as prod

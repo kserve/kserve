@@ -5,7 +5,7 @@
 To start the server locally for development needs, run the following command under this folder in your github repository. 
 
 ```
-poetry install
+make dev_install
 ```
 
 After poetry has installed dependencies you should see:
@@ -31,7 +31,7 @@ To run a local example follow the [income classifier explanation sample](../../d
 Install the development dependencies with:
 
 ```bash
-poetry install --with test
+make dev_install
 ```
 
 The following indicates a successful install.

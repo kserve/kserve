@@ -1,8 +1,8 @@
 dev_install:
 	poetry version $(shell cat ../VERSION) && poetry install --with test
 
-test:
-	pytest
+test: type_check lint
+	pytest -W ignore
 
 type_check:
-	mypy --ignore-missing-imports paddleserver
+	mypy --ignore-missing-imports custom_model

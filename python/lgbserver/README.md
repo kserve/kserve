@@ -5,7 +5,7 @@
 To start the server locally for development needs, run the following command under this folder in your github repository. Also please ensure you have installed the [kserve](../kserve) before.
 
 ```
-poetry install
+make dev_install
 ```
 
 Once LightGBM server is up and running, you can check for successful installation by running the following command
@@ -25,7 +25,7 @@ You can now point to your model file and use the server to load the model and te
 Install the development dependencies with:
 
 ```bash
-poetry install --with test
+make dev_install
 ```
 
 To run tests:

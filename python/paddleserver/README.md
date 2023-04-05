@@ -4,7 +4,7 @@
 
 To start the server locally for development needs, run the following command under this folder in your github repository.
 ``` console
-poetry install
+make dev_install
 ```
 
 You can check for successful installation by running the following command

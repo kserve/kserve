@@ -64,11 +64,11 @@ jobs:
         if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/kserve
-          poetry install --with=test --no-interaction --no-root --extras "storage"
+          make dev_install
       - name: Install kserve
         run: |
           cd python/kserve
-          poetry install --no-interaction --extras "storage"
+          make dev_install
       - name: Test kserve
         run: |
           cd python
@@ -88,11 +88,11 @@ jobs:
         if: steps.cached-sklearn-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/sklearnserver
-          poetry install --with=test --no-interaction --no-root
+          make dev_install
       - name: Install sklearnserver
         run: |
           cd python/sklearnserver
-          poetry install --no-interaction
+          make dev_install
       - name: Test sklearnserver
         run: |
           cd python
@@ -112,11 +112,11 @@ jobs:
         if: steps.cached-xgb-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/xgbserver
-          poetry install --with=test --no-interaction --no-root
+          make dev_install
       - name: Install xgbserver
         run: |
           cd python/xgbserver
-          poetry install --no-interaction
+          make dev_install
       - name: Test xgbserver
         run: |
           cd python
@@ -136,11 +136,11 @@ jobs:
         if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/pmmlserver
-          poetry install --with=test --no-interaction --no-root
+          make dev_install
       - name: Install pmmlserver
         run: |
           cd python/pmmlserver
-          poetry install --no-interaction
+          make dev_install
       - name: Test pmmlserver
         run: |
           cd python
@@ -160,11 +160,11 @@ jobs:
         if: steps.cached-lgb-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/lgbserver
-          poetry install --with=test --no-interaction --no-root
+          make dev_install
       - name: Install lgbserver
         run: |
           cd python/lgbserver
-          poetry install --no-interaction
+          make dev_install
       - name: Test lgbserver
         run: |
           cd python
@@ -184,11 +184,11 @@ jobs:
         if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/paddleserver
-          poetry install --with=test --no-interaction --no-root
+          make dev_install
       - name: Install paddleserver
         run: |
           cd python/paddleserver
-          poetry install --no-interaction
+          make dev_install
       - name: Test paddleserver
         run: |
           cd python
@@ -208,11 +208,11 @@ jobs:
         if: steps.cached-alibi-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/alibiexplainer
-          poetry install --with=test --no-interaction --no-root
+          make dev_install
       - name: Install alibiexplainer
         run: |
           cd python/alibiexplainer
-          poetry install --no-interaction
+          make dev_install
       - name: Test alibiexplainer
         run: |
           cd python
@@ -258,11 +258,11 @@ jobs:
         if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/kserve
-          poetry install --with=test --no-interaction --no-root --extras "storage"
+          make dev_install
       - name: Install kserve
         run: |
           cd python/kserve
-          poetry install --no-interaction  --extras "storage"
+          make dev_install
       - name: Test kserve
         run: |
           cd python
@@ -282,11 +282,11 @@ jobs:
         if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/pmmlserver
-          poetry install --with=test --no-interaction --no-root
+          make dev_install
       - name: Install pmmlserver
         run: |
           cd python/pmmlserver
-          poetry install --no-interaction
+          make dev_install
       - name: Test pmmlserver
         run: |
           cd python
@@ -306,13 +306,37 @@ jobs:
         if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/paddleserver
-          poetry install --with=test --no-interaction --no-root
+          make dev_install
       - name: Install paddleserver
         run: |
           cd python/paddleserver
-          poetry install --no-interaction
+          make dev_install
       - name: Test paddleserver
         run: |
           cd python
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
+
+      # ----------------------------------------Alibi Explainer Unit Tests------------------------------------------------
+      # load cached alibi venv if cache exists
+      - name: Load cached alibi venv
+        id: cached-alibi-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/alibiexplainer/.venv
+          key: alibi-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/alibiexplainer/poetry.lock') }}
+        # install alibi explainer dependencies if cache does not exist
+      - name: Install alibi dependencies
+        if: steps.cached-alibi-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/alibiexplainer
+          make dev_install
+      - name: Install alibiexplainer
+        run: |
+          cd python/alibiexplainer
+          make dev_install
+      - name: Test alibiexplainer
+        run: |
+          cd python
+          source alibiexplainer/.venv/bin/activate
+          pytest --cov=alibiexplainer ./alibiexplainer

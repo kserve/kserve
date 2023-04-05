@@ -21,7 +21,7 @@ pip install kserve[storage]
 Install via [Poetry](https://python-poetry.org/).
 
 ```sh
-poetry install
+make dev_install
 ```
 To install Kserve with storage support
 ```sh
