@@ -486,7 +486,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if out_dir is None:
             return local_path
         elif not os.path.isdir(out_dir):
-            os.makedirs(out_dir)
+            os.makedirs(out_dir, exist_ok=True)
 
         if os.path.isdir(local_path):
             local_path = os.path.join(local_path, "*")
@@ -496,7 +496,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             _, tail = os.path.split(src)
             dest_path = os.path.join(out_dir, tail)
             logging.info("Linking: %s to %s", src, dest_path)
-            os.symlink(src, dest_path)
+            if not os.path.exists(dest_path):
+                os.symlink(src, dest_path)
+            else:
+                logging.info("File %s already exist", dest_path)
             count = count + 1
         if count == 0:
             raise RuntimeError(
