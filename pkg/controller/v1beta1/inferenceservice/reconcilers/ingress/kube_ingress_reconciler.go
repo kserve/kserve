@@ -255,34 +255,45 @@ func semanticIngressEquals(desired, existing *netv1.Ingress) bool {
 }
 
 func (r *RawIngressReconciler) Reconcile(isvc *v1beta1api.InferenceService) error {
-	ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.client)
-	if ingress == nil {
-		return nil
+	var err error
+	isInternal := false
+	// disable ingress creation if service is labelled with cluster local or kserve domain is cluster local
+	if val, ok := isvc.Labels[constants.NetworkVisibility]; ok && val == constants.ClusterLocalVisibility {
+		isInternal = true
 	}
-	if err != nil {
-		return err
+	if r.ingressConfig.IngressDomain == constants.ClusterLocalDomain {
+		isInternal = true
 	}
-	//reconcile ingress
-	existingIngress := &netv1.Ingress{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: isvc.Namespace,
-		Name:      isvc.Name,
-	}, existingIngress)
-	if err != nil {
-		if apierr.IsNotFound(err) {
-			err = r.client.Create(context.TODO(), ingress)
-			log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
-		} else {
+	if !isInternal {
+		ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.client)
+		if ingress == nil {
+			return nil
+		}
+		if err != nil {
 			return err
 		}
-	} else {
-		if !semanticIngressEquals(ingress, existingIngress) {
-			err = r.client.Update(context.TODO(), ingress)
-			log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
+		//reconcile ingress
+		existingIngress := &netv1.Ingress{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: isvc.Namespace,
+			Name:      isvc.Name,
+		}, existingIngress)
+		if err != nil {
+			if apierr.IsNotFound(err) {
+				err = r.client.Create(context.TODO(), ingress)
+				log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
+			} else {
+				return err
+			}
+		} else {
+			if !semanticIngressEquals(ingress, existingIngress) {
+				err = r.client.Update(context.TODO(), ingress)
+				log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
+			}
 		}
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
 	if err != nil {
