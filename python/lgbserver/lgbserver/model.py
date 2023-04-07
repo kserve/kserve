@@ -16,10 +16,13 @@ import kserve
 import lightgbm as lgb
 from lightgbm import Booster
 import os
-from typing import Dict
+from typing import Dict, Union
 import pandas as pd
 from kserve.errors import InferenceError, ModelMissingError
 from kserve.storage import Storage
+
+from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_input, get_predict_response
 
 MODEL_EXTENSIONS = (".bst")
 
@@ -52,14 +55,19 @@ class LightGBMModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            dfs = []
-            for input in payload['inputs']:
-                dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
-            inputs = pd.concat(dfs, axis=0)
-
-            result = self._booster.predict(inputs)
-            return {"predictions": result.tolist()}
+            if isinstance(payload, Dict):
+                dfs = []
+                instances = payload['inputs'] if "inputs" in payload else payload['instances']
+                for input in instances:
+                    dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
+                inputs = pd.concat(dfs, axis=0)
+                result = self._booster.predict(inputs)
+                return {"predictions": result.tolist()}
+            else:
+                instance = get_predict_input(payload)
+                result = self._booster.predict(instance)
+                return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise InferenceError(str(e))

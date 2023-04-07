@@ -31,6 +31,10 @@ from kserve.errors import InvalidInput
 from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
 
+from kserve.protocol.infer_type import InferRequest
+
+from kserve.utils.utils import get_predict_input, get_predict_response
+
 test_avsc_schema = '''
         {
         "namespace": "example.avro",
@@ -73,7 +77,12 @@ class DummyModel(Model):
         self.ready = True
 
     async def predict(self, request, headers=None):
-        return {"predictions": request["instances"]}
+        if isinstance(request, InferRequest):
+            inputs = get_predict_input(request)
+            infer_response = get_predict_response(request, inputs, self.name)
+            return infer_response
+        else:
+            return {"predictions": request["instances"]}
 
     async def explain(self, request, headers=None):
         return {"predictions": request["instances"]}
@@ -90,7 +99,12 @@ class DummyServeModel(Model):
         self.ready = True
 
     async def predict(self, request, headers=None):
-        return {"predictions": request["instances"]}
+        if isinstance(request, InferRequest):
+            inputs = get_predict_input(request)
+            infer_response = get_predict_response(request, inputs, self.name)
+            return infer_response
+        else:
+            return {"predictions": request["instances"]}
 
     async def explain(self, request, headers=None):
         return {"predictions": request["instances"]}
@@ -199,7 +213,7 @@ class TestTFHttpServer:
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
-        return TestClient(app)
+        return TestClient(app, headers={"content-type": "application/json"})
 
     def test_liveness(self, http_server_client):
         resp = http_server_client.get('/')
@@ -225,6 +239,16 @@ class TestTFHttpServer:
                                        data=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
+        assert resp.headers['content-type'] == "application/json"
+
+    def test_infer(self, http_server_client):
+        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
+        resp = http_server_client.post('/v2/models/TestModel/infer',
+                                       data=input_data)
+
+        result = json.loads(resp.content)
+        assert resp.status_code == 200
+        assert result["outputs"][0]["data"] == [1, 2]
         assert resp.headers['content-type'] == "application/json"
 
     def test_explain(self, http_server_client):
@@ -261,7 +285,7 @@ class TestRayServer:
 
     @pytest.fixture(scope='class')
     def http_server_client(self, app):
-        return TestClient(app)
+        return TestClient(app, headers={"content-type": "application/json"})
 
     def test_liveness_handler(self, http_server_client):
         resp = http_server_client.get('/')
@@ -276,13 +300,23 @@ class TestRayServer:
     def test_health_handler(self, http_server_client):
         resp = http_server_client.get('/v1/models/TestModel')
         assert resp.status_code == 200
-        assert resp.content == b'{"name":"TestModel","ready":true}'
+        assert resp.content == b'{"name":"TestModel","ready":"True"}'
 
     def test_predict(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict',
                                        data=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
+        assert resp.headers['content-type'] == "application/json"
+
+    def test_infer(self, http_server_client):
+        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
+        resp = http_server_client.post('/v2/models/TestModel/infer',
+                                       data=input_data)
+
+        result = json.loads(resp.content)
+        assert resp.status_code == 200
+        assert result["outputs"][0]["data"] == [1, 2]
         assert resp.headers['content-type'] == "application/json"
 
     def test_explain(self, http_server_client):

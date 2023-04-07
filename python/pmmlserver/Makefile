@@ -1,7 +1,6 @@
 
 dev_install:
-	pip install -e .
-	pip install -e .[test]
+	poetry version $(shell cat ../VERSION) &&  poetry install --with test
 
 test: type_check
 	pytest -W ignore

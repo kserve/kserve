@@ -49,7 +49,8 @@ func (s *AIXExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &s.Resources
 }
 
-func (s *AIXExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (s *AIXExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName,
 		metadata.Name,
@@ -58,8 +59,7 @@ func (s *AIXExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 	}
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentPredictorHost) {
 		args = append(args, constants.ArgumentPredictorHost,
-			fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace))
-
+			fmt.Sprintf("%s.%s", predictorHost[0], metadata.Namespace))
 	}
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentWorkers) {
 		if extensions.ContainerConcurrency != nil {

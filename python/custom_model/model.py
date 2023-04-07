@@ -100,7 +100,7 @@ class AlexNetModel(Model):
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])
 parser.add_argument(
-    "--model_name", help="The name that the model is served under."
+    "--model_name", help="The name that the model is served under.", default="custom-model"
 )
 args, _ = parser.parse_known_args()
 

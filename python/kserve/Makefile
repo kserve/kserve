@@ -1,8 +1,7 @@
 .PHONY: test
 
 dev_install:
-	pip install -e .
-	pip install -e .[test]
+	poetry version $(shell cat ../VERSION) && poetry install --with test,dev --extras "storage"
 
 test:
 	cd ../ && pytest -W ignore kserve/test

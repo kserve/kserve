@@ -276,7 +276,7 @@ class DataPlane:
             response = await model(body, headers=headers)
         else:
             model_handle: RayServeHandle = model
-            response = await model_handle.remote(body)
+            response = await model_handle.remote(body, headers=headers)
 
         response, response_headers = self.encode(model_name, body, response, headers)
         return response, response_headers

@@ -21,6 +21,7 @@ set -o nounset
 set -o pipefail
 
 echo "Starting E2E functional tests ..."
+source python/kserve/.venv/bin/activate
 pushd test/e2e >/dev/null
   pytest -m "$1" --ignore=qpext
 popd

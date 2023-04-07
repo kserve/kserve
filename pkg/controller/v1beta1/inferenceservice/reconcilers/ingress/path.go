@@ -27,8 +27,8 @@ import (
 )
 
 type PathTemplateValues struct {
-	Name          string
-	Namespace     string
+	Name      string
+	Namespace string
 }
 
 // GenerateUrlPath generates the path using the pathTemplate configured in IngressConfig
@@ -38,8 +38,8 @@ func GenerateUrlPath(name string, namespace string, ingressConfig *v1beta1.Ingre
 	}
 
 	values := PathTemplateValues{
-		Name:          name,
-		Namespace:     namespace,
+		Name:      name,
+		Namespace: namespace,
 	}
 	tpl, err := template.New("url-template").Parse(ingressConfig.PathTemplate)
 	if err != nil {
