@@ -99,7 +99,7 @@ func TestCreateVirtualService(t *testing.T) {
 					Address: &duckv1.Addressable{
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+							Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
 						},
 					},
 				},
@@ -121,7 +121,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Headers: &istiov1alpha3.Headers{
 							Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-								"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
+								"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
 						},
 					},
 				},
@@ -142,12 +142,12 @@ func TestCreateVirtualService(t *testing.T) {
 				v1beta1.PredictorComponent: {
 					URL: &apis.URL{
 						Scheme: "http",
-						Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+						Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
 					},
 					Address: &duckv1.Addressable{
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+							Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
 						},
 					},
 				},
@@ -178,7 +178,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Headers: &istiov1alpha3.Headers{
 							Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-								"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
+								"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
 						},
 					},
 				},
@@ -229,7 +229,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Address: &duckv1.Addressable{
 							URL: &apis.URL{
 								Scheme: "http",
-								Host:   network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+								Host:   network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
 							},
 						},
 					},
@@ -241,7 +241,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Address: &duckv1.Addressable{
 							URL: &apis.URL{
 								Scheme: "http",
-								Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+								Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
 							},
 						},
 					},
@@ -263,7 +263,7 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1alpha3.Headers{
 								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
 								}},
 							},
 						},
@@ -294,7 +294,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Address: &duckv1.Addressable{
 							URL: &apis.URL{
 								Scheme: "http",
-								Host:   network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+								Host:   network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
 							},
 						},
 					},
@@ -328,7 +328,7 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1alpha3.Headers{
 								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
 								}},
 							},
 						},
@@ -379,7 +379,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Address: &duckv1.Addressable{
 							URL: &apis.URL{
 								Scheme: "http",
-								Host:   network.GetServiceHostname(constants.DefaultExplainerServiceName(serviceName), namespace),
+								Host:   network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace),
 							},
 						},
 					},
@@ -440,7 +440,7 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1alpha3.Headers{
 								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.DefaultExplainerServiceName(serviceName), namespace)},
+									"Host": network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace)},
 								},
 							},
 						},
@@ -454,7 +454,7 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1alpha3.Headers{
 								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)},
+									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)},
 								},
 							},
 						},
@@ -493,7 +493,7 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
 			}
 
-			actualService := createIngress(testIsvc, ingressConfig)
+			actualService := createIngress(testIsvc, false, ingressConfig)
 			if diff := cmp.Diff(tc.expectedService, actualService); diff != "" {
 				t.Errorf("Test %q unexpected status (-want +got): %v", tc.name, diff)
 			}

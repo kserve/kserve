@@ -59,7 +59,7 @@ var (
 
 func (m *ModelSpec) Default(config *InferenceServicesConfig) {}
 
-func (m *ModelSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (m *ModelSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
 	return &m.Container
 }
 
