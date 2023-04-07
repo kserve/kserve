@@ -21,6 +21,7 @@ from unittest import mock
 
 import avro
 import pytest
+import tomlkit
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from ray import serve
@@ -97,8 +98,9 @@ class TestDataPlane:
         assert dataplane.model_ready(not_ready_model.name) is False
 
     async def test_server_metadata(self):
-        with open(pathlib.Path(__file__).parent.parent.parent / 'VERSION') as version_file:
-            version = version_file.read().strip()
+        with open(pathlib.Path(__file__).parent.parent / 'pyproject.toml') as toml_file:
+            toml_config = tomlkit.load(toml_file)
+            version = toml_config['tool']['poetry']['version'].strip()
 
         dataplane = DataPlane(model_registry=ModelRepository())
         expected_metadata = {
