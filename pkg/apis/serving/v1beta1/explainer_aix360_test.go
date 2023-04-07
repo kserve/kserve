@@ -119,7 +119,8 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &ComponentExtensionSpec, config)
+	container := spec.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &ComponentExtensionSpec, config,
+		"someName-predictor-default")
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 
@@ -190,7 +191,8 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &ComponentExtensionSpec, config)
+	container := spec.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &ComponentExtensionSpec, config,
+		"someName-predictor-default")
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 

@@ -1,3 +1,0 @@
-kserve
-torchvision==0.14.1
-pillow==9.3.0

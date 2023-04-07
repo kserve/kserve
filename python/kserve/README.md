@@ -3,7 +3,7 @@ Python SDK for KServe Server and Client.
 
 ## Installation
 
-KServe Python SDK can be installed by `pip` or `Setuptools`.
+KServe Python SDK can be installed by `pip` or `poetry`.
 
 ### pip install
 
@@ -13,18 +13,24 @@ pip install kserve
 
 To install Kserve with storage support
 ```sh
- pip install kserve[storage]
+pip install kserve[storage]
 ```
 
-### Setuptools
+### Poetry
 
-Install via [Setuptools](http://pypi.python.org/pypi/setuptools).
+Install via [Poetry](https://python-poetry.org/).
 
 ```sh
-python setup.py install --user
+make dev_install
 ```
-(or `sudo python setup.py install` to install the package for all users)
-
+To install Kserve with storage support
+```sh
+poetry install -E storage
+```
+or 
+```sh
+poetry install --extras "storage"
+```
 
 ## KServe Python Server
 KServe's python server libraries implement a standardized library that is extended by model serving frameworks such as Scikit Learn, XGBoost and PyTorch. It encapsulates data plane API definitions and storage retrieval for models.

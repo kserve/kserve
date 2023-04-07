@@ -1,5 +1,5 @@
 dev_install:
-	pip install -e .[test]
+	poetry version $(shell cat ../VERSION) && poetry install --with test
 
 test:
 	pytest
