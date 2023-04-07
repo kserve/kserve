@@ -10,22 +10,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 
 from setuptools import setup, find_packages
 
 tests_require = [
     'pytest',
-    'pytest-tornasync',
     'mypy'
 ]
 
-with open(os.path.join(os.getcwd(), '../../../python/VERSION')) as version_file:
-    version = version_file.read().strip()
-
 setup(
     name='transformer',
-    version='0.1.0',
+    version='0.2.0',
     author_email='dsun20@bloomberg.net',
     license='../../LICENSE.txt',
     url='https://github.com/kserve/kserve/tree/master/docs/samples/kafka',
@@ -34,9 +29,9 @@ setup(
     python_requires='>=3.7',
     packages=find_packages("transformer"),
     install_requires=[
-        f"kserve>={version}",
+        "kserve>0.10.0",
         "pandas>=0.24.2",
-        "opencv-python-headless==4.2.0.32",
+        "opencv-python-headless==4.7.0.72",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

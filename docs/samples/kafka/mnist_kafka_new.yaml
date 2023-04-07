@@ -5,7 +5,9 @@ metadata:
 spec:
   predictor:
     minReplicas: 1
-    tensorflow:
+    model:
+      modelFormat:
+        name: tensorflow
       resources:
         limits:
           cpu: 100m
