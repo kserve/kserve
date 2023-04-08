@@ -165,14 +165,7 @@ def get_predict_input(payload: Union[Dict, InferRequest]) -> Union[np.ndarray, p
                 content_type = parameters.get("content_type")
 
         if content_type == "pd":
-            dfs = []
-            for input in payload.inputs:
-                input_data = input.data
-                if input.datatype == "BYTES":
-                    input_data = [str(val, "utf-8") if isinstance(val, bytes)
-                                  else val for val in input_data]
-                dfs.append(pd.DataFrame(input_data, columns=[input.name]))
-            return pd.concat(dfs, axis=1)
+            return payload.as_dataframe()
         else:
             input = payload.inputs[0]
             return input.as_numpy()
