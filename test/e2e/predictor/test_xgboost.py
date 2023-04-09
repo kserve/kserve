@@ -14,7 +14,6 @@
 
 import json
 import os
-
 import pytest
 from kubernetes import client
 from kubernetes.client import V1ContainerPort, V1EnvVar, V1ResourceRequirements
@@ -23,6 +22,7 @@ from kserve import (KServeClient, V1beta1InferenceService,
                     V1beta1InferenceServiceSpec, V1beta1ModelFormat,
                     V1beta1ModelSpec, V1beta1PredictorSpec, V1beta1XGBoostSpec,
                     constants)
+
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 

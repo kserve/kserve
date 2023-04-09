@@ -20,15 +20,14 @@ from jpmml_evaluator import make_evaluator
 from jpmml_evaluator.py4j import Py4JBackend, launch_gateway
 from kserve.errors import ModelMissingError, InferenceError
 from kserve.storage import Storage
+from kserve import Model
+from kserve.utils.utils import get_predict_input, get_predict_response
 from kserve.protocol.infer_type import InferRequest, InferResponse
-from kserve.utils.utils import get_predict_response
-
-import kserve
 
 MODEL_EXTENSIONS = ('.pmml')
 
 
-class PmmlModel(kserve.Model):
+class PmmlModel(Model):
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
@@ -62,14 +61,9 @@ class PmmlModel(kserve.Model):
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            if isinstance(payload, Dict):
-                instances = payload["instances"]
-                result = [self.evaluator.evaluate(
-                    dict(zip(self.input_fields, instance))) for instance in instances]
-                return {"predictions": result}
-            elif isinstance(payload, InferRequest):
-                results = [self.evaluator.evaluate(
-                    dict(zip(self.input_fields, instance))) for instance in payload.inputs[0].data]
-                return get_predict_response(payload, pd.DataFrame(results), self.name)
+            instances = get_predict_input(payload)
+            results = [self.evaluator.evaluate(
+                dict(zip(self.input_fields, instance))) for instance in instances]
+            return get_predict_response(payload, pd.DataFrame(results), self.name)
         except Exception as e:
             raise InferenceError(str(e))

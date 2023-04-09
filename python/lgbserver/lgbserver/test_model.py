@@ -42,14 +42,14 @@ def test_model():
     model = LightGBMModel("model", model_dir, NTHREAD)
     model.load()
 
-    request = {"x": {0: 1.1}, 'sepal_width_(cm)': {0: 3.5}, 'petal_length_(cm)': {0: 1.4},
+    request = {'sepal_width_(cm)': {0: 3.5}, 'petal_length_(cm)': {0: 1.4},
                'petal_width_(cm)': {0: 0.2}, 'sepal_length_(cm)': {0: 5.1}}
 
     response = model.predict({"inputs": [request, request]})
-    assert numpy.argmax(response["predictions"][0]) == 0
+    assert numpy.argmax(response["predictions"][0]) == 2
 
     response = model.predict({"instances": [request, request]})
-    assert numpy.argmax(response["predictions"][0]) == 0
+    assert numpy.argmax(response["predictions"][0]) == 2
     # test v2 handler
     infer_input = InferInput(name="input-0", shape=[2, 4], datatype="FP32",
                              data=[[6.8, 2.8, 4.8, 1.6], [6.0, 3.4, 4.5, 1.6]])

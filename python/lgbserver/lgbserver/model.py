@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kserve
-import lightgbm as lgb
-from lightgbm import Booster
+
 import os
 from typing import Dict, Union
-import pandas as pd
+
+from lightgbm import Booster
+
+from kserve import Model
 from kserve.errors import InferenceError, ModelMissingError
 from kserve.storage import Storage
 
@@ -27,7 +28,7 @@ from kserve.utils.utils import get_predict_input, get_predict_response
 MODEL_EXTENSIONS = (".bst")
 
 
-class LightGBMModel(kserve.Model):
+class LightGBMModel(Model):
     def __init__(self, name: str, model_dir: str, nthread: int,
                  booster: Booster = None):
         super().__init__(name)
@@ -50,24 +51,15 @@ class LightGBMModel(kserve.Model):
         elif len(model_files) > 1:
             raise RuntimeError('More than one model file is detected, '
                                f'Only one is allowed within model_dir: {model_files}')
-        self._booster = lgb.Booster(params={"nthread": self.nthread},
-                                    model_file=model_files[0])
+        self._booster = Booster(params={"nthread": self.nthread},
+                                model_file=model_files[0])
         self.ready = True
         return self.ready
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            if isinstance(payload, Dict):
-                dfs = []
-                instances = payload['inputs'] if "inputs" in payload else payload['instances']
-                for input in instances:
-                    dfs.append(pd.DataFrame(input, columns=self._booster.feature_name()))
-                inputs = pd.concat(dfs, axis=0)
-                result = self._booster.predict(inputs)
-                return {"predictions": result.tolist()}
-            else:
-                instance = get_predict_input(payload)
-                result = self._booster.predict(instance)
-                return get_predict_response(payload, result, self.name)
+            instances = get_predict_input(payload)
+            result = self._booster.predict(instances)
+            return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise InferenceError(str(e))
