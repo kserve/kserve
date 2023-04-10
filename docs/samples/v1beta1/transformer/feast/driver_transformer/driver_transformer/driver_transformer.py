@@ -19,7 +19,7 @@ import numpy as np
 from cloudevents.http import CloudEvent
 
 import kserve
-from kserve import InferRequest, InferResponse
+from kserve import InferRequest, InferResponse, InferInput
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 
@@ -114,30 +114,18 @@ class DriverTransformer(kserve.Model):
             request_data.append(single_entity_data)
 
         # The default protocol is v1
-        result = {'instances': request_data}
+        request = {'instances': request_data}
+
         if self.protocol == "v2":
-            result = {'inputs': [
-                {
-                    "name": "predict",
-                    "shape": [len(features["results"][entity_ids_index]), len(self.feature_refs_key) + 1],
-                    "datatype": "FP32",
-                    "data": request_data
-                }
-            ]
-            }
-        if self.protocol == "grpc-v2":
             data = np.array(request_data, dtype=np.float32).flatten()
             tensor_contents = pb.InferTensorContents(fp32_contents=data)
-            inputs = pb.ModelInferRequest().InferInputTensor(
-                name="predict",
-                shape=[len(features["results"][entity_ids_index]), len(self.feature_refs_key) + 1],
-                datatype="FP32",
-                contents=tensor_contents
-            )
+            infer_inputs = [InferInput(name="INPUT_0", datatype="FP32",
+                                       shape=[len(features["results"][entity_ids_index]),
+                                              len(self.feature_refs_key) + 1],
+                                       data=tensor_contents)]
+            request = InferRequest(model_name=self.name, infer_inputs=infer_inputs)
 
-            result = pb.ModelInferRequest(model_name=self.name, inputs=[inputs])
-
-        return result
+        return request
 
     def preprocess(self, inputs: Union[Dict, CloudEvent, InferRequest],
                    headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
@@ -186,6 +174,4 @@ class DriverTransformer(kserve.Model):
             raw rankings into a different list.
         """
         logging.info("The output from model predict is %s", response)
-        if self.protocol == "grpc-v2":
-            response = ModelInferResponse(response)
         return response
