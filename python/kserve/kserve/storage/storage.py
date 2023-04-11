@@ -353,6 +353,8 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 root=config["HDFS_ROOTPATH"],
                 session=s
             )
+        count = 0
+        dest_file_path = ""
 
         # Check path exists and get path status
         # Raises HdfsError when path does not exist
@@ -360,10 +362,20 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
         if status["type"] == "FILE":
             client.download(path, out_dir, n_threads=1)
+            count = count + 1
+            file_name = path.rsplit("/", 1)[-1]
+            dest_file_path = f"{out_dir}/{file_name}"
         else:
             files = client.list(path)
             for f in files:
                 client.download(f"{path}/{f}", out_dir, n_threads=int(config["N_THREADS"]))
+                count = count + 1
+                dest_file_path = f"{out_dir}/{f}"
+                
+        if count == 1:
+             mimetype, _ = mimetypes.guess_type(dest_file_path)
+             if mimetype in ["application/x-tar", "application/zip"]:
+                 Storage._unpack_archive_file(dest_file_path, mimetype, out_dir)
 
     @staticmethod
     def _download_azure_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
