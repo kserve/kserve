@@ -10,7 +10,7 @@ import logging
 from signal import signal, SIGINT
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.DEBUG, format=f'%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
 
 model, tokenizer = None, None
 
@@ -19,9 +19,11 @@ MODEL_NAME = os.environ.get('MODEL_NAME', 'custom')
 LOAD_IN_8BIT = os.environ.get('LOAD_IN_8BIT', 'False') == 'True'
 GPU_ENABLED = os.environ.get('GPU_ENABLED', 'False') == 'True'
 
+
 def handler(signal_received, frame):
     # SIGINT or  ctrl-C detected, exit without error
     exit(0)
+
 
 def check_gpu():
     app.logger.info(f"CUDA is avaiable: {torch.cuda.is_available()}")
@@ -30,7 +32,7 @@ def check_gpu():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     app.logger.info(f'Using device: {device}')
 
-    #Additional Info when using cuda
+    # additional Info when using cuda
     if device.type == 'cuda':
         gpu_count = torch.cuda.device_count()
         app.logger.info(f"Device Count: {gpu_count}")
@@ -79,13 +81,12 @@ def predict():
     else:
         input = tokenizer(prompt, return_tensors="pt")
 
-    result = tokenizer.batch_decode(model.generate(input["input_ids"], 
-                            max_length=result_length
-                            )[0], skip_special_tokens=True)
+    result = tokenizer.batch_decode(
+        model.generate(input["input_ids"], max_length=result_length)[0],
+        skip_special_tokens=True)
 
     output = {"result": "".join(result)}
     return output
-
 
 
 if __name__ == "__main__":

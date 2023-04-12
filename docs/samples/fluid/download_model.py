@@ -20,6 +20,6 @@ if __name__ == "__main__":
 
     snapshot_download(repo_id=model_name, revision=revision, cache_dir=model_dir)
 
-    # reference: https://aws.amazon.com/de/blogs/machine-learning/deploy-bloom-176b-and-opt-30b-on-amazon-sagemaker-with-large-model-inference-deep-learning-containers-and-deepspeed/
+    # reference: https://aws.amazon.com/de/blogs/machine-learning/deploy-bloom-176b-and-opt-30b-on-amazon-sagemaker-with-large-model-inference-deep-learning-containers-and-deepspeed/ # noqa: E501
     out_dir = list(model_dir.glob("**/snapshots/*"))[0]
     print(f"output_dir: {out_dir}")
