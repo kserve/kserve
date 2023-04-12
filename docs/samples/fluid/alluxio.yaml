@@ -1,0 +1,60 @@
+apiVersion: data.fluid.io/v1alpha1
+kind: Dataset
+metadata:
+  name: s3-data
+spec:
+  mounts:
+    - mountPoint: "s3://${bucket}/models/bloom-560m/"
+      name: bloom-560m
+      path: /bloom-560m
+      options:
+        alluxio.underfs.s3.region: "eu-central-1"
+        alluxio.underfs.s3.secure.http.enabled: "true"
+      encryptOptions:
+        - name: s3a.accessKeyId
+          valueFrom:
+            secretKeyRef:
+              name: s3creds
+              key: AWS_ACCESS_KEY_ID
+        - name: s3a.secretKey
+          valueFrom:
+            secretKeyRef:
+              name: s3creds
+              key: AWS_SECRET_ACCESS_KEY
+  accessModes:
+    - ReadOnlyMany
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node.kubernetes.io/instance-type
+              operator: In
+              values:
+                - "m5.xlarge"
+  placement: "Shared"
+---
+apiVersion: data.fluid.io/v1alpha1
+kind: AlluxioRuntime
+metadata:
+  name: s3-data
+spec:
+  replicas: 2
+  properties:
+    alluxio.user.ufs.block.read.location.policy: alluxio.client.block.policy.LocalFirstAvoidEvictionPolicy
+    alluxio.user.block.size.bytes.default: 256MB
+    alluxio.user.streaming.reader.chunk.size.bytes: 256MB
+    alluxio.user.local.reader.chunk.size.bytes: 256MB
+    alluxio.worker.network.reader.buffer.size: 256MB
+    alluxio.user.streaming.data.timeout: 300sec
+  tieredstore:
+    levels:
+      - mediumtype: SSD
+        path: /mnt/ssd0/cache
+        quota: 10Gi
+        high: "0.95"
+        low: "0.7"
+  master:
+    nodeSelector:
+      node.kubernetes.io/instance-type: m5.xlarge
+  fuse:
+    cleanPolicy: OnDemand

@@ -1,0 +1,66 @@
+apiVersion: data.fluid.io/v1alpha1
+kind: Dataset
+metadata:
+  name: s3-data
+spec:
+  mounts:
+    - mountPoint: "s3://${bucket}/models/bloom-560m/"
+      name: bloom-560m
+      path: /bloom-560m
+      options:
+        fs.s3.region: "eu-central-1"
+        fs.s3.endpoint: "s3.eu-central-1.amazonaws.com"
+      encryptOptions:
+        - name: fs.s3.accessKeyId
+          valueFrom:
+            secretKeyRef:
+              name: s3creds
+              key: AWS_ACCESS_KEY_ID
+        - name: fs.s3.accessKeySecret
+          valueFrom:
+            secretKeyRef:
+              name: s3creds
+              key: AWS_SECRET_ACCESS_KEY
+  accessModes:
+    - ReadOnlyMany
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node.kubernetes.io/instance-type
+              operator: In
+              values:
+                - "m5.xlarge"
+  placement: "Shared"
+---
+apiVersion: data.fluid.io/v1alpha1
+kind: JindoRuntime
+metadata:
+  name: s3-data
+spec:
+  replicas: 2
+  tieredstore:
+    levels:
+      - mediumtype: SSD
+        path: /mnt/ssd0/cache
+        quota: 50Gi
+        high: "0.95"
+        low: "0.7"
+  master:
+    nodeSelector:
+      node.kubernetes.io/instance-type: m5.xlarge
+  fuse:
+    properties:
+      fs.jindofsx.data.cache.enable: "true"
+      # performance optimization
+      fs.jindofsx.stream.maxPendingBlocks: "200"
+      fs.s3.download.queue.size: "16"
+      fs.s3.download.thread.concurrency: "32"
+      fs.s3.read.readahead.buffer.count: "16"
+    args:
+      - -okernel_cache
+      - -oro
+      - -oattr_timeout=7200
+      - -oentry_timeout=7200
+      - -ometrics_port=9089
+    cleanPolicy: OnDemand

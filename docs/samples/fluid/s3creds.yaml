@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3creds
+  annotations:
+     serving.kserve.io/s3-endpoint: "s3.eu-central-1.amazonaws.com"
+     serving.kserve.io/s3-usehttps: "1"
+     serving.kserve.io/s3-region: "eu-central-1"
+     serving.kserve.io/s3-useanoncredential: "false"
+type: Opaque
+stringData:
+  AWS_ACCESS_KEY_ID: "xxxxx"
+  AWS_SECRET_ACCESS_KEY: "xxxxx"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa
+secrets:
+- name: s3creds
