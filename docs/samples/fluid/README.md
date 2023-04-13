@@ -44,23 +44,16 @@ To improve performance, it becomes crucial to cache the model artifacts rather t
     ```
 
 * [Fluid](https://github.com/fluid-cloudnative/fluid/blob/master/docs/en/userguide/get_started.md)
-  * Deploy Fluid from `master` branch
+  * Deploy Fluid
 
     ```sh
-    # Deploy Fluid from master branch
-    git clone https://github.com/fluid-cloudnative/fluid
-
-    # if you are using alluxio runtime
+    # Add Fluid repository to Helm repos and keep it up-to-date
+    helm repo add fluid https://fluid-cloudnative.github.io/charts
+    helm repo update
+    # we use the devel version here
     helm upgrade --install \
-        --set runtime.alluxio.enabled=true \
-        --set webhook.reinvocationPolicy=IfNeeded \
-        fluid --create-namespace --namespace=fluid-system fluid/charts/fluid/fluid
-
-    # if you are using jindo runtime (this example)
-    helm upgrade --install \
-        --set runtime.jindo.enabled=true \
-        --set webhook.reinvocationPolicy=IfNeeded \
-        fluid --create-namespace --namespace=fluid-system fluid/charts/fluid/fluid
+      --set webhook.reinvocationPolicy=IfNeeded \
+      fluid --create-namespace --namespace=fluid-system fluid/fluid --devel
     ```
 
 ## Prepare Demo Application
@@ -311,6 +304,7 @@ curl --connect-timeout 3600 --max-time 3600 -o /dev/null -s -w 'Total: %{time_to
 | [ bigscience/bloom-560m ]( https://huggingface.co/bigscience/bloom-560m ) | 3.14GB                | m5.2xlarge   | total: 52.725s (download: 25.091s, load: 3.549s)     | total: 23.286s (load: 4.763s) (2 workers)  |
 | [ bigscience/bloom-7b1 ]( https://huggingface.co/bigscience/bloom-7b1 )   | 26.35GB               | m5.4xlarge   | total: 365.479s (download: 219.844s, load: 102.299s) | total: 53.037s (load: 24.137s) (3 workers) |
 
+> NOTE: `total` is the response time of sending an inference request to a serverless inference service (scale from 0), which includes pod startup, `model download`, `model load`, model inference and network time.
 > TBD: add testing results for other runtimes
 
 As can be observed, Fluid has demonstrated notable improvements in the autoscaling performance of KServe on LLM.
