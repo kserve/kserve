@@ -26,7 +26,10 @@ kserve:
         gateway: knative-serving/knative-ingress-gateway
         gatewayService: istio-ingressgateway.istio-system.svc.cluster.local
         className: istio
-
+    nodeSelector: {}
+    tolerations: []
+    topologySpreadConstraints: []
+    affinity: {}
     image: kserve/kserve-controller
     tag: *defaultVersion
     resources:
@@ -38,6 +41,21 @@ kserve:
         memory: 300Mi
   modelmesh:
     controller:
+      nodeSelector: {}
+      tolerations: []
+      topologySpreadConstraints: []
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                      - key: control-plane
+                        operator: In
+                        values:
+                          - modelmesh-controller
+                  topologyKey: topology.kubernetes.io/zone
       image: kserve/modelmesh-controller
       tag: *defaultModelMeshVersion
     config:
