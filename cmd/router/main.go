@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kserve/kserve/pkg/constants"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -41,6 +41,8 @@ import (
 var log = logf.Log.WithName("InferenceGraphRouter")
 
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, error) {
+	defer timeTrack(time.Now(), "step", serviceUrl)
+	log.Info("Entering callService", "url", serviceUrl)
 	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
 	for _, h := range headersToPropagate {
 		if values, ok := headers[h]; ok {
@@ -57,7 +59,7 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Error(err, "error while reading the response")
 	}
@@ -90,13 +92,13 @@ func pickupRouteByCondition(input []byte, routes []v1alpha1.InferenceStep) *v1al
 	return nil
 }
 
-func timeTrack(start time.Time, name string) {
+func timeTrack(start time.Time, nodeOrStep string, name string) {
 	elapsed := time.Since(start)
-	log.Info("elapsed time", "node", name, "time", elapsed)
+	log.Info("elapsed time", nodeOrStep, name, "time", elapsed)
 }
 
 func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, error) {
-	defer timeTrack(time.Now(), nodeName)
+	defer timeTrack(time.Now(), "node", nodeName)
 	currentNode := graph.Nodes[nodeName]
 
 	if currentNode.RouterType == v1alpha1.Splitter {
@@ -183,7 +185,7 @@ func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec
 var inferenceGraph *v1alpha1.InferenceGraphSpec
 
 func graphHandler(w http.ResponseWriter, req *http.Request) {
-	inputBytes, _ := ioutil.ReadAll(req.Body)
+	inputBytes, _ := io.ReadAll(req.Body)
 	if response, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes, req.Header); err != nil {
 		log.Error(err, "failed to process request")
 		w.WriteHeader(500) //TODO status code tbd
@@ -195,12 +197,16 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 
 var (
 	jsonGraph          = flag.String("graph-json", "", "serialized json graph def")
-	headersToPropagate = strings.Split(os.Getenv(constants.RouterHeadersPropagateEnvVar), ",")
+	headersToPropagate []string
 )
 
 func main() {
 	flag.Parse()
 	logf.SetLogger(zap.New())
+	if headersToPropagateEnvVar, ok := os.LookupEnv(constants.RouterHeadersPropagateEnvVar); ok {
+		log.Info("These headers will be propagated by the router to all the steps.", "headersToPropagateEnvVar", headersToPropagateEnvVar)
+		headersToPropagate = strings.Split(headersToPropagateEnvVar, ",")
+	}
 	inferenceGraph = &v1alpha1.InferenceGraphSpec{}
 	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
 	if err != nil {

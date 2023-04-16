@@ -13,12 +13,32 @@
 # limitations under the License.
 
 import argparse
-import base64
-from typing import Dict, Union
+from typing import Dict
+import numpy as np
+import io
+from PIL import Image
+from torchvision import transforms
+from kserve import Model, ModelServer, model_server, InferInput, InferRequest
 
-from kserve import Model, ModelServer, model_server
-from kserve.grpc.grpc_predict_v2_pb2 import ModelInferRequest
-from kserve.handlers.v2_datamodels import InferenceRequest
+
+def image_transform(data):
+    """converts the input image of Bytes Array into Tensor
+    Args:
+        request input instance: The request input instance for image.
+    Returns:
+        List: Returns the data key's value and converts that into a list
+        after converting it into a tensor
+    """
+    preprocess = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225]),
+    ])
+    image = Image.open(io.BytesIO(data))
+    tensor = preprocess(image).numpy()
+    return tensor
 
 
 class ImageTransformer(Model):
@@ -28,21 +48,13 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.model_name = name
 
-    def preprocess(self, request: Union[Dict, ModelInferRequest, InferenceRequest], headers=None) -> ModelInferRequest:
-        if isinstance(request, ModelInferRequest):
-            return request
-        else:
-            payload = [
-                {
-                    "name": "input-0",
-                    "shape": [],
-                    "datatype": "BYTES",
-                    "contents": {
-                        "bytes_contents": [base64.b64decode(request["inputs"][0]["data"][0])]
-                    }
-                }
-            ]
-            return ModelInferRequest(model_name=self.model_name, inputs=payload)
+    def preprocess(self, request: InferRequest, headers: Dict[str, str] = None) -> InferRequest:
+        input_tensors = [image_transform(instance) for instance in request.inputs[0].data]
+        input_tensors = np.asarray(input_tensors)
+        infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=list(input_tensors.shape),
+                                   data=input_tensors)]
+        infer_request = InferRequest(model_name=self.model_name, infer_inputs=infer_inputs)
+        return infer_request
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])

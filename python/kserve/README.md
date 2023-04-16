@@ -3,7 +3,7 @@ Python SDK for KServe Server and Client.
 
 ## Installation
 
-KServe Python SDK can be installed by `pip` or `Setuptools`.
+KServe Python SDK can be installed by `pip` or `poetry`.
 
 ### pip install
 
@@ -11,15 +11,26 @@ KServe Python SDK can be installed by `pip` or `Setuptools`.
 pip install kserve
 ```
 
-### Setuptools
+To install Kserve with storage support
+```sh
+pip install kserve[storage]
+```
 
-Install via [Setuptools](http://pypi.python.org/pypi/setuptools).
+### Poetry
+
+Install via [Poetry](https://python-poetry.org/).
 
 ```sh
-python setup.py install --user
+make dev_install
 ```
-(or `sudo python setup.py install` to install the package for all users)
-
+To install Kserve with storage support
+```sh
+poetry install -E storage
+```
+or 
+```sh
+poetry install --extras "storage"
+```
 
 ## KServe Python Server
 KServe's python server libraries implement a standardized library that is extended by model serving frameworks such as Scikit Learn, XGBoost and PyTorch. It encapsulates data plane API definitions and storage retrieval for models.
@@ -59,12 +70,12 @@ It supports the following storage providers:
 For latency metrics, send a request to `/metrics`. Prometheus latency histograms are emitted for each of the steps (pre/postprocessing, explain, predict).
 Additionally, the latencies of each step are logged per request.
 
-| Metric Name                        | Description                    | Type      |
-|------------------------------------|--------------------------------|-----------| 
-| request_preprocessing_seconds      | pre-processing request latency | Histogram | 
-| request_explain_processing_seconds | explain request latency        | Histogram | 
-| request_predict_processing_seconds | prediction request latency     | Histogram |
-| request_postprocessing_seconds     | pre-processing request latency | Histogram | 
+| Metric Name                       | Description                    | Type      |
+|-----------------------------------|--------------------------------|-----------| 
+| request_preprocess_seconds        | pre-processing request latency | Histogram | 
+| request_explain_seconds | explain request latency        | Histogram | 
+| request_predict_seconds | prediction request latency     | Histogram |
+| request_postprocess_seconds    | pre-processing request latency | Histogram | 
 
 
 ## KServe Client

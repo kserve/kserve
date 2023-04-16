@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"text/template"
 
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
@@ -74,6 +75,7 @@ type IngressConfig struct {
 	DomainTemplate          string  `json:"domainTemplate,omitempty"`
 	UrlScheme               string  `json:"urlScheme,omitempty"`
 	DisableIstioVirtualHost bool    `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate            string  `json:"pathTemplate,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -113,6 +115,19 @@ func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 
 		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
 			return nil, fmt.Errorf("invalid ingress config - ingressGateway and ingressService are required")
+		}
+		if ingressConfig.PathTemplate != "" {
+			// TODO: ensure that the generated path is valid, that is:
+			// * both Name and Namespace are used to avoid collisions
+			// * starts with a /
+			// For now simply check that this is a valid template.
+			_, err := template.New("path-template").Parse(ingressConfig.PathTemplate)
+			if err != nil {
+				return nil, fmt.Errorf("Invalid ingress config, unable to parse pathTemplate: %v", err)
+			}
+			if ingressConfig.IngressDomain == "" {
+				return nil, fmt.Errorf("Invalid ingress config - igressDomain is required if pathTemplate is given")
+			}
 		}
 	}
 

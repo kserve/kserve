@@ -11,19 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 
-import kserve
-import joblib
+import os
 import pathlib
-from typing import Dict
+from typing import Dict, Union
+
 from kserve.errors import InferenceError, ModelMissingError
+from kserve.storage import Storage
+
+import joblib
+from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve import Model
 
 MODEL_EXTENSIONS = (".joblib", ".pkl", ".pickle")
 ENV_PREDICT_PROBA = "PREDICT_PROBA"
 
 
-class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
+class SKLearnModel(Model):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
@@ -31,7 +36,7 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
         self.ready = False
 
     def load(self) -> bool:
-        model_path = pathlib.Path(kserve.Storage.download(self.model_dir))
+        model_path = pathlib.Path(Storage.download(self.model_dir))
         model_files = []
         for file in os.listdir(model_path):
             file_path = os.path.join(model_path, file)
@@ -46,14 +51,14 @@ class SKLearnModel(kserve.Model):  # pylint:disable=c-extension-no-member
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        instances = payload["instances"]
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
+            instances = get_predict_input(payload)
             if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
                     hasattr(self._model, "predict_proba"):
-                result = self._model.predict_proba(instances).tolist()
+                result = self._model.predict_proba(instances)
             else:
-                result = self._model.predict(instances).tolist()
-            return {"predictions": result}
+                result = self._model.predict(instances)
+            return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise InferenceError(str(e))

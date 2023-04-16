@@ -31,7 +31,7 @@ import time
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-@pytest.mark.fast
+@pytest.mark.raw
 def test_kserve_logger():
     msg_dumper = 'message-dumper-raw'
 

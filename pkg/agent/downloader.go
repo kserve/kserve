@@ -20,7 +20,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -61,7 +60,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to encode model spec")
 			}
-			err = ioutil.WriteFile(successFile, encodedJson, 0644)
+			err = os.WriteFile(successFile, encodedJson, 0644)
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to write the success file")
 			}

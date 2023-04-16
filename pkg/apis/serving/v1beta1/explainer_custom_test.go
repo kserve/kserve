@@ -291,7 +291,8 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			explainer := scenario.isvc.Spec.Explainer.GetImplementation()
 			explainer.Default(&config)
-			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Explainer.ComponentExtensionSpec, &config)
+			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Explainer.ComponentExtensionSpec,
+				&config, constants.DefaultPredictorServiceName("someName"))
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}

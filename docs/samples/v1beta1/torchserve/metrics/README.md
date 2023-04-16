@@ -38,7 +38,7 @@ metadata:
 spec:
   predictor:
     pytorch:
-      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier/v1
 ```
 
 ## Create the InferenceService

@@ -1,0 +1,529 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-lgbserver
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: lightgbm
+      version: "2"
+      autoSelect: true
+  protocolVersions:
+    - v1
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.lgbserver.image }}:{{ .Values.kserve.servingruntime.lgbserver.tag }}"
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+        - --nthread=1
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-mlserver
+spec:
+  annotations:
+    # mlserver version 1.1.0 uses port 8082 as default instead of 8080.
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: sklearn
+      version: "0"
+      autoSelect: true
+    - name: xgboost
+      version: "1"
+      autoSelect: true
+    - name: lightgbm
+      version: "3"
+      autoSelect: true
+    - name: mlflow
+      version: "1"
+      autoSelect: true
+  protocolVersions:
+    - v2
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.mlserver.image }}:{{ .Values.kserve.servingruntime.mlserver.tag }}"
+      env:
+        - name: "MLSERVER_MODEL_IMPLEMENTATION"
+          value: "{{ .Values.kserve.servingruntime.mlserver.modelClassPlaceholder }}"
+        - name: "MLSERVER_HTTP_PORT"
+          value: "8080"
+        - name: "MLSERVER_GRPC_PORT"
+          value: "9000"
+        - name: "MODELS_DIR"
+          value: "/mnt/models"
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-paddleserver
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: paddle
+      version: "2"
+      autoSelect: true
+  protocolVersions:
+    - v1
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.paddleserver.image }}:{{ .Values.kserve.servingruntime.paddleserver.tag }}"
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-pmmlserver
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: pmml
+      version: "3"
+      autoSelect: true
+    - name: pmml
+      version: "4"
+      autoSelect: true
+  protocolVersions:
+    - v1
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.pmmlserver.image }}:{{ .Values.kserve.servingruntime.pmmlserver.tag }}"
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-sklearnserver
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: sklearn
+      version: "1"
+      autoSelect: true
+  protocolVersions:
+    - v1
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.sklearnserver.image }}:{{ .Values.kserve.servingruntime.sklearnserver.tag }}"
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-tensorflow-serving
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: tensorflow
+      version: "1"
+      autoSelect: true
+    - name: tensorflow
+      version: "2"
+      autoSelect: true
+  protocolVersions:
+    - v1
+    - grpc-v1
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.tensorflow.image }}:{{ .Values.kserve.servingruntime.tensorflow.tag }}"
+      command: [/usr/bin/tensorflow_model_server]
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --port=9000
+        - --rest_api_port=8080
+        - --model_base_path=/mnt/models
+        - --rest_api_timeout_in_ms=60000
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-torchserve
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8082'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: pytorch
+      version: "1"
+      autoSelect: true
+  protocolVersions:
+    - v1
+    - v2
+    - grpc-v1
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.torchserve.image }}:{{ .Values.kserve.servingruntime.torchserve.tag }}"
+      args:
+        - torchserve
+        - --start
+        - --model-store=/mnt/models/model-store
+        - --ts-config=/mnt/models/config/config.properties
+      env:
+        - name: "TS_SERVICE_ENVELOPE"
+          value: "{{ .Values.kserve.servingruntime.torchserve.serviceEnvelopePlaceholder }}"
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-tritonserver
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8002'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: tensorrt
+      version: "8"
+      autoSelect: true
+    - name: tensorflow
+      version: "1"
+      autoSelect: true
+    - name: tensorflow
+      version: "2"
+      autoSelect: true
+    - name: onnx
+      version: "1"
+      autoSelect: true
+    - name: pytorch
+      version: "1"
+    - name: triton
+      version: "2"
+      autoSelect: true
+  protocolVersions:
+    - v2
+    - grpc-v2
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.tritonserver.image }}:{{ .Values.kserve.servingruntime.tritonserver.tag }}"
+      args:
+        - tritonserver
+        - --model-store=/mnt/models
+        - --grpc-port=9000
+        - --http-port=8080
+        - --allow-grpc=true
+        - --allow-http=true
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-xgbserver
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: xgboost
+      version: "1"
+      autoSelect: true
+  protocolVersions:
+    - v1
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.xgbserver.image }}:{{ .Values.kserve.servingruntime.xgbserver.tag }}"
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+        - --nthread=1
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+    name: modelmesh-serving-mlserver-0.x-SR
+  name: mlserver-0.x
+spec:
+  builtInAdapter:
+    memBufferBytes: 134217728
+    modelLoadingTimeoutMillis: 90000
+    runtimeManagementPort: 8001
+    serverType: mlserver
+  containers:
+    - env:
+        - name: MLSERVER_MODELS_DIR
+          value: /models/_mlserver_models/
+        - name: MLSERVER_GRPC_PORT
+          value: "8001"
+        - name: MLSERVER_HTTP_PORT
+          value: "8002"
+        - name: MLSERVER_LOAD_MODELS_AT_STARTUP
+          value: "false"
+        - name: MLSERVER_MODEL_NAME
+          value: dummy-model-fixme
+        - name: MLSERVER_HOST
+          value: 127.0.0.1
+        - name: MLSERVER_GRPC_MAX_MESSAGE_LENGTH
+          value: "-1"
+      image: seldonio/mlserver:0.5.2
+      name: mlserver
+      resources:
+        limits:
+          cpu: "5"
+          memory: 1Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+  grpcDataEndpoint: port:8001
+  grpcEndpoint: port:8085
+  multiModel: true
+  protocolVersions:
+    - grpc-v2
+  supportedModelFormats:
+    - name: sklearn
+      version: "0"
+      autoSelect: true
+    - name: xgboost
+      version: "1"
+      autoSelect: true
+    - name: lightgbm
+      version: "3"
+      autoSelect: true
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+    name: modelmesh-serving-ovms-1.x-SR
+  name: ovms-1.x
+spec:
+  builtInAdapter:
+    memBufferBytes: 134217728
+    modelLoadingTimeoutMillis: 90000
+    runtimeManagementPort: 8888
+    serverType: ovms
+  containers:
+    - args:
+        - --port=8001
+        - --rest_port=8888
+        - --config_path=/models/model_config_list.json
+        - --file_system_poll_wait_seconds=0
+        - --grpc_bind_address=127.0.0.1
+        - --rest_bind_address=127.0.0.1
+      image: openvino/model_server:2022.2
+      name: ovms
+      resources:
+        limits:
+          cpu: 5
+          memory: 1Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+  grpcDataEndpoint: port:8001
+  grpcEndpoint: port:8085
+  multiModel: true
+  protocolVersions:
+    - grpc-v1
+  supportedModelFormats:
+    - name: openvino_ir
+      version: opset1
+      autoSelect: true
+    - name: onnx
+      version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  annotations:
+    maxLoadingConcurrency: "2"
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+    name: modelmesh-serving-triton-2.x-SR
+  name: triton-2.x
+spec:
+  builtInAdapter:
+    memBufferBytes: 134217728
+    modelLoadingTimeoutMillis: 90000
+    runtimeManagementPort: 8001
+    serverType: triton
+  containers:
+    - args:
+        - -c
+        - 'mkdir -p /models/_triton_models; chmod 777 /models/_triton_models; exec tritonserver
+      "--model-repository=/models/_triton_models" "--model-control-mode=explicit"
+      "--strict-model-config=false" "--strict-readiness=false" "--allow-http=true"
+      "--allow-sagemaker=false" '
+      command:
+        - /bin/sh
+      image: nvcr.io/nvidia/tritonserver:21.06.1-py3
+      livenessProbe:
+        exec:
+          command:
+            - curl
+            - --fail
+            - --silent
+            - --show-error
+            - --max-time
+            - "9"
+            - http://localhost:8000/v2/health/live
+        initialDelaySeconds: 5
+        periodSeconds: 30
+        timeoutSeconds: 10
+      name: triton
+      resources:
+        limits:
+          cpu: "5"
+          memory: 1Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+  grpcDataEndpoint: port:8001
+  grpcEndpoint: port:8085
+  multiModel: true
+  protocolVersions:
+    - grpc-v2
+  supportedModelFormats:
+    - name: keras
+      version: "2"
+      autoSelect: true
+    - name: onnx
+      version: "1"
+      autoSelect: true
+    - name: pytorch
+      version: "1"
+      autoSelect: true
+    - name: tensorflow
+      version: "1"
+      autoSelect: true
+    - name: tensorflow
+      version: "2"
+      autoSelect: true
+    - name: tensorrt
+      version: "7"
+      autoSelect: true
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  annotations:
+    maxLoadingConcurrency: "2"
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+    name: modelmesh-serving-torchserve-0.x-SR
+  name: torchserve-0.x
+spec:
+  supportedModelFormats:
+    - name: pytorch-mar
+      version: "0"
+      autoSelect: true
+  multiModel: true
+  grpcEndpoint: "port:8085"
+  grpcDataEndpoint: "port:7070"
+  containers:
+    - name: torchserve
+      image: pytorch/torchserve:0.6.0-cpu
+      args:
+        # Adapter creates the config file; wait for it to exist before starting
+        - while [ ! -e "$TS_CONFIG_FILE" ]; do echo "waiting for config file..."; sleep 1; done;
+        - exec
+        - torchserve
+        - --start
+        - --foreground
+      env:
+        - name: TS_CONFIG_FILE
+          value: /models/_torchserve_models/mmconfig.properties
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: "5"
+          memory: 1Gi
+  builtInAdapter:
+    serverType: torchserve
+    runtimeManagementPort: 7071
+    memBufferBytes: 134217728
+    modelLoadingTimeoutMillis: 90000

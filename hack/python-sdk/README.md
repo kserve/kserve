@@ -25,29 +25,35 @@ After the script execution, the Python SDK is generated in the `python/kserve` d
 
 Navigate to `python/kserve` directory from the root folder.
 
-1. Install `twine`:
+1. Install `poetry`:
 
    ```bash
-   pip install twine
+   pip install poetry
    ```
 
-2. Update the Python SDK version in the [setup.py](../../python/kserve/setup.py).
+2. Update the Python SDK version in the [pyproject.toml](../../python/kserve/pyproject.toml).
 
 3. Create some distributions in the normal way:
 
     ```bash
-    python setup.py sdist bdist_wheel
+    poetry build 
     ```
-
-4. Upload with twine to [Test PyPI](https://packaging.python.org/guides/using-testpypi/) and verify things look right. `Twine` will automatically prompt for your username and password:
+4. Configure Test PyPI [Credentials in Poetry](https://python-poetry.org/docs/repositories/#configuring-credentials):
+   ```bash
+   poetry config repositories.test-pypi https://test.pypi.org/legacy/
+   ```
+   ```bash
+   poetry config http-basic.test-pypi <username> <password>
+   ```
+5. Upload with poetry to [Test PyPI](https://packaging.python.org/guides/using-testpypi/) and verify things look right:
     ```bash
-    twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-    username: ...
-    password:
-    ...
+    poetry publish -r test-pypi
     ```
-
-5. Upload to [PyPI](https://pypi.org/search/?q=kserve):
+6. Configure PyPI [Credentials in Poetry](https://python-poetry.org/docs/repositories/#configuring-credentials):
+   ```bash
+   poetry config http-basic.pypi <username> <password>
+   ```
+7. Upload to [PyPI](https://pypi.org/search/?q=kserve):
     ```bash
-    twine upload dist/*
+    poetry publish
     ```

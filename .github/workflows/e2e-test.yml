@@ -10,6 +10,9 @@ on:
       - '!**.md'
       - '.github/workflows/e2e-test.yml'
 
+env:
+   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   kserve-image-build:
     runs-on: ubuntu-latest
@@ -152,9 +155,19 @@ jobs:
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
       - name: Run E2E tests
-        timeout-minutes: 40
+        timeout-minutes: 50
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml or graph"
+
+          kubectl get pods -n kserve
+      - name: Patch inferenceservice config
+        run : |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+      - name: Run E2E tests with path-based routing
+        timeout-minutes: 40
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh fast
 
           kubectl get pods -n kserve
       - name: Check system status
@@ -200,7 +213,7 @@ jobs:
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
       - name: Run E2E tests
-        timeout-minutes: 40
+        timeout-minutes: 50
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh slow
 
@@ -311,6 +324,9 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.3'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
       - name: Build queue proxy extension image
@@ -329,6 +345,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -364,10 +381,25 @@ jobs:
         with:
           image: "kserve/custom-model-grpc:${{ github.sha }}"
 
+      - name: Download custom transformer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/image-transformer:${{ github.sha }}"
+
       - name: Download custom transformer grpc image
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
+
+      - name: Download xgb server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/xgbserver:${{ github.sha }}"
+
+      - name: Download lgb server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/lgbserver:${{ github.sha }}"
 
       - name: Install KServe
         run: |
@@ -378,6 +410,67 @@ jobs:
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "grpc"
+          kubectl get pods -n kserve
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+  test-with-helm:
+    runs-on: ubuntu-latest
+    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.3'
+      - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/base-download
+
+      - name: Install Kserve from helm
+        run: |
+          ./test/scripts/gh-actions/setup-modelmesh-dep.sh
+          ./test/scripts/gh-actions/setup-kserve-helm.sh
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+      - name: Run E2E tests
+        timeout-minutes: 40
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "helm"
+          kubectl get pods -n kserve
+      - name: Check system status
+        if: always()
+        run: |
+          kubectl get pods --all-namespaces
+          ./test/scripts/gh-actions/status-check.sh
+
+  test-raw:
+    runs-on: ubuntu-latest
+    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.3'
+      - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/base-download
+
+      - name: Download sklearn server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/sklearnserver:${{ github.sha }}"
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+      - name: Run E2E tests
+        timeout-minutes: 40
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh raw
+
           kubectl get pods -n kserve
       - name: Check system status
         if: always()

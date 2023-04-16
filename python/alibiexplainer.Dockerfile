@@ -1,14 +1,47 @@
-FROM python:3.9-slim-bullseye
+ARG PYTHON_VERSION=3.9
+ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-bullseye
+ARG VENV_PATH=/prod_venv
+
+FROM ${BASE_IMAGE} as builder
+
+# Install Poetry
+ARG POETRY_HOME=/opt/poetry
+ARG POETRY_VERSION=1.4.0
+
+RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
+ENV PATH="$PATH:${POETRY_HOME}/bin"
+
+# Activate virtual env
+ARG VENV_PATH
+ENV VIRTUAL_ENV=${VENV_PATH}
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+COPY kserve/pyproject.toml kserve/poetry.lock kserve/
+RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
+COPY kserve kserve
+RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
+
+COPY alibiexplainer/pyproject.toml alibiexplainer/poetry.lock alibiexplainer/
+RUN cd alibiexplainer && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
+COPY alibiexplainer alibiexplainer
+RUN cd alibiexplainer && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
+
+
+FROM ${BASE_IMAGE} as prod
 
 COPY third_party third_party
 
-COPY kserve kserve
-COPY VERSION VERSION
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
+# Activate virtual env
+ARG VENV_PATH
+ENV VIRTUAL_ENV=${VENV_PATH}
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY alibiexplainer alibiexplainer
-RUN pip install --no-cache-dir -e ./alibiexplainer
+COPY --from=builder $VIRTUAL_ENV $VIRTUAL_ENV
+COPY --from=builder kserve kserve
+COPY --from=builder alibiexplainer alibiexplainer
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 USER 1000
 ENTRYPOINT ["python", "-m", "alibiexplainer"]
+

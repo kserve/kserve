@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,6 +86,9 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 	if !ok && deployConfig != nil {
 		if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
 			deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+			if isvc.ObjectMeta.Annotations == nil {
+				isvc.ObjectMeta.Annotations = map[string]string{}
+			}
 			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
 		}
 	}
@@ -257,14 +261,14 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 	}
 	// set environment variables based on storage uri
 	if isvc.Spec.Predictor.Model.StorageURI == nil && isvc.Spec.Predictor.Model.Storage == nil {
-		isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
+		isvc.Spec.Predictor.Model.Env = utils.AppendEnvVarIfNotExists(isvc.Spec.Predictor.Model.Env,
 			v1.EnvVar{
 				Name:  constants.MLServerLoadModelsStartupEnv,
 				Value: strconv.FormatBool(false),
 			},
 		)
 	} else {
-		isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
+		isvc.Spec.Predictor.Model.Env = utils.AppendEnvVarIfNotExists(isvc.Spec.Predictor.Model.Env,
 			v1.EnvVar{
 				Name:  constants.MLServerModelNameEnv,
 				Value: isvc.Name,

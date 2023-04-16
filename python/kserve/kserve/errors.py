@@ -25,11 +25,16 @@ class ModelMissingError(Exception):
 
 
 class InferenceError(RuntimeError):
-    def __init__(self, reason):
+    def __init__(self, reason, status=None, debug_details=None):
         self.reason = reason
+        self.status = status
+        self.debug_details = debug_details
 
     def __str__(self):
-        return self.reason
+        msg = super().__str__() if self.reason is None else self.reason
+        if self.status is not None:
+            msg = '[' + self.status + '] ' + msg
+        return msg
 
 
 class InvalidInput(ValueError):
@@ -79,6 +84,11 @@ async def invalid_input_handler(_, exc):
 
 async def inference_error_handler(_, exc):
     return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)})
+
+
+async def generic_exception_handler(_, exc):
+    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                        content={"error": f"{type(exc).__name__} : {str(exc)}"})
 
 
 async def model_not_found_handler(_, exc):

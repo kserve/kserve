@@ -1,9 +1,12 @@
 import kserve
-from typing import Dict
+from typing import Dict, Union
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from aif360.algorithms.preprocessing.optim_preproc_helpers.data_preproc_functions import load_preproc_data_german
+
+from kserve import InferRequest, InferResponse
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 
 
 class KServeSampleModel(kserve.Model):
@@ -25,15 +28,16 @@ class KServeSampleModel(kserve.Model):
         self.model = lmod
         self.ready = True
 
-    def predict(self, request: Dict) -> Dict:
-        inputs = request["instances"]
+    def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest],
+                headers: Dict[str, str] = None) -> Union[Dict, InferResponse, ModelInferResponse]:
+        inputs = payload["instances"]
 
         scale_input = StandardScaler()
         scaled_input = scale_input.fit_transform(inputs)
 
         predictions = self.model.predict(scaled_input)
 
-        return {"predictions":  predictions.tolist()}
+        return {"predictions": predictions.tolist()}
 
 
 if __name__ == "__main__":

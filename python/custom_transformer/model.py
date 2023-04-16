@@ -15,34 +15,40 @@
 import argparse
 import base64
 import io
-from typing import Dict
+from typing import Dict, Union
 
 import numpy
 
 from PIL import Image
 from torchvision import transforms
-from kserve.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
-
-from kserve import Model, ModelServer, model_server
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
+from kserve import Model, ModelServer, model_server, InferInput, InferRequest, InferResponse
 from kserve.model import PredictorProtocol
 
 
-def image_transform(instance):
+def image_transform(model_name, data):
     """converts the input image of Bytes Array into Tensor
     Args:
-        request input instance: The request input instance for image.
+        model_name: The model name
+        data: The input image bytes.
     Returns:
-        List: Returns the data key's value and converts that into a list
-        after converting it into a tensor
+        numpy.array: Returns the numpy array after the image preprocessing.
     """
-    image_processing = transforms.Compose([
+    preprocess = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225]),
     ])
-    byte_array = base64.b64decode(instance["image"]["b64"])
+    if model_name == "mnist" or model_name == "cifar10":
+        preprocess = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
+    byte_array = base64.b64decode(data)
     image = Image.open(io.BytesIO(byte_array))
-    tensor = image_processing(image).numpy()
-    print(tensor.shape)
+    tensor = preprocess(image).numpy()
     return tensor
 
 
@@ -53,37 +59,38 @@ class ImageTransformer(Model):
         self.protocol = protocol
         self.ready = True
 
-    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> ModelInferRequest:
-        # Input follows the Tensorflow V1 HTTP API for binary values
-        # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-        input_tensors = [image_transform(instance) for instance in payload["instances"]]
+    def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) \
+            -> Union[Dict, InferRequest]:
+        if isinstance(payload, InferRequest):
+            input_tensors = [image_transform(self.name, instance) for instance in payload.inputs[0].data]
+        else:
+            headers["request-type"] = "v1"
+            # Input follows the Tensorflow V1 HTTP API for binary values
+            # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
+            input_tensors = [image_transform(self.name, instance["image"]["b64"]) for instance in payload["instances"]]
+        input_tensors = numpy.asarray(input_tensors)
+        infer_inputs = [InferInput(name="INPUT__0", datatype='FP32', shape=list(input_tensors.shape),
+                                   data=input_tensors)]
+        infer_request = InferRequest(model_name=self.name, infer_inputs=infer_inputs)
 
         # Transform to KServe v1/v2 inference protocol
-        if self.protocol == PredictorProtocol.GRPC_V2.value:
-            return self.v2_request_transform(numpy.asarray(input_tensors))
-        else:
+        if self.protocol == PredictorProtocol.REST_V1.value:
             inputs = [{"data": input_tensor.tolist()} for input_tensor in input_tensors]
             payload = {"instances": inputs}
             return payload
-
-    def v2_request_transform(self, input_tensors):
-        request = ModelInferRequest()
-        request.model_name = self.name
-        tensor = {
-            'name': "INPUT__0",
-            'shape': input_tensors.shape,
-            'datatype': "FP32",
-        }
-        request.inputs.extend([tensor])
-        request.raw_input_contents.extend([input_tensors.tobytes()])
-        return request
-
-    def postprocess(self, infer_response: ModelInferResponse, headers: Dict[str, str] = None) -> Dict:
-        if self.protocol == PredictorProtocol.GRPC_V2.value:
-            res = super.postprocess(infer_response, headers)
-            return {"predictions": res["contents"]["fp32_contents"]}
         else:
-            return infer_response
+            return infer_request
+
+    def postprocess(self, infer_response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) \
+            -> Union[Dict, InferResponse]:
+        if "request-type" in headers and headers["request-type"] == "v1":
+            if self.protocol == PredictorProtocol.REST_V1.value:
+                return infer_response
+            else:
+                res = super().postprocess(infer_response, headers)
+                return {"predictions": res["outputs"][0]["data"]}
+        else:
+            return super().postprocess(infer_response, headers)
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])
@@ -101,4 +108,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = ImageTransformer(args.model_name, predictor_host=args.predictor_host,
                              protocol=args.protocol)
-    ModelServer(workers=1).start([model])
+    ModelServer().start([model])

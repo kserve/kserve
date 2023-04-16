@@ -36,21 +36,7 @@ patchesStrategicMerge:
 generatorOptions:
   disableNameSuffixHash: true
 
-# To make namespace for standalone installation kustomizable,
-# variabilize ingress gateway, webhook service name and
-# kserve namespace in webhook configurations
-configMapGenerator:
-  - name: kserve-config
-    envs:
-    - params.env
 vars:
-- name: ingressGateway
-  objref:
-    kind: ConfigMap
-    name: kserve-config
-    apiVersion: v1
-  fieldref:
-    fieldpath: data.ingressGateway
 - fieldref:
     fieldpath: metadata.name
   name: webhookServiceName

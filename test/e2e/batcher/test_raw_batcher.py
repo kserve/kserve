@@ -35,7 +35,7 @@ input_file = open('./data/iris_batch_input.json')
 json_array = json.load(input_file)
 
 
-@pytest.mark.slow
+@pytest.mark.raw
 def test_batcher_raw():
     service_name = 'isvc-raw-sklearn-batcher'
 

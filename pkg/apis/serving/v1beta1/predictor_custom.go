@@ -85,7 +85,8 @@ func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
 }
 
 // GetContainers transforms the resource into a container spec
-func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string) *v1.Container {
 	return &c.Containers[0]
 }
 
@@ -96,20 +97,4 @@ func (c *CustomPredictor) GetProtocol() constants.InferenceServiceProtocol {
 		}
 	}
 	return constants.ProtocolV1
-}
-
-func (c *CustomPredictor) IsMMS(config *InferenceServicesConfig) bool {
-	// Check container env if MULTI_MODEL_SERVER env var is set to true
-	container := c.Containers[0]
-	for _, envVar := range container.Env {
-		if envVar.Name == constants.CustomSpecMultiModelServerEnvVarKey && envVar.Value == "true" {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *CustomPredictor) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
-	//TODO: Figure out how to check if custom predictor is supports framework
-	return true
 }

@@ -1,16 +1,12 @@
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: torchserve-transformer
+  name: torch-transformer
 spec:
   transformer:
     containers:
-    - image: kserve/torchserve-image-transformer:latest
-      name: kfserving-container
-      env:
-        - name: STORAGE_URI
-          value: gs://kfserving-examples/models/torchserve/image_classifier/v1
-            #value: pvc://model-pv-claim
+    - image: kserve/image-transformer:latest
+      name: kserve-container
   predictor:
     pytorch:
       storageUri: gs://kfserving-examples/models/torchserve/image_classifier/v1

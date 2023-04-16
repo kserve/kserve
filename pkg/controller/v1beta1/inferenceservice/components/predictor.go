@@ -19,6 +19,8 @@ package components
 import (
 	"fmt"
 
+	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
@@ -31,6 +33,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -47,14 +51,17 @@ type Predictor struct {
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder
+	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
 
-func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig) Component {
+func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig,
+	deploymentMode constants.DeploymentModeType) Component {
 	return &Predictor{
 		client:                 client,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
+		deploymentMode:         deploymentMode,
 		Log:                    ctrl.Log.WithName("PredictorReconciler"),
 	}
 }
@@ -165,8 +172,19 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			})
 			return ctrl.Result{}, errors.New("no container configuration found in selected serving runtime")
 		}
-		// Assume only one container is specified in runtime spec.
-		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[0], &isvc.Spec.Predictor.Model.Container)
+
+		kserveContainerIdx := -1
+		for i := range sRuntime.Containers {
+			if sRuntime.Containers[i].Name == constants.InferenceServiceContainerName {
+				kserveContainerIdx = i
+				break
+			}
+		}
+		if kserveContainerIdx == -1 {
+			return ctrl.Result{}, errors.New("failed to find kserve-container in ServingRuntime containers")
+		}
+
+		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[kserveContainerIdx], &isvc.Spec.Predictor.Model.Container)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidPredictorSpec,
@@ -184,9 +202,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.Wrapf(err, "failed to consolidate serving runtime PodSpecs")
 		}
 
-		// Other dependencies rely on the container to be a specific name.
-		container.Name = constants.InferenceServiceContainerName
-
 		// Replace placeholders in runtime container by values from inferenceservice metadata
 		if err = isvcutils.ReplacePlaceholders(container, isvc.ObjectMeta); err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
@@ -203,6 +218,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		podSpec.Containers = []v1.Container{
 			*container,
 		}
+		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[:kserveContainerIdx]...)
+		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
 
 		// Label filter will be handled in ksvc_reconciler
 		sRuntimeLabels = sRuntime.ServingRuntimePodSpec.Labels
@@ -232,9 +249,23 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 
+	predictorName := constants.PredictorServiceName(isvc.Name)
+	if p.deploymentMode == constants.RawDeployment {
+		existing := &v1.Service{}
+		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+	} else {
+		existing := &knservingv1.Service{}
+		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+	}
 	// Labels and annotations from isvc will overwrite labels and annotations from ServingRuntimePodSpec
 	objectMeta := metav1.ObjectMeta{
-		Name:      constants.DefaultPredictorServiceName(isvc.Name),
+		Name:      predictorName,
 		Namespace: isvc.Namespace,
 		Labels: utils.Union(sRuntimeLabels, isvc.Labels, map[string]string{
 			constants.InferenceServicePodLabelKey: isvc.Name,
@@ -244,18 +275,12 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 
 	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)
-
-	deployConfig, err := v1beta1.NewDeployConfig(p.client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	var rawDeployment bool
 	var podLabelKey string
 	var podLabelValue string
 
 	// Here we allow switch between knative and vanilla deployment
-	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
+	if p.deploymentMode == constants.RawDeployment {
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
 		r, err := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
@@ -298,7 +323,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 	statusSpec, _ := isvc.Status.Components[v1beta1.PredictorComponent]
 	if rawDeployment {
-		podLabelValue = constants.GetRawServiceLabel(constants.DefaultPredictorServiceName(isvc.ObjectMeta.Name))
+		podLabelValue = constants.GetRawServiceLabel(predictorName)
 	} else {
 		podLabelValue = statusSpec.LatestCreatedRevision
 	}

@@ -13,24 +13,23 @@
 # limitations under the License.
 
 import time
+
 from kubernetes import client
 from kubernetes import watch as k8s_watch
-from table_logger import TableLogger
+from tabulate import tabulate
 
 from ..constants import constants
 from ..utils import utils
 
 
-def isvc_watch(name=None, namespace=None, timeout_seconds=600):
+def isvc_watch(name=None, namespace=None, timeout_seconds=600, generation=0):
     """Watch the created or patched InferenceService in the specified namespace"""
 
     if namespace is None:
         namespace = utils.get_default_target_namespace()
 
-    tbl = TableLogger(
-        columns='NAME,READY,PREV,LATEST,URL',
-        colwidth={'NAME': 20, 'READY': 10, 'PREV': 25, 'LATEST': 25, 'URL': 65},
-        border=False)
+    headers = ['NAME', 'READY', 'PREV', 'LATEST', 'URL']
+    table_fmt = 'plain'
 
     stream = k8s_watch.Watch().stream(
         client.CustomObjectsApi().list_namespaced_custom_object,
@@ -46,24 +45,30 @@ def isvc_watch(name=None, namespace=None, timeout_seconds=600):
         if name and name != isvc_name:
             continue
         else:
+            status = 'Unknown'
             if isvc.get('status', ''):
                 url = isvc['status'].get('url', '')
                 traffic = isvc['status'].get('components', {}).get(
                     'predictor', {}).get('traffic', [])
                 traffic_percent = 100
-                for t in traffic:
-                    if t["latestRevision"]:
-                        traffic_percent = t["percent"]
-                status = 'Unknown'
-                for condition in isvc['status'].get('conditions', {}):
-                    if condition.get('type', '') == 'Ready':
-                        status = condition.get('status', 'Unknown')
-                tbl(isvc_name, status, 100-traffic_percent, traffic_percent, url)
+                if constants.OBSERVED_GENERATION in isvc['status']:
+                    observed_generation = isvc['status'][constants.OBSERVED_GENERATION]
+                    for t in traffic:
+                        if t["latestRevision"]:
+                            traffic_percent = t["percent"]
+
+                    if generation != 0 and observed_generation != generation:
+                        continue
+                    for condition in isvc['status'].get('conditions', {}):
+                        if condition.get('type', '') == 'Ready':
+                            status = condition.get('status', 'Unknown')
+                    print(tabulate([[isvc_name, status, 100 - traffic_percent, traffic_percent, url]],
+                                   headers=headers, tablefmt=table_fmt))
+                    if status == 'True':
+                        break
+
             else:
-                tbl(isvc_name, 'Unknown', '', '', '')
+                print(tabulate([[isvc_name, status, '', '', '']], headers=headers, tablefmt=table_fmt))
                 # Sleep 2 to avoid status section is not generated within a very short time.
                 time.sleep(2)
                 continue
-
-            if name == isvc_name and status == 'True':
-                break
