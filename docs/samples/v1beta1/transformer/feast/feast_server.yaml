@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feature-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: feature-server
+  template:
+    metadata:
+      labels:
+        app: feature-server
+        name: feature-server
+    spec:
+      initContainers:
+        - name: feature-store-initializer
+          image: "{username}/feature-store-initializer:latest"
+          volumeMounts:
+            - mountPath: /mnt
+              name: feature-store-volume
+      containers:
+        - name: feature-server
+          image: "{username}/feast-server:latest"
+          args: [ -c, /mnt/driver_feature_repo/feature_repo, serve, -h, 0.0.0.0 ]
+          ports:
+            - name: feature-server
+              containerPort: 6566
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          volumeMounts:
+            - mountPath: /mnt
+              name: feature-store-volume
+      volumes:
+        - name: feature-store-volume
+          emptyDir:
+            sizeLimit: 100Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feature-server-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: feature-server
+  ports:
+    - protocol: TCP
+      port: 6566
+      targetPort: 6566

@@ -36,9 +36,9 @@ parser.add_argument(
     type=str,
     help="The url of the Feast feature server.", required=True)
 parser.add_argument(
-    "--entity_ids",
-    type=str, nargs="+",
-    help="A list of entity ids to use as keys in the feature store.",
+    "--entity_id_name",
+    type=str,
+    help="Entity id name to use as keys in the feature store.",
     required=True)
 parser.add_argument(
     "--feature_refs",
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         predictor_host=args.predictor_host,
         protocol=args.protocol,
         feast_serving_url=args.feast_serving_url,
-        entity_ids=args.entity_ids,
+        entity_id_name=args.entity_id_name,
         feature_refs=args.feature_refs)
     server = kserve.ModelServer()
     server.start(models=[transformer])
