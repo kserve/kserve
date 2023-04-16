@@ -15,10 +15,6 @@ spec:
     - name: explainer
       image: kserve/aix-explainer:v0.10.1
       args:
-      - --predictor_host
-      - aix-explainer-predictor-default.default.svc.cluster.local
-      - --http_port
-      - "8080"
       - --model_name
       - aix-explainer
       - --explainer_type
