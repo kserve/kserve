@@ -138,11 +138,6 @@ def explain(service_name, input_json):
     return explain_response(service_name, input_json)["data"]["precision"]
 
 
-def explain_aix(service_name, input_json):
-    return explain_response(service_name,
-                            input_json)["explanations"]["masks"][0]
-
-
 def explain_art(service_name, input_json):
     return explain_response(
         service_name, input_json)["explanations"]["adversarial_prediction"]

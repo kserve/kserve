@@ -103,6 +103,3 @@ kserve:
     art:
       image: kserve/art-explainer
       defaultVersion: *defaultVersion
-    aix:
-      image: kserve/aix-explainer
-      defaultVersion: *defaultVersion

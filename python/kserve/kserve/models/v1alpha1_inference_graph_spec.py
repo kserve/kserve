@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,23 +47,54 @@ class V1alpha1InferenceGraphSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'nodes': 'dict(str, V1alpha1InferenceRouter)'
+        'affinity': 'V1Affinity',
+        'nodes': 'dict(str, V1alpha1InferenceRouter)',
+        'resources': 'V1ResourceRequirements'
     }
 
     attribute_map = {
-        'nodes': 'nodes'
+        'affinity': 'affinity',
+        'nodes': 'nodes',
+        'resources': 'resources'
     }
 
-    def __init__(self, nodes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, nodes=None, resources=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._affinity = None
         self._nodes = None
+        self._resources = None
         self.discriminator = None
 
+        if affinity is not None:
+            self.affinity = affinity
         self.nodes = nodes
+        if resources is not None:
+            self.resources = resources
+
+    @property
+    def affinity(self):
+        """Gets the affinity of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+
+        :return: The affinity of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: V1Affinity
+        """
+        return self._affinity
+
+    @affinity.setter
+    def affinity(self, affinity):
+        """Sets the affinity of this V1alpha1InferenceGraphSpec.
+
+
+        :param affinity: The affinity of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: V1Affinity
+        """
+
+        self._affinity = affinity
 
     @property
     def nodes(self):
@@ -89,6 +120,27 @@ class V1alpha1InferenceGraphSpec(object):
             raise ValueError("Invalid value for `nodes`, must not be `None`")  # noqa: E501
 
         self._nodes = nodes
+
+    @property
+    def resources(self):
+        """Gets the resources of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+
+        :return: The resources of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: V1ResourceRequirements
+        """
+        return self._resources
+
+    @resources.setter
+    def resources(self, resources):
+        """Sets the resources of this V1alpha1InferenceGraphSpec.
+
+
+        :param resources: The resources of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: V1ResourceRequirements
+        """
+
+        self._resources = resources
 
     def to_dict(self):
         """Returns the model properties as a dict"""

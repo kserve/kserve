@@ -92,10 +92,6 @@ data:
             "image" : "{{ .Values.kserve.servingruntime.alibi.image }}",
             "defaultImageVersion": "{{ .Values.kserve.servingruntime.alibi.defaultVersion }}"
         },
-        "aix": {
-            "image" : "{{ .Values.kserve.servingruntime.aix.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.aix.defaultVersion }}"
-        },
         "art": {
             "image" : "{{ .Values.kserve.servingruntime.art.image }}",
             "defaultImageVersion": "{{ .Values.kserve.servingruntime.art.defaultVersion }}"

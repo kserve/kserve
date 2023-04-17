@@ -54,7 +54,6 @@ type ExplainerConfig struct {
 // +kubebuilder:object:generate=false
 type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
-	AIXExplainer   ExplainerConfig `json:"aix,omitempty"`
 	ARTExplainer   ExplainerConfig `json:"art,omitempty"`
 }
 

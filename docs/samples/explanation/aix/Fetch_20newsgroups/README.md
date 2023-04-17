@@ -37,5 +37,5 @@ Each chart title represents a class name (newsgroup). In this case, it has 20 di
 
 ## Build a Development AIX Model Explainer Docker Image
 
-If you would like to build a development image for the AIX Model Explainer then follow [these instructions](/python/aixexplainer#build-a-development-aix-model-explainer-docker-image)
+If you would like to build a development image for the AIX Model Explainer then follow [these instructions](https://github.com/kserve/kserve/tree/release-0.10/python/aixexplainer#build-a-development-aix-model-explainer-docker-image)
 

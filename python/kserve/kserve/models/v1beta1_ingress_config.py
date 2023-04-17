@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ class V1beta1IngressConfig(object):
         'ingress_service': 'str',
         'local_gateway': 'str',
         'local_gateway_service': 'str',
+        'path_template': 'str',
         'url_scheme': 'str'
     }
 
@@ -67,10 +68,11 @@ class V1beta1IngressConfig(object):
         'ingress_service': 'ingressService',
         'local_gateway': 'localGateway',
         'local_gateway_service': 'localGatewayService',
+        'path_template': 'pathTemplate',
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, disable_istio_virtual_host=None, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, disable_istio_virtual_host=None, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -84,6 +86,7 @@ class V1beta1IngressConfig(object):
         self._ingress_service = None
         self._local_gateway = None
         self._local_gateway_service = None
+        self._path_template = None
         self._url_scheme = None
         self.discriminator = None
 
@@ -103,6 +106,8 @@ class V1beta1IngressConfig(object):
             self.local_gateway = local_gateway
         if local_gateway_service is not None:
             self.local_gateway_service = local_gateway_service
+        if path_template is not None:
+            self.path_template = path_template
         if url_scheme is not None:
             self.url_scheme = url_scheme
 
@@ -273,6 +278,27 @@ class V1beta1IngressConfig(object):
         """
 
         self._local_gateway_service = local_gateway_service
+
+    @property
+    def path_template(self):
+        """Gets the path_template of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The path_template of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._path_template
+
+    @path_template.setter
+    def path_template(self, path_template):
+        """Sets the path_template of this V1beta1IngressConfig.
+
+
+        :param path_template: The path_template of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._path_template = path_template
 
     @property
     def url_scheme(self):

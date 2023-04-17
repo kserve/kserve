@@ -27,7 +27,6 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,RestURL
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainerConfig,ContainerImage
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainerExtensionSpec,StorageURI
-API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainersConfig,AIXExplainer
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainersConfig,ARTExplainer
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainersConfig,AlibiExplainer
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,IngressConfig,IngressServiceName

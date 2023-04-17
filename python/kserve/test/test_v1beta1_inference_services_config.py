@@ -51,9 +51,6 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
         if include_optional :
             return V1beta1InferenceServicesConfig(
                 explainers = kserve.models.v1beta1_explainers_config.V1beta1ExplainersConfig(
-                    aix = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
-                        default_image_version = '0', 
-                        image = '0', ), 
                     alibi = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
                         default_image_version = '0', 
                         image = '0', ), ), 
@@ -61,9 +58,6 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
         else :
             return V1beta1InferenceServicesConfig(
                 explainers = kserve.models.v1beta1_explainers_config.V1beta1ExplainersConfig(
-                    aix = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
-                        default_image_version = '0', 
-                        image = '0', ), 
                     alibi = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
                         default_image_version = '0', 
                         image = '0', ), ), 
