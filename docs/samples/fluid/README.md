@@ -23,7 +23,7 @@ To improve performance, it becomes crucial to cache the model artifacts rather t
     kubectl patch configmap/config-features \
       --namespace knative-serving \
       --type merge \
-      --patch '{"data":{"kubernetes.podspec-nodeselector":"enabled"}}'
+      --patch '{"data":{"kubernetes.podspec-nodeselector":"enabled", "kubernetes.podspec-tolerations":"enabled"}}'
     ```
   * Enable Direct VolumeMount for PVC In KServe
 
@@ -58,7 +58,16 @@ To improve performance, it becomes crucial to cache the model artifacts rather t
 
 ## Prepare Demo Application
 
-I will build a demo application using KServe to serve a LLM (Large Language Model). In this tutorial, I will use [BLOOM](https://huggingface.co/docs/transformers/model_doc/bloom).
+The demo application uses KServe to serve a LLM (Large Language Model). In this tutorial [BLOOM](https://huggingface.co/docs/transformers/model_doc/bloom) model is used as an example.
+
+### Prerequisite
+
+Checkout KServe repo and go to the example:
+
+```sh
+git clone https://github.com/kserve/kserve.git
+cd kserve/docs/samples/fluid
+```
 
 ### Build and Push Application Image
 
@@ -85,9 +94,9 @@ pip install 'transformers[torch]'
 # create models folder
 mkdir -p models
 
-# please check https://huggingface.co/docs/transformers/model_doc/bloom for other BLOOM models and update the script accordingly
-python download_model.py --model_name="bigscience/bloom-560m" --model_dir="models"
-# output_dir: models/models--bigscience--bloom-560m/snapshots/e985a63cdc139290c5f700ff1929f0b5942cced2
+# please check https://huggingface.co/docs/transformers/model_doc/bloom for other BLOOM models and update the command accordingly
+python3 download_model.py --model_name="bigscience/bloom-560m" --model_dir="models"
+# export output_dir=models/models--bigscience--bloom-560m/snapshots/e985a63cdc139290c5f700ff1929f0b5942cced2
 ```
 
 Structure of the model artifact:
@@ -152,7 +161,7 @@ kubectl create -f s3creds.yaml -n kserve-fluid-demo
 
 ### Create Dataset And Runtime
 
-Create Dataset and Runtime (In this tutorial I used `JindoFS` as the example, there are other runtimes like JuiceFS and Alluxio etc).
+Create Dataset and Runtime (In this tutorial you will use `JindoFS` as the runtime, there are other runtimes like [JuiceFS](https://github.com/juicedata/juicefs) and [Alluxio](https://github.com/Alluxio/alluxio) etc).
 
 ```sh
 # please update the `mountPoint` and `options`
@@ -161,7 +170,6 @@ kubectl create -f jindo.yaml -n kserve-fluid-demo
 dataset.data.fluid.io/s3-data created
 jindoruntime.data.fluid.io/s3-data created
 ```
-
 
 Check the status:
 
@@ -276,7 +284,7 @@ To conduct a performance benchmark, we will compare the scaling time of the infe
 
 We will use the following [machine types](https://aws.amazon.com/ec2/instance-types/m5/) for our tests:
 
-* Data: m5.xlarge
+* Data: m5.xlarge (gp3 volume)
 * Workload: m5.2xlarge, m5.4xlarge
 
 We will use the following Fluid runtimes for our tests:
