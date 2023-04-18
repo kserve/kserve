@@ -67,17 +67,24 @@ func createRawURL(isvc *v1beta1.InferenceService,
 	return url, nil
 }
 
-func getRawServiceHost(isvc *v1beta1.InferenceService, useDefaultSuffix bool) string {
+func getRawServiceHost(isvc *v1beta1.InferenceService, client client.Client) string {
+	existingService := &corev1.Service{}
 	if isvc.Spec.Transformer != nil {
 		transformerName := constants.TransformerServiceName(isvc.Name)
-		if useDefaultSuffix {
+
+		// Check if existing transformer service name has default suffix
+		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existingService)
+		if err == nil {
 			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
 		}
 		return network.GetServiceHostname(transformerName, isvc.Namespace)
 	}
 
 	predictorName := constants.PredictorServiceName(isvc.Name)
-	if useDefaultSuffix {
+
+	// Check if existing predictor service name has default suffix
+	err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existingService)
+	if err == nil {
 		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 	}
 	return network.GetServiceHostname(predictorName, isvc.Namespace)
@@ -313,17 +320,9 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	if err != nil {
 		return err
 	}
-
-	// Check if existing service name has default suffix
-	useDefaultSuffix := false
-	existingService := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existingService)
-	if err == nil {
-		useDefaultSuffix = true
-	}
 	isvc.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
-			Host:   getRawServiceHost(isvc, useDefaultSuffix),
+			Host:   getRawServiceHost(isvc, r.client),
 			Scheme: r.ingressConfig.UrlScheme,
 			Path:   "",
 		},
