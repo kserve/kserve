@@ -35,7 +35,6 @@ CUSTOM_MODEL_GRPC=kserve/custom-model-grpc:${GITHUB_SHA}
 CUSTOM_TRANSFORMER_GRPC=kserve/custom-image-transformer-grpc:${GITHUB_SHA}
 # Explainer images
 ALIBI_IMG=kserve/alibi-explainer:${GITHUB_SHA}
-AIX_IMG=kserve/aix-explainer:${GITHUB_SHA}
 ART_IMG=kserve/art-explainer:${GITHUB_SHA}
 # Transformer images
 IMAGE_TRANSFORMER_IMG=kserve/image-transformer:${GITHUB_SHA}
@@ -62,8 +61,6 @@ pushd python >/dev/null
   if [[ " ${types[*]} " =~ "explainer" ]]; then
     echo "Building Alibi image"
     docker build -t ${ALIBI_IMG} -f alibiexplainer.Dockerfile .
-    echo "Building AIX image"
-    docker build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
     echo "Building ART explainer image"
     docker build -t ${ART_IMG} -f artexplainer.Dockerfile .
     

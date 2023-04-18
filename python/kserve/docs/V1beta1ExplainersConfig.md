@@ -3,7 +3,6 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**aix** | [**V1beta1ExplainerConfig**](V1beta1ExplainerConfig.md) |  | [optional] 
 **alibi** | [**V1beta1ExplainerConfig**](V1beta1ExplainerConfig.md) |  | [optional] 
 **art** | [**V1beta1ExplainerConfig**](V1beta1ExplainerConfig.md) |  | [optional] 
 

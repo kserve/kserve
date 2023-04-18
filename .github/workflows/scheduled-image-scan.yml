@@ -77,8 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [{ name: aix-explainer, file: python/aixexplainer.Dockerfile},
-                { name: alibi-explainer, file: python/alibiexplainer.Dockerfile},
+        image: [{ name: alibi-explainer, file: python/alibiexplainer.Dockerfile},
                 { name: art-explainer, file: python/artexplainer.Dockerfile}]
     
     steps:

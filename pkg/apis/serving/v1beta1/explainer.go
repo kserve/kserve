@@ -26,8 +26,6 @@ import (
 type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
-	// Spec for AIX explainer
-	AIX *AIXExplainerSpec `json:"aix,omitempty"`
 	// Spec for ART explainer
 	ART *ARTExplainerSpec `json:"art,omitempty"`
 	// This spec is dual purpose.
@@ -84,7 +82,6 @@ func (e *ExplainerExtensionSpec) GetStorageSpec() *StorageSpec {
 func (s *ExplainerSpec) GetImplementations() []ComponentImplementation {
 	implementations := NonNilComponents([]ComponentImplementation{
 		s.Alibi,
-		s.AIX,
 		s.ART,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified

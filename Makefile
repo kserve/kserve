@@ -2,7 +2,6 @@ HAS_LINT := $(shell command -v golint;)
 
 # Base Image URL
 BASE_IMG ?= python:3.9-slim-bullseye
-AIX_BASE_IMG ?= python:3.7-slim
 PMML_BASE_IMG ?= openjdk:11-slim
 
 # Image URL to use all building/pushing image targets
@@ -19,7 +18,6 @@ CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
 CUSTOM_TRANSFORMER_IMG ?= image-transformer
 CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
 ALIBI_IMG ?= alibi-explainer
-AIX_IMG ?= aix-explainer
 AIF_IMG ?= aiffairness
 ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
@@ -114,10 +112,6 @@ deploy-dev-paddle: docker-push-paddle
 
 deploy-dev-alibi: docker-push-alibi
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
-
-deploy-dev-aix: docker-push-aix
-	./hack/aix_patch_dev.sh ${KO_DOCKER_REPO}/${AIX_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
@@ -288,12 +282,6 @@ docker-build-alibi:
 
 docker-push-alibi: docker-build-alibi
 	docker push ${KO_DOCKER_REPO}/${ALIBI_IMG}
-
-docker-build-aix:
-	cd python && docker build --build-arg BASE_IMAGE=${AIX_BASE_IMG} -t ${KO_DOCKER_REPO}/${AIX_IMG} -f aixexplainer.Dockerfile .
-
-docker-push-aix: docker-build-aix
-	docker push ${KO_DOCKER_REPO}/${AIX_IMG}
 
 docker-build-aif:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .

@@ -102,11 +102,6 @@ jobs:
           docker image ls
           cat ./config/overlays/test/configmap/inferenceservice.yaml
 
-      - name: Upload aix image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "kserve/aix-explainer:${{ github.sha }}"
-
       - name: Upload alibi image
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
@@ -238,11 +233,6 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
-
-      - name: Download aix image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/aix-explainer:${{ github.sha }}"
 
       - name: Download alibi image
         uses: ishworkh/docker-image-artifact-download@v1

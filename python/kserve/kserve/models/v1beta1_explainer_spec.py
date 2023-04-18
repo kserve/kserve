@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,7 +49,6 @@ class V1beta1ExplainerSpec(object):
     openapi_types = {
         'active_deadline_seconds': 'int',
         'affinity': 'V1Affinity',
-        'aix': 'V1beta1AIXExplainerSpec',
         'alibi': 'V1beta1AlibiExplainerSpec',
         'art': 'V1beta1ARTExplainerSpec',
         'automount_service_account_token': 'bool',
@@ -100,7 +99,6 @@ class V1beta1ExplainerSpec(object):
     attribute_map = {
         'active_deadline_seconds': 'activeDeadlineSeconds',
         'affinity': 'affinity',
-        'aix': 'aix',
         'alibi': 'alibi',
         'art': 'art',
         'automount_service_account_token': 'automountServiceAccountToken',
@@ -148,7 +146,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, aix=None, alibi=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, alibi=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -156,7 +154,6 @@ class V1beta1ExplainerSpec(object):
 
         self._active_deadline_seconds = None
         self._affinity = None
-        self._aix = None
         self._alibi = None
         self._art = None
         self._automount_service_account_token = None
@@ -208,8 +205,6 @@ class V1beta1ExplainerSpec(object):
             self.active_deadline_seconds = active_deadline_seconds
         if affinity is not None:
             self.affinity = affinity
-        if aix is not None:
-            self.aix = aix
         if alibi is not None:
             self.alibi = alibi
         if art is not None:
@@ -344,27 +339,6 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._affinity = affinity
-
-    @property
-    def aix(self):
-        """Gets the aix of this V1beta1ExplainerSpec.  # noqa: E501
-
-
-        :return: The aix of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: V1beta1AIXExplainerSpec
-        """
-        return self._aix
-
-    @aix.setter
-    def aix(self, aix):
-        """Sets the aix of this V1beta1ExplainerSpec.
-
-
-        :param aix: The aix of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: V1beta1AIXExplainerSpec
-        """
-
-        self._aix = aix
 
     @property
     def alibi(self):
