@@ -31,16 +31,14 @@ These are the timelines proposed for the process
 In 11th week,
 - Create an issue of type feature in [kserve/kserve](https://github.com/kserve/kserve) to start tracking the release process
     - Copy paste the above timeline table in that issue and fill in the dates accordingly
-- Label the issue with `priority p0`
-- Label the issue with the kind `process`
 - Announce the feature freeze and rest of the dates in the #kserve channel
 
 
 ## Process
 ### On feature freeze day
-We will be creating first release candidate (RC0) on feature freeze day that could be and should be consumed by the community in their pre-production environments to test for any
-bugs that might have been introduced in recent development lifecycle.</br></br>
-Create a branch and do the following:
+We will be creating the first release candidate (RC0) on the feature freeze day that could be and should be consumed by the community in their pre-production environments to test for any
+bugs that might have been introduced in recent development cycles.</br></br>
+Create a branch from the master and do the following:
 1. Update the version number in following places:
     1. [VERSION](../python/VERSION) to `${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     2. [quick_install.sh](../hack/quick_install.sh#L35) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
@@ -53,24 +51,24 @@ Create a branch and do the following:
 5. After it is merged,
     1. Create a release branch of the form release-X.Y.Z from the master 
     2. Create a release candidate tag X.Y.Z-rc0 from that branch and do git push for both the branch and tag
-    3. From that tag create a release-candidate (basically a pre-release) on GITHUB
+    3. Now goto GITHUB and from the recently pushed X.Y.Z-rc0 tag, create a release-candidate (basically a pre-release) on GITHUB
     4. With this you are done with the creation of RC0 for upcoming release
 6. Announce in the community about the availability of release-candidate so that community can start consuming and testing. And ask them to report bugs as soon as possible.
 7. After feature freeze date, now only bug fixes will be merged into the release branch.
 
 ### 1 week after feature freeze:
-After feature freeze, we will be merging only bug fixes into the release branch and creating another release candidate (RC1) out of it.
+After feature freeze, we will be merging only the bug fixes into the release branch and creating another release candidate (RC1) out of it.
 This is only needed if any bugs have been fixed after feature freeze. Otherwise, it is not needed
 Steps:
-1. Create a PR following the `Step 1` from the above section and bump up the version to `rc1` in all the places and label it with `cherrypick-approved`
-2. Get this PR reviewed and merged to master
-3. Now, cherry-pick the `merge commits` that have come out of PRs labeled with `cherrypick-approved` to the release branch (including the just created PR in step 1 in this section)
+1. Create a PR following the `Step 1-3` from the above section and bump up the version to `rc1` in all the places and label it with `cherrypick-approved`
+2. Get this PR reviewed and merged to the master
+3. Now, cherry-pick the `merge commits` that have come out of PRs labeled with `cherrypick-approved` into the release branch (including the just created PR in step 1 in this section)
 **Note:** Make sure merged commits are cherry-picked in the order they were merged. Cherry-picking should not result in any sort of merge conflicts since no one is working on release branch.
-4. Create a release candidate tag X.Y.Z-rc1 from that branch and do git push for both the branch and tag
-5. From that tag create a release-candidate on GITHUB
-6. With this you are done with the creation of RC1 for upcoming release
-7. Announce in the community about the availability of release-candidate so that community can start consuming and testing. And ask them to report bugs as soon as possible. 
-8. After feature freeze date, now only bug fixes will be merged into the release branch.
+4. After all the commits have been cherry-picked into the release branch,
+   1. Create a release candidate tag X.Y.Z-rc1 from that branch and do git push for both the branch and the tag
+   2. Now goto GITHUB and from the recently pushed X.Y.Z-rc1 tag, create a release-candidate (basically a pre-release) on GITHUB
+   3. With this you are done with the creation of RC1 for upcoming release
+5. Announce in the community about the availability of release-candidate so that community can start consuming and testing. And ask them to report bugs as soon as possible.
 
 You can repeat same steps for RC2 or other release candidates if needed
 
