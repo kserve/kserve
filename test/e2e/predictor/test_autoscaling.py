@@ -34,7 +34,7 @@ MODEL = "gs://kfserving-examples/models/sklearn/1.0/model"
 INPUT = "./data/iris_input.json"
 
 
-@pytest.mark.fast
+@pytest.mark.slow
 def test_sklearn_kserve_concurrency():
     service_name = "isvc-sklearn-scale-concurrency"
     predictor = V1beta1PredictorSpec(
@@ -74,7 +74,7 @@ def test_sklearn_kserve_concurrency():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.slow
 def test_sklearn_kserve_rps():
     service_name = "isvc-sklearn-scale-rps"
     predictor = V1beta1PredictorSpec(
@@ -160,8 +160,8 @@ def test_sklearn_kserve_cpu():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
-def test_sklearn_kserve_raw():
+@pytest.mark.raw
+def test_sklearn_scale_raw():
     service_name = "isvc-sklearn-scale-raw"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,

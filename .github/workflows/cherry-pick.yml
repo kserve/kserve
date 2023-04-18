@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Cherry pick into release-0.10
-        uses: carloscastrojumo/github-cherry-pick-action@v1.0.1
+        uses: carloscastrojumo/github-cherry-pick-action@v1.0.9
         with:
           branch: release-0.10
           labels: |

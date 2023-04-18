@@ -26,7 +26,8 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
-        "storageSpecSecretName": "storage-config"
+        "storageSpecSecretName": "storage-config",
+        "enableDirectPvcVolumeMount": false
     }
   # ====================================== CREDENTIALS ======================================
   # For a quick reference about AWS ENV variables:

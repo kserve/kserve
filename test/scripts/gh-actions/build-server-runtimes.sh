@@ -66,6 +66,10 @@ pushd python >/dev/null
     docker build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
     echo "Building ART explainer image"
     docker build -t ${ART_IMG} -f artexplainer.Dockerfile .
+    
+    echo "Pruning images to free up space"
+    docker image prune -f
+
   fi
 
   if [[ " ${types[*]} " =~ "transformer" ]]; then

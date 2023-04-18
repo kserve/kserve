@@ -28,7 +28,6 @@ from kserve import (
     V1beta1StorageSpec,
     constants
 )
-
 from ..common.utils import predict_modelmesh
 
 

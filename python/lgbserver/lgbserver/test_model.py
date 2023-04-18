@@ -17,6 +17,8 @@ import os
 from sklearn.datasets import load_iris
 from lgbserver import LightGBMModel
 import pandas as pd
+import numpy
+from kserve.protocol.infer_type import InferInput, InferRequest
 
 model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
 BST_FILE = "model.bst"
@@ -40,9 +42,20 @@ def test_model():
     model = LightGBMModel("model", model_dir, NTHREAD)
     model.load()
 
-    request = {"x": {0: 1.1}, 'sepal_width_(cm)': {0: 3.5}, 'petal_length_(cm)': {0: 1.4},
+    request = {'sepal_width_(cm)': {0: 3.5}, 'petal_length_(cm)': {0: 1.4},
                'petal_width_(cm)': {0: 0.2}, 'sepal_length_(cm)': {0: 5.1}}
 
     response = model.predict({"inputs": [request, request]})
-    import numpy
-    assert numpy.argmax(response["predictions"][0]) == 0
+    assert numpy.argmax(response["predictions"][0]) == 2
+
+    response = model.predict({"instances": [request, request]})
+    assert numpy.argmax(response["predictions"][0]) == 2
+    # test v2 handler
+    infer_input = InferInput(name="input-0", shape=[2, 4], datatype="FP32",
+                             data=[[6.8, 2.8, 4.8, 1.6], [6.0, 3.4, 4.5, 1.6]])
+    infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
+    infer_response = model.predict(infer_request)
+    assert infer_response.to_rest()["outputs"] == \
+           [{'name': 'output-0', 'shape': [2, 3], 'datatype': 'FP64',
+             'data': [3.7899802486733807e-06, 0.9996982074114203, 0.00029800260833088297,
+                      5.2172911836629736e-05, 0.99973341723876, 0.000214409849403366]}]

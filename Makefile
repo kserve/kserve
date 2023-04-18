@@ -1,5 +1,10 @@
 HAS_LINT := $(shell command -v golint;)
 
+# Base Image URL
+BASE_IMG ?= python:3.9-slim-bullseye
+AIX_BASE_IMG ?= python:3.7-slim
+PMML_BASE_IMG ?= openjdk:11-slim
+
 # Image URL to use all building/pushing image targets
 IMG ?= kserve-controller:latest
 AGENT_IMG ?= agent:latest
@@ -9,8 +14,14 @@ XGB_IMG ?= xgbserver
 LGB_IMG ?= lgbserver
 PMML_IMG ?= pmmlserver
 PADDLE_IMG ?= paddleserver
+CUSTOM_MODEL_IMG ?= custom-model
+CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
+CUSTOM_TRANSFORMER_IMG ?= image-transformer
+CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
 ALIBI_IMG ?= alibi-explainer
 AIX_IMG ?= aix-explainer
+AIF_IMG ?= aiffairness
+ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
 QPEXT_IMG ?= qpext
 CRD_OPTIONS ?= "crd:maxDescLen=0"
@@ -219,49 +230,85 @@ docker-push-router:
 	docker push ${KO_DOCKER_REPO}/${ROUTER_IMG}
 
 docker-build-sklearn:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
+	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
 
 docker-push-sklearn: docker-build-sklearn
 	docker push ${KO_DOCKER_REPO}/${SKLEARN_IMG}
 
 docker-build-xgb:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
+	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
 
 docker-push-xgb: docker-build-xgb
 	docker push ${KO_DOCKER_REPO}/${XGB_IMG}
 
 docker-build-lgb:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
+	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
 
 docker-push-lgb: docker-build-lgb
 	docker push ${KO_DOCKER_REPO}/${LGB_IMG}
 
 docker-build-pmml:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
+	cd python && docker build --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
 
 docker-push-pmml: docker-build-pmml
 	docker push ${KO_DOCKER_REPO}/${PMML_IMG}
 
 docker-build-paddle:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
+	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
 
 docker-push-paddle: docker-build-paddle
 	docker push ${KO_DOCKER_REPO}/${PADDLE_IMG}
 
+docker-build-custom-model:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG} -f custom_model.Dockerfile .
+
+docker-push-custom-model: docker-build-custom-model
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG}
+
+docker-build-custom-model-grpc:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG} -f custom_model_grpc.Dockerfile .
+
+docker-push-custom-model-grpc: docker-build-custom-model-grpc
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}
+
+docker-build-custom-transformer:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+
+docker-push-custom-transformer: docker-build-custom-transformer
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG}
+
+docker-build-custom-transformer-grpc:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG} -f custom_transformer_grpc.Dockerfile .
+
+docker-push-custom-transformer-grpc: docker-build-custom-transformer-grpc
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}
+
 docker-build-alibi:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
+	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
 
 docker-push-alibi: docker-build-alibi
 	docker push ${KO_DOCKER_REPO}/${ALIBI_IMG}
 
 docker-build-aix:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${AIX_IMG} -f aixexplainer.Dockerfile .
+	cd python && docker build --build-arg BASE_IMAGE=${AIX_BASE_IMG} -t ${KO_DOCKER_REPO}/${AIX_IMG} -f aixexplainer.Dockerfile .
 
 docker-push-aix: docker-build-aix
 	docker push ${KO_DOCKER_REPO}/${AIX_IMG}
 
+docker-build-aif:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .
+
+docker-push-aif: docker-build-aif
+	docker push ${KO_DOCKER_REPO}/${AIF_IMG}
+
+docker-build-art:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${ART_IMG} -f artexplainer.Dockerfile .
+
+docker-push-art: docker-build-art
+	docker push ${KO_DOCKER_REPO}/${ART_IMG}
+
 docker-build-storageInitializer:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
+	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}

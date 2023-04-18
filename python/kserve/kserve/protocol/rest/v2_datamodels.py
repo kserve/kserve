@@ -22,7 +22,7 @@ from pydantic import BaseModel
 # Reference: https://github.com/kserve/kserve/blob/master/docs/predict-api/v2/rest_predict_v2.yaml
 
 
-InferParameter = Union[str, int, float, bool]
+InferParameter = Union[int, float, bool, str]
 Parameters = Dict[str, InferParameter]
 
 

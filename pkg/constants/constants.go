@@ -50,6 +50,7 @@ var (
 // InferenceGraph Constants
 const (
 	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
+	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
 )
 
 // TrainedModel Constants
@@ -113,6 +114,13 @@ var (
 	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
 	PredictorHostAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/predictor-host"
 	PredictorProtocolAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/predictor-protocol"
+)
+
+// kserve networking constants
+const (
+	NetworkVisibility      = "networking.kserve.io/visibility"
+	ClusterLocalVisibility = "cluster-local"
+	ClusterLocalDomain     = "svc.cluster.local"
 )
 
 // StorageSpec Constants
@@ -429,6 +437,10 @@ func DefaultPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceDefault
 }
 
+func PredictorServiceName(name string) string {
+	return name + "-" + string(Predictor)
+}
+
 func CanaryPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
 }
@@ -437,12 +449,20 @@ func DefaultExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer) + "-" + InferenceServiceDefault
 }
 
+func ExplainerServiceName(name string) string {
+	return name + "-" + string(Explainer)
+}
+
 func CanaryExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer) + "-" + InferenceServiceCanary
 }
 
 func DefaultTransformerServiceName(name string) string {
 	return name + "-" + string(Transformer) + "-" + InferenceServiceDefault
+}
+
+func TransformerServiceName(name string) string {
+	return name + "-" + string(Transformer)
 }
 
 func CanaryTransformerServiceName(name string) string {

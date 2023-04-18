@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "custom-model"
+version = "0.10.1"
+description = "Custom model implementation. Not intended for use outside KServe Frameworks Images."
+authors = ["The KServe Authors"]
+license = "https://github.com/kserve/kserve/blob/master/LICENSE"
+packages = [
+    { include = "*.py" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+kserve = {path = "../kserve", develop = true}
+torchvision = {version = "0.15.1+cpu", source = "pytorch"}
+torch = {version = "2.0.0+cpu", source = "pytorch"}
+pillow = "~9.3.0"
+
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
+default = false
+secondary = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

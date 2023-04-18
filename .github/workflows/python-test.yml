@@ -4,13 +4,13 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: []
+    branches: [ ]
 jobs:
   flake8-lint:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9"]
+        python-version: [ "3.7", "3.8", "3.9" ]
     name: Lint
     steps:
       - name: Check out source repository
@@ -28,30 +28,291 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, "3.8", "3.9"]
+        python-version: [ "3.8", "3.9" ]
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-    - name: Test with pytest
-      run: |
-        cd python
-        pip install -e ./kserve[test]
-        pytest --cov=kserve ./kserve
-        pip install -e ./sklearnserver
-        pytest --cov=sklearnserver ./sklearnserver
-        pip install -e ./xgbserver
-        pytest --cov=xgbserver ./xgbserver
-        pip install -e ./pmmlserver
-        pytest --cov=pmmlserver ./pmmlserver
-        pip install -e ./lgbserver
-        pytest --cov=lgbserver ./lgbserver
-        pip install -e ./paddleserver[test]
-        pytest --cov=paddleserver ./paddleserver
-        pip install -e ./alibiexplainer
-        pytest --cov=alibiexplainer ./alibiexplainer
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.4.0
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+      # load poetry cache if cache exists
+      - name: Load poetry cache
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      # ----------------------------------------Kserve Unit Tests--------------------------------------------------------
+      # load cached kserve venv if cache exists
+      - name: Load cached kserve venv
+        id: cached-kserve-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/kserve/.venv
+          key: kserve-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock') }}
+      # install kserve dependencies if cache does not exist
+      - name: Install kserve dependencies
+        if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/kserve
+          make dev_install
+      - name: Install kserve
+        run: |
+          cd python/kserve
+          make dev_install
+      - name: Test kserve
+        run: |
+          cd python
+          source kserve/.venv/bin/activate
+          pytest --cov=kserve ./kserve
+
+      # ----------------------------------------Sklearn Server Unit Tests------------------------------------------------
+      # load cached sklearn venv if cache exists
+      - name: Load cached sklearn venv
+        id: cached-sklearn-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/sklearnserver/.venv
+          key: sklearn-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/sklearnserver/poetry.lock') }}
+        # install sklearn server dependencies if cache does not exist
+      - name: Install sklearn dependencies
+        if: steps.cached-sklearn-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/sklearnserver
+          make dev_install
+      - name: Install sklearnserver
+        run: |
+          cd python/sklearnserver
+          make dev_install
+      - name: Test sklearnserver
+        run: |
+          cd python
+          source sklearnserver/.venv/bin/activate
+          pytest --cov=sklearnserver ./sklearnserver
+
+      # ----------------------------------------Xgb Server Unit Tests------------------------------------------------
+      # load cached xgb venv if cache exists
+      - name: Load cached xgb venv
+        id: cached-xgb-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/xgbserver/.venv
+          key: xgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/xgbserver/poetry.lock') }}
+        # install xgb server dependencies if cache does not exist
+      - name: Install xgb dependencies
+        if: steps.cached-xgb-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/xgbserver
+          make dev_install
+      - name: Install xgbserver
+        run: |
+          cd python/xgbserver
+          make dev_install
+      - name: Test xgbserver
+        run: |
+          cd python
+          source xgbserver/.venv/bin/activate
+          pytest --cov=xgbserver ./xgbserver
+
+      # ----------------------------------------Pmml Server Unit Tests------------------------------------------------
+      # load cached pmml venv if cache exists
+      - name: Load cached pmml venv
+        id: cached-pmml-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/pmmlserver/.venv
+          key: pmml-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/pmmlserver/poetry.lock') }}
+        # install pmml server dependencies if cache does not exist
+      - name: Install pmml dependencies
+        if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/pmmlserver
+          make dev_install
+      - name: Install pmmlserver
+        run: |
+          cd python/pmmlserver
+          make dev_install
+      - name: Test pmmlserver
+        run: |
+          cd python
+          source pmmlserver/.venv/bin/activate
+          pytest --cov=pmmlserver ./pmmlserver
+
+      # ----------------------------------------Lgb Server Unit Tests------------------------------------------------
+      # load cached lgb venv if cache exists
+      - name: Load cached lgb venv
+        id: cached-lgb-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/lgbserver/.venv
+          key: lgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/pmmlserver/poetry.lock') }}
+        # install lgb server dependencies if cache does not exist
+      - name: Install lgb dependencies
+        if: steps.cached-lgb-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/lgbserver
+          make dev_install
+      - name: Install lgbserver
+        run: |
+          cd python/lgbserver
+          make dev_install
+      - name: Test lgbserver
+        run: |
+          cd python
+          source lgbserver/.venv/bin/activate
+          pytest --cov=lgbserver ./lgbserver
+
+      # ----------------------------------------Paddle Server Unit Tests------------------------------------------------
+      # load cached paddle venv if cache exists
+      - name: Load cached paddle venv
+        id: cached-paddle-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/paddleserver/.venv
+          key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/paddleserver/poetry.lock') }}
+        # install paddle server dependencies if cache does not exist
+      - name: Install paddle dependencies
+        if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/paddleserver
+          make dev_install
+      - name: Install paddleserver
+        run: |
+          cd python/paddleserver
+          make dev_install
+      - name: Test paddleserver
+        run: |
+          cd python
+          source paddleserver/.venv/bin/activate
+          pytest --cov=paddleserver ./paddleserver
+
+      # ----------------------------------------Alibi Explainer Unit Tests------------------------------------------------
+      # load cached alibi venv if cache exists
+      - name: Load cached alibi venv
+        id: cached-alibi-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/alibiexplainer/.venv
+          key: alibi-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/alibiexplainer/poetry.lock') }}
+        # install alibi explainer dependencies if cache does not exist
+      - name: Install alibi dependencies
+        if: steps.cached-alibi-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/alibiexplainer
+          make dev_install
+      - name: Install alibiexplainer
+        run: |
+          cd python/alibiexplainer
+          make dev_install
+      - name: Test alibiexplainer
+        run: |
+          cd python
+          source alibiexplainer/.venv/bin/activate
+          pytest --cov=alibiexplainer ./alibiexplainer
+  build-3-7:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.7"]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.4.0
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+      # load poetry cache if cache exists
+      - name: Load poetry cache
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      # ----------------------------------------Kserve Unit Tests--------------------------------------------------------
+      # load cached kserve venv if cache exists
+      - name: Load cached kserve venv
+        id: cached-kserve-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/kserve/.venv
+          key: kserve-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock') }}
+      # install kserve dependencies if cache does not exist
+      - name: Install kserve dependencies
+        if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/kserve
+          make dev_install
+      - name: Install kserve
+        run: |
+          cd python/kserve
+          make dev_install
+      - name: Test kserve
+        run: |
+          cd python
+          source kserve/.venv/bin/activate
+          pytest --cov=kserve ./kserve
+
+      # ----------------------------------------Pmml Server Unit Tests------------------------------------------------
+      # load cached pmml venv if cache exists
+      - name: Load cached pmml venv
+        id: cached-pmml-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/pmmlserver/.venv
+          key: pmml-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/pmmlserver/poetry.lock') }}
+        # install pmml server dependencies if cache does not exist
+      - name: Install pmml dependencies
+        if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/pmmlserver
+          make dev_install
+      - name: Install pmmlserver
+        run: |
+          cd python/pmmlserver
+          make dev_install
+      - name: Test pmmlserver
+        run: |
+          cd python
+          source pmmlserver/.venv/bin/activate
+          pytest --cov=pmmlserver ./pmmlserver
+
+      # ----------------------------------------Paddle Server Unit Tests------------------------------------------------
+      # load cached paddle venv if cache exists
+      - name: Load cached paddle venv
+        id: cached-paddle-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/paddleserver/.venv
+          key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/paddleserver/poetry.lock') }}
+        # install paddle server dependencies if cache does not exist
+      - name: Install paddle dependencies
+        if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/paddleserver
+          make dev_install
+      - name: Install paddleserver
+        run: |
+          cd python/paddleserver
+          make dev_install
+      - name: Test paddleserver
+        run: |
+          cd python
+          source paddleserver/.venv/bin/activate
+          pytest --cov=paddleserver ./paddleserver
