@@ -33,7 +33,7 @@ logging.basicConfig(level=logging.INFO)
 
 ENABLE_METRIC_AGG = "serving.kserve.io/enable-metric-aggregation"
 METRICS_AGG_PORT = 9088
-METRICS_PATH = "/metrics"
+METRICS_PATH = "metrics"
 
 
 def test_qpext_kserve():
@@ -86,6 +86,7 @@ def send_metrics_request(kserve_client, service_name):
 
     url = f"http://localhost:{METRICS_AGG_PORT}/{METRICS_PATH}"
     with portforward.forward(KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT):
+        logging.info(f"metrics request url: {url}")
         response = requests.get(url)
         logging.info(f"response: {response}, content: {response.content}")
         logging.info("Got response code %s, content %s", response.status_code, response.content)
