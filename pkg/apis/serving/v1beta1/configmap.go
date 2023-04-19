@@ -37,7 +37,7 @@ const (
 	IngressConfigKeyName = "ingress"
 	DeployConfigName     = "deploy"
 
-	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
+	DefaultDomainTemplate = "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"
 	DefaultIngressDomain  = "example.com"
 
 	DefaultUrlScheme = "http"

@@ -17,7 +17,7 @@ kserve:
     deploymentMode: "Serverless"
     gateway:
       domain: example.com
-      domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
+      domainTemplate: "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"
       urlScheme: http
       localGateway:
         gateway: knative-serving/knative-local-gateway
