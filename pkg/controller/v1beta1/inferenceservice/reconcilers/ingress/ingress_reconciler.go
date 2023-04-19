@@ -22,7 +22,6 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	utils "github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
@@ -499,28 +498,11 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
 		isvc.Status.URL = url
-		path := ""
-		modelName := isvcutils.GetModelName(isvc)
-		if isvc.Spec.Transformer != nil {
-			// As of now transformer only supports protocol V1
-			path = constants.PredictPath(modelName, constants.ProtocolV1)
-		} else if !isvcutils.IsMMSPredictor(&isvc.Spec.Predictor) {
-
-			protocol := isvc.Spec.Predictor.GetImplementation().GetProtocol()
-
-			if protocol == constants.ProtocolV1 {
-				path = constants.PredictPath(modelName, constants.ProtocolV1)
-			} else if protocol == constants.ProtocolV2 {
-				path = constants.PredictPath(modelName, constants.ProtocolV2)
-			}
-
-		}
 		hostPrefix := getHostPrefix(isvc, disableIstioVirtualHost)
 		isvc.Status.Address = &duckv1.Addressable{
 			URL: &apis.URL{
 				Host:   network.GetServiceHostname(hostPrefix, isvc.Namespace),
 				Scheme: "http",
-				Path:   path,
 			},
 		}
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
