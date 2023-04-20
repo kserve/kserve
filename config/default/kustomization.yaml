@@ -7,31 +7,13 @@ namespace: kserve
 # Labels to add to all resources and selectors.
 #commonLabels:
 #  app.kubernetes.io/name: kserve
-
-bases:
+resources:
 - ../crd
 - ../configmap
 - ../rbac
 - ../manager
 - ../webhook
 - ../certmanager
-
-  # Protect the /metrics endpoint by putting it behind auth.
-  # Only one of manager_auth_proxy_patch.yaml and
-  # manager_prometheus_metrics_patch.yaml should be enabled.
-  # If you want your controller-manager to expose the /metrics
-  # endpoint w/o any authn/z, uncomment the following line and
-  # comment manager_auth_proxy_patch.yaml.
-  # Only one of manager_auth_proxy_patch.yaml and
-  # manager_prometheus_metrics_patch.yaml should be enabled.
-#- manager_prometheus_metrics_patch.yaml
-patchesStrategicMerge:
-- manager_image_patch.yaml
-- manager_auth_proxy_patch.yaml
-- webhookcainjection_patch.yaml
-- manager_resources_patch.yaml
-- inferenceservice_conversion_webhook.yaml
-- cainjection_conversion_webhook.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
@@ -44,13 +26,33 @@ vars:
     apiVersion: v1
     kind: Service
     name: kserve-webhook-server-service
-- name: kserveNamespace
-  objref:
-    kind: Certificate
-    group: cert-manager.io
-    version: v1
-    name: serving-cert
-  fieldref:
+- fieldref:
     fieldpath: metadata.namespace
+  name: kserveNamespace
+  objref:
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    version: v1
 configurations:
 - params.yaml
+
+  # Protect the /metrics endpoint by putting it behind auth.
+  # Only one of manager_auth_proxy_patch.yaml and
+  # manager_prometheus_metrics_patch.yaml should be enabled.
+  # If you want your controller-manager to expose the /metrics
+  # endpoint w/o any authn/z, uncomment the following line and
+  # comment manager_auth_proxy_patch.yaml.
+  # Only one of manager_auth_proxy_patch.yaml and
+  # manager_prometheus_metrics_patch.yaml should be enabled.
+  #- manager_prometheus_metrics_patch.yaml
+patches:
+- path: manager_image_patch.yaml
+- path: manager_auth_proxy_patch.yaml
+- path: isvc_mutatingwebhook_cainjection_patch.yaml
+- path: isvc_validatingwebhook_cainjection_patch.yaml
+- path: trainedmodel_mutatingwebhook_cainjection_patch.yaml
+- path: trainedmodel_validatingwebhook_cainjection_patch.yaml
+- path: manager_resources_patch.yaml
+- path: inferenceservice_conversion_webhook.yaml
+- path: cainjection_conversion_webhook.yaml
