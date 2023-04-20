@@ -84,6 +84,7 @@ curl -LO https://raw.githubusercontent.com/NVIDIA/FasterTransformer/main/example
 4. Convert the HuggingFace model to FT format
 
 ```sh
+pip3 install numpy transformers torch
 python3 huggingface_bloom_convert.py -o bloom -i ./bloom-560m/ -tp 1
 ``` 
 
