@@ -2,7 +2,7 @@ import argparse
 import logging
 import json
 from uuid import uuid4
-from typing import Dict, List, Optional, Union
+from typing import Dict, List,  Union
 
 import kserve
 from kserve.protocol.infer_type import (
@@ -14,7 +14,7 @@ from kserve.protocol.infer_type import (
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 import numpy as np
 from transformers import AutoTokenizer
-
+from pydantic import BaseModel
 import multiprocessing as mp
 
 mp.set_start_method("fork")
@@ -22,8 +22,6 @@ mp.set_start_method("fork")
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 logger = logging.getLogger(__name__)
-
-from pydantic import BaseModel
 
 
 def get_output(outputs: List[InferOutput], name: str) -> InferOutput:
@@ -54,7 +52,7 @@ class Transformer(kserve.Model):
         self.predictor_host = predictor_host
         self.protocol = protocol
         self.tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_path, local_files_only=True, 
+            tokenizer_path, local_files_only=True,
         )
         logger.info(self.tokenizer)
 
