@@ -88,6 +88,8 @@ pip3 install numpy transformers torch
 python3 huggingface_bloom_convert.py -o bloom -i ./bloom-560m/ -tp 1
 ``` 
 
+The `-tp` flag specifies the level of tensor parallelism we would like the exported model to have. Tensor parallelism corresponds to the number of GPU that will be used to load and execute the model.
+
 Once this command completes execution you should have a new directory `bloom/1-cpu` that contains the model in FT format.
 
 ## Preparing the model for loading into Triton
