@@ -137,3 +137,9 @@ KServe supports logging your inference request/response by injecting a sidecar a
 [InferenceService on Kubeflow with Istio-Dex](./istio-dex)
 
 [InferenceService behind GCP Identity Aware Proxy (IAP) ](./gcp-iap)
+
+### KServe with Fluid on LLM (Large Language Model) Acceleration
+
+Example to use [Fluid](https://github.com/fluid-cloudnative/fluid) to accelerate the large model loading, thus improving the performance of serverless autoscaling.
+
+[KServe with Fluid on LLM (Large Language Model) Acceleration](./fluid)
