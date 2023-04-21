@@ -4,5 +4,3 @@ kind: Kustomization
 resources:
 - certificate.yaml
 
-configurations:
-- kustomizeconfig.yaml
