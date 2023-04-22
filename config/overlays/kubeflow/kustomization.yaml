@@ -3,22 +3,23 @@ kind: Kustomization
 
 # Adds namespace to all resources.
 namespace: kubeflow
-
-# Labels to add to all resources and selectors.
-commonLabels:
-  app: kserve
-  app.kubernetes.io/name: kserve
-
-bases:
+resources:
 - ../../default
 - cluster-role.yaml
 
-patchesStrategicMerge:
-- patches/statefulset.yaml
-- patches/namespace.yaml
+# Labels to add to all resources and selectors.
+labels:
+- includeSelectors: true
+  pairs:
+    app: kserve
+    app.kubernetes.io/name: kserve
 
 generatorOptions:
   disableNameSuffixHash: true
 
 configurations:
 - params.yaml
+
+patches:
+- path: patches/statefulset.yaml
+- path: patches/namespace.yaml
