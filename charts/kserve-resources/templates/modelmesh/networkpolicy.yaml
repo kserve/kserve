@@ -1,3 +1,5 @@
+{{- if .Values.kserve.modelmesh.enabled }}
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -17,6 +19,7 @@ spec:
       control-plane: modelmesh-controller
   policyTypes:
   - Ingress
+
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -53,3 +56,4 @@ spec:
       app.kubernetes.io/managed-by: modelmesh-controller
   policyTypes:
   - Ingress
+{{- end }}

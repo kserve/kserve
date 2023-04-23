@@ -11,6 +11,7 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: kserve-webhook-server-cert
+
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
