@@ -14,7 +14,7 @@
 import kserve
 import logging
 import numpy as np
-import alibi
+from alibi.explainers.anchors.anchor_tabular import AnchorTabular
 from alibi.api.interfaces import Explanation
 from alibi.utils.wrappers import ArgmaxTransformer
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
@@ -27,13 +27,13 @@ class AnchorTabular(ExplainerWrapper):
     def __init__(
             self,
             predict_fn: Callable,
-            explainer=Optional[alibi.explainers.AnchorTabular],
+            explainer=Optional[AnchorTabular],
             **kwargs
     ):
         if explainer is None:
             raise Exception("Anchor images requires a built explainer")
         self.predict_fn = predict_fn
-        self.anchors_tabular: alibi.explainers.AnchorTabular = explainer
+        self.anchors_tabular: AnchorTabular = explainer
         self.anchors_tabular = explainer
         self.kwargs = kwargs
 

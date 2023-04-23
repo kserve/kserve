@@ -21,7 +21,7 @@ import dill
 from kserve.storage import Storage
 
 
-CIFAR10_EXPLAINER_URI = "gs://seldon-models/tfserving/cifar10/explainer-py36-0.5.2"
+CIFAR10_EXPLAINER_URI = "gs://seldon-models/tfserving/cifar10/cifar10_anchor_image_py3.9_alibi-0.7.0"
 EXPLAINER_FILENAME = "explainer.dill"
 
 

@@ -14,7 +14,7 @@
 import kserve
 import logging
 import numpy as np
-import alibi
+from alibi.explainers.anchors.anchor_image import AnchorImage
 from alibi.api.interfaces import Explanation
 from alibi.utils.wrappers import ArgmaxTransformer
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
@@ -27,7 +27,7 @@ class AnchorImages(ExplainerWrapper):
     def __init__(
         self,
         predict_fn: Callable,
-        explainer: Optional[alibi.explainers.AnchorImage],
+        explainer: Optional[AnchorImage],
         **kwargs
     ):
         if explainer is None:
