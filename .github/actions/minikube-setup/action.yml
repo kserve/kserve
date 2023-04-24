@@ -7,7 +7,7 @@ runs:
     - name: Install kubectl
       uses: azure/setup-kubectl@v3
       with:
-        version: '1.26.0'
+        version: 'v1.26.0'
     - name: Setup Minikube
       id: minikube
       uses: medyagh/setup-minikube@latest
