@@ -200,7 +200,7 @@ generate: controller-gen
 
 # Build the docker image
 docker-build: test
-	docker build . -t ${IMG}
+	docker buildx build . -t ${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 
 	# Use perl instead of sed to avoid OSX/Linux compatibility issue:
@@ -212,10 +212,10 @@ docker-push:
 	docker push ${IMG}
 
 docker-build-agent:
-	docker build -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
+	docker buildx build -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
 
 docker-build-router:
-	docker build -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}
+	docker buildx build -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}
 
 docker-push-agent:
 	docker push ${KO_DOCKER_REPO}/${AGENT_IMG}
@@ -224,85 +224,85 @@ docker-push-router:
 	docker push ${KO_DOCKER_REPO}/${ROUTER_IMG}
 
 docker-build-sklearn:
-	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
 
 docker-push-sklearn: docker-build-sklearn
 	docker push ${KO_DOCKER_REPO}/${SKLEARN_IMG}
 
 docker-build-xgb:
-	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
 
 docker-push-xgb: docker-build-xgb
 	docker push ${KO_DOCKER_REPO}/${XGB_IMG}
 
 docker-build-lgb:
-	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
 
 docker-push-lgb: docker-build-lgb
 	docker push ${KO_DOCKER_REPO}/${LGB_IMG}
 
 docker-build-pmml:
-	cd python && docker build --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
 
 docker-push-pmml: docker-build-pmml
 	docker push ${KO_DOCKER_REPO}/${PMML_IMG}
 
 docker-build-paddle:
-	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
 
 docker-push-paddle: docker-build-paddle
 	docker push ${KO_DOCKER_REPO}/${PADDLE_IMG}
 
 docker-build-custom-model:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG} -f custom_model.Dockerfile .
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG} -f custom_model.Dockerfile .
 
 docker-push-custom-model: docker-build-custom-model
 	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG}
 
 docker-build-custom-model-grpc:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG} -f custom_model_grpc.Dockerfile .
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG} -f custom_model_grpc.Dockerfile .
 
 docker-push-custom-model-grpc: docker-build-custom-model-grpc
 	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}
 
 docker-build-custom-transformer:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
 
 docker-push-custom-transformer: docker-build-custom-transformer
 	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG}
 
 docker-build-custom-transformer-grpc:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG} -f custom_transformer_grpc.Dockerfile .
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG} -f custom_transformer_grpc.Dockerfile .
 
 docker-push-custom-transformer-grpc: docker-build-custom-transformer-grpc
 	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}
 
 docker-build-alibi:
-	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
 
 docker-push-alibi: docker-build-alibi
 	docker push ${KO_DOCKER_REPO}/${ALIBI_IMG}
 
 docker-build-aif:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .
 
 docker-push-aif: docker-build-aif
 	docker push ${KO_DOCKER_REPO}/${AIF_IMG}
 
 docker-build-art:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${ART_IMG} -f artexplainer.Dockerfile .
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${ART_IMG} -f artexplainer.Dockerfile .
 
 docker-push-art: docker-build-art
 	docker push ${KO_DOCKER_REPO}/${ART_IMG}
 
 docker-build-storageInitializer:
-	cd python && docker build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 
 docker-build-qpext:
-	cd qpext && docker build -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext.Dockerfile .
+	cd qpext && docker buildx build -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext.Dockerfile .
 
 docker-build-push-qpext: docker-build-qpext
 	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
@@ -325,7 +325,7 @@ $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 apidocs:
-	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
+	docker buildx build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
 	docker run -it --rm -v $(CURDIR)/pkg/apis:/go/src/github.com/kserve/kserve/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen
 
 .PHONY: check-doc-links
