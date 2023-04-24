@@ -32,7 +32,7 @@ import (
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
-	v2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -436,38 +436,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
-			selectPolicy := v2beta2.MaxPolicySelect
-			actualHPA := &v2beta2.HorizontalPodAutoscaler{}
+			selectPolicy := autoscalingv2.MaxChangePolicySelect
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
-			expectedHPA := &v2beta2.HorizontalPodAutoscaler{
-				Spec: v2beta2.HorizontalPodAutoscalerSpec{
-					ScaleTargetRef: v2beta2.CrossVersionObjectReference{
+			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 						APIVersion: "apps/v1",
 						Kind:       "Deployment",
 						Name:       constants.PredictorServiceName(serviceKey.Name),
 					},
 					MinReplicas: &minReplicas,
 					MaxReplicas: maxReplicas,
-					Metrics: []v2beta2.MetricSpec{
+					Metrics: []autoscalingv2.MetricSpec{
 						{
-							Type: v2beta2.ResourceMetricSourceType,
-							Resource: &v2beta2.ResourceMetricSource{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: v1.ResourceCPU,
-								Target: v2beta2.MetricTarget{
+								Target: autoscalingv2.MetricTarget{
 									Type:               "Utilization",
 									AverageUtilization: &cpuUtilization,
 								},
 							},
 						},
 					},
-					Behavior: &v2beta2.HorizontalPodAutoscalerBehavior{
-						ScaleUp: &v2beta2.HPAScalingRules{
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: &stabilizationWindowSeconds,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Pods",
 									Value:         4,
@@ -480,10 +480,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
-						ScaleDown: &v2beta2.HPAScalingRules{
+						ScaleDown: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: nil,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Percent",
 									Value:         100,
@@ -868,38 +868,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
-			selectPolicy := v2beta2.MaxPolicySelect
-			actualHPA := &v2beta2.HorizontalPodAutoscaler{}
+			selectPolicy := autoscalingv2.MaxChangePolicySelect
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
-			expectedHPA := &v2beta2.HorizontalPodAutoscaler{
-				Spec: v2beta2.HorizontalPodAutoscalerSpec{
-					ScaleTargetRef: v2beta2.CrossVersionObjectReference{
+			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 						APIVersion: "apps/v1",
 						Kind:       "Deployment",
 						Name:       constants.PredictorServiceName(serviceKey.Name),
 					},
 					MinReplicas: &minReplicas,
 					MaxReplicas: maxReplicas,
-					Metrics: []v2beta2.MetricSpec{
+					Metrics: []autoscalingv2.MetricSpec{
 						{
-							Type: v2beta2.ResourceMetricSourceType,
-							Resource: &v2beta2.ResourceMetricSource{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: v1.ResourceCPU,
-								Target: v2beta2.MetricTarget{
+								Target: autoscalingv2.MetricTarget{
 									Type:               "Utilization",
 									AverageUtilization: &cpuUtilization,
 								},
 							},
 						},
 					},
-					Behavior: &v2beta2.HorizontalPodAutoscalerBehavior{
-						ScaleUp: &v2beta2.HPAScalingRules{
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: &stabilizationWindowSeconds,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Pods",
 									Value:         4,
@@ -912,10 +912,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
-						ScaleDown: &v2beta2.HPAScalingRules{
+						ScaleDown: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: nil,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Percent",
 									Value:         100,
@@ -1301,38 +1301,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
-			selectPolicy := v2beta2.MaxPolicySelect
-			actualHPA := &v2beta2.HorizontalPodAutoscaler{}
+			selectPolicy := autoscalingv2.MaxChangePolicySelect
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
-			expectedHPA := &v2beta2.HorizontalPodAutoscaler{
-				Spec: v2beta2.HorizontalPodAutoscalerSpec{
-					ScaleTargetRef: v2beta2.CrossVersionObjectReference{
+			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 						APIVersion: "apps/v1",
 						Kind:       "Deployment",
 						Name:       constants.PredictorServiceName(serviceKey.Name),
 					},
 					MinReplicas: &minReplicas,
 					MaxReplicas: maxReplicas,
-					Metrics: []v2beta2.MetricSpec{
+					Metrics: []autoscalingv2.MetricSpec{
 						{
-							Type: v2beta2.ResourceMetricSourceType,
-							Resource: &v2beta2.ResourceMetricSource{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: v1.ResourceCPU,
-								Target: v2beta2.MetricTarget{
+								Target: autoscalingv2.MetricTarget{
 									Type:               "Utilization",
 									AverageUtilization: &cpuUtilization,
 								},
 							},
 						},
 					},
-					Behavior: &v2beta2.HorizontalPodAutoscalerBehavior{
-						ScaleUp: &v2beta2.HPAScalingRules{
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: &stabilizationWindowSeconds,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Pods",
 									Value:         4,
@@ -1345,10 +1345,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
-						ScaleDown: &v2beta2.HPAScalingRules{
+						ScaleDown: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: nil,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Percent",
 									Value:         100,
