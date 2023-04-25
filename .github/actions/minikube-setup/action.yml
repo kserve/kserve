@@ -4,10 +4,6 @@ description: 'Sets up minikube on the github runner'
 runs:
   using: "composite"
   steps:
-    - name: Install jq
-      shell: bash
-      run: |
-        wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -O /usr/local/bin/jq && chmod +x /usr/local/bin/jq
     - name: Install kubectl
       uses: azure/setup-kubectl@v3
       with:
@@ -20,9 +16,6 @@ runs:
         driver: 'none'
         wait: 'all'
         start-args: --wait-timeout=120s
-    - name: Setup port-forward
-      shell: bash
-      run: sudo apt-get install -y conntrack socat
     - name: Check Kubernetes pods
       shell: bash
       run: kubectl get pods -n kube-system
