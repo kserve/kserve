@@ -19,6 +19,8 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -27,6 +29,8 @@ import (
 	"github.com/kserve/kserve/pkg/credentials"
 
 	v1 "k8s.io/api/core/v1"
+
+	"knative.dev/pkg/ptr"
 )
 
 const (
@@ -324,6 +328,14 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			&pod.Spec.Volumes,
 		); err != nil {
 			return err
+		}
+	}
+
+	// Allow to override the uid for the case where ISTIO CNI with DNS proxy is enabled
+	// See for more: https://istio.io/latest/docs/setup/additional-setup/cni/#compatibility-with-application-init-containers.
+	if v := os.Getenv(constants.IstioCniDnsProxyEnabledEnvVarKey); v != "" {
+		if b, _ := strconv.ParseBool(v); b {
+			initContainer.SecurityContext.RunAsUser = ptr.Int64(constants.IstioSidecarUID)
 		}
 	}
 

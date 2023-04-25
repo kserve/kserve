@@ -31,12 +31,13 @@ import (
 
 // KServe Constants
 var (
-	KServeName                     = "kserve"
-	KServeAPIGroupName             = "serving.kserve.io"
-	KnativeAutoscalingAPIGroupName = "autoscaling.knative.dev"
-	KnativeServingAPIGroupName     = "serving.knative.dev"
-	KServeNamespace                = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	KServeDefaultVersion           = "v0.5.0"
+	KServeName                       = "kserve"
+	KServeAPIGroupName               = "serving.kserve.io"
+	KnativeAutoscalingAPIGroupName   = "autoscaling.knative.dev"
+	KnativeServingAPIGroupNamePrefix = "serving.knative"
+	KnativeServingAPIGroupName       = KnativeServingAPIGroupNamePrefix + ".dev"
+	KServeNamespace                  = getEnvOrDefault("POD_NAMESPACE", "kserve")
+	KServeDefaultVersion             = "v0.5.0"
 )
 
 // InferenceService Constants
@@ -131,8 +132,10 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName = KServeName + "-controller-manager"
-	DefaultMinReplicas  = 1
+	ControllerLabelName              = KServeName + "-controller-manager"
+	DefaultMinReplicas               = 1
+	IstioCniDnsProxyEnabledEnvVarKey = "ISTIO_CNI_DNS_PROXY_ENABLED"
+	IstioSidecarUID                  = int64(1337)
 )
 
 type AutoscalerClassType string

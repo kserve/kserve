@@ -130,15 +130,27 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
 	}
 
+	// ksvc metadata.annotations
+	ksvcAnnotations := make(map[string]string)
+
+	// Allow custom annotations for ksvcs that start with serving.knative but not part of serving.knative.dev group name.
+	for aKey, _ := range annotations {
+		if !strings.HasPrefix(aKey, constants.KnativeServingAPIGroupName) && strings.HasPrefix(aKey, constants.KnativeServingAPIGroupNamePrefix) {
+			ksvcAnnotations[aKey] = annotations[aKey]
+			delete(annotations, aKey)
+		}
+	}
+
 	labels = utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
 	})
 	labels[constants.InferenceGraphLabel] = componentMeta.Name
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      componentMeta.Name,
-			Namespace: componentMeta.Namespace,
-			Labels:    componentMeta.Labels,
+			Name:        componentMeta.Name,
+			Namespace:   componentMeta.Namespace,
+			Labels:      componentMeta.Labels,
+			Annotations: ksvcAnnotations,
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{

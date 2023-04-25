@@ -19,6 +19,7 @@ package knative
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -105,6 +106,14 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		if value, ok := annotations[ksvcAnnotationKey]; ok {
 			ksvcAnnotations[ksvcAnnotationKey] = value
 			delete(annotations, ksvcAnnotationKey)
+		}
+	}
+
+	// Allow custom annotations for ksvcs that start with serving.knative but not part of serving.knative.dev group name.
+	for aKey, _ := range annotations {
+		if !strings.HasPrefix(aKey, constants.KnativeServingAPIGroupName) && strings.HasPrefix(aKey, constants.KnativeServingAPIGroupNamePrefix) {
+			ksvcAnnotations[aKey] = annotations[aKey]
+			delete(annotations, aKey)
 		}
 	}
 
