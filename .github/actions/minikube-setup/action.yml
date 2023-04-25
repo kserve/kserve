@@ -15,17 +15,11 @@ runs:
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
-        minikube-version: '1.30.1'
+        minikube-version: '1.28.0'
         kubernetes-version: 'v1.26.4'
         driver: 'none'
         wait: 'all'
         start-args: --wait-timeout=120s
-    - name: Configure cni
-      shell: bash
-      run: |
-        jq '.cniVersion = "0.4.0" | .plugins |= . + [{ "type": "firewall" }]' /etc/cni/net.d/1-k8s.conflist | sudo tee /etc/cni/net.d/1-k8s.conflist.patched
-        sudo mv /etc/cni/net.d/1-k8s.conflist.patched /etc/cni/net.d/1-k8s.conflist
-        sudo systemctl restart cri-docker
     - name: Setup port-forward
       shell: bash
       run: sudo apt-get install -y conntrack socat
