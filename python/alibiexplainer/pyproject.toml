@@ -11,7 +11,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-kserve = { path = "../kserve", extras = ["storage"], develop = true }
+kserve = { path = "../kserve", extras = ["storage", "ray-serve"], develop = true }
 alibi = { version = "^0.9.1", extras = ["shap", "tensorflow"] }
 dill = "^0.3.6"
 nest-asyncio = "~1.4.0"

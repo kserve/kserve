@@ -19,7 +19,13 @@ import cloudevents.exceptions as ce
 import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.api import RayServeHandle
+
+try:
+    from ray.serve.api import RayServeHandle
+    has_rayserve = True
+except ImportError:
+    has_rayserve = False
+    RayServeHandle = object
 
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
@@ -164,13 +170,13 @@ class DataPlane:
         # TODO: model versioning is not supported yet
         model = self.get_model_from_registry(model_name)
 
-        if not isinstance(model, RayServeHandle):
-            input_types = model.get_input_types()
-            output_types = model.get_output_types()
-        else:
+        if has_rayserve and isinstance(model, RayServeHandle):
             model_handle: RayServeHandle = model
             input_types = await model_handle.get_input_types.remote()
             output_types = await model_handle.get_output_types.remote()
+        else:
+            input_types = model.get_input_types()
+            output_types = model.get_output_types()
         return {
             "name": model_name,
             "platform": "",
@@ -309,11 +315,11 @@ class DataPlane:
         """
         # call model locally or remote model workers
         model = self.get_model(model_name)
-        if not isinstance(model, RayServeHandle):
-            response = await model(request, headers=headers)
-        else:
+        if has_rayserve and isinstance(model, RayServeHandle):
             model_handle: RayServeHandle = model
             response = await model_handle.remote(request, headers=headers)
+        else:
+            response = await model(request, headers=headers)
 
         return response, headers
 
@@ -336,9 +342,9 @@ class DataPlane:
         """
         # call model locally or remote model workers
         model = self.get_model(model_name)
-        if not isinstance(model, RayServeHandle):
-            response = await model(request, model_type=ModelType.EXPLAINER)
-        else:
+        if has_rayserve and isinstance(model, RayServeHandle):
             model_handle = model
-            response = await model_handle.remote(request, model_type=ModelType.EXPLAINER)
+            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
+        else:
+            response = await model(request, model_type=ModelType.EXPLAINER)
         return response, headers

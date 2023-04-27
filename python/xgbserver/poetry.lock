@@ -1394,7 +1394,7 @@ prometheus-client = "^0.13.1"
 protobuf = "^3.19.0"
 psutil = "^5.9.0"
 python-dateutil = "^2.8.0"
-ray = {version = "^2.2.0", extras = ["serve"]}
+ray = {version = "^2.2.0", extras = ["serve"], optional = true}
 requests = {version = "^2.20.0", optional = true}
 six = "^1.16.0"
 tabulate = "^0.9.0"
@@ -3112,4 +3112,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "2c0aedabb68cf2d6b8554ca77ddc0cc91b593bb73cccdff16dde61a22b2d0d7e"
+content-hash = "47f025621b07f0fcf317d10ece3ee80f5bd8991680025588969778df9118b769"

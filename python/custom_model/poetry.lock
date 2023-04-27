@@ -801,7 +801,7 @@ prometheus-client = "^0.13.1"
 protobuf = "^3.19.0"
 psutil = "^5.9.0"
 python-dateutil = "^2.8.0"
-ray = {version = "^2.2.0", extras = ["serve"]}
+ray = {version = "^2.2.0", extras = ["serve"], optional = true}
 six = "^1.16.0"
 tabulate = "^0.9.0"
 timing-asgi = "^0.3.0"
@@ -2285,4 +2285,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.11"
-content-hash = "88f6e6bdb49031a6d0ba418d1cde794b81820fba08e0042f468b9fd769154bef"
+content-hash = "1472e78ff4d433d453988c9f32d58841af2cbdacf88e412fb0e5ec8de2b8711e"
