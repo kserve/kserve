@@ -16,6 +16,11 @@ To install Kserve with storage support
 pip install kserve[storage]
 ```
 
+To install kserve with ray serve support
+```sh
+pip install kserve[ray-serve]
+```
+
 ### Poetry
 
 Install via [Poetry](https://python-poetry.org/).
@@ -30,6 +35,15 @@ poetry install -E storage
 or 
 ```sh
 poetry install --extras "storage"
+```
+
+To install Kserve with ray serve support
+```sh
+poetry install -E ray-serve
+```
+or 
+```sh
+poetry install --extras "ray-serve"
 ```
 
 ## KServe Python Server
@@ -70,12 +84,12 @@ It supports the following storage providers:
 For latency metrics, send a request to `/metrics`. Prometheus latency histograms are emitted for each of the steps (pre/postprocessing, explain, predict).
 Additionally, the latencies of each step are logged per request.
 
-| Metric Name                       | Description                    | Type      |
-|-----------------------------------|--------------------------------|-----------| 
-| request_preprocess_seconds        | pre-processing request latency | Histogram | 
-| request_explain_seconds | explain request latency        | Histogram | 
-| request_predict_seconds | prediction request latency     | Histogram |
-| request_postprocess_seconds    | pre-processing request latency | Histogram | 
+| Metric Name                 | Description                    | Type      |
+|-----------------------------|--------------------------------|-----------| 
+| request_preprocess_seconds  | pre-processing request latency | Histogram | 
+| request_explain_seconds     | explain request latency        | Histogram | 
+| request_predict_seconds     | prediction request latency     | Histogram |
+| request_postprocess_seconds | pre-processing request latency | Histogram | 
 
 
 ## KServe Client
