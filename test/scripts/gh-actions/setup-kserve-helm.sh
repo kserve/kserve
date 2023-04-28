@@ -49,9 +49,18 @@ export POETRY_HOME=/opt/poetry
 python3 -m venv $POETRY_HOME && $POETRY_HOME/bin/pip install poetry==$POETRY_VERSION
 export PATH="$PATH:$POETRY_HOME/bin"
 
+pushd $POETRY_HOME
+    ls
+popd
+
+echo "Installing Poetry Version Plugin"
+$POETRY_HOME/bin/activate
+pip install -e python/plugin/poetry-version-plugin
+poetry self show plugins 
+
 echo "Installing KServe Python SDK ..."
 python3 -m pip install --upgrade pip
 pushd python/kserve >/dev/null
     poetry config virtualenvs.in-project true
-    poetry version $(cat ${../python/VERSION}) && poetry install --with=test --no-interaction
+    poetry install --with=test --no-interaction
 popd

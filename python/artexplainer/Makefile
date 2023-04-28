@@ -1,5 +1,5 @@
 dev_install:
-	poetry version $(shell cat ../VERSION) && poetry install --with test
+	poetry install --with test
 
 test: type_check lint
 	pytest -W ignore

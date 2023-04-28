@@ -1,6 +1,9 @@
 
 dev_install:
-	poetry version $(shell cat ../VERSION) && poetry install --with test
+	poetry install --with test
+
+install_dependencies:
+	poetry install --with=test --no-interaction --no-root
 
 # Requires sklearnserver to be installed
 test: type_check lint

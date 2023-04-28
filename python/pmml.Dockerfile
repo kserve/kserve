@@ -26,14 +26,14 @@ RUN python${PYTHON_VERSION} -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
+RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
-RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
+RUN cd kserve && poetry install --no-interaction --no-cache
 
 COPY pmmlserver/pyproject.toml pmmlserver/poetry.lock pmmlserver/
-RUN cd pmmlserver && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
+RUN cd pmmlserver && poetry install --no-root --no-interaction --no-cache
 COPY pmmlserver pmmlserver
-RUN cd pmmlserver && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
+RUN cd pmmlserver && poetry install --no-interaction --no-cache
 
 
 FROM ${BASE_IMAGE} as prod
