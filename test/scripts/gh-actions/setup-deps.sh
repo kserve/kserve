@@ -23,8 +23,8 @@ set -o pipefail
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
-ISTIO_VERSION="1.12.0"
-KNATIVE_VERSION="knative-v1.4.0"
+ISTIO_VERSION="1.17.2"
+KNATIVE_VERSION="knative-v1.9.0"
 CERT_MANAGER_VERSION="v1.5.0"
 YQ_VERSION="v4.28.1"
 
@@ -58,7 +58,7 @@ spec:
 EOF
 
 echo "Installing Knative serving ..."
-pushd ${SCRIPT_DIR}/../../overlays/knative >/dev/null
+pushd "${SCRIPT_DIR}"/../../overlays/knative >/dev/null
   curl -s -O -L https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
   curl -s -O -L https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
 
@@ -74,13 +74,18 @@ kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving 
 # echo "Add knative hpa..."
 # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
 
-# Skip tag resolution for certain domains
 # sleep to avoid knative webhook timeout error
 sleep 5
 # Retry if configmap patch fails
 for i in 1 2 3; do
+  # Skip tag resolution for certain domains
   kubectl patch cm config-deployment --patch '{"data":{"registries-skipping-tag-resolving":"nvcr.io,index.docker.io"}}' -n knative-serving && break || sleep 15
 done
+
+echo "Patching knative external domain ..."
+# Patch the external domain as the default domain svc.cluster.local is not exposed on ingress (from knative 1.8)
+for i in 1 2 3; do kubectl patch cm config-domain --patch '{"data":{"example.com":""}}' -n knative-serving && break || sleep 15; done
+kubectl describe cm config-domain -n knative-serving
 
 echo "Installing cert-manager ..."
 kubectl create namespace cert-manager

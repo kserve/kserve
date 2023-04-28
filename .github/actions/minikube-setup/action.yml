@@ -4,17 +4,18 @@ description: 'Sets up minikube on the github runner'
 runs:
   using: "composite"
   steps:
-    - name: Setup Minikube
-      uses: manusa/actions-setup-minikube@v2.7.2
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
       with:
-        minikube version: 'v1.28.0'
-        kubernetes version: 'v1.23.15'
+        version: 'v1.26.0'
+    - name: Setup Minikube
+      uses: medyagh/setup-minikube@latest
+      with:
+        minikube-version: '1.28.0'
+        kubernetes-version: 'v1.26.4'
         driver: 'none'
-        start args: --wait-timeout=120s
-        github token: ${{ env.GITHUB_TOKEN }}
-    - name: Setup port-forward
-      shell: bash
-      run: sudo apt-get install -y conntrack socat
+        wait: 'all'
+        start-args: --wait-timeout=120s
     - name: Check Kubernetes pods
       shell: bash
       run: kubectl get pods -n kube-system
