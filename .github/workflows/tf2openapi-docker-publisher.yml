@@ -31,7 +31,7 @@ jobs:
             docker-compose --file docker-compose.test.yml build
             docker-compose --file docker-compose.test.yml run sut
           else
-            docker build . --file tools/tf2openapi/Dockerfile
+            docker buildx build . --file tools/tf2openapi/Dockerfile
           fi
 
   # Push image to GitHub Packages.
@@ -48,7 +48,7 @@ jobs:
 
       - name: Build image
         run: |
-          docker build . --file tools/tf2openapi/Dockerfile --tag $IMAGE_NAME
+          docker buildx build . --file tools/tf2openapi/Dockerfile --tag $IMAGE_NAME
 
       - name: Log into registry
         run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
