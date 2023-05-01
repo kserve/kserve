@@ -12,25 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import time
 from importlib import metadata
-from typing import Dict, Union, Tuple, Optional
+from inspect import iscoroutine, iscoroutinefunction
+from typing import Dict, Optional, Tuple, Union
 
 import cloudevents.exceptions as ce
 import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.api import RayServeHandle
 
-from ..model import Model
+from ..constants import constants
 from ..errors import InvalidInput, ModelNotFound
-from ..model import ModelType
+from ..model import KServeModel, ModelType
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
-from .infer_type import InferRequest
-from ..constants import constants
 from .grpc import grpc_predict_v2_pb2 as pb
-import time
-import logging
+from .infer_type import InferRequest
 
 JSON_HEADERS = ["application/json", "application/cloudevents+json", "application/ld+json"]
 
@@ -51,29 +50,30 @@ class DataPlane:
     def model_registry(self):
         return self._model_registry
 
-    def get_model_from_registry(self, name: str) -> Union[Model, RayServeHandle]:
+    def get_model_from_registry(self, name: str) -> KServeModel:
         model = self._model_registry.get_model(name)
         if model is None:
             raise ModelNotFound(name)
 
         return model
 
-    def get_model(self, name: str) -> Union[Model, RayServeHandle]:
+    async def get_model(self, name: str) -> KServeModel:
         """Get the model instance with the given name.
-
-        The instance can be either ``Model`` or ``RayServeHandle``.
 
         Args:
             name (str): Model name.
 
         Returns:
-            Model|RayServeHandle: Instance of the model.
+            KServeModel: Instance of the model.
         """
         model = self._model_registry.get_model(name)
         if model is None:
             raise ModelNotFound(name)
         if not self._model_registry.is_model_ready(name):
-            model.load()
+            if iscoroutinefunction(model.load):
+                await model.load()
+            else:
+                model.load()
         return model
 
     @staticmethod
@@ -165,13 +165,15 @@ class DataPlane:
         # TODO: model versioning is not supported yet
         model = self.get_model_from_registry(model_name)
 
-        if not isinstance(model, RayServeHandle):
-            input_types = model.get_input_types()
-            output_types = model.get_output_types()
-        else:
-            model_handle: RayServeHandle = model
-            input_types = await model_handle.get_input_types.remote()
-            output_types = await model_handle.get_output_types.remote()
+        input_types = model.get_input_types()
+        output_types = model.get_output_types()
+
+        if iscoroutine(input_types):
+            input_types = await input_types
+
+        if iscoroutine(output_types):
+            output_types = await output_types
+
         return {
             "name": model_name,
             "platform": "",
@@ -309,12 +311,8 @@ class DataPlane:
         body, req_attributes = self.decode(body, headers)
 
         # call model locally or remote model workers
-        model = self.get_model(model_name)
-        if not isinstance(model, RayServeHandle):
-            response = await model(body, headers=headers)
-        else:
-            model_handle: RayServeHandle = model
-            response = await model_handle.remote(body, headers=headers)
+        model = await self.get_model(model_name)
+        response = await model(body, headers=headers)
 
         response, response_headers = self.encode(model_name, response, headers, req_attributes)
         return response, response_headers
@@ -339,11 +337,7 @@ class DataPlane:
         body, req_attributes = self.decode(body, headers)
 
         # call model locally or remote model workers
-        model = self.get_model(model_name)
-        if not isinstance(model, RayServeHandle):
-            response = await model(body, model_type=ModelType.EXPLAINER)
-        else:
-            model_handle = model
-            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
+        model = await self.get_model(model_name)
+        response = await model(body, model_type=ModelType.EXPLAINER)
         response, response_headers = self.encode(model_name, response, headers, req_attributes)
         return response, response_headers
