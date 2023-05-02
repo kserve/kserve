@@ -1,5 +1,4 @@
 import ast
-import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -8,7 +7,6 @@ from cleo.io.io import IO
 from poetry.plugins.plugin import Plugin
 from poetry.poetry import Poetry
 from poetry.core.utils.helpers import module_name
-from poetry.core.packages.project_package import ProjectPackage
 
 
 class VersionPlugin(Plugin):  # type: ignore
