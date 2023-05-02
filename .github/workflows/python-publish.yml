@@ -19,14 +19,15 @@ jobs:
       run: |
         export POETRY_HOME=~/.local/share/pypoetry
     - name: Install and configure Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: 1.4.0
       env:
-          POETRY_HOME: ~/.local/share/pypoetry
+        POETRY_VERSION: 1.4.0
+      run: |
+        pip install poetry==$POETRY_VERSION
+        poetry config virtualenvs.create true
+        poetry config virtualenvs.in-project true
+        poetry config installer.parallel true
     - name: Install poetry version plugin
       run: |
-        ${POETRY_HOME}/venv/bin/activate
         pip install -e python/plugin/poetry-version-plugin
         poetry self show plugins   
     - name: Build and publish
