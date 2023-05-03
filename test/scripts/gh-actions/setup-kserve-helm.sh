@@ -45,22 +45,17 @@ kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-
 
 echo "Installing Poetry"
 export POETRY_VERSION=1.4.0
-export POETRY_HOME=/opt/poetry
-python3 -m venv $POETRY_HOME && $POETRY_HOME/bin/pip install poetry==$POETRY_VERSION
-export PATH="$PATH:$POETRY_HOME/bin"
-
-pushd $POETRY_HOME
-    ls
-popd
+pip install poetry==$POETRY_VERSION
+poetry config virtualenvs.create true
+poetry config virtualenvs.in-project true
+poetry config installer.parallel true
 
 echo "Installing Poetry Version Plugin"
-$POETRY_HOME/bin/activate
 pip install -e python/plugin/poetry-version-plugin
-poetry self show plugins 
+poetry self show plugins  
 
 echo "Installing KServe Python SDK ..."
 python3 -m pip install --upgrade pip
 pushd python/kserve >/dev/null
-    poetry config virtualenvs.in-project true
     poetry install --with=test --no-interaction
 popd
