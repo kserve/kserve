@@ -1280,3 +1280,325 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 		}
 	}
 }
+
+func TestTransformerCollocation(t *testing.T) {
+	scenarios := map[string]struct {
+		storageConfig *StorageInitializerConfig
+		original      *v1.Pod
+		expected      *v1.Pod
+	}{
+		"Transformer collocation with pvc": {
+			storageConfig: storageInitializerConfig,
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
+						},
+						{
+							Name: constants.TransformerContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: constants.DefaultModelLocalMountPath,
+								},
+							},
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/pvc",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+						{
+							Name: constants.TransformerContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: constants.DefaultModelLocalMountPath,
+								},
+							},
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/pvc",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/pvc",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "mypvcname",
+									ReadOnly:  false,
+								},
+							},
+						},
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Transformer collocation with pvc direct mount": {
+			storageConfig: &StorageInitializerConfig{
+				EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
+			},
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
+						},
+						{
+							Name: constants.TransformerContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: constants.DefaultModelLocalMountPath,
+								},
+							},
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
+									ReadOnly:  true,
+								},
+							},
+						},
+						{
+							Name: constants.TransformerContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: constants.DefaultModelLocalMountPath,
+								},
+							},
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "mypvcname",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"No collocation": {
+			storageConfig: storageInitializerConfig,
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: constants.DefaultModelLocalMountPath,
+								},
+							},
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/pvc",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/pvc",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "mypvcname",
+									ReadOnly:  false,
+								},
+							},
+						},
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: scenario.storageConfig,
+		}
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}
