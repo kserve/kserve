@@ -15,7 +15,7 @@
 
 from . import grpc_predict_v2_pb2 as pb
 from . import grpc_predict_v2_pb2_grpc
-from kserve.protocol.infer_type import InferRequest
+from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.utils.utils import to_headers
@@ -95,6 +95,9 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
                                                         model_name=request.model_name)
         if isinstance(response_body, pb.ModelInferResponse):
             return response_body
-        return pb.ModelInferResponse(id=response_body["id"],
-                                     model_name=response_body["model_name"],
-                                     outputs=response_body["outputs"])
+        elif isinstance(response_body, InferResponse):
+            return response_body.to_grpc()
+        else:
+            return pb.ModelInferResponse(id=response_body["id"],
+                                         model_name=response_body["model_name"],
+                                         outputs=response_body["outputs"])

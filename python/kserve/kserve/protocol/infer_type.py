@@ -537,7 +537,7 @@ class InferResponse:
                 self.outputs[i]._raw_data = raw_output
 
     @classmethod
-    def from_grpc(cls, response: ModelInferResponse):
+    def from_grpc(cls, response: ModelInferResponse) -> 'InferResponse':
         infer_outputs = [InferOutput(name=output.name, shape=list(output.shape),
                                      datatype=output.datatype,
                                      data=get_content(output.datatype, output.contents),
@@ -545,6 +545,19 @@ class InferResponse:
                          for output in response.outputs]
         return cls(model_name=response.model_name, response_id=response.id, parameters=response.parameters,
                    infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents, from_grpc=True)
+
+    @classmethod
+    def from_rest(cls, model_name: str, response: Dict) -> 'InferResponse':
+        infer_outputs = [InferOutput(name=output['name'],
+                                     shape=list(output['shape']),
+                                     datatype=output['datatype'],
+                                     data=output['data'],
+                                     parameters=output.get('parameters', {}))
+                         for output in response['outputs']]
+        return cls(model_name=model_name,
+                   response_id=response.get('id', None),
+                   parameters=response.get('parameters', {}),
+                   infer_outputs=infer_outputs)
 
     def to_rest(self) -> Dict:
         """ Converts the InferResponse object to v2 REST InferenceRequest message
