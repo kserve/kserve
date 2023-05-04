@@ -15,9 +15,6 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: '3.x'
-    - name: Poetry install path
-      run: |
-        export POETRY_HOME=~/.local/share/pypoetry
     - name: Install and configure Poetry
       env:
         POETRY_VERSION: 1.4.0
