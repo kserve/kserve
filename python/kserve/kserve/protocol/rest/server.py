@@ -126,7 +126,8 @@ class RESTServer:
 
 class UvicornServer:
     def __init__(self, http_port: int, sockets: List[socket.socket],
-                 data_plane: DataPlane, model_repository_extension, enable_docs_url):
+                 data_plane: DataPlane, model_repository_extension, enable_docs_url,
+                 log_config_file: str = None, access_log_format: str = None):
         super().__init__()
         self.sockets = sockets
         rest_server = RESTServer(data_plane, model_repository_extension, enable_docs_url)
@@ -136,46 +137,71 @@ class UvicornServer:
             client=PrintTimings(),
             metric_namer=StarletteScopeToName(prefix="kserve.io", starlette_app=app)
         )
+        log_config = {
+            "version": 1,
+            "formatters": {
+                "default": {
+                    "()": "uvicorn.logging.DefaultFormatter",
+                    "datefmt": DATE_FMT,
+                    "fmt": "%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(message)s",
+                    "use_colors": None,
+                },
+                "access": {
+                    "()": "uvicorn.logging.AccessFormatter",
+                    "datefmt": DATE_FMT,
+                    "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s %(process)s - '
+                           '"%(request_line)s" %(status_code)s',
+                    # noqa: E501
+                },
+            },
+            "handlers": {
+                "default": {
+                    "formatter": "default",
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stderr",
+                },
+                "access": {
+                    "formatter": "access",
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stdout",
+                },
+            },
+            "loggers": {
+                "uvicorn": {"handlers": ["default"], "level": "INFO"},
+                "uvicorn.error": {"level": "INFO"},
+                "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
+            },
+        }
+
+        # If the log_config value is a string ending up with ".json"
+        # or ".yaml", it is interpreted as file path and the log configuration
+        # is loaded from disk.
+        if log_config_file:
+            log_config = log_config_file
+
         self.cfg = uvicorn.Config(
             app=app,
             host="0.0.0.0",
+            log_config=log_config,
             port=http_port,
-            log_config={
-                "version": 1,
-                "formatters": {
-                    "default": {
-                        "()": "uvicorn.logging.DefaultFormatter",
-                        "datefmt": DATE_FMT,
-                        "fmt": "%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(message)s",
-                        "use_colors": None,
-                    },
-                    "access": {
-                        "()": "uvicorn.logging.AccessFormatter",
-                        "datefmt": DATE_FMT,
-                        "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s %(process)s - '
-                               '"%(request_line)s" %(status_code)s',
-                        # noqa: E501
-                    },
-                },
-                "rest": {
-                    "default": {
-                        "formatter": "default",
-                        "class": "logging.StreamHandler",
-                        "stream": "ext://sys.stderr",
-                    },
-                    "access": {
-                        "formatter": "access",
-                        "class": "logging.StreamHandler",
-                        "stream": "ext://sys.stdout",
-                    },
-                },
-                "loggers": {
-                    "uvicorn": {"rest": ["default"], "level": "INFO"},
-                    "uvicorn.error": {"level": "INFO"},
-                    "uvicorn.access": {"rest": ["access"], "level": "INFO", "propagate": False},
-                },
-            }
         )
+
+        # More context in https://github.com/encode/uvicorn/pull/947
+        # At the time of writing the ASGI specs are not clear when it comes
+        # to change the access log format, and hence the Uvicorn upstream devs
+        # chose to create a custom middleware for this.
+        # The allowed log format is specified in https://github.com/Kludex/asgi-logger#usage
+        if access_log_format:
+            from asgi_logger import AccessLoggerMiddleware
+            # As indicated by the asgi-logger docs, we need to clear/unset
+            # any setting for uvicorn.access to avoid log duplicates.
+            logging.getLogger("uvicorn.access").handlers = []
+            app.add_middleware(
+                AccessLoggerMiddleware, format=access_log_format)
+            # The asgi-logger settings don't set propagate to False,
+            # so we get duplicates if we don't set it explicitly.
+            logging.getLogger("access").propagate = False
+
         self.server = _NoSignalUvicornServer(config=self.cfg)
 
     def run_sync(self):
