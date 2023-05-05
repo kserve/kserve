@@ -99,7 +99,10 @@ class ModelServer:
         self.dataplane = DataPlane(model_registry=registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models)
-        self._grpc_server = GRPCServer(grpc_port, self.dataplane, self.model_repository_extension)
+        self._grpc_server = None
+        if self.enable_grpc:
+            self._grpc_server = GRPCServer(grpc_port, self.dataplane,
+                                           self.model_repository_extension)
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if isinstance(models, list):
