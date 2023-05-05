@@ -81,9 +81,9 @@ def test_inference_graph():
     )
 
     kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-    # kserve_client.create(sklearn_isvc)
-    # kserve_client.create(xgb_isvc)
-    # kserve_client.create_inference_graph(ig)
+    kserve_client.create(sklearn_isvc)
+    kserve_client.create(xgb_isvc)
+    kserve_client.create_inference_graph(ig)
 
     kserve_client.wait_isvc_ready(sklearn_name, namespace=KSERVE_TEST_NAMESPACE)
     kserve_client.wait_isvc_ready(xgb_name, namespace=KSERVE_TEST_NAMESPACE)

@@ -144,13 +144,14 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			if route.ServiceName != "" {
 				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.ServiceName}, &isvc)
 				if err == nil {
-					if isvc.Status.Address != nil && isvc.Status.Address.URL != nil {
-						if graph.Spec.Nodes[node].Steps[i].ServiceURL == "" {
-							graph.Spec.Nodes[node].Steps[i].ServiceURL = isvc.Status.Address.URL.String()
+					if graph.Spec.Nodes[node].Steps[i].ServiceURL == "" {
+						serviceUrl, err := isvcutils.GetPredictorEndpoint(&isvc)
+						if err == nil {
+							graph.Spec.Nodes[node].Steps[i].ServiceURL = serviceUrl
+						} else {
+							r.Log.Info("inference service is not ready", "name", route.ServiceName)
+							return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.ServiceName)
 						}
-					} else {
-						r.Log.Info("inference service is not ready", "name", route.ServiceName)
-						return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.ServiceName)
 					}
 
 				} else {

@@ -84,7 +84,7 @@ func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
 	return nil
 }
 
-// GetContainers transforms the resource into a container spec
+// GetContainer transforms the resource into a container spec
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
 	predictorHost ...string) *v1.Container {
 	return &c.Containers[0]

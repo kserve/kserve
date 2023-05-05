@@ -44,5 +44,8 @@ func (x *LightGBMSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Comp
 }
 
 func (x *LightGBMSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if x.ProtocolVersion != nil {
+		return *x.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

@@ -53,5 +53,8 @@ func (p *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Componen
 }
 
 func (p *PMMLSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if p.ProtocolVersion != nil {
+		return *p.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

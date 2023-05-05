@@ -66,5 +66,8 @@ func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *C
 }
 
 func (o *ONNXRuntimeSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if o.ProtocolVersion != nil {
+		return *o.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }
