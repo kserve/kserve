@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from alibiexplainer.anchor_tabular import AnchorTabular
 import os
 import dill
@@ -22,7 +23,7 @@ import json
 from .utils import Predictor
 from kserve.storage import Storage
 
-ADULT_EXPLAINER_URI = "gs://kfserving-examples/models/sklearn/1.0/income/explainer-py37-0.6.2"
+ADULT_EXPLAINER_URI = "gs://kfserving-examples/models/sklearn/1.0/income/explainer-0.9.1"
 ADULT_MODEL_URI = "gs://kfserving-examples/models/sklearn/1.0/income/model"
 EXPLAINER_FILENAME = "explainer.dill"
 
@@ -37,6 +38,7 @@ def test_anchor_tabular():
         skmodel.load()
         predictor = Predictor(skmodel)
         alibi_model = dill.load(f)
+        logging.info(f"alibi_model****  {alibi_model} {type(alibi_model)}")
         anchor_tabular = AnchorTabular(predictor.predict_fn, alibi_model)
         adult = fetch_adult()
         X_test = adult.data[30001:, :]
