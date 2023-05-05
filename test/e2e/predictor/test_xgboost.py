@@ -61,7 +61,7 @@ def test_xgboost_kserve():
 
 @pytest.mark.fast
 def test_xgboost_v2_mlserver():
-    service_name = "isvc-xgboost-v2"
+    service_name = "isvc-xgboost-v2-mlserver"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
