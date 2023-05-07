@@ -19,16 +19,16 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
+RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
-RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
+RUN cd kserve && poetry install --no-interaction --no-cache
 
 RUN apt update && apt install -y build-essential
 
 COPY aixexplainer/pyproject.toml aixexplainer/poetry.lock aixexplainer/
-RUN cd aixexplainer && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
+RUN cd aixexplainer && poetry install --no-root --no-interaction --no-cache
 COPY aixexplainer aixexplainer
-RUN cd aixexplainer && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
+RUN cd aixexplainer && poetry install --no-interaction --no-cache
 
 
 FROM ${BASE_IMAGE} as prod

@@ -91,6 +91,10 @@ portforward = "^0.4.3"
 avro = "^1.11.0"
 tomlkit = "^0.11.6"
 
+[tool.poetry-version-plugin]
+source = "file"
+file_path = "../VERSION"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

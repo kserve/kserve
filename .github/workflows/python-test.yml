@@ -37,12 +37,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install and configure Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.4.0
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-          installer-parallel: true
+        env:
+          POETRY_VERSION: 1.4.0
+        run: |
+          pip install poetry==$POETRY_VERSION
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+          poetry config installer.parallel true
+      - name: Install poetry version plugin
+        run: |
+          pip install -e python/plugin/poetry-version-plugin 
+          poetry self show plugins
       # load poetry cache if cache exists
       - name: Load poetry cache
         id: cached-poetry-dependencies
@@ -64,7 +69,7 @@ jobs:
         if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/kserve
-          make dev_install
+          make install_dependencies
       - name: Install kserve
         run: |
           cd python/kserve
@@ -88,7 +93,7 @@ jobs:
         if: steps.cached-sklearn-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/sklearnserver
-          make dev_install
+          make install_dependencies
       - name: Install sklearnserver
         run: |
           cd python/sklearnserver
@@ -112,7 +117,7 @@ jobs:
         if: steps.cached-xgb-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/xgbserver
-          make dev_install
+          make install_dependencies
       - name: Install xgbserver
         run: |
           cd python/xgbserver
@@ -136,7 +141,7 @@ jobs:
         if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/pmmlserver
-          make dev_install
+          make install_dependencies
       - name: Install pmmlserver
         run: |
           cd python/pmmlserver
@@ -160,7 +165,7 @@ jobs:
         if: steps.cached-lgb-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/lgbserver
-          make dev_install
+          make install_dependencies
       - name: Install lgbserver
         run: |
           cd python/lgbserver
@@ -184,7 +189,7 @@ jobs:
         if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/paddleserver
-          make dev_install
+          make install_dependencies
       - name: Install paddleserver
         run: |
           cd python/paddleserver
@@ -208,7 +213,7 @@ jobs:
         if: steps.cached-alibi-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/alibiexplainer
-          make dev_install
+          make install_dependencies
       - name: Install alibiexplainer
         run: |
           cd python/alibiexplainer
@@ -231,12 +236,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install and configure Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.4.0
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-          installer-parallel: true
+        env:
+          POETRY_VERSION: 1.4.0
+        run: |
+          pip install poetry==$POETRY_VERSION
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+          poetry config installer.parallel true
+      - name: Install poetry version plugin
+        run: |
+          pip install -e python/plugin/poetry-version-plugin
+          poetry self show plugins
       # load poetry cache if cache exists
       - name: Load poetry cache
         id: cached-poetry-dependencies
@@ -258,7 +268,7 @@ jobs:
         if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/kserve
-          make dev_install
+          make install_dependencies
       - name: Install kserve
         run: |
           cd python/kserve
@@ -282,7 +292,7 @@ jobs:
         if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/pmmlserver
-          make dev_install
+          make install_dependencies
       - name: Install pmmlserver
         run: |
           cd python/pmmlserver
@@ -306,7 +316,7 @@ jobs:
         if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/paddleserver
-          make dev_install
+          make install_dependencies
       - name: Install paddleserver
         run: |
           cd python/paddleserver

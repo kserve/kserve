@@ -1,6 +1,9 @@
 
 dev_install:
-	poetry version $(shell cat ../VERSION) &&  poetry install --with test
+	poetry install --with test
+	
+install_dependencies:
+	poetry install --with=test --no-interaction --no-root
 
 test: type_check
 	pytest -W ignore
