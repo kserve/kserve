@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/kserve/kserve/pkg/constants"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kserve/kserve/pkg/constants"
 
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -191,6 +192,9 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(500) //TODO status code tbd
 		w.Write([]byte(fmt.Sprintf("Failed to process request: %v", err)))
 	} else {
+		if json.Valid(response) {
+			w.Header().Set("Content-Type", "application/json")
+		}
 		w.Write(response)
 	}
 }
