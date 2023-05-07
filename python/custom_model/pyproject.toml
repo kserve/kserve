@@ -22,6 +22,10 @@ url = "https://download.pytorch.org/whl/cpu"
 default = false
 secondary = true
 
+[tool.poetry-version-plugin]
+source = "file"
+file_path = "../VERSION"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

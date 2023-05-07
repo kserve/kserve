@@ -1,307 +1,152 @@
-# KFServing on OpenShift
+# KServe on OpenShift Container Platform
 
 [OpenShift Container Platform](https://www.openshift.com/products/container-platform) is built on top of Kubernetes, and offers a consistent hybrid cloud foundation for building and scaling containerized applications.
 
 # Contents
 
 1. [Installation](#installation)
-2. [Test KFServing installation](#test-kfserving-installation)
-3. [(Optional) Change domain used for InferenceServices](#change-knative-domain-configuration)
+2. [Test KServe installation](#test-kserve-installation)
 
 # Installation
 
-Installation of standalone KFServing on OpenShift can be done in multiple ways depending on your environment. The easiest way is to use the [`quick_install.sh`](../hack/quick_install.sh) script provided in this repository. This assumes you do not already have Istio and Knative running on your cluster. However, if you are currently using OpenShift Service Mesh, please go to the corresponding installation guide below.
+**Note**: These instructions were tested on OpenShift 4.12, with KServe 0.10
 
-1. [Option 1: Quick install](#quick-install)
-2. [Option 2: Install using OpenShift Service Mesh](#install-using-openshift-service-mesh)
+KServe can use Knative as a model serving layer. In OpenShift Knative comes bundled as a product called [OpenShift Serverless](https://docs.openshift.com/container-platform/latest/serverless/about/about-serverless.html). OpenShift Serverless can be installed with two different ingress layers:
 
-## Quick install
+* [Kourier](https://github.com/knative-sandbox/net-kourier)
+* [OpenShift Service Mesh (Istio)](https://www.redhat.com/en/technologies/cloud-computing/openshift/what-is-openshift-service-mesh)
 
-**Note**: These instructions were tested on OpenShift 4.5.24, with KFServing v0.5.1, Istio 1.6.2, and Knative 0.18.0
-which are in the [`quick_install.sh`](../hack/quick_install.sh) script. Additionally, this has been tested on Kubeflow 1.2 recommended versions
-for Istio and Knative, i.e. Istio 1.3.1 and Knative 0.14.3.
+Follow the corresponding installation guide:
 
-### 1. Clone repository
+1. [Kourier](#installation-with-kourier)
+2. [Service Mesh](#installation-with-service-mesh)
+
+## Installation with Kourier
 
 ```bash
-git clone https://github.com/kubeflow/kfserving
+# Install OpenShift Serverless operator
+oc apply -f openshift/serverless/operator.yaml
+oc wait --for=condition=ready pod --all -n openshift-serverless --timeout=300s
+
+# Create an Knative instance
+oc apply -f openshift/serverless/knativeserving-kourier.yaml
+
+# Wait for all pods in `knative-serving` to be ready
+oc get pod -n knative-serving
+
+# Install cert-manager operator
+oc apply -f openshift/cert-manager/operator.yaml
+
+# Install KServe
+export KSERVE_VERSION=v0.10.1
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve.yaml"
+
+# Patch the inferenceservice-config according to https://kserve.github.io/website/0.10/admin/serverless/kourier_networking/
+oc edit configmap/inferenceservice-config --namespace kserve
+# Add the flag `"disableIstioVirtualHost": true` under the ingress section
+ingress : |- {
+    "disableIstioVirtualHost": true
+}
+oc rollout restart deployment kserve-controller-manager -n kserve
+oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+
+# Install KServe built-in servingruntimes
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml"
 ```
 
-### 2. Add Security Context Constraint (SCC)
-
-Run the following to enable containers to run with UID 0 for Istio’s service accounts, as recommended on [Istio's installation instructions for OpenShift](https://istio.io/latest/docs/setup/platform-setup/openshift/).
+## Installation with Service Mesh
 
 ```bash
-oc adm policy add-scc-to-group anyuid system:serviceaccounts:istio-system
+# Install Service Mesh operators
+oc apply -f openshift/service-mesh/operators.yaml
+oc wait --for=condition=ready pod --all -n openshift-operators --timeout=300s
+
+# Create an istio instance
+oc apply -f openshift/service-mesh/namespace.yaml
+oc apply -f openshift/service-mesh/smcp.yaml
+oc wait --for=condition=ready pod --all -n openshift-operators --timeout=300s
+oc wait --for=condition=ready pod --all -n istio-system --timeout=300s
+
+# Make sure to add your namespaces to the ServiceMeshMemberRoll and create a
+# PeerAuthentication Policy for each of your namespaces
+oc create ns kserve 
+oc create ns kserve-demo
+oc apply -f openshift/service-mesh/smmr.yaml
+oc apply -f openshift/service-mesh/peer-authentication.yaml
+
+# Install OpenShift Serverless operator
+oc apply -f openshift/serverless/operator.yaml
+oc wait --for=condition=ready pod --all -n openshift-serverless --timeout=300s
+
+# Create an Knative instance
+oc apply -f openshift/serverless/knativeserving-istio.yaml
+
+# Wait for all pods in `knative-serving` to be ready
+oc get pod -n knative-serving
+
+# Create the Knative gateways
+# This contains a self-signed TLS certificate, you can change this to your own
+# Please consider https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/serverless/integrations#serverlesss-ossm-external-certs_serverless-ossm-setup for more information
+oc apply -f openshift/serverless/gateways.yaml
+
+# Install cert-manager operator
+oc apply -f openshift/cert-manager/operator.yaml
+
+# Install KServe
+export KSERVE_VERSION=v0.10.1
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve.yaml"
+
+# For OpenShift Service Mesh, we need to set an additional environment variable for the `kserve-controller-manager`
+oc set env deploy/kserve-controller-manager -n kserve ISTIO_CNI_DNS_PROXY_ENABLED=true
+
+# Install KServe built-in serving runtimes
+oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml"
+
+# Add NetworkPolicies to allow traffic to kserve webhook
+oc apply -f openshift/networkpolicies.yaml
 ```
 
-### 3. Run install script
+# Test KServe Installation
 
-From the root of the `kfserving` directory, execute the following:
-
+## Prerequisites
 ```bash
-# Ensure we install KFServing v0.5.1
-sed -i.bak 's/KFSERVING_VERSION=.*/KFSERVING_VERSION=v0.5.1' ./hack/quick_install.sh
-./hack/quick_install.sh
+# Create a namespace for testing
+oc create ns kserve-demo
+
+# Allow pods to run as user `knative/1000` for the KServe python images, see python/*.Dockerfile
+# Allow init-containers to run as user 1337 when istio is enabled, see https://istio.io/latest/docs/setup/additional-setup/cni/#compatibility-with-application-init-containers.
+oc adm policy add-scc-to-user anyuid -z default -n kserve-demo
 ```
 
-This [script](../hack/quick_install.sh) will install Istio, Knative, Cert Manager, and then the latest version of KFServing that has been verified and tested on OpenShift.
+## Routing
 
+OpenShift Serverless integrates with the OpenShift Ingress controller. So in contrast to KServe on Kubernetes, in OpenShift you automatically get routable domains for each KServe service. 
 
-### 4. Verify Istio and Knative installations
+## Testing
 
-Check that all `istio-system` and `knative-serving` pods are running.
+### With Kourier
 
-```bash
-oc get po -n istio-system
-oc get po -n knative-serving
-```
-
-If you see pods with status `CreateContainerError`, this likely indicates a permission issue.
-See the [troubleshooting guide below](#knative-pods-have-createcontainererror-status).
-
-### 5. Verify KFServing installation
-
-Check that the KFserving controller is running:
+Create an inference service. From the docs of the `kserve` repository, run:
 
 ```bash
-oc get po -n kfserving-system
-
-NAME                             READY   STATUS    RESTARTS   AGE
-kfserving-controller-manager-0   2/2     Running   0          2m28s
-```
-
-### 6. Expose OpenShift route
-
-After installation is verified, expose an OpenShift route for the ingress gateway.
-
-```bash
-oc -n istio-system expose svc/istio-ingressgateway --port=http2
-```
-
-At this point you can now [test the KFServing installation](#test-kfserving-installation).
-
-## Install using OpenShift Service Mesh
-
-These instructions were tested using [OpenShift Service Mesh 2.0](https://www.openshift.com/blog/introducing-openshift-service-mesh-2.0) on OpenShift 4.5.24.
-
-### 1. Install OpenShift Service Mesh
-
-If you have not already done so, install the OpenShift Service Mesh Operator and deploy the control plane. An installation guide can be found [here](https://docs.openshift.com/container-platform/4.6/service_mesh/v2x/installing-ossm.html).
-
-### 2. Change istio-ingressgateway service type
-
-To allow external traffic, ensure that the service type of `istio-ingressgateway` is either `NodePort` or `LoadBalancer`.
-
-```bash
-oc get svc istio-ingressgateway -n istio-system
-```
-
-If the type is ClusterIP, change it using one of the following commands.
-
-```bash
-oc patch svc istio-ingressgateway -n istio-system -p '{"spec":{"type":"NodePort"}}'
-# or
-oc patch svc istio-ingressgateway -n istio-system -p '{"spec":{"type":"LoadBalancer"}}'
-```
-
-### 3. Install Knative-Serving
-
-```bash
-KNATIVE_VERSION=v0.18.0
-
-oc apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
-oc apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-oc apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
-```
-
-After the install has completed, validate that the pods are running:
-
-```bash
-oc get po -n knative-serving
-```
-
-If you see pods with status `CreateContainerError`, this likely indicates a permission issue.
-See the [troubleshooting guide below](#knative-pods-have-createcontainererror-status).
-
-
-### 4. Create cluster local gateway
-
-Currently, KFServing (and Knative by default) expects the Knative local gateway to be `cluster-local-gateway`. OpenShift Service Mesh does not have any `cluster-local-gateway`
-service or deployment in the `istio-system` namespace. The following creates a `cluster-local-gateway` service that can be used.
-
-```bash
-cat <<EOF | oc apply -f -
-apiVersion: v1
-kind: Service
-metadata:
-  name: cluster-local-gateway
-  namespace: istio-system
-  labels:
-    serving.knative.dev/release: "v0.18.0"
-    networking.knative.dev/ingress-provider: istio
-spec:
-  type: ClusterIP
-  selector:
-    istio: ingressgateway
-  ports:
-    - name: http2
-      port: 80
-      targetPort: 8081
----
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: cluster-local-gateway
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: "v0.18.0"
-    networking.knative.dev/ingress-provider: istio
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-    - port:
-        number: 8081
-        name: http
-        protocol: HTTP
-      hosts:
-        - "*"
-EOF
-```
-
-### 5. Install cert-manager
-
-```bash
-oc apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml
-oc wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
-```
-
-### 6. Install KFserving
-
-```bash
-git clone https://github.com/kubeflow/kfserving
-cd kfserving
-export KFSERVING_VERSION=v0.5.0-rc2
-oc apply -f install/${KFSERVING_VERSION}/kfserving.yaml
-```
-
-### 7. Verify KFServing installation
-
-Check that the KFserving controller is running:
-
-```bash
-oc get po -n kfserving-system
-
-NAME                             READY   STATUS    RESTARTS   AGE
-kfserving-controller-manager-0   2/2     Running   0          2m28s
-```
-
-### 8. Add namespaces to Service Mesh member roll
-
-To add projects to the mesh, namespaces need to be added to the member roll. In the following command, a
-`ServiceMeshMemberRoll` resource is created with the `knative-serving` and `kfserving-system` namespaces as members.
-Namespaces that will contain KFServing InferenceServices also need to be added. Here, the `kfserving-test` namespace is added,
-but additional namespaces can be added as well.
-
-```bash
-cat <<EOF | oc apply -f -
-apiVersion: maistra.io/v1
-kind: ServiceMeshMemberRoll
-metadata:
-  name: default
-  namespace: istio-system
-spec:
-  members:
-    - knative-serving
-    - kfserving-system
-    - kfserving-test
-EOF
-```
-
-### 9. Add Network Policies
-
-Create these `NetworkPolicy` resources to allow all ingress traffic to pods in the
-`knative-serving` and `kfserving-system` namespaces.
-
-```bash
-cat <<EOF | oc apply -f -
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: knative-serving-pods
-  namespace: knative-serving
-spec:
-  podSelector: {}
-  ingress:
-  - {}
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: kfserving-controller-manager
-  namespace: kfserving-system
-spec:
-  podSelector: {}
-  ingress:
-  - {}
-EOF
-```
-
-At this point you can now [test the KFServing installation](#test-kfserving-installation).
-
-# Test KFServing installation
-
-Create an inference service. From the root of the `kfserving` directory, run:
-
-```bash
-oc create ns kfserving-test
-oc apply -f docs/samples/v1beta1/sklearn/v1/sklearn.yaml -n kfserving-test
+oc apply -f ./samples/v1beta1/sklearn/v1/sklearn.yaml -n kserve-demo
 ```
 
 Give it a minute, then check the InferenceService status:
 
 ```bash
-oc get inferenceservices sklearn-iris -n kfserving-test
+oc get inferenceservices sklearn-iris -n kserve-demo
 
-NAME           URL                                              READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                    AGE
-sklearn-iris   http://sklearn-iris.kfserving-test.example.com   True           100                              sklearn-iris-predictor-default-z5lqk   53s                             3m37s
+NAME           URL                                                                                                            READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                    AGE
+sklearn-iris   http://sklearn-iris-predictor-default-kserve-demo.apps.<your-cluster-domain>   True           100                              sklearn-iris-predictor-default-00001   44s
 ```
 
-Once the InferenceService is ready, get your ingress IP and port.
+**Note:** It is possible that the `InferenceService` shows `http` as protocol. Depending on your OpenShift installation, this usually is `https`, so try calling the service with `https` in that case.
 
-## Determine the ingress IP and ports
-
-First, check your istio-ingressgateway service.
-
+Now you try curling the InferenceService using the routable URL from above:
 ```bash
-oc get svc istio-ingressgateway -n istio-system
-```
-
-The output should look similar to:
-
-```bash
-NAME                   TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)                                                                      AGE
-istio-ingressgateway   LoadBalancer   172.21.179.3   169.62.77.21   15021:30892/TCP,80:31729/TCP,443:31950/TCP,15012:30426/TCP,15443:32199/TCP   4d
-```
-
-If `EXTERNAL-IP` is set, these can be used:
-
-```bash
-export INGRESS_HOST=$(oc -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-export INGRESS_PORT=$(oc -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
-```
-
-If not, you can use the istio-ingressgateway route along with the node port:
-```bash
-export INGRESS_HOST=$(oc get route istio-ingressgateway -n istio-system -ojsonpath='{.spec.host}')
-export INGRESS_PORT=$(oc -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
-```
-
-Now you try curling the InferenceService using the `Host` header:
-```bash
-export SERVICE_HOSTNAME=$(oc get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d '{"instances": [[6.8,  2.8,  4.8,  1.4],[6.0,  3.4,  4.5,  1.6]]}'
+curl -k https://sklearn-iris-predictor-default-kserve-demo.apps.<your-cluster-domain>/v1/models/sklearn-iris:predict -d '{"instances": [[6.8,  2.8,  4.8,  1.4],[6.0,  3.4,  4.5,  1.6]]}'
 ```
 
 You should see an output like:
@@ -310,95 +155,57 @@ You should see an output like:
 {"predictions": [1, 1]}
 ```
 
-# Change Knative domain configuration
+You can now try more examples from https://kserve.github.io/website/.
 
-This is optional, but if you want to change the domain that is used for the InferenceService routes,
-do the following:
 
-```bash
-oc edit configmap config-domain -n knative-serving
+### With Service Mesh (Istio)
+
+Service Mesh in OpenShift Container Platform requires some annotations to be present on a `KnativeService`. Those annotations can be propagated from the `InferenceService` and `InferenceGraph`. For this, you need to add the following annotations to your resources:
+
+```yaml
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  ...
+  annotations:
+    sidecar.istio.io/inject: "true"
+    sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    serving.knative.openshift.io/enablePassthrough: "true"
+spec:
+...
 ```
-
-This will open your default text editor, and you will see something like:
-
-```YAML
-apiVersion: v1
-data:
-  _example: |
-    ################################
-    #                              #
-    #    EXAMPLE CONFIGURATION     #
-    #                              #
-    ################################
-    # ...
-    example.com: |
-kind: ConfigMap
+```yaml
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: "InferenceGraph"
+metadata:
+  ...
+  annotations:
+    sidecar.istio.io/inject: "true"
+    sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    serving.knative.openshift.io/enablePassthrough: "true"
+spec:
 ...
 ```
 
-Add a line above the `_example` key with your hostname as the key and an empty string value.
-Be sure to update `<hostname>`:
-
-```YAML
-apiVersion: v1
-data:
-    <hostname>: ""
-    _example: |
-    ...
-kind: ConfigMap
-...
-```
-
-As an example, with OpenShift on IBM Cloud, the ConfigMap might look something like:
-
-```YAML
-apiVersion: v1
-data:
-    pv-cluster-442dbba0442be6c8c50f31ed96b00601-0000.sjc03.containers.appdomain.cloud: ""
-    _example: |
-    ...
-kind: ConfigMap
-...
-```
-
-After you save and exit, the routes for your InferenceServices will start using this new domain.
-You can curl the endpoints without the `Host` header. For example:
+So you can do the same example as above, including the annotations:
 
 ```bash
-curl -v http://sklearn-iris.kfserving-test.pv-cluster-442dbba0442be6c8c50f31ed96b00601-0000.sjc03.containers.appdomain.cloud:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d '{"instances": [[6.8,  2.8,  4.8,  1.4],[6.0,  3.4,  4.5,  1.6]]}'
+cat <<EOF | oc apply -f -
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iris"
+  namespace: kserve-demo
+  annotations:
+    sidecar.istio.io/inject: "true"
+    sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    serving.knative.openshift.io/enablePassthrough: "true"
+spec:
+  predictor:
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
+EOF
 ```
 
-# Troubleshooting
+Give it a minute, then check and call it the same was as described above in the Kourier example.
 
-## Knative pods have CreateContainerError status
-
-Some or all pods in the `knative-serving` namespace might have a `CreateContainerError` status:
-
-```bash
-NAME                                READY   STATUS                 RESTARTS   AGE
-activator-6c87fcbbb6-dmdpt          0/1     CreateContainerError   0          12m
-autoscaler-847b9f89dc-746rp         0/1     CreateContainerError   0          12m
-controller-55f67c9ddb-gnssq         0/1     CreateContainerError   0          12m
-...
-```
-
-Describing the pods shows:
-
-```
-starting container process caused: chdir to cwd (\"/home/nonroot\") set in config.json failed: permission denied"`.
-```
-
-This may be caused by a regression that is outlined in this issue: https://bugzilla.redhat.com/show_bug.cgi?id=1934177.
-Here, it is mentioned that the image Knative is based off of (gcr.io/distroless/static:nonroot) is currently not working out of the box on OpenShift.
-A patch was recently added to address this (for the `runc` component), but it is unclear when this will be available as a patch release for OpenShift.
-
-The quickest workaround is to run the commands below:
-
-```bash
-oc adm policy add-scc-to-group anyuid system:serviceaccounts:knative-serving
-oc adm policy add-scc-to-group anyuid system:serviceaccounts:kfserving-test
-```
-
-Running the above will allow the Knative containers to start in the `knative-serving` namespace
-as well as the Knative `queue-proxy` sidecar container that is needed when deploying an InferenceService
-in the `kfserving-test` namespace.

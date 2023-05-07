@@ -24,7 +24,6 @@ args, _ = parser.parse_known_args()
 toml_files = [
     "python/kserve/pyproject.toml",
     "python/aiffairness/pyproject.toml",
-    "python/aixexplainer/pyproject.toml",
     "python/alibiexplainer/pyproject.toml",
     "python/artexplainer/pyproject.toml",
     "python/custom_model/pyproject.toml",

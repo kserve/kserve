@@ -120,6 +120,10 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.3'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
 
@@ -178,6 +182,10 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.3'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
 
@@ -226,6 +234,10 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.3'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
 
@@ -269,7 +281,10 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.3'
-
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
 
@@ -343,7 +358,7 @@ jobs:
           kubectl describe pods -n kserve
       - name: Patch qpext image
         run : |
-          kubectl patch configmaps -n knative-serving config-deployment --patch '{"data": {"queueSidecarImage": "kserve/qpext:${{ github.sha }}"}}'
+          kubectl patch configmaps -n knative-serving config-deployment --patch '{"data": {"queue-sidecar-image": "kserve/qpext:${{ github.sha }}"}}'
           kubectl describe configmaps -n knative-serving config-deployment
       - name: Run queue proxy extension E2E tests
         timeout-minutes: 30
@@ -363,6 +378,10 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.3'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
 
@@ -414,6 +433,10 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.3'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
 
@@ -442,6 +465,10 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.3'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
 
