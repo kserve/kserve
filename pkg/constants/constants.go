@@ -288,6 +288,11 @@ const (
 	StorageInitializerContainerName = "storage-initializer"
 )
 
+// Transformer container name in collocation
+const (
+	TransformerContainerName = "transformer-container"
+)
+
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 

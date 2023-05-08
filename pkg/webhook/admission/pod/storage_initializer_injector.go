@@ -101,12 +101,15 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	// Find the kserve-container (this is the model inference server)
+	// Find the kserve-container (this is the model inference server) and transformer container
 	var userContainer *v1.Container
+	var transformerContainer *v1.Container
 	for idx, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, constants.InferenceServiceContainerName) == 0 {
 			userContainer = &pod.Spec.Containers[idx]
-			break
+		}
+		if container.Name == constants.TransformerContainerName {
+			transformerContainer = &pod.Spec.Containers[idx]
 		}
 	}
 
@@ -152,7 +155,17 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				ReadOnly: true,
 			}
 			userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
+			if transformerContainer != nil {
+				transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, pvcSourceVolumeMount)
 
+				// change the CustomSpecStorageUri env variable value
+				// to the default model path if present
+				for index, envVar := range transformerContainer.Env {
+					if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+						transformerContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+					}
+				}
+			}
 			// change the CustomSpecStorageUri env variable value
 			// to the default model path if present
 			for index, envVar := range userContainer.Env {
@@ -179,7 +192,9 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 		// Since the model path is linked from source pvc, userContainer also need to mount the pvc.
 		userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
-
+		if transformerContainer != nil {
+			transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, pvcSourceVolumeMount)
+		}
 		// modify the sourceURI to point to the PVC path
 		srcURI = PvcSourceMountPath + "/" + pvcPath
 	}
@@ -237,6 +252,15 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		ReadOnly:  true,
 	}
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
+	if transformerContainer != nil {
+		transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, sharedVolumeReadMount)
+		// Change the CustomSpecStorageUri env variable value to the default model path if present
+		for index, envVar := range transformerContainer.Env {
+			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+				transformerContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+			}
+		}
+	}
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
