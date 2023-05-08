@@ -31,7 +31,7 @@ class InferInput:
     _datatype: str
     _parameters: Dict
 
-    def __init__(self, name, shape, datatype, data=None, parameters={}):
+    def __init__(self, name, shape, datatype, data=None, parameters=None):
         """An object of InferInput class is used to describe
         input tensor for an inference request.
         Parameters
@@ -42,9 +42,13 @@ class InferInput:
             The shape of the associated input.
         datatype : str
             The datatype of the associated input.
-        data: Union[List, InferTensorContents]
+        data : Union[List, InferTensorContents]
             The data of the REST/gRPC input. When data is not set, raw_data is used for gRPC for numpy array bytes.
+        parameters : dict
+            The additional server-specific parameters.
         """
+        if parameters is None:
+            parameters = {}
         self._name = name
         self._shape = shape
         self._datatype = datatype
@@ -236,7 +240,9 @@ class InferRequest:
     from_grpc: bool
 
     def __init__(self, model_name: str, infer_inputs: List[InferInput],
-                 request_id=None, raw_inputs=None, from_grpc=False, parameters={}):
+                 request_id=None, raw_inputs=None, from_grpc=False, parameters=None):
+        if parameters is None:
+            parameters = {}
         self.id = request_id
         self.model_name = model_name
         self.inputs = infer_inputs
@@ -326,7 +332,7 @@ class InferRequest:
 
 
 class InferOutput:
-    def __init__(self, name, shape, datatype, data=None, parameters={}):
+    def __init__(self, name, shape, datatype, data=None, parameters=None):
         """An object of InferOutput class is used to describe
         input tensor for an inference request.
         Parameters
@@ -337,9 +343,13 @@ class InferOutput:
             The shape of the associated input.
         datatype : str
             The datatype of the associated input.
-        data: Union[List, InferTensorContents]
+        data : Union[List, InferTensorContents]
             The data of the REST/gRPC input. When data is not set, raw_data is used for gRPC for numpy array bytes.
+        parameters : dict
+            The additional server-specific parameters.
         """
+        if parameters is None:
+            parameters = {}
         self._name = name
         self._shape = shape
         self._datatype = datatype
@@ -514,7 +524,9 @@ class InferResponse:
     from_grpc: bool
 
     def __init__(self, response_id: str, model_name: str, infer_outputs: List[InferOutput],
-                 raw_outputs=None, from_grpc=False, parameters={}):
+                 raw_outputs=None, from_grpc=False, parameters=None):
+        if parameters is None:
+            parameters = {}
         self.id = response_id
         self.model_name = model_name
         self.outputs = infer_outputs
