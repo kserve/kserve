@@ -55,7 +55,7 @@ func NewHPAReconciler(client client.Client,
 
 func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
 	var metrics []autoscalingv2.MetricSpec
-	var utilization int32
+	var cpuUtilization int32
 	annotations := metadata.Annotations
 	resourceName := corev1.ResourceCPU
 
@@ -72,11 +72,6 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 
 	if componentExt.ScaleMetric != nil {
 		resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
-	}
-
-	metricTarget := autoscalingv2.MetricTarget{
-		Type:               "Utilization",
-		AverageUtilization: &utilization,
 	}
 
 	ms := autoscalingv2.MetricSpec{
