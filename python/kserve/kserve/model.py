@@ -31,7 +31,6 @@ from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 
 from .errors import InvalidInput
-from .utils.utils import is_structured_cloudevent
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -200,27 +199,8 @@ class Model:
         Returns:
             Dict|InferRequest: Transformed inputs to ``predict`` handler or return InferRequest for predictor call.
         """
-        response = payload
 
-        if isinstance(payload, CloudEvent):
-            response = payload.data
-            # Try to decode and parse JSON UTF-8 if possible, otherwise
-            # just pass the CloudEvent data on to the predict function.
-            # This is for the cases that CloudEvent encoding is protobuf, avro etc.
-            try:
-                response = orjson.loads(response.decode('UTF-8'))
-            except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
-                # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
-                if "content-type" in payload._attributes and \
-                        (payload._attributes["content-type"] == "application/cloudevents+json" or
-                         payload._attributes["content-type"] == "application/json"):
-                    raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
-
-        elif isinstance(payload, dict):
-            if is_structured_cloudevent(payload):
-                response = payload["data"]
-
-        return response
+        return payload
 
     def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
             -> Union[Dict, ModelInferResponse]:

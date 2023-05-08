@@ -150,7 +150,7 @@ class DummyAvroCEModel(Model):
             assert attributes["specversion"] == "1.0"
             assert attributes["source"] == "https://example.com/event-producer"
             assert attributes["type"] == "com.example.sampletype1"
-            assert attributes["content-type"] == "application/json"
+            assert attributes["content-type"] == "application/avro"
             return self._parserequest(request.data)
 
     async def predict(self, request, headers=None):
@@ -507,7 +507,8 @@ class TestTFHttpServerAvroCloudEvent:
         writer.write(msg, encoder)
         data = bytes_writer.getvalue()
 
-        event = dummy_cloud_event(data, set_contenttype=True)
+        event = dummy_cloud_event(data)
+        event._attributes["content-type"] = "application/avro"
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
         resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)

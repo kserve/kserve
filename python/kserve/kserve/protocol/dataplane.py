@@ -25,7 +25,7 @@ from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import ModelType
 from ..model_repository import ModelRepository
-from ..utils.utils import create_response_cloudevent
+from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest
 from ..constants import constants
 from .grpc import grpc_predict_v2_pb2 as pb
@@ -205,8 +205,7 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    def decode(self, body, headers) -> Union[Dict, InferRequest]:
-        t1 = time.time()
+    def decode(self, body, headers) -> Union[Dict, InferRequest, CloudEvent]:
         if isinstance(body, InferRequest):
             return body
         if headers and has_binary_headers(headers):
@@ -217,9 +216,27 @@ class DataPlane:
                     body = orjson.loads(body)
                 except orjson.JSONDecodeError as e:
                     raise InvalidInput(f"Unrecognized request format: {e}")
-        t2 = time.time()
-        logging.debug(f"decoded request in {round((t2 - t1) * 1000, 9)}ms")
         return body
+
+    def decode_cloudevent(self, payload):
+        response = payload
+        if isinstance(payload, CloudEvent):
+            # Try to decode and parse JSON UTF-8 if possible, otherwise
+            # just pass the CloudEvent data on to the predict function.
+            # This is for the cases that CloudEvent encoding is protobuf, avro etc.
+            try:
+                response = orjson.loads(response.data.decode('UTF-8'))
+            except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+                # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
+                if "content-type" in payload._attributes and \
+                        (payload._attributes["content-type"] == "application/cloudevents+json" or
+                         payload._attributes["content-type"] == "application/json"):
+                    raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
+
+        elif isinstance(payload, dict):
+            if is_structured_cloudevent(payload):
+                response = payload["data"]
+        return response
 
     def encode(self, model_name, body, response, headers) -> Tuple[Dict, Dict[str, str]]:
         response_headers = {}
@@ -268,15 +285,19 @@ class DataPlane:
 
         .. _CloudEvent: https://cloudevents.io/
         """
+        t1 = time.time()
         body = self.decode(body, headers)
+        decoded_body = self.decode_cloudevent(body)
+        t2 = time.time()
+        logging.debug(f"decoded request in {round((t2 - t1) * 1000, 9)}ms")
 
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if not isinstance(model, RayServeHandle):
-            response = await model(body, headers=headers)
+            response = await model(decoded_body, headers=headers)
         else:
             model_handle: RayServeHandle = model
-            response = await model_handle.remote(body, headers=headers)
+            response = await model_handle.remote(decoded_body, headers=headers)
 
         response, response_headers = self.encode(model_name, body, response, headers)
         return response, response_headers

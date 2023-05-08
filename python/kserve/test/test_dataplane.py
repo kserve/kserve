@@ -317,7 +317,8 @@ class TestDataPlaneAvroCloudEvent:
         writer.write(msg, encoder)
         data = bytes_writer.getvalue()
 
-        event = dummy_cloud_event(data, set_contenttype=True)
+        event = dummy_cloud_event(data)
+        event._attributes["content-type"] = "application/avro"
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
 
