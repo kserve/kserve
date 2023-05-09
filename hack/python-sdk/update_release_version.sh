@@ -24,7 +24,6 @@ set -o pipefail
 VERSION=$1
 dirs=(
   "python/aiffairness"
-  "python/aixexplainer"
   "python/alibiexplainer"
   "python/artexplainer"
   "python/custom_model"

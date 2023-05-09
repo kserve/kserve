@@ -214,6 +214,7 @@ rules:
   - serving.kserve.io
   resources:
   - inferencegraphs
+  - inferencegraphs/finalizers
   verbs:
   - create
   - delete

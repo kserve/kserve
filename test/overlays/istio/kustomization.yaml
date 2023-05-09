@@ -1,8 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-bases:
+resources:
 - generated-manifest.yaml
 
-patchesStrategicMerge:
-- requests_patch.yaml
+patches:
+- path: istio_ingressgateway_patch.yaml
+- path: istiod_deployment_patch.yaml

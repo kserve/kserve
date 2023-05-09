@@ -28,14 +28,14 @@ AGENT_IMG=kserve/agent:${GITHUB_SHA}
 
 
 echo "Building Kserve controller image"
-docker build . -t ${CONTROLLER_IMG}
+docker buildx build . -t ${CONTROLLER_IMG}
 
 echo "Building agent image"
-docker build -f agent.Dockerfile . -t ${AGENT_IMG}
+docker buildx build -f agent.Dockerfile . -t ${AGENT_IMG}
 
 pushd python >/dev/null
   echo "Building storage initializer"
-  docker build -t ${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
+  docker buildx build -t ${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
 popd
 
 echo "Done building images"

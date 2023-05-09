@@ -32,7 +32,7 @@ jobs:
             docker-compose --file docker-compose.test.yml run sut
           else
             cd python
-            docker build . --file storage-initializer.Dockerfile
+            docker buildx build . --file storage-initializer.Dockerfile
           fi
 
   # Push image to GitHub Packages.
@@ -50,7 +50,7 @@ jobs:
       - name: Build image
         run: |
           cd python
-          docker build . --file storage-initializer.Dockerfile --tag $IMAGE_NAME
+          docker buildx build . --file storage-initializer.Dockerfile --tag $IMAGE_NAME
 
       - name: Log into registry
         run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}

@@ -55,6 +55,10 @@ parser.add_argument("--enable_docs_url", default=False, type=lambda x: bool(strt
                     help="Enable docs url '/docs' to display Swagger UI.")
 parser.add_argument("--enable_latency_logging", default=True, type=lambda x: bool(strtobool(x)),
                     help="Output a log per request with latency metrics.")
+parser.add_argument("--log_config_file", default=None, type=str,
+                    help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
+parser.add_argument("--access_log_format", default=None, type=str,
+                    help="Format to set for the access log (provided by asgi-logger).")
 
 args, _ = parser.parse_known_args()
 
@@ -76,6 +80,8 @@ class ModelServer:
         enable_grpc (bool): Whether to turn on grpc server. Default: ``True``
         enable_docs_url (bool): Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
         enable_latency_logging (bool): Whether to log latency metric. Default: ``True``.
+        log_config_file (dict): File path containing UvicornServer's log config. Default: ``None``.
+        access_log_format (string): Format to set for the access log (provided by asgi-logger). Default: ``None``
     """
 
     def __init__(self, http_port: int = args.http_port,
@@ -86,7 +92,9 @@ class ModelServer:
                  registered_models: ModelRepository = ModelRepository(),
                  enable_grpc: bool = args.enable_grpc,
                  enable_docs_url: bool = args.enable_docs_url,
-                 enable_latency_logging: bool = args.enable_latency_logging):
+                 enable_latency_logging: bool = args.enable_latency_logging,
+                 log_config_file: str = args.log_config_file,
+                 access_log_format: str = args.access_log_format):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -99,7 +107,12 @@ class ModelServer:
         self.dataplane = DataPlane(model_registry=registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models)
-        self._grpc_server = GRPCServer(grpc_port, self.dataplane, self.model_repository_extension)
+        self._grpc_server = None
+        if self.enable_grpc:
+            self._grpc_server = GRPCServer(grpc_port, self.dataplane,
+                                           self.model_repository_extension)
+        self.log_config_file = log_config_file
+        self.access_log_format = access_log_format
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if isinstance(models, list):
@@ -143,7 +156,9 @@ class ModelServer:
                     sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
                 )
             self._rest_server = UvicornServer(self.http_port, [serversocket],
-                                              self.dataplane, self.model_repository_extension, self.enable_docs_url)
+                                              self.dataplane, self.model_repository_extension,
+                                              self.enable_docs_url, log_config_file=self.log_config_file,
+                                              access_log_format=self.access_log_format)
             if self.workers == 1:
                 await self._rest_server.run()
             else:
@@ -153,7 +168,8 @@ class ModelServer:
                 # https://github.com/tiangolo/fastapi/issues/1586
                 multiprocessing.set_start_method('fork')
                 server = UvicornServer(self.http_port, [serversocket],
-                                       self.dataplane, self.model_repository_extension, self.enable_docs_url)
+                                       self.dataplane, self.model_repository_extension,
+                                       self.enable_docs_url, custom_log_config=self.log_config)
                 for _ in range(self.workers):
                     p = Process(target=server.run_sync)
                     p.start()

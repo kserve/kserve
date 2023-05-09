@@ -18,14 +18,14 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
+RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
-RUN cd kserve && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
+RUN cd kserve && poetry install --no-interaction --no-cache
 
 COPY alibiexplainer/pyproject.toml alibiexplainer/poetry.lock alibiexplainer/
-RUN cd alibiexplainer && poetry version $(cat ${VERSION}) && poetry install --no-root --no-interaction --no-cache
+RUN cd alibiexplainer && poetry install --no-root --no-interaction --no-cache
 COPY alibiexplainer alibiexplainer
-RUN cd alibiexplainer && poetry version $(cat ${VERSION}) && poetry install --no-interaction --no-cache
+RUN cd alibiexplainer && poetry install --no-interaction --no-cache
 
 
 FROM ${BASE_IMAGE} as prod
@@ -37,11 +37,12 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY --from=builder $VIRTUAL_ENV $VIRTUAL_ENV
+RUN useradd kserve -m -u 1000 -d /home/kserve
+
+COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
 COPY --from=builder alibiexplainer alibiexplainer
 
-RUN useradd kserve -m -u 1000 -d /home/kserve
 USER 1000
 ENTRYPOINT ["python", "-m", "alibiexplainer"]
 

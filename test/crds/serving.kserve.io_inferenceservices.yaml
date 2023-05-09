@@ -2315,7 +2315,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
-  creationTimestamp: null
   name: inferenceservices.serving.kserve.io
 spec:
   group: serving.kserve.io

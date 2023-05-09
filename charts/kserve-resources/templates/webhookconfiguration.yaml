@@ -79,6 +79,7 @@ webhooks:
           - UPDATE
         resources:
           - inferenceservices
+
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -107,6 +108,7 @@ webhooks:
           - UPDATE
         resources:
           - trainedmodels
+
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
