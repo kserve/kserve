@@ -141,8 +141,9 @@ AWS_TEST_CREDENTIALS = {"AWS_ACCESS_KEY_ID": "testing",
 
 
 def test_get_S3_config():
+    DEFAULT_CONFIG = Config()
     ANON_CONFIG = Config(signature_version=UNSIGNED)
-    DEFAULT_CONFIG = None
+    VIRTUAL_CONFIG = Config(s3={"addressing_style": "virtual"})
 
     with mock.patch.dict(os.environ, {}):
         config1 = Storage.get_S3_config()
@@ -165,3 +166,11 @@ def test_get_S3_config():
     with mock.patch.dict(os.environ, credentials_and_anon):
         config5 = Storage.get_S3_config()
     assert config5.signature_version == ANON_CONFIG.signature_version
+
+    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "False"}):
+        config6 = Storage.get_S3_config()
+    assert config6 == DEFAULT_CONFIG
+
+    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "True"}):
+        config7 = Storage.get_S3_config()
+    assert config7.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]

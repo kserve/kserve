@@ -136,12 +136,21 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
     @staticmethod
     def get_S3_config():
+        # default s3 config
+        c = Config()
+
         # anon environment variable defined in s3_secret.go
         anon = ("True" == os.getenv("awsAnonymousCredential", "false").capitalize())
+        # S3UseVirtualBucket environment variable defined in s3_secret.go
+        # use virtual hosted-style URLs if enabled
+        virtual = ("True" == os.getenv("S3_USER_VIRTUAL_BUCKET", "false").capitalize())
+
         if anon:
-            return Config(signature_version=UNSIGNED)
-        else:
-            return None
+            c = c.merge(Config(signature_version=UNSIGNED))
+        if virtual:
+            c = c.merge(Config(s3={"addressing_style": "virtual"}))
+
+        return c
 
     @staticmethod
     def _download_s3(uri, temp_dir: str):
