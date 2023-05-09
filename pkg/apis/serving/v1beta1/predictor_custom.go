@@ -91,6 +91,17 @@ func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *C
 }
 
 func (c *CustomPredictor) GetProtocol() constants.InferenceServiceProtocol {
+	// Handle collocation of transformer and predictor scenario
+	for _, container := range c.Containers {
+		if container.Name == constants.TransformerContainerName {
+			for _, envVar := range container.Env {
+				if envVar.Name == constants.CustomSpecProtocolEnvVarKey {
+					return constants.InferenceServiceProtocol(envVar.Value)
+				}
+			}
+			return constants.ProtocolV1
+		}
+	}
 	for _, envVar := range c.Containers[0].Env {
 		if envVar.Name == constants.CustomSpecProtocolEnvVarKey {
 			return constants.InferenceServiceProtocol(envVar.Value)
