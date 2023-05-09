@@ -147,15 +147,15 @@ def test_get_S3_config():
 
     with mock.patch.dict(os.environ, {}):
         config1 = Storage.get_S3_config()
-    assert config1 == DEFAULT_CONFIG
+    assert vars(config1) == vars(DEFAULT_CONFIG)
 
     with mock.patch.dict(os.environ, {"awsAnonymousCredential": "False"}):
         config2 = Storage.get_S3_config()
-    assert config2 == DEFAULT_CONFIG
+    assert vars(config2) == vars(DEFAULT_CONFIG)
 
     with mock.patch.dict(os.environ, AWS_TEST_CREDENTIALS):
         config3 = Storage.get_S3_config()
-    assert config3 == DEFAULT_CONFIG
+    assert vars(config3) == vars(DEFAULT_CONFIG)
 
     with mock.patch.dict(os.environ, {"awsAnonymousCredential": "True"}):
         config4 = Storage.get_S3_config()
@@ -169,7 +169,7 @@ def test_get_S3_config():
 
     with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "False"}):
         config6 = Storage.get_S3_config()
-    assert config6 == DEFAULT_CONFIG
+    assert vars(config6) == vars(DEFAULT_CONFIG)
 
     with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "True"}):
         config7 = Storage.get_S3_config()
