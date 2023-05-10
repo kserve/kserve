@@ -51,7 +51,7 @@ def test_tabular_explainer():
         alibi=V1beta1AlibiExplainerSpec(
             name='kserve-container',
             type='AnchorTabular',
-            storage_uri='gs://kfserving-examples/models/sklearn/1.0/income/explainer-py37-0.6.2',
+            storage_uri='gs://kfserving-examples/models/sklearn/1.0/income/explainer-0.9.1',
             resources=V1ResourceRequirements(
                 requests={'cpu': '100m', 'memory': '256Mi'},
                 limits={'cpu': '250m', 'memory': '512Mi'}
