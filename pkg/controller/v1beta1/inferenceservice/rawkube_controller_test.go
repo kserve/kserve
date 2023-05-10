@@ -34,15 +34,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/network"
-
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -406,7 +404,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -838,7 +836,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -1271,7 +1269,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
