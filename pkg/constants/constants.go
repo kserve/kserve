@@ -132,10 +132,9 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName              = KServeName + "-controller-manager"
-	DefaultMinReplicas               = 1
-	IstioCniDnsProxyEnabledEnvVarKey = "ISTIO_CNI_DNS_PROXY_ENABLED"
-	IstioSidecarUID                  = int64(1337)
+	ControllerLabelName          = KServeName + "-controller-manager"
+	DefaultMinReplicas           = 1
+	IstioSidecarUIDAnnotationKey = KServeAPIGroupName + "/storage-initializer-uid"
 )
 
 type AutoscalerClassType string

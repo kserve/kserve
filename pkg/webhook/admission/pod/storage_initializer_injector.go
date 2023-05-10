@@ -19,7 +19,6 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -333,9 +332,9 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 	// Allow to override the uid for the case where ISTIO CNI with DNS proxy is enabled
 	// See for more: https://istio.io/latest/docs/setup/additional-setup/cni/#compatibility-with-application-init-containers.
-	if v := os.Getenv(constants.IstioCniDnsProxyEnabledEnvVarKey); v != "" {
-		if b, _ := strconv.ParseBool(v); b {
-			initContainer.SecurityContext.RunAsUser = ptr.Int64(constants.IstioSidecarUID)
+	if value, ok := pod.GetAnnotations()[constants.IstioSidecarUIDAnnotationKey]; ok {
+		if uid, err := strconv.ParseInt(value, 10, 64); err == nil {
+			initContainer.SecurityContext.RunAsUser = ptr.Int64(uid)
 		}
 	}
 
