@@ -49,7 +49,8 @@ test_avsc_schema = '''
         '''
 
 
-def dummy_cloud_event(data, set_contenttype=False, add_extension=False):
+def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool = False,
+                      contenttype: str = "application/json"):
     # This data defines a binary cloudevent
     attributes = {
         "type": "com.example.sampletype1",
@@ -59,7 +60,7 @@ def dummy_cloud_event(data, set_contenttype=False, add_extension=False):
         "time": "2021-01-28T21:04:43.144141+00:00"
     }
     if set_contenttype:
-        attributes["content-type"] = "application/json"
+        attributes["content-type"] = contenttype
     if add_extension:
         attributes["custom-extension"] = "custom-value"
 
@@ -507,8 +508,7 @@ class TestTFHttpServerAvroCloudEvent:
         writer.write(msg, encoder)
         data = bytes_writer.getvalue()
 
-        event = dummy_cloud_event(data)
-        event._attributes["content-type"] = "application/avro"
+        event = dummy_cloud_event(data, set_contenttype=True, contenttype="application/avro")
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
         resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
