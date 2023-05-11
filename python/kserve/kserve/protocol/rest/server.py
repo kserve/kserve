@@ -14,10 +14,10 @@
 
 import asyncio
 import socket
+from importlib import metadata
 from typing import List, Optional
 from prometheus_client import REGISTRY, exposition
 
-import pkg_resources
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute as FastAPIRoute
@@ -70,7 +70,7 @@ class RESTServer:
 
         return FastAPI(
             title="KServe ModelServer",
-            version=pkg_resources.get_distribution("kserve").version,
+            version=metadata.version("kserve"),
             docs_url="/docs" if self.enable_docs_url else None,
             redoc_url=None,
             default_response_class=ORJSONResponse,

@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib import metadata
 from typing import Dict, Union, Tuple, Optional
 
 import cloudevents.exceptions as ce
 import orjson
-import pkg_resources
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.api import RayServeHandle
@@ -43,7 +43,7 @@ class DataPlane:
 
         # Dynamically fetching version of the installed 'kserve' distribution. The assumption is
         # that 'kserve' will already be installed by the time this class is instantiated.
-        self._server_version = pkg_resources.get_distribution("kserve").version
+        self._server_version = metadata.version("kserve")
 
     @property
     def model_registry(self):
