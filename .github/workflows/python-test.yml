@@ -41,17 +41,17 @@ jobs:
     - name: Test with pytest
       run: |
         cd python
-        pip install -e ./kserve[test]
+        pip install -e ./kserve[test] --config-settings editable_mode=compat
         pytest --cov=kserve ./kserve
-        pip install -e ./sklearnserver
+        pip install -e ./sklearnserver --config-settings editable_mode=compat
         pytest --cov=sklearnserver ./sklearnserver
-        pip install -e ./xgbserver
+        pip install -e ./xgbserver --config-settings editable_mode=compat
         pytest --cov=xgbserver ./xgbserver
-        pip install -e ./pmmlserver
+        pip install -e ./pmmlserver --config-settings editable_mode=compat
         pytest --cov=pmmlserver ./pmmlserver
-        pip install -e ./lgbserver
+        pip install -e ./lgbserver --config-settings editable_mode=compat
         pytest --cov=lgbserver ./lgbserver
-        pip install -e ./paddleserver[test]
+        pip install -e ./paddleserver[test] --config-settings editable_mode=compat
         pytest --cov=paddleserver ./paddleserver
-        pip install -e ./alibiexplainer
+        pip install -e ./alibiexplainer --config-settings editable_mode=compat
         pytest --cov=alibiexplainer ./alibiexplainer
