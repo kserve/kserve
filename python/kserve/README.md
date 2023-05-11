@@ -102,7 +102,6 @@ Please review [KServe Client API](https://github.com/kserve/website/blob/main/do
  - [V1alpha1InferenceRouter](docs/V1alpha1InferenceRouter.md)
  - [V1alpha1InferenceStep](docs/V1alpha1InferenceStep.md)
  - [V1alpha1InferenceTarget](docs/V1alpha1InferenceTarget.md)
- - [V1beta1AIXExplainerSpec](docs/V1beta1AIXExplainerSpec.md)
  - [V1beta1AlibiExplainerSpec](docs/V1beta1AlibiExplainerSpec.md)
  - [V1beta1Batcher](docs/V1beta1Batcher.md)
  - [V1beta1ComponentExtensionSpec](docs/V1beta1ComponentExtensionSpec.md)
