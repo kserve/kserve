@@ -31,7 +31,8 @@ while getopts ":hsr" option; do
 done
 
 export ISTIO_VERSION=1.16.2
-export KNATIVE_VERSION=knative-v1.9.0
+export KNATIVE_SERVING_VERSION=knative-v1.10.1
+export KNATIVE_ISTIO_VERSION=knative-v1.10.0
 export KSERVE_VERSION=v0.10.1
 export CERT_MANAGER_VERSION=v1.3.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
@@ -96,9 +97,9 @@ echo "😀 Successfully installed Istio"
 
 # Install Knative
 if [ $deploymentMode = serverless ]; then
-   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
-   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-   kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_SERVING_VERSION}/serving-crds.yaml
+   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_SERVING_VERSION}/serving-core.yaml
+   kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_ISTIO_VERSION}/release.yaml
    # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress
    kubectl patch cm config-domain --patch '{"data":{"example.com":""}}' -n knative-serving
    echo "😀 Successfully installed Knative"
