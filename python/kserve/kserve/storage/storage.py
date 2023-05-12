@@ -140,10 +140,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         c = Config()
 
         # anon environment variable defined in s3_secret.go
-        anon = ("True" == os.getenv("awsAnonymousCredential", "false").capitalize())
+        anon = ("true" == os.getenv("awsAnonymousCredential", "false").lower())
         # S3UseVirtualBucket environment variable defined in s3_secret.go
         # use virtual hosted-style URLs if enabled
-        virtual = ("True" == os.getenv("S3_USER_VIRTUAL_BUCKET", "false").capitalize())
+        virtual = ("true" == os.getenv("S3_USER_VIRTUAL_BUCKET", "false").lower())
 
         if anon:
             c = c.merge(Config(signature_version=UNSIGNED))
