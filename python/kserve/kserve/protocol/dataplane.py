@@ -248,7 +248,7 @@ class DataPlane:
                 del attributes["data"]
         return decoded_body, attributes
 
-    def encode(self, model_name, body, response, headers, attributes: Dict) -> Tuple[Dict, Dict[str, str]]:
+    def encode(self, model_name, response, headers, req_attributes: Dict) -> Tuple[Dict, Dict[str, str]]:
         response_headers = {}
         # if we received a cloudevent, then also return a cloudevent
         is_cloudevent = False
@@ -260,7 +260,7 @@ class DataPlane:
             if headers.get("content-type", "") == "application/cloudevents+json":
                 is_cloudevent = True
         if is_cloudevent:
-            response_headers, response = create_response_cloudevent(model_name, body, response, attributes,
+            response_headers, response = create_response_cloudevent(model_name, response, req_attributes,
                                                                     is_binary_cloudevent)
 
             if is_binary_cloudevent:
@@ -305,7 +305,7 @@ class DataPlane:
             model_handle: RayServeHandle = model
             response = await model_handle.remote(body, headers=headers)
 
-        response, response_headers = self.encode(model_name, body, response, headers, req_attributes)
+        response, response_headers = self.encode(model_name, response, headers, req_attributes)
         return response, response_headers
 
     async def explain(self, model_name: str,
@@ -334,5 +334,5 @@ class DataPlane:
         else:
             model_handle = model
             response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
-        response, response_headers = self.encode(model_name, body, response, headers, req_attributes)
+        response, response_headers = self.encode(model_name, response, headers, req_attributes)
         return response, response_headers

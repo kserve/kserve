@@ -94,17 +94,17 @@ def is_structured_cloudevent(body: Dict) -> bool:
            and "data" in body
 
 
-def create_response_cloudevent(model_name: str, body: Union[Dict, CloudEvent], response: Dict, attributes: Dict,
+def create_response_cloudevent(model_name: str, response: Dict, req_attributes: Dict,
                                binary_event=False) -> tuple:
     ce_attributes = {}
 
     if os.getenv("CE_MERGE", "false").lower() == "true":
         if binary_event:
-            ce_attributes = attributes
+            ce_attributes = req_attributes
             if "datacontenttype" in ce_attributes:  # Optional field so must check
                 del ce_attributes["datacontenttype"]
         else:
-            ce_attributes = attributes
+            ce_attributes = req_attributes
 
         # Remove these fields so we generate new ones
         del ce_attributes["id"]
