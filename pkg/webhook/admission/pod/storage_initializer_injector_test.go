@@ -1229,7 +1229,7 @@ func TestCaBundleSecretVolumeMount(t *testing.T) {
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 								{
-									Name:      "cabundle-secrets",
+									Name:      "custom-certs",
 									MountPath: constants.DefaultCaBundleVolumeMountPath,
 								},
 							},
@@ -1243,7 +1243,7 @@ func TestCaBundleSecretVolumeMount(t *testing.T) {
 							},
 						},
 						{
-							Name: "cabundle-secrets",
+							Name: "custom-certs",
 							VolumeSource: v1.VolumeSource{
 								secret: &v1.SecretVolumeSource{
 									SecretName: "custom-certs",
