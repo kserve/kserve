@@ -39,6 +39,8 @@ const (
 	StorageInitializerDefaultMemoryRequest              = "200Mi"
 	StorageInitializerDefaultMemoryLimit                = "1Gi"
 	StorageInitializerDefaultStorageSpecSecretName      = "storage-config"
+	StorageInitializerDefaultCaBundleSecretName         = ""
+	StorageInitializerDefaultCaBundleVolumeMountPath    = ""
 	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
 )
 
@@ -49,6 +51,8 @@ var (
 		MemoryRequest:              StorageInitializerDefaultMemoryRequest,
 		MemoryLimit:                StorageInitializerDefaultMemoryLimit,
 		StorageSpecSecretName:      StorageInitializerDefaultStorageSpecSecretName,
+		CaBundleSecretName:         StorageInitializerDefaultCaBundleSecretName,
+		CaBundleVolumeMountPath:    StorageInitializerDefaultCaBundleVolumeMountPath,
 		EnableDirectPvcVolumeMount: StorageInitializerDefaultEnableDirectPvcVolumeMount,
 	}
 
@@ -1029,12 +1033,14 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
-				Image:                 "kfserving/storage-initializer@sha256:xxx",
-				CpuRequest:            StorageInitializerDefaultCPURequest,
-				CpuLimit:              StorageInitializerDefaultCPULimit,
-				MemoryRequest:         StorageInitializerDefaultMemoryRequest,
-				MemoryLimit:           StorageInitializerDefaultMemoryLimit,
-				StorageSpecSecretName: StorageInitializerDefaultStorageSpecSecretName,
+				Image:                   "kfserving/storage-initializer@sha256:xxx",
+				CpuRequest:              StorageInitializerDefaultCPURequest,
+				CpuLimit:                StorageInitializerDefaultCPULimit,
+				MemoryRequest:           StorageInitializerDefaultMemoryRequest,
+				MemoryLimit:             StorageInitializerDefaultMemoryLimit,
+				StorageSpecSecretName:   StorageInitializerDefaultStorageSpecSecretName,
+				CaBundleSecretName:      StorageInitializerDefaultCaBundleSecretName,
+				CaBundleVolumeMountPath: StorageInitializerDefaultCaBundleVolumeMountPath,
 			},
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
@@ -1060,24 +1066,28 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
 					StorageInitializerConfigMapKeyName: `{
-						"Image":        		 "gcr.io/kfserving/storage-initializer:latest",
-						"CpuRequest":   		 "100m",
-						"CpuLimit":      		 "1",
-						"MemoryRequest": 		 "200Mi",
-						"MemoryLimit":   		 "1Gi",
-						"StorageSpecSecretName": "storage-secret"
+						"Image":        	   "gcr.io/kfserving/storage-initializer:latest",
+						"CpuRequest":   	   "100m",
+						"CpuLimit":      	   "1",
+						"MemoryRequest": 	   "200Mi",
+						"MemoryLimit":   	   "1Gi",
+						"StorageSpecSecretName":   "storage-secret",
+						"CaBundleSecretName":      "",
+						"CaBundleVolumeMountPath": "",
 					}`,
 				},
 				BinaryData: map[string][]byte{},
 			},
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&StorageInitializerConfig{
-					Image:                 "gcr.io/kfserving/storage-initializer:latest",
-					CpuRequest:            "100m",
-					CpuLimit:              "1",
-					MemoryRequest:         "200Mi",
-					MemoryLimit:           "1Gi",
-					StorageSpecSecretName: "storage-secret",
+					Image:                   "gcr.io/kfserving/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200Mi",
+					MemoryLimit:             "1Gi",
+					StorageSpecSecretName:   "storage-secret",
+					CaBundleSecretName:      "",
+					CaBundleVolumeMountPath: "",
 				}),
 				gomega.BeNil(),
 			},
@@ -1089,24 +1099,28 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
 					StorageInitializerConfigMapKeyName: `{
-						"Image":        		 "gcr.io/kfserving/storage-initializer:latest",
-						"CpuRequest":   		 "100m",
-						"CpuLimit":      		 "1",
-						"MemoryRequest": 		 "200MC",
-						"MemoryLimit":   		 "1Gi",
-						"StorageSpecSecretName": "storage-secret"
+						"Image":        	   "gcr.io/kfserving/storage-initializer:latest",
+						"CpuRequest":   	   "100m",
+						"CpuLimit":      	   "1",
+						"MemoryRequest": 	   "200MC",
+						"MemoryLimit":   	   "1Gi",
+						"StorageSpecSecretName":   "storage-secret"
+						"CaBundleSecretName":      "",
+						"CaBundleVolumeMountPath": "",
 					}`,
 				},
 				BinaryData: map[string][]byte{},
 			},
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&StorageInitializerConfig{
-					Image:                 "gcr.io/kfserving/storage-initializer:latest",
-					CpuRequest:            "100m",
-					CpuLimit:              "1",
-					MemoryRequest:         "200MC",
-					MemoryLimit:           "1Gi",
-					StorageSpecSecretName: "storage-secret",
+					Image:                   "gcr.io/kfserving/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200MC",
+					MemoryLimit:             "1Gi",
+					StorageSpecSecretName:   "storage-secret",
+					CaBundleSecretName:      "",
+					CaBundleVolumeMountPath: "",
 				}),
 				gomega.HaveOccurred(),
 			},
