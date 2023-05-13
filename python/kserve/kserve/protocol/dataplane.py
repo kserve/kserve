@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib import metadata
 from typing import Dict, Union, Tuple, Optional
 
 import cloudevents.exceptions as ce
 import orjson
-import pkg_resources
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.api import RayServeHandle
@@ -25,7 +25,7 @@ from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import ModelType
 from ..model_repository import ModelRepository
-from ..utils.utils import create_response_cloudevent
+from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest
 from ..constants import constants
 from .grpc import grpc_predict_v2_pb2 as pb
@@ -43,7 +43,7 @@ class DataPlane:
 
         # Dynamically fetching version of the installed 'kserve' distribution. The assumption is
         # that 'kserve' will already be installed by the time this class is instantiated.
-        self._server_version = pkg_resources.get_distribution("kserve").version
+        self._server_version = metadata.version("kserve")
 
     @property
     def model_registry(self):
@@ -205,23 +205,50 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    def decode(self, body, headers) -> Union[Dict, InferRequest]:
+    def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest, CloudEvent], Dict]:
         t1 = time.time()
+        decoded_body = body
+        attributes = {}
         if isinstance(body, InferRequest):
-            return body
+            return decoded_body, attributes
         if headers and has_binary_headers(headers):
             body = self.get_binary_cloudevent(body, headers)
-        else:
-            if type(body) is bytes:
-                try:
-                    body = orjson.loads(body)
-                except orjson.JSONDecodeError as e:
-                    raise InvalidInput(f"Unrecognized request format: {e}")
+        elif type(body) is bytes:
+            try:
+                body = orjson.loads(body)
+            except orjson.JSONDecodeError as e:
+                raise InvalidInput(f"Unrecognized request format: {e}")
+
+        decoded_body, attributes = self.decode_cloudevent(body)
         t2 = time.time()
         logging.debug(f"decoded request in {round((t2 - t1) * 1000, 9)}ms")
-        return body
+        return decoded_body, attributes
 
-    def encode(self, model_name, body, response, headers) -> Tuple[Dict, Dict[str, str]]:
+    def decode_cloudevent(self, body) -> Tuple[Union[Dict, InferRequest, CloudEvent], Dict]:
+        decoded_body = body
+        attributes = {}
+        if isinstance(body, CloudEvent):
+            # Try to decode and parse JSON UTF-8 if possible, otherwise
+            # just pass the CloudEvent data on to the predict function.
+            # This is for the cases that CloudEvent encoding is protobuf, avro etc.
+            try:
+                decoded_body = orjson.loads(body.data.decode('UTF-8'))
+                attributes = body._get_attributes()
+            except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+                # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
+                if "content-type" in body._attributes and \
+                        (body._attributes["content-type"] == "application/cloudevents+json" or
+                         body._attributes["content-type"] == "application/json"):
+                    raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
+
+        elif isinstance(body, dict):
+            if is_structured_cloudevent(body):
+                decoded_body = body["data"]
+                attributes = body
+                del attributes["data"]
+        return decoded_body, attributes
+
+    def encode(self, model_name, response, headers, req_attributes: Dict) -> Tuple[Dict, Dict[str, str]]:
         response_headers = {}
         # if we received a cloudevent, then also return a cloudevent
         is_cloudevent = False
@@ -233,7 +260,7 @@ class DataPlane:
             if headers.get("content-type", "") == "application/cloudevents+json":
                 is_cloudevent = True
         if is_cloudevent:
-            response_headers, response = create_response_cloudevent(model_name, body, response,
+            response_headers, response = create_response_cloudevent(model_name, response, req_attributes,
                                                                     is_binary_cloudevent)
 
             if is_binary_cloudevent:
@@ -268,7 +295,7 @@ class DataPlane:
 
         .. _CloudEvent: https://cloudevents.io/
         """
-        body = self.decode(body, headers)
+        body, req_attributes = self.decode(body, headers)
 
         # call model locally or remote model workers
         model = self.get_model(model_name)
@@ -278,7 +305,7 @@ class DataPlane:
             model_handle: RayServeHandle = model
             response = await model_handle.remote(body, headers=headers)
 
-        response, response_headers = self.encode(model_name, body, response, headers)
+        response, response_headers = self.encode(model_name, response, headers, req_attributes)
         return response, response_headers
 
     async def explain(self, model_name: str,
@@ -298,7 +325,7 @@ class DataPlane:
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
-        body = self.decode(body, headers)
+        body, req_attributes = self.decode(body, headers)
 
         # call model locally or remote model workers
         model = self.get_model(model_name)
@@ -307,5 +334,5 @@ class DataPlane:
         else:
             model_handle = model
             response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
-        response, response_headers = self.encode(model_name, body, response, headers)
+        response, response_headers = self.encode(model_name, response, headers, req_attributes)
         return response, response_headers
