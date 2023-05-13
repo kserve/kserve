@@ -47,6 +47,8 @@ type StorageInitializerConfig struct {
 	MemoryRequest              string `json:"memoryRequest"`
 	MemoryLimit                string `json:"memoryLimit"`
 	StorageSpecSecretName      string `json:"storageSpecSecretName"`
+	CaBundleSecretName         string `json:"caBundleSecretName"`
+	CaBundleVolumeMountPath    string `json:"caBundleVolumeMountPath"`
 	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
 }
 
