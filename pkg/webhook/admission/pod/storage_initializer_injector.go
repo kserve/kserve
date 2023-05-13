@@ -39,7 +39,6 @@ const (
 	PvcSourceMountName                      = "kserve-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
 	CaBundleVolumeName                      = "cabundle-secrets"
-	CaBundleVolumeMountPath                 = "/etc/ssl/custom-certs"
 )
 
 type StorageInitializerConfig struct {
@@ -316,7 +315,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	if caBundleSecretName != "" {
 		caBundleVolumeMountPath := mi.config.CaBundleVolumeMountPath
 		if caBundleVolumeMountPath == "" {
-			caBundleVolumeMountPath = CaBundleVolumeMountPath
+			caBundleVolumeMountPath = constants.DefaultCaBundleVolumeMountPath
 		}
 		
 		caBundleVolume := v1.Volume{
