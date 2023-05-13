@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package pod
 
 import (
@@ -40,7 +41,7 @@ const (
 	StorageInitializerDefaultMemoryLimit                = "1Gi"
 	StorageInitializerDefaultStorageSpecSecretName      = "storage-config"
 	StorageInitializerDefaultCaBundleSecretName         = ""
-	StorageInitializerDefaultCaBundleVolumeMountPath    = ""
+	StorageInitializerDefaultCaBundleVolumeMountPath    = "/etc/ssl/custom-certs"
 	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
 )
 
