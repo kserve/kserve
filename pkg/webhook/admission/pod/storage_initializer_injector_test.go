@@ -1074,7 +1074,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 						"MemoryLimit":   	   "1Gi",
 						"StorageSpecSecretName":   "storage-secret",
 						"CaBundleSecretName":      "",
-						"CaBundleVolumeMountPath": "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs",
 					}`,
 				},
 				BinaryData: map[string][]byte{},
@@ -1088,7 +1088,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 					MemoryLimit:             "1Gi",
 					StorageSpecSecretName:   "storage-secret",
 					CaBundleSecretName:      "",
-					CaBundleVolumeMountPath: "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
 				}),
 				gomega.BeNil(),
 			},
@@ -1107,7 +1107,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 						"MemoryLimit":   	   "1Gi",
 						"StorageSpecSecretName":   "storage-secret"
 						"CaBundleSecretName":      "",
-						"CaBundleVolumeMountPath": "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs",
 					}`,
 				},
 				BinaryData: map[string][]byte{},
@@ -1121,7 +1121,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 					MemoryLimit:             "1Gi",
 					StorageSpecSecretName:   "storage-secret",
 					CaBundleSecretName:      "",
-					CaBundleVolumeMountPath: "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
 				}),
 				gomega.HaveOccurred(),
 			},
@@ -1170,6 +1170,166 @@ func TestParsePvcURI(t *testing.T) {
 			g.Expect(err).Should(tc.matchers[2])
 		})
 
+	}
+}
+
+func TestCaBundleSecretVolumeMount(t *testing.T) {
+	scenarios := map[string]struct {
+		storageConfig *StorageInitializerConfig
+		original *v1.Pod
+		expected *v1.Pod
+	}{
+		"StorageInitializerInjectedAndMountsCaBundleSecretVolume": {
+			storageConfig: &StorageInitializerConfig{
+				CaBundleSecretName: "custom-certs", // enable CA bundle secret volume mount
+			},
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+								{
+									Name:      "cabundle-secrets",
+									MountPath: constants.DefaultCaBundleVolumeMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "cabundle-secrets",
+							VolumeSource: v1.VolumeSource{
+								secret: &v1.SecretVolumeSource{
+									SecretName: "custom-certs",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"StorageInitializerNotInjectedAndMountsCaBundleSecretVolume": {
+			storageConfig: storageInitializerConfig,
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: scenario.storageConfig,
+		}
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
 	}
 }
 
