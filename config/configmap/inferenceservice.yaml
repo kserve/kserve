@@ -23,6 +23,8 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1",
         "storageSpecSecretName": "storage-config",
+        "caBundleSecretName": "",
+        "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
         "enableDirectPvcVolumeMount": false
     }
   # ====================================== CREDENTIALS ======================================
