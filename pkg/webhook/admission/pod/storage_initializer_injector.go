@@ -38,6 +38,7 @@ const (
 	PvcURIPrefix                            = "pvc://"
 	PvcSourceMountName                      = "kserve-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
+	CaBundleVolumeName                      = "cabundle-secrets"
 )
 
 type StorageInitializerConfig struct {
@@ -307,6 +308,28 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		); err != nil {
 			return err
 		}
+	}
+	
+	// Inject CA bundle secret if set
+	caBundleSecretName := mi.config.CaBundleSecretName
+	if caBundleSecretName != "" {
+		caBundleVolume := v1.Volume{
+			Name: CaBundleVolumeName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: caBundleSecretName,
+				},
+			},
+		}
+
+		caBundleVolumeMount := v1.VolumeMount{
+			Name:      CaBundleVolumeName,
+			MountPath: mi.config.CaBundleVolumeMountPath,
+			ReadOnly:  true,
+		}
+		
+		pod.Spec.Volumes = append(pod.Spec.Volumes, caBundleVolume)
+		initContainer.VolumeMounts = append(initContainer.VolumeMounts, caBundleVolumeMount)
 	}
 
 	// Add init container to the spec
