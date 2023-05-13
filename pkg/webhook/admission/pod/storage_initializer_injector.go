@@ -38,7 +38,7 @@ const (
 	PvcURIPrefix                            = "pvc://"
 	PvcSourceMountName                      = "kserve-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
-	CaBundleVolumeName                      = "cabundle-secrets"
+	CaBundleVolumeName                      = "custom-certs"
 )
 
 type StorageInitializerConfig struct {
