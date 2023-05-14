@@ -135,9 +135,8 @@ class V2Endpoints:
                                                                 headers=request_headers)
 
         response, response_headers = self.dataplane.encode(model_name=model_name,
-                                                           body=infer_request,
                                                            response=response,
-                                                           headers=response_headers)
+                                                           headers=response_headers, req_attributes={})
 
         if response_headers:
             raw_response.headers.update(response_headers)

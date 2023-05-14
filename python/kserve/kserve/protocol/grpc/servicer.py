@@ -91,7 +91,7 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
     ) -> pb.ModelInferResponse:
         headers = to_headers(context)
         infer_request = InferRequest.from_grpc(request)
-        response_body, _ = await self._data_plane.infer(body=infer_request, headers=headers,
+        response_body, _ = await self._data_plane.infer(request=infer_request, headers=headers,
                                                         model_name=request.model_name)
         if isinstance(response_body, pb.ModelInferResponse):
             return response_body

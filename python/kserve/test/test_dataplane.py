@@ -120,12 +120,11 @@ class TestDataPlane:
 
     async def test_infer(self, dataplane_with_model):
         body = b'{"instances":[[1,2]]}'
-        infer_request = dataplane_with_model.decode(body, None)
+        infer_request, req_attributes = dataplane_with_model.decode(body, None)
         resp, headers = await dataplane_with_model.infer(self.MODEL_NAME, infer_request)
         resp, headers = dataplane_with_model.encode(self.MODEL_NAME,
-                                                    infer_request,
-                                                    resp,
-                                                    None)
+                                                    resp, headers,
+                                                    req_attributes)
         assert (resp, headers) == (
             {"predictions": [[1, 2]]},  # body
             {}
@@ -133,12 +132,11 @@ class TestDataPlane:
 
     async def test_explain(self, dataplane_with_model: DataPlane):
         body = b'{"instances":[[1,2]]}'
-        infer_request = dataplane_with_model.decode(body, None)
+        infer_request, req_attributes = dataplane_with_model.decode(body, None)
         resp, headers = await dataplane_with_model.explain(self.MODEL_NAME, infer_request)
         resp, headers = dataplane_with_model.encode(self.MODEL_NAME,
-                                                    infer_request,
-                                                    resp,
-                                                    None)
+                                                    resp, headers,
+                                                    req_attributes)
         assert (resp, headers) == (
             {"predictions": [[1, 2]]},
             {}
@@ -160,14 +158,13 @@ class TestDataPlaneCloudEvent:
     async def test_infer_ce_structured(self, dataplane_with_ce_model: DataPlane):
         event: CloudEvent = dummy_cloud_event({"instances": [[1, 2]]})
         headers, body = to_structured(event)
-        infer_request = dataplane_with_ce_model.decode(body, headers)
+        infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
         resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME,
                                                             infer_request,
                                                             headers)
         resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
-                                                       infer_request,
                                                        resp,
-                                                       headers)
+                                                       headers, req_attributes)
         body = json.loads(resp)
 
         assert headers['content-type'] == "application/cloudevents+json"
@@ -190,11 +187,10 @@ class TestDataPlaneCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]})
             headers, body = to_structured(event)
 
-            infer_request = dataplane_with_ce_model.decode(body, headers)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
             resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
             resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
-                                                           infer_request,
-                                                           resp, headers)
+                                                           resp, headers, req_attributes)
             body = json.loads(resp)
 
             assert headers['content-type'] == "application/cloudevents+json"
@@ -209,12 +205,11 @@ class TestDataPlaneCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]}, add_extension=True)
             headers, body = to_structured(event)
 
-            infer_request = dataplane_with_ce_model.decode(body, headers)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
             resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
             resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
-                                                           infer_request,
                                                            resp,
-                                                           headers)
+                                                           headers, req_attributes)
             body = json.loads(resp)
 
             assert headers['content-type'] == "application/cloudevents+json"
@@ -233,9 +228,9 @@ class TestDataPlaneCloudEvent:
                                       add_extension=True)
             headers, body = to_binary(event)
 
-            infer_request = dataplane_with_ce_model.decode(body, headers)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
             resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
-            resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME, infer_request, resp, headers)
+            resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
 
             assert headers['content-type'] == "application/json"
             assert headers['ce-specversion'] == "1.0"
@@ -251,14 +246,13 @@ class TestDataPlaneCloudEvent:
         event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True)
         headers, body = to_binary(event)
 
-        infer_request = dataplane_with_ce_model.decode(body, headers)
+        infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
         resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME,
                                                             infer_request,
                                                             headers)
         resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
-                                                       infer_request,
                                                        resp,
-                                                       headers)
+                                                       headers, req_attributes)
 
         assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
@@ -272,12 +266,11 @@ class TestDataPlaneCloudEvent:
         event = dummy_cloud_event(b'{"instances":[[1,2]]}', set_contenttype=True)
         headers, body = to_binary(event)
 
-        infer_request = dataplane_with_ce_model.decode(body, headers)
+        infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
         resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
         resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
-                                                       infer_request,
                                                        resp,
-                                                       headers)
+                                                       headers, req_attributes)
         assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
         assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
@@ -291,7 +284,7 @@ class TestDataPlaneCloudEvent:
         headers, body = to_binary(event)
 
         with pytest.raises(InvalidInput) as err:
-            infer_request = dataplane_with_ce_model.decode(body, headers)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
             await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
 
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: "
@@ -303,7 +296,7 @@ class TestDataPlaneCloudEvent:
         headers, body = to_binary(event)
 
         with pytest.raises(InvalidInput) as err:
-            infer_request = dataplane_with_ce_model.decode(body, headers)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
             await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
 
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: 'utf-8' codec "
@@ -351,15 +344,14 @@ class TestDataPlaneAvroCloudEvent:
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
 
-        infer_request = dataplane_with_ce_model.decode(body, headers)
+        infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
         resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME,
                                                             infer_request,
                                                             headers)
 
         resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
-                                                       infer_request,
                                                        resp,
-                                                       headers)
+                                                       headers, req_attributes)
 
         assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"

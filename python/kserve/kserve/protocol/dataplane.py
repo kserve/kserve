@@ -204,7 +204,7 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest, CloudEvent], Dict]:
+    def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest], Dict]:
         t1 = time.time()
         decoded_body = body
         attributes = {}
@@ -223,7 +223,7 @@ class DataPlane:
         logging.debug(f"decoded request in {round((t2 - t1) * 1000, 9)}ms")
         return decoded_body, attributes
 
-    def decode_cloudevent(self, body) -> Tuple[Union[Dict, InferRequest, CloudEvent], Dict]:
+    def decode_cloudevent(self, body) -> Tuple[Union[Dict, InferRequest], Dict]:
         decoded_body = body
         attributes = {}
         if isinstance(body, CloudEvent):
@@ -283,7 +283,7 @@ class DataPlane:
 
         Args:
             model_name (str): Model name.
-            body (bytes|Dict): Request body data.
+            request (bytes|Dict): Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
@@ -314,7 +314,7 @@ class DataPlane:
 
         Args:
             model_name (str): Model name to be used for explanation.
-            body (bytes|Dict): Request body data.
+            request (bytes|Dict): Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
