@@ -15,18 +15,10 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: '3.x'
-    - name: Install and configure Poetry
-      env:
-        POETRY_VERSION: 1.4.0
-      run: |
-        pip install poetry==$POETRY_VERSION
-        poetry config virtualenvs.create true
-        poetry config virtualenvs.in-project true
-        poetry config installer.parallel true
-    - name: Install poetry version plugin
-      run: |
-        pip install -e python/plugin/poetry-version-plugin
-        poetry self show plugins   
+
+    - name: Install Poetry and version plugin
+      run: ./test/scripts/gh-actions/setup-poetry.sh
+
     - name: Build and publish
       env:
         POETRY_HTTP_BASIC_PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
