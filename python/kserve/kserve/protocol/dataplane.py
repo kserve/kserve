@@ -32,6 +32,8 @@ from .grpc import grpc_predict_v2_pb2 as pb
 import time
 import logging
 
+JSON_HEADERS = ["application/json", "application/cloudevents+json", "application/ld+json"]
+
 
 class DataPlane:
     """KServe DataPlane
@@ -207,12 +209,21 @@ class DataPlane:
 
     def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest, CloudEvent], Dict]:
         t1 = time.time()
-        decoded_body = body
         attributes = {}
         if isinstance(body, InferRequest):
-            return decoded_body, attributes
-        if headers and has_binary_headers(headers):
-            body = self.get_binary_cloudevent(body, headers)
+            return body, attributes
+        if headers:
+            if has_binary_headers(headers):
+                # returns CloudEvent
+                body = self.get_binary_cloudevent(body, headers)
+            elif "content-type" in headers and headers["content-type"] not in JSON_HEADERS:
+                return body, attributes
+            else:
+                if type(body) is bytes:
+                    try:
+                        body = orjson.loads(body)
+                    except orjson.JSONDecodeError as e:
+                        raise InvalidInput(f"Unrecognized request format: {e}")
         elif type(body) is bytes:
             try:
                 body = orjson.loads(body)
