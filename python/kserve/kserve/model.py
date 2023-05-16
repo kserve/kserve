@@ -32,10 +32,10 @@ from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResp
 
 from .errors import InvalidInput
 
-PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
-EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
-PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
-EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
+PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
+EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
+PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
+EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
 
 
 class ModelType(Enum):
@@ -74,6 +74,7 @@ class Model:
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
+        self.use_ssl = False
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        model_type: ModelType = ModelType.PREDICTOR,
@@ -139,10 +140,14 @@ class Model:
     @property
     def _grpc_client(self):
         if self._grpc_client_stub is None:
-            # requires appending ":80" to the predictor host for gRPC to work
+            # requires appending the port to the predictor host for gRPC to work
             if ":" not in self.predictor_host:
-                self.predictor_host = self.predictor_host + ":80"
-            _channel = grpc.aio.insecure_channel(self.predictor_host)
+                port = 443 if self.use_ssl else 80
+                self.predictor_host = self.predictor_host + f":{port}"
+            if self.use_ssl:
+                _channel = grpc.aio.secure_channel(self.predictor_host, grpc.ssl_channel_credentials())
+            else:
+                _channel = grpc.aio.insecure_channel(self.predictor_host)
             self._grpc_client_stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
         return self._grpc_client_stub
 
@@ -232,9 +237,10 @@ class Model:
         return response
 
     async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
-        predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
+        protocol = "https" if self.use_ssl else "http"
+        predict_url = PREDICTOR_URL_FORMAT.format(protocol, self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
-            predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
+            predict_url = PREDICTOR_V2_URL_FORMAT.format(protocol, self.predictor_host, self.name)
 
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
@@ -311,9 +317,11 @@ class Model:
         """
         if self.explainer_host is None:
             raise NotImplementedError("Could not find explainer_host.")
-        explain_url = EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name)
+
+        protocol = "https" if self.use_ssl else "http"
+        explain_url = EXPLAINER_URL_FORMAT.format(protocol, self.explainer_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
-            explain_url = EXPLAINER_V2_URL_FORMAT.format(self.explainer_host, self.name)
+            explain_url = EXPLAINER_V2_URL_FORMAT.format(protocol, self.explainer_host, self.name)
         response = await self._http_client.post(
             url=explain_url,
             timeout=self.timeout,
