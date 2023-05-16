@@ -24,7 +24,7 @@ images:
 
 - name: mlserver
   newName: docker.io/seldonio/mlserver
-  newTag: 1.0.0
+  newTag: 1.3.2
 
 - name: kserve-xgbserver
   newName: kserve/xgbserver
