@@ -1,6 +1,10 @@
 #!/bin/bash
+set -e
 
 cd ./python
+
+echo "Installing poetry version plugin"
+pip install plugin/poetry-version-plugin
 
 packages=$(find . -maxdepth 1 -type d)
 
