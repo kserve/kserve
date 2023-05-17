@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Optional, Union
-from .model import Model
-from ray.serve.api import RayServeHandle
 import os
+from typing import Dict, Optional
+
+from .model import KServeModel
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -30,7 +30,7 @@ class ModelRepository:
     """
 
     def __init__(self, models_dir: str = MODEL_MOUNT_DIRS):
-        self.models: Dict[str, Union[Model, RayServeHandle]] = {}
+        self.models: Dict[str, KServeModel] = {}
         self.models_dir = models_dir
 
     def load_models(self):
@@ -42,27 +42,18 @@ class ModelRepository:
     def set_models_dir(self, models_dir):  # used for unit tests
         self.models_dir = models_dir
 
-    def get_model(self, name: str) -> Optional[Union[Model, RayServeHandle]]:
+    def get_model(self, name: str) -> Optional[KServeModel]:
         return self.models.get(name, None)
 
-    def get_models(self) -> Dict[str, Union[Model, RayServeHandle]]:
+    def get_models(self) -> Dict[str, KServeModel]:
         return self.models
 
     def is_model_ready(self, name: str):
         model = self.get_model(name)
-        if not model:
-            return False
-        if isinstance(model, Model):
-            return False if model is None else model.ready
-        else:
-            # For Ray Serve, the models are guaranteed to be ready after deploying the model.
-            return True
+        return False if model is None else model.ready
 
-    def update(self, model: Model):
+    def update(self, model: KServeModel):
         self.models[model.name] = model
-
-    def update_handle(self, name: str, model_handle: RayServeHandle):
-        self.models[name] = model_handle
 
     def load(self, name: str) -> bool:
         pass

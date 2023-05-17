@@ -15,22 +15,23 @@
 import inspect
 import logging
 import time
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, Union, List
+from typing import Dict, List, Optional, Union
 
 import grpc
-
 import httpx
-from httpx import HTTPStatusError
 import orjson
 from cloudevents.http import CloudEvent
-
-from .protocol.infer_type import InferRequest, InferResponse
-from .metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
-from .protocol.grpc import grpc_predict_v2_pb2_grpc
-from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+from httpx import HTTPStatusError
 
 from .errors import InvalidInput
+from .metrics import (EXPLAIN_HIST_TIME, POST_HIST_TIME, PRE_HIST_TIME,
+                      PREDICT_HIST_TIME, get_labels)
+from .protocol.grpc import grpc_predict_v2_pb2_grpc
+from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
+                                                ModelInferResponse)
+from .protocol.infer_type import InferRequest, InferResponse
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -53,7 +54,45 @@ def get_latency_ms(start: float, end: float) -> float:
     return round((end - start) * 1000, 9)
 
 
-class Model:
+class KServeModel(ABC):
+    """
+    Abstract base class to represent a servable model. Must minimally implement the __init__ method
+    and the __call__ method which is used to invoke the model.
+    """
+    name: str
+    ready: bool = False
+
+    @abstractmethod
+    def __init__(self, name: str):
+        self.name = name
+
+    @abstractmethod
+    async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
+                       model_type: ModelType = ModelType.PREDICTOR,
+                       headers: Optional[Dict[str, str]] = None) -> Dict:
+        pass
+
+    def load(self):
+        self.ready = True
+
+    def get_input_types(self) -> List[Dict]:
+        # Override this function to return appropriate input format expected by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
+
+    def get_output_types(self) -> List[Dict]:
+        # Override this function to return appropriate output format returned by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
+
+
+class Model(KServeModel):
     def __init__(self, name: str):
         """KServe Model Public Interface
 
@@ -62,7 +101,7 @@ class Model:
         Args:
             name (str): Name of the model.
         """
-        self.name = name
+        super().__init__(name)
         self.ready = False
         self.protocol = PredictorProtocol.REST_V1.value
         self.predictor_host = None
@@ -77,7 +116,7 @@ class Model:
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        model_type: ModelType = ModelType.PREDICTOR,
-                       headers: Dict[str, str] = None) -> Dict:
+                       headers: Optional[Dict[str, str]] = None) -> Dict:
         """Method to call predictor or explainer with the given input.
 
         Args:
@@ -171,23 +210,13 @@ class Model:
         return self.ready
 
     def get_input_types(self) -> List[Dict]:
-        # Override this function to return appropriate input format expected by your model.
-        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
-
-        # Eg.
-        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
     def get_output_types(self) -> List[Dict]:
-        # Override this function to return appropriate output format returned by your model.
-        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
-
-        # Eg.
-        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
     async def preprocess(self, payload: Union[Dict, CloudEvent, InferRequest],
-                         headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
+                         headers: Optional[Dict[str, str]] = None) -> Union[Dict, InferRequest]:
         """`preprocess` handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
@@ -231,12 +260,11 @@ class Model:
                     return response.to_rest()
         return response
 
-    async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
+    async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Optional[Dict[str, str]] = None) -> Dict:
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
             predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
 
-        # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
         predict_headers = {'Content-Type': 'application/json'}
         if headers is not None:
@@ -266,7 +294,9 @@ class Model:
             raise HTTPStatusError(message, request=response.request, response=response)
         return orjson.loads(response.content)
 
-    async def _grpc_predict(self, payload: Union[ModelInferRequest, InferRequest], headers: Dict[str, str] = None) \
+    async def _grpc_predict(self,
+                            payload: Union[ModelInferRequest, InferRequest],
+                            headers: Optional[Dict[str, str]] = None) \
             -> ModelInferResponse:
         if isinstance(payload, InferRequest):
             payload = payload.to_grpc()
@@ -280,7 +310,7 @@ class Model:
         return async_result
 
     async def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest],
-                      headers: Dict[str, str] = None) -> Union[Dict, InferResponse, ModelInferResponse]:
+                      headers: Optional[Dict[str, str]] = None) -> Union[Dict, InferResponse, ModelInferResponse]:
         """
 
         Args:
@@ -298,7 +328,7 @@ class Model:
         else:
             return await self._http_predict(payload, headers)
 
-    async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    async def explain(self, payload: Dict, headers: Optional[Dict[str, str]] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.
         The default implementation makes call to the explainer if ``explainer_host`` is specified
 

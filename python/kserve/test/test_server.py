@@ -30,6 +30,7 @@ from kserve import Model, ModelServer, ModelRepository
 from kserve.errors import InvalidInput
 from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
+from kserve.ray_model import RayServeModel
 
 from kserve.protocol.infer_type import InferRequest
 from kserve.utils.utils import get_predict_input, get_predict_response
@@ -93,7 +94,6 @@ class DummyModel(Model):
 class DummyServeModel(Model):
     def __init__(self, name):
         super().__init__(name)
-        self.name = name
         self.ready = False
 
     def load(self):
@@ -275,12 +275,13 @@ class TestRayServer:
     def app(self):  # pylint: disable=no-self-use
         serve.start(detached=False, http_options={"host": "0.0.0.0", "port": 9071})
 
-        DummyServeModel.deploy("TestModel")
-        handle = DummyServeModel.get_handle()
-        handle.load.remote()
+        name = "TestModel"
+        DummyServeModel.deploy(name)
+        handle = DummyServeModel.get_handle(name)
+        model = RayServeModel(name=name, ray_handle=handle)
 
         server = ModelServer()
-        server.register_model_handle("TestModel", handle)
+        server.register_model(model)
         rest_server = RESTServer(server.dataplane, server.model_repository_extension)
         return rest_server.create_application()
 

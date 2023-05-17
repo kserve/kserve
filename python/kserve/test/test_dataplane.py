@@ -29,6 +29,7 @@ from ray import serve
 from kserve.errors import InvalidInput, ModelNotFound
 from kserve.protocol.dataplane import DataPlane
 from kserve.model_repository import ModelRepository
+from kserve.ray_model import RayServeModel
 from test.test_server import DummyModel, dummy_cloud_event, DummyCEModel, DummyAvroCEModel, \
     DummyServeModel
 
@@ -53,8 +54,8 @@ class TestDataPlane:
             serve.start(detached=False, http_options={"host": "0.0.0.0", "port": 9071})
             DummyServeModel.deploy(self.MODEL_NAME)
             handle = DummyServeModel.get_handle()
-            handle.load.remote()
-            dataplane._model_registry.update_handle(self.MODEL_NAME, handle)
+            ray_model = RayServeModel(name=self.MODEL_NAME, ray_handle=handle)
+            dataplane._model_registry.update(ray_model)
             yield dataplane
             serve.shutdown()
 
