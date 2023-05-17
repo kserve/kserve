@@ -4,9 +4,9 @@ Organization: KServe
 
 Organization Description: KServe is a highly scalable and standards based Model Inference Platform on Kubernetes for Trusted AI
 
-Version information: 0.8.0
+Version information: KServe 0.10.1. Works for Kubeflow 1.7
 
-**Note:** To use the 0.7.0 version of this component which runs on Kubeflow 1.5, then change the load_component_from_url in the usage section with the following YAML instead:
+**Note:** To use the KServe 0.7.0 version of this component which runs on Kubeflow 1.5, then change the load_component_from_url in the usage section with the following YAML instead:
 ```
 https://raw.githubusercontent.com/kubeflow/pipelines/1.8.1/components/kserve/component.yaml
 ```
@@ -61,7 +61,7 @@ def kserve_pipeline():
     kserve_op(
         action='apply',
         model_name='tf-sample',
-        model_uri='gs://kfserving-samples/models/tensorflow/flowers',
+        model_uri='gs://kfserving-examples/models/tensorflow/flowers',
         framework='tensorflow',
     )
 kfp.Client().create_run_from_pipeline_func(kserve_pipeline, arguments={})
@@ -86,7 +86,7 @@ Ensure you have an initial model deployed with 100 percent traffic with somethin
 kserve_op(
     action = 'apply',
     model_name='tf-sample',
-    model_uri='gs://kfserving-samples/models/tensorflow/flowers',
+    model_uri='gs://kfserving-examples/models/tensorflow/flowers',
     framework='tensorflow',
 )
 ```
@@ -97,7 +97,7 @@ Deploy the candidate model which will only get a portion of traffic:
 kserve_op(
     action='apply',
     model_name='tf-sample',
-    model_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
+    model_uri='gs://kfserving-examples/models/tensorflow/flowers-2',
     framework='tensorflow',
     canary_traffic_percent='10'
 )
@@ -109,7 +109,7 @@ To promote the candidate model, you can either set `canary_traffic_percent` to `
 kserve_op(
     action='apply',
     model_name='tf-sample',
-    model_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
+    model_uri='gs://kfserving-examples/models/tensorflow/flowers-2',
     framework='tensorflow'
 )
 ```
@@ -120,7 +120,7 @@ If you instead want to rollback the candidate model, then set `canary_traffic_pe
 kserve_op(
     action='apply',
     model_name='tf-sample',
-    model_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
+    model_uri='gs://kfserving-examples/models/tensorflow/flowers-2',
     framework='tensorflow',
     canary_traffic_percent='0'
 )
@@ -177,7 +177,7 @@ metadata:
 spec:
   predictor:
     sklearn:
-      storageUri: "gs://kfserving-samples/models/sklearn/iris"
+      storageUri: "gs://kfserving-examples/models/sklearn/iris"
 '''
 kserve_op(
     action='apply',
