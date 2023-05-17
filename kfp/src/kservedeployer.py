@@ -35,7 +35,7 @@ from kserve import V1beta1TFServingSpec
 from kserve import V1beta1TorchServeSpec
 from kserve import V1beta1TritonSpec
 from kserve import V1beta1XGBoostSpec
-from kserve.api.kf_serving_watch import isvc_watch
+from kserve.api.watch import isvc_watch
 
 
 AVAILABLE_FRAMEWORKS = {
@@ -180,7 +180,7 @@ def submit_api_request(kserve_client, action, name, isvc, namespace=None,
 
 def perform_action(action, model_name, model_uri, canary_traffic_percent, namespace,
                    framework, custom_model_spec, service_account, inferenceservice_yaml,
-                   request_timeout, autoscaling_target=0, enable_istio_sidecar=True, 
+                   request_timeout, autoscaling_target=0, enable_istio_sidecar=True,
                    watch_timeout=300, min_replicas=0, max_replicas=0):
     """
     Perform the specified action. If the action is not 'delete' and `inferenceService_yaml`

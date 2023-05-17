@@ -1,2 +1,2 @@
-kubernetes==19.15.0
-kserve==0.7.0
+kserve==0.8.0
+protobuf~=3.19.0
