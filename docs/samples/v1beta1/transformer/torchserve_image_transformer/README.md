@@ -16,10 +16,18 @@ kubectl port-forward pods/{name-of-predictor-pod} 8081:8080
 ```
 Since the predictor pod will expose 8080, pick another port to use with localhost. Here, 8081 is used.
 
+*Note that if you use KServe 0.11 or later, you can skip this step and add `--use_ssl` flag to the command below.*
+
 (4) Use `localhost:8081` as the {predictor-url} to run the following command from this directory. Pass in the `-config_path="local_config.properties"` to use a local config file. If you deploy the transformer to Kubernetes, it will pull the file from GCS.
 
 ```bash
 python3 -m image_transformer --predictor_host={predictor-url}  --workers=1 --config_path="local_config.properties"
+```
+
+With KServe 0.11 or later, you can connect to the predictor host via ssl.
+
+```bash
+python3 -m image_transformer --use_ssl --predictor_host={predictor-url}  --workers=1 --config_path="local_config.properties"
 ```
 
 Now your service is running and you can send a request via localhost! 
