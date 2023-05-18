@@ -194,16 +194,18 @@ def explain_response(service_name, input_json):
 
 
 def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
-    api_instance = client.CoreV1Api(client.ApiClient())
-    service = api_instance.read_namespaced_service(name, namespace)
-    if service.status.load_balancer.ingress is None:
-        cluster_ip = service.spec.cluster_ip
-    else:
-        if service.status.load_balancer.ingress[0].hostname:
-            cluster_ip = service.status.load_balancer.ingress[0].hostname
+    cluster_ip = os.environ.get("KSERVE_INGRESS_HOST_PORT")
+    if cluster_ip is None:
+        api_instance = client.CoreV1Api(client.ApiClient())
+        service = api_instance.read_namespaced_service(name, namespace)
+        if service.status.load_balancer.ingress is None:
+            cluster_ip = service.spec.cluster_ip
         else:
-            cluster_ip = service.status.load_balancer.ingress[0].ip
-    return os.environ.get("KSERVE_INGRESS_HOST_PORT", cluster_ip)
+            if service.status.load_balancer.ingress[0].hostname:
+                cluster_ip = service.status.load_balancer.ingress[0].hostname
+            else:
+                cluster_ip = service.status.load_balancer.ingress[0].ip
+    return cluster_ip
 
 
 def predict_grpc(service_name, payload, parameters=None, version=constants.KSERVE_V1BETA1_VERSION, model_name=None):
