@@ -11,6 +11,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
 
 @pytest.mark.graph
+@pytest.mark.kourier
 def test_inference_graph():
     sklearn_name = "isvc-sklearn-graph"
     xgb_name = "isvc-xgboost-graph"
