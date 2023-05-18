@@ -143,7 +143,7 @@ class Model:
             # requires appending the port to the predictor host for gRPC to work
             if ":" not in self.predictor_host:
                 port = 443 if self.use_ssl else 80
-                self.predictor_host = self.predictor_host + f":{port}"
+                self.predictor_host = f"{self.predictor_host}:{port}"
             if self.use_ssl:
                 _channel = grpc.aio.secure_channel(self.predictor_host, grpc.ssl_channel_credentials())
             else:
