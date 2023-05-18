@@ -37,6 +37,13 @@ class VersionPlugin(Plugin):  # type: ignore
                     "version is updated from given file "
                     f"version is: <b>{version}</b>"
                 )
+                content: dict[str, Any] = poetry.file.read()
+                poetry_content = content["tool"]["poetry"]
+                poetry_content["version"] = version
+                poetry.file.write(content)
+                io.write_line(
+                    "<b>poetry-version-plugin</b>: New version updated in toml file"
+                )
 
         if version_source == "init":
             packages = poetry.local_config.get("packages")
