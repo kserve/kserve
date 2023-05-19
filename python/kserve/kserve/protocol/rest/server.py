@@ -13,29 +13,32 @@
 # limitations under the License.
 
 import asyncio
+import logging
 import socket
-from typing import List, Optional
-from prometheus_client import REGISTRY, exposition
+from typing import Dict, List, Optional, Union
 
 import pkg_resources
 import uvicorn
 from fastapi import FastAPI, Request, Response
-from fastapi.routing import APIRoute as FastAPIRoute
 from fastapi.responses import ORJSONResponse
-from timing_asgi import TimingMiddleware, TimingClient
+from fastapi.routing import APIRoute as FastAPIRoute
+from prometheus_client import REGISTRY, exposition
+from timing_asgi import TimingClient, TimingMiddleware
 from timing_asgi.integrations import StarletteScopeToName
-import logging
-from .v1_endpoints import V1Endpoints
-from .v2_datamodels import InferenceResponse, ModelMetadataResponse, ServerReadyResponse, ServerLiveResponse, \
-    ServerMetadataResponse, ModelReadyResponse
-from .v2_endpoints import V2Endpoints
-from kserve.errors import InvalidInput, InferenceError, ModelNotFound, ModelNotReady, invalid_input_handler, \
-    inference_error_handler, model_not_found_handler, model_not_ready_handler, not_implemented_error_handler, \
-    generic_exception_handler
+
+from kserve.errors import (InferenceError, InvalidInput, ModelNotFound,
+                           ModelNotReady, generic_exception_handler,
+                           inference_error_handler, invalid_input_handler,
+                           model_not_found_handler, model_not_ready_handler,
+                           not_implemented_error_handler)
+from kserve.logging import trace_logger
 from kserve.protocol.dataplane import DataPlane
 
-
-DATE_FMT = "%Y-%m-%d %H:%M:%S"
+from .v1_endpoints import V1Endpoints
+from .v2_datamodels import (InferenceResponse, ModelMetadataResponse,
+                            ModelReadyResponse, ServerLiveResponse,
+                            ServerMetadataResponse, ServerReadyResponse)
+from .v2_endpoints import V2Endpoints
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -45,7 +48,7 @@ async def metrics_handler(request: Request) -> Response:
 
 class PrintTimings(TimingClient):
     def timing(self, metric_name, timing, tags):
-        logging.info(f"{metric_name} {timing}, {tags}")
+        trace_logger.info(f"{metric_name}: {timing}")
 
 
 class _NoSignalUvicornServer(uvicorn.Server):
@@ -124,7 +127,9 @@ class RESTServer:
 
 class UvicornServer:
     def __init__(self, http_port: int, sockets: List[socket.socket],
-                 data_plane: DataPlane, model_repository_extension, enable_docs_url):
+                 data_plane: DataPlane, model_repository_extension, enable_docs_url,
+                 log_config: Optional[Union[str, Dict]] = None,
+                 access_log_format: Optional[str] = None):
         super().__init__()
         self.sockets = sockets
         rest_server = RESTServer(data_plane, model_repository_extension, enable_docs_url)
@@ -174,6 +179,24 @@ class UvicornServer:
                 },
             }
         )
+
+        # More context in https://github.com/encode/uvicorn/pull/947
+        # At the time of writing the ASGI specs are not clear when it comes
+        # to change the access log format, and hence the Uvicorn upstream devs
+        # chose to create a custom middleware for this.
+        # The allowed log format is specified in https://github.com/Kludex/asgi-logger#usage
+        if access_log_format:
+            from asgi_logger import AccessLoggerMiddleware
+
+            # As indicated by the asgi-logger docs, we need to clear/unset
+            # any setting for uvicorn.access to avoid log duplicates.
+            logging.getLogger("uvicorn.access").handlers = []
+            app.add_middleware(
+                AccessLoggerMiddleware, format=access_log_format)
+            # The asgi-logger settings don't set propagate to False,
+            # so we get duplicates if we don't set it explicitly.
+            logging.getLogger("access").propagate = False
+
         self.server = _NoSignalUvicornServer(config=self.cfg)
 
     def run_sync(self):

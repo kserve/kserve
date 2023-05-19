@@ -13,30 +13,31 @@
 # limitations under the License.
 
 import inspect
-import logging
 import time
 from enum import Enum
-from typing import Dict, Union, List
+from typing import Dict, List, Union
 
 import grpc
-
 import httpx
-from httpx import HTTPStatusError
 import orjson
 from cloudevents.http import CloudEvent
-
-from .protocol.infer_type import InferRequest, InferResponse
-from .metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
-from .protocol.grpc import grpc_predict_v2_pb2_grpc
-from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+from httpx import HTTPStatusError
 
 from .errors import InvalidInput
 from .utils.utils import is_structured_cloudevent
 
-PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
-EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
-PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
-EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
+from .logging import trace_logger
+from .metrics import (EXPLAIN_HIST_TIME, POST_HIST_TIME, PRE_HIST_TIME,
+                      PREDICT_HIST_TIME, get_labels)
+from .protocol.grpc import grpc_predict_v2_pb2_grpc
+from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
+                                                ModelInferResponse)
+from .protocol.infer_type import InferRequest, InferResponse
+
+PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
+EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
+PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
+EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
 
 
 class ModelType(Enum):
@@ -125,9 +126,9 @@ class Model:
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
-            logging.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, "
-                         f"explain_ms: {explain_ms}, predict_ms: {predict_ms}, "
-                         f"postprocess_ms: {postprocess_ms}")
+            trace_logger.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, "
+                              f"explain_ms: {explain_ms}, predict_ms: {predict_ms}, "
+                              f"postprocess_ms: {postprocess_ms}")
 
         return response
 
