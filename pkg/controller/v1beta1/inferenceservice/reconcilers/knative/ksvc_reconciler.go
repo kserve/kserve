@@ -209,6 +209,9 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	existing.Spec.Traffic = desired.Spec.Traffic
+	if value, ok := desired.ObjectMeta.Annotations[constants.RollOutDurationAnnotationKey]; ok {
+		existing.ObjectMeta.Annotations[constants.RollOutDurationAnnotationKey] = value
+	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		log.Info("Updating knative service", "namespace", desired.Namespace, "name", desired.Name)
 		return r.client.Update(context.TODO(), existing)
@@ -222,5 +225,6 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
 		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
+		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec) &&
+		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Annotations[constants.RollOutDurationAnnotationKey], service.ObjectMeta.Annotations[constants.RollOutDurationAnnotationKey])
 }
