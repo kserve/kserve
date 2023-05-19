@@ -33,10 +33,10 @@ from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
                                                 ModelInferResponse)
 from .protocol.infer_type import InferRequest, InferResponse
 
-PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
-EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
-PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
-EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
+PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
+EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
+PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
+EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
 
 
 class ModelType(Enum):
