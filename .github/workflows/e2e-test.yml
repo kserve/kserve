@@ -596,4 +596,15 @@ jobs:
       - name: Check system status
         if: always()
         run: |
-          ./test/scripts/gh-actions/status-check.sh
+          docker image ls
+          kubectl get pods -n kserve
+          kubectl get pods -n kserve-ci-e2e-test
+          
+          kubectl describe pods -n kserve-ci-e2e-test
+          kubectl get events -n kserve-ci-e2e-test
+          kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager
+          kubectl logs -l 'component in (predictor)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+          kubectl logs -l 'component in (transformer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+          kubectl logs -l 'component in (explainer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+          kubectl logs $(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" --output=jsonpath="{.items[0].metadata.name}") -n kourier-system
+
