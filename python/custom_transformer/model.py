@@ -53,10 +53,11 @@ def image_transform(model_name, data):
 
 
 class ImageTransformer(Model):
-    def __init__(self, name: str, predictor_host: str, protocol: str):
+    def __init__(self, name: str, predictor_host: str, protocol: str, use_ssl: bool):
         super().__init__(name)
         self.predictor_host = predictor_host
         self.protocol = protocol
+        self.use_ssl = use_ssl
         self.ready = True
 
     def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) \
@@ -103,9 +104,12 @@ parser.add_argument(
 parser.add_argument(
     "--model_name", help="The name that the model is served under."
 )
+parser.add_argument(
+    "--use_ssl", help="Use ssl for connecting to the predictor", action='store_true'
+)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     model = ImageTransformer(args.model_name, predictor_host=args.predictor_host,
-                             protocol=args.protocol)
+                             protocol=args.protocol, use_ssl=args.use_ssl)
     ModelServer().start([model])

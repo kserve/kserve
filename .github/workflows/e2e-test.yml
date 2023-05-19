@@ -40,8 +40,24 @@ jobs:
         with:
           image: "kserve/storage-initializer:${{ github.sha }}"
 
+  poetry-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Check poetry lock file consistency
+        run: ./test/scripts/gh-actions/check-poetry-lockfile.sh
+
   predictor-runtime-build:
     runs-on: ubuntu-latest
+    needs: [poetry-check]
     steps:
       - uses: actions/checkout@v2
 
@@ -93,6 +109,7 @@ jobs:
   
   explainer-runtime-build:
     runs-on: ubuntu-latest
+    needs: [poetry-check]
     steps:
       - uses: actions/checkout@v2
 
@@ -119,7 +136,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
@@ -146,6 +163,9 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/pmmlserver:${{ github.sha }}"
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |
@@ -181,7 +201,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
@@ -209,6 +229,9 @@ jobs:
         with:
           image: "kserve/paddleserver:${{ github.sha }}"
 
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -216,7 +239,7 @@ jobs:
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
       - name: Run E2E tests
-        timeout-minutes: 50
+        timeout-minutes: 52
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh slow
 
@@ -233,7 +256,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
@@ -255,6 +278,9 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/art-explainer:${{ github.sha }}"
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |
@@ -280,14 +306,13 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
           
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
-
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -303,6 +328,9 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/xgbserver:${{ github.sha }}"
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |
@@ -328,7 +356,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
@@ -350,6 +378,9 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |
@@ -377,7 +408,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
@@ -410,6 +441,9 @@ jobs:
         with:
           image: "kserve/lgbserver:${{ github.sha }}"
 
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -432,13 +466,16 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/base-download
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install Kserve from helm
         run: |
@@ -464,7 +501,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
@@ -476,6 +513,9 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |

@@ -50,6 +50,10 @@ class PredictorProtocol(Enum):
     GRPC_V2 = "grpc-v2"
 
 
+def is_v2(protocol: PredictorProtocol) -> bool:
+    return protocol != PredictorProtocol.REST_V1
+
+
 def get_latency_ms(start: float, end: float) -> float:
     return round((end - start) * 1000, 9)
 
@@ -75,6 +79,7 @@ class Model:
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
+        self.use_ssl = False
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        model_type: ModelType = ModelType.PREDICTOR,
@@ -140,10 +145,14 @@ class Model:
     @property
     def _grpc_client(self):
         if self._grpc_client_stub is None:
-            # requires appending ":80" to the predictor host for gRPC to work
+            # requires appending the port to the predictor host for gRPC to work
             if ":" not in self.predictor_host:
-                self.predictor_host = self.predictor_host + ":80"
-            _channel = grpc.aio.insecure_channel(self.predictor_host)
+                port = 443 if self.use_ssl else 80
+                self.predictor_host = f"{self.predictor_host}:{port}"
+            if self.use_ssl:
+                _channel = grpc.aio.secure_channel(self.predictor_host, grpc.ssl_channel_credentials())
+            else:
+                _channel = grpc.aio.insecure_channel(self.predictor_host)
             self._grpc_client_stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
         return self._grpc_client_stub
 
@@ -203,13 +212,9 @@ class Model:
 
         return payload
 
-    def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
-            -> Union[Dict, ModelInferResponse]:
+    def postprocess(self, response: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
+            -> Union[Dict, InferResponse]:
         """The postprocess handler can be overridden for inference response transformation.
-        The default implementation converts the v2 infer response types to gRPC or REST.
-        For gRPC request it converts InferResponse to gRPC message or directly returns ModelInferResponse from
-        predictor call.
-        For REST request it converts ModelInferResponse to Dict or directly returns from predictor call.
 
         Args:
             response (Dict|InferResponse|ModelInferResponse): The response passed from ``predict`` handler.
@@ -218,24 +223,13 @@ class Model:
         Returns:
             Dict: post-processed response.
         """
-        if headers:
-            if "grpc" in headers.get("user-agent", ""):
-                if isinstance(response, ModelInferResponse):
-                    return response
-                elif isinstance(response, InferResponse):
-                    return response.to_grpc()
-            if "application/json" in headers.get("content-type", ""):
-                # If the original request is REST, convert the gRPC predict response to dict
-                if isinstance(response, ModelInferResponse):
-                    return InferResponse.from_grpc(response).to_rest()
-                elif isinstance(response, InferResponse):
-                    return response.to_rest()
         return response
 
     async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
-        predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
+        protocol = "https" if self.use_ssl else "http"
+        predict_url = PREDICTOR_URL_FORMAT.format(protocol, self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
-            predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
+            predict_url = PREDICTOR_V2_URL_FORMAT.format(protocol, self.predictor_host, self.name)
 
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
@@ -281,7 +275,7 @@ class Model:
         return async_result
 
     async def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest],
-                      headers: Dict[str, str] = None) -> Union[Dict, InferResponse, ModelInferResponse]:
+                      headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         """
 
         Args:
@@ -295,9 +289,12 @@ class Model:
         if not self.predictor_host:
             raise NotImplementedError("Could not find predictor_host.")
         if self.protocol == PredictorProtocol.GRPC_V2.value:
-            return await self._grpc_predict(payload, headers)
+            res = await self._grpc_predict(payload, headers)
+            return InferResponse.from_grpc(res)
         else:
-            return await self._http_predict(payload, headers)
+            res = await self._http_predict(payload, headers)
+            # return an InferResponse if this is REST V2, otherwise just return the dictionary
+            return InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.
@@ -312,9 +309,11 @@ class Model:
         """
         if self.explainer_host is None:
             raise NotImplementedError("Could not find explainer_host.")
-        explain_url = EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name)
+
+        protocol = "https" if self.use_ssl else "http"
+        explain_url = EXPLAINER_URL_FORMAT.format(protocol, self.explainer_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
-            explain_url = EXPLAINER_V2_URL_FORMAT.format(self.explainer_host, self.name)
+            explain_url = EXPLAINER_V2_URL_FORMAT.format(protocol, self.explainer_host, self.name)
         response = await self._http_client.post(
             url=explain_url,
             timeout=self.timeout,
