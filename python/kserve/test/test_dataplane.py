@@ -120,17 +120,24 @@ class TestDataPlane:
 
     async def test_infer(self, dataplane_with_model):
         body = b'{"instances":[[1,2]]}'
-        resp = await dataplane_with_model.infer(self.MODEL_NAME, body)
-        assert resp == (
+        infer_request, req_attributes = dataplane_with_model.decode(body, None)
+        resp, headers = await dataplane_with_model.infer(self.MODEL_NAME, infer_request)
+        resp, headers = dataplane_with_model.encode(self.MODEL_NAME,
+                                                    resp, headers,
+                                                    req_attributes)
+        assert (resp, headers) == (
             {"predictions": [[1, 2]]},  # body
-            {}  # headers
+            {}
         )
 
-    async def test_explain(self, dataplane_with_model):
+    async def test_explain(self, dataplane_with_model: DataPlane):
         body = b'{"instances":[[1,2]]}'
-        resp = await dataplane_with_model.explain(self.MODEL_NAME, body)
-
-        assert resp == (
+        infer_request, req_attributes = dataplane_with_model.decode(body, None)
+        resp, headers = await dataplane_with_model.explain(self.MODEL_NAME, infer_request)
+        resp, headers = dataplane_with_model.encode(self.MODEL_NAME,
+                                                    resp, headers,
+                                                    req_attributes)
+        assert (resp, headers) == (
             {"predictions": [[1, 2]]},
             {}
         )
@@ -148,13 +155,17 @@ class TestDataPlaneCloudEvent:
         dataplane._model_registry.update(model)
         return dataplane
 
-    async def test_infer_ce_structured(self, dataplane_with_ce_model):
+    async def test_infer_ce_structured(self, dataplane_with_ce_model: DataPlane):
         event: CloudEvent = dummy_cloud_event({"instances": [[1, 2]]})
         headers, body = to_structured(event)
-
-        resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
-        body = json.loads(resp[0])
-        headers = resp[1]
+        infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+        resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME,
+                                                            infer_request,
+                                                            headers)
+        resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
+                                                       resp,
+                                                       headers, req_attributes)
+        body = json.loads(resp)
 
         assert headers['content-type'] == "application/cloudevents+json"
 
@@ -176,9 +187,11 @@ class TestDataPlaneCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]})
             headers, body = to_structured(event)
 
-            resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
-            body = json.loads(resp[0])
-            headers = resp[1]
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+            resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
+            resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
+                                                           resp, headers, req_attributes)
+            body = json.loads(resp)
 
             assert headers['content-type'] == "application/cloudevents+json"
 
@@ -187,14 +200,17 @@ class TestDataPlaneCloudEvent:
             assert body['source'] == "io.kserve.inference.CustomSource"
             assert body['type'] == "io.kserve.custom_type"
 
-    async def test_infer_merge_structured_ce_attributes(self, dataplane_with_ce_model):
+    async def test_infer_merge_structured_ce_attributes(self, dataplane_with_ce_model: DataPlane):
         with mock.patch.dict(os.environ, {"CE_MERGE": "true"}):
             event = dummy_cloud_event({"instances": [[1, 2]]}, add_extension=True)
             headers, body = to_structured(event)
 
-            resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
-            body = json.loads(resp[0])
-            headers = resp[1]
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+            resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
+            resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
+                                                           resp,
+                                                           headers, req_attributes)
+            body = json.loads(resp)
 
             assert headers['content-type'] == "application/cloudevents+json"
 
@@ -212,9 +228,9 @@ class TestDataPlaneCloudEvent:
                                       add_extension=True)
             headers, body = to_binary(event)
 
-            resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
-            body = resp[0]
-            headers = resp[1]
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+            resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
+            resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
 
             assert headers['content-type'] == "application/json"
             assert headers['ce-specversion'] == "1.0"
@@ -224,15 +240,19 @@ class TestDataPlaneCloudEvent:
             assert headers['ce-source'] == "io.kserve.inference.TestModel"
             assert headers['ce-type'] == "io.kserve.inference.response"
             assert headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
-            assert body == b'{"predictions": [[1, 2]]}'
+            assert resp == b'{"predictions": [[1, 2]]}'
 
     async def test_infer_ce_binary_dict(self, dataplane_with_ce_model):
         event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
-        body = resp[0]
-        headers = resp[1]
+        infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+        resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME,
+                                                            infer_request,
+                                                            headers)
+        resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
+                                                       resp,
+                                                       headers, req_attributes)
 
         assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
@@ -240,30 +260,32 @@ class TestDataPlaneCloudEvent:
         assert headers['ce-source'] == "io.kserve.inference.TestModel"
         assert headers['ce-type'] == "io.kserve.inference.response"
         assert headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
-        assert body == b'{"predictions": [[1, 2]]}'
+        assert resp == b'{"predictions": [[1, 2]]}'
 
     async def test_infer_ce_binary_bytes(self, dataplane_with_ce_model):
         event = dummy_cloud_event(b'{"instances":[[1,2]]}', set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
-        body = resp[0]
-        headers = resp[1]
-
+        infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+        resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
+        resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
+                                                       resp,
+                                                       headers, req_attributes)
         assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
         assert headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
         assert headers['ce-source'] == "io.kserve.inference.TestModel"
         assert headers['ce-type'] == "io.kserve.inference.response"
         assert headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
-        assert body == b'{"predictions": [[1, 2]]}'
+        assert resp == b'{"predictions": [[1, 2]]}'
 
     async def test_infer_ce_bytes_bad_format_exception(self, dataplane_with_ce_model):
         event = dummy_cloud_event(b'{', set_contenttype=True)
         headers, body = to_binary(event)
 
         with pytest.raises(InvalidInput) as err:
-            await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+            await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
 
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: "
                                  "unexpected end of data:*")
@@ -274,7 +296,8 @@ class TestDataPlaneCloudEvent:
         headers, body = to_binary(event)
 
         with pytest.raises(InvalidInput) as err:
-            await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+            await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
 
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: 'utf-8' codec "
                                  "can't decode byte 0x80 in position 1: invalid start byte.*")
@@ -321,9 +344,14 @@ class TestDataPlaneAvroCloudEvent:
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
 
-        resp = await dataplane_with_ce_model.infer(self.MODEL_NAME, body, headers)
-        body = resp[0]
-        headers = resp[1]
+        infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+        resp, headers = await dataplane_with_ce_model.infer(self.MODEL_NAME,
+                                                            infer_request,
+                                                            headers)
+
+        resp, headers = dataplane_with_ce_model.encode(self.MODEL_NAME,
+                                                       resp,
+                                                       headers, req_attributes)
 
         assert headers['content-type'] == "application/json"
         assert headers['ce-specversion'] == "1.0"
@@ -331,4 +359,4 @@ class TestDataPlaneAvroCloudEvent:
         assert headers['ce-source'] == "io.kserve.inference.TestModel"
         assert headers['ce-type'] == "io.kserve.inference.response"
         assert headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
-        assert body == b'{"predictions": [["foo", 1, "pink"]]}'
+        assert resp == b'{"predictions": [["foo", 1, "pink"]]}'

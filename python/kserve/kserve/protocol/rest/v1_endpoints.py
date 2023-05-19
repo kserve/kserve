@@ -66,7 +66,14 @@ class V1Endpoints:
         """
         body = await request.body()
         headers = dict(request.headers.items())
-        response, response_headers = await self.dataplane.infer(model_name=model_name, body=body, headers=headers)
+        infer_request, req_attributes = self.dataplane.decode(body=body,
+                                                              headers=headers)
+        response, response_headers = await self.dataplane.infer(model_name=model_name,
+                                                                request=infer_request,
+                                                                headers=headers)
+        response, response_headers = self.dataplane.encode(model_name=model_name,
+                                                           response=response,
+                                                           headers=headers, req_attributes=req_attributes)
 
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)
@@ -84,7 +91,14 @@ class V1Endpoints:
         """
         body = await request.body()
         headers = dict(request.headers.items())
-        response, response_headers = await self.dataplane.explain(model_name=model_name, body=body, headers=headers)
+        infer_request, req_attributes = self.dataplane.decode(body=body,
+                                                              headers=headers)
+        response, response_headers = await self.dataplane.explain(model_name=model_name,
+                                                                  request=infer_request,
+                                                                  headers=headers)
+        response, response_headers = self.dataplane.encode(model_name=model_name,
+                                                           response=response,
+                                                           headers=headers, req_attributes=req_attributes)
 
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)
