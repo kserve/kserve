@@ -567,6 +567,7 @@ class TestTFHttpServerLoadAndUnLoadFailure:
         resp = http_server_client.post('/v2/repository/models/model/unload', data=b'')
         assert resp.status_code == 404
 
+
 class TestTFHttpServerModelNotReady:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
@@ -592,15 +593,13 @@ class TestTFHttpServerModelNotReady:
         resp = http_server_client.post('/v1/models/TestModel:predict',
                                        data=b'{"instances":[[1,2]]}')
         assert resp.status_code == 503
-        
 
     def test_infer(self, http_server_client):
         input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
         resp = http_server_client.post('/v2/models/TestModel/infer',
                                        data=input_data)
-
         assert resp.status_code == 503
-        
+
     def test_explain(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:explain',
                                        data=b'{"instances":[[1,2]]}')

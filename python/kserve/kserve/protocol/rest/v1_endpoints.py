@@ -68,7 +68,7 @@ class V1Endpoints:
 
         if not model_ready:
             raise ModelNotReady(model_name)
-        
+
         body = await request.body()
         headers = dict(request.headers.items())
         infer_request, req_attributes = self.dataplane.decode(body=body,
@@ -98,7 +98,7 @@ class V1Endpoints:
 
         if not model_ready:
             raise ModelNotReady(model_name)
-        
+
         body = await request.body()
         headers = dict(request.headers.items())
         infer_request, req_attributes = self.dataplane.decode(body=body,
