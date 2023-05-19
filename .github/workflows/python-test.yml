@@ -36,18 +36,10 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install and configure Poetry
-        env:
-          POETRY_VERSION: 1.4.0
-        run: |
-          pip install poetry==$POETRY_VERSION
-          poetry config virtualenvs.create true
-          poetry config virtualenvs.in-project true
-          poetry config installer.parallel true
-      - name: Install poetry version plugin
-        run: |
-          pip install -e python/plugin/poetry-version-plugin 
-          poetry self show plugins
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       # load poetry cache if cache exists
       - name: Load poetry cache
         id: cached-poetry-dependencies
