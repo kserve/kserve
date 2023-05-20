@@ -21,7 +21,7 @@ from PIL import Image
 import base64
 import io
 import numpy as np
-
+from kserve.logging import logger
 from kserve import Model, ModelServer, model_server, InferRequest, InferOutput, InferResponse
 from kserve.errors import InvalidInput
 from kserve.utils.utils import generate_uuid
@@ -45,6 +45,7 @@ class AlexNetModel(Model):
         self.ready = True
 
     def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> torch.Tensor:
+        logger.info("getting raw payload")
         raw_img_data = None
         if isinstance(payload, Dict) and "instances" in payload:
             headers["request-type"] = "v1"
