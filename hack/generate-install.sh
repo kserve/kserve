@@ -18,6 +18,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+set -x
+
 RELEASES=(
     "0.1.0"
     "0.2.0"
@@ -44,6 +46,7 @@ RELEASES=(
     "v0.10.0-rc1"
     "v0.10.0"
     "v0.10.1"
+    "v0.11.0-rc0"
 )
 
 TAG=$1
