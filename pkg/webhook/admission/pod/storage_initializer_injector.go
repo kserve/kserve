@@ -154,8 +154,28 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				SubPath:  pvcPath,
 				ReadOnly: true,
 			}
+
+			// Check if PVC source URIs is already mounted
+			// this may occur when mutator is triggered more than once
+			if userContainer.VolumeMounts != nil {
+				for _, volumeMount := range userContainer.VolumeMounts {
+					if strings.Compare(volumeMount.Name, PvcSourceMountName) == 0 {
+						return nil
+					}
+				}
+			}
+
 			userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
 			if transformerContainer != nil {
+				// Check if PVC source URIs is already mounted
+				if transformerContainer.VolumeMounts != nil {
+					for _, volumeMount := range transformerContainer.VolumeMounts {
+						if strings.Compare(volumeMount.Name, PvcSourceMountName) == 0 {
+							return nil
+						}
+					}
+				}
+
 				transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, pvcSourceVolumeMount)
 
 				// change the CustomSpecStorageUri env variable value
