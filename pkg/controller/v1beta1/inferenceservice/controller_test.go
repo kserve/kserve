@@ -563,7 +563,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					URL: &apis.URL{
 						Scheme: "http",
 						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
-						Path:   constants.PredictPath(serviceKey.Name, constants.ProtocolV1),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -787,7 +786,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					URL: &apis.URL{
 						Scheme: "http",
 						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
-						Path:   constants.PredictPath(serviceKey.Name, constants.ProtocolV1),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -1883,7 +1881,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualIsvc.Status.Address.URL).To(gomega.Equal(&apis.URL{
 				Scheme: "http",
 				Host:   network.GetServiceHostname(fmt.Sprintf("%s-%s-default", serviceKey.Name, string(constants.Predictor)), serviceKey.Namespace),
-				Path:   constants.PredictPath(serviceKey.Name, constants.ProtocolV1),
 			}))
 		})
 	})

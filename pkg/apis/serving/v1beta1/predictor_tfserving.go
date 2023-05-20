@@ -81,5 +81,8 @@ func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Com
 }
 
 func (t *TFServingSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if t.ProtocolVersion != nil {
+		return *t.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

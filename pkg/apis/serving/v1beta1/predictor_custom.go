@@ -84,13 +84,24 @@ func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
 	return nil
 }
 
-// GetContainers transforms the resource into a container spec
+// GetContainer transforms the resource into a container spec
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
 	predictorHost ...string) *v1.Container {
 	return &c.Containers[0]
 }
 
 func (c *CustomPredictor) GetProtocol() constants.InferenceServiceProtocol {
+	// Handle collocation of transformer and predictor scenario
+	for _, container := range c.Containers {
+		if container.Name == constants.TransformerContainerName {
+			for _, envVar := range container.Env {
+				if envVar.Name == constants.CustomSpecProtocolEnvVarKey {
+					return constants.InferenceServiceProtocol(envVar.Value)
+				}
+			}
+			return constants.ProtocolV1
+		}
+	}
 	for _, envVar := range c.Containers[0].Env {
 		if envVar.Name == constants.CustomSpecProtocolEnvVarKey {
 			return constants.InferenceServiceProtocol(envVar.Value)

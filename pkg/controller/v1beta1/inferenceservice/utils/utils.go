@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"regexp"
@@ -110,6 +111,35 @@ func GetModelName(isvc *v1beta1api.InferenceService) string {
 		}
 	}
 	return modelName
+}
+
+// GetPredictorEndpoint returns the predictor endpoint if status.address.url is not nil else returns empty string with error.
+func GetPredictorEndpoint(isvc *v1beta1.InferenceService) (string, error) {
+	if isvc.Status.Address != nil && isvc.Status.Address.URL != nil {
+		hostName := isvc.Status.Address.URL.String()
+		path := ""
+		modelName := GetModelName(isvc)
+		if isvc.Spec.Transformer != nil {
+			protocol := isvc.Spec.Transformer.GetImplementation().GetProtocol()
+			if protocol == constants.ProtocolV1 {
+				path = constants.PredictPath(modelName, constants.ProtocolV1)
+			} else if protocol == constants.ProtocolV2 {
+				path = constants.PredictPath(modelName, constants.ProtocolV2)
+			}
+		} else if !IsMMSPredictor(&isvc.Spec.Predictor) {
+
+			protocol := isvc.Spec.Predictor.GetImplementation().GetProtocol()
+			if protocol == constants.ProtocolV1 {
+				path = constants.PredictPath(modelName, constants.ProtocolV1)
+			} else if protocol == constants.ProtocolV2 {
+				path = constants.PredictPath(modelName, constants.ProtocolV2)
+			}
+
+		}
+		return fmt.Sprintf("%s%s", hostName, path), nil
+	} else {
+		return "", goerrors.Errorf("service %s is not ready", isvc.Name)
+	}
 }
 
 /*

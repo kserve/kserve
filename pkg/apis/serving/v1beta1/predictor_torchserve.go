@@ -83,5 +83,8 @@ func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Co
 }
 
 func (t *TorchServeSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if t.ProtocolVersion != nil {
+		return *t.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

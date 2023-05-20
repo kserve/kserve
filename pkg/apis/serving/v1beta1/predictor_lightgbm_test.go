@@ -278,6 +278,17 @@ func TestLightGBMGetProtocol(t *testing.T) {
 			},
 			matcher: gomega.Equal(constants.ProtocolV1),
 		},
+		"ProtocolSpecified": {
+			spec: PredictorSpec{
+				LightGBM: &LightGBMSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI:      proto.String("s3://modelzoo"),
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV2),
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {

@@ -202,6 +202,24 @@ func TestONNXRuntimeSpec_GetProtocol(t *testing.T) {
 			},
 			expected: constants.ProtocolV1,
 		},
+		"ProtocolSpecified": {
+			spec: PredictorSpec{
+				ONNX: &ONNXRuntimeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+						StorageURI:      proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
+						},
+					},
+				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
+			},
+			expected: constants.ProtocolV2,
+		},
 	}
 
 	for name, scenario := range scenarios {
