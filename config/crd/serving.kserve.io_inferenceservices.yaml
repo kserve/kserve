@@ -1007,6 +1007,10 @@ spec:
                         workingDir:
                           type: string
                       type: object
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     art:
                       properties:
                         args:
@@ -2246,6 +2250,8 @@ spec:
                       type: boolean
                     hostPID:
                       type: boolean
+                    hostUsers:
+                      type: boolean
                     hostname:
                       type: string
                     imagePullSecrets:
@@ -2842,6 +2848,10 @@ spec:
                           - name
                         type: object
                       type: array
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     logger:
                       properties:
                         mode:
@@ -2893,6 +2903,25 @@ spec:
                           - conditionType
                         type: object
                       type: array
+                    resourceClaims:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          source:
+                            properties:
+                              resourceClaimName:
+                                type: string
+                              resourceClaimTemplateName:
+                                type: string
+                            type: object
+                        required:
+                          - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                        - name
+                      x-kubernetes-list-type: map
                     restartPolicy:
                       type: string
                     runtimeClassName:
@@ -2908,6 +2937,18 @@ spec:
                       type: integer
                     schedulerName:
                       type: string
+                    schedulingGates:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                        required:
+                          - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                        - name
+                      x-kubernetes-list-type: map
                     securityContext:
                       properties:
                         fsGroup:
@@ -3030,9 +3071,21 @@ spec:
                                   type: string
                                 type: object
                             type: object
+                          matchLabelKeys:
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
                           maxSkew:
                             format: int32
                             type: integer
+                          minDomains:
+                            format: int32
+                            type: integer
+                          nodeAffinityPolicy:
+                            type: string
+                          nodeTaintsPolicy:
+                            type: string
                           topologyKey:
                             type: string
                           whenUnsatisfiable:
@@ -4087,6 +4140,10 @@ spec:
                               type: array
                           type: object
                       type: object
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     automountServiceAccountToken:
                       type: boolean
                     batcher:
@@ -4728,6 +4785,8 @@ spec:
                       type: boolean
                     hostPID:
                       type: boolean
+                    hostUsers:
+                      type: boolean
                     hostname:
                       type: string
                     imagePullSecrets:
@@ -5324,6 +5383,10 @@ spec:
                           - name
                         type: object
                       type: array
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     lightgbm:
                       properties:
                         args:
@@ -8950,6 +9013,25 @@ spec:
                           - conditionType
                         type: object
                       type: array
+                    resourceClaims:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          source:
+                            properties:
+                              resourceClaimName:
+                                type: string
+                              resourceClaimTemplateName:
+                                type: string
+                            type: object
+                        required:
+                          - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                        - name
+                      x-kubernetes-list-type: map
                     restartPolicy:
                       type: string
                     runtimeClassName:
@@ -8965,6 +9047,18 @@ spec:
                       type: integer
                     schedulerName:
                       type: string
+                    schedulingGates:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                        required:
+                          - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                        - name
+                      x-kubernetes-list-type: map
                     securityContext:
                       properties:
                         fsGroup:
@@ -10275,9 +10369,21 @@ spec:
                                   type: string
                                 type: object
                             type: object
+                          matchLabelKeys:
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
                           maxSkew:
                             format: int32
                             type: integer
+                          minDomains:
+                            format: int32
+                            type: integer
+                          nodeAffinityPolicy:
+                            type: string
+                          nodeTaintsPolicy:
+                            type: string
                           topologyKey:
                             type: string
                           whenUnsatisfiable:
@@ -12520,6 +12626,10 @@ spec:
                               type: array
                           type: object
                       type: object
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     automountServiceAccountToken:
                       type: boolean
                     batcher:
@@ -13161,6 +13271,8 @@ spec:
                       type: boolean
                     hostPID:
                       type: boolean
+                    hostUsers:
+                      type: boolean
                     hostname:
                       type: string
                     imagePullSecrets:
@@ -13757,6 +13869,10 @@ spec:
                           - name
                         type: object
                       type: array
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     logger:
                       properties:
                         mode:
@@ -13808,6 +13924,25 @@ spec:
                           - conditionType
                         type: object
                       type: array
+                    resourceClaims:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          source:
+                            properties:
+                              resourceClaimName:
+                                type: string
+                              resourceClaimTemplateName:
+                                type: string
+                            type: object
+                        required:
+                          - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                        - name
+                      x-kubernetes-list-type: map
                     restartPolicy:
                       type: string
                     runtimeClassName:
@@ -13823,6 +13958,18 @@ spec:
                       type: integer
                     schedulerName:
                       type: string
+                    schedulingGates:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                        required:
+                          - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                        - name
+                      x-kubernetes-list-type: map
                     securityContext:
                       properties:
                         fsGroup:
@@ -13945,9 +14092,21 @@ spec:
                                   type: string
                                 type: object
                             type: object
+                          matchLabelKeys:
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
                           maxSkew:
                             format: int32
                             type: integer
+                          minDomains:
+                            format: int32
+                            type: integer
+                          nodeAffinityPolicy:
+                            type: string
+                          nodeTaintsPolicy:
+                            type: string
                           topologyKey:
                             type: string
                           whenUnsatisfiable:
