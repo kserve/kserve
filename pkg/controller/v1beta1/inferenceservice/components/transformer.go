@@ -98,14 +98,30 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 		}
 	}
 
+	// Labels and annotations from transformer component
+	// Label filter will be handled in ksvc_reconciler
+	transformerLabels := isvc.Spec.Transformer.Labels
+	transformerAnnotations := utils.Filter(isvc.Spec.Transformer.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
+
+	// Labels and annotations priority: transformer component > isvc
+	// Labels and annotations from high priority will overwrite that from low priority
 	objectMeta := metav1.ObjectMeta{
 		Name:      transformerName,
 		Namespace: isvc.Namespace,
-		Labels: utils.Union(isvc.Labels, map[string]string{
-			constants.InferenceServicePodLabelKey: isvc.Name,
-			constants.KServiceComponentLabel:      string(v1beta1.TransformerComponent),
-		}),
-		Annotations: annotations,
+		Labels: utils.Union(
+			isvc.Labels,
+			transformerLabels,
+			map[string]string{
+				constants.InferenceServicePodLabelKey: isvc.Name,
+				constants.KServiceComponentLabel:      string(v1beta1.TransformerComponent),
+			},
+		),
+		Annotations: utils.Union(
+			annotations,
+			transformerAnnotations,
+		),
 	}
 
 	// Need to wait for predictor URL in modelmesh deployment mode
