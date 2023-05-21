@@ -10,15 +10,15 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.12"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
-xgboost = "~1.5.0"
+xgboost = "~1.7.5"
 
 [tool.poetry.group.test]
 optional = true
 
 [tool.poetry.group.test.dependencies]
-scikit-learn = "~1.0.1"
+scikit-learn = "~1.2.2"
 pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 mypy = "^0.991"
