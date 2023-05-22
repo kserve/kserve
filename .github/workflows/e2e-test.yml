@@ -570,6 +570,9 @@ jobs:
         with:
           image: "kserve/xgbserver:${{ github.sha }}"
 
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
