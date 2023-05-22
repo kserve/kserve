@@ -344,7 +344,7 @@ class DataPlane:
         model = self.get_model(model_name)
         if has_rayserve and isinstance(model, RayServeHandle):
             model_handle = model
-            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
+            response = await model_handle.remote(request, model_type=ModelType.EXPLAINER)
         else:
             response = await model(request, model_type=ModelType.EXPLAINER)
         return response, headers
