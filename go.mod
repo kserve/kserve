@@ -9,6 +9,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/getkin/kin-openapi v0.116.0
 	github.com/go-logr/logr v1.2.4
+	github.com/gofrs/uuid/v5 v5.0.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.3
 	github.com/google/go-cmp v0.5.9
@@ -19,7 +20,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.2
 	github.com/onsi/gomega v1.27.6
 	github.com/pkg/errors v0.9.1
-	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.1
