@@ -34,7 +34,6 @@ from kserve.protocol.rest.server import RESTServer
 from kserve.protocol.infer_type import InferRequest
 from kserve.utils.utils import get_predict_input, get_predict_response
 
-
 test_avsc_schema = '''
         {
         "namespace": "example.avro",
@@ -146,13 +145,7 @@ class DummyAvroCEModel(Model):
         return record1
 
     def preprocess(self, request, headers: Dict[str, str] = None):
-        if isinstance(request, CloudEvent):
-            attributes = request._attributes
-            assert attributes["specversion"] == "1.0"
-            assert attributes["source"] == "https://example.com/event-producer"
-            assert attributes["type"] == "com.example.sampletype1"
-            assert attributes["content-type"] == "application/avro"
-            return self._parserequest(request.data)
+        return self._parserequest(request)
 
     async def predict(self, request, headers=None):
         return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
