@@ -15,6 +15,7 @@
 import argparse
 import asyncio
 import concurrent.futures
+import json
 import multiprocessing
 import signal
 import socket
@@ -56,8 +57,10 @@ parser.add_argument("--enable_latency_logging", default=True, type=lambda x: boo
                     help="Output a log per request with latency metrics.")
 parser.add_argument("--configure_logging", default=True, type=lambda x: bool(strtobool(x)),
                     help="Whether to configure KServe and Uvicorn logging")
-parser.add_argument("--log_config_file", default=None, type=str,
-                    help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
+parser.add_argument("--log_config", default=None, type=str,
+                    help=("File path or Dictionary (serialized as string) containing "
+                          "UvicornServer's log config. "
+                          "The file path needs to point to a yaml or json file."))
 parser.add_argument("--access_log_format", default=None, type=str,
                     help="Format to set for the access log (provided by asgi-logger).")
 
@@ -92,7 +95,7 @@ class ModelServer:
                  enable_docs_url: bool = args.enable_docs_url,
                  enable_latency_logging: bool = args.enable_latency_logging,
                  configure_logging: bool = args.configure_logging,
-                 log_config: Optional[Union[Dict, str]] = args.log_config_file,
+                 log_config: Optional[Union[Dict, str]] = args.log_config,
                  access_log_format: str = args.access_log_format):
         self.registered_models = registered_models
         self.http_port = http_port
@@ -114,11 +117,18 @@ class ModelServer:
         # Logs can be passed as a path to a file or a dictConfig.
         # We rely on Uvicorn to configure the loggers for us.
         if configure_logging:
-            self.log_config = log_config if log_config is not None else KSERVE_LOG_CONFIG
+            # log_config could be a dictionary serialized as string,
+            # try to unpack it.
+            try:
+                self.log_config = json.loads(log_config) if log_config is not None else KSERVE_LOG_CONFIG
+            except json.decoder.JSONDecodeError:
+                # if we fail to unpack, then we consider the string as filepath
+                self.log_config = log_config if log_config is not None else KSERVE_LOG_CONFIG
         else:
             # By setting log_config to None we tell Uvicorn not to configure logging
             self.log_config = None
 
+        logger.info(self.log_config)
         self.access_log_format = access_log_format
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
