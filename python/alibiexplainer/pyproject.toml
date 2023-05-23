@@ -10,11 +10,12 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.8,<3.11"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
 alibi = { version = "^0.9.1", extras = ["shap", "tensorflow"] }
 dill = "^0.3.6"
 nest-asyncio = "~1.4.0"
+llvmlite = "^0.38.1" # needed since poetry chooses lower version of llvmlite which is not supported by python 3.9 above
 
 [tool.poetry.group.test]
 optional = true
