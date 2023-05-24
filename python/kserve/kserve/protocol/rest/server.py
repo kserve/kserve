@@ -143,41 +143,7 @@ class UvicornServer:
             app=app,
             host="0.0.0.0",
             port=http_port,
-            log_config={
-                "version": 1,
-                "formatters": {
-                    "default": {
-                        "()": "uvicorn.logging.DefaultFormatter",
-                        "datefmt": DATE_FMT,
-                        "fmt": "%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(message)s",
-                        "use_colors": None,
-                    },
-                    "access": {
-                        "()": "uvicorn.logging.AccessFormatter",
-                        "datefmt": DATE_FMT,
-                        "fmt": '%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(client_addr)s %(process)s - '
-                               '"%(request_line)s" %(status_code)s',
-                        # noqa: E501
-                    },
-                },
-                "rest": {
-                    "default": {
-                        "formatter": "default",
-                        "class": "logging.StreamHandler",
-                        "stream": "ext://sys.stderr",
-                    },
-                    "access": {
-                        "formatter": "access",
-                        "class": "logging.StreamHandler",
-                        "stream": "ext://sys.stdout",
-                    },
-                },
-                "loggers": {
-                    "uvicorn": {"rest": ["default"], "level": "INFO"},
-                    "uvicorn.error": {"level": "INFO"},
-                    "uvicorn.access": {"rest": ["access"], "level": "INFO", "propagate": False},
-                },
-            }
+            log_config=log_config
         )
 
         # More context in https://github.com/encode/uvicorn/pull/947
