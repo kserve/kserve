@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import io
 import json
 import os
@@ -20,11 +21,13 @@ from unittest import mock
 
 import avro.io
 import avro.schema
+import httpx_sse
 import pytest
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from fastapi.testclient import TestClient
 from ray import serve
+from sse_starlette import EventSourceResponse
 
 from kserve import Model, ModelServer, ModelRepository
 from kserve.errors import InvalidInput
@@ -77,7 +80,16 @@ class DummyModel(Model):
     def load(self):
         self.ready = True
 
+    async def numbers(self, minimum, maximum):
+        for i in range(minimum, maximum + 1):
+            await asyncio.sleep(0.9)
+            yield dict(data=i)
+
     async def predict(self, request, headers=None):
+        events = request["stream"] if isinstance(request, dict) and "stream" in request else False
+        if events:
+            generator = self.numbers(1, 5)
+            return EventSourceResponse(generator)
         if isinstance(request, InferRequest):
             inputs = get_predict_input(request)
             infer_response = get_predict_response(request, inputs, self.name)
@@ -241,6 +253,14 @@ class TestTFHttpServer:
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers['content-type'] == "application/json"
+
+    def test_predict_streams(self, http_server_client):
+        with httpx_sse.connect_sse(http_server_client, "POST", '/v1/models/TestModel:predict',
+                                   data=b'{"instances":[[1,2]], "stream": "True"}') as event_source:
+            assert event_source.response.status_code == 200
+            for i, sse in enumerate(event_source.iter_sse()):
+                assert i + 1 == int(sse.data)
+            assert event_source.response.headers['content-type'] == "text/event-stream; charset=utf-8"
 
     def test_infer(self, http_server_client):
         input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'

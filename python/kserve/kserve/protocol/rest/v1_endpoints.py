@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from typing import Optional, Union, Dict, List
-
 from fastapi import Request, Response
 
 from kserve.errors import ModelNotReady
@@ -75,7 +74,7 @@ class V1Endpoints:
                                                            response=response,
                                                            headers=headers, req_attributes=req_attributes)
 
-        if not isinstance(response, dict):
+        if not (isinstance(response, dict) or isinstance(response, Response)):
             return Response(content=response, headers=response_headers)
         return response
 
