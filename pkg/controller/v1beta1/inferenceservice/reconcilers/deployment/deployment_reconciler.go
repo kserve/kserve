@@ -97,7 +97,7 @@ func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client) (cons
 	}
 	//existed, check equivalence
 	//for HPA scaling, we should ignore Replicas of Deployment
-	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
+	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas", "Template.Spec.DeprecatedServiceAccount")
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
 	if err := client.Update(context.TODO(), r.Deployment, kclient.DryRunAll); err != nil {
