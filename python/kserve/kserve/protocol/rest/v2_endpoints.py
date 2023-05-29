@@ -123,6 +123,11 @@ class V2Endpoints:
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
 
+        model_ready = self.dataplane.model_ready(model_name)
+
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
         request_headers = dict(raw_request.headers)
         infer_inputs = [InferInput(name=input.name, shape=input.shape, datatype=input.datatype,
                                    data=input.data,

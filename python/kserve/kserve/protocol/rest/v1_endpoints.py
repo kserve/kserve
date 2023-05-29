@@ -64,6 +64,11 @@ class V1Endpoints:
         Returns:
             Dict|Response: Model inference response.
         """
+        model_ready = self.dataplane.model_ready(model_name)
+
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
         body = await request.body()
         headers = dict(request.headers.items())
         infer_request, req_attributes = self.dataplane.decode(body=body,
@@ -89,6 +94,11 @@ class V1Endpoints:
         Returns:
             Dict: Explainer output.
         """
+        model_ready = self.dataplane.model_ready(model_name)
+
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
         body = await request.body()
         headers = dict(request.headers.items())
         infer_request, req_attributes = self.dataplane.decode(body=body,
