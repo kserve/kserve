@@ -64,9 +64,6 @@ class AlibiExplainer(kserve.Model):
         else:
             raise NotImplementedError
 
-    def load(self):
-        self.ready = True
-
     def _predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:
         instances = []
         for req_data in arr:
