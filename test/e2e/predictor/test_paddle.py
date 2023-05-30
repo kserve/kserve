@@ -36,7 +36,7 @@ def test_paddle():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         paddle=V1beta1PaddleServerSpec(
-            storage_uri="https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz",
+            storage_uri="gs://kfserving-examples/models/paddle/resnet",
             resources=V1ResourceRequirements(
                 requests={"cpu": "200m", "memory": "256Mi"},
                 limits={"cpu": "200m", "memory": "1Gi"},
@@ -80,7 +80,7 @@ def test_paddle_runtime():
             model_format=V1beta1ModelFormat(
                 name="paddle",
             ),
-            storage_uri="https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz",
+            storage_uri="gs://kfserving-examples/models/paddle/resnet",
             resources=V1ResourceRequirements(
                 requests={"cpu": "200m", "memory": "256Mi"},
                 limits={"cpu": "200m", "memory": "1Gi"},
@@ -125,7 +125,7 @@ def test_paddle_v2_kserve():
                 name="paddle",
             ),
             runtime="kserve-paddleserver",
-            storage_uri="https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz",
+            storage_uri="gs://kfserving-examples/models/paddle/resnet",
             resources=V1ResourceRequirements(
                 requests={"cpu": "200m", "memory": "256Mi"},
                 limits={"cpu": "200m", "memory": "1Gi"},
@@ -172,7 +172,7 @@ def test_paddle_v2_grpc():
                 name="paddle",
             ),
             runtime="kserve-paddleserver",
-            storage_uri="https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz",
+            storage_uri="gs://kfserving-examples/models/paddle/resnet",
             resources=V1ResourceRequirements(
                 requests={"cpu": "200m", "memory": "256Mi"},
                 limits={"cpu": "200m", "memory": "1Gi"},
