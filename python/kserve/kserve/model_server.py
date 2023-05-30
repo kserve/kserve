@@ -62,7 +62,7 @@ parser.add_argument("--log_config_file", default=None, type=str,
                     help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
 parser.add_argument("--access_log_format", default=None, type=str,
                     help="Format to set for the access log (provided by asgi-logger).")
-parser.add_argument("--http_middleware", default=None, type=str,
+parser.add_argument("--http_middleware", default=None, type=typing.Type[BaseHTTPMiddleware],
                     help="Http Middleware to be added to the fastapi app. (eg:capture logging context)")
 
 args, _ = parser.parse_known_args()
