@@ -16,13 +16,14 @@ import asyncio
 import logging
 import socket
 from importlib import metadata
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Type
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import ORJSONResponse
 from fastapi.routing import APIRoute as FastAPIRoute
 from prometheus_client import REGISTRY, exposition
+from starlette.middleware.base import BaseHTTPMiddleware
 from timing_asgi import TimingClient, TimingMiddleware
 from timing_asgi.integrations import StarletteScopeToName
 
@@ -128,10 +129,9 @@ class RESTServer:
 
 
 class UvicornServer:
-    def __init__(self, http_port: int, sockets: List[socket.socket],
-                 data_plane: DataPlane, model_repository_extension, enable_docs_url,
-                 log_config: Optional[Union[str, Dict]] = None,
-                 access_log_format: Optional[str] = None):
+    def __init__(self, http_port: int, sockets: List[socket.socket], data_plane: DataPlane, model_repository_extension,
+                 enable_docs_url, log_config: Optional[Union[str, Dict]] = None,
+                 access_log_format: Optional[str] = None, http_middleware: Optional[Type[BaseHTTPMiddleware]] = None):
         super().__init__()
         self.sockets = sockets
         rest_server = RESTServer(data_plane, model_repository_extension, enable_docs_url)
@@ -164,6 +164,9 @@ class UvicornServer:
             # The asgi-logger settings don't set propagate to False,
             # so we get duplicates if we don't set it explicitly.
             logging.getLogger("access").propagate = False
+
+        if http_middleware:
+            app.add_middleware(http_middleware)
 
         self.server = _NoSignalUvicornServer(config=self.cfg)
 

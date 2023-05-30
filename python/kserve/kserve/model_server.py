@@ -18,12 +18,14 @@ import concurrent.futures
 import multiprocessing
 import signal
 import socket
+import typing
 from distutils.util import strtobool
 from multiprocessing import Process
 from typing import Dict, List, Optional, Union
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment, RayServeHandle
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .logging import KSERVE_LOG_CONFIG, logger
 from .model import Model
@@ -60,6 +62,8 @@ parser.add_argument("--log_config_file", default=None, type=str,
                     help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
 parser.add_argument("--access_log_format", default=None, type=str,
                     help="Format to set for the access log (provided by asgi-logger).")
+parser.add_argument("--http_middleware", default=None, type=str,
+                    help="Http Middleware to be added to the fastapi app. (eg:capture logging context)")
 
 args, _ = parser.parse_known_args()
 
@@ -80,6 +84,7 @@ class ModelServer:
         configure_logging (bool): Whether to configure KServe and Uvicorn logging. Default: ``True``.
         log_config (dict or str): File path or dict containing log config. Default: ``None``.
         access_log_format (string): Format to set for the access log (provided by asgi-logger). Default: ``None``
+        http_middleware (string): Format to set for the access log (provided by asgi-logger). Default: ``None``
     """
 
     def __init__(self, http_port: int = args.http_port,
@@ -93,7 +98,8 @@ class ModelServer:
                  enable_latency_logging: bool = args.enable_latency_logging,
                  configure_logging: bool = args.configure_logging,
                  log_config: Optional[Union[Dict, str]] = args.log_config_file,
-                 access_log_format: str = args.access_log_format):
+                 access_log_format: str = args.access_log_format,
+                 http_middleware: Optional[typing.Type[BaseHTTPMiddleware]] = None):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -120,6 +126,7 @@ class ModelServer:
             self.log_config = None
 
         self.access_log_format = access_log_format
+        self.http_middleware = http_middleware
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if isinstance(models, list):
@@ -162,11 +169,9 @@ class ModelServer:
                 loop.add_signal_handler(
                     sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
                 )
-            self._rest_server = UvicornServer(self.http_port, [serversocket],
-                                              self.dataplane, self.model_repository_extension,
-                                              self.enable_docs_url,
-                                              log_config=self.log_config,
-                                              access_log_format=self.access_log_format)
+            self._rest_server = UvicornServer(self.http_port, [serversocket], self.dataplane,
+                                              self.model_repository_extension, self.enable_docs_url,
+                                              log_config=self.log_config, access_log_format=self.access_log_format)
             if self.workers == 1:
                 await self._rest_server.run()
             else:
@@ -178,7 +183,8 @@ class ModelServer:
                 server = UvicornServer(self.http_port, [serversocket],
                                        self.dataplane, self.model_repository_extension,
                                        self.enable_docs_url, log_config=self.log_config,
-                                       access_log_format=self.access_log_format)
+                                       access_log_format=self.access_log_format,
+                                       http_middleware=self.http_middleware)
                 for _ in range(self.workers):
                     p = Process(target=server.run_sync)
                     p.start()
