@@ -16,7 +16,6 @@ from typing import Dict, Union
 
 import boto3
 import cv2
-from cloudevents.http import CloudEvent
 
 import kserve
 from kserve import InferRequest, InferResponse
@@ -43,7 +42,7 @@ class ImageTransformer(kserve.Model):
         self.predictor_host = predictor_host
         self._key = None
 
-    async def preprocess(self, inputs: Union[Dict, CloudEvent, InferRequest],
+    async def preprocess(self, inputs: Union[Dict, InferRequest],
                          headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         logging.info("Received inputs %s", inputs)
         if inputs['EventName'] == 's3:ObjectCreated:Put':

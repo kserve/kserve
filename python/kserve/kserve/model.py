@@ -196,14 +196,14 @@ class Model:
         # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
-    async def preprocess(self, payload: Union[Dict, CloudEvent, InferRequest],
+    async def preprocess(self, payload: Union[Dict, InferRequest],
                          headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         """`preprocess` handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
 
         Args:
-            payload (Dict|CloudEvent|InferRequest): Body of the request, v2 endpoints pass InferRequest.
+            payload (Dict|InferRequest): Body of the request, v2 endpoints pass InferRequest.
             headers (Dict): Request headers.
 
         Returns:

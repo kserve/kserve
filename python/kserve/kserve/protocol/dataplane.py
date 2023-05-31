@@ -239,24 +239,15 @@ class DataPlane:
         attributes = {}
         if isinstance(body, CloudEvent):
             attributes = body._get_attributes()
-            avro_content_types = ("application/avro", "application/cloudevents+avro", "application/x-avro-binary",
-                                  "application/x-avro+json", "application/x-avro-binary", "avro/binary"
-                                  "application/vnd.apache.avro+binary")
-            # Handle avro encoding
-            if attributes["content-type"] in avro_content_types:
-                decoded_body = body.get_data()
-            else:
-                try:
-                    # Try to decode and parse JSON UTF-8 if possible, otherwise
-                    # just pass the CloudEvent data on to the predict function.
-                    # This is for the cases that CloudEvent encoding is protobuf etc.
-                    decoded_body = orjson.loads(body.data.decode('UTF-8'))
-                except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
-                    # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
-                    if "content-type" in body._attributes and \
-                            (body._attributes["content-type"] == "application/cloudevents+json" or
-                             body._attributes["content-type"] == "application/json"):
-                        raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
+            decoded_body = body.get_data()
+            try:
+                decoded_body = orjson.loads(decoded_body.decode('UTF-8'))
+            except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+                # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
+                if "content-type" in body._attributes and \
+                        (body._attributes["content-type"] == "application/cloudevents+json" or
+                         body._attributes["content-type"] == "application/json"):
+                    raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
 
         elif isinstance(body, dict):
             if is_structured_cloudevent(body):
