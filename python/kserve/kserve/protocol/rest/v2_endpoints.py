@@ -20,7 +20,7 @@ from fastapi.responses import Response
 from ..infer_type import InferInput, InferRequest
 from .v2_datamodels import (
     InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
-    ModelMetadataResponse, InferenceResponse, ModelReadyResponse
+    ModelMetadataResponse, InferenceResponse, ModelReadyResponse, ListModelsResponse
 )
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
@@ -60,6 +60,15 @@ class V2Endpoints:
             ServerReadyResponse: Server ready message.
         """
         return ServerReadyResponse(ready=True)
+    
+    async def models(self) -> ListModelsResponse:
+        """Get a list of models in the model registry.
+
+        Returns:
+            ListModelsResponse: List of models object.
+        """
+        models = list(self.dataplane.model_registry.get_models().keys())
+        return ListModelsResponse.parse_obj({"models": models})
 
     async def model_metadata(self, model_name: str, model_version: Optional[str] = None) -> ModelMetadataResponse:
         """Model metadata handler. It provides information about a model.
