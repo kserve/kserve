@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import io
 import json
 import os
@@ -145,6 +146,10 @@ class DummyAvroCEModel(Model):
         return record1
 
     def preprocess(self, request, headers: Dict[str, str] = None):
+        assert headers["ce-specversion"] == "1.0"
+        assert headers["ce-source"] == "https://example.com/event-producer"
+        assert headers["ce-type"] == "com.example.sampletype1"
+        assert headers["ce-content-type"] == "application/avro"
         return self._parserequest(request)
 
     async def predict(self, request, headers=None):
