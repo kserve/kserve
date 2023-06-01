@@ -283,7 +283,7 @@ func (ss *InferenceServiceStatus) IsConditionFalse(t apis.ConditionType) bool {
 // IsConditionUnknown returns if a given condition is Unknown
 func (ss *InferenceServiceStatus) IsConditionUnknown(t apis.ConditionType) bool {
 	condition := conditionSet.Manage(ss).GetCondition(t)
-	return condition != nil && condition.Status == v1.ConditionUnknown
+	return condition == nil || condition.Status == v1.ConditionUnknown
 }
 
 func (ss *InferenceServiceStatus) PropagateRawStatus(
