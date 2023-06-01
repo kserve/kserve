@@ -12,7 +12,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-kserve = {path = "../kserve", develop = true}
+kserve = {path = "../kserve", extras = ["ray-serve"], develop = true}
 aif360 = "^0.2.3"
 nest-asyncio = "^1.4.0"
 requests = {version = "^2.24.0", extras = ["security"]}

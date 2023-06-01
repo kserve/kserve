@@ -22,8 +22,11 @@ from distutils.util import strtobool
 from multiprocessing import Process
 from typing import Dict, List, Optional, Union
 
-from ray import serve as rayserve
-from ray.serve.api import Deployment, RayServeHandle
+try:
+    from ray.serve.api import Deployment, RayServeHandle
+except ImportError:
+    Deployment = object
+    RayServeHandle = object
 
 from .logging import KSERVE_LOG_CONFIG, logger
 from .model import Model
@@ -131,6 +134,8 @@ class ModelServer:
                 else:
                     raise RuntimeError("Model type should be 'Model'")
         elif isinstance(models, dict):
+            from ray import serve as rayserve
+
             if all([isinstance(v, Deployment) for v in models.values()]):
                 # TODO: make this port number a variable
                 rayserve.start(detached=True, http_options={"host": "0.0.0.0", "port": 9071})
