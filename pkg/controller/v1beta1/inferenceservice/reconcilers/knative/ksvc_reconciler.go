@@ -218,6 +218,8 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	for ksvcAnnotationKey := range managedKsvcAnnotations {
 		if desiredValue, ok := desired.ObjectMeta.Annotations[ksvcAnnotationKey]; ok {
 			existing.ObjectMeta.Annotations[ksvcAnnotationKey] = desiredValue
+		} else {
+			delete(existing.ObjectMeta.Annotations, ksvcAnnotationKey)
 		}
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -232,10 +234,10 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 
 func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	for ksvcAnnotationKey := range managedKsvcAnnotations {
-		if desiredValue, ok := desiredService.ObjectMeta.Annotations[ksvcAnnotationKey]; ok {
-			if service.ObjectMeta.Annotations[ksvcAnnotationKey] != desiredValue {
-				return false
-			}
+		existingValue, ok1 := service.ObjectMeta.Annotations[ksvcAnnotationKey]
+		desiredValue, ok2 := desiredService.ObjectMeta.Annotations[ksvcAnnotationKey]
+		if ok1 != ok2 || existingValue != desiredValue {
+			return false
 		}
 	}
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
