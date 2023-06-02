@@ -203,7 +203,7 @@ spec:
   grpcDataEndpoint: "port:7070"
   containers:
     - name: torchserve
-      image: pytorch/torchserve:0.6.0-cpu
+      image: pytorch/torchserve:0.7.1-cpu
       args:
         # Adapter creates the config file; wait for it to exist before starting
         - while [ ! -e "$TS_CONFIG_FILE" ]; do echo "waiting for config file..."; sleep 1; done;
