@@ -10,10 +10,10 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.12"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
 scikit-learn = "~1.0.1"
-joblib = "^1.0.0"
+joblib = "^1.1.1"
 pandas = "^1.3.5"
 
 [tool.poetry.group.test]
