@@ -33,7 +33,7 @@ from kserve.protocol.rest.server import RESTServer
 
 from kserve.protocol.infer_type import InferRequest
 from kserve.utils.utils import get_predict_input, get_predict_response
-
+from test.logging_middleware import LoggingMiddleware
 
 test_avsc_schema = '''
         {
@@ -268,6 +268,39 @@ class TestTFHttpServer:
         resp = http_server_client.get('/metrics')
         assert resp.status_code == 200
         assert resp.content is not None
+
+
+class TestTFHttpServerLoggingMiddleware:
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        model = DummyModel("TestModel")
+        model.load()
+        server = ModelServer(http_middleware=LoggingMiddleware)
+        server.register_model(model)
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        application = rest_server.create_application()
+        application.add_middleware(LoggingMiddleware)
+        return application
+
+    @pytest.fixture(scope='class')
+    def http_server_client(self, app):
+        return TestClient(app, headers={"content-type": "application/json"})
+
+    def test_predict(self, http_server_client):
+        resp = http_server_client.post('/v1/models/TestModel:predict',
+                                       data=b'{"instances":[[1,2]]}', headers={'request_id': 'hello'})
+        assert resp.status_code == 200
+        assert resp.content == b'{"predictions":[[1,2]]}'
+        assert resp.headers['content-type'] == "application/json"
+        assert resp.headers['request_id'] == "hello"
+
+    def test_predict_empty_logging_context(self, http_server_client):
+        resp = http_server_client.post('/v1/models/TestModel:predict',
+                                       data=b'{"instances":[[1,2]]}', )
+        assert resp.status_code == 200
+        assert resp.content == b'{"predictions":[[1,2]]}'
+        assert resp.headers['content-type'] == "application/json"
+        assert resp.headers['request_id'] == "NA"
 
 
 class TestRayServer:
