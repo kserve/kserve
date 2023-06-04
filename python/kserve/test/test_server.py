@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import io
 import json
 import os
@@ -33,7 +34,6 @@ from kserve.protocol.rest.server import RESTServer
 
 from kserve.protocol.infer_type import InferRequest
 from kserve.utils.utils import get_predict_input, get_predict_response
-
 
 test_avsc_schema = '''
         {
@@ -146,13 +146,11 @@ class DummyAvroCEModel(Model):
         return record1
 
     def preprocess(self, request, headers: Dict[str, str] = None):
-        if isinstance(request, CloudEvent):
-            attributes = request._attributes
-            assert attributes["specversion"] == "1.0"
-            assert attributes["source"] == "https://example.com/event-producer"
-            assert attributes["type"] == "com.example.sampletype1"
-            assert attributes["content-type"] == "application/avro"
-            return self._parserequest(request.data)
+        assert headers["ce-specversion"] == "1.0"
+        assert headers["ce-source"] == "https://example.com/event-producer"
+        assert headers["ce-type"] == "com.example.sampletype1"
+        assert headers["ce-content-type"] == "application/avro"
+        return self._parserequest(request)
 
     async def predict(self, request, headers=None):
         return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}

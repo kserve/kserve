@@ -238,12 +238,10 @@ class DataPlane:
         decoded_body = body
         attributes = {}
         if isinstance(body, CloudEvent):
-            # Try to decode and parse JSON UTF-8 if possible, otherwise
-            # just pass the CloudEvent data on to the predict function.
-            # This is for the cases that CloudEvent encoding is protobuf, avro etc.
+            attributes = body._get_attributes()
+            decoded_body = body.get_data()
             try:
-                decoded_body = orjson.loads(body.data.decode('UTF-8'))
-                attributes = body._get_attributes()
+                decoded_body = orjson.loads(decoded_body.decode('UTF-8'))
             except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
                 # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
                 if "content-type" in body._attributes and \
