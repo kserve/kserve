@@ -52,7 +52,7 @@ spec:
       containers:
         - command:
             - etcd
-            - --data-dir # use data directory under /tmp for read/write access by non-root user on OpenShift
+            - --data-dir
             - /tmp/etcd.data
             - --listen-client-urls
             - http://0.0.0.0:2379
