@@ -62,7 +62,7 @@ runs:
     - name: Prune docker images
       shell: bash
       run: |
-        echo "Pruning docker images"
-        docker image prune -a -f
+        echo "TODO: Pruning docker images"
+        #docker image prune -a -f
         docker system df
         df -h
