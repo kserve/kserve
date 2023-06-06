@@ -134,15 +134,14 @@ jobs:
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/base-download
       - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -165,7 +164,10 @@ jobs:
           image: "kserve/pmmlserver:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+        run: |
+          which python
+          python --version
+          ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |
@@ -234,7 +236,10 @@ jobs:
           image: "kserve/paddleserver:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+        run: |
+          which python
+          python --version
+          ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |
