@@ -17,7 +17,7 @@ jobs:
   kserve-image-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build KServe images
         run: |
@@ -43,7 +43,7 @@ jobs:
   poetry-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - uses: actions/setup-python@v4
         with:
@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [poetry-check]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build runtime server images
         run: |
@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [poetry-check]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build runtime server images
         run: |
@@ -133,8 +133,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
@@ -173,22 +173,26 @@ jobs:
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 50
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml or graph"
 
           kubectl get pods -n kserve
+
       - name: Patch inferenceservice config
         run : |
           kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
+
       - name: Run E2E tests with path-based routing
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh fast
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -198,8 +202,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
@@ -238,12 +242,14 @@ jobs:
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 52
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh slow
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -253,8 +259,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
@@ -288,12 +294,14 @@ jobs:
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh explainer
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -303,8 +311,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
@@ -338,12 +346,14 @@ jobs:
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms"
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -353,8 +363,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
@@ -378,10 +388,8 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
-
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
-
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -405,8 +413,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
@@ -449,11 +457,13 @@ jobs:
           ./test/scripts/gh-actions/setup-kserve.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "grpc"
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -463,8 +473,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
@@ -483,11 +493,13 @@ jobs:
           ./test/scripts/gh-actions/setup-kserve-helm.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "helm"
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -498,8 +510,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
@@ -523,12 +535,14 @@ jobs:
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh raw
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |

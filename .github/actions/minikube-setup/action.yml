@@ -4,6 +4,24 @@ description: 'Sets up minikube on the github runner'
 runs:
   using: "composite"
   steps:
+    - name: Free up disk space
+      run: |
+        # https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
+        # du -sh /*        2> /dev/null | sort -rh  2> /dev/null | head
+        # du -h -d2 /usr   2> /dev/null | sort -rh  2> /dev/null | head
+        echo "Check free disk space before cleanup."
+        df -h
+        echo "Removing non-essential tools and libraries."
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/share/boost
+        # delete libraries for Android (12G), PowerShell (1.3G), Swift (1.7G)
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /usr/local/share/powershell
+        sudo rm -rf /usr/share/swift
+        echo "Check free disk space after cleanup."
+        df -h
     - name: Install kubectl
       uses: azure/setup-kubectl@v3
       with:
@@ -35,3 +53,10 @@ runs:
         ./test/scripts/gh-actions/update-test-overlays.sh
         docker image ls
         cat ./config/overlays/test/configmap/inferenceservice.yaml
+
+    - name: Prune docker images
+      run: |
+        echo "Pruning docker images"
+        docker image prune -a -f
+        docker system df
+        df -h
