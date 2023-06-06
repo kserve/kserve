@@ -13,7 +13,7 @@ runs:
         echo "Check free disk space before cleanup."
         df -h
         echo "Removing non-essential tools and libraries."
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        #sudo rm -rf "$AGENT_TOOLSDIRECTORY"
         sudo rm -rf /opt/ghc
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /usr/local/share/boost
