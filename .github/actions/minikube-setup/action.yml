@@ -5,6 +5,7 @@ runs:
   using: "composite"
   steps:
     - name: Free up disk space
+      shell: bash
       run: |
         # https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
         # du -sh /*        2> /dev/null | sort -rh  2> /dev/null | head
@@ -22,10 +23,12 @@ runs:
         sudo rm -rf /usr/share/swift
         echo "Check free disk space after cleanup."
         df -h
+
     - name: Install kubectl
       uses: azure/setup-kubectl@v3
       with:
         version: 'v1.26.0'
+
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
@@ -34,9 +37,11 @@ runs:
         driver: 'none'
         wait: 'all'
         start-args: --wait-timeout=120s
+
     - name: Check Kubernetes pods
       shell: bash
       run: kubectl get pods -n kube-system
+
     - name: Setup KServe dependencies
       shell: bash
       run: |
@@ -55,6 +60,7 @@ runs:
         cat ./config/overlays/test/configmap/inferenceservice.yaml
 
     - name: Prune docker images
+      shell: bash
       run: |
         echo "Pruning docker images"
         docker image prune -a -f
