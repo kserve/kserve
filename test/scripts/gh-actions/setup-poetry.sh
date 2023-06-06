@@ -20,8 +20,9 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export POETRY_VERSION=1.4.0
+export POETRY_VERSION=1.5.1
 echo "Installing Poetry $POETRY_VERSION ..."
+pip install distro-info --upgrade
 pip install poetry==$POETRY_VERSION
 poetry config virtualenvs.create true
 poetry config virtualenvs.in-project true
