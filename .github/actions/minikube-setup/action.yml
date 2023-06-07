@@ -9,20 +9,16 @@ runs:
       run: |
         echo "Disk usage before cleanup:"
         df -h
-        # du -sh /*        2> /dev/null | sort -rh  2> /dev/null | head
-        # du -h -d2 /usr   2> /dev/null | sort -rh  2> /dev/null | head
 
-        # remove non-essential tools and libraries
-        # see https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
+        # remove non-essential tools and libraries, see:
+        # https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
         sudo rm -rf /opt/ghc
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /usr/local/share/boost
 
-        # keep "$AGENT_TOOLSDIRECTORY" for Python versions and Python libraries
-        du -h -d2 "$AGENT_TOOLSDIRECTORY" 2> /dev/null | sort -rh  2> /dev/null | head
-
-        # delete libraries for Android (12G), PowerShell (1.3G), Swift (1.7G)
+        # delete libraries for Android (12G), CodeQL (5.3G), PowerShell (1.3G), Swift (1.7G)
         sudo rm -rf /usr/local/lib/android
+        sudo rm -rf "${AGENT_TOOLSDIRECTORY}/CodeQL"
         sudo rm -rf /usr/local/share/powershell
         sudo rm -rf /usr/share/swift
 
