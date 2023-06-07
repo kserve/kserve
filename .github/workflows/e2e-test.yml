@@ -134,14 +134,15 @@ jobs:
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/base-download
       - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+
+      - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -164,10 +165,7 @@ jobs:
           image: "kserve/pmmlserver:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
-        run: |
-          which python
-          python --version
-          ./test/scripts/gh-actions/setup-poetry.sh
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |
@@ -236,10 +234,7 @@ jobs:
           image: "kserve/paddleserver:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
-        run: |
-          which python
-          python --version
-          ./test/scripts/gh-actions/setup-poetry.sh
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |
@@ -249,7 +244,7 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run E2E tests
-        timeout-minutes: 52
+        timeout-minutes: 60
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh slow
 
@@ -500,7 +495,7 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run E2E tests
-        timeout-minutes: 40
+        timeout-minutes: 50
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "helm"
           kubectl get pods -n kserve

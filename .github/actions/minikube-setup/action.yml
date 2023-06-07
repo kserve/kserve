@@ -7,21 +7,26 @@ runs:
     - name: Free up disk space
       shell: bash
       run: |
-        # https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
+        echo "Disk usage before cleanup:"
+        df -h
         # du -sh /*        2> /dev/null | sort -rh  2> /dev/null | head
         # du -h -d2 /usr   2> /dev/null | sort -rh  2> /dev/null | head
-        echo "Check free disk space before cleanup."
-        df -h
-        echo "Removing non-essential tools and libraries."
-        #sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+        # remove non-essential tools and libraries
+        # see https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
         sudo rm -rf /opt/ghc
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /usr/local/share/boost
+
+        # keep "$AGENT_TOOLSDIRECTORY" for Python versions and Python libraries
+        du -h -d2 "$AGENT_TOOLSDIRECTORY" 2> /dev/null | sort -rh  2> /dev/null | head
+
         # delete libraries for Android (12G), PowerShell (1.3G), Swift (1.7G)
         sudo rm -rf /usr/local/lib/android
         sudo rm -rf /usr/local/share/powershell
         sudo rm -rf /usr/share/swift
-        echo "Check free disk space after cleanup."
+
+        echo "Disk usage after cleanup:"
         df -h
 
     - name: Install kubectl
