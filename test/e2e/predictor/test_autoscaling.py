@@ -115,7 +115,8 @@ def test_sklearn_kserve_rps():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.skip()
+# TODO: skip (kserve/kserve#2972)
+@pytest.mark.slow()
 def test_sklearn_kserve_cpu():
     service_name = "isvc-sklearn-scale-cpu"
     predictor = V1beta1PredictorSpec(

@@ -28,7 +28,8 @@ from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-@pytest.mark.skip()
+# TODO: skip (kserve/kserve#2972)
+@pytest.mark.slow()
 def test_pytorch():
     service_name = 'isvc-pytorch'
     predictor = V1beta1PredictorSpec(

@@ -107,7 +107,8 @@ def test_torchserve_v2_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.skip()
+# TODO: skip (kserve/kserve#2972)
+@pytest.mark.slow()
 def test_torchserve_grpc():
     service_name = "mnist-grpc"
     predictor = V1beta1PredictorSpec(
