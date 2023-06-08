@@ -252,7 +252,7 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run E2E tests
-        timeout-minutes: 60
+        timeout-minutes: 90
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh slow
 
