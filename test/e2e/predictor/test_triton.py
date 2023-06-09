@@ -28,8 +28,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
 
-# TODO: skip (kserve/kserve#2972)
-@pytest.mark.slow
+# TODO: don't skip after kserve/kserve#2972 is merged
+@pytest.mark.skip()
 def test_triton():
     service_name = 'isvc-triton'
     predictor = V1beta1PredictorSpec(
@@ -80,8 +80,8 @@ def test_triton():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-# TODO: skip (kserve/kserve#2972)
-@pytest.mark.slow
+# TODO: don't skip after kserve/kserve#2972 is merged
+@pytest.mark.skip()
 def test_triton_runtime():
     service_name = 'isvc-triton-runtime'
     predictor = V1beta1PredictorSpec(
