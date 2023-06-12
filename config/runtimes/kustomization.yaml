@@ -32,7 +32,7 @@ images:
 
 - name: kserve-tritonserver
   newName: nvcr.io/nvidia/tritonserver
-  newTag: 21.09-py3
+  newTag: 23.05-py3
 
 - name: kserve-pmmlserver
   newName: kserve/pmmlserver

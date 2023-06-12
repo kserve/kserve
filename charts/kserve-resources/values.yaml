@@ -84,7 +84,7 @@ kserve:
       tag: *defaultVersion
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
-      tag: 21.09-py3
+      tag: 23.05-py3
     pmmlserver:
       image: kserve/pmmlserver
       tag: *defaultVersion
