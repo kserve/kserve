@@ -455,6 +455,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	// When Istio virtual host is disabled, we return the underlying component url.
 	// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
 	if disableIstioVirtualHost == false {
+		// Check if existing knative service name has default suffix
 		defaultNameExisting := &knservingv1.Service{}
 		useDefault := false
 		err := ir.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, defaultNameExisting)
@@ -498,7 +499,20 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
 		isvc.Status.URL = url
-		hostPrefix := getHostPrefix(isvc, disableIstioVirtualHost)
+		var hostPrefix string
+		if disableIstioVirtualHost == true {
+			// Check if existing kubernetes service name has default suffix
+			existingServiceWithDefaultSuffix := &corev1.Service{}
+			useDefault := false
+			err := ir.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existingServiceWithDefaultSuffix)
+			if err == nil {
+				useDefault = true
+			}
+			hostPrefix = getHostPrefix(isvc, disableIstioVirtualHost, useDefault)
+		} else {
+			hostPrefix = getHostPrefix(isvc, disableIstioVirtualHost, false)
+		}
+
 		isvc.Status.Address = &duckv1.Addressable{
 			URL: &apis.URL{
 				Host:   network.GetServiceHostname(hostPrefix, isvc.Namespace),
@@ -521,12 +535,21 @@ func routeSemanticEquals(desired, existing *v1alpha3.VirtualService) bool {
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
 }
 
-func getHostPrefix(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool) string {
+func getHostPrefix(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool, useDefault bool) string {
 	if disableIstioVirtualHost == true {
-		if isvc.Spec.Transformer != nil {
-			return constants.DefaultTransformerServiceName(isvc.Name)
+		if useDefault {
+			if isvc.Spec.Transformer != nil {
+
+				return constants.DefaultTransformerServiceName(isvc.Name)
+			}
+			return constants.DefaultPredictorServiceName(isvc.Name)
+		} else {
+			if isvc.Spec.Transformer != nil {
+
+				return constants.TransformerServiceName(isvc.Name)
+			}
+			return constants.PredictorServiceName(isvc.Name)
 		}
-		return constants.DefaultPredictorServiceName(isvc.Name)
 	}
 	return isvc.Name
 }

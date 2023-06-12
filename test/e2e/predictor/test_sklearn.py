@@ -94,6 +94,7 @@ def test_sklearn_v2_mlserver():
 
 
 @pytest.mark.slow
+@pytest.mark.kourier
 def test_sklearn_runtime_kserve():
     service_name = "isvc-sklearn-runtime"
     predictor = V1beta1PredictorSpec(
