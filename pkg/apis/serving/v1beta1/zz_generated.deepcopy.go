@@ -138,6 +138,20 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 		*out = new(Batcher)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Labels != nil {
+		in, out := &in.Labels, &out.Labels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.Annotations != nil {
+		in, out := &in.Annotations, &out.Annotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
@@ -874,6 +888,23 @@ func (in *PodSpec) DeepCopyInto(out *PodSpec) {
 		in, out := &in.OS, &out.OS
 		*out = new(corev1.PodOS)
 		**out = **in
+	}
+	if in.HostUsers != nil {
+		in, out := &in.HostUsers, &out.HostUsers
+		*out = new(bool)
+		**out = **in
+	}
+	if in.SchedulingGates != nil {
+		in, out := &in.SchedulingGates, &out.SchedulingGates
+		*out = make([]corev1.PodSchedulingGate, len(*in))
+		copy(*out, *in)
+	}
+	if in.ResourceClaims != nil {
+		in, out := &in.ResourceClaims, &out.ResourceClaims
+		*out = make([]corev1.PodResourceClaim, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }

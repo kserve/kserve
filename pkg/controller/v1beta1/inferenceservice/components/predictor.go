@@ -263,15 +263,33 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}
 	}
-	// Labels and annotations from isvc will overwrite labels and annotations from ServingRuntimePodSpec
+
+	// Labels and annotations from predictor component
+	// Label filter will be handled in ksvc_reconciler
+	predictorLabels := isvc.Spec.Predictor.Labels
+	predictorAnnotations := utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
+
+	// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec
+	// Labels and annotations from high priority will overwrite that from low priority
 	objectMeta := metav1.ObjectMeta{
 		Name:      predictorName,
 		Namespace: isvc.Namespace,
-		Labels: utils.Union(sRuntimeLabels, isvc.Labels, map[string]string{
-			constants.InferenceServicePodLabelKey: isvc.Name,
-			constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
-		}),
-		Annotations: utils.Union(sRuntimeAnnotations, annotations),
+		Labels: utils.Union(
+			sRuntimeLabels,
+			isvc.Labels,
+			predictorLabels,
+			map[string]string{
+				constants.InferenceServicePodLabelKey: isvc.Name,
+				constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+			},
+		),
+		Annotations: utils.Union(
+			sRuntimeAnnotations,
+			annotations,
+			predictorAnnotations,
+		),
 	}
 
 	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)

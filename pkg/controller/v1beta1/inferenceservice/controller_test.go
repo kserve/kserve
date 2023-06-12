@@ -110,9 +110,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 						Labels: map[string]string{
 							"key1": "val1FromSR",
+							"key2": "val2FromSR",
+							"key3": "val3FromSR",
 						},
 						Annotations: map[string]string{
 							"key1": "val1FromSR",
+							"key2": "val2FromSR",
+							"key3": "val3FromSR",
 						},
 						Containers: []v1.Container{
 							{
@@ -147,12 +151,26 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
+					Labels: map[string]string{
+						"key2": "val2FromISVC",
+						"key3": "val3FromISVC",
+					},
+					Annotations: map[string]string{
+						"key2": "val2FromISVC",
+						"key3": "val3FromISVC",
+					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: v1beta1.GetIntReference(1),
 							MaxReplicas: 3,
+							Labels: map[string]string{
+								"key3": "val3FromPredictor",
+							},
+							Annotations: map[string]string{
+								"key3": "val3FromPredictor",
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -198,6 +216,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									constants.KServiceComponentLabel:      constants.Predictor.String(),
 									constants.InferenceServicePodLabelKey: serviceName,
 									"key1":                                "val1FromSR",
+									"key2":                                "val2FromISVC",
+									"key3":                                "val3FromPredictor",
 								},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -205,6 +225,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									"autoscaling.knative.dev/min-scale":                        "1",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"key1":                                                     "val1FromSR",
+									"key2":                                                     "val2FromISVC",
+									"key3":                                                     "val3FromPredictor",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -357,12 +379,26 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceName,
 					Namespace: namespace,
+					Labels: map[string]string{
+						"key1": "val1FromISVC",
+						"key2": "val2FromISVC",
+					},
+					Annotations: map[string]string{
+						"key1": "val1FromISVC",
+						"key2": "val2FromISVC",
+					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: v1beta1.GetIntReference(1),
 							MaxReplicas: 3,
+							Labels: map[string]string{
+								"key2": "val2FromPredictor",
+							},
+							Annotations: map[string]string{
+								"key2": "val2FromPredictor",
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -375,6 +411,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: v1beta1.GetIntReference(1),
 							MaxReplicas: 3,
+							Labels: map[string]string{
+								"key2": "val2FromTransformer",
+							},
+							Annotations: map[string]string{
+								"key2": "val2FromTransformer",
+							},
 						},
 						PodSpec: v1beta1.PodSpec{
 							Containers: []v1.Container{
@@ -464,11 +506,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
 									constants.KServiceComponentLabel: constants.Transformer.String(),
+									"key1":                           "val1FromISVC",
+									"key2":                           "val2FromTransformer",
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/max-scale": "3",
 									"autoscaling.knative.dev/min-scale": "1",
+									"key1":                              "val1FromISVC",
+									"key2":                              "val2FromTransformer",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -607,12 +653,26 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceName,
 					Namespace: namespace,
+					Labels: map[string]string{
+						"key1": "val1FromISVC",
+						"key2": "val2FromISVC",
+					},
+					Annotations: map[string]string{
+						"key1": "val1FromISVC",
+						"key2": "val2FromISVC",
+					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: v1beta1.GetIntReference(1),
 							MaxReplicas: 3,
+							Labels: map[string]string{
+								"key2": "val2FromPredictor",
+							},
+							Annotations: map[string]string{
+								"key2": "val2FromPredictor",
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -625,6 +685,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: v1beta1.GetIntReference(1),
 							MaxReplicas: 3,
+							Labels: map[string]string{
+								"key2": "val2FromExplainer",
+							},
+							Annotations: map[string]string{
+								"key2": "val2FromExplainer",
+							},
 						},
 						Alibi: &v1beta1.AlibiExplainerSpec{
 							Type: v1beta1.AlibiAnchorsTabularExplainer,
@@ -683,12 +749,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
 									constants.KServiceComponentLabel: constants.Explainer.String(),
+									"key1":                           "val1FromISVC",
+									"key2":                           "val2FromExplainer",
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/max-scale":                        "3",
 									"autoscaling.knative.dev/min-scale":                        "1",
 									"internal.serving.kserve.io/storage-initializer-sourceuri": "s3://test/mnist/explainer",
+									"key1": "val1FromISVC",
+									"key2": "val2FromExplainer",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{

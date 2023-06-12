@@ -1036,6 +1036,10 @@ spec:
                         workingDir:
                           type: string
                       type: object
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     art:
                       properties:
                         args:
@@ -2928,6 +2932,10 @@ spec:
                           - name
                         type: object
                       type: array
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     logger:
                       properties:
                         mode:
@@ -4259,6 +4267,10 @@ spec:
                               type: array
                           type: object
                       type: object
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     automountServiceAccountToken:
                       type: boolean
                     batcher:
@@ -5535,6 +5547,10 @@ spec:
                           - name
                         type: object
                       type: array
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     lightgbm:
                       properties:
                         args:
@@ -12997,6 +13013,10 @@ spec:
                               type: array
                           type: object
                       type: object
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     automountServiceAccountToken:
                       type: boolean
                     batcher:
@@ -14273,6 +14293,10 @@ spec:
                           - name
                         type: object
                       type: array
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     logger:
                       properties:
                         mode:
