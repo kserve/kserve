@@ -96,7 +96,7 @@ kserve:
       tag: *defaultVersion
     torchserve:
       image: pytorch/torchserve-kfs
-      tag: 0.6.1
+      tag: 0.8.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
     alibi:
       image: kserve/alibi-explainer
