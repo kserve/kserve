@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2022 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # The script will install KServe dependencies in the GH Actions environment.
-# (Istio, Knative, cert-manager, kustomize, yq)
+# (Kourier, Knative, cert-manager, kustomize, yq)
 
 set -o errexit
 set -o nounset
@@ -23,56 +23,26 @@ set -o pipefail
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
-ISTIO_VERSION="1.17.2"
-KNATIVE_VERSION="knative-v1.9.0"
+KNATIVE_KOURIER_VERSION="knative-v1.10.0"
+KNATIVE_VERSION="knative-v1.10.1"
 CERT_MANAGER_VERSION="v1.5.0"
 YQ_VERSION="v4.28.1"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
-echo "Installing Istio ..."
-mkdir istio_tmp
-pushd istio_tmp >/dev/null
-  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
-  cd istio-${ISTIO_VERSION}
-  export PATH=$PWD/bin:$PATH
-  istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout > ${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
-popd
-
-kubectl create ns istio-system
-for i in 1 2 3 ; do kubectl apply -k test/overlays/istio && break || sleep 15; done
-
-echo "Waiting for Istio to be ready ..."
-kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
-
-# Necessary since istio is the default ingressClassName in kserve.yaml
-echo "Creating istio ingress class"
-cat <<EOF | kubectl apply -f -
-apiVersion: networking.k8s.io/v1
-kind: IngressClass
-metadata:
-  name: istio
-spec:
-  controller: istio.io/ingress-controller
-EOF
-
-echo "Installing Knative serving ..."
+echo "Installing Knative serving and Kourier..."
 pushd "${SCRIPT_DIR}"/../../overlays/knative/default >/dev/null
   curl -s -O -L https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-  curl -s -O -L https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
-
+  curl -s -O -L https://github.com/knative/net-kourier/releases/download/${KNATIVE_KOURIER_VERSION}/release.yaml
   # Kustomize does not work with integer map keys
   sed -i 's/8443:/"8443":/g' release.yaml
 popd
 
-for i in 1 2 3 ; do kubectl apply -k test/overlays/knative/overlays/istio && break || sleep 15; done
+for i in 1 2 3 ; do kubectl apply -k test/overlays/knative/overlays/kourier && break || sleep 15; done
 
 echo "Waiting for Knative to be ready ..."
 kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
-
-# echo "Add knative hpa..."
-# kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
 
 # sleep to avoid knative webhook timeout error
 sleep 5
@@ -86,6 +56,14 @@ echo "Patching knative external domain ..."
 # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress (from knative 1.8)
 for i in 1 2 3; do kubectl patch cm config-domain --patch '{"data":{"example.com":""}}' -n knative-serving && break || sleep 15; done
 kubectl describe cm config-domain -n knative-serving
+
+echo "Configuring Knative Serving to use kourier ..."
+for i in 1 2 3; do
+kubectl patch configmap/config-network \
+  -n knative-serving \
+  --type merge \
+  -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
+done
 
 echo "Installing cert-manager ..."
 kubectl create namespace cert-manager

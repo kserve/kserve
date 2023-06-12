@@ -11,6 +11,4 @@ patches:
 - path: controller_deployment_patch.yaml
 - path: domain_mapping_deployment_patch.yaml
 - path: domainmapping_webhook_patch.yaml
-- path: net_istio_controller_deployment_patch.yaml
-- path: net_istio_webhook_patch.yaml
 - path: webhook_deployment_patch.yaml

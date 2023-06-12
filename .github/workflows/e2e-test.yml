@@ -151,6 +151,9 @@ jobs:
 
       - name: Download base images
         uses: ./.github/actions/base-download
+     
+      - name: KServe dependency setup
+      - uses: ./.github/actions/kserve-dep-setup
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -219,6 +222,7 @@ jobs:
           python-version: '3.9'
 
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
@@ -276,6 +280,7 @@ jobs:
           python-version: '3.9'
 
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
@@ -328,6 +333,7 @@ jobs:
           python-version: '3.9'
           
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
@@ -379,6 +385,7 @@ jobs:
         with:
           python-version: '3.9'
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
       - name: Build queue proxy extension image
         run: |
@@ -430,6 +437,7 @@ jobs:
           python-version: '3.9'
 
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Download custom model grpc image
@@ -490,6 +498,7 @@ jobs:
           python-version: '3.9'
 
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Install Poetry and version plugin
@@ -527,6 +536,7 @@ jobs:
           python-version: '3.9'
 
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
@@ -555,3 +565,73 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+  test-kourier:
+    runs-on: ubuntu-latest
+    needs: [kserve-image-build, predictor-runtime-build]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.3'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
+        with:
+          network-layer: 'kourier'
+      - uses: ./.github/actions/base-download
+
+      - name: Download sklearn server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/sklearnserver:${{ github.sha }}"
+
+      - name: Download xgb server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/xgbserver:${{ github.sha }}"
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Patch inferenceservice config to disable istio
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-disable-istio.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests
+        timeout-minutes: 25
+        run: |
+          export KSERVE_INGRESS_HOST_PORT=$(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" \
+          --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" \
+          --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
+          
+          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier"
+
+          kubectl get pods -n kserve
+
+      - name: Check system status
+        if: always()
+        run: |
+          docker image ls
+          kubectl get pods -n kserve
+          kubectl get pods -n kserve-ci-e2e-test
+          
+          kubectl describe pods -n kserve-ci-e2e-test
+          kubectl get events -n kserve-ci-e2e-test
+          kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager
+          kubectl logs -l 'component in (predictor)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+          kubectl logs -l 'component in (transformer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+          kubectl logs -l 'component in (explainer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+          kubectl logs $(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" --output=jsonpath="{.items[0].metadata.name}") -n kourier-system
+
