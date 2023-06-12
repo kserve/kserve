@@ -43,23 +43,6 @@ runs:
       shell: bash
       run: kubectl get pods -n kube-system
 
-    - name: Setup KServe dependencies
-      shell: bash
-      run: |
-        ./test/scripts/gh-actions/setup-deps.sh
-
-        kubectl get pods -n istio-system
-        kubectl describe svc -n istio-system istio-ingressgateway
-        kubectl get pods -n knative-serving
-        kubectl get pods -n cert-manager
-    
-    - name: Update test overlays
-      shell: bash
-      run: |
-        ./test/scripts/gh-actions/update-test-overlays.sh
-        docker image ls
-        cat ./config/overlays/test/configmap/inferenceservice.yaml
-
     - name: Prune docker images
       shell: bash
       run: |
