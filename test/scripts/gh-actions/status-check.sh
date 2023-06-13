@@ -5,6 +5,7 @@ df -T
 docker image ls
 kubectl get pods -n kserve
 kubectl get pods -n kserve-ci-e2e-test
+kubectl get pods -A
 
 kubectl describe pods -n kserve-ci-e2e-test
 kubectl get events -n kserve-ci-e2e-test

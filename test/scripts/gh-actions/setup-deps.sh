@@ -24,7 +24,10 @@ set -o pipefail
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
 ISTIO_VERSION="1.17.2"
-KNATIVE_VERSION="knative-v1.9.0"
+KNATIVE_VERSION="1.9.0"
+KNATIVE_OPERATOR_PLUGIN_VERSION="knative-v1.7.1"
+KNATIVE_OPERATOR_VERSION="1.10.2"
+KNATIVE_CLI_VERSION="knative-v1.10.0"
 CERT_MANAGER_VERSION="v1.5.0"
 YQ_VERSION="v4.28.1"
 
@@ -57,16 +60,27 @@ spec:
   controller: istio.io/ingress-controller
 EOF
 
+echo "Installing Knative cli ..."
+wget https://github.com/knative/client/releases/download/"${KNATIVE_CLI_VERSION}"/kn-linux-amd64 -O /usr/local/bin/kn && chmod +x /usr/local/bin/kn
+
+echo "Installing Knative Operator ..."
+wget https://github.com/knative-sandbox/kn-plugin-operator/releases/download/"${KNATIVE_OPERATOR_PLUGIN_VERSION}"/kn-operator-linux-amd64 -O kn-operator && chmod +x kn-operator
+mkdir -p ~/.config/kn/plugins
+mv kn-operator ~/.config/kn/plugins
+kn operator install -n knative-operator -v "${KNATIVE_OPERATOR_VERSION}"
+kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-operator
+
 echo "Installing Knative serving ..."
-pushd "${SCRIPT_DIR}"/../../overlays/knative/default >/dev/null
-  curl -s -O -L https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-  curl -s -O -L https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
-
-  # Kustomize does not work with integer map keys
-  sed -i 's/8443:/"8443":/g' release.yaml
-popd
-
-for i in 1 2 3 ; do kubectl apply -k test/overlays/knative/overlays/istio && break || sleep 15; done
+kn operator install --component serving -n knative-serving --istio -v "${KNATIVE_VERSION}"
+# configure resources
+kn operator configure resources --component serving --deployName controller --container controller --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
+kn operator configure resources --component serving --deployName activator --container activator --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
+kn operator configure resources --component serving --deployName autoscaler --container autoscaler --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
+kn operator configure resources --component serving --deployName domain-mapping --container domain-mapping --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
+kn operator configure resources --component serving --deployName webhook --container webhook --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
+kn operator configure resources --component serving --deployName domainmapping-webhook --container domainmapping-webhook --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
+kn operator configure resources --component serving --deployName net-istio-controller --container controller --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
+kn operator configure resources --component serving --deployName net-istio-webhook --container webhook --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
 
 echo "Waiting for Knative to be ready ..."
 kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
