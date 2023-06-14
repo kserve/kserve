@@ -7,6 +7,10 @@ kubectl get pods -n kserve
 kubectl get pods -n kserve-ci-e2e-test
 kubectl get pods -A
 
+kubectl logs deployment/knative-operator -n knative-operator
+kubectl logs deployment/operator-webhook -n knative-operator
+kubectl get events -A
+
 kubectl describe pods -n kserve-ci-e2e-test
 kubectl get events -n kserve-ci-e2e-test
 kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager

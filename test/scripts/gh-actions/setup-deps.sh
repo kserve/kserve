@@ -24,8 +24,8 @@ set -o pipefail
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
 ISTIO_VERSION="1.17.2"
-KNATIVE_VERSION="1.9.0"
-KNATIVE_OPERATOR_PLUGIN_VERSION="knative-v1.7.1"
+KNATIVE_VERSION="1.9.3"
+KNATIVE_OPERATOR_PLUGIN_VERSION="knative-v1.10.0"
 KNATIVE_OPERATOR_VERSION="1.10.2"
 KNATIVE_CLI_VERSION="knative-v1.10.0"
 CERT_MANAGER_VERSION="v1.5.0"
