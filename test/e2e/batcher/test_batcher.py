@@ -19,7 +19,7 @@ from kserve import V1beta1PredictorSpec
 from kserve import V1beta1Batcher
 from kserve import V1beta1SKLearnSpec
 from kserve import V1beta1InferenceServiceSpec
-from kserve import V1beta1InferenceService
+from kserve import V1beta1InferenceService, V1beta1TorchServeSpec
 
 from kubernetes.client import V1ResourceRequirements
 import pytest
@@ -80,4 +80,153 @@ async def test_batcher(rest_v1_client):
         rest_v1_client, service_name, "./data/iris_batch_input.json", is_batch=True
     )
     assert all(x == results[0] for x in results)
+
+    results_batch_id = []
+    response_codes = []
+
+    for result in results:
+        results_batch_id.append(result["batchId"])
+        response_codes.append(result["response_code"])
+
+    # Batch results must have the same batch ID.
+    assert len(set(results_batch_id)) == 1
+    # Batch results must have 200 response codes.
+    assert set(response_codes) == {200}
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio(scope="session")
+async def test_batcher_v2(rest_v2_client):
+    service_name = "isvc-sklearn-batcher-v2"
+
+    predictor = V1beta1PredictorSpec(
+        batcher=V1beta1Batcher(
+            max_batch_size=32,
+            max_latency=5000,
+        ),
+        min_replicas=1,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    except RuntimeError as e:
+        print(
+            kserve_client.api_instance.get_namespaced_custom_object(
+                "serving.knative.dev",
+                "v1",
+                KSERVE_TEST_NAMESPACE,
+                "services",
+                service_name + "-predictor",
+            )
+        )
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
+        for pod in pods.items:
+            print(pod)
+        raise e
+    
+    results = await predict_isvc(
+        rest_v2_client, service_name, "./data/iris_batch_input_v2.json", is_batch=True
+    )
+    assert all(x == results[0] for x in results)
+
+    results_batch_id = []
+    response_codes = []
+
+    for result in results:
+        results_batch_id.append(result["batchId"])
+        response_codes.append(result["response_code"])
+
+    # Batch results must have the same batch ID.
+    assert len(set(results_batch_id)) == 1
+    # Batch results must have 200 response codes.
+    assert set(response_codes) == {200}
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio(scope="session")
+async def test_torchserve_v2_kserve(rest_v2_client):
+    service_name = "mnist-v2"
+    predictor = V1beta1PredictorSpec(
+        batcher=V1beta1Batcher(
+            max_batch_size=32,
+            max_latency=5000,
+        ),
+        min_replicas=1,
+        pytorch=V1beta1TorchServeSpec(
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v2",
+            protocol_version="v2",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "1", "memory": "1Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    except RuntimeError as e:
+        print(
+            kserve_client.api_instance.get_namespaced_custom_object(
+                "serving.knative.dev",
+                "v1",
+                KSERVE_TEST_NAMESPACE,
+                "services",
+                service_name + "-predictor",
+            )
+        )
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
+        for pod in pods.items:
+            print(pod)
+        raise e
+
+    results = await predict_isvc(
+        rest_v2_client, service_name, "./data/torchserve_v2_batch_input.json", is_batch=True
+    )
+    assert all(x == results[0] for x in results)
+
+    results_batch_id = []
+    response_codes = []
+
+    for result in results:
+        results_batch_id.append(result["batchId"])
+        response_codes.append(result["response_code"])
+
+    # Batch results must have the same batch ID.
+    assert len(set(results_batch_id)) == 1
+    # Batch results must have 200 response codes.
+    assert set(response_codes) == {200}
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
