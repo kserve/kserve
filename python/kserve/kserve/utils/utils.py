@@ -26,7 +26,7 @@ import psutil
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
-from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+from kserve.protocol.infer_type import InferOutput, InferInput, InferRequest, InferResponse
 from ..constants.constants import PredictorProtocol
 from ..errors import InvalidInput
 
@@ -181,14 +181,8 @@ def get_predict_input(
         if content_type == "pd":
             return payload.as_dataframe()
         else:
-            input = payload.inputs[0]
-            if (
-                input.datatype == "BYTES"
-                and len(input.data) > 0
-                and isinstance(input.data[0], str)
-            ):
-                return input.data
-            return input.as_numpy()
+            infer_inputs = merge_request_inputs(payload.inputs.copy())
+            return infer_inputs
 
 
 def get_predict_response(
@@ -285,3 +279,55 @@ def is_v1(protocol: Union[str, PredictorProtocol]) -> bool:
         isinstance(protocol, str)
         and protocol.lower() == PredictorProtocol.REST_V1.value.lower()
     )
+def merge_request_inputs(inputs: List[InferInput]) -> np.ndarray:
+    batch_shape = inputs[0].shape.copy()
+    batch_data = inputs[0].data.copy()
+    batch_datatype = inputs[0].datatype
+
+    for input in inputs[1:]:
+        batch_shape[0] += input.shape[0]
+        batch_data += input.data
+
+    batch_input = InferInput(
+        name="input-0", data=batch_data, shape=batch_shape, datatype=batch_datatype
+    )
+    if (
+        inputs[0].datatype == "BYTES"
+        and len(inputs[0].data) > 0
+        and isinstance(inputs[0].data[0], str)
+    ):
+        return batch_data
+
+    return batch_input.as_numpy()
+
+
+def merge_request_outputs(
+    inputs: List[InferInput], result: np.ndarray
+) -> List[InferOutput]:
+    infer_outputs = []
+    ele_index = 0
+    output_datatype = result.dtype
+    results = result.tolist()
+
+    # We generate predictions based on the number of inputs and create InferOutput objects
+    # to match the corresponding number of outputs.
+    for index, input in enumerate(inputs):
+        output_data = []
+        output_shape = list(result.shape) if len(result.shape) > 1 else [0]
+
+        # Storing output data based on the count of input data items
+        for ele in input.data:
+            if ele_index < len(results):
+                output_data.append(results[ele_index])
+                ele_index += 1
+
+        output_shape[0] = len(output_data)
+
+        infer_output = InferOutput(
+            name=f"output-{str(index)}",
+            shape=output_shape,
+            datatype=from_np_dtype(output_datatype),
+            data=output_data,
+        )
+        infer_outputs.append(infer_output)
+    return infer_outputs
