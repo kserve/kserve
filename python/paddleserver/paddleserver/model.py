@@ -23,6 +23,7 @@ from typing import Dict, Union
 
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
+import pandas as pd
 
 
 class PaddleModel(Model):
@@ -67,10 +68,18 @@ class PaddleModel(Model):
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             instances = get_predict_input(payload)
-            np_array_input = np.array(instances, dtype='float32')
-            self.input_tensor.copy_from_cpu(np_array_input)
-            self.predictor.run()
-            result = self.output_tensor.copy_to_cpu()
-            return get_predict_response(payload, result, self.name)
+            if isinstance(payload, Dict):
+                predictions = self.model_predict(instances)
+            elif isinstance(payload, InferRequest):
+                predictions = []
+                for instance in instances:
+                    predictions.append(self.model_predict(instance))
+            return get_predict_response(payload, predictions, self.name)
         except Exception as e:
             raise InferenceError(str(e))
+
+    def model_predict(self, instance: Union[np.ndarray, pd.DataFrame]) -> Union[np.ndarray, pd.DataFrame]:
+        np_array_input = np.array(instance, dtype='float32')
+        self.input_tensor.copy_from_cpu(np_array_input)
+        self.predictor.run()
+        return self.output_tensor.copy_to_cpu()

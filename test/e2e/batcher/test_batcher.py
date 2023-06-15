@@ -30,11 +30,6 @@ from concurrent import futures
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
-
-input_file = open('./data/iris_batch_input.json')
-json_array = json.load(input_file)
-
-
 @pytest.mark.slow
 def test_batcher():
     service_name = 'isvc-sklearn-batcher'
@@ -73,9 +68,67 @@ def test_batcher():
         for pod in pods.items:
             print(pod)
         raise e
+    
+    input_file = open('./data/iris_batch_input.json')
+    json_array = json.load(input_file)
+
     with futures.ThreadPoolExecutor(max_workers=4) as executor:
         future_res = [
             executor.submit(lambda: predict_str(service_name, json.dumps(item))) for item in json_array
+        ]
+    results = [
+        f.result()["batchId"] for f in future_res
+    ]
+    assert (all(x == results[0] for x in results))
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.slow
+def test_batcher_v2():
+    service_name = 'isvc-sklearn-batcher-v2'
+
+    predictor = V1beta1PredictorSpec(
+        batcher=V1beta1Batcher(
+            max_batch_size=32,
+            max_latency=5000,
+        ),
+        min_replicas=1,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                   kind=constants.KSERVE_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE
+                                   ), spec=V1beta1InferenceServiceSpec(predictor=predictor),
+                                   )
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(
+            service_name, namespace=KSERVE_TEST_NAMESPACE)
+    except RuntimeError as e:
+        print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
+                                                                      KSERVE_TEST_NAMESPACE,
+                                                                      "services", service_name + "-predictor-default"))
+        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
+                                                          label_selector='serving.kserve.io/inferenceservice={}'.
+                                                          format(service_name))
+        for pod in pods.items:
+            print(pod)
+        raise e
+
+    input_file = open('./data/iris_batch_input_v2.json')
+    json_array = json.load(input_file)
+
+    with futures.ThreadPoolExecutor(max_workers=4) as executor:
+        future_res = [
+            executor.submit(lambda: predict_str(service_name, json.dumps(item), protocol_version="v2")) for item in json_array
         ]
     results = [
         f.result()["batchId"] for f in future_res

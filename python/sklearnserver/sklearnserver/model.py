@@ -23,6 +23,8 @@ import joblib
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
 from kserve import Model
+import numpy as np
+import pandas as pd
 
 MODEL_EXTENSIONS = (".joblib", ".pkl", ".pickle")
 ENV_PREDICT_PROBA = "PREDICT_PROBA"
@@ -54,11 +56,20 @@ class SKLearnModel(Model):  # pylint:disable=c-extension-no-member
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             instances = get_predict_input(payload)
-            if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
-                    hasattr(self._model, "predict_proba"):
-                result = self._model.predict_proba(instances)
-            else:
-                result = self._model.predict(instances)
-            return get_predict_response(payload, result, self.name)
+
+            if isinstance(payload, Dict):  # v1
+                predictions = self.model_predict(instances)
+            elif isinstance(payload, InferRequest):  # v2
+                predictions = []
+                for instance in instances:
+                    predictions.append(self.model_predict(instance))
+            return get_predict_response(payload, predictions, self.name)
         except Exception as e:
             raise InferenceError(str(e))
+
+    def model_predict(self, instance: Union[np.ndarray, pd.DataFrame]):
+        if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
+                hasattr(self._model, "predict_proba"):
+            return self._model.predict_proba(instance)
+        else:
+            return self._model.predict(instance)
