@@ -180,7 +180,7 @@ func (s *PredictorSpec) GetPredictorImplementation() *ComponentImplementation {
 	if len(predictors) == 0 {
 		return nil
 	}
-	return &s.GetPredictorImplementations()[0]
+	return &predictors[0]
 }
 
 func NonNilPredictors(objects []ComponentImplementation) (results []ComponentImplementation) {
