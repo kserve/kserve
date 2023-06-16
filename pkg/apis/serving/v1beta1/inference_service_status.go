@@ -270,7 +270,20 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 
 // IsConditionReady returns the readiness for a given condition
 func (ss *InferenceServiceStatus) IsConditionReady(t apis.ConditionType) bool {
-	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == v1.ConditionTrue
+	condition := conditionSet.Manage(ss).GetCondition(t)
+	return condition != nil && condition.Status == v1.ConditionTrue
+}
+
+// IsConditionFalse returns if a given condition is False
+func (ss *InferenceServiceStatus) IsConditionFalse(t apis.ConditionType) bool {
+	condition := conditionSet.Manage(ss).GetCondition(t)
+	return condition != nil && condition.Status == v1.ConditionFalse
+}
+
+// IsConditionUnknown returns if a given condition is Unknown
+func (ss *InferenceServiceStatus) IsConditionUnknown(t apis.ConditionType) bool {
+	condition := conditionSet.Manage(ss).GetCondition(t)
+	return condition == nil || condition.Status == v1.ConditionUnknown
 }
 
 func (ss *InferenceServiceStatus) PropagateRawStatus(

@@ -278,9 +278,13 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	}
 
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
+		status := corev1.ConditionFalse
+		if isvc.Status.IsConditionUnknown(v1beta1.PredictorReady) {
+			status = corev1.ConditionUnknown
+		}
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,
-			Status: corev1.ConditionFalse,
+			Status: status,
 			Reason: "Predictor ingress not created",
 		})
 		return nil
@@ -296,9 +300,13 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			backend = constants.DefaultTransformerServiceName(isvc.Name)
 		}
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
+			status := corev1.ConditionFalse
+			if isvc.Status.IsConditionUnknown(v1beta1.TransformerReady) {
+				status = corev1.ConditionUnknown
+			}
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:   v1beta1.IngressReady,
-				Status: corev1.ConditionFalse,
+				Status: status,
 				Reason: "Transformer ingress not created",
 			})
 			return nil
@@ -321,9 +329,13 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	}
 	if isvc.Spec.Explainer != nil {
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
+			status := corev1.ConditionFalse
+			if isvc.Status.IsConditionUnknown(v1beta1.ExplainerReady) {
+				status = corev1.ConditionUnknown
+			}
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:   v1beta1.IngressReady,
-				Status: corev1.ConditionFalse,
+				Status: status,
 				Reason: "Explainer ingress not created",
 			})
 			return nil
