@@ -2,9 +2,11 @@ name: Python package
 
 on:
   push:
-    branches: [master]
+    branches: [master, release*]
   pull_request:
     branches: []
+  workflow_dispatch:
+  
 jobs:
   flake8-lint:
     runs-on: ubuntu-latest

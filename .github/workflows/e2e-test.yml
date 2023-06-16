@@ -2,13 +2,14 @@ name: E2E Tests
 
 on:
   pull_request:
-    branches: [master]
+    branches: [master, release*]
     paths:
       - '**'
       - '!.github/**'
       - '!docs/**'
       - '!**.md'
       - '.github/workflows/e2e-test.yml'
+  workflow_dispatch:
 
 env:
    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
