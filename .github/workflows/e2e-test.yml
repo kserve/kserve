@@ -153,7 +153,7 @@ jobs:
         uses: ./.github/actions/base-download
      
       - name: KServe dependency setup
-      - uses: ./.github/actions/kserve-dep-setup
+        uses: ./.github/actions/kserve-dep-setup
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
