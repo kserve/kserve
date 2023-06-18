@@ -21,6 +21,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,17 +30,17 @@ import (
 
 var log = logf.Log.WithName("AutoscalerReconciler")
 
-// Interface implemented by all autoscalers
+// Autoscaler Interface implemented by all autoscalers
 type Autoscaler interface {
-	Reconcile() error
+	Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error)
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
 }
 
-// Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
+// NoOpAutoscaler Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
 type NoOpAutoscaler struct{}
 
-func (*NoOpAutoscaler) Reconcile() error {
-	return nil
+func (*NoOpAutoscaler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
+	return nil, nil
 }
 
 func (a *NoOpAutoscaler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
