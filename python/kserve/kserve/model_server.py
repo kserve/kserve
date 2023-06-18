@@ -151,29 +151,28 @@ class ModelServer:
             concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
 
         async def serve():
-            serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            serversocket.bind(('0.0.0.0', self.http_port))
-            serversocket.listen(5)
-
             logger.info(f"Starting uvicorn with {self.workers} workers")
             loop = asyncio.get_event_loop()
             for sig in [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]:
                 loop.add_signal_handler(
                     sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
                 )
-            self._rest_server = UvicornServer(self.http_port, [serversocket],
-                                              self.dataplane, self.model_repository_extension,
-                                              self.enable_docs_url,
-                                              log_config=self.log_config,
-                                              access_log_format=self.access_log_format)
             if self.workers == 1:
+                self._rest_server = UvicornServer(self.http_port, [],
+                                                  self.dataplane, self.model_repository_extension,
+                                                  self.enable_docs_url,
+                                                  log_config=self.log_config,
+                                                  access_log_format=self.access_log_format)
                 await self._rest_server.run()
             else:
                 # Since py38 MacOS/Windows defaults to use spawn for starting multiprocessing.
                 # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
                 # Spawn does not work with FastAPI/uvicorn in multiprocessing mode, use fork for multiprocessing
                 # https://github.com/tiangolo/fastapi/issues/1586
+                serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                serversocket.bind(('0.0.0.0', self.http_port))
+                serversocket.listen(5)
                 multiprocessing.set_start_method('fork')
                 server = UvicornServer(self.http_port, [serversocket],
                                        self.dataplane, self.model_repository_extension,
