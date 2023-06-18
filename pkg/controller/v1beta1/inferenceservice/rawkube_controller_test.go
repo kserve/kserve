@@ -585,7 +585,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
@@ -686,7 +686,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			//check service
 			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
@@ -699,7 +699,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
 						{
-							Name:       "raw-foo-2-predictor-default",
+							Name:       "raw-foo-2-predictor",
 							Protocol:   "TCP",
 							Port:       80,
 							TargetPort: intstr.IntOrString{Type: 0, IntVal: 8080, StrVal: ""},
@@ -708,7 +708,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": "isvc.raw-foo-2-predictor-default",
+						"app": "isvc.raw-foo-2-predictor",
 					},
 				},
 			}

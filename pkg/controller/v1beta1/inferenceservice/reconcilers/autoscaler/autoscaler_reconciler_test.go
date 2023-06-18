@@ -21,19 +21,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	// "github.com/google/go-cmp/cmp"
-	// "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	// "github.com/kserve/kserve/pkg/constants"
-	// "github.com/onsi/gomega"
-	// gomegaTypes "github.com/onsi/gomega/types"
-	// istiov1alpha3 "istio.io/api/networking/v1alpha3"
-	// "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	// corev1 "k8s.io/api/core/v1"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "knative.dev/pkg/apis"
-	// duckv1 "knative.dev/pkg/apis/duck/v1"
-	// "knative.dev/pkg/network"
-	// "net/url"
 	"testing"
 )
 
