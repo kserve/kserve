@@ -55,7 +55,7 @@ func NewHPAReconciler(client client.Client,
 
 func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
 	var metrics []autoscalingv2.MetricSpec
-	var cpuUtilization int32
+	var utilization int32
 	annotations := metadata.Annotations
 	resourceName := corev1.ResourceCPU
 
@@ -72,6 +72,11 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 
 	if componentExt.ScaleMetric != nil {
 		resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
+	}
+
+	metricTarget := autoscalingv2.MetricTarget{
+		Type:               "Utilization",
+		AverageUtilization: &utilization,
 	}
 
 	ms := autoscalingv2.MetricSpec{
@@ -109,8 +114,8 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			},
 			MinReplicas: &minReplicas,
 			MaxReplicas: maxReplicas,
-			Metrics:  metrics,
-			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+			Metrics:     metrics,
+			Behavior:    &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 		},
 	}
 	return hpa
@@ -147,18 +152,28 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 // Reconcile ...
 func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	//reconcile Service
-	checkResult, _, err := r.checkHPAExist(r.client)
+	checkResult, existingHPA, err := r.checkHPAExist(r.client)
 	log.Info("service reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if checkResult == constants.CheckResultCreate {
-		return r.client.Create(context.TODO(), r.HPA)
+		err = r.client.Create(context.TODO(), r.HPA)
+		if err != nil {
+			return nil, err
+		} else {
+			return r.HPA, nil
+		}
 	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
-		return r.client.Update(context.TODO(), r.HPA)
+		err = r.client.Update(context.TODO(), r.HPA)
+		if err != nil {
+			return nil, err
+		} else {
+			return r.HPA, nil
+		}
 	} else {
-		return nil
+		return existingHPA, nil
 	}
 }
 
