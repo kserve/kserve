@@ -35,6 +35,13 @@ runs:
     - name: Check Kubernetes pods
       shell: bash
       run: kubectl get pods -n kube-system
+    - name: Prune docker images
+      shell: bash
+      run: |
+        echo "Pruning docker images"
+        docker image prune -a -f
+        docker system df
+        df -h
     - name: Setup KServe dependencies
       shell: bash
       run: |
