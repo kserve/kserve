@@ -170,7 +170,7 @@ class UvicornServer:
         asyncio.run(server.serve(sockets=self.sockets))
 
     async def run(self):
-        await self.server.serve(sockets=self.sockets)
+        await self.server.serve()
 
     async def stop(self, sig: Optional[int] = None):
         if self.server:
