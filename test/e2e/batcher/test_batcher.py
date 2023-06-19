@@ -28,7 +28,9 @@ from ..common.utils import predict_str
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from concurrent import futures
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+kserve_client = KServeClient(
+    config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+
 
 @pytest.mark.slow
 def test_batcher():
@@ -57,7 +59,8 @@ def test_batcher():
                                    )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(
+            service_name, namespace=KSERVE_TEST_NAMESPACE)
     except RuntimeError as e:
         print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
                                                                       KSERVE_TEST_NAMESPACE,
@@ -68,7 +71,7 @@ def test_batcher():
         for pod in pods.items:
             print(pod)
         raise e
-    
+
     input_file = open('./data/iris_batch_input.json')
     json_array = json.load(input_file)
 
@@ -128,7 +131,9 @@ def test_batcher_v2():
 
     with futures.ThreadPoolExecutor(max_workers=4) as executor:
         future_res = [
-            executor.submit(lambda: predict_str(service_name, json.dumps(item), protocol_version="v2")) for item in json_array
+            executor.submit(
+                lambda: predict_str(service_name, json.dumps(item),
+                                    protocol_version="v2")) for item in json_array
         ]
     results = [
         f.result()["batchId"] for f in future_res
