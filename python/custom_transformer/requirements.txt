@@ -1,3 +1,4 @@
 kserve
-torchvision==0.14.1
+torch==2.0.0+cpu
+torchvision==0.15.1+cpu
 pillow==9.3.0
