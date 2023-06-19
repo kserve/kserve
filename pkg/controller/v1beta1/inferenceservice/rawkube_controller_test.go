@@ -41,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -156,7 +155,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kserve-container",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -563,7 +562,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfs",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -749,7 +748,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: "raw-foo-2-predictor-default",
+													Name: "raw-foo-2-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -761,7 +760,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: "raw-foo-2-predictor-default-default.example.com",
+							Host: "raw-foo-2-predictor-default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -770,7 +769,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: "raw-foo-2-predictor-default",
+													Name: "raw-foo-2-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -810,7 +809,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -818,7 +817,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "",
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   "raw-foo-2-predictor-default-default.example.com",
+							Host:   "raw-foo-2-predictor-default.example.com",
 						},
 					},
 				},
