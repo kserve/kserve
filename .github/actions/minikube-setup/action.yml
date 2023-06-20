@@ -29,6 +29,10 @@ runs:
         driver: 'none'
         start args: --wait-timeout=120s
         github token: ${{ env.GITHUB_TOKEN }}
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.23.0'
     - name: Setup port-forward
       shell: bash
       run: sudo apt-get install -y conntrack socat
