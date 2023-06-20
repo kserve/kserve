@@ -44,33 +44,33 @@ IMAGE_TRANSFORMER_IMG=kserve/image-transformer:${GITHUB_SHA}
 pushd python >/dev/null
   if [[ " ${types[*]} " =~ "predictor" ]]; then
     echo "Building Sklearn image"
-    docker build -t ${SKLEARN_IMG} -f sklearn.Dockerfile .
+    docker buildx build -t ${SKLEARN_IMG} -f sklearn.Dockerfile .
     echo "Building XGB image"
-    docker build -t ${XGB_IMG} -f xgb.Dockerfile .
+    docker buildx build -t ${XGB_IMG} -f xgb.Dockerfile .
     echo "Building LGB image"
-    docker build -t ${LGB_IMG} -f lgb.Dockerfile .
+    docker buildx build -t ${LGB_IMG} -f lgb.Dockerfile .
     echo "Building PMML image"
-    docker build -t ${PMML_IMG} -f pmml.Dockerfile .
+    docker buildx build -t ${PMML_IMG} -f pmml.Dockerfile .
     echo "Building Paddle image"
-    docker build -t ${PADDLE_IMG} -f paddle.Dockerfile .
+    docker buildx build -t ${PADDLE_IMG} -f paddle.Dockerfile .
     echo "Building Custom model gRPC image"
-    docker build -t ${CUSTOM_MODEL_GRPC} -f custom_model_grpc.Dockerfile .
+    docker buildx build -t ${CUSTOM_MODEL_GRPC} -f custom_model_grpc.Dockerfile .
     echo "Building image transformer gRPC image"
-    docker build -t ${CUSTOM_TRANSFORMER_GRPC} -f custom_transformer_grpc.Dockerfile .
+    docker buildx build -t ${CUSTOM_TRANSFORMER_GRPC} -f custom_transformer_grpc.Dockerfile .
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then
     echo "Building Alibi image"
-    docker build -t ${ALIBI_IMG} -f alibiexplainer.Dockerfile .
+    docker buildx build -t ${ALIBI_IMG} -f alibiexplainer.Dockerfile .
     echo "Building AIX image"
-    docker build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
+    docker buildx build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
     echo "Building ART explainer image"
-    docker build -t ${ART_IMG} -f artexplainer.Dockerfile .
+    docker buildx build -t ${ART_IMG} -f artexplainer.Dockerfile .
   fi
 
   if [[ " ${types[*]} " =~ "transformer" ]]; then
     echo "Building Image transformer image"
-    docker build -t ${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+    docker buildx build -t ${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
   fi
 
 popd

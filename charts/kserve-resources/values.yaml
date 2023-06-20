@@ -1,5 +1,5 @@
 kserve:
-  version: &defaultVersion v0.10.1
+  version: &defaultVersion v0.10.2
   modelmeshVersion: &defaultModelMeshVersion v0.10.0
   agent:
     image: kserve/agent
