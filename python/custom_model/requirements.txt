@@ -1,2 +1,3 @@
 kserve
-torchvision
+torch==2.0.0+cpu
+torchvision==0.15.1+cpu

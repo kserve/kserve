@@ -7,7 +7,7 @@ COPY VERSION VERSION
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -e ./kserve
 
 COPY custom_transformer custom_transformer
-RUN pip install --no-cache-dir -e ./custom_transformer
+RUN pip install --no-cache-dir -e ./custom_transformer -f https://download.pytorch.org/whl/torch_stable.html
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 USER 1000
