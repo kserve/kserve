@@ -43,7 +43,7 @@ class KServeClient(object):
                     config_dict=config_dict,
                     context=context,
                     client_configuration=None,
-                    persist_config=True
+                    persist_config=persist_config
                 )
             else:
                 config.load_kube_config(
