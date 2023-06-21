@@ -21,7 +21,6 @@ import numpy
 
 from PIL import Image
 from torchvision import transforms
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 from kserve import Model, ModelServer, model_server, InferInput, InferRequest, InferResponse
 from kserve.model import PredictorProtocol
 
@@ -82,16 +81,16 @@ class ImageTransformer(Model):
         else:
             return infer_request
 
-    def postprocess(self, infer_response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) \
+    def postprocess(self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
             -> Union[Dict, InferResponse]:
         if "request-type" in headers and headers["request-type"] == "v1":
             if self.protocol == PredictorProtocol.REST_V1.value:
                 return infer_response
             else:
-                res = super().postprocess(infer_response, headers)
+                res = infer_response.to_rest()
                 return {"predictions": res["outputs"][0]["data"]}
         else:
-            return super().postprocess(infer_response, headers)
+            return infer_response
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])
