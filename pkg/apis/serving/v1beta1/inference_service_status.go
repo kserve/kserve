@@ -116,6 +116,14 @@ const (
 	ExplainerReady apis.ConditionType = "ExplainerReady"
 	// IngressReady is set when Ingress is created
 	IngressReady apis.ConditionType = "IngressReady"
+	// PredictorServiceReady is set when ...
+	PredictorServiceReady apis.ConditionType = "PredictorServiceReady"
+	// TransformerServiceReady is set when ...
+	TransformerServiceReady apis.ConditionType = "TransformerServiceReady"
+	// ExplainerServiceReady is set when ...
+	ExplainerServiceReady apis.ConditionType = "ExplainerServiceReady"
+	// ServiceReady is set when ...
+	ServiceReady apis.ConditionType = "ServiceReady"
 )
 
 type ModelStatus struct {
@@ -244,6 +252,12 @@ var configurationConditionsMap = map[ComponentType]apis.ConditionType{
 	PredictorComponent:   PredictorConfigurationReady,
 	ExplainerComponent:   ExplainerConfigurationReady,
 	TransformerComponent: TransformerConfigurationReady,
+}
+
+var serviceConditionsMap = map[ComponentType]apis.ConditionType{
+	PredictorComponent:   PredictorServiceReady,
+	ExplainerComponent:   ExplainerServiceReady,
+	TransformerComponent: TransformerServiceReady,
 }
 
 // InferenceService Ready condition is depending on predictor and route readiness condition
