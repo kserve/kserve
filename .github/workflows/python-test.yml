@@ -199,7 +199,6 @@ jobs:
       # ----------------------------------------Alibi Explainer Unit Tests------------------------------------------------
       # load cached alibi venv if cache exists and alibi test should not run if python version is 3.11
       - name: Load cached alibi venv
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.11') }}
         id: cached-alibi-dependencies
         uses: actions/cache@v3
         with:
@@ -207,17 +206,14 @@ jobs:
           key: alibi-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/alibiexplainer/poetry.lock') }}
         # install alibi explainer dependencies if cache does not exist
       - name: Install alibi dependencies
-        if: ${{ steps.cached-alibi-dependencies.outputs.cache-hit != 'true' && !startsWith(steps.setup-python.outputs.python-version, '3.11') }}
         run: |
           cd python/alibiexplainer
           make install_dependencies
       - name: Install alibiexplainer
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.11') }}
         run: |
           cd python/alibiexplainer
           make dev_install
       - name: Test alibiexplainer
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.11') }}
         run: |
           cd python
           source alibiexplainer/.venv/bin/activate
