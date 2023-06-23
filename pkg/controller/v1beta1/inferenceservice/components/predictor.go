@@ -339,17 +339,30 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
 	}
-	statusSpec, _ := isvc.Status.Components[v1beta1.PredictorComponent]
+	statusSpec := isvc.Status.Components[v1beta1.PredictorComponent]
 	if rawDeployment {
 		podLabelValue = constants.GetRawServiceLabel(predictorName)
 	} else {
 		podLabelValue = statusSpec.LatestCreatedRevision
 	}
-	podList, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, podLabelKey, podLabelValue)
+	predictorPod, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, podLabelKey, podLabelValue)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
-	isvc.Status.PropagateModelStatus(statusSpec, podList, rawDeployment)
-
+	isvc.Status.PropagateModelStatus(statusSpec, predictorPod, rawDeployment)
+	// propagate ServiceReady status
+	trafficRevisionList := []string{}
+	for _, traffic := range statusSpec.Traffic {
+		trafficRevisionList = append(trafficRevisionList, traffic.RevisionName)
+	}
+	trafficRevisionPods := []v1.Pod{}
+	for _, revision := range trafficRevisionList {
+		pods, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, constants.RevisionLabel, revision)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to list predictor pods by label")
+		}
+		trafficRevisionPods = append(trafficRevisionPods, pods.Items...)
+	}
+	isvc.Status.PropagateServiceReadyStatus(v1beta1.PredictorComponent, isvc.ObjectMeta.Namespace, trafficRevisionPods)
 	return ctrl.Result{}, nil
 }
