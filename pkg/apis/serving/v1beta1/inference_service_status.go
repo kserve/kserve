@@ -340,6 +340,57 @@ func getDeploymentCondition(deployment *appsv1.Deployment, conditionType appsv1.
 	return &condition
 }
 
+// PropagateServiceReadyStatus propagates ServiceReady condition for each component.
+// It should be called after PropagateStatus.
+func (ss *InferenceServiceStatus) PropagateServiceReadyStatus(component ComponentType, namespace string, podList []v1.Pod) {
+	statusSpec := ss.Components[component]
+	serviceConditionType := serviceConditionsMap[component]
+	totalTraffic := int64(0)
+	for _, traffic := range statusSpec.Traffic{
+		if traffic.Percent != nil {
+			totalTraffic += *traffic.Percent
+		}
+	}
+	if totalTraffic < 100 {
+		ss.SetCondition(serviceConditionType, &apis.Condition{
+			Type:   serviceConditionType,
+			Status: v1.ConditionFalse,
+			Reason: string(component) + " doesn't have full traffic",
+		})
+		return
+	}
+	// check all pods for revisions in traffic
+	for _, pod := range podList {
+		for _, cs := range pod.Status.ContainerStatuses {
+			if cs.Name == constants.InferenceServiceContainerName {
+				if cs.State.Terminated != nil &&
+					cs.State.Terminated.Reason == constants.StateReasonError {
+					ss.SetCondition(serviceConditionType, &apis.Condition{
+						Type:    serviceConditionType,
+						Status:  v1.ConditionFalse,
+						Reason:  string(component) + " pod not ready after wait",
+						Message: cs.State.Terminated.Message,
+					})
+					return
+				} else if cs.State.Waiting != nil &&
+					cs.State.Waiting.Reason == constants.StateReasonCrashLoopBackOff {
+					ss.SetCondition(serviceConditionType, &apis.Condition{
+						Type:    serviceConditionType,
+						Status:  v1.ConditionFalse,
+						Reason:  string(component) + " pod not ready after wait",
+						Message: cs.LastTerminationState.Terminated.Message,
+					})
+					return
+				}
+			}
+		}
+	}
+	ss.SetCondition(serviceConditionType, &apis.Condition{
+		Type:   serviceConditionType,
+		Status: v1.ConditionTrue,
+	})
+}
+
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
