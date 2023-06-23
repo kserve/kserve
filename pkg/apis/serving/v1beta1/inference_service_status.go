@@ -272,7 +272,7 @@ func (ss *InferenceServiceStatus) InitializeConditions() {
 	conditionSet.Manage(ss).InitializeConditions()
 }
 
-// IsReady returns if the service is ready to serve the requested configuration.
+// IsReady returns the readiness for the latest revision.
 func (ss *InferenceServiceStatus) IsReady() bool {
 	return conditionSet.Manage(ss).IsHappy()
 }
@@ -346,7 +346,7 @@ func (ss *InferenceServiceStatus) PropagateServiceReadyStatus(component Componen
 	statusSpec := ss.Components[component]
 	serviceConditionType := serviceConditionsMap[component]
 	totalTraffic := int64(0)
-	for _, traffic := range statusSpec.Traffic{
+	for _, traffic := range statusSpec.Traffic {
 		if traffic.Percent != nil {
 			totalTraffic += *traffic.Percent
 		}
@@ -411,7 +411,7 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 			*traffic.LatestRevision {
 			if statusSpec.LatestRolledoutRevision != serviceStatus.LatestReadyRevisionName {
 				if traffic.Percent != nil && *traffic.Percent == 100 {
-					// track the last revision that's rolled out
+					// track the last revision that's fully rolled out
 					statusSpec.PreviousRolledoutRevision = statusSpec.LatestRolledoutRevision
 					statusSpec.LatestRolledoutRevision = serviceStatus.LatestReadyRevisionName
 				}
@@ -435,9 +435,9 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	if serviceStatus.LatestReadyRevisionName != statusSpec.LatestReadyRevision {
 		statusSpec.LatestReadyRevision = serviceStatus.LatestReadyRevisionName
 	}
-	// propagate overall service condition
-	serviceCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
-	if serviceCondition != nil && serviceCondition.Status == v1.ConditionTrue {
+	// propagate latest revision's ready condition for each component
+	readyCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
+	if readyCondition != nil && readyCondition.Status == v1.ConditionTrue {
 		if serviceStatus.Address != nil {
 			statusSpec.Address = serviceStatus.Address
 		}
@@ -445,9 +445,8 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 			statusSpec.URL = serviceStatus.URL
 		}
 	}
-	// propagate ready condition for each component
-	readyCondition := conditionsMap[component]
-	ss.SetCondition(readyCondition, serviceCondition)
+	readyConditionType := conditionsMap[component]
+	ss.SetCondition(readyConditionType, readyCondition)
 	// propagate route condition for each component
 	routeCondition := serviceStatus.GetCondition("RoutesReady")
 	routeConditionType := routeConditionsMap[component]
@@ -527,7 +526,7 @@ func (ss *InferenceServiceStatus) SetModelFailureInfo(info *FailureInfo) bool {
 	return true
 }
 
-func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatusSpec, podList *v1.PodList, rawDeplyment bool) {
+func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatusSpec, podList *v1.PodList, rawDeployment bool) {
 	// Check at least one pod is running for the latest revision of inferenceservice
 	totalCopies := len(podList.Items)
 	if totalCopies == 0 {
@@ -537,7 +536,7 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 	// Update model state to 'Loaded' if inferenceservice status is ready.
 	// For serverless deployment, the latest created revision and the latest ready revision should be equal
 	if ss.IsReady() {
-		if rawDeplyment {
+		if rawDeployment {
 			ss.UpdateModelRevisionStates(Loaded, totalCopies, nil)
 			return
 		} else if statusSpec.LatestCreatedRevision == statusSpec.LatestReadyRevision {
