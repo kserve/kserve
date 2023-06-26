@@ -14,7 +14,8 @@ https://raw.githubusercontent.com/kubeflow/pipelines/1.8.1/components/kserve/com
 Test status: Currently manual tests
 
 Owners information:
- - Animesh Singh (animeshsingh) - IBM, singhan@us.ibm.com
+ - Tommy Li (Tomcli) - IBM, tommy.chaoping.li@ibm.com
+ - Yi-Hong Wang (yhwang) - IBM, yh.wang@ibm.com
 
 ## Usage
 
