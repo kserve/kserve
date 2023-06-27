@@ -187,6 +187,18 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return result, nil
 		}
 	}
+	// reconcile service readiness
+	status := isvc.Status.GetCondition(v1beta1api.PredictorServiceReady).Status
+	if status == v1.ConditionTrue && isvc.Spec.Transformer != nil {
+		status = isvc.Status.GetCondition(v1beta1api.TransformerServiceReady).Status
+	}
+	if status == v1.ConditionTrue && isvc.Spec.Explainer != nil {
+		status = isvc.Status.GetCondition(v1beta1api.ExplainerServiceReady).Status
+	}
+	isvc.Status.SetCondition(v1beta1api.ServiceReady, &apis.Condition{
+		Type:   v1beta1api.ServiceReady,
+		Status: status,
+	})
 	//Reconcile ingress
 	ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
 	if err != nil {
