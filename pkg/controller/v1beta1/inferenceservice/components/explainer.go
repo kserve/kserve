@@ -23,7 +23,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
@@ -170,20 +169,5 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		isvc.Status.PropagateStatus(v1beta1.ExplainerComponent, status)
 	}
-	// propagate ServiceReady status
-	statusSpec := isvc.Status.Components[v1beta1.ExplainerComponent]
-	trafficRevisionList := []string{}
-	for _, traffic := range statusSpec.Traffic {
-		trafficRevisionList = append(trafficRevisionList, traffic.RevisionName)
-	}
-	trafficRevisionPods := []v1.Pod{}
-	for _, revision := range trafficRevisionList {
-		pods, err := isvcutils.ListPodsByLabel(e.client, isvc.ObjectMeta.Namespace, constants.RevisionLabel, revision)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to list explainer pods by label")
-		}
-		trafficRevisionPods = append(trafficRevisionPods, pods.Items...)
-	}
-	isvc.Status.PropagateServiceReadyStatus(v1beta1.ExplainerComponent, isvc.ObjectMeta.Namespace, trafficRevisionPods)
 	return ctrl.Result{}, nil
 }

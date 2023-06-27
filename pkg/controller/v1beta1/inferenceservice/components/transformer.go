@@ -27,12 +27,10 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	raw "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -202,20 +200,5 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 		}
 		isvc.Status.PropagateStatus(v1beta1.TransformerComponent, status)
 	}
-	// propagate ServiceReady status
-	statusSpec := isvc.Status.Components[v1beta1.TransformerComponent]
-	trafficRevisionList := []string{}
-	for _, traffic := range statusSpec.Traffic {
-		trafficRevisionList = append(trafficRevisionList, traffic.RevisionName)
-	}
-	trafficRevisionPods := []v1.Pod{}
-	for _, revision := range trafficRevisionList {
-		pods, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, constants.RevisionLabel, revision)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to list transformer pods by label")
-		}
-		trafficRevisionPods = append(trafficRevisionPods, pods.Items...)
-	}
-	isvc.Status.PropagateServiceReadyStatus(v1beta1.TransformerComponent, isvc.ObjectMeta.Namespace, trafficRevisionPods)
 	return ctrl.Result{}, nil
 }
