@@ -850,11 +850,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(gomega.HaveOccurred())
 
 			// update explainer
-			updatedExplainerervice := explainerService.DeepCopy()
-			updatedExplainerervice.Status.LatestCreatedRevisionName = "exp-revision-v1"
-			updatedExplainerervice.Status.LatestReadyRevisionName = "exp-revision-v1"
-			updatedExplainerervice.Status.URL = explainerUrl
-			updatedExplainerervice.Status.Conditions = duckv1.Conditions{
+			updatedExplainerService := explainerService.DeepCopy()
+			updatedExplainerService.Status.LatestCreatedRevisionName = "exp-revision-v1"
+			updatedExplainerService.Status.LatestReadyRevisionName = "exp-revision-v1"
+			updatedExplainerService.Status.URL = explainerUrl
+			updatedExplainerService.Status.Conditions = duckv1.Conditions{
 				{
 					Type:   knservingv1.ServiceConditionReady,
 					Status: "True",
@@ -864,7 +864,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: "True",
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerervice)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerService)).NotTo(gomega.HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
