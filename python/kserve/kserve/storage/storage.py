@@ -525,7 +525,11 @@ class Storage(object):  # pylint: disable=too-few-public-methods
     def _download_from_uri(uri, out_dir=None):
         url = urlparse(uri)
         filename = os.path.basename(url.path)
-        mimetype, encoding = mimetypes.guess_type(url.path)
+        # Determine if the symbol '?' exists in the path
+        if  mimetypes.guess_type(url.path)[0] is None:
+            mimetype, encoding = mimetypes.guess_type(url.query)
+        else:
+            mimetype, encoding = mimetypes.guess_type(url.path)
         local_path = os.path.join(out_dir, filename)
 
         if filename == '':
