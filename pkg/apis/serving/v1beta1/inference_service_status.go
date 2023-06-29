@@ -104,8 +104,7 @@ const (
 	// PredictorConfigurationReady is set when predictor pods are ready.
 	PredictorConfigurationReady apis.ConditionType = "PredictorConfigurationReady"
 	// TransformerConfigurationReady is set when transformer pods are ready.
-	TransformerConfigurationReady  apis.ConditionType = "TransformerConfigurationReady"
-	TransformerConfigurationeReady apis.ConditionType = "TransformerConfigurationeReady"
+	TransformerConfigurationReady apis.ConditionType = "TransformerConfigurationReady"
 	// ExplainerConfigurationReady is set when explainer pods are ready.
 	ExplainerConfigurationReady apis.ConditionType = "ExplainerConfigurationReady"
 	// PredictorReady is set when predictor has reported readiness.
@@ -421,8 +420,6 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	// propagate traffic status for each component
 	statusSpec.Traffic = serviceStatus.Traffic
 	ss.SetCondition(configurationConditionType, configurationCondition)
-	// Fix previously incorrectly named condition type
-	ss.ClearCondition(TransformerConfigurationeReady)
 
 	ss.Components[component] = statusSpec
 	ss.ObservedGeneration = serviceStatus.ObservedGeneration
