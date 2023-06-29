@@ -116,8 +116,8 @@ const (
 	ExplainerReady apis.ConditionType = "ExplainerReady"
 	// IngressReady is set when Ingress is created
 	IngressReady apis.ConditionType = "IngressReady"
-	// ServiceReady is set when network configurations for all components have completed.
-	ServiceReady apis.ConditionType = "ServiceReady"
+	// RoutesReady is set when network configurations for all components have completed.
+	RoutesReady apis.ConditionType = "RoutesReady"
 )
 
 type ModelStatus struct {

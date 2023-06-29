@@ -187,34 +187,34 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return result, nil
 		}
 	}
-	// reconcile ServiceReady status for serverless deployment
+	// reconcile RoutesReady status for serverless deployment
 	if deploymentMode == constants.Serverless {
-		serviceReadyCondition := &apis.Condition{
-			Type:   v1beta1api.ServiceReady,
+		routesReadyCondition := &apis.Condition{
+			Type:   v1beta1api.RoutesReady,
 			Status: v1.ConditionTrue,
 		}
 		if !isvc.Status.IsConditionReady(v1beta1api.PredictorRouteReady) {
-			serviceReadyCondition.Status = v1.ConditionFalse
+			routesReadyCondition.Status = v1.ConditionFalse
 			if isvc.Status.IsConditionUnknown(v1beta1api.PredictorRouteReady) { // check if condition is nil or Unknown
-				serviceReadyCondition.Status = v1.ConditionUnknown
+				routesReadyCondition.Status = v1.ConditionUnknown
 			}
-			serviceReadyCondition.Reason = "predictor routes not ready"
+			routesReadyCondition.Reason = "predictor routes not ready"
 		}
 		if isvc.Spec.Transformer != nil && !isvc.Status.IsConditionReady(v1beta1api.TransformerRouteReady) {
-			serviceReadyCondition.Status = v1.ConditionFalse
+			routesReadyCondition.Status = v1.ConditionFalse
 			if isvc.Status.IsConditionUnknown(v1beta1api.TransformerRouteReady) {
-				serviceReadyCondition.Status = v1.ConditionUnknown
+				routesReadyCondition.Status = v1.ConditionUnknown
 			}
-			serviceReadyCondition.Reason = "transformer routes not ready"
+			routesReadyCondition.Reason = "transformer routes not ready"
 		}
 		if isvc.Spec.Explainer != nil && !isvc.Status.IsConditionReady(v1beta1api.ExplainerRoutesReady) {
-			serviceReadyCondition.Status = v1.ConditionFalse
+			routesReadyCondition.Status = v1.ConditionFalse
 			if isvc.Status.IsConditionUnknown(v1beta1api.ExplainerRoutesReady) {
-				serviceReadyCondition.Status = v1.ConditionUnknown
+				routesReadyCondition.Status = v1.ConditionUnknown
 			}
-			serviceReadyCondition.Reason = "explainer routes not ready"
+			routesReadyCondition.Reason = "explainer routes not ready"
 		}
-		isvc.Status.SetCondition(v1beta1api.ServiceReady, serviceReadyCondition)
+		isvc.Status.SetCondition(v1beta1api.RoutesReady, routesReadyCondition)
 	}
 	//Reconcile ingress
 	ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
