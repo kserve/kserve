@@ -277,6 +277,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Type:   knservingv1.ServiceConditionRoutesReady,
 						Status: "True",
 					},
+					{
+						Type:   knservingv1.ServiceConditionConfigurationsReady,
+						Status: "True",
+					},
 				}
 				Expect(k8sClient.Status().Update(context.TODO(), updatedService)).NotTo(gomega.HaveOccurred())
 			}
@@ -574,6 +578,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:   knservingv1.ServiceConditionRoutesReady,
 					Status: "True",
 				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
+					Status: "True",
+				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(gomega.HaveOccurred())
 
@@ -589,6 +597,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				{
 					Type:   knservingv1.ServiceConditionRoutesReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
 					Status: "True",
 				},
 			}
@@ -613,11 +625,21 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status:   "True",
 						},
 						{
+							Type:     v1beta1.PredictorConfigurationReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
 							Type:   apis.ConditionReady,
 							Status: "True",
 						},
 						{
 							Type:     v1beta1.RoutesReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.LatestDeploymentReady,
 							Severity: "Info",
 							Status:   "True",
 						},
@@ -628,6 +650,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 						{
 							Type:     v1beta1.TransformerRouteReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.TransformerConfigurationReady,
 							Severity: "Info",
 							Status:   "True",
 						},
@@ -665,7 +692,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.Condition{}, "LastTransitionTime", "Severity"))
 			}, timeout).Should(gomega.BeEmpty())
 		})
 	})
@@ -847,6 +874,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:   knservingv1.ServiceConditionRoutesReady,
 					Status: "True",
 				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
+					Status: "True",
+				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(gomega.HaveOccurred())
 
@@ -862,6 +893,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				{
 					Type:   knservingv1.ServiceConditionRoutesReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
 					Status: "True",
 				},
 			}
@@ -882,6 +917,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status:   "True",
 						},
 						{
+							Type:     v1beta1.ExplainerConfigurationReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
 							Type:   v1beta1.IngressReady,
 							Status: "True",
 						},
@@ -896,11 +936,21 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status:   "True",
 						},
 						{
+							Type:     v1beta1.PredictorConfigurationReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
 							Type:   apis.ConditionReady,
 							Status: "True",
 						},
 						{
 							Type:     v1beta1.RoutesReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.LatestDeploymentReady,
 							Severity: "Info",
 							Status:   "True",
 						},
@@ -938,7 +988,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.Condition{}, "LastTransitionTime", "Severity"))
 			}, timeout).Should(gomega.BeEmpty())
 		})
 	})
