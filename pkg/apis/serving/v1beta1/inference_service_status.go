@@ -116,8 +116,10 @@ const (
 	ExplainerReady apis.ConditionType = "ExplainerReady"
 	// IngressReady is set when Ingress is created
 	IngressReady apis.ConditionType = "IngressReady"
-	// RoutesReady is set when network configurations for all components have completed.
+	// RoutesReady is set when underlying routes for all components have reported readiness.
 	RoutesReady apis.ConditionType = "RoutesReady"
+	// LatestDeploymentReady is set when underlying configurations for all components have reported readiness.
+	LatestDeploymentReady apis.ConditionType = "LatestDeploymentReady"
 )
 
 type ModelStatus struct {
@@ -230,7 +232,7 @@ type FailureInfo struct {
 	ExitCode int32 `json:"exitCode,omitempty"`
 }
 
-var conditionsMap = map[ComponentType]apis.ConditionType{
+var readyConditionsMap = map[ComponentType]apis.ConditionType{
 	PredictorComponent:   PredictorReady,
 	ExplainerComponent:   ExplainerReady,
 	TransformerComponent: TransformerReady,
@@ -246,6 +248,11 @@ var configurationConditionsMap = map[ComponentType]apis.ConditionType{
 	PredictorComponent:   PredictorConfigurationReady,
 	ExplainerComponent:   ExplainerConfigurationReady,
 	TransformerComponent: TransformerConfigurationReady,
+}
+
+var conditionsMapIndex = map[apis.ConditionType]map[ComponentType]apis.ConditionType{
+	RoutesReady:           routeConditionsMap,
+	LatestDeploymentReady: configurationConditionsMap,
 }
 
 // InferenceService Ready condition is depending on predictor and route readiness condition
@@ -302,7 +309,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	if condition != nil && condition.Status == v1.ConditionTrue {
 		statusSpec.URL = url
 	}
-	readyCondition := conditionsMap[component]
+	readyCondition := readyConditionsMap[component]
 	ss.SetCondition(readyCondition, condition)
 	ss.Components[component] = statusSpec
 	ss.ObservedGeneration = deployment.Status.ObservedGeneration
@@ -323,6 +330,29 @@ func getDeploymentCondition(deployment *appsv1.Deployment, conditionType appsv1.
 		}
 	}
 	return &condition
+}
+
+// PropagateCrossComponentStatus aggregates the RoutesReady or ConfigurationsReady condition across all available components
+// and propagates the RoutesReady or LatestDeploymentReady status accordingly.
+func (ss *InferenceServiceStatus) PropagateCrossComponentStatus(componentList []ComponentType, conditionType apis.ConditionType) {
+	conditionsMap, ok := conditionsMapIndex[conditionType]
+	if !ok {
+		return
+	}
+	crossComponentCondition := &apis.Condition{
+		Type:   conditionType,
+		Status: v1.ConditionTrue,
+	}
+	for _, component := range componentList {
+		if !ss.IsConditionReady(conditionsMap[component]) {
+			crossComponentCondition.Status = v1.ConditionFalse
+			if ss.IsConditionUnknown(conditionsMap[component]) { // include check for nil condition
+				crossComponentCondition.Status = v1.ConditionUnknown
+			}
+			crossComponentCondition.Reason = string(conditionsMap[component]) + " not ready"
+		}
+	}
+	ss.SetCondition(conditionType, crossComponentCondition)
 }
 
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
@@ -369,7 +399,7 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	if serviceStatus.LatestReadyRevisionName != statusSpec.LatestReadyRevision {
 		statusSpec.LatestReadyRevision = serviceStatus.LatestReadyRevisionName
 	}
-	// propagate latest revision's ready condition for each component
+	// propagate overall ready condition for each component
 	readyCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
 	if readyCondition != nil && readyCondition.Status == v1.ConditionTrue {
 		if serviceStatus.Address != nil {
@@ -379,7 +409,7 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 			statusSpec.URL = serviceStatus.URL
 		}
 	}
-	readyConditionType := conditionsMap[component]
+	readyConditionType := readyConditionsMap[component]
 	ss.SetCondition(readyConditionType, readyCondition)
 	// propagate route condition for each component
 	routeCondition := serviceStatus.GetCondition("RoutesReady")

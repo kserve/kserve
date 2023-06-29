@@ -187,34 +187,17 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return result, nil
 		}
 	}
-	// reconcile RoutesReady status for serverless deployment
+	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
 	if deploymentMode == constants.Serverless {
-		routesReadyCondition := &apis.Condition{
-			Type:   v1beta1api.RoutesReady,
-			Status: v1.ConditionTrue,
+		componentList := []v1beta1api.ComponentType{v1beta1api.PredictorComponent}
+		if isvc.Spec.Transformer != nil {
+			componentList = append(componentList, v1beta1api.TransformerComponent)
 		}
-		if !isvc.Status.IsConditionReady(v1beta1api.PredictorRouteReady) {
-			routesReadyCondition.Status = v1.ConditionFalse
-			if isvc.Status.IsConditionUnknown(v1beta1api.PredictorRouteReady) { // check if condition is nil or Unknown
-				routesReadyCondition.Status = v1.ConditionUnknown
-			}
-			routesReadyCondition.Reason = "predictor routes not ready"
+		if isvc.Spec.Explainer != nil {
+			componentList = append(componentList, v1beta1api.ExplainerComponent)
 		}
-		if isvc.Spec.Transformer != nil && !isvc.Status.IsConditionReady(v1beta1api.TransformerRouteReady) {
-			routesReadyCondition.Status = v1.ConditionFalse
-			if isvc.Status.IsConditionUnknown(v1beta1api.TransformerRouteReady) {
-				routesReadyCondition.Status = v1.ConditionUnknown
-			}
-			routesReadyCondition.Reason = "transformer routes not ready"
-		}
-		if isvc.Spec.Explainer != nil && !isvc.Status.IsConditionReady(v1beta1api.ExplainerRoutesReady) {
-			routesReadyCondition.Status = v1.ConditionFalse
-			if isvc.Status.IsConditionUnknown(v1beta1api.ExplainerRoutesReady) {
-				routesReadyCondition.Status = v1.ConditionUnknown
-			}
-			routesReadyCondition.Reason = "explainer routes not ready"
-		}
-		isvc.Status.SetCondition(v1beta1api.RoutesReady, routesReadyCondition)
+		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.RoutesReady)
+		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.LatestDeploymentReady)
 	}
 	//Reconcile ingress
 	ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
