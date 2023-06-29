@@ -603,8 +603,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
+							Type:     v1beta1.PredictorReady,
+							Severity: "Info",
+							Status:   "True",
 						},
 						{
 							Type:     v1beta1.PredictorRouteReady,
@@ -885,8 +886,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
+							Type:     v1beta1.PredictorReady,
+							Severity: "Info",
+							Status:   "True",
 						},
 						{
 							Type:     v1beta1.PredictorRouteReady,
