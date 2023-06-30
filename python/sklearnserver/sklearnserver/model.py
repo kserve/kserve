@@ -55,21 +55,16 @@ class SKLearnModel(Model):  # pylint:disable=c-extension-no-member
 
     def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
+            predictions = []
             instances = get_predict_input(payload)
+            for instance in instances:
+                if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
+                        hasattr(self._model, "predict_proba"):
+                    result = self._model.predict_proba(instance)
+                else:
+                    result = self._model.predict(instance)
 
-            if isinstance(payload, Dict):  # v1
-                predictions = self.model_predict(instances)
-            elif isinstance(payload, InferRequest):  # v2
-                predictions = []
-                for instance in instances:
-                    predictions.append(self.model_predict(instance))
+                predictions.append(result)
             return get_predict_response(payload, predictions, self.name)
         except Exception as e:
             raise InferenceError(str(e))
-
-    def model_predict(self, instance: Union[np.ndarray, pd.DataFrame]):
-        if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
-                hasattr(self._model, "predict_proba"):
-            return self._model.predict_proba(instance)
-        else:
-            return self._model.predict(instance)

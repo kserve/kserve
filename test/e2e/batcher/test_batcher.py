@@ -20,7 +20,7 @@ from kserve import V1beta1PredictorSpec
 from kserve import V1beta1Batcher
 from kserve import V1beta1SKLearnSpec
 from kserve import V1beta1InferenceServiceSpec
-from kserve import V1beta1InferenceService
+from kserve import V1beta1InferenceService, V1beta1TorchServeSpec
 
 from kubernetes.client import V1ResourceRequirements
 import pytest
@@ -134,6 +134,70 @@ def test_batcher_v2():
             executor.submit(
                 lambda: predict_str(service_name, json.dumps(item),
                                     protocol_version="v2")) for item in json_array
+        ]
+    results = [
+        f.result()["batchId"] for f in future_res
+    ]
+    assert (all(x == results[0] for x in results))
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.slow
+def test_torchserve_v2_kserve():
+    service_name = "mnist-v2"
+    predictor = V1beta1PredictorSpec(
+        batcher=V1beta1Batcher(
+            max_batch_size=32,
+            max_latency=5000,
+        ),
+        min_replicas=1,
+        pytorch=V1beta1TorchServeSpec(
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v2",
+            protocol_version="v2",
+            resources=V1ResourceRequirements(
+                requests={
+                    "cpu": "100m",
+                    "memory": "256Mi"
+                },
+                limits={
+                    "cpu": "1",
+                    "memory": "1Gi"
+                },
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(
+            service_name, namespace=KSERVE_TEST_NAMESPACE)
+    except RuntimeError as e:
+        print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
+                                                                      KSERVE_TEST_NAMESPACE,
+                                                                      "services", service_name + "-predictor-default"))
+        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
+                                                          label_selector='serving.kserve.io/inferenceservice={}'.
+                                                          format(service_name))
+        for pod in pods.items:
+            print(pod)
+        raise e
+
+    input_file = open('./data/torchserve_v2_batch_input.json')
+    json_array = json.load(input_file)
+
+    with futures.ThreadPoolExecutor(max_workers=4) as executor:
+        future_res = [
+            executor.submit(
+                lambda: predict_str(service_name, json.dumps(item),
+                                    protocol_version="v2", model_name="mnist")) for item in json_array
         ]
     results = [
         f.result()["batchId"] for f in future_res

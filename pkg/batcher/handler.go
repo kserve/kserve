@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
@@ -72,7 +73,7 @@ type ResponseError struct {
 }
 
 type PredictionResponse struct {
-	Predictions []interface{} `json:"predictions"`
+	Predictions [][]interface{} `json:"predictions"`
 }
 
 type BatcherInfo struct {
@@ -124,10 +125,10 @@ type InferResponse struct {
 	ModelVerison *string                 `json:"model_version"`
 	ID           string                  `json:"id"`
 	Parameters   *map[string]interface{} `json:"parameters"`
-	Outputs      []InferOuput            `json:"outputs"`
+	Outputs      []InferOutput           `json:"outputs"`
 }
 
-type InferOuput struct {
+type InferOutput struct {
 	Name       string                  `json:"name"`
 	Shape      []int                   `json:"shape"`
 	DataType   string                  `json:"datatype"`
@@ -186,7 +187,8 @@ func (handler *BatchHandler) batchPredict() {
 				*v.ChannelOut <- res
 			}
 		} else {
-			if len(handler.batcherInfo.PredictionResponse.Predictions) != len(handler.batcherInfo.Instances) {
+			// As of now we are providing prediction inside list for make generic code(both v1, v2) in model prediction(predict api side)
+			if len(handler.batcherInfo.PredictionResponse.Predictions[0]) != len(handler.batcherInfo.Instances) {
 				for _, v := range handler.batcherInfo.ContextMap {
 					res := Response{
 						Message: "size of prediction is not equal to the size of instances",
@@ -198,7 +200,7 @@ func (handler *BatchHandler) batchPredict() {
 				for _, v := range handler.batcherInfo.ContextMap {
 					predictions := make([]interface{}, 0)
 					for _, i := range v.Index {
-						predictions = append(predictions, handler.batcherInfo.PredictionResponse.Predictions[i])
+						predictions = append(predictions, handler.batcherInfo.PredictionResponse.Predictions[0][i])
 					}
 					res := Response{
 						Message:     "",
@@ -451,19 +453,12 @@ func (handler *BatchHandler) v2BatchPredict() {
 				*v.ChannelOut <- res
 			}
 		} else {
-			if len(handler.batcherInfo.InferResponse.Outputs) != len(handler.batcherInfo.V2Instances) {
-				for _, v := range handler.batcherInfo.V2ContextMap {
-					res := V2Response{
-						Message: "size of prediction is not equal to the size of instances",
-						BatchID: handler.batcherInfo.BatchID,
-					}
-					*v.ChannelOut <- res
-				}
-			} else {
+
+			if len(handler.batcherInfo.InferResponse.Outputs) == len(handler.batcherInfo.V2Instances) {
 				v2BatchOutputs := handler.batcherInfo.InferResponse.Outputs
 				handler.log.Infof("batchOutput length is   %v", len(v2BatchOutputs))
 				for _, v := range handler.batcherInfo.V2ContextMap {
-					predictions := []InferOuput{}
+					predictions := []InferOutput{}
 					for _, i := range v.Index {
 						predictions = append(predictions, v2BatchOutputs[i])
 					}
@@ -481,6 +476,55 @@ func (handler *BatchHandler) v2BatchPredict() {
 							Parameters:   handler.batcherInfo.InferResponse.Parameters,
 							Outputs:      predictions,
 						},
+					}
+					*v.ChannelOut <- res
+				}
+
+				// Below Condition to make batch relult for torchserve
+			} else if len(handler.batcherInfo.V2Instances) == handler.batcherInfo.InferResponse.Outputs[0].Shape[0] {
+
+				// AS we get all input's prediction result in only single output object from Torchserve
+				outputData := handler.batcherInfo.InferResponse.Outputs[0]
+				v2BatchOutputs := outputData.Data
+				handler.log.Infof("batchOutput length is   %v", len(v2BatchOutputs))
+
+				for _, v := range handler.batcherInfo.V2ContextMap {
+					predictions := []InferOutput{}
+
+					for _, i := range v.Index {
+
+						InferOutput := InferOutput{
+							Name:     outputData.Name + strconv.Itoa(i),
+							Shape:    []int{},
+							DataType: outputData.DataType,
+							Data:     []interface{}{},
+						}
+						InferOutput.Data = append(InferOutput.Data, v2BatchOutputs[i])
+						InferOutput.Shape = append(InferOutput.Shape, len(InferOutput.Data))
+						predictions = append(predictions, InferOutput)
+					}
+					id := handler.batcherInfo.InferResponse.ID
+					if v.InferRequest.ID != nil {
+						id = *v.InferRequest.ID
+					}
+					res := V2Response{
+						Message: "",
+						BatchID: handler.batcherInfo.BatchID,
+						Predictions: &InferResponse{
+							ModelName:    handler.batcherInfo.InferResponse.ModelName,
+							ModelVerison: handler.batcherInfo.InferResponse.ModelVerison,
+							ID:           id,
+							Parameters:   handler.batcherInfo.InferResponse.Parameters,
+							Outputs:      predictions,
+						},
+					}
+					*v.ChannelOut <- res
+				}
+			} else {
+				for _, v := range handler.batcherInfo.V2ContextMap {
+					res := V2Response{
+						Message: "size of prediction is not equal to the size of instances",
+						BatchID: handler.batcherInfo.BatchID,
 					}
 					*v.ChannelOut <- res
 				}

@@ -112,8 +112,10 @@ def create_response_cloudevent(model_name: str, response: Dict, req_attributes: 
         del ce_attributes["id"]
         del ce_attributes["time"]
 
-    ce_attributes["type"] = os.getenv("CE_TYPE", "io.kserve.inference.response")
-    ce_attributes["source"] = os.getenv("CE_SOURCE", f"io.kserve.inference.{model_name}")
+    ce_attributes["type"] = os.getenv(
+        "CE_TYPE", "io.kserve.inference.response")
+    ce_attributes["source"] = os.getenv(
+        "CE_SOURCE", f"io.kserve.inference.{model_name}")
 
     event = CloudEvent(ce_attributes, response)
 
