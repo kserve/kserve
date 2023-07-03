@@ -242,7 +242,7 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 	if err := r.Get(context.TODO(), namespacedName, existingService); err != nil {
 		return err
 	}
-	wasReady := isvcLatestRevisionReadiness(existingService.Status)
+	wasReady := inferenceServiceReadiness(existingService.Status)
 	if inferenceServiceStatusEqual(existingService.Status, desiredService.Status, deploymentMode) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -255,7 +255,7 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		return errors.Wrapf(err, "fails to update InferenceService status")
 	} else {
 		// If there was a difference and there was no error.
-		isReady := isvcLatestRevisionReadiness(desiredService.Status)
+		isReady := inferenceServiceReadiness(desiredService.Status)
 		if wasReady && !isReady { // Moved to NotReady State
 			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
 				fmt.Sprintf("InferenceService [%v] is no longer Ready", desiredService.GetName()))
@@ -267,9 +267,9 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 	return nil
 }
 
-// isvcLatestRevisionReadiness checks for the readiness of the inference
+// inferenceServiceReadiness checks for the readiness of the inference
 // service's latest revision/deployment.
-func isvcLatestRevisionReadiness(status v1beta1api.InferenceServiceStatus) bool {
+func inferenceServiceReadiness(status v1beta1api.InferenceServiceStatus) bool {
 	return status.Conditions != nil &&
 		status.GetCondition(apis.ConditionReady) != nil &&
 		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
