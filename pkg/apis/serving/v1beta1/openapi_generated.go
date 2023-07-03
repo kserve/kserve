@@ -1149,6 +1149,13 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"priority": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the model format. The value should be greater than zero. Lower value means higher priority.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 			},
 		},

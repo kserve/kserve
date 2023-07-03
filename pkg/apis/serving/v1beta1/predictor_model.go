@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sort"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -26,6 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var log = logf.Log.WithName("predictor_model")
 
 type ModelFormat struct {
 	// Name of the model format.
@@ -86,9 +89,9 @@ func (ss stringSet) contains(s string) bool {
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
 func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.SupportedRuntime, error) {
 
-	var modelProtcolVersion constants.InferenceServiceProtocol
+	var modelProtocolVersion constants.InferenceServiceProtocol
 	if m.ProtocolVersion != nil {
-		modelProtcolVersion = *m.ProtocolVersion
+		modelProtocolVersion = *m.ProtocolVersion
 	}
 
 	// List all namespace-scoped runtimes.
@@ -108,21 +111,29 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 	sortClusterServingRuntimeList(clusterRuntimes)
 
 	srSpecs := []v1alpha1.SupportedRuntime{}
+	var clusterSrSpecs []v1alpha1.SupportedRuntime
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
 		if !rt.Spec.IsDisabled() && rt.Spec.IsMultiModelRuntime() == isMMS &&
-			m.RuntimeSupportsModel(&rt.Spec) && rt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
+			m.RuntimeSupportsModel(&rt.Spec) && rt.Spec.IsProtocolVersionSupported(modelProtocolVersion) {
 			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: rt.GetName(), Spec: rt.Spec})
 		}
 	}
-
+	log.Info("serving runtime before priority sorting", "list", srSpecs)
+	sortSupportedRuntimeByPriority(srSpecs, m.ModelFormat)
+	log.Info("serving runtime after priority sorting", "list", srSpecs)
 	for i := range clusterRuntimes.Items {
 		crt := &clusterRuntimes.Items[i]
 		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
-			m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
-			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
+			m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtocolVersion) {
+			clusterSrSpecs = append(clusterSrSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
 		}
 	}
+	log.Info("cluster serving runtime before priority sorting", "list", clusterSrSpecs)
+	sortSupportedRuntimeByPriority(clusterSrSpecs, m.ModelFormat)
+	log.Info("cluster serving runtime after priority sorting", "list", clusterSrSpecs)
+	srSpecs = append(srSpecs, clusterSrSpecs...)
+	log.Info("final supported runtimes", "list", srSpecs)
 	return srSpecs, nil
 }
 
@@ -196,6 +207,22 @@ func sortClusterServingRuntimeList(runtimes *v1alpha1.ClusterServingRuntimeList)
 			return true
 		}
 		return runtimes.Items[i].Name < runtimes.Items[j].Name
+	})
+}
+
+func sortSupportedRuntimeByPriority(runtimes []v1alpha1.SupportedRuntime, modelFormat ModelFormat) {
+	sort.Slice(runtimes, func(i, j int) bool {
+		p1 := runtimes[i].Spec.GetPriority(modelFormat.Name)
+		p2 := runtimes[j].Spec.GetPriority(modelFormat.Name)
+
+		if p1 == nil && p2 == nil {
+			return false
+		} else if p1 == nil && p2 != nil {
+			return true
+		} else if p1 != nil && p2 == nil {
+			return false
+		}
+		return *p1 < *p2
 	})
 }
 

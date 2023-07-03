@@ -1132,6 +1132,9 @@ spec:
                         type: boolean
                       name:
                         type: string
+                      priority:
+                        minimum: 1
+                        type: integer
                       version:
                         type: string
                     required:

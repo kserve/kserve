@@ -582,6 +582,11 @@
           "type": "string",
           "default": ""
         },
+        "priority": {
+          "description": "Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the model format. The value should be greater than zero. Lower value means higher priority.",
+          "type": "integer",
+          "format": "int32"
+        },
         "version": {
           "description": "Version of the model format. Used in validating that a predictor is supported by a runtime. Can be \"major\", \"major.minor\" or \"major.minor.patch\".",
           "type": "string"
