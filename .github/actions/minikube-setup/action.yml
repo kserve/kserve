@@ -15,8 +15,10 @@ runs:
         minikube-version: '1.28.0'
         kubernetes-version: 'v1.26.4'
         driver: 'none'
+        network-plugin: 'cni'
+        cni: 'calico'
         wait: 'all'
-        start-args: --wait-timeout=120s
+        start-args: --wait-timeout=6m0s
 
     - name: Check Kubernetes pods
       shell: bash
