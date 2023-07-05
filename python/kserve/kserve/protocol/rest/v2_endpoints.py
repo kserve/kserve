@@ -60,7 +60,7 @@ class V2Endpoints:
             ServerReadyResponse: Server ready message.
         """
         return ServerReadyResponse(ready=True)
-    
+
     async def models(self) -> ListModelsResponse:
         """Get a list of models in the model registry.
 
