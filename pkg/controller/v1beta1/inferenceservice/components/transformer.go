@@ -200,6 +200,5 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 		}
 		isvc.Status.PropagateStatus(v1beta1.TransformerComponent, status)
 	}
-
 	return ctrl.Result{}, nil
 }

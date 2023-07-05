@@ -187,6 +187,18 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return result, nil
 		}
 	}
+	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
+	if deploymentMode == constants.Serverless {
+		componentList := []v1beta1api.ComponentType{v1beta1api.PredictorComponent}
+		if isvc.Spec.Transformer != nil {
+			componentList = append(componentList, v1beta1api.TransformerComponent)
+		}
+		if isvc.Spec.Explainer != nil {
+			componentList = append(componentList, v1beta1api.ExplainerComponent)
+		}
+		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.RoutesReady)
+		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.LatestDeploymentReady)
+	}
 	//Reconcile ingress
 	ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
 	if err != nil {
@@ -255,6 +267,8 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 	return nil
 }
 
+// inferenceServiceReadiness checks for the readiness of the inference
+// service's latest revision/deployment.
 func inferenceServiceReadiness(status v1beta1api.InferenceServiceStatus) bool {
 	return status.Conditions != nil &&
 		status.GetCondition(apis.ConditionReady) != nil &&
