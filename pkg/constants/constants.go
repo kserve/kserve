@@ -84,6 +84,7 @@ var (
 	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/min-scale"
 	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/max-scale"
 	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
+	KnativeOpenshiftEnablePassthroughKey        = "serving.knative.openshift.io/enablePassthrough"
 	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
 	SetPrometheusAnnotation                     = KServeAPIGroupName + "/enable-prometheus-scraping"
 	KserveContainerPrometheusPortKey            = "prometheus.kserve.io/port"

@@ -133,12 +133,9 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	// ksvc metadata.annotations
 	ksvcAnnotations := make(map[string]string)
 
-	// Allow custom annotations for ksvcs that start with serving.knative but not part of serving.knative.dev group name.
-	for aKey, _ := range annotations {
-		if !strings.HasPrefix(aKey, constants.KnativeServingAPIGroupName) && strings.HasPrefix(aKey, constants.KnativeServingAPIGroupNamePrefix) {
-			ksvcAnnotations[aKey] = annotations[aKey]
-			delete(annotations, aKey)
-		}
+	if value, ok := annotations[constants.KnativeOpenshiftEnablePassthroughKey]; ok {
+		ksvcAnnotations[constants.KnativeOpenshiftEnablePassthroughKey] = value
+		delete(annotations, constants.KnativeOpenshiftEnablePassthroughKey)
 	}
 
 	labels = utils.Filter(componentMeta.Labels, func(key string) bool {

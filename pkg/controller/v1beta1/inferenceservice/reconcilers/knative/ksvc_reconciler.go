@@ -19,8 +19,6 @@ package knative
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -45,6 +43,8 @@ var log = logf.Log.WithName("KsvcReconciler")
 
 var managedKsvcAnnotations = map[string]bool{
 	constants.RollOutDurationAnnotationKey: true,
+	// Required for the integration of Openshift Serverless with Openshift Service Mesh
+	constants.KnativeOpenshiftEnablePassthroughKey: true,
 }
 
 type KsvcReconciler struct {
@@ -106,14 +106,6 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		if value, ok := annotations[ksvcAnnotationKey]; ok {
 			ksvcAnnotations[ksvcAnnotationKey] = value
 			delete(annotations, ksvcAnnotationKey)
-		}
-	}
-
-	// Allow custom annotations for ksvcs that start with serving.knative but not part of serving.knative.dev group name.
-	for aKey, _ := range annotations {
-		if !strings.HasPrefix(aKey, constants.KnativeServingAPIGroupName) && strings.HasPrefix(aKey, constants.KnativeServingAPIGroupNamePrefix) {
-			ksvcAnnotations[aKey] = annotations[aKey]
-			delete(annotations, aKey)
 		}
 	}
 
