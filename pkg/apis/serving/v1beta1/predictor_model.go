@@ -99,13 +99,14 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 	// Sort namespace-scoped runtimes by created timestamp desc and name asc.
 	sortServingRuntimeList(runtimes)
 
-	// List all cluster-scoped runtimes.
-	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{}
-	if err := cl.List(context.TODO(), clusterRuntimes); err != nil {
-		return nil, err
-	}
-	// Sort cluster-scoped runtimes by created timestamp desc and name asc.
-	sortClusterServingRuntimeList(clusterRuntimes)
+	// ODH does not support ClusterServingRuntimes
+	//// List all cluster-scoped runtimes.
+	//clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{}
+	//if err := cl.List(context.TODO(), clusterRuntimes); err != nil {
+	//	return nil, err
+	//}
+	//// Sort cluster-scoped runtimes by created timestamp desc and name asc.
+	//sortClusterServingRuntimeList(clusterRuntimes)
 
 	srSpecs := []v1alpha1.SupportedRuntime{}
 	for i := range runtimes.Items {
@@ -116,13 +117,13 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 		}
 	}
 
-	for i := range clusterRuntimes.Items {
-		crt := &clusterRuntimes.Items[i]
-		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
-			m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
-			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
-		}
-	}
+	//for i := range clusterRuntimes.Items {
+	//	crt := &clusterRuntimes.Items[i]
+	//	if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
+	//		m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
+	//		srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
+	//	}
+	//}
 	return srSpecs, nil
 }
 

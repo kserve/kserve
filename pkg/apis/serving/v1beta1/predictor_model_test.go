@@ -39,7 +39,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	pmmlRuntime := "pmml-runtime"
 	mlserverRuntime := "mlserver-runtime"
 	xgboostRuntime := "xgboost-runtime"
-	clusterServingRuntimePrefix := "cluster-"
+	//clusterServingRuntimePrefix := "cluster-"
 
 	protocolV2 := constants.ProtocolV2
 	protocolV1 := constants.ProtocolV1
@@ -179,28 +179,29 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		},
 	}
 
-	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
-		Items: []v1alpha1.ClusterServingRuntime{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterServingRuntimePrefix + mlserverRuntime,
-				},
-				Spec: servingRuntimeSpecs[mlserverRuntime],
-			},
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterServingRuntimePrefix + tfRuntime,
-				},
-				Spec: servingRuntimeSpecs[tfRuntime],
-			},
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterServingRuntimePrefix + xgboostRuntime,
-				},
-				Spec: servingRuntimeSpecs[xgboostRuntime],
-			},
-		},
-	}
+	// ODH does not support ClusterServingRuntimeList
+	//clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
+	//	Items: []v1alpha1.ClusterServingRuntime{
+	//		{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name: clusterServingRuntimePrefix + mlserverRuntime,
+	//			},
+	//			Spec: servingRuntimeSpecs[mlserverRuntime],
+	//		},
+	//		{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name: clusterServingRuntimePrefix + tfRuntime,
+	//			},
+	//			Spec: servingRuntimeSpecs[tfRuntime],
+	//		},
+	//		{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name: clusterServingRuntimePrefix + xgboostRuntime,
+	//			},
+	//			Spec: servingRuntimeSpecs[xgboostRuntime],
+	//		},
+	//	},
+	//}
 
 	var storageUri = "s3://test/model"
 	scenarios := map[string]struct {
@@ -218,7 +219,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: []v1alpha1.SupportedRuntime{{Name: tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}, {Name: clusterServingRuntimePrefix + tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}},
+			expected: []v1alpha1.SupportedRuntime{{Name: tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]} /*, {Name: clusterServingRuntimePrefix + tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}*/},
 		},
 		"RuntimeNotFound": {
 			spec: &ModelSpec{
@@ -255,7 +256,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    true,
-			expected: []v1alpha1.SupportedRuntime{{Name: clusterServingRuntimePrefix + mlserverRuntime, Spec: servingRuntimeSpecs[mlserverRuntime]}},
+			expected: []v1alpha1.SupportedRuntime{ /*{Name: clusterServingRuntimePrefix + mlserverRuntime, Spec: servingRuntimeSpecs[mlserverRuntime]}*/ },
 		},
 		"SMSRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
@@ -280,7 +281,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 			},
 			isMMS:    false,
-			expected: []v1alpha1.SupportedRuntime{{Name: clusterServingRuntimePrefix + xgboostRuntime, Spec: servingRuntimeSpecs[xgboostRuntime]}},
+			expected: []v1alpha1.SupportedRuntime{ /*{Name: clusterServingRuntimePrefix + xgboostRuntime, Spec: servingRuntimeSpecs[xgboostRuntime]}*/ },
 		},
 		"RuntimeV1ProtocolNotFound": {
 			spec: &ModelSpec{
@@ -303,7 +304,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		t.Errorf("unable to add scheme : %v", err)
 	}
 
-	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
+	mockClient := fake.NewClientBuilder().WithLists(runtimes /*, clusterRuntimes*/).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			res, _ := scenario.spec.GetSupportingRuntimes(mockClient, namespace, scenario.isMMS)

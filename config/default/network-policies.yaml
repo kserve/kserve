@@ -1,0 +1,11 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kserve-controller-manager
+spec:
+  podSelector:
+    matchLabels:
+      control-plane: kserve-controller-manager
+  ingress:
+    - {}

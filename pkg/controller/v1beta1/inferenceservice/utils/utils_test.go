@@ -941,16 +941,16 @@ func TestGetServingRuntime(t *testing.T) {
 		},
 	}
 
-	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
-		Items: []v1alpha1.ClusterServingRuntime{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: sklearnRuntime,
-				},
-				Spec: servingRuntimeSpecs[sklearnRuntime],
-			},
-		},
-	}
+	//clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
+	//	Items: []v1alpha1.ClusterServingRuntime{
+	//		{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name: sklearnRuntime,
+	//			},
+	//			Spec: servingRuntimeSpecs[sklearnRuntime],
+	//		},
+	//	},
+	//}
 
 	scenarios := map[string]struct {
 		runtimeName string
@@ -960,16 +960,16 @@ func TestGetServingRuntime(t *testing.T) {
 			runtimeName: tfRuntime,
 			expected:    servingRuntimeSpecs[tfRuntime],
 		},
-		"ClusterServingRuntime": {
-			runtimeName: sklearnRuntime,
-			expected:    servingRuntimeSpecs[sklearnRuntime],
-		},
+		//"ClusterServingRuntime": {
+		//	runtimeName: sklearnRuntime,
+		//	expected:    servingRuntimeSpecs[sklearnRuntime],
+		//},
 	}
 
 	s := runtime.NewScheme()
 	v1alpha1.AddToScheme(s)
 
-	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
+	mockClient := fake.NewClientBuilder().WithLists(runtimes /*, clusterRuntimes*/).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			res, _ := GetServingRuntime(mockClient, scenario.runtimeName, namespace)
@@ -985,7 +985,7 @@ func TestGetServingRuntime(t *testing.T) {
 		if !g.Expect(res).To(gomega.BeNil()) {
 			t.Errorf("got %v, want %v", res, nil)
 		}
-		g.Expect(err.Error()).To(gomega.ContainSubstring("No ServingRuntimes or ClusterServingRuntimes with the name"))
+		g.Expect(err.Error()).To(gomega.ContainSubstring("No ServingRuntimes with the name"))
 	})
 
 }
