@@ -118,6 +118,11 @@ http_uri_path_testparams = [
     ('https://theabyss.net/model.joblib', MockHttpResponse(404), RuntimeError),
     ('https://some.site.com/test.model', MockHttpResponse(status_code=200, content_type='text/html'), RuntimeError),
     ('https://foo.bar/test/', MockHttpResponse(200), ValueError),
+    ('https://foo.bar/download?path=/20210530/model.zip', MockHttpResponse(200, FILE_ZIP_RAW, 'application/zip'), None),
+    ('https://foo.bar/download?path=/20210530/model.zip', MockHttpResponse(200, FILE_ZIP_RAW, 'application/x-zip'
+                                                                                              '-compressed'), None),
+    ('https://foo.bar/download?path=/20210530/model.zip', MockHttpResponse(200, FILE_ZIP_RAW, 'application/zip'
+                                                                                              '-compressed'), None),
 ]
 
 
