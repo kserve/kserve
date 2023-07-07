@@ -130,15 +130,24 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
 	}
 
+	// ksvc metadata.annotations
+	ksvcAnnotations := make(map[string]string)
+
+	if value, ok := annotations[constants.KnativeOpenshiftEnablePassthroughKey]; ok {
+		ksvcAnnotations[constants.KnativeOpenshiftEnablePassthroughKey] = value
+		delete(annotations, constants.KnativeOpenshiftEnablePassthroughKey)
+	}
+
 	labels = utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
 	})
 	labels[constants.InferenceGraphLabel] = componentMeta.Name
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      componentMeta.Name,
-			Namespace: componentMeta.Namespace,
-			Labels:    componentMeta.Labels,
+			Name:        componentMeta.Name,
+			Namespace:   componentMeta.Namespace,
+			Labels:      componentMeta.Labels,
+			Annotations: ksvcAnnotations,
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{

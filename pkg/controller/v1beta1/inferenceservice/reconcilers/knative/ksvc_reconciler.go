@@ -19,7 +19,6 @@ package knative
 import (
 	"context"
 	"fmt"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -44,6 +43,8 @@ var log = logf.Log.WithName("KsvcReconciler")
 
 var managedKsvcAnnotations = map[string]bool{
 	constants.RollOutDurationAnnotationKey: true,
+	// Required for the integration of Openshift Serverless with Openshift Service Mesh
+	constants.KnativeOpenshiftEnablePassthroughKey: true,
 }
 
 type KsvcReconciler struct {
