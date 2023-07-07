@@ -275,7 +275,7 @@ jobs:
 
   test-explainer:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    #needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v4

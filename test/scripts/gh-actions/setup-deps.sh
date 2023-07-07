@@ -60,8 +60,15 @@ spec:
   controller: istio.io/ingress-controller
 EOF
 
+echo "Download the source code of Knative Operator"
+git clone https://github.com/knative/operator.git
+
+export KO_DATA_PATH=${KO_DATA_PATH:-$PWD/operator/cmd/operator/kodata}
+
 echo "Installing the Knative Operator..."
-kubectl apply -f https://github.com/knative/operator/releases/download/knative-v${KNATIVE_OPERATOR_VERSION}/operator.yaml
+kubectl apply -f https://github.com/houshengbo/operator-2/releases/download/check-ko-data/operator.yaml
+
+kubectl wait --for=condition=Ready pods --all --timeout=300s
 
 kubectl get ns ${TEST_NAMESPACE} || kubectl create namespace ${TEST_NAMESPACE}
 
@@ -88,6 +95,7 @@ EOF
 #for i in 1 2 3 ; do kubectl apply -k test/overlays/knative/overlays/istio && break || sleep 15; done
 
 echo "Waiting for Knative to be ready ..."
+sleep 60
 kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
 
 # echo "Add knative hpa..."
