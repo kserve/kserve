@@ -255,7 +255,10 @@ var conditionsMapIndex = map[apis.ConditionType]map[ComponentType]apis.Condition
 }
 
 // InferenceService Ready condition is depending on predictor and route readiness condition
-var conditionSet = apis.NewLivingConditionSet(IngressReady)
+var conditionSet = apis.NewLivingConditionSet(
+	PredictorReady,
+	IngressReady,
+)
 
 var _ apis.ConditionsAccessor = (*InferenceServiceStatus)(nil)
 
