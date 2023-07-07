@@ -526,7 +526,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         url = urlparse(uri)
         filename = os.path.basename(url.path)
         # Determine if the symbol '?' exists in the path
-        if  mimetypes.guess_type(url.path)[0] is None and url.query != '':
+        if mimetypes.guess_type(url.path)[0] is None and url.query != '':
             mimetype, encoding = mimetypes.guess_type(url.query)
         else:
             mimetype, encoding = mimetypes.guess_type(url.path)
