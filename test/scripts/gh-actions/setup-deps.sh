@@ -25,8 +25,11 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && 
 
 ISTIO_VERSION="1.17.2"
 KNATIVE_VERSION="knative-v1.9.0"
+KNATIVE_OPERATOR_VERSION="1.10.2"
+KNATIVE_VERSION="1.9.0"
 CERT_MANAGER_VERSION="v1.5.0"
 YQ_VERSION="v4.28.1"
+TEST_NAMESPACE="knative-serving"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
@@ -57,16 +60,32 @@ spec:
   controller: istio.io/ingress-controller
 EOF
 
-echo "Installing Knative serving ..."
-pushd "${SCRIPT_DIR}"/../../overlays/knative/default >/dev/null
-  curl -s -O -L https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-  curl -s -O -L https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+echo "Installing the Knative Operator..."
+kubectl apply -f https://github.com/knative/operator/releases/download/knative-v${KNATIVE_OPERATOR_VERSION}/operator.yaml
+
+kubectl get ns ${TEST_NAMESPACE} || kubectl create namespace ${TEST_NAMESPACE}
+
+echo ">> Installing Knative Serving..."
+cat <<EOF | kubectl apply -f -
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: ${TEST_NAMESPACE}
+spec:
+  version: "${KNATIVE_VERSION}"
+EOF
+
+#echo "Installing Knative serving ..."
+#pushd "${SCRIPT_DIR}"/../../overlays/knative/default >/dev/null
+#  curl -s -O -L https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
+#  curl -s -O -L https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
 
   # Kustomize does not work with integer map keys
-  sed -i 's/8443:/"8443":/g' release.yaml
-popd
+#  sed -i 's/8443:/"8443":/g' release.yaml
+#popd
 
-for i in 1 2 3 ; do kubectl apply -k test/overlays/knative/overlays/istio && break || sleep 15; done
+#for i in 1 2 3 ; do kubectl apply -k test/overlays/knative/overlays/istio && break || sleep 15; done
 
 echo "Waiting for Knative to be ready ..."
 kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
