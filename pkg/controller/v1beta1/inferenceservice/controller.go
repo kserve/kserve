@@ -267,8 +267,6 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 	return nil
 }
 
-// inferenceServiceReadiness checks for the readiness of the inference
-// service's latest revision/deployment.
 func inferenceServiceReadiness(status v1beta1api.InferenceServiceStatus) bool {
 	return status.Conditions != nil &&
 		status.GetCondition(apis.ConditionReady) != nil &&

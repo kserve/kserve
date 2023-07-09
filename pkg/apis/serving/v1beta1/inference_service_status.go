@@ -266,7 +266,7 @@ func (ss *InferenceServiceStatus) InitializeConditions() {
 	conditionSet.Manage(ss).InitializeConditions()
 }
 
-// IsReady returns the readiness for the latest revision.
+// IsReady returns the overall readiness for the inference service.
 func (ss *InferenceServiceStatus) IsReady() bool {
 	return conditionSet.Manage(ss).IsHappy()
 }
