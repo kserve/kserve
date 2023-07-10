@@ -255,7 +255,10 @@ var conditionsMapIndex = map[apis.ConditionType]map[ComponentType]apis.Condition
 }
 
 // InferenceService Ready condition is depending on predictor and route readiness condition
-var conditionSet = apis.NewLivingConditionSet(IngressReady)
+var conditionSet = apis.NewLivingConditionSet(
+	PredictorReady,
+	IngressReady,
+)
 
 var _ apis.ConditionsAccessor = (*InferenceServiceStatus)(nil)
 
@@ -263,7 +266,7 @@ func (ss *InferenceServiceStatus) InitializeConditions() {
 	conditionSet.Manage(ss).InitializeConditions()
 }
 
-// IsReady returns the readiness for the latest revision.
+// IsReady returns the overall readiness for the inference service.
 func (ss *InferenceServiceStatus) IsReady() bool {
 	return conditionSet.Manage(ss).IsHappy()
 }
