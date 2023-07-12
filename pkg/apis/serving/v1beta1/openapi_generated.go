@@ -1151,7 +1151,7 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 					},
 					"priority": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the model format. The value should be greater than zero. Lower value means higher priority.",
+							Description: "Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the same model format. The value should be greater than zero. Lower the value Higher the priority. Priority is not considered if AutoSelect is false or not specified.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},

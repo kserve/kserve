@@ -18,7 +18,6 @@ package v1beta1
 
 import (
 	"context"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sort"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -27,8 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logf.Log.WithName("predictor_model")
 
 type ModelFormat struct {
 	// Name of the model format.
@@ -119,9 +116,7 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: rt.GetName(), Spec: rt.Spec})
 		}
 	}
-	log.Info("serving runtime before priority sorting", "list", srSpecs)
 	sortSupportedRuntimeByPriority(srSpecs, m.ModelFormat)
-	log.Info("serving runtime after priority sorting", "list", srSpecs)
 	for i := range clusterRuntimes.Items {
 		crt := &clusterRuntimes.Items[i]
 		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
@@ -129,11 +124,8 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 			clusterSrSpecs = append(clusterSrSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
 		}
 	}
-	log.Info("cluster serving runtime before priority sorting", "list", clusterSrSpecs)
 	sortSupportedRuntimeByPriority(clusterSrSpecs, m.ModelFormat)
-	log.Info("cluster serving runtime after priority sorting", "list", clusterSrSpecs)
 	srSpecs = append(srSpecs, clusterSrSpecs...)
-	log.Info("final supported runtimes", "list", srSpecs)
 	return srSpecs, nil
 }
 

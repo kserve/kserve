@@ -8,7 +8,7 @@ do
   fi
 done
 
-for i in $(find ./python -name '*.py')  # or whatever other pattern...
+for i in $(find ./python -name '*.py' -path "poetry-version-plugin" -prune)  # or whatever other pattern...
 do
   if ! grep -q Copyright $i
   then

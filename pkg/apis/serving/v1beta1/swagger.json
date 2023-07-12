@@ -583,7 +583,7 @@
           "default": ""
         },
         "priority": {
-          "description": "Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the model format. The value should be greater than zero. Lower value means higher priority.",
+          "description": "Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the same model format. The value should be greater than zero. Lower the value Higher the priority. Priority is not considered if AutoSelect is false or not specified.",
           "type": "integer",
           "format": "int32"
         },

@@ -131,7 +131,7 @@ class V1alpha1SupportedModelFormat(object):
     def priority(self):
         """Gets the priority of this V1alpha1SupportedModelFormat.  # noqa: E501
 
-        Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the model format. The value should be greater than zero. Lower value means higher priority.  # noqa: E501
+        Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the same model format. The value should be greater than zero. Lower the value Higher the priority. Priority is not considered if AutoSelect is false or not specified.  # noqa: E501
 
         :return: The priority of this V1alpha1SupportedModelFormat.  # noqa: E501
         :rtype: int
@@ -142,7 +142,7 @@ class V1alpha1SupportedModelFormat(object):
     def priority(self, priority):
         """Sets the priority of this V1alpha1SupportedModelFormat.
 
-        Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the model format. The value should be greater than zero. Lower value means higher priority.  # noqa: E501
+        Priority of this serving runtime for auto selection. This is used if more than one serving runtime supports the same model format. The value should be greater than zero. Lower the value Higher the priority. Priority is not considered if AutoSelect is false or not specified.  # noqa: E501
 
         :param priority: The priority of this V1alpha1SupportedModelFormat.  # noqa: E501
         :type: int

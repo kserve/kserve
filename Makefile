@@ -76,6 +76,9 @@ deploy: manifests
 	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
 	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
 	${KUSTOMIZE} build config/default | kubectl apply -f -
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	sleep 2
+	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev: manifests
@@ -87,6 +90,7 @@ deploy-dev: manifests
 	${KUSTOMIZE} build config/overlays/development | kubectl apply -f -
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	sleep 2
 	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 

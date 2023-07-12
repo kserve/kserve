@@ -615,7 +615,7 @@ func (in *SupportedModelFormat) DeepCopyInto(out *SupportedModelFormat) {
 	}
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
-		*out = new(int16)
+		*out = new(int32)
 		**out = **in
 	}
 }

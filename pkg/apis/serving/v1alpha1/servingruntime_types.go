@@ -39,10 +39,11 @@ type SupportedModelFormat struct {
 	// +kubebuilder:validation:Minimum=1
 
 	// Priority of this serving runtime for auto selection.
-	// This is used if more than one serving runtime supports the model format.
-	// The value should be greater than zero. Lower value means higher priority.
+	// This is used if more than one serving runtime supports the same model format.
+	// The value should be greater than zero. Lower the value Higher the priority.
+	// Priority is not considered if AutoSelect is false or not specified.
 	// +optional
-	Priority *int16 `json:"priority,omitempty"`
+	Priority *int32 `json:"priority,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -275,11 +276,15 @@ func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersio
 }
 
 // GetPriority returns the priority of the specified model. It returns nil if priority is not set or the model is not found.
-func (srSpec *ServingRuntimeSpec) GetPriority(modelName string) *int16 {
+func (srSpec *ServingRuntimeSpec) GetPriority(modelName string) *int32 {
 	for _, model := range srSpec.SupportedModelFormats {
 		if model.Name == modelName {
 			return model.Priority
 		}
 	}
 	return nil
+}
+
+func (m *SupportedModelFormat) IsAutoSelectEnabled() bool {
+	return m.AutoSelect != nil && *m.AutoSelect
 }
