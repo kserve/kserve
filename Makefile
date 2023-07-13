@@ -129,17 +129,9 @@ deploy-helm: manifests
 
 undeploy: kustomize
 	${KUSTOMIZE} build config/default | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 undeploy-dev: kustomize
 	${KUSTOMIZE} build config/overlays/development | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen kustomize
