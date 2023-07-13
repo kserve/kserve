@@ -47,7 +47,9 @@ jobs:
         echo "Coverage output is ${{ steps.test.outputs.coverage }}"
     
     - name: Update coverage badge
-      if: github.ref == 'refs/heads/master'
+      # Disabling, because this tries to update a Gist owned by KServe.
+      # More info: https://github.com/opendatahub-io/kserve/issues/29
+      if: false # github.ref == 'refs/heads/master'
       uses: schneegans/dynamic-badges-action@v1.4.0
       with:
         auth: ${{ secrets.GIST_SECRET }}
