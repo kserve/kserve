@@ -5,6 +5,7 @@ on:
     # Publish `master` as Docker `latest` image.
     branches:
       - master
+      - release-*
 
     # Publish `v1.2.3` tags as releases.
     tags:
@@ -14,7 +15,7 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: storage-initializer
+  IMAGE_NAME: kserve-storage-initializer
 
 jobs:
   # Run tests.
@@ -53,11 +54,11 @@ jobs:
           docker buildx build . --file storage-initializer.Dockerfile --tag $IMAGE_NAME
 
       - name: Log into registry
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+        run: docker login -u ${{ secrets.QUAY_USER }} -p ${{ secrets.QUAY_PASSWORD }} quay.io
 
       - name: Push image
         run: |
-          IMAGE_ID=kserve/$IMAGE_NAME
+          IMAGE_ID=quay.io/${{ vars.QUAY_OWNER }}/$IMAGE_NAME
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
@@ -70,10 +71,15 @@ jobs:
 
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
+          [[ "$VERSION" =~ ^release- ]] && VERSION=$(echo $VERSION | sed 's/^release-//')-latest
 
           echo IMAGE_ID=$IMAGE_ID
           echo VERSION=$VERSION
 
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
-
+          
+          # If a vX.Y.Z release is being built, also update the vX.Y tag.
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && MINOR_VERSION=$(echo $VERSION | sed 's/\(.*\)\.[[:digit:]]\+$/\1/')
+          [ ! -z "$MINOR_VERSION" ] && docker tag $IMAGE_NAME $IMAGE_ID:$MINOR_VERSION
+          [ ! -z "$MINOR_VERSION" ] && docker push $IMAGE_ID:$MINOR_VERSION || true
