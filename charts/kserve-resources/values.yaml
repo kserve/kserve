@@ -4,12 +4,23 @@ kserve:
   agent:
     image: kserve/agent
     tag: *defaultVersion
+  router:
+    image: kserve/router
+    tag: *defaultVersion
   storage:
     image: kserve/storage-initializer
     tag: *defaultVersion
+    storageSpecSecretName: storage-config
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+      endpoint: ""
+      useHttps: ""
+      region: ""
+      verifySSL: ""
+      useVirtualBucket: ""
+      useAnonymousCredential: ""
+      CABundle: ""
   metricsaggregator:
     enableMetricAggregation: "false"
     enablePrometheusScraping: "false"
