@@ -167,7 +167,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -267,7 +267,7 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -378,7 +378,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -518,7 +518,7 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 	builder := NewCredentialBulder(c, configMap)
 	for name, scenario := range scenarios {
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -629,7 +629,7 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 	builder := NewCredentialBulder(c, configMap)
 	for name, scenario := range scenarios {
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -769,7 +769,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 	builder := NewCredentialBulder(c, configMap)
 	for name, scenario := range scenarios {
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -873,7 +873,7 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 	builder := NewCredentialBulder(c, configMap)
 	for name, scenario := range scenarios {
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)

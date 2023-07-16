@@ -44,13 +44,14 @@ const (
 )
 
 type StorageInitializerConfig struct {
-	Image                      string `json:"image"`
-	CpuRequest                 string `json:"cpuRequest"`
-	CpuLimit                   string `json:"cpuLimit"`
-	MemoryRequest              string `json:"memoryRequest"`
-	MemoryLimit                string `json:"memoryLimit"`
-	StorageSpecSecretName      string `json:"storageSpecSecretName"`
-	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
+	Image                       string `json:"image"`
+	CpuRequest                  string `json:"cpuRequest"`
+	CpuLimit                    string `json:"cpuLimit"`
+	MemoryRequest               string `json:"memoryRequest"`
+	MemoryLimit                 string `json:"memoryLimit"`
+	StorageSpecSecretName       string `json:"storageSpecSecretName"`
+	StorageSpecSecretAnnotation string `json:"storageSpecSecretAnnotation"`
+	EnableDirectPvcVolumeMount  bool   `json:"enableDirectPvcVolumeMount"`
 }
 
 type StorageInitializerInjector struct {
@@ -322,6 +323,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		// Inject service account credentials if storage spec doesn't exist
 		if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
 			pod.Namespace,
+			pod.Annotations,
 			pod.Spec.ServiceAccountName,
 			initContainer,
 			&pod.Spec.Volumes,

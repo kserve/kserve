@@ -282,6 +282,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Inject credentials
 	if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
 		pod.Namespace,
+		pod.Annotations,
 		pod.Spec.ServiceAccountName,
 		agentContainer,
 		&pod.Spec.Volumes,

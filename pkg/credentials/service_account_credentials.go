@@ -39,14 +39,15 @@ import (
 )
 
 const (
-	CredentialConfigKeyName     = "credentials"
-	UriSchemePlaceholder        = "<scheme-placeholder>"
-	StorageConfigEnvKey         = "STORAGE_CONFIG"
-	StorageOverrideConfigEnvKey = "STORAGE_OVERRIDE_CONFIG"
-	DefaultStorageSecretKey     = "default"
-	UnsupportedStorageSpecType  = "storage type must be one of [%s]. storage type [%s] is not supported"
-	MissingBucket               = "format [%s] requires a bucket but one wasn't found in storage data or parameters"
-	AwsIrsaAnnotationKey        = "eks.amazonaws.com/role-arn"
+	StorageInitializerConfigMapKeyName = "storageInitializer"
+	CredentialConfigKeyName            = "credentials"
+	UriSchemePlaceholder               = "<scheme-placeholder>"
+	StorageConfigEnvKey                = "STORAGE_CONFIG"
+	StorageOverrideConfigEnvKey        = "STORAGE_OVERRIDE_CONFIG"
+	DefaultStorageSecretKey            = "default"
+	UnsupportedStorageSpecType         = "storage type must be one of [%s]. storage type [%s] is not supported"
+	MissingBucket                      = "format [%s] requires a bucket but one wasn't found in storage data or parameters"
+	AwsIrsaAnnotationKey               = "eks.amazonaws.com/role-arn"
 )
 
 var (
@@ -55,8 +56,9 @@ var (
 )
 
 type CredentialConfig struct {
-	S3  s3.S3Config   `json:"s3,omitempty"`
-	GCS gcs.GCSConfig `json:"gcs,omitempty"`
+	S3                          s3.S3Config   `json:"s3,omitempty"`
+	GCS                         gcs.GCSConfig `json:"gcs,omitempty"`
+	StorageSecretAnnotationName string        `json:"storageSecretAnnotationName,omitempty"`
 }
 
 type CredentialBuilder struct {
@@ -64,7 +66,7 @@ type CredentialBuilder struct {
 	config CredentialConfig
 }
 
-var log = logf.Log.WithName("CredentialBulder")
+var log = logf.Log.WithName("CredentialBuilder")
 
 func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *CredentialBuilder {
 	credentialConfig := CredentialConfig{}
@@ -74,6 +76,7 @@ func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *Credential
 			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
 		}
 	}
+
 	return &CredentialBuilder{
 		client: client,
 		config: credentialConfig,
@@ -170,20 +173,10 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, storag
 	return nil
 }
 
-func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAccountName string,
+func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotations map[string]string, serviceAccountName string,
 	container *v1.Container, volumes *[]v1.Volume) error {
 	if serviceAccountName == "" {
 		serviceAccountName = "default"
-	}
-	s3SecretAccessKeyName := s3.AWSSecretAccessKeyName
-	gcsCredentialFileName := gcs.GCSCredentialFileName
-
-	if c.config.S3.S3SecretAccessKeyName != "" {
-		s3SecretAccessKeyName = c.config.S3.S3SecretAccessKeyName
-	}
-
-	if c.config.GCS.GCSCredentialFileName != "" {
-		gcsCredentialFileName = c.config.GCS.GCSCredentialFileName
 	}
 
 	serviceAccount := &v1.ServiceAccount{}
@@ -203,56 +196,94 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		}
 	}
 
-	for _, secretRef := range serviceAccount.Secrets {
-		log.Info("found secret", "SecretName", secretRef.Name)
-		secret := &v1.Secret{}
-		err := c.client.Get(context.TODO(), types.NamespacedName{Name: secretRef.Name,
-			Namespace: namespace}, secret)
-		if err != nil {
-			log.Error(err, "Failed to find secret", "SecretName", secretRef.Name)
-			continue
-		}
-		if _, ok := secret.Data[s3SecretAccessKeyName]; ok {
-			log.Info("Setting secret envs for s3", "S3Secret", secret.Name)
-			envs := s3.BuildSecretEnvs(secret, &c.config.S3)
-			// Merge envs here to override values possibly present from IAM Role annotations with values from secret annotations
-			container.Env = utils.MergeEnvs(container.Env, envs)
-		} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
-			log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
-			volume, volumeMount := gcs.BuildSecretVolume(secret)
-			*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
-			container.VolumeMounts =
-				append(container.VolumeMounts, volumeMount)
-			container.Env = append(container.Env,
-				v1.EnvVar{
-					Name:  gcs.GCSCredentialEnvKey,
-					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
-				})
-		} else if _, ok := secret.Data[azure.LegacyAzureClientId]; ok {
-			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
-			envs := azure.BuildSecretEnvs(secret)
-			container.Env = append(container.Env, envs...)
-		} else if _, ok := secret.Data[azure.AzureClientId]; ok {
-			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
-			envs := azure.BuildSecretEnvs(secret)
-			container.Env = append(container.Env, envs...)
-		} else if _, ok := secret.Data[azure.AzureStorageAccessKey]; ok {
-			log.Info("Setting secret envs with azure storage access key for azure", "AzureSecret", secret.Name)
-			envs := azure.BuildStorageAccessKeySecretEnv(secret)
-			container.Env = append(container.Env, envs...)
-		} else if _, ok := secret.Data[https.HTTPSHost]; ok {
-			log.Info("Setting secret volume from uri", "HTTP(S)Secret", secret.Name)
-			envs := https.BuildSecretEnvs(secret)
-			container.Env = append(container.Env, envs...)
-		} else if _, ok := secret.Data[hdfs.HdfsNamenode]; ok {
-			log.Info("Setting secret for hdfs", "HdfsSecret", secret.Name)
-			volume, volumeMount := hdfs.BuildSecret(secret)
-			*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
-			container.VolumeMounts = append(container.VolumeMounts, volumeMount)
+	// secret annotation takes precedence
+	if annotations != nil {
+		if secretName, ok := annotations[c.config.StorageSecretAnnotationName]; ok {
+			err := c.mountSecretCredential(secretName, namespace, container, volumes)
+			if err != nil {
+				log.Error(err, "Failed to amount the secret credentials", "secretName", secretName)
+			}
 		} else {
-			log.V(5).Info("Skipping non gcs/s3/azure secret", "Secret", secret.Name)
+			for _, secretRef := range serviceAccount.Secrets {
+				err := c.mountSecretCredential(secretRef.Name, namespace, container, volumes)
+				if err != nil {
+					continue
+				}
+			}
+		}
+	} else {
+		for _, secretRef := range serviceAccount.Secrets {
+			err := c.mountSecretCredential(secretRef.Name, namespace, container, volumes)
+			if err != nil {
+				continue
+			}
 		}
 	}
 
+	return nil
+}
+
+func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace string,
+	container *v1.Container, volumes *[]v1.Volume) error {
+
+	secret := &v1.Secret{}
+	err := c.client.Get(context.TODO(), types.NamespacedName{Name: secretName,
+		Namespace: namespace}, secret)
+	if err != nil {
+		log.Error(err, "Failed to find secret", "SecretName", secretName)
+		return err
+	} else {
+		log.Info("found secret", "SecretName", secretName)
+	}
+	s3SecretAccessKeyName := s3.AWSSecretAccessKeyName
+	gcsCredentialFileName := gcs.GCSCredentialFileName
+
+	if c.config.S3.S3SecretAccessKeyName != "" {
+		s3SecretAccessKeyName = c.config.S3.S3SecretAccessKeyName
+	}
+
+	if c.config.GCS.GCSCredentialFileName != "" {
+		gcsCredentialFileName = c.config.GCS.GCSCredentialFileName
+	}
+	if _, ok := secret.Data[s3SecretAccessKeyName]; ok {
+		log.Info("Setting secret envs for s3", "S3Secret", secret.Name)
+		envs := s3.BuildSecretEnvs(secret, &c.config.S3)
+		// Merge envs here to override values possibly present from IAM Role annotations with values from secret annotations
+		container.Env = utils.MergeEnvs(container.Env, envs)
+	} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
+		log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
+		volume, volumeMount := gcs.BuildSecretVolume(secret)
+		*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
+		container.VolumeMounts =
+			append(container.VolumeMounts, volumeMount)
+		container.Env = append(container.Env,
+			v1.EnvVar{
+				Name:  gcs.GCSCredentialEnvKey,
+				Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
+			})
+	} else if _, ok := secret.Data[azure.LegacyAzureClientId]; ok {
+		log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
+		envs := azure.BuildSecretEnvs(secret)
+		container.Env = append(container.Env, envs...)
+	} else if _, ok := secret.Data[azure.AzureClientId]; ok {
+		log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
+		envs := azure.BuildSecretEnvs(secret)
+		container.Env = append(container.Env, envs...)
+	} else if _, ok := secret.Data[azure.AzureStorageAccessKey]; ok {
+		log.Info("Setting secret envs with azure storage access key for azure", "AzureSecret", secret.Name)
+		envs := azure.BuildStorageAccessKeySecretEnv(secret)
+		container.Env = append(container.Env, envs...)
+	} else if _, ok := secret.Data[https.HTTPSHost]; ok {
+		log.Info("Setting secret volume from uri", "HTTP(S)Secret", secret.Name)
+		envs := https.BuildSecretEnvs(secret)
+		container.Env = append(container.Env, envs...)
+	} else if _, ok := secret.Data[hdfs.HdfsNamenode]; ok {
+		log.Info("Setting secret for hdfs", "HdfsSecret", secret.Name)
+		volume, volumeMount := hdfs.BuildSecret(secret)
+		*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
+		container.VolumeMounts = append(container.VolumeMounts, volumeMount)
+	} else {
+		log.V(5).Info("Skipping unsupported secret", "Secret", secret.Name)
+	}
 	return nil
 }

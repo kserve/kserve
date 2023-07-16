@@ -417,6 +417,7 @@ data:
 
   credentials: |-
     {
+       "storageSecretAnnotationName": "serving.kserve.io/secretName",
        "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
        },
