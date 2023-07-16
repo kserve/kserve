@@ -82,12 +82,17 @@ func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *Credential
 	}
 }
 
-func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, storageKey string,
+func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
 	storageSecretName string, overrideParams map[string]string, container *v1.Container) error {
 
 	stype, ok := overrideParams["type"]
-
 	bucket := overrideParams["bucket"]
+	// secret annotation takes precedence
+	if annotations != nil {
+		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
+			storageSecretName = secretName
+		}
+	}
 
 	secret := &v1.Secret{}
 	var storageData []byte

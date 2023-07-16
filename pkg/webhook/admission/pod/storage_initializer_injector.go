@@ -311,6 +311,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 		if err := mi.credentialBuilder.CreateStorageSpecSecretEnvs(
 			pod.Namespace,
+			pod.Annotations,
 			storageKey,
 			storageSpecSecret,
 			overrideParams,

@@ -125,7 +125,7 @@ data:
      credentials: |-
        {
           # KServe by default gets the secret reference from service account, the configured annotation allows overriding with
-          # the secret name specified with annotation value.
+          # the secret name specified from the annotation value.
           "storageSecretNameAnnotation": "serving.kserve.io/secretName",
 
           # Configuration for google cloud storage
