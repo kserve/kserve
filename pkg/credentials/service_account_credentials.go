@@ -39,15 +39,14 @@ import (
 )
 
 const (
-	StorageInitializerConfigMapKeyName = "storageInitializer"
-	CredentialConfigKeyName            = "credentials"
-	UriSchemePlaceholder               = "<scheme-placeholder>"
-	StorageConfigEnvKey                = "STORAGE_CONFIG"
-	StorageOverrideConfigEnvKey        = "STORAGE_OVERRIDE_CONFIG"
-	DefaultStorageSecretKey            = "default"
-	UnsupportedStorageSpecType         = "storage type must be one of [%s]. storage type [%s] is not supported"
-	MissingBucket                      = "format [%s] requires a bucket but one wasn't found in storage data or parameters"
-	AwsIrsaAnnotationKey               = "eks.amazonaws.com/role-arn"
+	CredentialConfigKeyName     = "credentials"
+	UriSchemePlaceholder        = "<scheme-placeholder>"
+	StorageConfigEnvKey         = "STORAGE_CONFIG"
+	StorageOverrideConfigEnvKey = "STORAGE_OVERRIDE_CONFIG"
+	DefaultStorageSecretKey     = "default"
+	UnsupportedStorageSpecType  = "storage type must be one of [%s]. storage type [%s] is not supported"
+	MissingBucket               = "format [%s] requires a bucket but one wasn't found in storage data or parameters"
+	AwsIrsaAnnotationKey        = "eks.amazonaws.com/role-arn"
 )
 
 var (
@@ -58,7 +57,7 @@ var (
 type CredentialConfig struct {
 	S3                          s3.S3Config   `json:"s3,omitempty"`
 	GCS                         gcs.GCSConfig `json:"gcs,omitempty"`
-	StorageSecretAnnotationName string        `json:"storageSecretAnnotationName,omitempty"`
+	StorageSecretNameAnnotation string        `json:"storageSecretNameAnnotation,omitempty"`
 }
 
 type CredentialBuilder struct {
@@ -198,7 +197,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 
 	// secret annotation takes precedence
 	if annotations != nil {
-		if secretName, ok := annotations[c.config.StorageSecretAnnotationName]; ok {
+		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
 			err := c.mountSecretCredential(secretName, namespace, container, volumes)
 			if err != nil {
 				log.Error(err, "Failed to amount the secret credentials", "secretName", secretName)

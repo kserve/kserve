@@ -11,6 +11,7 @@ kserve:
     image: kserve/storage-initializer
     tag: *defaultVersion
     storageSpecSecretName: storage-config
+    storageSecretNameAnnotation: serving.kserve.io/secretName
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY

@@ -97,6 +97,7 @@ data:
      # Example
      credentials: |-
        {
+          "storageSecretNameAnnotation": "serving.kserve.io/secretName",
           "gcs": {
               "gcsCredentialFileName": "gcloud-application-credentials.json"
           },
@@ -124,6 +125,9 @@ data:
      # The rest of the fields are used in both authentication methods (IAM Role for Service Account & IAM User Access Key Secret) if a non-empty value is provided.
      credentials: |-
        {
+          # KServe by default gets the secret reference from service account, the configured annotation allows overriding with
+          # the secret name specified with annotation value.
+          "storageSecretNameAnnotation": "serving.kserve.io/secretName",
           # Configuration for google cloud storage
           "gcs": {
               # gcsCredentialFileName specifies the filename of the gcs credential
@@ -419,6 +423,7 @@ data:
     }
   credentials: |-
     {
+       "storageSecretNameAnnotation": "{{ .Values.kserve.storage.storageSecretNameAnnotation }}",
        "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
        },
