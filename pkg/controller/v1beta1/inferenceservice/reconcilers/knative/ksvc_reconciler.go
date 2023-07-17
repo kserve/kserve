@@ -183,21 +183,10 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	return service
 }
 
-func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
-	// Create service if does not exist
-	desired := r.Service
-	existing := &knservingv1.Service{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
-	if err != nil {
-		if apierr.IsNotFound(err) {
-			log.Info("Creating knative service", "namespace", desired.Namespace, "name", desired.Name)
-			return &desired.Status, r.client.Create(context.TODO(), desired)
-		}
-		return nil, err
-	}
+func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) error {
 	// Return if no differences to reconcile.
 	if semanticEquals(desired, existing) {
-		return &existing.Status, nil
+		return nil
 	}
 
 	// Reconcile differences and update
@@ -210,7 +199,7 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	}
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
-		return &existing.Status, errors.Wrapf(err, "failed to diff knative service configuration spec")
+		return errors.Wrapf(err, "failed to diff knative service configuration spec")
 	}
 	log.Info("knative service configuration diff (-desired, +observed):", "diff", diff)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
@@ -223,8 +212,30 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 			delete(existing.ObjectMeta.Annotations, ksvcAnnotationKey)
 		}
 	}
+	return nil
+}
+
+func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
+	// Create service if does not exist
+	desired := r.Service
+	existing := &knservingv1.Service{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
+	if err != nil {
+		if apierr.IsNotFound(err) {
+			log.Info("Creating knative service", "namespace", desired.Namespace, "name", desired.Name)
+			return &desired.Status, r.client.Create(context.TODO(), desired)
+		}
+		return nil, err
+	}
+
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		log.Info("Updating knative service", "namespace", desired.Namespace, "name", desired.Name)
+		if err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
+			return err
+		}
+		if err := reconcileKsvc(desired, existing); err != nil {
+			return err
+		}
 		return r.client.Update(context.TODO(), existing)
 	})
 	if err != nil {
