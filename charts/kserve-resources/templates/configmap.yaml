@@ -64,7 +64,6 @@ data:
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
            "cpuLimit": "1",
-           "storageSpecSecretName": "storage-config",
            "enableDirectPvcVolumeMount": false
        }
      storageInitializer: |-
@@ -84,9 +83,6 @@ data:
            # cpuLimit is the limits.cpu to set for the storage initializer init container.
            "cpuLimit": "1",
 
-           # storageSpecSecretName contains the secret name which has the credentials for downloading the model.
-           "storageSpecSecretName": "storage-config",
-
            # enableDirectPvcVolumeMount controls whether users can mount pvc volumes directly.
            # if pvc volume is provided in storageuri then the pvc volume is directly mounted to /mnt/models in the user container.
            # rather than symlink it to a shared volume. For more info see https://github.com/kserve/kserve/issues/2737
@@ -97,6 +93,7 @@ data:
      # Example
      credentials: |-
        {
+          "storageSpecSecretName": "storage-config",
           "storageSecretNameAnnotation": "serving.kserve.io/secretName",
           "gcs": {
               "gcsCredentialFileName": "gcloud-application-credentials.json"
@@ -125,8 +122,12 @@ data:
      # The rest of the fields are used in both authentication methods (IAM Role for Service Account & IAM User Access Key Secret) if a non-empty value is provided.
      credentials: |-
        {
-          # KServe by default gets the secret reference from service account, the configured annotation allows overriding with
-          # the secret name specified from the annotation value.
+          # storageSpecSecretName contains the secret name which has the credentials for downloading the model.
+          "storageSpecSecretName": "storage-config",
+
+          # KServe by default gets the secret name references from service account when using storageUri, 
+          # the configured annotation allows overriding with the secret name reference from the annotation value.
+          # The order of the precedence is: secret name reference annotation > secret name references from service account
           "storageSecretNameAnnotation": "serving.kserve.io/secretName",
           # Configuration for google cloud storage
           "gcs": {
@@ -423,6 +424,7 @@ data:
     }
   credentials: |-
     {
+       "storageSpecSecretName": "{{ .Values.kserve.storage.storageSpecSecretName }}"
        "storageSecretNameAnnotation": "{{ .Values.kserve.storage.storageSecretNameAnnotation }}",
        "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
@@ -481,7 +483,6 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
-        "storageSpecSecretName": "{{ .Values.kserve.storage.storageSpecSecretName }}"
     }
   metricsAggregator: |-
     {

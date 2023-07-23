@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kserve/kserve/pkg/constants"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/credentials/https"
@@ -57,6 +58,7 @@ var (
 type CredentialConfig struct {
 	S3                          s3.S3Config   `json:"s3,omitempty"`
 	GCS                         gcs.GCSConfig `json:"gcs,omitempty"`
+	StorageSpecSecretName       string        `json:"storageSpecSecretName,omitempty"`
 	StorageSecretNameAnnotation string        `json:"storageSecretNameAnnotation,omitempty"`
 }
 
@@ -67,7 +69,7 @@ type CredentialBuilder struct {
 
 var log = logf.Log.WithName("CredentialBuilder")
 
-func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *CredentialBuilder {
+func NewCredentialBuilder(client client.Client, config *v1.ConfigMap) *CredentialBuilder {
 	credentialConfig := CredentialConfig{}
 	if credential, ok := config.Data[CredentialConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(credential), &credentialConfig)
@@ -83,10 +85,15 @@ func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *Credential
 }
 
 func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
-	storageSecretName string, overrideParams map[string]string, container *v1.Container) error {
+	overrideParams map[string]string, container *v1.Container) error {
 
 	stype, ok := overrideParams["type"]
 	bucket := overrideParams["bucket"]
+
+	storageSecretName := constants.DefaultStorageSpecSecret
+	if c.config.StorageSpecSecretName != "" {
+		storageSecretName = c.config.StorageSpecSecretName
+	}
 	// secret annotation takes precedence
 	if annotations != nil {
 		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
@@ -200,27 +207,23 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 		}
 	}
 
-	// secret annotation takes precedence
+	// secret name annotation takes precedence
 	if annotations != nil {
 		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
 			err := c.mountSecretCredential(secretName, namespace, container, volumes)
 			if err != nil {
 				log.Error(err, "Failed to amount the secret credentials", "secretName", secretName)
+				return err
 			}
-		} else {
-			for _, secretRef := range serviceAccount.Secrets {
-				err := c.mountSecretCredential(secretRef.Name, namespace, container, volumes)
-				if err != nil {
-					continue
-				}
-			}
+			return nil
 		}
-	} else {
-		for _, secretRef := range serviceAccount.Secrets {
-			err := c.mountSecretCredential(secretRef.Name, namespace, container, volumes)
-			if err != nil {
-				continue
-			}
+	}
+
+	// Find the secret references from service account
+	for _, secretRef := range serviceAccount.Secrets {
+		err := c.mountSecretCredential(secretRef.Name, namespace, container, volumes)
+		if err != nil {
+			return err
 		}
 	}
 

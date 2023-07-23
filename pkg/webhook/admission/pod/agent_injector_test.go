@@ -1101,7 +1101,7 @@ func TestAgentInjector(t *testing.T) {
 		},
 	}
 
-	credentialBuilder := credentials.NewCredentialBulder(c, &v1.ConfigMap{
+	credentialBuilder := credentials.NewCredentialBuilder(c, &v1.ConfigMap{
 		Data: map[string]string{},
 	})
 

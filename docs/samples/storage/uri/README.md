@@ -8,7 +8,7 @@ This `storageUri` option supports single file models, like `sklearn` which is sp
 2. Your cluster's Istio Ingress gateway must be [network-accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Your cluster's Istio Egress gateway must [allow http / https traffic](https://istio.io/latest/docs/tasks/traffic-management/egress/egress-gateway/)
 
-## Create HTTP/HTTPS header Secret and attach to Service account
+## Create HTTP/HTTPS header Secret
 If you do not require headers in your HTTP/HTTPS service request then you can skip this step.
 You can define headers using the following format:
 
@@ -22,15 +22,7 @@ data:
   https-host: ZXhhbXBsZS5jb20=
   headers: |-
     ewoiYWNjb3VudC1uYW1lIjogInNvbWVfYWNjb3VudF9uYW1lIiwKInNlY3JldC1rZXkiOiAic29tZV9zZWNyZXRfa2V5Igp9
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: sa
-secrets:
-  - name: mysecret
 ```
-Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host.
 
 You will need to base64 encode the headers and host. Make sure the headers are in proper json format.
 ```text
@@ -45,6 +37,35 @@ ZXhhbXBsZS5jb20=
 # echo -n '{\n"account-name": "some_account_name",\n"secret-key": "some_secret_key"\n}' | base64
 ewoiYWNjb3VudC1uYW1lIjogInNvbWVfYWNjb3VudF9uYW1lIiwKInNlY3JldC1rZXkiOiAic29tZV9zZWNyZXRfa2V5Igp9
 ```
+
+### Reference The Secret
+You can refer the secret with annotation `serving.kserve.io/secretName`.
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-from-uri
+  annotations:
+    serving.kserve.io/secretName: mysecret
+spec:
+  predictor:
+    sklearn:
+      storageUri: https://github.com/tduffy000/kfserving-uri-examples/blob/master/sklearn/frozen/model.joblib?raw=true
+```
+
+Alternatively you can attach the secret name references to the service account secrets.
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa
+secrets:
+  - name: mysecret
+```
+
+Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host.
+
 
 ## Sklearn
 ### Train and freeze the model
@@ -191,6 +212,7 @@ Where we assume the `0001/` directory has the structure:
 Note that building the tarball from the directory specifying a version number is required for `tensorflow`.
 
 Now, you can either push the `.tar` or `.tgz` file to some remote uri.
+
 ### Specify and create the `InferenceService`
 And again, if everything went to plan we should be able to pull down the tarball and expose the endpoint.
 

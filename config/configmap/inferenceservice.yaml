@@ -63,7 +63,6 @@ data:
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
            "cpuLimit": "1",
-           "storageSpecSecretName": "storage-config",
            "enableDirectPvcVolumeMount": false
        }
      storageInitializer: |-
@@ -82,9 +81,6 @@ data:
            
            # cpuLimit is the limits.cpu to set for the storage initializer init container.
            "cpuLimit": "1",
-           
-           # storageSpecSecretName contains the secret name which has the credentials for downloading the model.
-           "storageSpecSecretName": "storage-config",
        
            # enableDirectPvcVolumeMount controls whether users can mount pvc volumes directly.
            # if pvc volume is provided in storageuri then the pvc volume is directly mounted to /mnt/models in the user container.
@@ -96,6 +92,7 @@ data:
      # Example
      credentials: |-
        {
+          "storageSpecSecretName": "storage-config",
           "storageSecretNameAnnotation": "serving.kserve.io/secretName",
           "gcs": {
               "gcsCredentialFileName": "gcloud-application-credentials.json"
@@ -124,6 +121,9 @@ data:
      # The rest of the fields are used in both authentication methods (IAM Role for Service Account & IAM User Access Key Secret) if a non-empty value is provided.
      credentials: |-
        {
+          # storageSpecSecretName contains the secret name which has the credentials for downloading the model.
+          "storageSpecSecretName": "storage-config",
+    
           # KServe by default gets the secret reference from service account, the configured annotation allows overriding with
           # the secret name specified from the annotation value.
           "storageSecretNameAnnotation": "serving.kserve.io/secretName",
@@ -416,12 +416,12 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
-        "storageSpecSecretName": "storage-config",
         "enableDirectPvcVolumeMount": false
     }
 
   credentials: |-
     {
+       "storageSpecSecretName": "storage-config",
        "storageSecretNameAnnotation": "serving.kserve.io/secretName",
        "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
