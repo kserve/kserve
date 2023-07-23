@@ -123,11 +123,12 @@ data:
      credentials: |-
        {
           # storageSpecSecretName contains the secret name which has the credentials for downloading the model.
+          # This option is used when specifying the storage spec on isvc yaml.
           "storageSpecSecretName": "storage-config",
 
-          # KServe by default gets the secret name references from service account when using storageUri, 
-          # the configured annotation allows overriding with the secret name reference from the annotation value.
-          # The order of the precedence is: secret name reference annotation > secret name references from service account
+          # The annotation can be specified on isvc yaml to allow overriding with the secret name reference from the annotation value.
+          # When using storageUri the order of the precedence is: secret name reference annotation > secret name references from service account
+          # When using storageSpec the order of the precedence is: secret name reference annotation > storageSpecSecretName in configmap
           "storageSecretNameAnnotation": "serving.kserve.io/secretName",
           # Configuration for google cloud storage
           "gcs": {
@@ -424,7 +425,7 @@ data:
     }
   credentials: |-
     {
-       "storageSpecSecretName": "{{ .Values.kserve.storage.storageSpecSecretName }}"
+       "storageSpecSecretName": "{{ .Values.kserve.storage.storageSpecSecretName }}",
        "storageSecretNameAnnotation": "{{ .Values.kserve.storage.storageSecretNameAnnotation }}",
        "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
