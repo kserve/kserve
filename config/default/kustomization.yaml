@@ -68,9 +68,9 @@ replacements:
           index: 0
 
   - source:
-      group: cert-manager.io
-      kind: Certificate
-      name: serving-cert
+      group: apps
+      kind: Deployment
+      name: kserve-controller-manager
       version: v1
       fieldPath: metadata.namespace
     targets:
@@ -99,56 +99,56 @@ replacements:
           name: inferencegraph.serving.kserve.io
         fieldPaths:
           - webhooks.*.clientConfig.service.namespace
-      - select:
-          kind: Certificate
-          name: serving-cert
-          namespace: kserve
-        fieldPaths:
-          - spec.commonName
-          - spec.dnsNames.0
-        options:
-          delimiter: '.'
-          index: 1
-      - select:
-          kind: CustomResourceDefinition
-          name: inferenceservices.serving.kserve.io
-        fieldPaths:
-          - metadata.annotations.[cert-manager.io/inject-ca-from]
-        options:
-          delimiter: '/'
-          index: 0
-      - select:
-          kind: MutatingWebhookConfiguration
-          name: inferenceservice.serving.kserve.io
-        fieldPaths:
-          - metadata.annotations.[cert-manager.io/inject-ca-from]
-        options:
-          delimiter: '/'
-          index: 0
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: inferenceservice.serving.kserve.io
-        fieldPaths:
-          - metadata.annotations.[cert-manager.io/inject-ca-from]
-        options:
-          delimiter: '/'
-          index: 0
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: trainedmodel.serving.kserve.io
-        fieldPaths:
-          - metadata.annotations.[cert-manager.io/inject-ca-from]
-        options:
-          delimiter: '/'
-          index: 0
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: inferencegraph.serving.kserve.io
-        fieldPaths:
-          - metadata.annotations.[cert-manager.io/inject-ca-from]
-        options:
-          delimiter: '/'
-          index: 0
+#      - select:
+#          kind: Certificate
+#          name: serving-cert
+#          namespace: kserve
+#        fieldPaths:
+#          - spec.commonName
+#          - spec.dnsNames.0
+#        options:
+#          delimiter: '.'
+#          index: 1
+#      - select:
+#          kind: CustomResourceDefinition
+#          name: inferenceservices.serving.kserve.io
+#        fieldPaths:
+#          - metadata.annotations.[cert-manager.io/inject-ca-from]
+#        options:
+#          delimiter: '/'
+#          index: 0
+#      - select:
+#          kind: MutatingWebhookConfiguration
+#          name: inferenceservice.serving.kserve.io
+#        fieldPaths:
+#          - metadata.annotations.[cert-manager.io/inject-ca-from]
+#        options:
+#          delimiter: '/'
+#          index: 0
+#      - select:
+#          kind: ValidatingWebhookConfiguration
+#          name: inferenceservice.serving.kserve.io
+#        fieldPaths:
+#          - metadata.annotations.[cert-manager.io/inject-ca-from]
+#        options:
+#          delimiter: '/'
+#          index: 0
+#      - select:
+#          kind: ValidatingWebhookConfiguration
+#          name: trainedmodel.serving.kserve.io
+#        fieldPaths:
+#          - metadata.annotations.[cert-manager.io/inject-ca-from]
+#        options:
+#          delimiter: '/'
+#          index: 0
+#      - select:
+#          kind: ValidatingWebhookConfiguration
+#          name: inferencegraph.serving.kserve.io
+#        fieldPaths:
+#          - metadata.annotations.[cert-manager.io/inject-ca-from]
+#        options:
+#          delimiter: '/'
+#          index: 0
 
   # Protect the /metrics endpoint by putting it behind auth.
   # Only one of manager_auth_proxy_patch.yaml and
@@ -170,26 +170,24 @@ patches:
 - path: manager_resources_patch.yaml
 - path: inferenceservice_conversion_webhook.yaml
 - path: cainjection_conversion_webhook.yaml
-
-patches:
-  # Since OpenShift serving-certificates are being used,
-  # remove CA bundle placeholders
-  - patch: |-
-      - op: remove
-        path: "/spec/conversion/webhook/clientConfig/caBundle"
-    target:
-      kind: CustomResourceDefinition
-      name: inferenceservices.serving.kserve.io
-  - patch: |-
-      - op: remove
-        path: "/webhooks/0/clientConfig/caBundle"
-      - op: remove
-        path: "/webhooks/1/clientConfig/caBundle"
-    target:
-      kind: MutatingWebhookConfiguration
-  - patch: |-
-      - op: remove
-        path: "/webhooks/0/clientConfig/caBundle"
-    target:
-      kind: ValidatingWebhookConfiguration
+# Since OpenShift serving-certificates are being used,
+# remove CA bundle placeholders
+- patch: |-
+    - op: remove
+      path: "/spec/conversion/webhook/clientConfig/caBundle"
+  target:
+    kind: CustomResourceDefinition
+    name: inferenceservices.serving.kserve.io
+- patch: |-
+    - op: remove
+      path: "/webhooks/0/clientConfig/caBundle"
+    - op: remove
+      path: "/webhooks/1/clientConfig/caBundle"
+  target:
+    kind: MutatingWebhookConfiguration
+- patch: |-
+    - op: remove
+      path: "/webhooks/0/clientConfig/caBundle"
+  target:
+    kind: ValidatingWebhookConfiguration
 
