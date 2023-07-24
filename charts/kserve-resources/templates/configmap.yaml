@@ -94,7 +94,7 @@ data:
      credentials: |-
        {
           "storageSpecSecretName": "storage-config",
-          "storageSecretNameAnnotation": "serving.kserve.io/secretName",
+          "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
           "gcs": {
               "gcsCredentialFileName": "gcloud-application-credentials.json"
           },
@@ -129,7 +129,7 @@ data:
           # The annotation can be specified on isvc yaml to allow overriding with the secret name reference from the annotation value.
           # When using storageUri the order of the precedence is: secret name reference annotation > secret name references from service account
           # When using storageSpec the order of the precedence is: secret name reference annotation > storageSpecSecretName in configmap
-          "storageSecretNameAnnotation": "serving.kserve.io/secretName",
+          "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
           # Configuration for google cloud storage
           "gcs": {
               # gcsCredentialFileName specifies the filename of the gcs credential
@@ -483,7 +483,7 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1",
+        "cpuLimit": "1"
     }
   metricsAggregator: |-
     {

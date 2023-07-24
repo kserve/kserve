@@ -93,7 +93,7 @@ data:
      credentials: |-
        {
           "storageSpecSecretName": "storage-config",
-          "storageSecretNameAnnotation": "serving.kserve.io/secretName",
+          "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
           "gcs": {
               "gcsCredentialFileName": "gcloud-application-credentials.json"
           },
@@ -423,7 +423,7 @@ data:
   credentials: |-
     {
        "storageSpecSecretName": "storage-config",
-       "storageSecretNameAnnotation": "serving.kserve.io/secretName",
+       "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
        "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
        },

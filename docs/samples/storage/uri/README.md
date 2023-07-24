@@ -39,14 +39,15 @@ ewoiYWNjb3VudC1uYW1lIjogInNvbWVfYWNjb3VudF9uYW1lIiwKInNlY3JldC1rZXkiOiAic29tZV9z
 ```
 
 ### Reference The Secret
-You can refer the secret with annotation `serving.kserve.io/secretName`.
+You can refer the secret with annotation `serving.kserve.io/storageSecretName`.
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: sklearn-from-uri
   annotations:
-    serving.kserve.io/secretName: mysecret
+    serving.kserve.io/storageSecretName: mysecret
+
 spec:
   predictor:
     sklearn:
