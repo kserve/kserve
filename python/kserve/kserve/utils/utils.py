@@ -203,7 +203,7 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
         return InferResponse(
             model_name=model_name,
             infer_outputs=infer_outputs,
-            response_id=generate_uuid()
+            response_id=payload.id if payload.id else generate_uuid()
         )
 
 

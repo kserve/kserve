@@ -14,7 +14,7 @@
 
 from typing import Dict, Optional, Union
 from .model import Model
-from ray.serve.api import RayServeHandle
+from ray.serve.handle import RayServeHandle
 import os
 
 MODEL_MOUNT_DIRS = "/mnt/models"

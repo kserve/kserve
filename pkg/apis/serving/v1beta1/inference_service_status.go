@@ -104,8 +104,7 @@ const (
 	// PredictorConfigurationReady is set when predictor pods are ready.
 	PredictorConfigurationReady apis.ConditionType = "PredictorConfigurationReady"
 	// TransformerConfigurationReady is set when transformer pods are ready.
-	TransformerConfigurationReady  apis.ConditionType = "TransformerConfigurationReady"
-	TransformerConfigurationeReady apis.ConditionType = "TransformerConfigurationeReady"
+	TransformerConfigurationReady apis.ConditionType = "TransformerConfigurationReady"
 	// ExplainerConfigurationReady is set when explainer pods are ready.
 	ExplainerConfigurationReady apis.ConditionType = "ExplainerConfigurationReady"
 	// PredictorReady is set when predictor has reported readiness.
@@ -116,6 +115,10 @@ const (
 	ExplainerReady apis.ConditionType = "ExplainerReady"
 	// IngressReady is set when Ingress is created
 	IngressReady apis.ConditionType = "IngressReady"
+	// RoutesReady is set when underlying routes for all components have reported readiness.
+	RoutesReady apis.ConditionType = "RoutesReady"
+	// LatestDeploymentReady is set when underlying configurations for all components have reported readiness.
+	LatestDeploymentReady apis.ConditionType = "LatestDeploymentReady"
 )
 
 type ModelStatus struct {
@@ -228,7 +231,7 @@ type FailureInfo struct {
 	ExitCode int32 `json:"exitCode,omitempty"`
 }
 
-var conditionsMap = map[ComponentType]apis.ConditionType{
+var readyConditionsMap = map[ComponentType]apis.ConditionType{
 	PredictorComponent:   PredictorReady,
 	ExplainerComponent:   ExplainerReady,
 	TransformerComponent: TransformerReady,
@@ -246,6 +249,11 @@ var configurationConditionsMap = map[ComponentType]apis.ConditionType{
 	TransformerComponent: TransformerConfigurationReady,
 }
 
+var conditionsMapIndex = map[apis.ConditionType]map[ComponentType]apis.ConditionType{
+	RoutesReady:           routeConditionsMap,
+	LatestDeploymentReady: configurationConditionsMap,
+}
+
 // InferenceService Ready condition is depending on predictor and route readiness condition
 var conditionSet = apis.NewLivingConditionSet(
 	PredictorReady,
@@ -258,7 +266,7 @@ func (ss *InferenceServiceStatus) InitializeConditions() {
 	conditionSet.Manage(ss).InitializeConditions()
 }
 
-// IsReady returns if the service is ready to serve the requested configuration.
+// IsReady returns the overall readiness for the inference service.
 func (ss *InferenceServiceStatus) IsReady() bool {
 	return conditionSet.Manage(ss).IsHappy()
 }
@@ -303,7 +311,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	if condition != nil && condition.Status == v1.ConditionTrue {
 		statusSpec.URL = url
 	}
-	readyCondition := conditionsMap[component]
+	readyCondition := readyConditionsMap[component]
 	ss.SetCondition(readyCondition, condition)
 	ss.Components[component] = statusSpec
 	ss.ObservedGeneration = deployment.Status.ObservedGeneration
@@ -326,6 +334,29 @@ func getDeploymentCondition(deployment *appsv1.Deployment, conditionType appsv1.
 	return &condition
 }
 
+// PropagateCrossComponentStatus aggregates the RoutesReady or ConfigurationsReady condition across all available components
+// and propagates the RoutesReady or LatestDeploymentReady status accordingly.
+func (ss *InferenceServiceStatus) PropagateCrossComponentStatus(componentList []ComponentType, conditionType apis.ConditionType) {
+	conditionsMap, ok := conditionsMapIndex[conditionType]
+	if !ok {
+		return
+	}
+	crossComponentCondition := &apis.Condition{
+		Type:   conditionType,
+		Status: v1.ConditionTrue,
+	}
+	for _, component := range componentList {
+		if !ss.IsConditionReady(conditionsMap[component]) {
+			crossComponentCondition.Status = v1.ConditionFalse
+			if ss.IsConditionUnknown(conditionsMap[component]) { // include check for nil condition
+				crossComponentCondition.Status = v1.ConditionUnknown
+			}
+			crossComponentCondition.Reason = string(conditionsMap[component]) + " not ready"
+		}
+	}
+	ss.SetCondition(conditionType, crossComponentCondition)
+}
+
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
@@ -346,7 +377,7 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 			*traffic.LatestRevision {
 			if statusSpec.LatestRolledoutRevision != serviceStatus.LatestReadyRevisionName {
 				if traffic.Percent != nil && *traffic.Percent == 100 {
-					// track the last revision that's rolled out
+					// track the last revision that's fully rolled out
 					statusSpec.PreviousRolledoutRevision = statusSpec.LatestRolledoutRevision
 					statusSpec.LatestRolledoutRevision = serviceStatus.LatestReadyRevisionName
 				}
@@ -370,9 +401,9 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	if serviceStatus.LatestReadyRevisionName != statusSpec.LatestReadyRevision {
 		statusSpec.LatestReadyRevision = serviceStatus.LatestReadyRevisionName
 	}
-	// propagate overall service condition
-	serviceCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
-	if serviceCondition != nil && serviceCondition.Status == v1.ConditionTrue {
+	// propagate overall ready condition for each component
+	readyCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
+	if readyCondition != nil && readyCondition.Status == v1.ConditionTrue {
 		if serviceStatus.Address != nil {
 			statusSpec.Address = serviceStatus.Address
 		}
@@ -380,9 +411,8 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 			statusSpec.URL = serviceStatus.URL
 		}
 	}
-	// propagate ready condition for each component
-	readyCondition := conditionsMap[component]
-	ss.SetCondition(readyCondition, serviceCondition)
+	readyConditionType := readyConditionsMap[component]
+	ss.SetCondition(readyConditionType, readyCondition)
 	// propagate route condition for each component
 	routeCondition := serviceStatus.GetCondition("RoutesReady")
 	routeConditionType := routeConditionsMap[component]
@@ -393,8 +423,6 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	// propagate traffic status for each component
 	statusSpec.Traffic = serviceStatus.Traffic
 	ss.SetCondition(configurationConditionType, configurationCondition)
-	// Fix previously incorrectly named condition type
-	ss.ClearCondition(TransformerConfigurationeReady)
 
 	ss.Components[component] = statusSpec
 	ss.ObservedGeneration = serviceStatus.ObservedGeneration
@@ -462,7 +490,7 @@ func (ss *InferenceServiceStatus) SetModelFailureInfo(info *FailureInfo) bool {
 	return true
 }
 
-func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatusSpec, podList *v1.PodList, rawDeplyment bool) {
+func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatusSpec, podList *v1.PodList, rawDeployment bool) {
 	// Check at least one pod is running for the latest revision of inferenceservice
 	totalCopies := len(podList.Items)
 	if totalCopies == 0 {
@@ -472,7 +500,7 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 	// Update model state to 'Loaded' if inferenceservice status is ready.
 	// For serverless deployment, the latest created revision and the latest ready revision should be equal
 	if ss.IsReady() {
-		if rawDeplyment {
+		if rawDeployment {
 			ss.UpdateModelRevisionStates(Loaded, totalCopies, nil)
 			return
 		} else if statusSpec.LatestCreatedRevision == statusSpec.LatestReadyRevision {

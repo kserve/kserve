@@ -156,8 +156,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						"key3": "val3FromISVC",
 					},
 					Annotations: map[string]string{
-						"key2": "val2FromISVC",
-						"key3": "val3FromISVC",
+						"serving.kserve.io/deploymentMode": "Serverless",
+						"key2":                             "val2FromISVC",
+						"key3":                             "val3FromISVC",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -220,6 +221,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									"key3":                                "val3FromPredictor",
 								},
 								Annotations: map[string]string{
+									"serving.kserve.io/deploymentMode":                         "Serverless",
 									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 									"autoscaling.knative.dev/max-scale":                        "3",
 									"autoscaling.knative.dev/min-scale":                        "1",
@@ -269,6 +271,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				updatedService.Status.Conditions = duckv1.Conditions{
 					{
 						Type:   knservingv1.ServiceConditionReady,
+						Status: "True",
+					},
+					{
+						Type:   knservingv1.ServiceConditionRoutesReady,
+						Status: "True",
+					},
+					{
+						Type:   knservingv1.ServiceConditionConfigurationsReady,
 						Status: "True",
 					},
 				}
@@ -384,8 +394,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						"key2": "val2FromISVC",
 					},
 					Annotations: map[string]string{
-						"key1": "val1FromISVC",
-						"key2": "val2FromISVC",
+						"serving.kserve.io/deploymentMode": "Serverless",
+						"key1":                             "val1FromISVC",
+						"key2":                             "val2FromISVC",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -510,6 +521,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									"key2":                           "val2FromTransformer",
 								},
 								Annotations: map[string]string{
+									"serving.kserve.io/deploymentMode":  "Serverless",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/max-scale": "3",
 									"autoscaling.knative.dev/min-scale": "1",
@@ -562,6 +574,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:   knservingv1.ServiceConditionReady,
 					Status: "True",
 				},
+				{
+					Type:   knservingv1.ServiceConditionRoutesReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
+					Status: "True",
+				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(gomega.HaveOccurred())
 
@@ -573,6 +593,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			updatedTransformerService.Status.Conditions = duckv1.Conditions{
 				{
 					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionRoutesReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
 					Status: "True",
 				},
 			}
@@ -591,11 +619,41 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status: "True",
 						},
 						{
+							Type:     v1beta1.PredictorRouteReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.PredictorConfigurationReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
 							Type:   apis.ConditionReady,
 							Status: "True",
 						},
 						{
+							Type:     v1beta1.RoutesReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.LatestDeploymentReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
 							Type:     v1beta1.TransformerReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.TransformerRouteReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.TransformerConfigurationReady,
 							Severity: "Info",
 							Status:   "True",
 						},
@@ -633,7 +691,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.Condition{}, "LastTransitionTime", "Severity"))
 			}, timeout).Should(gomega.BeEmpty())
 		})
 	})
@@ -658,8 +716,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						"key2": "val2FromISVC",
 					},
 					Annotations: map[string]string{
-						"key1": "val1FromISVC",
-						"key2": "val2FromISVC",
+						"serving.kserve.io/deploymentMode": "Serverless",
+						"key1":                             "val1FromISVC",
+						"key2":                             "val2FromISVC",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -753,6 +812,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									"key2":                           "val2FromExplainer",
 								},
 								Annotations: map[string]string{
+									"serving.kserve.io/deploymentMode":                         "Serverless",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/max-scale":                        "3",
 									"autoscaling.knative.dev/min-scale":                        "1",
@@ -809,21 +869,37 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:   knservingv1.ServiceConditionReady,
 					Status: "True",
 				},
+				{
+					Type:   knservingv1.ServiceConditionRoutesReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
+					Status: "True",
+				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(gomega.HaveOccurred())
 
 			// update explainer
-			updatedExplainerervice := explainerService.DeepCopy()
-			updatedExplainerervice.Status.LatestCreatedRevisionName = "exp-revision-v1"
-			updatedExplainerervice.Status.LatestReadyRevisionName = "exp-revision-v1"
-			updatedExplainerervice.Status.URL = explainerUrl
-			updatedExplainerervice.Status.Conditions = duckv1.Conditions{
+			updatedExplainerService := explainerService.DeepCopy()
+			updatedExplainerService.Status.LatestCreatedRevisionName = "exp-revision-v1"
+			updatedExplainerService.Status.LatestReadyRevisionName = "exp-revision-v1"
+			updatedExplainerService.Status.URL = explainerUrl
+			updatedExplainerService.Status.Conditions = duckv1.Conditions{
 				{
 					Type:   knservingv1.ServiceConditionReady,
 					Status: "True",
 				},
+				{
+					Type:   knservingv1.ServiceConditionRoutesReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
+					Status: "True",
+				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerervice)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerService)).NotTo(gomega.HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -831,6 +907,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Conditions: duckv1.Conditions{
 						{
 							Type:     v1beta1.ExplainerReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.ExplainerRoutesReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.ExplainerConfigurationReady,
 							Severity: "Info",
 							Status:   "True",
 						},
@@ -843,8 +929,28 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status: "True",
 						},
 						{
+							Type:     v1beta1.PredictorRouteReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.PredictorConfigurationReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
 							Type:   apis.ConditionReady,
 							Status: "True",
+						},
+						{
+							Type:     v1beta1.RoutesReady,
+							Severity: "Info",
+							Status:   "True",
+						},
+						{
+							Type:     v1beta1.LatestDeploymentReady,
+							Severity: "Info",
+							Status:   "True",
 						},
 					},
 				},
@@ -880,7 +986,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.Condition{}, "LastTransitionTime", "Severity"))
 			}, timeout).Should(gomega.BeEmpty())
 		})
 	})

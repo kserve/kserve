@@ -22,7 +22,8 @@ from multiprocessing import Process
 from typing import Dict, List, Optional, Union
 
 from ray import serve as rayserve
-from ray.serve.api import Deployment, RayServeHandle
+from ray.serve.api import Deployment
+from ray.serve.handle import RayServeHandle
 
 from .logging import KSERVE_LOG_CONFIG, logger
 from .model import Model

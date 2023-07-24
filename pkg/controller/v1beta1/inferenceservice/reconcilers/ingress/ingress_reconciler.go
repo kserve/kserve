@@ -272,11 +272,6 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 }
 
 func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig) *v1alpha3.VirtualService {
-	serviceHost := getServiceHost(isvc)
-	if serviceHost == "" {
-		return nil
-	}
-
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		status := corev1.ConditionFalse
 		if isvc.Status.IsConditionUnknown(v1beta1.PredictorReady) {
@@ -313,6 +308,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		}
 	}
 	isInternal := false
+	serviceHost := getServiceHost(isvc)
 	//if service is labelled with cluster local or knative domain is configured as internal
 	if val, ok := isvc.Labels[constants.VisibilityLabel]; ok && val == constants.ClusterLocalVisibility {
 		isInternal = true

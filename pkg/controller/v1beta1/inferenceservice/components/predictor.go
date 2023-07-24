@@ -339,17 +339,16 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
 	}
-	statusSpec, _ := isvc.Status.Components[v1beta1.PredictorComponent]
+	statusSpec := isvc.Status.Components[v1beta1.PredictorComponent]
 	if rawDeployment {
 		podLabelValue = constants.GetRawServiceLabel(predictorName)
 	} else {
 		podLabelValue = statusSpec.LatestCreatedRevision
 	}
-	podList, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, podLabelKey, podLabelValue)
+	predictorPods, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, podLabelKey, podLabelValue)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
-	isvc.Status.PropagateModelStatus(statusSpec, podList, rawDeployment)
-
+	isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment)
 	return ctrl.Result{}, nil
 }
