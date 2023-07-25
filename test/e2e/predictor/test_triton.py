@@ -70,7 +70,10 @@ def test_triton():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+# Not testable in ODH until the following issue is solved:
+#   https://github.com/opendatahub-io/odh-model-controller/issues/59
 @pytest.mark.fast
+@pytest.mark.skip(reason="Not testable in ODH at the moment")
 def test_triton_runtime_with_transformer():
     service_name = 'isvc-triton-runtime'
     predictor = V1beta1PredictorSpec(

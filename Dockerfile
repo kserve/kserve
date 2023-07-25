@@ -12,7 +12,7 @@ COPY cmd/    cmd/
 COPY pkg/    pkg/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -a -o manager ./cmd/manager
+RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -a -o manager ./cmd/manager
 
 # Copy the controller-manager into a thin image
 FROM gcr.io/distroless/static:nonroot

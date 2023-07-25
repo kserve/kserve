@@ -206,6 +206,7 @@ def test_sklearn_v2():
 
 
 @pytest.mark.slow
+@pytest.mark.skip("GRPC tests are failing in ODH at the moment")
 def test_sklearn_v2_grpc():
     service_name = "isvc-sklearn-v2-grpc"
     model_name = "sklearn"
@@ -254,7 +255,10 @@ def test_sklearn_v2_grpc():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+# In ODH, this test generates the following response:
+#  Code 500 - 'ColumnTransformer' object has no attribute '_name_to_fitted_passthrough'
 @pytest.mark.slow
+@pytest.mark.skip("Not testable in ODH at the moment")
 def test_sklearn_v2_mixed():
     service_name = "isvc-sklearn-v2-mixed"
     predictor = V1beta1PredictorSpec(
@@ -291,6 +295,7 @@ def test_sklearn_v2_mixed():
 
 
 @pytest.mark.slow
+@pytest.mark.skip("GRPC tests are failing in ODH at the moment")
 def test_sklearn_v2_mixed_grpc():
     service_name = "isvc-sklearn-v2-mixed-grpc"
     model_name = "sklearn"

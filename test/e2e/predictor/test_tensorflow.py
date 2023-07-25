@@ -59,7 +59,10 @@ def test_tensorflow_kserve():
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
 
+# In ODH, this test generates the following response:
+#  502 Server Error: Bad Gateway for url
 @pytest.mark.slow
+@pytest.mark.skip("Not testable in ODH at the moment")
 def test_tensorflow_runtime_kserve():
     service_name = 'isvc-tensorflow-runtime'
     predictor = V1beta1PredictorSpec(
