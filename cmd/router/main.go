@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,6 +100,11 @@ func timeTrack(start time.Time, nodeOrStep string, name string) {
 	log.Info("elapsed time", nodeOrStep, name, "time", elapsed)
 }
 
+type EnsembleStepOutput struct {
+	StepResponse   map[string]interface{}
+	StepStatusCode int
+}
+
 func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), "node", nodeName)
 	currentNode := graph.Nodes[nodeName]
@@ -114,7 +120,11 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 		if route == nil {
 			errorMessage := "None of the routes matched with the switch condition"
 			log.Error(err, errorMessage)
-
+			/*
+				TODO Should it be 500 or 404 when none of the routes match.
+				For backward compatibility 500 is needed but 404 also looks fine since the router got bad input and didn't know what to do.
+				See what reviewers say.
+			*/
 			return nil, 500, errors.New(errorMessage)
 		}
 		stepType := "serviceUrl"
@@ -135,40 +145,58 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 		}
 		return responseBytes, statusCode, nil
 	}
-	//if currentNode.RouterType == v1alpha1.Ensemble {
-	//	ensembleRes := make([]chan map[string]interface{}, len(currentNode.Steps))
-	//	errChan := make(chan error)
-	//	for i := range currentNode.Steps {
-	//		step := &currentNode.Steps[i]
-	//		resultChan := make(chan map[string]interface{})
-	//		ensembleRes[i] = resultChan
-	//		go func() {
-	//			output, err := executeStep(step, graph, input, headers)
-	//			if err == nil {
-	//				var res map[string]interface{}
-	//				if err = json.Unmarshal(output, &res); err == nil {
-	//					resultChan <- res
-	//					return
-	//				}
-	//			}
-	//			errChan <- err
-	//		}()
-	//	}
-	//	// merge responses from parallel steps
-	//	response := map[string]interface{}{}
-	//	for i, resultChan := range ensembleRes {
-	//		key := currentNode.Steps[i].StepName
-	//		if key == "" {
-	//			key = strconv.Itoa(i) // Use index if no step name
-	//		}
-	//		select {
-	//		case response[key] = <-resultChan:
-	//		case err := <-errChan:
-	//			return nil, err
-	//		}
-	//	}
-	//	return json.Marshal(response)
-	//}
+	if currentNode.RouterType == v1alpha1.Ensemble {
+		ensembleRes := make([]chan EnsembleStepOutput, len(currentNode.Steps))
+		errChan := make(chan error)
+		for i := range currentNode.Steps {
+			step := &currentNode.Steps[i]
+			stepType := "serviceUrl"
+			if step.NodeName != "" {
+				stepType = "node"
+			}
+			log.Info("Starting execution of step", "type", stepType, "stepName", step.StepName)
+			resultChan := make(chan EnsembleStepOutput)
+			ensembleRes[i] = resultChan
+			go func() {
+				output, statusCode, err := executeStep(step, graph, input, headers)
+				if err == nil {
+					var res map[string]interface{}
+					if err = json.Unmarshal(output, &res); err == nil {
+						resultChan <- EnsembleStepOutput{
+							StepResponse:   res,
+							StepStatusCode: statusCode,
+						}
+						return
+					}
+				}
+				errChan <- err
+			}()
+		}
+		// merge responses from parallel steps
+		response := map[string]interface{}{}
+		ensembleStepOutput := EnsembleStepOutput{}
+		for i, resultChan := range ensembleRes {
+			key := currentNode.Steps[i].StepName
+			if key == "" {
+				key = strconv.Itoa(i) // Use index if no step name
+			}
+			select {
+			case ensembleStepOutput = <-resultChan:
+				if ensembleStepOutput.StepStatusCode != 200 && currentNode.Steps[i].Dependency == v1alpha1.Hard {
+					log.Info("This step is a hard dependency and it is unsuccessful", "stepName", currentNode.Steps[i].StepName, "statusCode", ensembleStepOutput.StepStatusCode)
+					stepResponse, _ := json.Marshal(ensembleStepOutput.StepResponse) // TODO check if you need err handling for Marshalling
+					return stepResponse, ensembleStepOutput.StepStatusCode, nil      // First failed hard dependency will decide the response code for ensemble node
+				} else {
+					response[key] = ensembleStepOutput.StepResponse
+				}
+			case err := <-errChan:
+				return nil, 500, err
+			}
+		}
+		//return json.Marshal(response)
+		combinedResponse, _ := json.Marshal(response) // TODO check if you need err handling for Marshalling
+		return combinedResponse, 200, nil
+	}
 	if currentNode.RouterType == v1alpha1.Sequence {
 		var statusCode int
 		var responseBytes []byte
