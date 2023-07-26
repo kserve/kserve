@@ -62,6 +62,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Build runtime server images
         run: |
           ./test/scripts/gh-actions/build-server-runtimes.sh predictor,transformer
@@ -147,6 +150,9 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
 
@@ -227,6 +233,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -285,6 +292,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -337,7 +345,8 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          
+
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -390,6 +399,7 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -442,6 +452,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -503,6 +514,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -541,6 +553,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -584,6 +597,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
         with:
