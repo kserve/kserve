@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "success-node-200"
+version = "0.11.0rc0"
+description = "Custom node that always returns 200 with a JSON SUCCESS message"
+authors = ["The KServe Authors"]
+license = "https://github.com/kserve/kserve/blob/master/LICENSE"
+packages = [
+    { include = "*.py" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+kserve = {path = "../../../kserve", develop = true}
+
+
+[tool.poetry-version-plugin]
+source = "file"
+file_path = "../VERSION"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

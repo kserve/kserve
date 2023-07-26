@@ -1,0 +1,2 @@
+fastapi
+kserve==0.10.1
