@@ -22,8 +22,8 @@ def test_inference_graph():
         sklearn=V1beta1SKLearnSpec(
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "1", "memory": "256Mi"},
+                limits={"cpu": "1", "memory": "256Mi"},
             ),
         ),
     )
@@ -42,8 +42,8 @@ def test_inference_graph():
         xgboost=V1beta1XGBoostSpec(
             storage_uri="gs://kfserving-examples/models/xgboost/1.5/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "1", "memory": "256Mi"},
+                limits={"cpu": "1", "memory": "256Mi"},
             ),
         ),
     )
