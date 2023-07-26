@@ -1,13 +1,12 @@
-import kserve
-from typing import Dict, Union
 import argparse
 import logging
-from fastapi.responses import JSONResponse
-from fastapi import status, HTTPException
+from typing import Dict, Union
+
+import kserve
 from kserve.model import InferRequest, ModelInferRequest
 
-
 logger = logging.getLogger(__name__)
+
 
 class SampleTemplateNode(kserve.Model):
     def __init__(self, name: str):
