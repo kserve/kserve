@@ -264,7 +264,7 @@ def test_sklearn_v2_mixed():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/mixedtype",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.3/mixedtype",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -301,7 +301,7 @@ def test_sklearn_v2_mixed_grpc():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/mixedtype",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.3/mixedtype/",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
