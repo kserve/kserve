@@ -36,12 +36,14 @@ type SupportedModelFormat struct {
 	// this model format is specified with no explicit runtime.
 	// +optional
 	AutoSelect *bool `json:"autoSelect,omitempty"`
+
 	// +kubebuilder:validation:Minimum=1
 
 	// Priority of this serving runtime for auto selection.
-	// This is used if more than one serving runtime supports the same model format.
-	// The value should be greater than zero. Lower the value Higher the priority.
-	// Priority is not considered if AutoSelect is false or not specified.
+	// This is used to select the serving runtime if more than one serving runtime supports the same model format.
+	// The value should be greater than zero.  The higher the value, the higher the priority.
+	// Priority is not considered if AutoSelect is either false or not specified.
+	// Priority can be overridden by specifying the runtime in the InferenceService.
 	// +optional
 	Priority *int32 `json:"priority,omitempty"`
 }

@@ -85,11 +85,7 @@ func (ss stringSet) contains(s string) bool {
 // support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
 func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.SupportedRuntime, error) {
-
-	var modelProtocolVersion constants.InferenceServiceProtocol
-	if m.ProtocolVersion != nil {
-		modelProtocolVersion = *m.ProtocolVersion
-	}
+	modelProtocolVersion := m.GetProtocol()
 
 	// List all namespace-scoped runtimes.
 	runtimes := &v1alpha1.ServingRuntimeList{}
@@ -214,7 +210,7 @@ func sortSupportedRuntimeByPriority(runtimes []v1alpha1.SupportedRuntime, modelF
 		} else if p1 != nil && p2 == nil {
 			return false
 		}
-		return *p1 < *p2
+		return *p1 > *p2
 	})
 }
 

@@ -10,7 +10,7 @@ spec:
     - name: xgboost
       version: "1"
       autoSelect: true
-      priority: 2
+      priority: 1
   protocolVersions:
     - v1
     - v2
