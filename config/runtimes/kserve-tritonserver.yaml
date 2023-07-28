@@ -25,7 +25,6 @@ spec:
       priority: 1
     - name: pytorch
       version: "1"
-      priority: 1
     - name: triton
       version: "2"
       autoSelect: true
