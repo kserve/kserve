@@ -48,7 +48,7 @@ COPY --from=builder --chown=1000:0 kserve kserve/
 COPY --from=builder --chown=1000:0 sklearnserver sklearnserver/
 
 # Give users in the root group the same permissions as the users
-# to allow running the image wit arbitrary UIDs
+# to allow running the image with arbitrary UIDs
 RUN chmod -R g=u "$VIRTUAL_ENV" kserve sklearnserver
 
 USER 1000
