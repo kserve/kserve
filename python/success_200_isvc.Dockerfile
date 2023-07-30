@@ -26,10 +26,10 @@ RUN cd kserve && poetry install --no-interaction --no-cache
 
 RUN echo $(pwd)
 RUN echo $(ls)
-COPY test_resources/graph/error_node_404/pyproject.toml test_resources/graph/error_node_404/poetry.lock error_node_404/
-RUN cd error_node_404 && poetry install --no-root --no-interaction --no-cache
-COPY test_resources/graph/error_node_404 error_node_404
-RUN cd error_node_404 && poetry install --no-interaction --no-cache
+COPY test_resources/graph/success_200_isvc/pyproject.toml test_resources/graph/success_200_isvc/poetry.lock success_200_isvc/
+RUN cd success_200_isvc && poetry install --no-root --no-interaction --no-cache
+COPY test_resources/graph/success_200_isvc success_200_isvc
+RUN cd success_200_isvc && poetry install --no-interaction --no-cache
 
 
 FROM ${BASE_IMAGE} as prod
@@ -45,7 +45,7 @@ RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
-COPY --from=builder error_node_404 error_node_404
+COPY --from=builder success_200_isvc success_200_isvc
 
 USER 1000
-ENTRYPOINT ["python", "-m", "error_node_404.model"]
+ENTRYPOINT ["python", "-m", "success_200_isvc.model"]
