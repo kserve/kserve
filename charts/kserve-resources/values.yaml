@@ -26,6 +26,7 @@ kserve:
     enablePrometheusScraping: "false"
   controller:
     deploymentMode: "Serverless"
+    rbacProxyImage: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
     gateway:
       domain: example.com
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
