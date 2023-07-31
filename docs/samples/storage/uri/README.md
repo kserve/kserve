@@ -4,11 +4,11 @@ This allows you to specify a model object via the URI (Uniform Resource Identifi
 This `storageUri` option supports single file models, like `sklearn` which is specified by a [joblib](https://joblib.readthedocs.io/en/latest/) file, or artifacts (e.g. `tar` or `zip`) which contain all the necessary dependencies for other model types (e.g. `tensorflow` or `pytorch`). Here, we'll show examples from both of the above.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kserve/kserve).
 2. Your cluster's Istio Ingress gateway must be [network-accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Your cluster's Istio Egress gateway must [allow http / https traffic](https://istio.io/latest/docs/tasks/traffic-management/egress/egress-gateway/)
 
-## Create HTTP/HTTPS header Secret and attach to Service account
+## Create HTTP/HTTPS header Secret
 If you do not require headers in your HTTP/HTTPS service request then you can skip this step.
 You can define headers using the following format:
 
@@ -22,15 +22,7 @@ data:
   https-host: ZXhhbXBsZS5jb20=
   headers: |-
     ewoiYWNjb3VudC1uYW1lIjogInNvbWVfYWNjb3VudF9uYW1lIiwKInNlY3JldC1rZXkiOiAic29tZV9zZWNyZXRfa2V5Igp9
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: sa
-secrets:
-  - name: mysecret
 ```
-Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host.
 
 You will need to base64 encode the headers and host. Make sure the headers are in proper json format.
 ```text
@@ -46,9 +38,39 @@ ZXhhbXBsZS5jb20=
 ewoiYWNjb3VudC1uYW1lIjogInNvbWVfYWNjb3VudF9uYW1lIiwKInNlY3JldC1rZXkiOiAic29tZV9zZWNyZXRfa2V5Igp9
 ```
 
+### Reference The Secret
+You can refer the secret with annotation `serving.kserve.io/storageSecretName`.
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-from-uri
+  annotations:
+    serving.kserve.io/storageSecretName: mysecret
+
+spec:
+  predictor:
+    sklearn:
+      storageUri: https://github.com/tduffy000/kfserving-uri-examples/blob/master/sklearn/frozen/model.joblib?raw=true
+```
+
+Alternatively you can attach the secret name references to the service account secrets.
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa
+secrets:
+  - name: mysecret
+```
+
+Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host.
+
+
 ## Sklearn
 ### Train and freeze the model
-Here, we'll train a simple iris model. Please note that `kfserving` requires `sklearn==0.20.3`. 
+Here, we'll train a simple iris model. Please note that `kserve` requires `scikit-learn==1.0.2`. 
 
 ```python
 from sklearn import svm
@@ -74,16 +96,14 @@ Now, you'll need to take that frozen model object and put it somewhere on the we
 
 ### Specify and create the `InferenceService`
 ```yaml
-apiVersion: serving.kserve.io/v1alpha2
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: sklearn-from-uri
 spec:
-  default:
-    predictor:
-      sklearn:
-        storageUri: https://github.com/tduffy000/kfserving-uri-examples/blob/master/sklearn/frozen/model.joblib?raw=true
-
+  predictor:
+    sklearn:
+      storageUri: https://github.com/tduffy000/kfserving-uri-examples/blob/master/sklearn/frozen/model.joblib?raw=true
 ```
 
 Apply the CRD,
@@ -95,7 +115,7 @@ Expected Output
 $ inferenceservice.serving.kserve.io/sklearn-from-uri created
 ```
 ### Run a prediction
-The first is to [determine the ingress IP and ports](https://github.com/kubeflow/kfserving/blob/master/README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
+The first is to [determine the ingress IP and ports](https://kserve.github.io/website/master/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
 
 Now, if everything went according to plan you should be able to hit the endpoint exposing the model we just uploaded.
 
@@ -193,19 +213,19 @@ Where we assume the `0001/` directory has the structure:
 Note that building the tarball from the directory specifying a version number is required for `tensorflow`.
 
 Now, you can either push the `.tar` or `.tgz` file to some remote uri.
+
 ### Specify and create the `InferenceService`
 And again, if everything went to plan we should be able to pull down the tarball and expose the endpoint.
 
 ```yaml
-apiVersion: serving.kserve.io/v1alpha2
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: tensorflow-from-uri-gzip
 spec:
-  default:
-    predictor:
-      tensorflow:
-        storageUri: https://raw.githubusercontent.com/tduffy000/kfserving-uri-examples/master/tensorflow/frozen/model_artifacts.tar.gz
+  predictor:
+    tensorflow:
+       storageUri: https://raw.githubusercontent.com/tduffy000/kfserving-uri-examples/master/tensorflow/frozen/model_artifacts.tar.gz
 ```
 Apply the CRD,
 ```bash
@@ -217,7 +237,7 @@ $ inferenceservice.serving.kserve.io/tensorflow-from-uri created
 ```
 
 ## Run a prediction
-Again, make sure to first [determine the ingress IP and ports](https://github.com/kubeflow/kfserving/blob/master/README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
+Again, make sure to first [determine the ingress IP and ports](https://kserve.github.io/website/master/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
 
 Now that our endpoint is up and running, we can get some predictions.
 

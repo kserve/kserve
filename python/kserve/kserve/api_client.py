@@ -304,7 +304,7 @@ class ApiClient(object):
         if data is None:
             return None
 
-        if type(klass) == str:
+        if type(klass) is str:
             if klass.startswith('list['):
                 sub_kls = re.match(r'list\[(.*)\]', klass).group(1)
                 return [self.__deserialize(sub_data, sub_kls)
