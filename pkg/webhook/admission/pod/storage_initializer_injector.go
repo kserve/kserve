@@ -49,7 +49,6 @@ type StorageInitializerConfig struct {
 	CpuLimit                   string `json:"cpuLimit"`
 	MemoryRequest              string `json:"memoryRequest"`
 	MemoryLimit                string `json:"memoryLimit"`
-	StorageSpecSecretName      string `json:"storageSpecSecretName"`
 	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
 }
 
@@ -299,20 +298,16 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	storageKey := pod.ObjectMeta.Annotations[constants.StorageSpecKeyAnnotationKey]
 	// Inject Storage Spec credentials if exist
 	if hasStorageSpec == "true" {
-		storageSpecSecret := mi.config.StorageSpecSecretName
 		var overrideParams map[string]string
 		if storageSpecParam, ok := pod.ObjectMeta.Annotations[constants.StorageSpecParamAnnotationKey]; ok {
 			if err := json.Unmarshal([]byte(storageSpecParam), &overrideParams); err != nil {
 				return err
 			}
 		}
-		if storageSpecSecret == "" {
-			storageSpecSecret = constants.DefaultStorageSpecSecret
-		}
 		if err := mi.credentialBuilder.CreateStorageSpecSecretEnvs(
 			pod.Namespace,
+			pod.Annotations,
 			storageKey,
-			storageSpecSecret,
 			overrideParams,
 			initContainer,
 		); err != nil {
@@ -322,6 +317,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		// Inject service account credentials if storage spec doesn't exist
 		if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
 			pod.Namespace,
+			pod.Annotations,
 			pod.Spec.ServiceAccountName,
 			initContainer,
 			&pod.Spec.Volumes,
