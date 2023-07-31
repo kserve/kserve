@@ -208,7 +208,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 	}
 
 	// secret name annotation takes precedence
-	if annotations != nil {
+	if annotations != nil && c.config.StorageSecretNameAnnotation != "" {
 		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
 			err := c.mountSecretCredential(secretName, namespace, container, volumes)
 			if err != nil {
