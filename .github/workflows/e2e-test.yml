@@ -110,7 +110,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
           image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
-  
+
   explainer-runtime-build:
     runs-on: ubuntu-latest
     needs: [poetry-check]
@@ -133,9 +133,33 @@ jobs:
         with:
           image: "kserve/art-explainer:${{ github.sha }}"
 
+  graph-tests-images-build:
+    runs-on: ubuntu-latest
+    needs: [ poetry-check ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Build runtime server images
+        run: |
+          ./test/scripts/gh-actions/build-graph-tests-images.sh
+          docker image ls
+
+      - name: Upload success_200_isvc predictor image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/success-200-isvc:${{ github.sha }}"
+
+      - name: Upload error_404_isvc predictor image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/error-404-isvc:${{ github.sha }}"
+
   test-fast:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build, graph-tests-images-build]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -186,6 +210,16 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/image-transformer:${{ github.sha }}"
+
+      - name: Download success_200_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/success-200-isvc:${{ github.sha }}"
+
+      - name: Download error_404_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/error-404-isvc:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
@@ -587,7 +621,7 @@ jobs:
 
   test-kourier:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
@@ -613,6 +647,16 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/xgbserver:${{ github.sha }}"
+
+      - name: Download success_200_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/success-200-isvc:${{ github.sha }}"
+
+      - name: Download error_404_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/error-404-isvc:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
