@@ -2,9 +2,19 @@ import logging
 import os
 
 import pytest
-from kserve import V1beta1PredictorSpec, V1beta1SKLearnSpec, V1beta1InferenceServiceSpec, V1beta1InferenceService, \
-    constants, KServeClient, V1alpha1InferenceGraphSpec, V1alpha1InferenceRouter, V1alpha1InferenceGraph, \
-    V1alpha1InferenceStep, V1beta1XGBoostSpec
+from kserve import (
+    V1beta1PredictorSpec,
+    V1beta1SKLearnSpec,
+    V1beta1InferenceServiceSpec,
+    V1beta1InferenceService,
+    constants,
+    KServeClient,
+    V1alpha1InferenceGraphSpec,
+    V1alpha1InferenceRouter,
+    V1alpha1InferenceGraph,
+    V1alpha1InferenceStep,
+    V1beta1XGBoostSpec,
+)
 from kubernetes import client
 from kubernetes.client import V1Container
 from kubernetes.client import V1ResourceRequirements
@@ -38,8 +48,7 @@ def test_inference_graph():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=sklearn_name,
-            namespace=KSERVE_TEST_NAMESPACE
+            name=sklearn_name, namespace=KSERVE_TEST_NAMESPACE
         ),
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor),
     )
@@ -57,38 +66,37 @@ def test_inference_graph():
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(
-            name=xgb_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
 
-    nodes = {"root": V1alpha1InferenceRouter(
-        router_type="Sequence",
-        steps=[
-            V1alpha1InferenceStep(
-                service_name=sklearn_name,
-            ),
-            V1alpha1InferenceStep(
-                service_name=xgb_name,
-                data="$request",
-            ),
-        ],
-    )}
+    nodes = {
+        "root": V1alpha1InferenceRouter(
+            router_type="Sequence",
+            steps=[
+                V1alpha1InferenceStep(
+                    service_name=sklearn_name,
+                ),
+                V1alpha1InferenceStep(
+                    service_name=xgb_name,
+                    data="$request",
+                ),
+            ],
+        )
+    }
     graph_spec = V1alpha1InferenceGraphSpec(
         nodes=nodes,
     )
     ig = V1alpha1InferenceGraph(
         api_version=constants.KSERVE_V1ALPHA1,
         kind=constants.KSERVE_KIND_INFERENCEGRAPH,
-        metadata=client.V1ObjectMeta(
-            name=graph_name,
-            namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=graph_spec,
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(sklearn_isvc)
     kserve_client.create(xgb_isvc)
     kserve_client.create_inference_graph(ig)
@@ -113,7 +121,8 @@ def construct_isvc_to_submit(service_name, image):
                 image=image,
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
             )
         ]
     )
@@ -140,9 +149,9 @@ def test_ig_scenario1():
     :return:
     """
 
-    logging.info(f'starting test ')
-    logging.info(f'SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}')
-    logging.info(f'ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}')
+    logging.info("starting test")
+    logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
+    logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
     model_name = "model"
 
     # Create success isvc
@@ -156,32 +165,35 @@ def test_ig_scenario1():
     # Create graph
     graph_name = "sequence-graph"
 
-    nodes = {"root": V1alpha1InferenceRouter(
-        router_type="Sequence",
-        steps=[
-            V1alpha1InferenceStep(
-                service_url=f"http://{success_isvc_name}.{KSERVE_TEST_NAMESPACE}.svc.cluster.local/v1/models/{model_name}:predict",
-            ),
-            V1alpha1InferenceStep(
-                service_url=f"http://{error_isvc_name}.{KSERVE_TEST_NAMESPACE}.svc.cluster.local/v1/models/{model_name}:predict",
-                data="$request",
-            ),
-        ],
-    )}
+    nodes = {
+        "root": V1alpha1InferenceRouter(
+            router_type="Sequence",
+            steps=[
+                V1alpha1InferenceStep(
+                    service_url=f"http://{success_isvc_name}.{KSERVE_TEST_NAMESPACE}.svc.cluster.local"
+                                f"/v1/models/{model_name}:predict",
+                ),
+                V1alpha1InferenceStep(
+                    service_url=f"http://{error_isvc_name}.{KSERVE_TEST_NAMESPACE}.svc.cluster.local"
+                                f"/v1/models/{model_name}:predict",
+                    data="$request",
+                ),
+            ],
+        )
+    }
     graph_spec = V1alpha1InferenceGraphSpec(
         nodes=nodes,
     )
     ig = V1alpha1InferenceGraph(
         api_version=constants.KSERVE_V1ALPHA1,
         kind=constants.KSERVE_KIND_INFERENCEGRAPH,
-        metadata=client.V1ObjectMeta(
-            name=graph_name,
-            namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=graph_spec,
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(success_isvc)
     kserve_client.create(error_isvc)
     kserve_client.create_inference_graph(ig)
@@ -195,7 +207,7 @@ def test_ig_scenario1():
     #               protocol_version="v1", model_name=model_name)
     try:
         res = predict_ig(graph_name, "./data/iris_input.json")
-        logging.info(f'result returned is = {res}')
+        logging.info(f"result returned is = {res}")
     except Exception as e:
         assert e.response.json() == {"detail": "Intentional 404 code"}
         assert e.response.status_code == 404
