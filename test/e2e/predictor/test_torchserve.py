@@ -32,6 +32,8 @@ from ..common.utils import predict, grpc_stub
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common import inference_pb2
 
+pytest.skip("ODH does not support torchserve at the moment", allow_module_level=True)
+
 
 @pytest.mark.slow
 def test_torchserve_kserve():

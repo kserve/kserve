@@ -80,22 +80,23 @@ def predict_str(service_name, input_json, protocol_version="v1",
     )
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     time.sleep(10)
-    cluster_ip = get_cluster_ip()
-    host = urlparse(isvc["status"]["url"]).netloc
-    path = urlparse(isvc["status"]["url"]).path
+    # cluster_ip = get_cluster_ip()
+    host = urlparse(isvc["status"]["components"]["predictor"]["url"]).netloc
+    path = urlparse(isvc["status"]["components"]["predictor"]["url"]).path
+    cluster_ip = host
     headers = {"Host": host, "Content-Type": "application/json"}
 
     if model_name is None:
         model_name = service_name
 
-    url = f"http://{cluster_ip}{path}/v1/models/{model_name}:predict"
+    url = f"https://{cluster_ip}{path}/v1/models/{model_name}:predict"
     if protocol_version == "v2":
-        url = f"http://{cluster_ip}{path}/v2/models/{model_name}/infer"
+        url = f"https://{cluster_ip}{path}/v2/models/{model_name}/infer"
 
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_json)
-    response = requests.post(url, input_json, headers=headers)
+    response = requests.post(url, input_json, headers=headers, verify=False)
     logging.info("Got response code %s, content %s", response.status_code, response.content)
     if response.status_code == 200:
         preds = json.loads(response.content.decode("utf-8"))
@@ -118,7 +119,7 @@ def predict_ig(ig_name, input_json, protocol_version="v1",
         )
 
         cluster_ip = get_cluster_ip()
-        host = urlparse(ig["status"]["url"]).netloc
+        host = urlparse(ig["status"]["components"]["predictor"]["url"]).netloc
         headers = {"Host": host}
         url = f"http://{cluster_ip}"
 
@@ -154,7 +155,7 @@ def explain_response(service_name, input_json):
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     time.sleep(10)
     cluster_ip = get_cluster_ip()
-    host = urlparse(isvc["status"]["url"]).netloc
+    host = urlparse(isvc["status"]["components"]["predictor"]["url"]).netloc
     url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
     headers = {"Host": host}
     with open(input_json) as json_file:
@@ -217,7 +218,7 @@ def predict_grpc(service_name, payload, parameters=None, version=constants.KSERV
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    host = urlparse(isvc["status"]["url"]).netloc
+    host = urlparse(isvc["status"]["components"]["predictor"]["url"]).netloc
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
 
