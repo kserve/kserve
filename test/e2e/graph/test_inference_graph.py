@@ -2,6 +2,7 @@ import logging
 import os
 
 import pytest
+from requests.exceptions import HTTPError
 from kserve import (
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
@@ -204,15 +205,11 @@ def test_ig_scenario1():
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    # res = predict(success_isvc_name,
-    #               input_json="./data/custom_model_input_v2.json",
-    #               protocol_version="v1", model_name=model_name)
-    try:
-        res = predict_ig(graph_name, "./data/iris_input.json")
-        logging.info(f"result returned is = {res}")
-    except Exception as e:
-        assert e.response.json() == {"detail": "Intentional 404 code"}
-        assert e.response.status_code == 404
+    with pytest.raises(HTTPError) as exc_info:
+        predict_ig(graph_name, "./data/iris_input.json")
+
+    assert exc_info.value.response.json() == {"detail": "Intentional 404 code"}
+    assert exc_info.value.response.status_code == 404
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
