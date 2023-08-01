@@ -32,6 +32,12 @@ import (
 
 var log = logf.Log.WithName(constants.ServingRuntimeValidatorWebhookName)
 
+const (
+	InvalidPriorityError                      = "Same priority assigned for the model format %s"
+	InvalidPriorityServingRuntimeError        = "%s in the servingruntimes %s and %s in namespace %s"
+	InvalidPriorityClusterServingRuntimeError = "%s in the clusterservingruntimes %s and %s"
+)
+
 // +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-clusterservingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterservingruntimes,versions=v1alpha1,name=clusterservingruntime.kserve-webhook-server.validator
 
 type ClusterServingRuntimeValidator struct {
@@ -66,7 +72,7 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 
 	for _, runtime := range ExistingRuntimes.Items {
 		if err := validateServingRuntimePriority(&servingRuntime.Spec, &runtime.Spec, servingRuntime.Name, runtime.Name); err != nil {
-			return admission.Denied(fmt.Sprintf("%s in the servingruntimes %s and %s in namespace %s", err.Error(), runtime.Name, servingRuntime.Name, servingRuntime.Namespace))
+			return admission.Denied(fmt.Sprintf(InvalidPriorityServingRuntimeError, err.Error(), runtime.Name, servingRuntime.Name, servingRuntime.Namespace))
 		}
 	}
 	return admission.Allowed("")
@@ -93,7 +99,7 @@ func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admis
 
 	for _, runtime := range ExistingRuntimes.Items {
 		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &runtime.Spec, clusterServingRuntime.Name, runtime.Name); err != nil {
-			return admission.Denied(fmt.Sprintf("%s in the clusterservingruntimes %s and %s", err.Error(), runtime.Name, clusterServingRuntime.Name))
+			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), runtime.Name, clusterServingRuntime.Name))
 		}
 	}
 	return admission.Allowed("")
@@ -120,7 +126,7 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 					((existingModelFormat.Version == nil && newModelFormat.Version == nil) ||
 						(existingModelFormat.Version != nil && newModelFormat.Version != nil && *existingModelFormat.Version == *newModelFormat.Version)) {
 					if existingModelFormat.Priority != nil && newModelFormat.Priority != nil && *existingModelFormat.Priority == *newModelFormat.Priority {
-						return errors.New(fmt.Sprintf("Same priority assigned for the model format %s", newModelFormat.Name))
+						return errors.New(fmt.Sprintf(InvalidPriorityError, newModelFormat.Name))
 					}
 				}
 			}
