@@ -123,7 +123,7 @@ def construct_isvc_to_submit(service_name, image, model_name):
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
-                args=["--model_name", model_name]
+                args=["--model_name", model_name],
             )
         ]
     )
@@ -154,14 +154,17 @@ def test_ig_scenario1():
     logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
     logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
 
-
     # Create success isvc
     model_name = success_isvc_name = "success-200-isvc"
-    success_isvc = construct_isvc_to_submit(success_isvc_name, image=SUCCESS_ISVC_IMAGE,model_name= model_name)
+    success_isvc = construct_isvc_to_submit(
+        success_isvc_name, image=SUCCESS_ISVC_IMAGE, model_name=model_name
+    )
 
     # Create error isvc
     model_name = error_isvc_name = "error-404-isvc"
-    error_isvc = construct_isvc_to_submit(error_isvc_name, image=ERROR_ISVC_IMAGE, model_name= model_name)
+    error_isvc = construct_isvc_to_submit(
+        error_isvc_name, image=ERROR_ISVC_IMAGE, model_name=model_name
+    )
 
     # Create graph
     graph_name = "sequence-graph"
