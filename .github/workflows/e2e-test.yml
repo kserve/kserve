@@ -41,6 +41,11 @@ jobs:
         with:
           image: "kserve/storage-initializer:${{ github.sha }}"
 
+      - name: Upload router image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/router:${{ github.sha }}"
+
   poetry-check:
     runs-on: ubuntu-latest
     steps:
