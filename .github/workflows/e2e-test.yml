@@ -142,7 +142,7 @@ jobs:
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
-      - name: Build runtime server images
+      - name: Build test images needed for graph tests
         run: |
           ./test/scripts/gh-actions/build-graph-tests-images.sh
           docker image ls
