@@ -113,7 +113,7 @@ def test_inference_graph():
     kserve_client.delete(xgb_name, KSERVE_TEST_NAMESPACE)
 
 
-def construct_isvc_to_submit(service_name, image):
+def construct_isvc_to_submit(service_name, image, model_name):
     predictor = V1beta1PredictorSpec(
         containers=[
             V1Container(
@@ -123,6 +123,7 @@ def construct_isvc_to_submit(service_name, image):
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
+                args=["--model_name", model_name]
             )
         ]
     )
@@ -152,15 +153,15 @@ def test_ig_scenario1():
     logging.info("starting test")
     logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
     logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
-    model_name = "model"
+
 
     # Create success isvc
-    success_isvc_name = "success-200-isvc"
-    success_isvc = construct_isvc_to_submit(success_isvc_name, image=SUCCESS_ISVC_IMAGE)
+    model_name = success_isvc_name = "success-200-isvc"
+    success_isvc = construct_isvc_to_submit(success_isvc_name, image=SUCCESS_ISVC_IMAGE,model_name= model_name)
 
     # Create error isvc
-    error_isvc_name = "error-404-isvc"
-    error_isvc = construct_isvc_to_submit(error_isvc_name, image=ERROR_ISVC_IMAGE)
+    model_name = error_isvc_name = "error-404-isvc"
+    error_isvc = construct_isvc_to_submit(error_isvc_name, image=ERROR_ISVC_IMAGE, model_name= model_name)
 
     # Create graph
     graph_name = "sequence-graph"
@@ -170,12 +171,10 @@ def test_ig_scenario1():
             router_type="Sequence",
             steps=[
                 V1alpha1InferenceStep(
-                    service_url=f"http://{success_isvc_name}.{KSERVE_TEST_NAMESPACE}.svc.cluster.local"
-                                f"/v1/models/{model_name}:predict",
+                    service_name=success_isvc_name,
                 ),
                 V1alpha1InferenceStep(
-                    service_url=f"http://{error_isvc_name}.{KSERVE_TEST_NAMESPACE}.svc.cluster.local"
-                                f"/v1/models/{model_name}:predict",
+                    service_name=error_isvc_name,
                     data="$request",
                 ),
             ],
