@@ -418,8 +418,8 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			expected: []v1alpha1.SupportedRuntime{
 				{Name: mlserverRuntime, Spec: servingRuntimeSpecs[mlserverRuntime]},
 				{Name: sklearnRuntime, Spec: servingRuntimeSpecs[sklearnRuntime]},
-				{Name: tritonRuntime, Spec: servingRuntimeSpecs[tritonRuntime]},
 				{Name: testRuntime, Spec: servingRuntimeSpecs[testRuntime]},
+				{Name: tritonRuntime, Spec: servingRuntimeSpecs[tritonRuntime]},
 			},
 		},
 	}

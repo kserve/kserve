@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sort"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -26,6 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var log = logf.Log.WithName("predictor_model")
 
 type ModelFormat struct {
 	// Name of the model format.
@@ -120,7 +123,9 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 			clusterSrSpecs = append(clusterSrSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
 		}
 	}
+	log.Info("before sorting", "culsterservingruntimes", clusterSrSpecs)
 	sortSupportedRuntimeByPriority(clusterSrSpecs, m.ModelFormat)
+	log.Info("after sorting", "clusterservingruntimes", clusterSrSpecs)
 	srSpecs = append(srSpecs, clusterSrSpecs...)
 	return srSpecs, nil
 }
@@ -204,7 +209,7 @@ func sortSupportedRuntimeByPriority(runtimes []v1alpha1.SupportedRuntime, modelF
 		p2 := runtimes[j].Spec.GetPriority(modelFormat.Name)
 
 		if p1 == nil && p2 == nil { // if both runtimes does not specify the priority, the order is kept.
-			return true
+			return false
 		} else if p1 == nil && p2 != nil { // runtime with priority specified takes precedence
 			return false
 		} else if p1 != nil && p2 == nil {
