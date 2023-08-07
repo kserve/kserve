@@ -314,6 +314,8 @@ def create_ig_using_custom_object_api(resource_body):
     except Exception as e:
         raise e
 
+    return resource
+
 
 @pytest.mark.rc4test
 @pytest.mark.graph
@@ -349,7 +351,10 @@ def test_ig_scenario3():
 
     # Create graph
     graph_name = "sequence-graph"
+
+    # Because we run from test/e2e location in run-e2e-tests.sh
     deployment_yaml_path = "graph/test-resources/ig_test_scenario_3.yaml"
+
     # Read YAML file
     with open(deployment_yaml_path, "r") as stream:
         resource_body = yaml.safe_load(stream)
