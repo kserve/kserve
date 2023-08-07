@@ -288,11 +288,12 @@ def test_ig_scenario2():
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
-
-    response = predict_ig(graph_name, "/Users/rchauhan4/Desktop/git-personal/rachitchauhan43-forks/kserve/test/e2e/data/iris_input.json")
+    response = predict_ig(
+        graph_name,
+        "./data/iris_input.json",
+    )
 
     assert response == {"message": "SUCCESS"}
-
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
@@ -312,6 +313,7 @@ def create_ig_using_custom_object_api(resource_body):
         )
     except Exception as e:
         raise e
+
 
 @pytest.mark.rc4test
 @pytest.mark.graph
@@ -349,7 +351,7 @@ def test_ig_scenario3():
     graph_name = "sequence-graph"
     deployment_yaml_path = "graph/test-resources/ig_test_scenario_3.yaml"
     # Read YAML file
-    with open(deployment_yaml_path, 'r') as stream:
+    with open(deployment_yaml_path, "r") as stream:
         resource_body = yaml.safe_load(stream)
         create_ig_using_custom_object_api(resource_body)
 
@@ -366,4 +368,3 @@ def test_ig_scenario3():
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
-
