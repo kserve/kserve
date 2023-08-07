@@ -29,6 +29,8 @@ jobs:
             docker-compose --file docker-compose.test.yml run sut
           else
             cd python
+            docker buildx build . --file build_base_image.Dockerfile -t build-base-image:latest
+            docker buildx build . --file prod_base_image.Dockerfile -t prod-base-image:latest
             docker buildx build . --file artexplainer.Dockerfile
           fi
 
@@ -45,4 +47,5 @@ jobs:
       context: python
       dockerfile-path: python/artexplainer.Dockerfile
       platforms: linux/amd64, linux/arm64/v8
+      build-base-images: true
     secrets: inherit

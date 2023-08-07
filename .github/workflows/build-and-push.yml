@@ -15,10 +15,18 @@ on:
       platforms:
         required: true
         type: string
+      build-base-images:
+        required: true
+        type: boolean
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
 
     steps:
       - uses: actions/checkout@v3
@@ -28,6 +36,29 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v2
+        with:
+          # network=host driver-opt needed to push to local registry
+          driver-opts: network=host
+
+      - name: Build kserve build base image
+        if: ${{ inputs.build-base-images }}
+        uses: docker/build-push-action@v4
+        with:
+          platforms: ${{ inputs.platforms }}
+          context: python
+          file: python/build_base_image.Dockerfile
+          push: true
+          tags: localhost:5000/build-base-image:latest
+
+      - name: Build kserve prod base image
+        if: ${{ inputs.build-base-images }}
+        uses: docker/build-push-action@v4
+        with:
+          platforms: ${{ inputs.platforms }}
+          context: python
+          file: python/prod_base_image.Dockerfile
+          push: true
+          tags: localhost:5000/prod-base-image:latest
 
       - name: Login to DockerHub
         uses: docker/login-action@v2
@@ -54,13 +85,25 @@ jobs:
           echo VERSION=$VERSION >> $GITHUB_ENV
           echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
 
+      - name: Set build context
+        id: set_build_context
+        run: |
+          if [ "${{ inputs.build-base-images }}" == "true" ]; then
+            echo "build_base_image=build-base-image=docker-image://localhost:5000/build-base-image:latest" >> "$GITHUB_OUTPUT"
+            echo "prod_base_image=prod-base-image=docker-image://localhost:5000/prod-base-image:latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_context=" >> "$GITHUB_OUTPUT"
+          fi
+        shell: bash
+
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
+          build-contexts: |
+            ${{ steps.set_build_context.outputs.build_base_image }}
+            ${{ steps.set_build_context.outputs.prod_base_image }}
           platforms: ${{ inputs.platforms }}
           context: ${{ inputs.context }}
           file: ${{ inputs.Dockerfile-path }}
           push: true
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
-
-

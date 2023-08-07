@@ -44,4 +44,5 @@ jobs:
       context: .
       dockerfile-path: tools/tf2openapi/Dockerfile
       platforms: linux/amd64
+      build-base-images: false
     secrets: inherit

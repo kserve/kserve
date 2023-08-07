@@ -25,6 +25,8 @@ jobs:
             docker-compose --file docker-compose.test.yml run sut
           else
             cd python
+            docker buildx build . --file build_base_image.Dockerfile -t build-base-image:latest
+            docker buildx build . --file prod_base_image.Dockerfile -t prod-base-image:latest
             docker buildx build . --file custom_model_grpc.Dockerfile
           fi
 
@@ -41,4 +43,5 @@ jobs:
       context: python
       dockerfile-path: custom_model_grpc.Dockerfile
       platforms: linux/amd64
+      build-base-images: true
     secrets: inherit

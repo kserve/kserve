@@ -35,11 +35,6 @@ jobs:
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
           image: "kserve/agent:${{ github.sha }}"
-      
-      - name: Upload storage initializer image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "kserve/storage-initializer:${{ github.sha }}"
 
   poetry-check:
     runs-on: ubuntu-latest
@@ -56,14 +51,57 @@ jobs:
       - name: Check poetry lock file consistency
         run: ./test/scripts/gh-actions/check-poetry-lockfile.sh
 
-  predictor-runtime-build:
+  build-base-images:
     runs-on: ubuntu-latest
     needs: [poetry-check]
     steps:
       - uses: actions/checkout@v3
 
+      - name: Build base images
+        run: |
+          cd python
+          docker buildx build . --file build_base_image.Dockerfile -t build-base-image:latest
+          docker buildx build . --file prod_base_image.Dockerfile -t prod-base-image:latest
+
+      - name: Build storage initializer image
+        run: |
+          cd python
+          ddocker buildx build -t kserve/storage-initializer:${GITHUB_SHA} -f storage-initializer.Dockerfile .
+
+      - name: Upload build base image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "build-base-image:latest"
+
+      - name: Upload prod base image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "prod-base-image:latest"
+
+      - name: Upload storage initializer image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
+
+
+  predictor-runtime-build:
+    runs-on: ubuntu-latest
+    needs: [poetry-check, build-base-images]
+    steps:
+      - uses: actions/checkout@v3
+
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
+
+      - name: Download build base image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "build-base-image:latest"
+
+      - name: Download prod base image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "prod-base-image:latest"
 
       - name: Build runtime server images
         run: |
@@ -113,9 +151,19 @@ jobs:
   
   explainer-runtime-build:
     runs-on: ubuntu-latest
-    needs: [poetry-check]
+    needs: [poetry-check, build-base-images]
     steps:
       - uses: actions/checkout@v3
+
+      - name: Download build base image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "build-base-image:latest"
+
+      - name: Download prod base image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "prod-base-image:latest"
 
       - name: Build runtime server images
         run: |
@@ -161,6 +209,11 @@ jobs:
      
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download storage initializer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -225,18 +278,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
           go-version: '1.20'
-      - uses: actions/setup-python@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download storage initializer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -284,18 +354,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
           go-version: '1.20'
-      - uses: actions/setup-python@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download storage initializer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -338,18 +425,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
           go-version: '1.20'
-      - uses: actions/setup-python@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download storage initializer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -392,17 +496,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
           go-version: '1.20'
-      - uses: actions/setup-python@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download storage initializer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
       - name: Build queue proxy extension image
         run: |
           ./test/scripts/gh-actions/build-qpext-image.sh
@@ -444,18 +566,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
           go-version: '1.20'
-      - uses: actions/setup-python@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download storage initializer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
 
       - name: Download custom model grpc image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -506,18 +645,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
           go-version: '1.20'
-      - uses: actions/setup-python@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download storage initializer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
@@ -545,18 +701,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
           go-version: '1.20'
-      - uses: actions/setup-python@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download storage initializer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -589,20 +762,37 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
           go-version: '1.20'
-      - uses: actions/setup-python@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
         with:
           network-layer: 'kourier'
-      - uses: ./.github/actions/base-download
+
+      - name: Download storage initializer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/storage-initializer:${{ github.sha }}"
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1

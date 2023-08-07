@@ -23,7 +23,6 @@ set -o nounset
 set -o pipefail
 echo "Github SHA ${GITHUB_SHA}"
 export CONTROLLER_IMG=kserve/kserve-controller:${GITHUB_SHA}
-STORAGE_INIT_IMG=kserve/storage-initializer:${GITHUB_SHA}
 AGENT_IMG=kserve/agent:${GITHUB_SHA}
 
 
@@ -32,10 +31,5 @@ docker buildx build . -t ${CONTROLLER_IMG}
 
 echo "Building agent image"
 docker buildx build -f agent.Dockerfile . -t ${AGENT_IMG}
-
-pushd python >/dev/null
-  echo "Building storage initializer"
-  docker buildx build -t ${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
-popd
 
 echo "Done building images"

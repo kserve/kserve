@@ -43,4 +43,5 @@ jobs:
       context: .
       dockerfile-path: Dockerfile
       platforms: linux/amd64,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
+      build-base-images: false
     secrets: inherit
