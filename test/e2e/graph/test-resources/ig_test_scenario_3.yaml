@@ -1,0 +1,13 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceGraph
+metadata:
+  name: sequence-graph
+spec:
+  nodes:
+    root:
+      routerType: Sequence
+      steps:
+      - serviceName: error-404-isvc
+        dependency: Hard
+      - serviceName: success-200-isvc
+        dependency: Soft
