@@ -1,6 +1,8 @@
 import logging
 import os
 import yaml
+import uuid
+from jinja2 import Template
 
 
 import pytest
@@ -36,6 +38,7 @@ IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"
 @pytest.mark.graph
 @pytest.mark.kourier
 def test_inference_graph():
+    logging.info("Starting test test_inference_graph")
     sklearn_name = "isvc-sklearn-graph"
     xgb_name = "isvc-xgboost-graph"
     graph_name = "model-chainer"
@@ -148,6 +151,25 @@ def construct_isvc_to_submit(service_name, image, model_name):
     return isvc
 
 
+def setup_isvcs_for_test(suffix):
+    logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
+    logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
+
+    # construct_isvc_to_submit
+    model_name = success_isvc_name = ("-").join(["success-200-isvc", suffix])
+    success_isvc = construct_isvc_to_submit(
+        success_isvc_name, image=SUCCESS_ISVC_IMAGE, model_name=model_name
+    )
+
+    # construct_isvc_to_submit
+    model_name = error_isvc_name = ("-").join(["error-404-isvc", suffix])
+    error_isvc = construct_isvc_to_submit(
+        error_isvc_name, image=ERROR_ISVC_IMAGE, model_name=model_name
+    )
+
+    return success_isvc_name, error_isvc_name, success_isvc, error_isvc
+
+
 # @pytest.mark.rc4test
 @pytest.mark.graph
 @pytest.mark.kourier
@@ -162,21 +184,13 @@ def test_ig_scenario1():
     :return:
     """
 
-    logging.info("starting test test_ig_scenario1")
-    logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
-    logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
-
-    # Create success isvc
-    model_name = success_isvc_name = "success-200-isvc"
-    success_isvc = construct_isvc_to_submit(
-        success_isvc_name, image=SUCCESS_ISVC_IMAGE, model_name=model_name
+    logging.info("Starting test test_ig_scenario1")
+    suffix = str(uuid.uuid4())[1:6]
+    success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
+        suffix
     )
-
-    # Create error isvc
-    model_name = error_isvc_name = "error-404-isvc"
-    error_isvc = construct_isvc_to_submit(
-        error_isvc_name, image=ERROR_ISVC_IMAGE, model_name=model_name
-    )
+    logging.info(f"success_isvc_name is {success_isvc_name}")
+    logging.info(f"error_isvc_name is {error_isvc_name}")
 
     # Create graph
     graph_name = "sequence-graph"
@@ -241,21 +255,13 @@ def test_ig_scenario2():
     :return:
     """
 
-    logging.info("starting test test_ig_scenario2")
-    logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
-    logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
-
-    # Create success isvc
-    model_name = success_isvc_name = "success-200-isvc"
-    success_isvc = construct_isvc_to_submit(
-        success_isvc_name, image=SUCCESS_ISVC_IMAGE, model_name=model_name
+    logging.info("Starting test test_ig_scenario2")
+    suffix = str(uuid.uuid4())[1:6]
+    success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
+        suffix
     )
-
-    # Create error isvc
-    model_name = error_isvc_name = "error-404-isvc"
-    error_isvc = construct_isvc_to_submit(
-        error_isvc_name, image=ERROR_ISVC_IMAGE, model_name=model_name
-    )
+    logging.info(f"success_isvc_name is {success_isvc_name}")
+    logging.info(f"error_isvc_name is {error_isvc_name}")
 
     # Create graph
     graph_name = "sequence-graph"
@@ -324,7 +330,7 @@ def create_ig_using_custom_object_api(resource_body):
     return resource
 
 
-@pytest.mark.rc4test
+# @pytest.mark.rc4test
 @pytest.mark.graph
 @pytest.mark.kourier
 def test_ig_scenario3():
@@ -334,21 +340,13 @@ def test_ig_scenario3():
 
     Expectation: IG will return response of error_isvc and predict_ig will raise exception
     """
-    logging.info("starting test test_ig_scenario3")
-    logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
-    logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
-
-    # Create success isvc
-    model_name = success_isvc_name = "success-200-isvc"
-    success_isvc = construct_isvc_to_submit(
-        success_isvc_name, image=SUCCESS_ISVC_IMAGE, model_name=model_name
+    logging.info("Starting test test_ig_scenario3")
+    suffix = str(uuid.uuid4())[1:6]
+    success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
+        suffix
     )
-
-    # Create error isvc
-    model_name = error_isvc_name = "error-404-isvc"
-    error_isvc = construct_isvc_to_submit(
-        error_isvc_name, image=ERROR_ISVC_IMAGE, model_name=model_name
-    )
+    logging.info(f"success_isvc_name is {success_isvc_name}")
+    logging.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -361,13 +359,21 @@ def test_ig_scenario3():
 
     # Because we run from test/e2e location in run-e2e-tests.sh
     deployment_yaml_path = os.path.join(
-        IG_TEST_RESOURCES_BASE_LOCATION, "ig_test_scenario_3.yaml"
+        IG_TEST_RESOURCES_BASE_LOCATION, "ig_test_seq_scenario_3.yaml"
     )
 
     # Read YAML file
     with open(deployment_yaml_path, "r") as stream:
-        resource_body = yaml.safe_load(stream)
-        create_ig_using_custom_object_api(resource_body)
+        file_content = stream.read()
+        resource_template = Template(file_content)
+        substitutions = {
+            "error_404_isvc_id": error_isvc_name,
+            "success_200_isvc_id": success_isvc_name,
+        }
+        resource_body_after_rendering = yaml.safe_load(
+            resource_template.render(substitutions)
+        )
+        create_ig_using_custom_object_api(resource_body_after_rendering)
 
     kserve_client.wait_isvc_ready(success_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=KSERVE_TEST_NAMESPACE)

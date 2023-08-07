@@ -7,7 +7,7 @@ spec:
     root:
       routerType: Sequence
       steps:
-      - serviceName: error-404-isvc
+      - serviceName: {{ error_404_isvc_id }}
         dependency: Hard
-      - serviceName: success-200-isvc
+      - serviceName: {{ success_200_isvc_id }}
         dependency: Soft
