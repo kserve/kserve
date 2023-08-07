@@ -37,8 +37,8 @@ java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -
 # revert following files since they are diveraged from generated ones
 git checkout python/kserve/README.md
 git checkout python/kserve/kserve/__init__.py
-git checkout python/kserve/setup.py
-git checkout python/kserve/requirements.txt
+# git checkout python/kserve/setup.py
+# git checkout python/kserve/requirements.txt
 
 # Update kubernetes docs link.
 K8S_IMPORT_LIST=`cat hack/python-sdk/swagger_config.json|grep "V1" | awk -F"\"" '{print $2}'`
