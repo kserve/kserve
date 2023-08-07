@@ -19,7 +19,7 @@ import cloudevents.exceptions as ce
 import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.api import RayServeHandle
+from ray.serve.handle import RayServeHandle
 
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound

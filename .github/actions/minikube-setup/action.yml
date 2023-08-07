@@ -4,27 +4,6 @@ description: 'Sets up minikube on the github runner'
 runs:
   using: "composite"
   steps:
-    - name: Free up disk space
-      shell: bash
-      run: |
-        echo "Disk usage before cleanup:"
-        df -h
-
-        # remove non-essential tools and libraries, see:
-        # https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/share/boost
-
-        # delete libraries for Android (12G), CodeQL (5.3G), PowerShell (1.3G), Swift (1.7G)
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf "${AGENT_TOOLSDIRECTORY}/CodeQL"
-        sudo rm -rf /usr/local/share/powershell
-        sudo rm -rf /usr/share/swift
-
-        echo "Disk usage after cleanup:"
-        df -h
-
     - name: Install kubectl
       uses: azure/setup-kubectl@v3
       with:
@@ -42,11 +21,3 @@ runs:
     - name: Check Kubernetes pods
       shell: bash
       run: kubectl get pods -n kube-system
-
-    - name: Prune docker images
-      shell: bash
-      run: |
-        echo "Pruning docker images"
-        docker image prune -a -f
-        docker system df
-        df -h

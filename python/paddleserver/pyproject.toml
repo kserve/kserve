@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "paddleserver"
-version = "0.11.0rc0"
+version = "0.11.0"
 description = "Model Server implementation for Paddle. Not intended for use outside KServe Frameworks Images"
 authors = ["Zhengyuan Zhang <zhangzhengyuan0604@gmail.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"

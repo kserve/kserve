@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sklearnserver"
-version = "0.11.0rc0"
+version = "0.11.0"
 description = "Model Server implementation for scikit-learn. Not intended for use outside KServe Frameworks Images."
 authors = ["singhan <singhan@us.ibm.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -12,7 +12,7 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
-scikit-learn = "~1.0.1"
+scikit-learn = "~1.3.0"
 joblib = "^1.1.1"
 pandas = "^1.3.5"
 

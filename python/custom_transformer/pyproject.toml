@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "custom_transformer"
-version = "0.11.0rc0"
+version = "0.11.0"
 description = "Custom Transformer Examples. Not intended for use outside KServe Frameworks Images."
 authors = ["Dan Sun <dsun20@bloomberg.net>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"

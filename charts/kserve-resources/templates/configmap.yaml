@@ -5,6 +5,400 @@ metadata:
   name: inferenceservice-config
   namespace: {{ .Release.Namespace }}
 data:
+  _example: |-
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
+    #
+    # These sample configuration options may be copied out of
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
+
+    # ====================================== EXPLAINERS CONFIGURATION ======================================
+    # Example
+    explainers: |-
+      {
+          "alibi": {
+              "image" : "kserve/alibi-explainer",
+              "defaultImageVersion": "latest"
+          },
+          "art": {
+              "image" : "kserve/art-explainer",
+              "defaultImageVersion": "latest"
+          }
+      }
+    # Alibi and Art Explainer runtime configuration
+     explainers: |-
+        {
+            # Alibi explainer runtime configuration
+            "alibi": {
+                # image contains the default Alibi explainer serving runtime image uri.
+                "image" : "kserve/alibi-explainer",
+
+                # defautltImageVersion contains the Alibi explainer serving runtime default image version.
+                "defaultImageVersion": "latest"
+            },
+            # Art explainer runtime configuration
+            "art": {
+                # image contains the default Art explainer serving runtime image uri.
+                "image" : "kserve/art-explainer",
+
+                # defautltImageVersion contains the Art explainer serving runtime default image version.
+                "defaultImageVersion": "latest"
+            }
+        }
+
+     # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
+     # Example
+     storageInitializer: |-
+       {
+           "image" : "kserve/storage-initializer:latest",
+           "memoryRequest": "100Mi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "100m",
+           "cpuLimit": "1",
+           "enableDirectPvcVolumeMount": false
+       }
+     storageInitializer: |-
+       {
+           # image contains the default storage initializer image uri.
+           "image" : "kserve/storage-initializer:latest",
+
+           # memoryRequest is the requests.memory to set for the storage initializer init container.
+           "memoryRequest": "100Mi",
+
+            # memoryLimit is the limits.memory to set for the storage initializer init container.
+           "memoryLimit": "1Gi",
+
+           # cpuRequest is the requests.cpu to set for the storage initializer init container.
+           "cpuRequest": "100m",
+
+           # cpuLimit is the limits.cpu to set for the storage initializer init container.
+           "cpuLimit": "1",
+
+           # enableDirectPvcVolumeMount controls whether users can mount pvc volumes directly.
+           # if pvc volume is provided in storageuri then the pvc volume is directly mounted to /mnt/models in the user container.
+           # rather than symlink it to a shared volume. For more info see https://github.com/kserve/kserve/issues/2737
+           "enableDirectPvcVolumeMount": false
+       }
+
+     # ====================================== CREDENTIALS ======================================
+     # Example
+     credentials: |-
+       {
+          "storageSpecSecretName": "storage-config",
+          "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+          "gcs": {
+              "gcsCredentialFileName": "gcloud-application-credentials.json"
+          },
+          "s3": {
+              "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+              "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+              "s3Endpoint": "",
+              "s3UseHttps": "",
+              "s3Region": "",
+              "s3VerifySSL": "",
+              "s3UseVirtualBucket": "",
+              "s3UseAnonymousCredential": "",
+              "s3CABundle": ""
+          }
+       }
+     # This is a global configuration used for downloading models from the cloud storage.
+     # You can override this configuration by specifying the annotations on service account or static secret.
+     # https://kserve.github.io/website/master/modelserving/storage/s3/s3/
+     # For a quick reference about AWS ENV variables:
+     # AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
+     # Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables
+     #
+     # The `s3AccessKeyIDName` and `s3SecretAccessKeyName` fields are only used from this configmap when static credentials (IAM User Access Key Secret)
+     # are used as the authentication method for AWS S3.
+     # The rest of the fields are used in both authentication methods (IAM Role for Service Account & IAM User Access Key Secret) if a non-empty value is provided.
+     credentials: |-
+       {
+          # storageSpecSecretName contains the secret name which has the credentials for downloading the model.
+          # This option is used when specifying the storage spec on isvc yaml.
+          "storageSpecSecretName": "storage-config",
+
+          # The annotation can be specified on isvc yaml to allow overriding with the secret name reference from the annotation value.
+          # When using storageUri the order of the precedence is: secret name reference annotation > secret name references from service account
+          # When using storageSpec the order of the precedence is: secret name reference annotation > storageSpecSecretName in configmap
+          "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+          # Configuration for google cloud storage
+          "gcs": {
+              # gcsCredentialFileName specifies the filename of the gcs credential
+              "gcsCredentialFileName": "gcloud-application-credentials.json"
+          },
+
+          # Configuration for aws s3 storage. This add the corresponding environmental variables to the storage initializer init container.
+          # For more info on s3 storage see https://kserve.github.io/website/master/modelserving/storage/s3/s3/
+          "s3": {
+              # s3AccessKeyIDName specifies the s3 access key id name
+              "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+
+              # s3SecretAccessKeyName specifies the s3 secret access key name
+              "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+
+              # s3Endpoint specifies the s3 endpoint
+              "s3Endpoint": "",
+
+              # s3UseHttps controls whether to use secure https or unsecure http to download models.
+              # Allowed values are 0 and 1.
+              "s3UseHttps": "",
+
+              # s3Region specifies the region of the bucket.
+              "s3Region": "",
+
+              # s3VerifySSL controls whether to verify the tls/ssl certificate.
+              "s3VerifySSL": "",
+
+              # s3UseVirtualBucket configures whether it is a virtual bucket or not.
+              "s3UseVirtualBucket": "",
+
+              # s3UseAnonymousCredential configures whether to use anonymous credentials to download the model or not.
+              "s3UseAnonymousCredential": "",
+
+              # s3CABundle specifies the path to a certificate bundle to use for HTTPS certificate validation.
+              "s3CABundle": ""
+          }
+       }
+
+     # ====================================== INGRESS CONFIGURATION ======================================
+     # Example
+     ingress: |-
+       {
+           "ingressGateway" : "knative-serving/knative-ingress-gateway",
+           "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+           "localGateway" : "knative-serving/knative-local-gateway",
+           "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+           "ingressDomain"  : "example.com",
+           "ingressClassName" : "istio",
+           "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+           "urlScheme": "http",
+           "disableIstioVirtualHost": false
+       }
+     ingress: |-
+       {
+           # ingressGateway specifies the ingress gateway to serve external traffic.
+           # The gateway should be specified in format <gateway namespace>/<gateway name>
+           # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
+           "ingressGateway" : "knative-serving/knative-ingress-gateway",
+
+           # ingressService specifies the hostname of the ingress service.
+           # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
+           "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+
+           # localGateway specifies the gateway which handles the network traffic within the cluster.
+           # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
+           "localGateway" : "knative-serving/knative-local-gateway",
+
+           # localGatewayService specifies the hostname of the local gateway service.
+           # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
+           "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+
+           # ingressDomain specifies the domain name which is used for creating the url.
+           # If ingressDomain is empty then example.com is used as default domain.
+           # NOTE: This configuration only applicable for raw deployment.
+           "ingressDomain"  : "example.com",
+
+           # ingressClassName specifies the ingress controller to use for ingress traffic.
+           # This is optional and if omitted the default ingress in the cluster is used.
+           # https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class
+           # NOTE: This configuration only applicable for raw deployment.
+           "ingressClassName" : "istio",
+
+           # domainTemplate specifies the template for generating domain/url for each inference service by combining variable from:
+           # Name of the inference service  ( {{- "{{ .Name }}" -}} )
+           # Namespace of the inference service ( {{- "{{ .Namespace }}" -}} )
+           # Annotation of the inference service ( {{- "{{ .Annotations.key }}" -}} )
+           # Label of the inference service ( {{- "{{ .Labels.key }}" -}} )
+           # IngressDomain ( {{- "{{ .IngressDomain }}" -}} )
+           # If domain template is empty the default template ( {{- "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}" -}} ) is used.
+           # NOTE: This configuration only applicable for raw deployment.
+           "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+
+           # urlScheme specifies the url scheme to use for inference service and inference graph.
+           # If urlScheme is empty then by default http is used.
+           "urlScheme": "http",
+
+           # disableIstioVirtualHost controls whether to use istio as network layer.
+           # By default istio is used as the network layer. When DisableIstioVirtualHost is true, KServe does not
+           # create the top level virtual service thus Istio is no longer required for serverless mode.
+           # By setting this field to true, user can use other networking layers supported by knative.
+           # For more info https://github.com/kserve/kserve/pull/2380, https://kserve.github.io/website/master/admin/serverless/kourier_networking/.
+           # NOTE: This configuration is only applicable to serverless deployment.
+           "disableIstioVirtualHost": false
+
+           # pathTemplate specifies the template for generating path based url for each inference service.
+           # The following variables can be used in the template for generating url.
+           # Name of the inference service ( {{- "{{ .Name }}" -}} )
+           # Namespace of the inference service ( {{- "{{ .Namespace }}" -}} )
+           # For more info https://github.com/kserve/kserve/issues/2257.
+           # NOTE: This configuration only applicable to serverless deployment.
+           "pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
+       }
+
+     # ====================================== LOGGER CONFIGURATION ======================================
+     # Example
+     logger: |-
+       {
+           "image" : "kserve/agent:latest",
+           "memoryRequest": "100Mi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "100m",
+           "cpuLimit": "1",
+           "defaultUrl": "http://default-broker"
+       }
+     logger: |-
+       {
+           # image contains the default logger image uri.
+           "image" : "kserve/agent:latest",
+
+           # memoryRequest is the requests.memory to set for the logger container.
+           "memoryRequest": "100Mi",
+
+           # memoryLimit is the limits.memory to set for the logger container.
+           "memoryLimit": "1Gi",
+
+           # cpuRequest is the requests.cpu to set for the logger container.
+           "cpuRequest": "100m",
+
+           # cpuLimit is the limits.cpu to set for the logger container.
+           "cpuLimit": "1",
+
+           # defaultUrl specifies the default logger url. If logger is not specified in the resource this url is used.
+           "defaultUrl": "http://default-broker"
+       }
+
+     # ====================================== BATCHER CONFIGURATION ======================================
+     # Example
+     batcher: |-
+       {
+           "image" : "kserve/agent:latest",
+           "memoryRequest": "1Gi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "1",
+           "cpuLimit": "1"
+       }
+     batcher: |-
+       {
+           # image contains the default batcher image uri.
+           "image" : "kserve/agent:latest",
+
+           # memoryRequest is the requests.memory to set for the batcher container.
+           "memoryRequest": "1Gi",
+
+           # memoryLimit is the limits.memory to set for the batcher container.
+           "memoryLimit": "1Gi",
+
+           # cpuRequest is the requests.cpu to set for the batcher container.
+           "cpuRequest": "1",
+
+           # cpuLimit is the limits.cpu to set for the batcher container.
+           "cpuLimit": "1"
+       }
+
+     # ====================================== AGENT CONFIGURATION ======================================
+     # Example
+     agent: |-
+       {
+           "image" : "kserve/agent:latest",
+           "memoryRequest": "100Mi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "100m",
+           "cpuLimit": "1"
+       }
+     agent: |-
+       {
+           # image contains the default agent image uri.
+           "image" : "kserve/agent:latest",
+
+           # memoryRequest is the requests.memory to set for the agent container.
+           "memoryRequest": "100Mi",
+
+           # memoryLimit is the limits.memory to set for the agent container.
+           "memoryLimit": "1Gi",
+
+           # cpuRequest is the requests.cpu to set for the agent container.
+           "cpuRequest": "100m",
+
+           # cpuLimit is the limits.cpu to set for the agent container.
+           "cpuLimit": "1"
+       }
+
+     # ====================================== ROUTER CONFIGURATION ======================================
+     # Example
+     router: |-
+       {
+           "image" : "kserve/router:latest",
+           "memoryRequest": "100Mi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "100m",
+           "cpuLimit": "1"
+       }
+     # router is the implementation of inference graph.
+     router: |-
+       {
+           # image contains the default router image uri.
+           "image" : "kserve/router:latest",
+
+           # memoryRequest is the requests.memory to set for the router container.
+           "memoryRequest": "100Mi",
+
+           # memoryLimit is the limits.memory to set for the router container.
+           "memoryLimit": "1Gi",
+
+           # cpuRequest is the requests.cpu to set for the router container.
+           "cpuRequest": "100m",
+
+           # cpuLimit is the limits.cpu to set for the router container.
+           "cpuLimit": "1"
+       }
+
+     # ====================================== DEPLOYMENT CONFIGURATION ======================================
+     # Example
+     deploy: |-
+       {
+         "defaultDeploymentMode": "Serverless"
+       }
+     deploy: |-
+       {
+         # defaultDeploymentMode specifies the default deployment mode of the kserve. The supported values are
+         # Serverless, RawDeployment and ModelMesh. Users can override the deployment mode at service level
+         # by adding the annotation serving.kserve.io/deploymentMode.For more info on deployment mode visit
+         # Serverless https://kserve.github.io/website/master/admin/serverless/serverless/
+         # RawDeployment https://kserve.github.io/website/master/admin/kubernetes_deployment/
+         # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
+         "defaultDeploymentMode": "Serverless"
+       }
+
+     # ====================================== METRICS CONFIGURATION ======================================
+     # Example
+     metricsAggregator: |-
+       {
+         "enableMetricAggregation": "false",
+         "enablePrometheusScraping" : "false"
+       }
+     # For more info see https://github.com/kserve/kserve/blob/master/qpext/README.md
+     metricsAggregator: |-
+       {
+         # enableMetricAggregation configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every
+         # service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container
+         # to configure scraping ports.
+         "enableMetricAggregation": "false",
+
+         # enablePrometheusScraping configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every
+         # service with the specified boolean value. If true, prometheus annotations are added to the pod. If serving.kserve.io/enable-metric-aggregation is false,
+         # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
+         "enablePrometheusScraping" : "false"
+       }
+
   agent: |-
     {
         "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag }}",
@@ -21,14 +415,31 @@ data:
         "cpuRequest": "1",
         "cpuLimit": "1"
     }
+  router: |-
+    {
+        "image" : "{{ .Values.kserve.router.image }}:{{ .Values.kserve.router.tag }}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
   credentials: |-
     {
+       "storageSpecSecretName": "{{ .Values.kserve.storage.storageSpecSecretName }}",
+       "storageSecretNameAnnotation": "{{ .Values.kserve.storage.storageSecretNameAnnotation }}",
        "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
        },
        "s3": {
            "s3AccessKeyIDName": "{{ .Values.kserve.storage.s3.accessKeyIdName }}",
-           "s3SecretAccessKeyName": "{{ .Values.kserve.storage.s3.secretAccessKeyName }}"
+           "s3SecretAccessKeyName": "{{ .Values.kserve.storage.s3.secretAccessKeyName }}",
+           "s3Endpoint": "{{ .Values.kserve.storage.s3.endpoint }}",
+           "s3UseHttps": "{{ .Values.kserve.storage.s3.useHttps }}",
+           "s3Region": "{{ .Values.kserve.storage.s3.region }}",
+           "s3VerifySSL": "{{ .Values.kserve.storage.s3.verifySSL }}",
+           "s3UseVirtualBucket": "{{ .Values.kserve.storage.s3.useVirtualBucket }}",
+           "s3UseAnonymousCredential": "{{ .Values.kserve.storage.s3.useAnonymousCredential }}",
+           "s3CABundle": "{{ .Values.kserve.storage.s3.CABundle }}"
        }
     }
   deploy: |-

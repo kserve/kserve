@@ -1,6 +1,6 @@
 apiVersion: v1
 name: kserve 
-version: v0.11.0-rc1
+version: v0.11.0
 description: Helm chart for deploying kserve resources
 keywords:
   - kserve

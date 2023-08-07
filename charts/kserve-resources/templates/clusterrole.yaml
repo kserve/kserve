@@ -306,3 +306,22 @@ rules:
   - get
   - patch
   - update
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kserve-addressable-resolver
+  labels:
+    contrib.eventing.knative.dev/release: devel
+    duck.knative.dev/addressable: "true"
+rules:
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - inferenceservices
+  - inferenceservices/status
+  verbs:
+  - get
+  - list
+  - watch
