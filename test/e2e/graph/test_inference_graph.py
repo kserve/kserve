@@ -26,8 +26,11 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
 logging.basicConfig(level=logging.INFO)
 
+
 SUCCESS_ISVC_IMAGE = "kserve/success-200-isvc:" + os.environ.get("GITHUB_SHA")
 ERROR_ISVC_IMAGE = "kserve/error-404-isvc:" + os.environ.get("GITHUB_SHA")
+INPUT_DATA_BASE_LOCATION = "./data"
+IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"
 
 
 @pytest.mark.graph
@@ -108,7 +111,9 @@ def test_inference_graph():
     kserve_client.wait_isvc_ready(xgb_name, namespace=KSERVE_TEST_NAMESPACE)
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict_ig(graph_name, "./data/iris_input.json")
+    res = predict_ig(
+        graph_name, os.path.join(INPUT_DATA_BASE_LOCATION, "iris_input.json")
+    )
     assert res["predictions"] == [1, 1]
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
@@ -157,7 +162,7 @@ def test_ig_scenario1():
     :return:
     """
 
-    logging.info("starting test")
+    logging.info("starting test test_ig_scenario1")
     logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
     logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
 
@@ -212,7 +217,9 @@ def test_ig_scenario1():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     with pytest.raises(HTTPError) as exc_info:
-        predict_ig(graph_name, "./data/iris_input.json")
+        predict_ig(
+            graph_name, os.path.join(INPUT_DATA_BASE_LOCATION, "iris_input.json")
+        )
 
     assert exc_info.value.response.json() == {"detail": "Intentional 404 code"}
     assert exc_info.value.response.status_code == 404
@@ -234,7 +241,7 @@ def test_ig_scenario2():
     :return:
     """
 
-    logging.info("starting test")
+    logging.info("starting test test_ig_scenario2")
     logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
     logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
 
@@ -290,7 +297,7 @@ def test_ig_scenario2():
 
     response = predict_ig(
         graph_name,
-        "./data/iris_input.json",
+        os.path.join(INPUT_DATA_BASE_LOCATION, "iris_input.json"),
     )
 
     assert response == {"message": "SUCCESS"}
@@ -327,7 +334,7 @@ def test_ig_scenario3():
 
     Expectation: IG will return response of error_isvc and predict_ig will raise exception
     """
-    logging.info("starting test")
+    logging.info("starting test test_ig_scenario3")
     logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
     logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
 
@@ -353,7 +360,9 @@ def test_ig_scenario3():
     graph_name = "sequence-graph"
 
     # Because we run from test/e2e location in run-e2e-tests.sh
-    deployment_yaml_path = "graph/test-resources/ig_test_scenario_3.yaml"
+    deployment_yaml_path = os.path.join(
+        IG_TEST_RESOURCES_BASE_LOCATION, "ig_test_scenario_3.yaml"
+    )
 
     # Read YAML file
     with open(deployment_yaml_path, "r") as stream:
@@ -365,7 +374,9 @@ def test_ig_scenario3():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     with pytest.raises(HTTPError) as exc_info:
-        predict_ig(graph_name, "./data/iris_input.json")
+        predict_ig(
+            graph_name, os.path.join(INPUT_DATA_BASE_LOCATION, "iris_input.json")
+        )
 
     assert exc_info.value.response.json() == {"detail": "Intentional 404 code"}
     assert exc_info.value.response.status_code == 404
