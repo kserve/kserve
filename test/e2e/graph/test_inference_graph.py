@@ -1,12 +1,10 @@
 import logging
 import os
-import yaml
 import uuid
-from jinja2 import Template
-
 
 import pytest
-from requests.exceptions import HTTPError
+import yaml
+from jinja2 import Template
 from kserve import (
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
@@ -23,15 +21,14 @@ from kserve import (
 from kubernetes import client, config
 from kubernetes.client import V1Container
 from kubernetes.client import V1ResourceRequirements
+from requests.exceptions import HTTPError
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
 logging.basicConfig(level=logging.INFO)
 
-
 SUCCESS_ISVC_IMAGE = "kserve/success-200-isvc:" + os.environ.get("GITHUB_SHA")
 ERROR_ISVC_IMAGE = "kserve/error-404-isvc:" + os.environ.get("GITHUB_SHA")
-INPUT_DATA_BASE_LOCATION = "./data"
 IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"
 
 
@@ -115,13 +112,31 @@ def test_inference_graph():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = predict_ig(
-        graph_name, os.path.join(INPUT_DATA_BASE_LOCATION, "iris_input.json")
+        graph_name,
+        os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     )
     assert res["predictions"] == [1, 1]
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(sklearn_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(xgb_name, KSERVE_TEST_NAMESPACE)
+
+
+def create_ig_using_custom_object_api(resource_body):
+    config.load_kube_config()
+    k8s_client_custom_object = client.CustomObjectsApi()
+    try:
+        resource = k8s_client_custom_object.create_namespaced_custom_object(
+            group="serving.kserve.io",
+            version="v1alpha1",
+            plural="inferencegraphs",
+            namespace="kserve-ci-e2e-test",
+            body=resource_body,
+        )
+    except Exception as e:
+        raise e
+
+    return resource
 
 
 def construct_isvc_to_submit(service_name, image, model_name):
@@ -170,12 +185,11 @@ def setup_isvcs_for_test(suffix):
     return success_isvc_name, error_isvc_name, success_isvc, error_isvc
 
 
-# @pytest.mark.rc4test
 @pytest.mark.graph
 @pytest.mark.kourier
 def test_ig_scenario1():
     """
-    Scenario: Sequence graph with 2 steps that rae both soft dependencies.
+    Scenario: Sequence graph with 2 steps that are both soft dependencies.
      success_isvc(soft) -> error_isvc (soft)
 
     We are not marking steps as soft or hard explicitly so this will test that default behavior of steps being soft
@@ -193,7 +207,7 @@ def test_ig_scenario1():
     logging.info(f"error_isvc_name is {error_isvc_name}")
 
     # Create graph
-    graph_name = "sequence-graph"
+    graph_name = "-".join(["sequence-graph", suffix])
 
     nodes = {
         "root": V1alpha1InferenceRouter(
@@ -232,7 +246,10 @@ def test_ig_scenario1():
 
     with pytest.raises(HTTPError) as exc_info:
         predict_ig(
-            graph_name, os.path.join(INPUT_DATA_BASE_LOCATION, "iris_input.json")
+            graph_name,
+            os.path.join(
+                IG_TEST_RESOURCES_BASE_LOCATION, "custom_predictor_input.json"
+            ),
         )
 
     assert exc_info.value.response.json() == {"detail": "Intentional 404 code"}
@@ -243,12 +260,11 @@ def test_ig_scenario1():
     kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
 
 
-# @pytest.mark.rc4test
 @pytest.mark.graph
 @pytest.mark.kourier
 def test_ig_scenario2():
     """
-    Scenario: Sequence graph with 2 steps that rae both soft dependencies.
+    Scenario: Sequence graph with 2 steps that are both soft dependencies.
        error_isvc (soft) -> success_isvc(soft)
 
     Expectation: IG will return response of success_isvc and predict_ig will not raise any exception
@@ -264,7 +280,7 @@ def test_ig_scenario2():
     logging.info(f"error_isvc_name is {error_isvc_name}")
 
     # Create graph
-    graph_name = "sequence-graph"
+    graph_name = "-".join(["sequence-graph", suffix])
 
     nodes = {
         "root": V1alpha1InferenceRouter(
@@ -303,7 +319,7 @@ def test_ig_scenario2():
 
     response = predict_ig(
         graph_name,
-        os.path.join(INPUT_DATA_BASE_LOCATION, "iris_input.json"),
+        os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "custom_predictor_input.json"),
     )
 
     assert response == {"message": "SUCCESS"}
@@ -313,24 +329,6 @@ def test_ig_scenario2():
     kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
 
 
-def create_ig_using_custom_object_api(resource_body):
-    config.load_kube_config()
-    k8s_client_custom_object = client.CustomObjectsApi()
-    try:
-        resource = k8s_client_custom_object.create_namespaced_custom_object(
-            group="serving.kserve.io",
-            version="v1alpha1",
-            plural="inferencegraphs",
-            namespace="kserve-ci-e2e-test",
-            body=resource_body,
-        )
-    except Exception as e:
-        raise e
-
-    return resource
-
-
-# @pytest.mark.rc4test
 @pytest.mark.graph
 @pytest.mark.kourier
 def test_ig_scenario3():
@@ -355,7 +353,7 @@ def test_ig_scenario3():
     kserve_client.create(error_isvc)
 
     # Create graph
-    graph_name = "sequence-graph"
+    graph_name = "-".join(["sequence-graph", suffix])
 
     # Because we run from test/e2e location in run-e2e-tests.sh
     deployment_yaml_path = os.path.join(
@@ -367,6 +365,7 @@ def test_ig_scenario3():
         file_content = stream.read()
         resource_template = Template(file_content)
         substitutions = {
+            "graph_name": graph_name,
             "error_404_isvc_id": error_isvc_name,
             "success_200_isvc_id": success_isvc_name,
         }
@@ -381,7 +380,207 @@ def test_ig_scenario3():
 
     with pytest.raises(HTTPError) as exc_info:
         predict_ig(
-            graph_name, os.path.join(INPUT_DATA_BASE_LOCATION, "iris_input.json")
+            graph_name,
+            os.path.join(
+                IG_TEST_RESOURCES_BASE_LOCATION, "custom_predictor_input.json"
+            ),
+        )
+
+    assert exc_info.value.response.json() == {"detail": "Intentional 404 code"}
+    assert exc_info.value.response.status_code == 404
+
+    kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.graph
+@pytest.mark.kourier
+def test_ig_scenario4():
+    """
+    Scenario: Switch graph with 1 step as hard dependency and other one as soft dependency
+    Expectation: IG will return response of error_isvc when condition for that step matches
+    and will return response of success_isvc when condition for that step matches
+    """
+    logging.info("Starting test test_ig_scenario4")
+    suffix = str(uuid.uuid4())[1:6]
+    success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
+        suffix
+    )
+    logging.info(f"success_isvc_name is {success_isvc_name}")
+    logging.info(f"error_isvc_name is {error_isvc_name}")
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(success_isvc)
+    kserve_client.create(error_isvc)
+
+    # Create graph
+    graph_name = "-".join(["switch-graph", suffix])
+
+    # Because we run from test/e2e location in run-e2e-tests.sh
+    deployment_yaml_path = os.path.join(
+        IG_TEST_RESOURCES_BASE_LOCATION, "ig_test_switch_scenario_4.yaml"
+    )
+
+    # Read YAML file
+    with open(deployment_yaml_path, "r") as stream:
+        file_content = stream.read()
+        resource_template = Template(file_content)
+        substitutions = {
+            "graph_name": graph_name,
+            "error_404_isvc_id": error_isvc_name,
+            "success_200_isvc_id": success_isvc_name,
+        }
+        resource_body_after_rendering = yaml.safe_load(
+            resource_template.render(substitutions)
+        )
+        create_ig_using_custom_object_api(resource_body_after_rendering)
+
+    kserve_client.wait_isvc_ready(success_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(error_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    with pytest.raises(HTTPError) as exc_info:
+        predict_ig(
+            graph_name,
+            os.path.join(
+                IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_error_picker_input.json"
+            ),
+        )
+
+    assert exc_info.value.response.json() == {"detail": "Intentional 404 code"}
+    assert exc_info.value.response.status_code == 404
+
+    response = predict_ig(
+        graph_name,
+        os.path.join(
+            IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_success_picker_input.json"
+        ),
+    )
+    assert response == {"message": "SUCCESS"}
+
+    kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.graph
+@pytest.mark.kourier
+def test_ig_scenario5():
+    """
+    Scenario: Switch graph where a match would happen for error node and then error would return but IG will continue
+    execution and call the next step in the flow as error step will be a soft dependency.
+    Expectation: IG will return response of success_isvc.
+    """
+    logging.info("Starting test test_ig_scenario5")
+    suffix = str(uuid.uuid4())[1:6]
+    success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
+        suffix
+    )
+    logging.info(f"success_isvc_name is {success_isvc_name}")
+    logging.info(f"error_isvc_name is {error_isvc_name}")
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(success_isvc)
+    kserve_client.create(error_isvc)
+
+    # Create graph
+    graph_name = "-".join(["switch-graph", suffix])
+
+    # Because we run from test/e2e location in run-e2e-tests.sh
+    deployment_yaml_path = os.path.join(
+        IG_TEST_RESOURCES_BASE_LOCATION, "ig_test_switch_scenario_5.yaml"
+    )
+
+    # Read YAML file
+    with open(deployment_yaml_path, "r") as stream:
+        file_content = stream.read()
+        resource_template = Template(file_content)
+        substitutions = {
+            "graph_name": graph_name,
+            "error_404_isvc_id": error_isvc_name,
+            "success_200_isvc_id": success_isvc_name,
+        }
+        resource_body_after_rendering = yaml.safe_load(
+            resource_template.render(substitutions)
+        )
+        create_ig_using_custom_object_api(resource_body_after_rendering)
+
+    kserve_client.wait_isvc_ready(success_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(error_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    response = predict_ig(
+        graph_name,
+        os.path.join(
+            IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_error_picker_input.json"
+        ),
+    )
+    assert response == {"message": "SUCCESS"}
+
+    kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.graph
+@pytest.mark.kourier
+def test_ig_scenario6():
+    """
+    Scenario: Switch graph where a match would happen for error node and then error would return and IG will NOT
+    continue execution and call the next step in the flow as error step will be a HARD dependency.
+    Expectation: IG will return response of success_isvc.
+    """
+    logging.info("Starting test test_ig_scenario6")
+    suffix = str(uuid.uuid4())[1:6]
+    success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
+        suffix
+    )
+    logging.info(f"success_isvc_name is {success_isvc_name}")
+    logging.info(f"error_isvc_name is {error_isvc_name}")
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(success_isvc)
+    kserve_client.create(error_isvc)
+
+    # Create graph
+    graph_name = "-".join(["switch-graph", suffix])
+
+    # Because we run from test/e2e location in run-e2e-tests.sh
+    deployment_yaml_path = os.path.join(
+        IG_TEST_RESOURCES_BASE_LOCATION, "ig_test_switch_scenario_6.yaml"
+    )
+
+    # Read YAML file
+    with open(deployment_yaml_path, "r") as stream:
+        file_content = stream.read()
+        resource_template = Template(file_content)
+        substitutions = {
+            "graph_name": graph_name,
+            "error_404_isvc_id": error_isvc_name,
+            "success_200_isvc_id": success_isvc_name,
+        }
+        resource_body_after_rendering = yaml.safe_load(
+            resource_template.render(substitutions)
+        )
+        create_ig_using_custom_object_api(resource_body_after_rendering)
+
+    kserve_client.wait_isvc_ready(success_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(error_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    with pytest.raises(HTTPError) as exc_info:
+        predict_ig(
+            graph_name,
+            os.path.join(
+                IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_error_picker_input.json"
+            ),
         )
 
     assert exc_info.value.response.json() == {"detail": "Intentional 404 code"}

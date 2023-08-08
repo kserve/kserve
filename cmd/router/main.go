@@ -136,7 +136,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			return nil, 500, err
 		}
 
-		if route.Dependency == v1alpha1.Hard && route.ServiceURL != "" {
+		if route.Dependency == v1alpha1.Hard {
 			if !isSuccessFul(statusCode) {
 				log.Info("This step is a hard dependency and it is unsuccessful", "stepName", route.StepName, "statusCode", statusCode)
 				// Stop the execution right away if step is hard dep and is unsuccessful
@@ -230,7 +230,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				Only if a step is a hard dependency, we will check for its success. Also, we only need to check for dependency type if step is of type serviceUrl as node's dep type will be decided by steps' dependency.
 				For example, if node is of type sequence and one of the steps in that seq is hard dependency , then node itself becomes hard dependency.
 			*/
-			if step.Dependency == v1alpha1.Hard && step.ServiceURL != "" {
+			if step.Dependency == v1alpha1.Hard { // && step.ServiceURL != ""
 				if !isSuccessFul(statusCode) {
 					log.Info("This step is a hard dependency and it is unsuccessful", "stepName", step.StepName, "statusCode", statusCode)
 					// Stop the execution right away if step is hard dep and is unsuccessful
