@@ -1,0 +1,17 @@
+# Since both the steps are sift deps, so output will be combined output of both steps
+apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceGraph
+metadata:
+  name: {{ graph_name }}
+spec:
+  nodes:
+    root:
+      routerType: Ensemble
+      steps:
+      - name: "rootStep1"
+        serviceName: {{ error_404_isvc_id }}
+        dependency: Hard
+      - name: "rootStep2"
+        serviceName: {{ success_200_isvc_id }}
+      - name: "rootStep3"
+        serviceName: {{ success_200_isvc_id }}
