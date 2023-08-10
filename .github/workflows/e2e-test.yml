@@ -646,11 +646,7 @@ jobs:
           docker image ls
           kubectl get pods -n kserve
           kubectl get pods -n kserve-ci-e2e-test
-          kubectl get pods -A
-          
-          kubectl logs deployment/knative-operator -n knative-operator
-          kubectl logs deployment/operator-webhook -n knative-operator
-          kubectl get events -A
+          kubectl get pods -A --field-selector=metadata.namespace!=kserve,metadata.namespace!=kserve-ci-e2e-test
           
           kubectl describe pods -n kserve-ci-e2e-test
           kubectl get events -n kserve-ci-e2e-test

@@ -24,10 +24,7 @@ set -o pipefail
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
 ISTIO_VERSION="1.17.2"
-KNATIVE_VERSION="1.9.3"
-KNATIVE_OPERATOR_PLUGIN_VERSION="knative-v1.10.0"
-KNATIVE_OPERATOR_VERSION="1.10.2"
-KNATIVE_CLI_VERSION="knative-v1.10.0"
+KNATIVE_VERSION="1.10.2"
 CERT_MANAGER_VERSION="v1.5.0"
 YQ_VERSION="v4.28.1"
 
@@ -60,18 +57,13 @@ spec:
   controller: istio.io/ingress-controller
 EOF
 
-echo "Installing Knative cli ..."
-wget https://github.com/knative/client/releases/download/"${KNATIVE_CLI_VERSION}"/kn-linux-amd64 -O /usr/local/bin/kn && chmod +x /usr/local/bin/kn
-
-echo "Installing Knative Operator ..."
-wget https://github.com/knative-sandbox/kn-plugin-operator/releases/download/"${KNATIVE_OPERATOR_PLUGIN_VERSION}"/kn-operator-linux-amd64 -O kn-operator && chmod +x kn-operator
-mkdir -p ~/.config/kn/plugins
-mv kn-operator ~/.config/kn/plugins
-kn operator install -n knative-operator -v "${KNATIVE_OPERATOR_VERSION}"
-kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-operator
+source  ./test/scripts/gh-actions/install-knative-operator.sh
 
 echo "Installing Knative serving ..."
-kn operator install --component serving -n knative-serving --istio -v "${KNATIVE_VERSION}"
+for i in 1 2 3; do
+  kn operator install --component serving -n knative-serving --istio -v "${KNATIVE_VERSION}" && break || sleep 15
+done
+
 # configure resources
 kn operator configure resources --component serving --deployName controller --container controller --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
 kn operator configure resources --component serving --deployName activator --container activator --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
