@@ -22,8 +22,6 @@ runs:
         elif [[ "${{ inputs.network-layer }}" == "kourier" ]]; then
             echo "Selected network layer ${{ inputs.network-layer }}"
             ./test/scripts/gh-actions/setup-kourier.sh
-             
-             kubectl describe pods -n kourier-system
         else
           echo "Unsupported network layer"
         fi

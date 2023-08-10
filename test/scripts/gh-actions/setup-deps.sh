@@ -75,7 +75,7 @@ kn operator configure resources --component serving --deployName net-istio-contr
 kn operator configure resources --component serving --deployName net-istio-webhook --container webhook --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
 
 echo "Waiting for Knative to be ready ..."
-kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
+kubectl wait --for=condition=Ready pods --all --timeout=400s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
 
 # echo "Add knative hpa..."
 # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml

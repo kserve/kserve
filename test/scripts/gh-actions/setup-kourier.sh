@@ -45,8 +45,8 @@ kn operator configure resources --component serving --deployName domainmapping-w
 kn operator configure resources --component serving --deployName net-kourier-controller --container controller --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
 kn operator configure resources --component serving --deployName 3scale-kourier-gateway --container kourier-gateway --requestCPU 5m --requestMemory 32Mi --limitCPU 100m --limitMemory 128Mi -n knative-serving
 
-echo "Waiting for Knative to be ready ..."
-kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
+echo "Waiting for Knative and Kourier to be ready ..."
+kubectl wait --for=condition=Ready pods --all --timeout=400s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-kourier-controller,3scale-kourier-gateway)'
 
 # sleep to avoid knative webhook timeout error
 sleep 5
