@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -24,12 +25,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
-
 	v1 "k8s.io/api/core/v1"
-
 	"knative.dev/pkg/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -55,6 +56,7 @@ type StorageInitializerConfig struct {
 type StorageInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
 	config            *StorageInitializerConfig
+	client            client.Client
 }
 
 func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerConfig, error) {
@@ -78,6 +80,24 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 	}
 
 	return storageInitializerConfig, nil
+}
+
+func getStorageContainerConfigForUri(storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+	storageContainers := &v1alpha1.ClusterStorageContainerList{}
+	if err := client.List(context.TODO(), storageContainers); err != nil {
+		return nil, err
+	}
+
+	for _, sc := range storageContainers.Items {
+		if sc.Spec.IsDisabled() {
+			continue
+		}
+		if sc.Spec.IsStorageUriSupported(storageUri) {
+			return &sc.Spec, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // InjectStorageInitializer injects an init container to provision model data
@@ -313,6 +333,8 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		); err != nil {
 			return err
 		}
+		// initContainer.Args[0] is set up in CreateStorageSpecSecretEnvs
+		srcURI = initContainer.Args[0]
 	} else {
 		// Inject service account credentials if storage spec doesn't exist
 		if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
@@ -322,6 +344,17 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			initContainer,
 			&pod.Spec.Volumes,
 		); err != nil {
+			return err
+		}
+	}
+
+	storageContainerSpec, err := getStorageContainerConfigForUri(srcURI, mi.client)
+	if err != nil {
+		return err
+	}
+	if storageContainerSpec != nil {
+		initContainer, err = mergeContainerSpecs(initContainer, &storageContainerSpec.StorageContainer)
+		if err != nil {
 			return err
 		}
 	}
@@ -338,6 +371,36 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, *initContainer)
 
 	return nil
+}
+
+// Use values from crd container spec from most fields. Use default values from initContainer for some fields.
+func mergeContainerSpecs(initContainer *v1.Container, crdSpec *v1.Container) (*v1.Container, error) {
+	newSpec := crdSpec
+	newSpec.Name = initContainer.Name
+	if newSpec.Resources.Requests == nil {
+		newSpec.Resources.Requests = make(v1.ResourceList)
+	}
+	if newSpec.Resources.Requests.Cpu().IsZero() {
+		newSpec.Resources.Requests[v1.ResourceCPU] = *initContainer.Resources.Requests.Cpu()
+	}
+	if newSpec.Resources.Requests.Memory().IsZero() {
+		newSpec.Resources.Requests[v1.ResourceMemory] = *initContainer.Resources.Requests.Memory()
+	}
+	if newSpec.Resources.Limits == nil {
+		newSpec.Resources.Limits = make(v1.ResourceList)
+	}
+	if newSpec.Resources.Limits.Cpu().IsZero() {
+		newSpec.Resources.Limits[v1.ResourceCPU] = *initContainer.Resources.Limits.Cpu()
+	}
+	if newSpec.Resources.Limits.Memory().IsZero() {
+		newSpec.Resources.Limits[v1.ResourceMemory] = *initContainer.Resources.Limits.Memory()
+	}
+	newSpec.Args = initContainer.Args
+	newSpec.VolumeMounts = initContainer.VolumeMounts
+	if newSpec.TerminationMessagePolicy == "" {
+		newSpec.TerminationMessagePolicy = initContainer.TerminationMessagePolicy
+	}
+	return newSpec, nil
 }
 
 func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
