@@ -152,6 +152,7 @@ def test_torchserve_v2_kserve():
         ),
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
+            image="sivanantha/torchserve-kfs:latest",
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v2",
             protocol_version="v2",
             resources=V1ResourceRequirements(

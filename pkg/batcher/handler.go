@@ -73,7 +73,7 @@ type ResponseError struct {
 }
 
 type PredictionResponse struct {
-	Predictions [][]interface{} `json:"predictions"`
+	Predictions []interface{} `json:"predictions"`
 }
 
 type BatcherInfo struct {
@@ -188,7 +188,7 @@ func (handler *BatchHandler) batchPredict() {
 			}
 		} else {
 			// As of now we are providing prediction inside list for make generic code(both v1, v2) in model prediction(predict api side)
-			if len(handler.batcherInfo.PredictionResponse.Predictions[0]) != len(handler.batcherInfo.Instances) {
+			if len(handler.batcherInfo.PredictionResponse.Predictions) != len(handler.batcherInfo.Instances) {
 				for _, v := range handler.batcherInfo.ContextMap {
 					res := Response{
 						Message: "size of prediction is not equal to the size of instances",
@@ -200,7 +200,7 @@ func (handler *BatchHandler) batchPredict() {
 				for _, v := range handler.batcherInfo.ContextMap {
 					predictions := make([]interface{}, 0)
 					for _, i := range v.Index {
-						predictions = append(predictions, handler.batcherInfo.PredictionResponse.Predictions[0][i])
+						predictions = append(predictions, handler.batcherInfo.PredictionResponse.Predictions[i])
 					}
 					res := Response{
 						Message:     "",
