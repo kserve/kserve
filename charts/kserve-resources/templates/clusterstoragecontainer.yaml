@@ -3,7 +3,7 @@ kind: ClusterStorageContainer
 metadata:
   name: default
 spec:
-  container:
+  storageContainer:
     name: storage-initializer
     image: kserve/storage-initializer:latest
     resources:
