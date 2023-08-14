@@ -246,7 +246,7 @@ jobs:
       - name: Run E2E tests for graph
         timeout-minutes: 60
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "5"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "3"
 
           kubectl get pods -n kserve
 
@@ -692,7 +692,7 @@ jobs:
           --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" \
           --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
           
-          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "5"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "3"
 
           kubectl get pods -n kserve
 
