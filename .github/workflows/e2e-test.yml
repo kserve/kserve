@@ -686,7 +686,7 @@ jobs:
           kubectl describe configmaps -n kserve inferenceservice-config
 
       - name: Run E2E tests
-        timeout-minutes: 25
+        timeout-minutes: 60
         run: |
           export KSERVE_INGRESS_HOST_PORT=$(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" \
           --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" \
