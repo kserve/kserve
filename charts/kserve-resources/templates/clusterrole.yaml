@@ -226,6 +226,27 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterstoragecontainers
+  - clusterstoragecontainers/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - clusterstoragecontainers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - inferencegraphs
   - inferencegraphs/finalizers
   verbs:
