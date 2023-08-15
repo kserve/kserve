@@ -34,7 +34,8 @@ type InferenceServiceStatus struct {
 	// - PredictorReady: predictor readiness condition; <br/>
 	// - TransformerReady: transformer readiness condition; <br/>
 	// - ExplainerReady: explainer readiness condition; <br/>
-	// - RoutesReady: aggregated routing condition; <br/>
+	// - RoutesReady (serverless mode only): aggregated routing condition, i.e. endpoint readiness condition; <br/>
+	// - LatestDeploymentReady (serverless mode only): aggregated configuration condition, i.e. latest deployment readiness condition; <br/>
 	// - Ready: aggregated condition; <br/>
 	duckv1.Status `json:",inline"`
 	// Addressable endpoint for the InferenceService
