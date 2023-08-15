@@ -250,18 +250,6 @@ jobs:
 
           kubectl get pods -n kserve
 
-#      - name: Patch inferenceservice config
-#        run : |
-#          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress.yaml
-#          kubectl describe configmaps -n kserve inferenceservice-config
-#
-#      - name: Run E2E tests with path-based routing
-#        timeout-minutes: 50
-#        run: |
-#          ./test/scripts/gh-actions/run-e2e-tests.sh fast
-#
-#          kubectl get pods -n kserve
-
       - name: Check system status
         if: always()
         run: |
