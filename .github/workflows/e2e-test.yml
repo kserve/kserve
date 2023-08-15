@@ -267,7 +267,8 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
-  test-path-based routing:
+
+  test-path-based-routing:
     runs-on: ubuntu-latest
     needs: [ kserve-image-build, predictor-runtime-build, explainer-runtime-build, graph-tests-images-build ]
     steps:
