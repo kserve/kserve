@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 
@@ -122,7 +123,7 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 		for _, existingModelFormat := range existingSpec.SupportedModelFormats {
 			for _, newModelFormat := range newSpec.SupportedModelFormats {
 				// Only validate priority if autoselect is ture
-				if (existingModelFormat.Name == newModelFormat.Name && existingModelFormat.IsAutoSelectEnabled() && newModelFormat.IsAutoSelectEnabled()) &&
+				if (strings.EqualFold(existingModelFormat.Name, newModelFormat.Name) && existingModelFormat.IsAutoSelectEnabled() && newModelFormat.IsAutoSelectEnabled()) &&
 					((existingModelFormat.Version == nil && newModelFormat.Version == nil) ||
 						(existingModelFormat.Version != nil && newModelFormat.Version != nil && *existingModelFormat.Version == *newModelFormat.Version)) {
 					if existingModelFormat.Priority != nil && newModelFormat.Priority != nil && *existingModelFormat.Priority == *newModelFormat.Priority {
