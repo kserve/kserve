@@ -24,16 +24,30 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// StorageContainerSpec defines the container spec for the stoarge initializer init container, and the protocols it supports.
+// // StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
+// // +k8s:openapi-gen=true
+// type StorageContainerSpec struct {
+// 	StorageContainer corev1.Container `json:"storageContainer" validate:"required"`
+
+// 	SupportedPrefixes []string `json:"supportedPrefixes,omitempty"`
+// 	SupportedRegexes  []string `json:"supportedRegexes,omitempty"`
+// }
+
+type StorageUriFormatType string
+
+const (
+	Prefix StorageUriFormatType = "Prefix"
+	Regex  StorageUriFormatType = "Regex"
+)
+
 // +k8s:openapi-gen=true
-type StorageContainerSpec struct {
-	// +optional
-	Disabled *bool `json:"disabled,omitempty"`
-
-	StorageContainer corev1.Container `json:"storageContainer" validate:"required"`
-
-	SupportedPrefixes []string `json:"supportedPrefixes,omitempty"`
-	SupportedRegexes  []string `json:"supportedRegexes,omitempty"`
+type SupportedUriFormat struct {
+	// +required
+	Name string `json:"name" validate:"required"`
+	// +required
+	Type StorageUriFormatType `json:"version,omitempty" validate:"required"`
+	// +required
+	Str string `json:"str,omitempty" validate:"required"`
 }
 
 // +k8s:openapi-gen=true
@@ -45,7 +59,11 @@ type ClusterStorageContainer struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec StorageContainerSpec `json:"spec,omitempty"`
+	Container           corev1.Container     `json:"container" validate:"required"`
+	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
+
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -53,27 +71,30 @@ type ClusterStorageContainer struct {
 type ClusterStorageContainerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterStorageContainer `json:"items"`
+	Items           []ClusterStorageContainer `json:"items" validate:"required"`
 }
 
 func init() {
 	SchemeBuilder.Register(&ClusterStorageContainer{}, &ClusterStorageContainerList{})
 }
 
-func (scSpec *StorageContainerSpec) IsDisabled() bool {
-	return scSpec.Disabled != nil && *scSpec.Disabled
+func (sc *ClusterStorageContainer) IsDisabled() bool {
+	return sc.Disabled != nil && *sc.Disabled
 }
 
-func (scSpec *StorageContainerSpec) IsStorageUriSupported(storageUri string) bool {
-	for _, prefix := range scSpec.SupportedPrefixes {
-		if strings.HasPrefix(storageUri, prefix) {
-			return true
-		}
-	}
-	for _, pattern := range scSpec.SupportedRegexes {
-		match, _ := regexp.MatchString(pattern, storageUri)
-		if match {
-			return true
+func (sc *ClusterStorageContainer) IsStorageUriSupported(storageUri string) bool {
+	for _, supportedUriFormat := range sc.SupportedUriFormats {
+		switch supportedUriFormat.Type {
+		case Prefix:
+			if strings.HasPrefix(storageUri, supportedUriFormat.Str) {
+				return true
+			}
+		case Regex:
+			// Todo: handle error
+			match, _ := regexp.MatchString(supportedUriFormat.Str, storageUri)
+			if match {
+				return true
+			}
 		}
 	}
 	return false

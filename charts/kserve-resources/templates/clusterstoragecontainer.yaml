@@ -19,7 +19,6 @@ spec:
     - 'hdfs://'
     - 'webhdfs://'
     - 'pvc://'
-    - 'file://'
   supportedRegexes:
     - 'https://(.+?).blob.core.windows.net/(.+)'
     - 'https://(.+?).file.core.windows.net/(.+)'

@@ -1608,8 +1608,11 @@ func TestTransformerCollocation(t *testing.T) {
 
 func TestGetStorageContainerSpec(t *testing.T) {
 	g := gomega.NewWithT(t)
-	customSpec := v1alpha1.StorageContainerSpec{
-		StorageContainer: v1.Container{
+	customSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom",
+		},
+		Container: v1.Container{
 			Image: "kserve/custom:latest",
 			Resources: v1.ResourceRequirements{
 				Limits: v1.ResourceList{
@@ -1617,10 +1620,13 @@ func TestGetStorageContainerSpec(t *testing.T) {
 				},
 			},
 		},
-		SupportedPrefixes: []string{"custom://"},
+		SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Name: "custom", Type: v1alpha1.Prefix, Str: "custom://"}},
 	}
-	s3AzureSpec := v1alpha1.StorageContainerSpec{
-		StorageContainer: v1.Container{
+	s3AzureSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "s3Azure",
+		},
+		Container: v1.Container{
 			Image: "kserve/storage-initializer:latest",
 			Resources: v1.ResourceRequirements{
 				Limits: v1.ResourceList{
@@ -1628,15 +1634,11 @@ func TestGetStorageContainerSpec(t *testing.T) {
 				},
 			},
 		},
-		SupportedPrefixes: []string{"s3://"},
-		SupportedRegexes:  []string{"https://(.+?).blob.core.windows.net/(.+)"},
+		SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Name: "s3", Type: v1alpha1.Prefix, Str: "s3://"},
+			{Name: "azure blob", Type: v1alpha1.Regex, Str: "https://(.+?).blob.core.windows.net/(.+)"}},
 	}
 	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
-		Items: []v1alpha1.ClusterStorageContainer{{ObjectMeta: metav1.ObjectMeta{
-			Name: "custom",
-		}, Spec: customSpec}, {ObjectMeta: metav1.ObjectMeta{
-			Name: "s3",
-		}, Spec: s3AzureSpec}},
+		Items: []v1alpha1.ClusterStorageContainer{customSpec, s3AzureSpec},
 	}
 
 	s := runtime.NewScheme()
@@ -1647,15 +1649,15 @@ func TestGetStorageContainerSpec(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
 	scenarios := map[string]struct {
 		storageUri   string
-		expectedSpec *v1alpha1.StorageContainerSpec
+		expectedSpec *v1.Container
 	}{
 		"s3": {
 			storageUri:   "s3://foo",
-			expectedSpec: &s3AzureSpec,
+			expectedSpec: &s3AzureSpec.Container,
 		},
 		"custom": {
 			storageUri:   "custom://foo",
-			expectedSpec: &customSpec,
+			expectedSpec: &customSpec.Container,
 		},
 		"nonExistent": {
 			storageUri:   "abc://",
@@ -1663,29 +1665,35 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		},
 	}
 	for name, scenario := range scenarios {
-		var config *v1alpha1.StorageContainerSpec
+		var container *v1.Container
 
-		if config, err = getStorageContainerConfigForUri(scenario.storageUri, mockClient); err != nil {
+		if container, err = getContainerSpecForStorageUri(scenario.storageUri, mockClient); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
-		g.Expect(config).To(gomega.Equal(scenario.expectedSpec))
+		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
 	}
 }
 
-func TestStorageContainerCRDInjecrtion(t *testing.T) {
-	customSpec := v1alpha1.StorageContainerSpec{
-		StorageContainer: v1.Container{
-			Image: "kserve/custom-storage-initializer:latest",
+func TestStorageContainerCRDInjection(t *testing.T) {
+	customSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom",
+		},
+		Container: v1.Container{
+			Image: "kserve/custom:latest",
 			Resources: v1.ResourceRequirements{
 				Limits: v1.ResourceList{
 					v1.ResourceMemory: resource.MustParse("200Mi"),
 				},
 			},
 		},
-		SupportedPrefixes: []string{"custom://"},
+		SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Name: "custom", Type: v1alpha1.Prefix, Str: "custom://"}},
 	}
-	s3AzureSpec := v1alpha1.StorageContainerSpec{
-		StorageContainer: v1.Container{
+	s3AzureSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "s3Azure",
+		},
+		Container: v1.Container{
 			Image: "kserve/storage-initializer:latest",
 			Resources: v1.ResourceRequirements{
 				Limits: v1.ResourceList{
@@ -1696,15 +1704,11 @@ func TestStorageContainerCRDInjecrtion(t *testing.T) {
 				{Name: "name", Value: "value"},
 			},
 		},
-		SupportedPrefixes: []string{"s3://"},
-		SupportedRegexes:  []string{"https://(.+?).blob.core.windows.net/(.+)"},
+		SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Name: "s3", Type: v1alpha1.Prefix, Str: "s3://"},
+			{Name: "azure blob", Type: v1alpha1.Regex, Str: "https://(.+?).blob.core.windows.net/(.+)"}},
 	}
 	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
-		Items: []v1alpha1.ClusterStorageContainer{{ObjectMeta: metav1.ObjectMeta{
-			Name: "custom",
-		}, Spec: customSpec}, {ObjectMeta: metav1.ObjectMeta{
-			Name: "s3",
-		}, Spec: s3AzureSpec}},
+		Items: []v1alpha1.ClusterStorageContainer{customSpec, s3AzureSpec},
 	}
 
 	s := runtime.NewScheme()
@@ -1789,7 +1793,7 @@ func TestStorageContainerCRDInjecrtion(t *testing.T) {
 				},
 			},
 		},
-		"configMap": {
+		"Default config if storage uri not matched in CRs": {
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{

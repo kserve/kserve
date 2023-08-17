@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -82,18 +83,18 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 	return storageInitializerConfig, nil
 }
 
-func getStorageContainerConfigForUri(storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1.Container, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := client.List(context.TODO(), storageContainers); err != nil {
 		return nil, err
 	}
 
 	for _, sc := range storageContainers.Items {
-		if sc.Spec.IsDisabled() {
+		if sc.IsDisabled() {
 			continue
 		}
-		if sc.Spec.IsStorageUriSupported(storageUri) {
-			return &sc.Spec, nil
+		if sc.IsStorageUriSupported(storageUri) {
+			return &sc.Container, nil
 		}
 	}
 
@@ -348,12 +349,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	storageContainerSpec, err := getStorageContainerConfigForUri(srcURI, mi.client)
+	storageContainerSpec, err := getContainerSpecForStorageUri(srcURI, mi.client)
 	if err != nil {
 		return err
 	}
 	if storageContainerSpec != nil {
-		initContainer, err = mergeContainerSpecs(initContainer, &storageContainerSpec.StorageContainer)
+		initContainer, err = mergeContainerSpecs(initContainer, storageContainerSpec)
 		if err != nil {
 			return err
 		}
@@ -374,33 +375,35 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 }
 
 // Use values from crd container spec from most fields. Use default values from initContainer for some fields.
-func mergeContainerSpecs(initContainer *v1.Container, crdSpec *v1.Container) (*v1.Container, error) {
-	newSpec := crdSpec
-	newSpec.Name = initContainer.Name
-	if newSpec.Resources.Requests == nil {
-		newSpec.Resources.Requests = make(v1.ResourceList)
+func mergeContainerSpecs(defaultContainer *v1.Container, crdContainer *v1.Container) (*v1.Container, error) {
+	containerName := defaultContainer.Name
+	// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch
+
+	// Todo: check for nil pointer
+	defaultContainerJson, err := json.Marshal(*defaultContainer)
+	if err != nil {
+		return nil, err
 	}
-	if newSpec.Resources.Requests.Cpu().IsZero() {
-		newSpec.Resources.Requests[v1.ResourceCPU] = *initContainer.Resources.Requests.Cpu()
+
+	overrides, err := json.Marshal(*crdContainer)
+	if err != nil {
+		return nil, err
 	}
-	if newSpec.Resources.Requests.Memory().IsZero() {
-		newSpec.Resources.Requests[v1.ResourceMemory] = *initContainer.Resources.Requests.Memory()
+
+	mergedContainer := v1.Container{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, mergedContainer)
+	if err != nil {
+		return nil, err
 	}
-	if newSpec.Resources.Limits == nil {
-		newSpec.Resources.Limits = make(v1.ResourceList)
+
+	if err := json.Unmarshal(jsonResult, &mergedContainer); err != nil {
+		return nil, err
 	}
-	if newSpec.Resources.Limits.Cpu().IsZero() {
-		newSpec.Resources.Limits[v1.ResourceCPU] = *initContainer.Resources.Limits.Cpu()
+
+	if mergedContainer.Name == "" {
+		mergedContainer.Name = containerName
 	}
-	if newSpec.Resources.Limits.Memory().IsZero() {
-		newSpec.Resources.Limits[v1.ResourceMemory] = *initContainer.Resources.Limits.Memory()
-	}
-	newSpec.Args = initContainer.Args
-	newSpec.VolumeMounts = initContainer.VolumeMounts
-	if newSpec.TerminationMessagePolicy == "" {
-		newSpec.TerminationMessagePolicy = initContainer.TerminationMessagePolicy
-	}
-	return newSpec, nil
+	return &mergedContainer, nil
 }
 
 func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
