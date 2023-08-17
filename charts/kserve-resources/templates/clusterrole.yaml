@@ -230,7 +230,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterstoragecontainers/status
+  - clusterservingruntimes/status
   verbs:
   - get
   - patch
