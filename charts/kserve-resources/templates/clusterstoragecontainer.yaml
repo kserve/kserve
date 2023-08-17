@@ -14,24 +14,10 @@ spec:
         memory: 1Gi
         cpu: "1"
   supportedUriFormats:
-    - name: gcs
-      type: prefix
-      str: gs://
-    - name: s3
-      type: prefix
-      str: s3://
-    - name: hdfs
-      type: prefix
-      str: hdfs://
-    - name: webhdfs
-      type: prefix
-      str: webhdfs://
-    - name: azure_blob
-      type: regex 
-      str: "https://(.+?).blob.core.windows.net/(.+)"
-    - name: azure_file
-      type: regex 
-      str: "https://(.+?).file.core.windows.net/(.+)"
-    - name: url_generic
-      type: regex 
-      str: "https?://(.+)/(.+)"
+    - prefix: gs://
+    - prefix: s3://
+    - prefix: hdfs://
+    - prefix: webhdfs://
+    - regex: "https://(.+?).blob.core.windows.net/(.+)"
+    - regex: "https://(.+?).file.core.windows.net/(.+)"
+    - regex: "https?://(.+)/(.+)"

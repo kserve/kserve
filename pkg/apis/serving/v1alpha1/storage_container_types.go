@@ -24,30 +24,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// // StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
-// // +k8s:openapi-gen=true
-// type StorageContainerSpec struct {
-// 	StorageContainer corev1.Container `json:"storageContainer" validate:"required"`
+// StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
+// +k8s:openapi-gen=true
+type StorageContainerSpec struct {
+	Container corev1.Container `json:"container" validate:"required"`
 
-// 	SupportedPrefixes []string `json:"supportedPrefixes,omitempty"`
-// 	SupportedRegexes  []string `json:"supportedRegexes,omitempty"`
-// }
+	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
+}
 
 type StorageUriFormatType string
 
-const (
-	Prefix StorageUriFormatType = "Prefix"
-	Regex  StorageUriFormatType = "Regex"
-)
+// const (
+// 	Prefix StorageUriFormatType = "Prefix"
+// 	Regex  StorageUriFormatType = "Regex"
+// )
 
 // +k8s:openapi-gen=true
 type SupportedUriFormat struct {
-	// +required
-	Name string `json:"name" validate:"required"`
-	// +required
-	Type StorageUriFormatType `json:"version,omitempty" validate:"required"`
-	// +required
-	Str string `json:"str,omitempty" validate:"required"`
+	Prefix string `json:"prefix,omitempty"`
+	Regex  string `json:"regex,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -59,8 +54,7 @@ type ClusterStorageContainer struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Container           corev1.Container     `json:"container" validate:"required"`
-	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
+	Spec StorageContainerSpec `json:"spec,omitempty"`
 
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
@@ -82,16 +76,15 @@ func (sc *ClusterStorageContainer) IsDisabled() bool {
 	return sc.Disabled != nil && *sc.Disabled
 }
 
-func (sc *ClusterStorageContainer) IsStorageUriSupported(storageUri string) bool {
-	for _, supportedUriFormat := range sc.SupportedUriFormats {
-		switch supportedUriFormat.Type {
-		case Prefix:
-			if strings.HasPrefix(storageUri, supportedUriFormat.Str) {
+func (spec *StorageContainerSpec) IsStorageUriSupported(storageUri string) bool {
+	for _, supportedUriFormat := range spec.SupportedUriFormats {
+		if supportedUriFormat.Prefix != "" {
+			if strings.HasPrefix(storageUri, supportedUriFormat.Prefix) {
 				return true
 			}
-		case Regex:
+		} else if supportedUriFormat.Regex != "" {
 			// Todo: handle error
-			match, _ := regexp.MatchString(supportedUriFormat.Str, storageUri)
+			match, _ := regexp.MatchString(supportedUriFormat.Regex, storageUri)
 			if match {
 				return true
 			}

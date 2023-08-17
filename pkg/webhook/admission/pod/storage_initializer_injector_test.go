@@ -1612,30 +1612,33 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "custom",
 		},
-		Container: v1.Container{
-			Image: "kserve/custom:latest",
-			Resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("200Mi"),
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/custom:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("200Mi"),
+					},
 				},
 			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
 		},
-		SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Name: "custom", Type: v1alpha1.Prefix, Str: "custom://"}},
 	}
 	s3AzureSpec := v1alpha1.ClusterStorageContainer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "s3Azure",
 		},
-		Container: v1.Container{
-			Image: "kserve/storage-initializer:latest",
-			Resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("200Mi"),
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/storage-initializer:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("200Mi"),
+					},
 				},
 			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
 		},
-		SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Name: "s3", Type: v1alpha1.Prefix, Str: "s3://"},
-			{Name: "azure blob", Type: v1alpha1.Regex, Str: "https://(.+?).blob.core.windows.net/(.+)"}},
 	}
 	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
 		Items: []v1alpha1.ClusterStorageContainer{customSpec, s3AzureSpec},
@@ -1653,11 +1656,11 @@ func TestGetStorageContainerSpec(t *testing.T) {
 	}{
 		"s3": {
 			storageUri:   "s3://foo",
-			expectedSpec: &s3AzureSpec.Container,
+			expectedSpec: &s3AzureSpec.Spec.Container,
 		},
 		"custom": {
 			storageUri:   "custom://foo",
-			expectedSpec: &customSpec.Container,
+			expectedSpec: &customSpec.Spec.Container,
 		},
 		"nonExistent": {
 			storageUri:   "abc://",
@@ -1679,33 +1682,36 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "custom",
 		},
-		Container: v1.Container{
-			Image: "kserve/custom:latest",
-			Resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("200Mi"),
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/storage-initializer:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("200Mi"),
+					},
 				},
 			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
 		},
-		SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Name: "custom", Type: v1alpha1.Prefix, Str: "custom://"}},
 	}
 	s3AzureSpec := v1alpha1.ClusterStorageContainer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "s3Azure",
 		},
-		Container: v1.Container{
-			Image: "kserve/storage-initializer:latest",
-			Resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("500Mi"),
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/storage-initializer:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("500Mi"),
+					},
+				},
+				Env: []v1.EnvVar{
+					{Name: "name", Value: "value"},
 				},
 			},
-			Env: []v1.EnvVar{
-				{Name: "name", Value: "value"},
-			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
 		},
-		SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Name: "s3", Type: v1alpha1.Prefix, Str: "s3://"},
-			{Name: "azure blob", Type: v1alpha1.Regex, Str: "https://(.+?).blob.core.windows.net/(.+)"}},
 	}
 	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
 		Items: []v1alpha1.ClusterStorageContainer{customSpec, s3AzureSpec},

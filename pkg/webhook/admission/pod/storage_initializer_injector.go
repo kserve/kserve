@@ -93,8 +93,8 @@ func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 		if sc.IsDisabled() {
 			continue
 		}
-		if sc.IsStorageUriSupported(storageUri) {
-			return &sc.Container, nil
+		if sc.Spec.IsStorageUriSupported(storageUri) {
+			return &sc.Spec.Container, nil
 		}
 	}
 

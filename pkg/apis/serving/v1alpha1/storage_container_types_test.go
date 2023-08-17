@@ -26,7 +26,7 @@ import (
 
 func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	customSpec := ClusterStorageContainer{
+	customSpec := StorageContainerSpec{
 		Container: v1.Container{
 			Image: "kserve/custom:latest",
 			Resources: v1.ResourceRequirements{
@@ -35,9 +35,9 @@ func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 				},
 			},
 		},
-		SupportedUriFormats: []SupportedUriFormat{{Name: "custom", Type: Prefix, Str: "custom://"}},
+		SupportedUriFormats: []SupportedUriFormat{{Prefix: "custom://"}},
 	}
-	s3AzureSpec := ClusterStorageContainer{
+	s3AzureSpec := StorageContainerSpec{
 		Container: v1.Container{
 			Image: "kserve/storage-initializer:latest",
 			Resources: v1.ResourceRequirements{
@@ -46,11 +46,11 @@ func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 				},
 			},
 		},
-		SupportedUriFormats: []SupportedUriFormat{{Name: "s3", Type: Prefix, Str: "s3://"}, {Name: "azure blob", Type: Regex, Str: "https://(.+?).blob.core.windows.net/(.+)"}},
+		SupportedUriFormats: []SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
 	}
 	cases := []struct {
 		name       string
-		spec       ClusterStorageContainer
+		spec       StorageContainerSpec
 		storageUri string
 		supported  bool
 	}{
