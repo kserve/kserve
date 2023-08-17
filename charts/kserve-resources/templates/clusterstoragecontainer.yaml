@@ -3,7 +3,7 @@ kind: ClusterStorageContainer
 metadata:
   name: default
 spec:
-  storageContainer:
+  container:
     name: storage-initializer
     image: kserve/storage-initializer:latest
     resources:
@@ -13,13 +13,25 @@ spec:
       limits:
         memory: 1Gi
         cpu: "1"
-  supportedPrefixes:
-    - 'gs://'
-    - 's3://'
-    - 'hdfs://'
-    - 'webhdfs://'
-    - 'pvc://'
-  supportedRegexes:
-    - 'https://(.+?).blob.core.windows.net/(.+)'
-    - 'https://(.+?).file.core.windows.net/(.+)'
-    - 'https?://(.+)/(.+)'
+  supportedUriFormats:
+    - name: gcs
+      type: prefix
+      str: gs://
+    - name: s3
+      type: prefix
+      str: s3://
+    - name: hdfs
+      type: prefix
+      str: hdfs://
+    - name: webhdfs
+      type: prefix
+      str: webhdfs://
+    - name: azure_blob
+      type: regex 
+      str: "https://(.+?).blob.core.windows.net/(.+)"
+    - name: azure_file
+      type: regex 
+      str: "https://(.+?).file.core.windows.net/(.+)"
+    - name: url_generic
+      type: regex 
+      str: "https?://(.+)/(.+)"

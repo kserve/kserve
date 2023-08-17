@@ -218,16 +218,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterservingruntimes/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - clusterstoragecontainers
-  - clusterstoragecontainers/finalizers
   verbs:
   - create
   - delete
