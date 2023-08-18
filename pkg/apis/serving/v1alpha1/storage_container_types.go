@@ -69,19 +69,21 @@ func (sc *ClusterStorageContainer) IsDisabled() bool {
 	return sc.Disabled != nil && *sc.Disabled
 }
 
-func (spec *StorageContainerSpec) IsStorageUriSupported(storageUri string) bool {
+func (spec *StorageContainerSpec) IsStorageUriSupported(storageUri string) (bool, error) {
 	for _, supportedUriFormat := range spec.SupportedUriFormats {
 		if supportedUriFormat.Prefix != "" {
 			if strings.HasPrefix(storageUri, supportedUriFormat.Prefix) {
-				return true
+				return true, nil
 			}
 		} else if supportedUriFormat.Regex != "" {
-			// Todo: handle error
-			match, _ := regexp.MatchString(supportedUriFormat.Regex, storageUri)
+			match, err := regexp.MatchString(supportedUriFormat.Regex, storageUri)
+			if err != nil {
+				return false, err
+			}
 			if match {
-				return true
+				return true, nil
 			}
 		}
 	}
-	return false
+	return false, nil
 }

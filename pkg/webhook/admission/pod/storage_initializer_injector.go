@@ -93,7 +93,11 @@ func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 		if sc.IsDisabled() {
 			continue
 		}
-		if sc.Spec.IsStorageUriSupported(storageUri) {
+		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+		if err != nil {
+			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
+		}
+		if supported {
 			return &sc.Spec.Container, nil
 		}
 	}
@@ -374,12 +378,14 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	return nil
 }
 
-// Use values from crd container spec from most fields. Use default values from initContainer for some fields.
+// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch
 func mergeContainerSpecs(defaultContainer *v1.Container, crdContainer *v1.Container) (*v1.Container, error) {
-	containerName := defaultContainer.Name
-	// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch
+	if defaultContainer == nil {
+		return nil, fmt.Errorf("defaultContainer is nil")
+	}
 
-	// Todo: check for nil pointer
+	containerName := defaultContainer.Name
+
 	defaultContainerJson, err := json.Marshal(*defaultContainer)
 	if err != nil {
 		return nil, err
@@ -403,6 +409,7 @@ func mergeContainerSpecs(defaultContainer *v1.Container, crdContainer *v1.Contai
 	if mergedContainer.Name == "" {
 		mergedContainer.Name = containerName
 	}
+
 	return &mergedContainer, nil
 }
 
