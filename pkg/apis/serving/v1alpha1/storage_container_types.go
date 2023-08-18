@@ -32,13 +32,6 @@ type StorageContainerSpec struct {
 	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
 }
 
-type StorageUriFormatType string
-
-// const (
-// 	Prefix StorageUriFormatType = "Prefix"
-// 	Regex  StorageUriFormatType = "Regex"
-// )
-
 // +k8s:openapi-gen=true
 type SupportedUriFormat struct {
 	Prefix string `json:"prefix,omitempty"`
