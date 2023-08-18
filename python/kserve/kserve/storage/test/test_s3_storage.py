@@ -139,7 +139,7 @@ AWS_TEST_CREDENTIALS = {"AWS_ACCESS_KEY_ID": "testing",
                         "AWS_SESSION_TOKEN": "testing"}
 
 
-@mock.patch('kserve.storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_multikey(mock_storage):
     # given
     bucket_name = 'foo'
@@ -157,7 +157,7 @@ def test_multikey(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix='test/a')
 
 
-@mock.patch('kserve.storage.boto3')
+@mock.patch(STORAGE_MODULE + '.boto3')
 def test_files_with_no_extension(mock_storage):
 
     # given
@@ -171,7 +171,9 @@ def test_files_with_no_extension(mock_storage):
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert arg_list == expected_call_args_list('test', 'dest_path', paths)
+
+    # Download only the exact file if found; otherwise, download all files with the given prefix
+    assert arg_list[0] == expected_call_args_list('test', 'dest_path', paths)[0]
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix='test/churn-pickle')
 
