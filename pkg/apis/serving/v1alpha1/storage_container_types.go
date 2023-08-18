@@ -27,11 +27,14 @@ import (
 // StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
 // +k8s:openapi-gen=true
 type StorageContainerSpec struct {
+	// Container spec for the storage initializer init container
 	Container corev1.Container `json:"container" validate:"required"`
 
+	// List of URI formats that this container supports
 	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
 }
 
+// SupportedUriFormat can be either prefix or regex. Todo: Add validation that only one of them is set.
 // +k8s:openapi-gen=true
 type SupportedUriFormat struct {
 	Prefix string `json:"prefix,omitempty"`

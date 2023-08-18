@@ -339,6 +339,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			return err
 		}
 		// initContainer.Args[0] is set up in CreateStorageSpecSecretEnvs
+		// srcURI is updated here to match storage container CRs below
 		srcURI = initContainer.Args[0]
 	} else {
 		// Inject service account credentials if storage spec doesn't exist
@@ -353,6 +354,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
+	// Update container spec from a storage container CR if there is a match
 	storageContainerSpec, err := getContainerSpecForStorageUri(srcURI, mi.client)
 	if err != nil {
 		return err
@@ -378,7 +380,8 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	return nil
 }
 
-// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch
+// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
+// Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
 func mergeContainerSpecs(defaultContainer *v1.Container, crdContainer *v1.Container) (*v1.Container, error) {
 	if defaultContainer == nil {
 		return nil, fmt.Errorf("defaultContainer is nil")
