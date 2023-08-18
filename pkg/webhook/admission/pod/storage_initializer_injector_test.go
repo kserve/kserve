@@ -1846,7 +1846,6 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							Env: nil, // Env is not supported yet if no matching CR is found
 						},
 					},
 					Volumes: []v1.Volume{
