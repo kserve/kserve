@@ -172,6 +172,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         bucket_path = parsed.path.lstrip('/')
 
         count = 0
+        exact_obj_found = False
         bucket = s3.Bucket(bucket_name)
         for obj in bucket.objects.filter(Prefix=bucket_path):
             # Skip where boto3 lists the directory as an object
@@ -193,6 +194,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # (without any subpaths).
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
+                exact_obj_found = True
             elif obj.key.rsplit("/", 1)[-1].startswith(bucket_path.rsplit("/", 1)[-1]):
                 target_key = obj.key.replace(bucket_path.rsplit("/", 1)[0], "", 1).lstrip("/")
             else:
@@ -204,6 +206,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             bucket.download_file(obj.key, target)
             logging.info('Downloaded object %s to %s' % (obj.key, target))
             count = count + 1
+
+            # If the exact object is found, then it is sufficient to download that and break the loop
+            if exact_obj_found:
+                break
         if count == 0:
             raise RuntimeError(
                 "Failed to fetch model. No model found in %s." % bucket_path)

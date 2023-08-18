@@ -17,7 +17,6 @@ import unittest.mock as mock
 
 from botocore.client import Config
 from botocore import UNSIGNED
-
 from kserve.storage import Storage
 
 STORAGE_MODULE = 'kserve.storage.storage'
@@ -149,7 +148,7 @@ def test_multikey(mock_storage):
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
-    kserve.Storage._download_s3(f's3://{bucket_name}/test/a', 'dest_path')
+    Storage._download_s3(f's3://{bucket_name}/test/a', 'dest_path')
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
@@ -168,7 +167,7 @@ def test_files_with_no_extension(mock_storage):
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
-    kserve.Storage._download_s3(f's3://{bucket_name}/test/churn-pickle', 'dest_path')
+    Storage._download_s3(f's3://{bucket_name}/test/churn-pickle', 'dest_path')
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
