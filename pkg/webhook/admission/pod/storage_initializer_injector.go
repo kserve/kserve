@@ -354,7 +354,9 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	// Update container spec from a storage container CR if there is a match
+	// Update initContainer (container spec) from a storage container CR if there is a match,
+	// otherwise initContainer is not updated.
+	// Priority: CR > configMap
 	storageContainerSpec, err := getContainerSpecForStorageUri(srcURI, mi.client)
 	if err != nil {
 		return err
