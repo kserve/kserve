@@ -21,49 +21,21 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
-
-KNATIVE_KOURIER_VERSION="knative-v1.10.0"
-KNATIVE_VERSION="knative-v1.10.1"
 CERT_MANAGER_VERSION="v1.5.0"
 YQ_VERSION="v4.28.1"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
+source  ./test/scripts/gh-actions/install-knative-operator.sh
+
 echo "Installing Knative serving and Kourier..."
-pushd "${SCRIPT_DIR}"/../../overlays/knative/default >/dev/null
-  curl -s -O -L https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-  curl -s -O -L https://github.com/knative/net-kourier/releases/download/${KNATIVE_KOURIER_VERSION}/release.yaml
-  # Kustomize does not work with integer map keys
-  sed -i 's/8443:/"8443":/g' release.yaml
-popd
+kubectl apply -f ./test/overlays/knative/knative-serving-kourier.yaml
+# sleep to avoid running kubectl wait before pods are created
+sleep 15
 
-for i in 1 2 3 ; do kubectl apply -k test/overlays/knative/overlays/kourier && break || sleep 15; done
-
-echo "Waiting for Knative to be ready ..."
-kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
-
-# sleep to avoid knative webhook timeout error
-sleep 5
-# Retry if configmap patch fails
-for i in 1 2 3; do
-  # Skip tag resolution for certain domains
-  kubectl patch cm config-deployment --patch '{"data":{"registries-skipping-tag-resolving":"nvcr.io,index.docker.io"}}' -n knative-serving && break || sleep 15
-done
-
-echo "Patching knative external domain ..."
-# Patch the external domain as the default domain svc.cluster.local is not exposed on ingress (from knative 1.8)
-for i in 1 2 3; do kubectl patch cm config-domain --patch '{"data":{"example.com":""}}' -n knative-serving && break || sleep 15; done
-kubectl describe cm config-domain -n knative-serving
-
-echo "Configuring Knative Serving to use kourier ..."
-for i in 1 2 3; do
-kubectl patch configmap/config-network \
-  -n knative-serving \
-  --type merge \
-  -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
-done
+echo "Waiting for Knative and Kourier to be ready ..."
+kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-kourier-controller,3scale-kourier-gateway)'
 
 echo "Installing cert-manager ..."
 kubectl create namespace cert-manager

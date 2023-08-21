@@ -768,8 +768,8 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 60
         run: |
-          export KSERVE_INGRESS_HOST_PORT=$(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" \
-          --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" \
+          export KSERVE_INGRESS_HOST_PORT=$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
+          --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
           --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
           
           ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "2"
@@ -782,6 +782,7 @@ jobs:
           docker image ls
           kubectl get pods -n kserve
           kubectl get pods -n kserve-ci-e2e-test
+          kubectl get pods -A --field-selector=metadata.namespace!=kserve,metadata.namespace!=kserve-ci-e2e-test
           
           kubectl describe pods -n kserve-ci-e2e-test
           kubectl get events -n kserve-ci-e2e-test
@@ -789,5 +790,5 @@ jobs:
           kubectl logs -l 'component in (predictor)' -c kserve-container -n kserve-ci-e2e-test --tail 500
           kubectl logs -l 'component in (transformer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
           kubectl logs -l 'component in (explainer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
-          kubectl logs $(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" --output=jsonpath="{.items[0].metadata.name}") -n kourier-system
+          kubectl logs $(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" --output=jsonpath="{.items[0].metadata.name}") -n knative-serving
 

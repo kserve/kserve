@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import argparse
 import asyncio
 import concurrent.futures
@@ -153,7 +154,12 @@ class ModelServer:
         async def serve():
             logger.info(f"Starting uvicorn with {self.workers} workers")
             loop = asyncio.get_event_loop()
-            for sig in [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]:
+            if sys.platform not in ['win32', 'win64']:
+                sig_list = [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]
+            else:
+                sig_list = [signal.SIGINT, signal.SIGTERM]
+
+            for sig in sig_list:
                 loop.add_signal_handler(
                     sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
                 )
