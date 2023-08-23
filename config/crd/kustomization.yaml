@@ -16,6 +16,7 @@ resources:
 - serving.kserve.io_clusterservingruntimes.yaml
 - serving.kserve.io_servingruntimes.yaml
 - serving.kserve.io_inferencegraphs.yaml
+- serving.kserve.io_clusterstoragecontainers.yaml
 
 patches:
 # Fix for https://github.com/kubernetes/kubernetes/issues/91395

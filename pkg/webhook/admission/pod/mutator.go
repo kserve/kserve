@@ -87,6 +87,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	storageInitializer := &StorageInitializerInjector{
 		credentialBuilder: credentialBuilder,
 		config:            storageInitializerConfig,
+		client:            mutator.Client,
 	}
 
 	loggerConfig, err := getLoggerConfigs(configMap)
