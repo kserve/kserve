@@ -48,6 +48,7 @@ RELEASES=(
     "v0.10.1"
     "v0.11.0-rc0"
     "v0.11.0-rc1"
+    "v0.11.0"
 )
 
 TAG=$1
@@ -65,7 +66,7 @@ RUNTIMES_INSTALL_PATH=$INSTALL_DIR/kserve-runtimes.yaml
 mkdir -p $INSTALL_DIR
 kustomize build config/default | sed s/:latest/:$TAG/ > $INSTALL_PATH
 kustomize build config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
-kustomize build config/runtimes | sed s/:latest/:$TAG/ >> $RUNTIMES_INSTALL_PATH
+kustomize build config/runtimes | sed s/:latest/:$TAG/ > $RUNTIMES_INSTALL_PATH
 
 # Update ingressGateway in inferenceservice configmap as 'kubeflow/kubeflow-gateway'
 yq -i 'select(.metadata.name == "inferenceservice-config").data.ingress |= (fromjson | .ingressGateway = "kubeflow/kubeflow-gateway" | tojson)' $KUBEFLOW_INSTALL_PATH
@@ -76,3 +77,4 @@ cp config/crd/serving.kserve.io_inferenceservices.yaml charts/kserve-crd/templat
 cp config/crd/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
 cp config/crd/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
 cp config/crd/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
+cp config/crd/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/serving.kserve.io_clusterstoragecontainers.yaml

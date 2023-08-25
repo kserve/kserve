@@ -84,7 +84,11 @@ def test_triton_runtime_with_transformer():
             ),
             runtime="kserve-tritonserver",
             storage_uri='gs://kfserving-examples/models/torchscript',
-            ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)]
+            ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)],
+            resources=V1ResourceRequirements(
+                requests={'cpu': '10m', 'memory': '128Mi'},
+                limits={'cpu': '100m', 'memory': '512Mi'},
+            ),
         )
     )
 

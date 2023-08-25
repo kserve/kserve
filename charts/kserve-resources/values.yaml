@@ -1,20 +1,33 @@
 kserve:
-  version: &defaultVersion v0.11.0-rc1
-  modelmeshVersion: &defaultModelMeshVersion v0.11.0-rc0
+  version: &defaultVersion v0.11.0
+  modelmeshVersion: &defaultModelMeshVersion v0.11.0
   agent:
     image: kserve/agent
+    tag: *defaultVersion
+  router:
+    image: kserve/router
     tag: *defaultVersion
   storage:
     image: kserve/storage-initializer
     tag: *defaultVersion
+    storageSpecSecretName: storage-config
+    storageSecretNameAnnotation: serving.kserve.io/secretName
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+      endpoint: ""
+      useHttps: ""
+      region: ""
+      verifySSL: ""
+      useVirtualBucket: ""
+      useAnonymousCredential: ""
+      CABundle: ""
   metricsaggregator:
     enableMetricAggregation: "false"
     enablePrometheusScraping: "false"
   controller:
     deploymentMode: "Serverless"
+    rbacProxyImage: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
     gateway:
       domain: example.com
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"

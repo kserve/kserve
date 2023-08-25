@@ -20,7 +20,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
+
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -32,7 +34,12 @@ var c client.Client
 
 func TestMain(m *testing.M) {
 	t := pkgtest.SetupEnvTest()
-	var err error
+
+	err := v1alpha1.AddToScheme(scheme.Scheme)
+	if err != nil {
+		klog.Error(err, "Failed to add v1alpha1 to scheme")
+	}
+
 	if cfg, err = t.Start(); err != nil {
 		klog.Error(err, "Failed to start testing panel")
 	}

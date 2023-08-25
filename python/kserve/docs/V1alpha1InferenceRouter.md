@@ -5,7 +5,7 @@ InferenceRouter defines the router for each InferenceGraph node with one or mult
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **router_type** | **str** | RouterType  - &#x60;Sequence:&#x60; chain multiple inference steps with input/output from previous step  - &#x60;Splitter:&#x60; randomly routes to the target service according to the weight  - &#x60;Ensemble:&#x60; routes the request to multiple models and then merge the responses  - &#x60;Switch:&#x60; routes the request to one of the steps based on condition | [default to '']
-**steps** | [**list[V1alpha1InferenceStep]**](V1alpha1InferenceStep.md) | Steps defines destinations for the current router node | [optional] 
+**steps** | [**list[V1alpha1InferenceStep]**](V1alpha1InferenceStep.md) | Steps defines destinations for the current router node | [optional]
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
