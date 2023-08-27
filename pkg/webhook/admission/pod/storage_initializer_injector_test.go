@@ -21,8 +21,11 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/kmp"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
@@ -351,6 +354,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
+			client: c,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
@@ -391,6 +395,7 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
+			client: c,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			if !strings.HasPrefix(err.Error(), scenario.expectedErrorPrefix) {
@@ -490,6 +495,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
+			client: c,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
@@ -941,6 +947,7 @@ func TestCredentialInjection(t *testing.T) {
 		injector := &StorageInitializerInjector{
 			credentialBuilder: builder,
 			config:            storageInitializerConfig,
+			client:            c,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected failure [%s]", name, err.Error())
@@ -1033,6 +1040,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 				MemoryRequest: StorageInitializerDefaultMemoryRequest,
 				MemoryLimit:   StorageInitializerDefaultMemoryLimit,
 			},
+			client: c,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
@@ -1264,6 +1272,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 			config: &StorageInitializerConfig{
 				EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
 			},
+			client: c,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
@@ -1586,8 +1595,281 @@ func TestTransformerCollocation(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: scenario.storageConfig,
+			client: c,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}
+
+func TestGetStorageContainerSpec(t *testing.T) {
+	g := gomega.NewWithT(t)
+	customSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/custom:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("200Mi"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+		},
+	}
+	s3AzureSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "s3Azure",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/storage-initializer:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("200Mi"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
+		},
+	}
+	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
+		Items: []v1alpha1.ClusterStorageContainer{customSpec, s3AzureSpec},
+	}
+
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
+	scenarios := map[string]struct {
+		storageUri   string
+		expectedSpec *v1.Container
+	}{
+		"s3": {
+			storageUri:   "s3://foo",
+			expectedSpec: &s3AzureSpec.Spec.Container,
+		},
+		"custom": {
+			storageUri:   "custom://foo",
+			expectedSpec: &customSpec.Spec.Container,
+		},
+		"nonExistent": {
+			storageUri:   "abc://",
+			expectedSpec: nil,
+		},
+	}
+	for name, scenario := range scenarios {
+		var container *v1.Container
+
+		if container, err = getContainerSpecForStorageUri(scenario.storageUri, mockClient); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
+	}
+}
+
+func TestStorageContainerCRDInjection(t *testing.T) {
+	customSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/storage-initializer:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("200Mi"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+		},
+	}
+	s3AzureSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "s3Azure",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/storage-initializer:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("500Mi"),
+					},
+				},
+				Env: []v1.EnvVar{
+					{Name: "name", Value: "value"},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
+		},
+	}
+	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
+		Items: []v1alpha1.ClusterStorageContainer{customSpec, s3AzureSpec},
+	}
+
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
+	scenarios := map[string]struct {
+		original *v1.Pod
+		expected *v1.Pod
+	}{
+		"s3": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:  "storage-initializer",
+							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:  []string{"s3://foo", constants.DefaultModelLocalMountPath},
+							Resources: v1.ResourceRequirements{
+								Limits: map[v1.ResourceName]resource.Quantity{
+									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
+									v1.ResourceMemory: resource.MustParse("500Mi"), // From CRD
+								},
+								Requests: map[v1.ResourceName]resource.Quantity{
+									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
+									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
+								},
+							},
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+							Env: []v1.EnvVar{
+								{Name: "name", Value: "value"},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Default config if storage uri not matched in CRs": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "https://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "https://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"https://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement, // from configMap instead of the CR
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBuilder(mockClient, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: storageInitializerConfig,
+			client: mockClient,
+		}
+
+		if err = injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
