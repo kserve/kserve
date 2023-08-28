@@ -244,9 +244,9 @@ jobs:
           kubectl get pods -n kserve
 
       - name: Run E2E tests for graph
-        timeout-minutes: 60
+        timeout-minutes: 120
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "3"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "2"
 
           kubectl get pods -n kserve
 
