@@ -233,6 +233,11 @@ class TestTFHttpServer:
         assert resp.status_code == 200
         assert resp.json() == {"models": ["TestModel"]}
 
+    def test_list_models_v2(self, http_server_client):
+        resp = http_server_client.get('/v2/models')
+        assert resp.status_code == 200
+        assert resp.json() == {"models": ["TestModel"]}
+
     def test_predict(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict',
                                        data=b'{"instances":[[1,2]]}')
