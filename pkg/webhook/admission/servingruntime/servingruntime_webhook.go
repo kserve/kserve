@@ -71,9 +71,9 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 		return admission.Allowed("")
 	}
 
-	for _, runtime := range ExistingRuntimes.Items {
-		if err := validateServingRuntimePriority(&servingRuntime.Spec, &runtime.Spec, servingRuntime.Name, runtime.Name); err != nil {
-			return admission.Denied(fmt.Sprintf(InvalidPriorityServingRuntimeError, err.Error(), runtime.Name, servingRuntime.Name, servingRuntime.Namespace))
+	for i := range ExistingRuntimes.Items {
+		if err := validateServingRuntimePriority(&servingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, servingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
+			return admission.Denied(fmt.Sprintf(InvalidPriorityServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, servingRuntime.Name, servingRuntime.Namespace))
 		}
 	}
 	return admission.Allowed("")
@@ -98,16 +98,24 @@ func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admis
 		return admission.Allowed("")
 	}
 
-	for _, runtime := range ExistingRuntimes.Items {
-		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &runtime.Spec, clusterServingRuntime.Name, runtime.Name); err != nil {
-			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), runtime.Name, clusterServingRuntime.Name))
+	for i := range ExistingRuntimes.Items {
+		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, clusterServingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
+			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, clusterServingRuntime.Name))
 		}
 	}
 	return admission.Allowed("")
 }
 
+func areSupportedModelFormatsEqual(m1 v1alpha1.SupportedModelFormat, m2 v1alpha1.SupportedModelFormat) bool {
+	if strings.EqualFold(m1.Name, m2.Name) && ((m1.Version == nil && m2.Version == nil) ||
+		(m1.Version != nil && m2.Version != nil && *m1.Version == *m2.Version)) {
+		return true
+	}
+	return false
+}
+
 func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existingSpec *v1alpha1.ServingRuntimeSpec, existingRuntimeName string, newRuntimeName string) error {
-	// Skip the runtime if it is disabled or both are not multi model runtime or the stale runtime in the api server
+	// Skip the runtime if it is disabled or both are not multi model runtime and in update scenario skip the existing runtime if it is same as the new runtime
 	if (newSpec.IsMultiModelRuntime() != existingSpec.IsMultiModelRuntime()) || (existingSpec.IsDisabled()) || (existingRuntimeName == newRuntimeName) {
 		return nil
 	}
@@ -123,9 +131,7 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 		for _, existingModelFormat := range existingSpec.SupportedModelFormats {
 			for _, newModelFormat := range newSpec.SupportedModelFormats {
 				// Only validate priority if autoselect is ture
-				if (strings.EqualFold(existingModelFormat.Name, newModelFormat.Name) && existingModelFormat.IsAutoSelectEnabled() && newModelFormat.IsAutoSelectEnabled()) &&
-					((existingModelFormat.Version == nil && newModelFormat.Version == nil) ||
-						(existingModelFormat.Version != nil && newModelFormat.Version != nil && *existingModelFormat.Version == *newModelFormat.Version)) {
+				if existingModelFormat.IsAutoSelectEnabled() && newModelFormat.IsAutoSelectEnabled() && areSupportedModelFormatsEqual(existingModelFormat, newModelFormat) {
 					if existingModelFormat.Priority != nil && newModelFormat.Priority != nil && *existingModelFormat.Priority == *newModelFormat.Priority {
 						return errors.New(fmt.Sprintf(InvalidPriorityError, newModelFormat.Name))
 					}
