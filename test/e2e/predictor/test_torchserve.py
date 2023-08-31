@@ -26,7 +26,7 @@ from kserve import (
     V1beta1ModelSpec,
     V1beta1ModelFormat,
 )
-from kubernetes.client import V1ResourceRequirements, V1ContainerPort
+from kubernetes.client import V1ResourceRequirements, V1ContainerPort, V1EnvVar
 
 from ..common.utils import predict, grpc_stub
 from ..common.utils import KSERVE_TEST_NAMESPACE
@@ -39,6 +39,7 @@ def test_torchserve_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
+            image="pytorch/torchserve-kfs:0.8.2",
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             protocol_version="v1",
             resources=V1ResourceRequirements(
@@ -51,6 +52,7 @@ def test_torchserve_kserve():
                     "memory": "1Gi"
                 },
             ),
+            env=[V1EnvVar(name="PROTOCOL_VERSION", value="v1")],
         ),
     )
 
@@ -76,6 +78,7 @@ def test_torchserve_v2_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
+            image="pytorch/torchserve-kfs:0.8.2",
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v2",
             protocol_version="v2",
             resources=V1ResourceRequirements(
@@ -88,6 +91,7 @@ def test_torchserve_v2_kserve():
                     "memory": "1Gi"
                 },
             ),
+            env=[V1EnvVar(name="PROTOCOL_VERSION", value="v2")],
         ),
     )
 
@@ -102,7 +106,7 @@ def test_torchserve_v2_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/torchserve_input_v2.json", model_name="mnist")
+    res = predict(service_name, "./data/torchserve_input_v2.json", model_name="mnist", protocol_version="v2")
     assert (res.get("outputs")[0]["data"] == [1])
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
