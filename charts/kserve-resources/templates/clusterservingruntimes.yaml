@@ -4,7 +4,7 @@ metadata:
   name: kserve-lgbserver
 spec:
   annotations:
-    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: lightgbm
@@ -36,7 +36,7 @@ metadata:
 spec:
   annotations:
     # mlserver version 1.1.0 uses port 8082 as default instead of 8080.
-    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: sklearn
@@ -80,7 +80,7 @@ metadata:
   name: kserve-paddleserver
 spec:
   annotations:
-    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: paddle
@@ -110,7 +110,7 @@ metadata:
   name: kserve-pmmlserver
 spec:
   annotations:
-    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: pmml
@@ -143,7 +143,7 @@ metadata:
   name: kserve-sklearnserver
 spec:
   annotations:
-    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: sklearn
@@ -173,7 +173,7 @@ metadata:
   name: kserve-tensorflow-serving
 spec:
   annotations:
-    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: tensorflow
@@ -210,7 +210,7 @@ metadata:
   name: kserve-torchserve
 spec:
   annotations:
-    prometheus.kserve.io/port: '8082'
+    prometheus.kserve.io/port: "8082"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: pytorch
@@ -233,7 +233,7 @@ spec:
           value: "{{ .Values.kserve.servingruntime.torchserve.serviceEnvelopePlaceholder }}"
         - name: "PROTOCOL_VERSION"
           value: "{{ .Values.kserve.servingruntime.torchserve.protocolVersionPlaceholder }}"
-    resources:
+      resources:
         requests:
           cpu: "1"
           memory: 2Gi
@@ -248,7 +248,7 @@ metadata:
   name: kserve-tritonserver
 spec:
   annotations:
-    prometheus.kserve.io/port: '8002'
+    prometheus.kserve.io/port: "8002"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: tensorrt
@@ -296,7 +296,7 @@ metadata:
   name: kserve-xgbserver
 spec:
   annotations:
-    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: xgboost
