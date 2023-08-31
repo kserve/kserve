@@ -64,7 +64,6 @@ from .models.knative_condition import KnativeCondition
 from .models.knative_url import KnativeURL
 from .models.knative_volatile_time import KnativeVolatileTime
 from .models.net_url_userinfo import NetUrlUserinfo
-from .models.v1beta1_aix_explainer_spec import V1beta1AIXExplainerSpec
 from .models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
 from .models.v1beta1_alibi_explainer_spec import V1beta1AlibiExplainerSpec
 from .models.v1beta1_batcher import V1beta1Batcher

@@ -10,10 +10,6 @@ data:
             "image" : "kserve/alibi-explainer",
             "defaultImageVersion": "latest"
         },
-        "aix": {
-            "image" : "kserve/aix-explainer",
-            "defaultImageVersion": "latest"
-        },
         "art": {
             "image" : "kserve/art-explainer",
             "defaultImageVersion": "latest"

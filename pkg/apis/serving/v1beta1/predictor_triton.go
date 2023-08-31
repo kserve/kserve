@@ -38,10 +38,13 @@ func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(&t.Resources)
 }
 
-func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
 	return &t.Container
 }
 
 func (t *TritonSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if t.ProtocolVersion != nil {
+		return *t.ProtocolVersion
+	}
 	return constants.ProtocolV2
 }

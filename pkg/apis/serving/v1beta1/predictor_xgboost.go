@@ -106,7 +106,7 @@ func (x *XGBoostSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
 	return vars
 }
 
-func (x *XGBoostSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
 	return &x.Container
 }
 

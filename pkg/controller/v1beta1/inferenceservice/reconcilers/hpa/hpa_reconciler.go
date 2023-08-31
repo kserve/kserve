@@ -19,7 +19,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	v2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +36,7 @@ var log = logf.Log.WithName("HPAReconciler")
 type HPAReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
-	HPA          *v2beta2.HorizontalPodAutoscaler
+	HPA          *autoscalingv2.HorizontalPodAutoscaler
 	componentExt *v1beta1.ComponentExtensionSpec
 }
 
@@ -52,8 +52,8 @@ func NewHPAReconciler(client client.Client,
 	}
 }
 
-func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) []v2beta2.MetricSpec {
-	var metrics []v2beta2.MetricSpec
+func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
+	var metrics []autoscalingv2.MetricSpec
 	var utilization int32
 	annotations := metadata.Annotations
 
@@ -74,14 +74,14 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 		resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
 	}
 
-	metricTarget := v2beta2.MetricTarget{
+	metricTarget := autoscalingv2.MetricTarget{
 		Type:               "Utilization",
 		AverageUtilization: &utilization,
 	}
 
-	ms := v2beta2.MetricSpec{
-		Type: v2beta2.ResourceMetricSourceType,
-		Resource: &v2beta2.ResourceMetricSource{
+	ms := autoscalingv2.MetricSpec{
+		Type: autoscalingv2.ResourceMetricSourceType,
+		Resource: &autoscalingv2.ResourceMetricSource{
 			Name:   resourceName,
 			Target: metricTarget,
 		},
@@ -92,7 +92,7 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 }
 
 func createHPA(componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) *v2beta2.HorizontalPodAutoscaler {
+	componentExt *v1beta1.ComponentExtensionSpec) *autoscalingv2.HorizontalPodAutoscaler {
 	var minReplicas int32
 	if componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
 		minReplicas = int32(constants.DefaultMinReplicas)
@@ -105,10 +105,10 @@ func createHPA(componentMeta metav1.ObjectMeta,
 		maxReplicas = minReplicas
 	}
 	metrics := getHPAMetrics(componentMeta, componentExt)
-	hpa := &v2beta2.HorizontalPodAutoscaler{
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: componentMeta,
-		Spec: v2beta2.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: v2beta2.CrossVersionObjectReference{
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       componentMeta.Name,
@@ -117,16 +117,16 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			MaxReplicas: maxReplicas,
 
 			Metrics:  metrics,
-			Behavior: &v2beta2.HorizontalPodAutoscalerBehavior{},
+			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 		},
 	}
 	return hpa
 }
 
 // checkHPAExist checks if the hpa exists?
-func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResultType, *v2beta2.HorizontalPodAutoscaler, error) {
+func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResultType, *autoscalingv2.HorizontalPodAutoscaler, error) {
 	//get hpa
-	existingHPA := &v2beta2.HorizontalPodAutoscaler{}
+	existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Namespace: r.HPA.ObjectMeta.Namespace,
 		Name:      r.HPA.ObjectMeta.Name,
@@ -145,14 +145,14 @@ func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResu
 	return constants.CheckResultUpdate, existingHPA, nil
 }
 
-func semanticHPAEquals(desired, existing *v2beta2.HorizontalPodAutoscaler) bool {
+func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler) bool {
 	return equality.Semantic.DeepEqual(desired.Spec.Metrics, existing.Spec.Metrics) &&
 		equality.Semantic.DeepEqual(desired.Spec.MaxReplicas, existing.Spec.MaxReplicas) &&
 		equality.Semantic.DeepEqual(*desired.Spec.MinReplicas, *existing.Spec.MinReplicas)
 }
 
 // Reconcile ...
-func (r *HPAReconciler) Reconcile() (*v2beta2.HorizontalPodAutoscaler, error) {
+func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	//reconcile Service
 	checkResult, existingHPA, err := r.checkHPAExist(r.client)
 	log.Info("service reconcile", "checkResult", checkResult, "err", err)

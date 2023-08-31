@@ -61,10 +61,13 @@ func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
 	return &o.Container
 }
 
 func (o *ONNXRuntimeSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if o.ProtocolVersion != nil {
+		return *o.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

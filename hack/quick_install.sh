@@ -30,16 +30,17 @@ while getopts ":hsr" option; do
    esac
 done
 
-export ISTIO_VERSION=1.15.0
-export KNATIVE_VERSION=knative-v1.7.0
-export KSERVE_VERSION=v0.10.1
+export ISTIO_VERSION=1.17.2
+export KNATIVE_SERVING_VERSION=knative-v1.10.1
+export KNATIVE_ISTIO_VERSION=knative-v1.10.0
+export KSERVE_VERSION=v0.11.0
 export CERT_MANAGER_VERSION=v1.3.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
 KUBE_VERSION=$(kubectl version --short=true | grep "Server Version" | awk -F '.' '{print $2}')
-if [ ${KUBE_VERSION} -lt 22 ];
+if [ ${KUBE_VERSION} -lt 24 ];
 then
-   echo "😱 install requires at least Kubernetes 1.22";
+   echo "😱 install requires at least Kubernetes 1.24";
    exit 1;
 fi
 
@@ -96,9 +97,11 @@ echo "😀 Successfully installed Istio"
 
 # Install Knative
 if [ $deploymentMode = serverless ]; then
-   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
-   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
-   kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
+   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_SERVING_VERSION}/serving-crds.yaml
+   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_SERVING_VERSION}/serving-core.yaml
+   kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_ISTIO_VERSION}/release.yaml
+   # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress
+   kubectl patch cm config-domain --patch '{"data":{"example.com":""}}' -n knative-serving
    echo "😀 Successfully installed Knative"
 fi
 

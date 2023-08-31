@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import xgboost as xgb
-import numpy as np
-from xgboost import XGBModel
+
 import os
-from typing import Dict
+from typing import Dict, Union
+
+import xgboost as xgb
+from kserve.errors import InferenceError, ModelMissingError
+from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_input, get_predict_response
+from xgboost import XGBModel
 
 from kserve import Model
-from kserve.errors import InferenceError, ModelMissingError
 from kserve.storage import Storage
 
 BOOSTER_FILE_EXTENSION = ".bst"
@@ -54,11 +57,12 @@ class XGBoostModel(Model):
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
-            dmatrix = xgb.DMatrix(np.array(payload["instances"]), nthread=self.nthread)
-            result: xgb.DMatrix = self._booster.predict(dmatrix)
-            return {"predictions": result.tolist()}
+            instances = get_predict_input(payload)
+            dmatrix = xgb.DMatrix(instances, nthread=self.nthread)
+            result = self._booster.predict(dmatrix)
+            return get_predict_response(payload, result, self.name)
         except Exception as e:
             raise InferenceError(str(e))

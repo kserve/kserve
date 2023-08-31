@@ -18,9 +18,10 @@ package v1beta1
 
 import (
 	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -77,10 +78,13 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(&t.Resources)
 }
 
-func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
 	return &t.Container
 }
 
 func (t *TorchServeSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if t.ProtocolVersion != nil {
+		return *t.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

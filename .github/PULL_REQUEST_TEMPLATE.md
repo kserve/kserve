@@ -20,7 +20,7 @@ Please delete options that are not relevant.
 
 **Feature/Issue validation/testing**:
 
-Please describe the tests that you ran to verify your changes and relevent result summary. Provide instructions so it can be reproduced.
+Please describe the tests that you ran to verify your changes and relevant result summary. Provide instructions so it can be reproduced.
 Please also list any relevant details for your test configuration.
 
 - [ ] Test A

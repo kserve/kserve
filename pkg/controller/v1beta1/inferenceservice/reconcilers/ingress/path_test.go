@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package ingress
 
 import (
@@ -37,7 +53,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				name:      "model",
 				namespace: "user",
 				ingressConfig: &v1beta1.IngressConfig{
-					PathTemplate:   "/path/to/{{ .Namespace }}/{{ .Name }}",
+					PathTemplate: "/path/to/{{ .Namespace }}/{{ .Name }}",
 				},
 			},
 			want: "/path/to/user/model",
@@ -50,7 +66,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
-					PathTemplate:   "/{{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+					PathTemplate:  "/{{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
 				},
 			},
 			wantErr: true,
@@ -63,7 +79,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
-					PathTemplate:   "/{{ .Unknownfield }}/serving/{{ .Namespace }}/{{ .Name }}",
+					PathTemplate:  "/{{ .Unknownfield }}/serving/{{ .Namespace }}/{{ .Name }}",
 				},
 			},
 			wantErr: true,
@@ -76,7 +92,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
-					PathTemplate:   "myhost/serving/{{ .Namespace }}/{{ .Name }}",
+					PathTemplate:  "myhost/serving/{{ .Namespace }}/{{ .Name }}",
 				},
 			},
 			wantErr: true,
@@ -89,7 +105,7 @@ func TestGenerateUrlPath(t *testing.T) {
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
-					PathTemplate:   "http://myhost/serving/{{ .Namespace }}/{{ .Name }}",
+					PathTemplate:  "http://myhost/serving/{{ .Namespace }}/{{ .Name }}",
 				},
 			},
 			wantErr: true,

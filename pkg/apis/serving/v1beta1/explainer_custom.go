@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -67,7 +68,8 @@ func (c *CustomExplainer) GetStorageSpec() *StorageSpec {
 }
 
 // GetContainer transforms the resource into a container spec
-func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string) *v1.Container {
 	container := &c.Containers[0]
 	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{
@@ -78,7 +80,7 @@ func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *C
 	if !utils.IncludesArg(container.Args, constants.ArgumentPredictorHost) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentPredictorHost,
-			constants.PredictorURL(metadata, false),
+			fmt.Sprintf("%s.%s", predictorHost[0], metadata.Namespace),
 		}...)
 	}
 	container.Args = append(container.Args, []string{

@@ -12,25 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib import metadata
 from typing import Dict, Union, Tuple, Optional
 
 import cloudevents.exceptions as ce
 import orjson
-import pkg_resources
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.api import RayServeHandle
+from ray.serve.handle import RayServeHandle
 
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import ModelType
 from ..model_repository import ModelRepository
-from ..utils.utils import create_response_cloudevent
-from .infer_type import InferRequest
+from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
+from .infer_type import InferRequest, InferResponse
 from ..constants import constants
-from .grpc import grpc_predict_v2_pb2 as pb
 import time
 import logging
+
+JSON_HEADERS = ["application/json", "application/cloudevents+json", "application/ld+json"]
 
 
 class DataPlane:
@@ -43,7 +44,7 @@ class DataPlane:
 
         # Dynamically fetching version of the installed 'kserve' distribution. The assumption is
         # that 'kserve' will already be installed by the time this class is instantiated.
-        self._server_version = pkg_resources.get_distribution("kserve").version
+        self._server_version = metadata.version("kserve")
 
     @property
     def model_registry(self):
@@ -205,27 +206,63 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    def decode(self, body, headers) -> Union[Dict, InferRequest]:
+    def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest], Dict]:
         t1 = time.time()
+        attributes = {}
         if isinstance(body, InferRequest):
-            return body
-        if headers and has_binary_headers(headers):
-            body = self.get_binary_cloudevent(body, headers)
-        else:
-            if type(body) is bytes:
-                try:
-                    body = orjson.loads(body)
-                except orjson.JSONDecodeError as e:
-                    raise InvalidInput(f"Unrecognized request format: {e}")
+            return body, attributes
+        if headers:
+            if has_binary_headers(headers):
+                # returns CloudEvent
+                body = self.get_binary_cloudevent(body, headers)
+            elif "content-type" in headers and headers["content-type"] not in JSON_HEADERS:
+                return body, attributes
+            else:
+                if type(body) is bytes:
+                    try:
+                        body = orjson.loads(body)
+                    except orjson.JSONDecodeError as e:
+                        raise InvalidInput(f"Unrecognized request format: {e}")
+        elif type(body) is bytes:
+            try:
+                body = orjson.loads(body)
+            except orjson.JSONDecodeError as e:
+                raise InvalidInput(f"Unrecognized request format: {e}")
+
+        decoded_body, attributes = self.decode_cloudevent(body)
         t2 = time.time()
         logging.debug(f"decoded request in {round((t2 - t1) * 1000, 9)}ms")
-        return body
+        return decoded_body, attributes
 
-    def encode(self, model_name, body, response, headers) -> Tuple[Dict, Dict[str, str]]:
+    def decode_cloudevent(self, body) -> Tuple[Union[Dict, InferRequest], Dict]:
+        decoded_body = body
+        attributes = {}
+        if isinstance(body, CloudEvent):
+            attributes = body._get_attributes()
+            decoded_body = body.get_data()
+            try:
+                decoded_body = orjson.loads(decoded_body.decode('UTF-8'))
+            except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+                # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
+                if "content-type" in body._attributes and \
+                        (body._attributes["content-type"] == "application/cloudevents+json" or
+                         body._attributes["content-type"] == "application/json"):
+                    raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
+
+        elif isinstance(body, dict):
+            if is_structured_cloudevent(body):
+                decoded_body = body["data"]
+                attributes = body
+                del attributes["data"]
+        return decoded_body, attributes
+
+    def encode(self, model_name, response, headers, req_attributes: Dict) -> Tuple[Dict, Dict[str, str]]:
         response_headers = {}
         # if we received a cloudevent, then also return a cloudevent
         is_cloudevent = False
         is_binary_cloudevent = False
+        if isinstance(response, InferResponse):
+            response = response.to_rest()
         if headers:
             if has_binary_headers(headers):
                 is_cloudevent = True
@@ -233,7 +270,7 @@ class DataPlane:
             if headers.get("content-type", "") == "application/cloudevents+json":
                 is_cloudevent = True
         if is_cloudevent:
-            response_headers, response = create_response_cloudevent(model_name, body, response,
+            response_headers, response = create_response_cloudevent(model_name, response, req_attributes,
                                                                     is_binary_cloudevent)
 
             if is_binary_cloudevent:
@@ -245,9 +282,9 @@ class DataPlane:
     async def infer(
             self,
             model_name: str,
-            body: Union[bytes, Dict, InferRequest],
+            request: Union[Dict, InferRequest],
             headers: Optional[Dict[str, str]] = None
-    ) -> Tuple[Union[str, bytes, Dict, pb.ModelInferResponse], Dict[str, str]]:
+    ) -> Tuple[Union[Dict, InferResponse], Dict[str, str]]:
         """Performs inference on the specified model with the provided body and headers.
 
         If the ``body`` contains an encoded `CloudEvent`_, then it will be decoded and processed.
@@ -255,7 +292,7 @@ class DataPlane:
 
         Args:
             model_name (str): Model name.
-            body (bytes|Dict): Request body data.
+            request (bytes|Dict): Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
@@ -268,28 +305,25 @@ class DataPlane:
 
         .. _CloudEvent: https://cloudevents.io/
         """
-        body = self.decode(body, headers)
-
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if not isinstance(model, RayServeHandle):
-            response = await model(body, headers=headers)
+            response = await model(request, headers=headers)
         else:
             model_handle: RayServeHandle = model
-            response = await model_handle.remote(body)
+            response = await model_handle.remote(request, headers=headers)
 
-        response, response_headers = self.encode(model_name, body, response, headers)
-        return response, response_headers
+        return response, headers
 
     async def explain(self, model_name: str,
-                      body: Union[bytes, Dict, InferRequest],
+                      request: Union[bytes, Dict, InferRequest],
                       headers: Optional[Dict[str, str]] = None
-                      ) -> Tuple[Union[str, bytes, Dict], Dict[str, str]]:
+                      ) -> Tuple[Union[str, bytes, Dict, InferResponse], Dict[str, str]]:
         """Performs explanation for the specified model.
 
         Args:
             model_name (str): Model name to be used for explanation.
-            body (bytes|Dict): Request body data.
+            request (bytes|Dict): Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
@@ -298,14 +332,11 @@ class DataPlane:
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
-        body = self.decode(body, headers)
-
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if not isinstance(model, RayServeHandle):
-            response = await model(body, model_type=ModelType.EXPLAINER)
+            response = await model(request, model_type=ModelType.EXPLAINER)
         else:
             model_handle = model
-            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
-        response, response_headers = self.encode(model_name, body, response, headers)
-        return response, response_headers
+            response = await model_handle.remote(request, model_type=ModelType.EXPLAINER)
+        return response, headers

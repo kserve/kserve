@@ -136,12 +136,21 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
     @staticmethod
     def get_S3_config():
+        # default s3 config
+        c = Config()
+
         # anon environment variable defined in s3_secret.go
-        anon = ("True" == os.getenv("awsAnonymousCredential", "false").capitalize())
+        anon = ("true" == os.getenv("awsAnonymousCredential", "false").lower())
+        # S3UseVirtualBucket environment variable defined in s3_secret.go
+        # use virtual hosted-style URLs if enabled
+        virtual = ("true" == os.getenv("S3_USER_VIRTUAL_BUCKET", "false").lower())
+
         if anon:
-            return Config(signature_version=UNSIGNED)
-        else:
-            return None
+            c = c.merge(Config(signature_version=UNSIGNED))
+        if virtual:
+            c = c.merge(Config(s3={"addressing_style": "virtual"}))
+
+        return c
 
     @staticmethod
     def _download_s3(uri, temp_dir: str):
@@ -486,7 +495,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if out_dir is None:
             return local_path
         elif not os.path.isdir(out_dir):
-            os.makedirs(out_dir)
+            os.makedirs(out_dir, exist_ok=True)
 
         if os.path.isdir(local_path):
             local_path = os.path.join(local_path, "*")
@@ -496,7 +505,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             _, tail = os.path.split(src)
             dest_path = os.path.join(out_dir, tail)
             logging.info("Linking: %s to %s", src, dest_path)
-            os.symlink(src, dest_path)
+            if not os.path.exists(dest_path):
+                os.symlink(src, dest_path)
+            else:
+                logging.info("File %s already exist", dest_path)
             count = count + 1
         if count == 0:
             raise RuntimeError(
@@ -513,7 +525,11 @@ class Storage(object):  # pylint: disable=too-few-public-methods
     def _download_from_uri(uri, out_dir=None):
         url = urlparse(uri)
         filename = os.path.basename(url.path)
-        mimetype, encoding = mimetypes.guess_type(url.path)
+        # Determine if the symbol '?' exists in the path
+        if mimetypes.guess_type(url.path)[0] is None and url.query != '':
+            mimetype, encoding = mimetypes.guess_type(url.query)
+        else:
+            mimetype, encoding = mimetypes.guess_type(url.path)
         local_path = os.path.join(out_dir, filename)
 
         if filename == '':

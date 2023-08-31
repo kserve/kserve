@@ -1,0 +1,103 @@
+{{- if .Values.kserve.modelmesh.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+    control-plane: modelmesh-controller
+  name: modelmesh-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: modelmesh-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: modelmesh-controller
+        app.kubernetes.io/managed-by: modelmesh-controller
+        app.kubernetes.io/name: modelmesh-controller
+        control-plane: modelmesh-controller
+    spec:
+      {{- with .Values.kserve.modelmesh.controller.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.modelmesh.controller.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.modelmesh.controller.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.modelmesh.controller.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - args:
+        - --enable-leader-election
+        command:
+        - /manager
+        env:
+        - name: NAMESPACE_SCOPE
+          value: "false"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ETCD_SECRET_NAME
+          value: model-serving-etcd
+        image: {{ .Values.kserve.modelmesh.controller.image }}:{{ .Values.kserve.modelmesh.controller.tag }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: 512Mi
+          requests:
+            cpu: 50m
+            memory: 96Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - mountPath: /etc/model-serving/config/default
+          name: config-defaults
+          readOnly: true
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: modelmesh-webhook-server-cert
+          readOnly: true
+      serviceAccountName: modelmesh-controller
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: config-defaults
+        configMap:
+          defaultMode: 420
+          name: model-serving-config-defaults
+      - name: modelmesh-webhook-server-cert
+        secret:
+          defaultMode: 420
+          secretName: modelmesh-webhook-server-cert
+{{- end }}

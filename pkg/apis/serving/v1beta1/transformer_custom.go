@@ -73,11 +73,11 @@ func (c *CustomTransformer) GetStorageSpec() *StorageSpec {
 	return nil
 }
 
-// GetContainers transforms the resource into a container spec
-func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+// GetContainer transforms the resource into a container spec
+func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string) *v1.Container {
 	container := &c.Containers[0]
-	argumentPredictorHost := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
-
+	argumentPredictorHost := fmt.Sprintf("%s.%s", predictorHost[0], metadata.Namespace)
 	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]
 
 	if ok && (deploymentMode == string(constants.ModelMeshDeployment)) {
@@ -119,6 +119,11 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 }
 
 func (c *CustomTransformer) GetProtocol() constants.InferenceServiceProtocol {
+	for _, envVar := range c.Containers[0].Env {
+		if envVar.Name == constants.CustomSpecProtocolEnvVarKey {
+			return constants.InferenceServiceProtocol(envVar.Value)
+		}
+	}
 	return constants.ProtocolV1
 }
 

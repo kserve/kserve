@@ -28,7 +28,7 @@ cat ./charts/kserve-resources/values.yaml
 make deploy-helm
 
 echo "Updating modelmesh default replicas count..."
-kubectl patch clusterservingruntimes mlserver-0.x --type='merge' -p '{"spec":{"replicas":1}}'
+kubectl patch clusterservingruntimes mlserver-1.x --type='merge' -p '{"spec":{"replicas":1}}'
 
 echo "Get events of all pods ..."
 kubectl get events -A
@@ -46,5 +46,5 @@ kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-
 echo "Installing KServe Python SDK ..."
 python3 -m pip install --upgrade pip
 pushd python/kserve >/dev/null
-    pip3 install -e .[test] --user
+    poetry install --with=test --no-interaction
 popd

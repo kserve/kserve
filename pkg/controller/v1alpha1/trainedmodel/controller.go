@@ -133,7 +133,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// Check inferenceserviceready, frameworksupported, and memoryavailability
+	// Check inferenceserviceready, and memoryavailability
 	if err := r.updateConditions(req, tm); err != nil {
 		return reconcile.Result{}, err
 	}

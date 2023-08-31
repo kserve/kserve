@@ -1,0 +1,87 @@
+{
+  "parameters": {
+    "content_type": "pd"
+  },
+  "inputs": [
+    {
+      "name": "MSZoning",
+      "shape": [1],
+      "datatype": "BYTES",
+      "data": [
+        "RL"
+      ]
+    },
+    {
+      "name": "LotArea",
+      "shape": [1],
+      "datatype": "INT32",
+      "data": [
+        8450
+      ]
+    },
+    {
+      "name": "LotShape",
+      "shape": [1],
+      "datatype": "BYTES",
+      "data": [
+        "Reg"
+      ]
+    },
+    {
+      "name": "Utilities",
+      "shape": [1],
+      "datatype": "BYTES",
+      "data": [
+        "AllPub"
+      ]
+    },
+    {
+      "name": "YrSold",
+      "shape": [1],
+      "datatype": "INT32",
+      "data": [
+        2008
+      ]
+    },
+    {
+      "name": "Neighborhood",
+      "shape": [1],
+      "datatype": "BYTES",
+      "data": [
+        "CollgCr"
+      ]
+    },
+    {
+      "name": "OverallQual",
+      "shape": [1],
+      "datatype": "INT32",
+      "data": [
+        7
+      ]
+    },
+    {
+      "name": "YearBuilt",
+      "shape": [1],
+      "datatype": "INT32",
+      "data": [
+        2003
+      ]
+    },
+    {
+      "name": "SaleType",
+      "shape": [1],
+      "datatype": "BYTES",
+      "data": [
+        "WD"
+      ]
+    },
+    {
+      "name": "GarageArea",
+      "shape": [1],
+      "datatype": "INT32",
+      "data": [
+        548
+      ]
+    }
+  ]
+}

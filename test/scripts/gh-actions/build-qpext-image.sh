@@ -24,6 +24,6 @@ export QPEXT_IMG=kserve/qpext:${GITHUB_SHA}
 
 pushd qpext >/dev/null
 echo "Building queue proxy extension image"
-docker build -t ${QPEXT_IMG} -f qpext.Dockerfile .
+docker buildx build -t ${QPEXT_IMG} -f qpext.Dockerfile .
 popd
 echo "Done building image"

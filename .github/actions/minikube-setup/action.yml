@@ -4,33 +4,22 @@ description: 'Sets up minikube on the github runner'
 runs:
   using: "composite"
   steps:
-    - name: Setup Minikube
-      uses: manusa/actions-setup-minikube@v2.7.2
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
       with:
-        minikube version: 'v1.28.0'
-        kubernetes version: 'v1.23.15'
+        version: 'v1.27.4'
+
+    - name: Setup Minikube
+      uses: medyagh/setup-minikube@latest
+      with:
+        minikube-version: '1.31.1'
+        kubernetes-version: 'v1.27.4'
         driver: 'none'
-        start args: --wait-timeout=120s
-        github token: ${{ env.GITHUB_TOKEN }}
-    - name: Setup port-forward
-      shell: bash
-      run: sudo apt-get install -y conntrack socat
+        network-plugin: 'cni'
+        cni: 'calico'
+        wait: 'all'
+        start-args: --wait-timeout=6m0s
+
     - name: Check Kubernetes pods
       shell: bash
       run: kubectl get pods -n kube-system
-    - name: Setup KServe dependencies
-      shell: bash
-      run: |
-        ./test/scripts/gh-actions/setup-deps.sh
-
-        kubectl get pods -n istio-system
-        kubectl describe svc -n istio-system istio-ingressgateway
-        kubectl get pods -n knative-serving
-        kubectl get pods -n cert-manager
-    
-    - name: Update test overlays
-      shell: bash
-      run: |
-        ./test/scripts/gh-actions/update-test-overlays.sh
-        docker image ls
-        cat ./config/overlays/test/configmap/inferenceservice.yaml

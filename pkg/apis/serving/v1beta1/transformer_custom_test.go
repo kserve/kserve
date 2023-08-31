@@ -360,11 +360,85 @@ func TestCreateTransformerContainer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			transformer := scenario.isvc.Spec.Transformer.GetImplementation()
 			transformer.Default(nil)
-			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"},
-				&scenario.isvc.Spec.Transformer.ComponentExtensionSpec, nil)
+			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Transformer.ComponentExtensionSpec,
+				nil, constants.DefaultPredictorServiceName("someName"))
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
 		})
+	}
+}
+
+func TestTransformerGetProtocol(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		spec    *CustomTransformer
+		matcher types.GomegaMatcher
+	}{
+		"DefaultProtocol": {
+			spec: &CustomTransformer{
+				PodSpec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Image: "transformer:0.1.0",
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+							Args: []string{
+								"--model_name",
+								"someName",
+								"--predictor_host",
+								"localhost",
+								"--http_port",
+								"8080",
+								"--workers",
+								"1",
+							},
+						},
+					},
+				},
+			},
+
+			matcher: gomega.Equal(constants.ProtocolV1),
+		},
+		"ProtocolSpecified": {
+			spec: &CustomTransformer{
+				PodSpec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Image: "transformer:0.1.0",
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+								{
+									Name:  constants.CustomSpecProtocolEnvVarKey,
+									Value: string(constants.ProtocolV2),
+								},
+							},
+							Args: []string{
+								"--model_name",
+								"someName",
+								"--predictor_host",
+								"localhost",
+								"--http_port",
+								"8080",
+								"--workers",
+								"1",
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV2),
+		},
+	}
+	for _, scenario := range scenarios {
+		protocol := scenario.spec.GetProtocol()
+		g.Expect(protocol).To(scenario.matcher)
 	}
 }

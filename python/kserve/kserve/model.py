@@ -13,30 +13,30 @@
 # limitations under the License.
 
 import inspect
-import logging
 import time
 from enum import Enum
-from typing import Dict, Union, List
+from typing import Dict, List, Union
 
 import grpc
-
 import httpx
-from httpx import HTTPStatusError
 import orjson
 from cloudevents.http import CloudEvent
-
-from .protocol.infer_type import InferRequest, InferResponse
-from .metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
-from .protocol.grpc import grpc_predict_v2_pb2_grpc
-from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+from httpx import HTTPStatusError
 
 from .errors import InvalidInput
-from .utils.utils import is_structured_cloudevent
 
-PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
-EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
-PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
-EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
+from .logging import trace_logger
+from .metrics import (EXPLAIN_HIST_TIME, POST_HIST_TIME, PRE_HIST_TIME,
+                      PREDICT_HIST_TIME, get_labels)
+from .protocol.grpc import grpc_predict_v2_pb2_grpc
+from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
+                                                ModelInferResponse)
+from .protocol.infer_type import InferRequest, InferResponse
+
+PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
+EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
+PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
+EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
 
 
 class ModelType(Enum):
@@ -48,6 +48,10 @@ class PredictorProtocol(Enum):
     REST_V1 = "v1"
     REST_V2 = "v2"
     GRPC_V2 = "grpc-v2"
+
+
+def is_v2(protocol: PredictorProtocol) -> bool:
+    return protocol != PredictorProtocol.REST_V1
 
 
 def get_latency_ms(start: float, end: float) -> float:
@@ -75,6 +79,7 @@ class Model:
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
+        self.use_ssl = False
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        model_type: ModelType = ModelType.PREDICTOR,
@@ -125,9 +130,9 @@ class Model:
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
-            logging.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, "
-                         f"explain_ms: {explain_ms}, predict_ms: {predict_ms}, "
-                         f"postprocess_ms: {postprocess_ms}")
+            trace_logger.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, "
+                              f"explain_ms: {explain_ms}, predict_ms: {predict_ms}, "
+                              f"postprocess_ms: {postprocess_ms}")
 
         return response
 
@@ -140,10 +145,14 @@ class Model:
     @property
     def _grpc_client(self):
         if self._grpc_client_stub is None:
-            # requires appending ":80" to the predictor host for gRPC to work
+            # requires appending the port to the predictor host for gRPC to work
             if ":" not in self.predictor_host:
-                self.predictor_host = self.predictor_host + ":80"
-            _channel = grpc.aio.insecure_channel(self.predictor_host)
+                port = 443 if self.use_ssl else 80
+                self.predictor_host = f"{self.predictor_host}:{port}"
+            if self.use_ssl:
+                _channel = grpc.aio.secure_channel(self.predictor_host, grpc.ssl_channel_credentials())
+            else:
+                _channel = grpc.aio.insecure_channel(self.predictor_host)
             self._grpc_client_stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
         return self._grpc_client_stub
 
@@ -187,48 +196,25 @@ class Model:
         # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
-    async def preprocess(self, payload: Union[Dict, CloudEvent, InferRequest],
+    async def preprocess(self, payload: Union[Dict, InferRequest],
                          headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         """`preprocess` handler can be overridden for data or feature transformation.
         The default implementation decodes to Dict if it is a binary CloudEvent
         or gets the data field from a structured CloudEvent.
 
         Args:
-            payload (Dict|CloudEvent|InferRequest): Body of the request, v2 endpoints pass InferRequest.
+            payload (Dict|InferRequest): Body of the request, v2 endpoints pass InferRequest.
             headers (Dict): Request headers.
 
         Returns:
             Dict|InferRequest: Transformed inputs to ``predict`` handler or return InferRequest for predictor call.
         """
-        response = payload
 
-        if isinstance(payload, CloudEvent):
-            response = payload.data
-            # Try to decode and parse JSON UTF-8 if possible, otherwise
-            # just pass the CloudEvent data on to the predict function.
-            # This is for the cases that CloudEvent encoding is protobuf, avro etc.
-            try:
-                response = orjson.loads(response.decode('UTF-8'))
-            except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
-                # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
-                if "content-type" in payload._attributes and \
-                        (payload._attributes["content-type"] == "application/cloudevents+json" or
-                         payload._attributes["content-type"] == "application/json"):
-                    raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
+        return payload
 
-        elif isinstance(payload, dict):
-            if is_structured_cloudevent(payload):
-                response = payload["data"]
-
-        return response
-
-    def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
-            -> Union[Dict, ModelInferResponse]:
+    def postprocess(self, response: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
+            -> Union[Dict, InferResponse]:
         """The postprocess handler can be overridden for inference response transformation.
-        The default implementation converts the v2 infer response types to gRPC or REST.
-        For gRPC request it converts InferResponse to gRPC message or directly returns ModelInferResponse from
-        predictor call.
-        For REST request it converts ModelInferResponse to Dict or directly returns from predictor call.
 
         Args:
             response (Dict|InferResponse|ModelInferResponse): The response passed from ``predict`` handler.
@@ -237,24 +223,13 @@ class Model:
         Returns:
             Dict: post-processed response.
         """
-        if headers:
-            if "grpc" in headers.get("user-agent", ""):
-                if isinstance(response, ModelInferResponse):
-                    return response
-                elif isinstance(response, InferResponse):
-                    return response.to_grpc()
-            if "application/json" in headers.get("content-type", ""):
-                # If the original request is REST, convert the gRPC predict response to dict
-                if isinstance(response, ModelInferResponse):
-                    return InferResponse.from_grpc(response).to_rest()
-                elif isinstance(response, InferResponse):
-                    return response.to_rest()
         return response
 
     async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
-        predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
+        protocol = "https" if self.use_ssl else "http"
+        predict_url = PREDICTOR_URL_FORMAT.format(protocol, self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
-            predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
+            predict_url = PREDICTOR_V2_URL_FORMAT.format(protocol, self.predictor_host, self.name)
 
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
@@ -300,7 +275,7 @@ class Model:
         return async_result
 
     async def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest],
-                      headers: Dict[str, str] = None) -> Union[Dict, InferResponse, ModelInferResponse]:
+                      headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         """
 
         Args:
@@ -314,9 +289,12 @@ class Model:
         if not self.predictor_host:
             raise NotImplementedError("Could not find predictor_host.")
         if self.protocol == PredictorProtocol.GRPC_V2.value:
-            return await self._grpc_predict(payload, headers)
+            res = await self._grpc_predict(payload, headers)
+            return InferResponse.from_grpc(res)
         else:
-            return await self._http_predict(payload, headers)
+            res = await self._http_predict(payload, headers)
+            # return an InferResponse if this is REST V2, otherwise just return the dictionary
+            return InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.
@@ -331,9 +309,11 @@ class Model:
         """
         if self.explainer_host is None:
             raise NotImplementedError("Could not find explainer_host.")
-        explain_url = EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name)
+
+        protocol = "https" if self.use_ssl else "http"
+        explain_url = EXPLAINER_URL_FORMAT.format(protocol, self.explainer_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
-            explain_url = EXPLAINER_V2_URL_FORMAT.format(self.explainer_host, self.name)
+            explain_url = EXPLAINER_V2_URL_FORMAT.format(protocol, self.explainer_host, self.name)
         response = await self._http_client.post(
             url=explain_url,
             timeout=self.timeout,

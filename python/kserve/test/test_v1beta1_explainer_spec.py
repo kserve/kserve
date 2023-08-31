@@ -52,49 +52,6 @@ class TestV1beta1ExplainerSpec(unittest.TestCase):
             return V1beta1ExplainerSpec(
                 active_deadline_seconds = 56, 
                 affinity = None, 
-                aix = kserve.models.v1beta1_aix_explainer_spec.V1beta1AIXExplainerSpec(
-                    args = [
-                        '0'
-                        ], 
-                    command = [
-                        '0'
-                        ], 
-                    config = {
-                        'key' : '0'
-                        }, 
-                    env = [
-                        None
-                        ], 
-                    env_from = [
-                        None
-                        ], 
-                    image = '0', 
-                    image_pull_policy = '0', 
-                    lifecycle = None, 
-                    liveness_probe = None, 
-                    name = '0', 
-                    ports = [
-                        None
-                        ], 
-                    readiness_probe = None, 
-                    resources = None, 
-                    runtime_version = '0', 
-                    security_context = None, 
-                    startup_probe = None, 
-                    stdin = True, 
-                    stdin_once = True, 
-                    storage_uri = '0', 
-                    termination_message_path = '0', 
-                    termination_message_policy = '0', 
-                    tty = True, 
-                    type = '0', 
-                    volume_devices = [
-                        None
-                        ], 
-                    volume_mounts = [
-                        None
-                        ], 
-                    working_dir = '0', ), 
                 alibi = kserve.models.v1beta1_alibi_explainer_spec.V1beta1AlibiExplainerSpec(
                     args = [
                         '0'

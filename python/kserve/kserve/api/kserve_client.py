@@ -27,21 +27,31 @@ from ..utils import utils
 
 class KServeClient(object):
 
-    def __init__(self, config_file=None, context=None,  # pylint: disable=too-many-arguments
+    def __init__(self, config_file=None, config_dict=None, context=None,  # pylint: disable=too-many-arguments
                  client_configuration=None, persist_config=True):
         """
         KServe client constructor
         :param config_file: kubeconfig file, defaults to ~/.kube/config
+        :param config_dict: Takes the config file as a dict.
         :param context: kubernetes context
         :param client_configuration: kubernetes configuration object
         :param persist_config:
         """
-        if config_file or not utils.is_running_in_k8s():
-            config.load_kube_config(
-                config_file=config_file,
-                context=context,
-                client_configuration=client_configuration,
-                persist_config=persist_config)
+        if config_file or config_dict or not utils.is_running_in_k8s():
+            if config_dict:
+                config.load_kube_config_from_dict(
+                    config_dict=config_dict,
+                    context=context,
+                    client_configuration=None,
+                    persist_config=persist_config
+                )
+            else:
+                config.load_kube_config(
+                    config_file=config_file,
+                    context=context,
+                    client_configuration=client_configuration,
+                    persist_config=persist_config
+                )
         else:
             config.load_incluster_config()
         self.core_api = client.CoreV1Api()

@@ -19,8 +19,9 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"time"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
@@ -31,17 +32,15 @@ import (
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
-	v2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/network"
-
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -156,7 +155,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfs",
+									Name:      "kserve-container",
 									Resources: defaultResource,
 								},
 							},
@@ -178,7 +177,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
@@ -281,7 +280,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			//check service
 			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
@@ -294,7 +293,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
 						{
-							Name:       "raw-foo-predictor-default",
+							Name:       constants.PredictorServiceName(serviceName),
 							Protocol:   "TCP",
 							Port:       80,
 							TargetPort: intstr.IntOrString{Type: 0, IntVal: 8080, StrVal: ""},
@@ -303,7 +302,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": "isvc.raw-foo-predictor-default",
+						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
 					},
 				},
 			}
@@ -344,7 +343,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: "raw-foo-predictor-default",
+													Name: "raw-foo-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -356,7 +355,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: "raw-foo-predictor-default-default.example.com",
+							Host: "raw-foo-predictor-default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -365,7 +364,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: "raw-foo-predictor-default",
+													Name: "raw-foo-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -405,7 +404,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -413,7 +412,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "",
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   "raw-foo-predictor-default-default.example.com",
+							Host:   "raw-foo-predictor-default.example.com",
 						},
 					},
 				},
@@ -435,38 +434,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
-			selectPolicy := v2beta2.MaxPolicySelect
-			actualHPA := &v2beta2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			selectPolicy := autoscalingv2.MaxChangePolicySelect
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
+			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
-			expectedHPA := &v2beta2.HorizontalPodAutoscaler{
-				Spec: v2beta2.HorizontalPodAutoscalerSpec{
-					ScaleTargetRef: v2beta2.CrossVersionObjectReference{
+			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 						APIVersion: "apps/v1",
 						Kind:       "Deployment",
-						Name:       constants.DefaultPredictorServiceName(serviceKey.Name),
+						Name:       constants.PredictorServiceName(serviceKey.Name),
 					},
 					MinReplicas: &minReplicas,
 					MaxReplicas: maxReplicas,
-					Metrics: []v2beta2.MetricSpec{
+					Metrics: []autoscalingv2.MetricSpec{
 						{
-							Type: v2beta2.ResourceMetricSourceType,
-							Resource: &v2beta2.ResourceMetricSource{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: v1.ResourceCPU,
-								Target: v2beta2.MetricTarget{
+								Target: autoscalingv2.MetricTarget{
 									Type:               "Utilization",
 									AverageUtilization: &cpuUtilization,
 								},
 							},
 						},
 					},
-					Behavior: &v2beta2.HorizontalPodAutoscalerBehavior{
-						ScaleUp: &v2beta2.HPAScalingRules{
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: &stabilizationWindowSeconds,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Pods",
 									Value:         4,
@@ -479,10 +478,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
-						ScaleDown: &v2beta2.HPAScalingRules{
+						ScaleDown: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: nil,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Percent",
 									Value:         100,
@@ -588,7 +587,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfs",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -610,7 +609,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
@@ -713,7 +712,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			//check service
 			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
@@ -726,7 +725,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
 						{
-							Name:       fmt.Sprintf("%s-predictor-default", serviceName),
+							Name:       constants.PredictorServiceName(serviceName),
 							Protocol:   "TCP",
 							Port:       80,
 							TargetPort: intstr.IntOrString{Type: 0, IntVal: 8080, StrVal: ""},
@@ -735,7 +734,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s-predictor-default", serviceName),
+						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
 					},
 				},
 			}
@@ -776,7 +775,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor-default", serviceName),
+													Name: fmt.Sprintf("%s-predictor", serviceName),
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -788,7 +787,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: fmt.Sprintf("%s-predictor-default-default.example.com", serviceName),
+							Host: fmt.Sprintf("%s-predictor-default.example.com", serviceName),
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -797,7 +796,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor-default", serviceName),
+													Name: fmt.Sprintf("%s-predictor", serviceName),
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -837,7 +836,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -845,7 +844,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "",
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   fmt.Sprintf("%s-predictor-default-default.example.com", serviceName),
+							Host:   fmt.Sprintf("%s-predictor-default.example.com", serviceName),
 						},
 					},
 				},
@@ -867,38 +866,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
-			selectPolicy := v2beta2.MaxPolicySelect
-			actualHPA := &v2beta2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			selectPolicy := autoscalingv2.MaxChangePolicySelect
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
+			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
-			expectedHPA := &v2beta2.HorizontalPodAutoscaler{
-				Spec: v2beta2.HorizontalPodAutoscalerSpec{
-					ScaleTargetRef: v2beta2.CrossVersionObjectReference{
+			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 						APIVersion: "apps/v1",
 						Kind:       "Deployment",
-						Name:       constants.DefaultPredictorServiceName(serviceKey.Name),
+						Name:       constants.PredictorServiceName(serviceKey.Name),
 					},
 					MinReplicas: &minReplicas,
 					MaxReplicas: maxReplicas,
-					Metrics: []v2beta2.MetricSpec{
+					Metrics: []autoscalingv2.MetricSpec{
 						{
-							Type: v2beta2.ResourceMetricSourceType,
-							Resource: &v2beta2.ResourceMetricSource{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: v1.ResourceCPU,
-								Target: v2beta2.MetricTarget{
+								Target: autoscalingv2.MetricTarget{
 									Type:               "Utilization",
 									AverageUtilization: &cpuUtilization,
 								},
 							},
 						},
 					},
-					Behavior: &v2beta2.HorizontalPodAutoscalerBehavior{
-						ScaleUp: &v2beta2.HPAScalingRules{
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: &stabilizationWindowSeconds,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Pods",
 									Value:         4,
@@ -911,10 +910,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
-						ScaleDown: &v2beta2.HPAScalingRules{
+						ScaleDown: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: nil,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Percent",
 									Value:         100,
@@ -1021,7 +1020,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name:      "kfs",
+									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
 							},
@@ -1043,7 +1042,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
@@ -1146,7 +1145,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			//check service
 			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
@@ -1159,7 +1158,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
 						{
-							Name:       fmt.Sprintf("%s-predictor-default", serviceName),
+							Name:       constants.PredictorServiceName(serviceName),
 							Protocol:   "TCP",
 							Port:       80,
 							TargetPort: intstr.IntOrString{Type: 0, IntVal: 8080, StrVal: ""},
@@ -1168,7 +1167,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s-predictor-default", serviceName),
+						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
 					},
 				},
 			}
@@ -1209,7 +1208,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor-default", serviceName),
+													Name: fmt.Sprintf("%s-predictor", serviceName),
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -1221,7 +1220,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: fmt.Sprintf("%s-predictor-default.%s.%s", serviceName, serviceKey.Namespace, domain),
+							Host: fmt.Sprintf("%s-predictor.%s.%s", serviceName, serviceKey.Namespace, domain),
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -1230,7 +1229,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor-default", serviceName),
+													Name: fmt.Sprintf("%s-predictor", serviceName),
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -1270,7 +1269,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -1278,7 +1277,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "",
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   fmt.Sprintf("%s-predictor-default.%s.%s", serviceName, serviceKey.Namespace, domain),
+							Host:   fmt.Sprintf("%s-predictor.%s.%s", serviceName, serviceKey.Namespace, domain),
 						},
 					},
 				},
@@ -1300,38 +1299,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
-			selectPolicy := v2beta2.MaxPolicySelect
-			actualHPA := &v2beta2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
+			selectPolicy := autoscalingv2.MaxChangePolicySelect
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
+			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
-			expectedHPA := &v2beta2.HorizontalPodAutoscaler{
-				Spec: v2beta2.HorizontalPodAutoscalerSpec{
-					ScaleTargetRef: v2beta2.CrossVersionObjectReference{
+			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 						APIVersion: "apps/v1",
 						Kind:       "Deployment",
-						Name:       constants.DefaultPredictorServiceName(serviceKey.Name),
+						Name:       constants.PredictorServiceName(serviceKey.Name),
 					},
 					MinReplicas: &minReplicas,
 					MaxReplicas: maxReplicas,
-					Metrics: []v2beta2.MetricSpec{
+					Metrics: []autoscalingv2.MetricSpec{
 						{
-							Type: v2beta2.ResourceMetricSourceType,
-							Resource: &v2beta2.ResourceMetricSource{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: v1.ResourceCPU,
-								Target: v2beta2.MetricTarget{
+								Target: autoscalingv2.MetricTarget{
 									Type:               "Utilization",
 									AverageUtilization: &cpuUtilization,
 								},
 							},
 						},
 					},
-					Behavior: &v2beta2.HorizontalPodAutoscalerBehavior{
-						ScaleUp: &v2beta2.HPAScalingRules{
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: &stabilizationWindowSeconds,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Pods",
 									Value:         4,
@@ -1344,10 +1343,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
-						ScaleDown: &v2beta2.HPAScalingRules{
+						ScaleDown: &autoscalingv2.HPAScalingRules{
 							StabilizationWindowSeconds: nil,
 							SelectPolicy:               &selectPolicy,
-							Policies: []v2beta2.HPAScalingPolicy{
+							Policies: []autoscalingv2.HPAScalingPolicy{
 								{
 									Type:          "Percent",
 									Value:         100,

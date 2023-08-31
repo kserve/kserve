@@ -1,5 +1,9 @@
 HAS_LINT := $(shell command -v golint;)
 
+# Base Image URL
+BASE_IMG ?= python:3.9-slim-bullseye
+PMML_BASE_IMG ?= openjdk:11-slim
+
 # Image URL to use all building/pushing image targets
 IMG ?= kserve-controller:latest
 AGENT_IMG ?= agent:latest
@@ -9,14 +13,19 @@ XGB_IMG ?= xgbserver
 LGB_IMG ?= lgbserver
 PMML_IMG ?= pmmlserver
 PADDLE_IMG ?= paddleserver
+CUSTOM_MODEL_IMG ?= custom-model
+CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
+CUSTOM_TRANSFORMER_IMG ?= image-transformer
+CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
 ALIBI_IMG ?= alibi-explainer
-AIX_IMG ?= aix-explainer
+AIF_IMG ?= aiffairness
+ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
 QPEXT_IMG ?= qpext
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.24
+ENVTEST_K8S_VERSION = 1.26
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -29,8 +38,8 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v3.8.7
-CONTROLLER_TOOLS_VERSION ?= v0.4.0
+KUSTOMIZE_VERSION ?= v5.0.3
+CONTROLLER_TOOLS_VERSION ?= v0.12.0
 
 # CPU/Memory limits for controller-manager
 KSERVE_CONTROLLER_CPU_LIMIT ?= 100m
@@ -64,54 +73,45 @@ run: generate fmt vet lint
 deploy: manifests
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	kustomize edit remove resource certmanager/certificate.yaml; \
-	else kustomize edit add resource certmanager/certificate.yaml; fi;
-	kustomize build config/default | kubectl apply -f -
+	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
+	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
+	${KUSTOMIZE} build config/default | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev: manifests
 	./hack/image_patch_dev.sh development
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	kustomize edit remove resource certmanager/certificate.yaml; \
-	else kustomize edit add resource certmanager/certificate.yaml; fi;
-	kustomize build config/overlays/development | kubectl apply -f -
+	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
+	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
+	${KUSTOMIZE} build config/overlays/development | kubectl apply -f -
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kustomize build config/runtimes | kubectl apply -f -
+	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
-deploy-dev-sklearn: docker-push-sklearn
-	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${SKLEARN_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+deploy-dev-sklearn: docker-push-sklearn kustomize
+	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
 
-deploy-dev-xgb: docker-push-xgb
-	./hack/model_server_patch_dev.sh xgboost ${KO_DOCKER_REPO}/${XGB_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+deploy-dev-xgb: docker-push-xgb kustomize
+	./hack/serving_runtime_image_patch.sh "kserve-xgbserver.yaml" "${KO_DOCKER_REPO}/${XGB_IMG}"
 
-deploy-dev-lgb: docker-push-lgb
-	./hack/model_server_patch_dev.sh lightgbm ${KO_DOCKER_REPO}/${LGB_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+deploy-dev-lgb: docker-push-lgb kustomize
+	./hack/serving_runtime_image_patch.sh "kserve-lgbserver.yaml" "${KO_DOCKER_REPO}/${LGB_IMG}"
 
 deploy-dev-pmml : docker-push-pmml
-	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${PMML_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	./hack/serving_runtime_image_patch.sh "kserve-pmmlserver.yaml" "${KO_DOCKER_REPO}/${PMML_IMG}"
 
 deploy-dev-paddle: docker-push-paddle
-	./hack/model_server_patch_dev.sh paddle ${KO_DOCKER_REPO}/${PADDLE_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	./hack/serving_runtime_image_patch.sh "kserve-paddleserver.yaml" "${KO_DOCKER_REPO}/${PADDLE_IMG}"
 
-deploy-dev-alibi: docker-push-alibi
+deploy-dev-alibi: docker-push-alibi kustomize
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	${KUSTOMIZE} build config/overlays/dev-image-config | kubectl apply -f -
 
-deploy-dev-aix: docker-push-aix
-	./hack/aix_patch_dev.sh ${KO_DOCKER_REPO}/${AIX_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
-
-deploy-dev-storageInitializer: docker-push-storageInitializer
+deploy-dev-storageInitializer: docker-push-storageInitializer kustomize
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	${KUSTOMIZE} build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-ci: manifests
 	kubectl apply -k config/overlays/test
@@ -123,22 +123,22 @@ deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
 	helm install kserve charts/kserve-resources/ --wait --timeout 180s
 
-undeploy:
-	kustomize build config/default | kubectl delete -f -
+undeploy: kustomize
+	${KUSTOMIZE} build config/default | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
-undeploy-dev:
-	kustomize build config/overlays/development | kubectl delete -f -
+undeploy-dev: kustomize
+	${KUSTOMIZE} build config/overlays/development | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+manifests: controller-gen kustomize
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
@@ -169,7 +169,7 @@ manifests: controller-gen
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_inferenceservices.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_clusterservingruntimes.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_servingruntimes.yaml
-	kustomize build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
+	${KUSTOMIZE} build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
 
 # Run go fmt against code
 fmt:
@@ -195,7 +195,7 @@ generate: controller-gen
 
 # Build the docker image
 docker-build: test
-	docker build . -t ${IMG}
+	docker buildx build . -t ${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 
 	# Use perl instead of sed to avoid OSX/Linux compatibility issue:
@@ -207,10 +207,10 @@ docker-push:
 	docker push ${IMG}
 
 docker-build-agent:
-	docker build -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
+	docker buildx build -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
 
 docker-build-router:
-	docker build -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}
+	docker buildx build -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}
 
 docker-push-agent:
 	docker push ${KO_DOCKER_REPO}/${AGENT_IMG}
@@ -219,55 +219,85 @@ docker-push-router:
 	docker push ${KO_DOCKER_REPO}/${ROUTER_IMG}
 
 docker-build-sklearn:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
 
 docker-push-sklearn: docker-build-sklearn
 	docker push ${KO_DOCKER_REPO}/${SKLEARN_IMG}
 
 docker-build-xgb:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
 
 docker-push-xgb: docker-build-xgb
 	docker push ${KO_DOCKER_REPO}/${XGB_IMG}
 
 docker-build-lgb:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
 
 docker-push-lgb: docker-build-lgb
 	docker push ${KO_DOCKER_REPO}/${LGB_IMG}
 
 docker-build-pmml:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
 
 docker-push-pmml: docker-build-pmml
 	docker push ${KO_DOCKER_REPO}/${PMML_IMG}
 
 docker-build-paddle:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
 
 docker-push-paddle: docker-build-paddle
 	docker push ${KO_DOCKER_REPO}/${PADDLE_IMG}
 
+docker-build-custom-model:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG} -f custom_model.Dockerfile .
+
+docker-push-custom-model: docker-build-custom-model
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG}
+
+docker-build-custom-model-grpc:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG} -f custom_model_grpc.Dockerfile .
+
+docker-push-custom-model-grpc: docker-build-custom-model-grpc
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}
+
+docker-build-custom-transformer:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+
+docker-push-custom-transformer: docker-build-custom-transformer
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG}
+
+docker-build-custom-transformer-grpc:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG} -f custom_transformer_grpc.Dockerfile .
+
+docker-push-custom-transformer-grpc: docker-build-custom-transformer-grpc
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}
+
 docker-build-alibi:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
 
 docker-push-alibi: docker-build-alibi
 	docker push ${KO_DOCKER_REPO}/${ALIBI_IMG}
 
-docker-build-aix:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${AIX_IMG} -f aixexplainer.Dockerfile .
+docker-build-aif:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .
 
-docker-push-aix: docker-build-aix
-	docker push ${KO_DOCKER_REPO}/${AIX_IMG}
+docker-push-aif: docker-build-aif
+	docker push ${KO_DOCKER_REPO}/${AIF_IMG}
+
+docker-build-art:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${ART_IMG} -f artexplainer.Dockerfile .
+
+docker-push-art: docker-build-art
+	docker push ${KO_DOCKER_REPO}/${ART_IMG}
 
 docker-build-storageInitializer:
-	cd python && docker build -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
+	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 
 docker-build-qpext:
-	cd qpext && docker build -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext.Dockerfile .
+	cd qpext && docker buildx build -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext.Dockerfile .
 
 docker-build-push-qpext: docker-build-qpext
 	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
@@ -290,7 +320,7 @@ $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 apidocs:
-	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
+	docker buildx build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
 	docker run -it --rm -v $(CURDIR)/pkg/apis:/go/src/github.com/kserve/kserve/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen
 
 .PHONY: check-doc-links

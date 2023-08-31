@@ -1,3 +1,4 @@
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +38,7 @@ from ..common.utils import predict
 api_version = constants.KSERVE_V1BETA1
 
 
-@pytest.mark.slow
+@pytest.mark.raw
 def test_raw_deployment_kserve():
     service_name = "raw-sklearn"
     annotations = dict()
@@ -72,7 +73,7 @@ def test_raw_deployment_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.raw
 def test_raw_deployment_runtime_kserve():
     service_name = "raw-sklearn-runtime"
     annotations = dict()
@@ -112,7 +113,7 @@ def test_raw_deployment_runtime_kserve():
 
 @pytest.mark.grpc
 def test_isvc_with_multiple_container_port():
-    service_name = "custom-model-grpc"
+    service_name = "raw-multiport-custom-model"
     model_name = "custom-model"
 
     predictor = V1beta1PredictorSpec(

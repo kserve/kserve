@@ -32,7 +32,7 @@ jobs:
             docker-compose --file docker-compose.test.yml run sut
           else
             cd qpext
-            docker build . --file qpext.Dockerfile
+            docker buildx build . --file qpext.Dockerfile
           fi
 
   # Push image to GitHub Packages.

@@ -13,18 +13,18 @@
 # limitations under the License.
 
 import asyncio
-import logging
 import multiprocessing
 from concurrent import futures
+
+from grpc import aio
+
+from kserve.logging import logger
+from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 
 from . import grpc_predict_v2_pb2_grpc
 from .interceptors import LoggingInterceptor
 from .servicer import InferenceServicer
-from kserve.protocol.dataplane import DataPlane
-from kserve.protocol.model_repository_extension import ModelRepositoryExtension
-
-from grpc import aio
-
 
 MAX_GRPC_MESSAGE_LENGTH = 8388608
 
@@ -59,14 +59,14 @@ class GRPCServer:
 
         listen_addr = f'[::]:{self._port}'
         self._server.add_insecure_port(listen_addr)
-        logging.info("Starting gRPC server on %s", listen_addr)
+        logger.info("Starting gRPC server on %s", listen_addr)
         await self._server.start()
         await self._server.wait_for_termination()
 
     async def stop(self, sig: int = None):
-        logging.info("Waiting for gRPC server shutdown")
+        logger.info("Waiting for gRPC server shutdown")
         await self._server.stop(grace=10)
-        logging.info("gRPC server shutdown complete")
+        logger.info("gRPC server shutdown complete")
 
 
 class GRPCProcess(multiprocessing.Process):

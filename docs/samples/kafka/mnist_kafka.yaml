@@ -1,4 +1,4 @@
-apiVersion: serving.kserve.io/v1alpha2
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: mnist
@@ -14,7 +14,7 @@ spec:
           cpu: 100m
           memory: 1Gi
       runtimeVersion: 1.14.0
-      storageUri: s3://mnist/model-v1/export
+      storageUri: s3://mnist
   transformer:
     minReplicas: 1
     containers:

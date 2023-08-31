@@ -17,16 +17,21 @@ limitations under the License.
 package pod
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
-
 	v1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -41,17 +46,18 @@ const (
 )
 
 type StorageInitializerConfig struct {
-	Image                 string `json:"image"`
-	CpuRequest            string `json:"cpuRequest"`
-	CpuLimit              string `json:"cpuLimit"`
-	MemoryRequest         string `json:"memoryRequest"`
-	MemoryLimit           string `json:"memoryLimit"`
-	StorageSpecSecretName string `json:"storageSpecSecretName"`
+	Image                      string `json:"image"`
+	CpuRequest                 string `json:"cpuRequest"`
+	CpuLimit                   string `json:"cpuLimit"`
+	MemoryRequest              string `json:"memoryRequest"`
+	MemoryLimit                string `json:"memoryLimit"`
+	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
 }
 
 type StorageInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
 	config            *StorageInitializerConfig
+	client            client.Client
 }
 
 func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerConfig, error) {
@@ -77,6 +83,28 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 	return storageInitializerConfig, nil
 }
 
+func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1.Container, error) {
+	storageContainers := &v1alpha1.ClusterStorageContainerList{}
+	if err := client.List(context.TODO(), storageContainers); err != nil {
+		return nil, err
+	}
+
+	for _, sc := range storageContainers.Items {
+		if sc.IsDisabled() {
+			continue
+		}
+		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+		if err != nil {
+			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
+		}
+		if supported {
+			return &sc.Spec.Container, nil
+		}
+	}
+
+	return nil, nil
+}
+
 // InjectStorageInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
 // a provisioning INIT container. This is a work around because KNative does not
@@ -100,12 +128,15 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	// Find the kserve-container (this is the model inference server)
+	// Find the kserve-container (this is the model inference server) and transformer container
 	var userContainer *v1.Container
+	var transformerContainer *v1.Container
 	for idx, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, constants.InferenceServiceContainerName) == 0 {
 			userContainer = &pod.Spec.Containers[idx]
-			break
+		}
+		if container.Name == constants.TransformerContainerName {
+			transformerContainer = &pod.Spec.Containers[idx]
 		}
 	}
 
@@ -135,6 +166,69 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 		podVolumes = append(podVolumes, pvcSourceVolume)
 
+		// check if using direct volume mount to mount the pvc
+		// if yes, mount the pvc to model local mount path and return
+		if mi.config.EnableDirectPvcVolumeMount == true {
+
+			// add a corresponding pvc volume mount to the userContainer
+			// pvc will be mount to /mnt/models rather than /mnt/pvc
+			// pvcPath will be injected via SubPath, pvcPath must be a root or Dir
+			// it is user responsibility to ensure it is a root or Dir
+			pvcSourceVolumeMount := v1.VolumeMount{
+				Name:      PvcSourceMountName,
+				MountPath: constants.DefaultModelLocalMountPath,
+				// only path to volume's root ("") or folder is supported
+				SubPath:  pvcPath,
+				ReadOnly: true,
+			}
+
+			// Check if PVC source URIs is already mounted
+			// this may occur when mutator is triggered more than once
+			if userContainer.VolumeMounts != nil {
+				for _, volumeMount := range userContainer.VolumeMounts {
+					if strings.Compare(volumeMount.Name, PvcSourceMountName) == 0 {
+						return nil
+					}
+				}
+			}
+
+			userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
+			if transformerContainer != nil {
+				// Check if PVC source URIs is already mounted
+				if transformerContainer.VolumeMounts != nil {
+					for _, volumeMount := range transformerContainer.VolumeMounts {
+						if strings.Compare(volumeMount.Name, PvcSourceMountName) == 0 {
+							return nil
+						}
+					}
+				}
+
+				transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, pvcSourceVolumeMount)
+
+				// change the CustomSpecStorageUri env variable value
+				// to the default model path if present
+				for index, envVar := range transformerContainer.Env {
+					if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+						transformerContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+					}
+				}
+			}
+			// change the CustomSpecStorageUri env variable value
+			// to the default model path if present
+			for index, envVar := range userContainer.Env {
+				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+					userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+				}
+			}
+
+			// add volumes to the PodSpec
+			pod.Spec.Volumes = append(pod.Spec.Volumes, podVolumes...)
+
+			// not inject the storage initializer
+			return nil
+		}
+
+		// below use storage initializer to handle the pvc
 		// add a corresponding PVC volume mount to the INIT container
 		pvcSourceVolumeMount := v1.VolumeMount{
 			Name:      PvcSourceMountName,
@@ -145,7 +239,9 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 		// Since the model path is linked from source pvc, userContainer also need to mount the pvc.
 		userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
-
+		if transformerContainer != nil {
+			transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, pvcSourceVolumeMount)
+		}
 		// modify the sourceURI to point to the PVC path
 		srcURI = PvcSourceMountPath + "/" + pvcPath
 	}
@@ -203,6 +299,15 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		ReadOnly:  true,
 	}
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
+	if transformerContainer != nil {
+		transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, sharedVolumeReadMount)
+		// Change the CustomSpecStorageUri env variable value to the default model path if present
+		for index, envVar := range transformerContainer.Env {
+			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+				transformerContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+			}
+		}
+	}
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
@@ -218,29 +323,29 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	storageKey := pod.ObjectMeta.Annotations[constants.StorageSpecKeyAnnotationKey]
 	// Inject Storage Spec credentials if exist
 	if hasStorageSpec == "true" {
-		storageSpecSecret := mi.config.StorageSpecSecretName
 		var overrideParams map[string]string
 		if storageSpecParam, ok := pod.ObjectMeta.Annotations[constants.StorageSpecParamAnnotationKey]; ok {
 			if err := json.Unmarshal([]byte(storageSpecParam), &overrideParams); err != nil {
 				return err
 			}
 		}
-		if storageSpecSecret == "" {
-			storageSpecSecret = constants.DefaultStorageSpecSecret
-		}
 		if err := mi.credentialBuilder.CreateStorageSpecSecretEnvs(
 			pod.Namespace,
+			pod.Annotations,
 			storageKey,
-			storageSpecSecret,
 			overrideParams,
 			initContainer,
 		); err != nil {
 			return err
 		}
+		// initContainer.Args[0] is set up in CreateStorageSpecSecretEnvs
+		// srcURI is updated here to match storage container CRs below
+		srcURI = initContainer.Args[0]
 	} else {
 		// Inject service account credentials if storage spec doesn't exist
 		if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
 			pod.Namespace,
+			pod.Annotations,
 			pod.Spec.ServiceAccountName,
 			initContainer,
 			&pod.Spec.Volumes,
@@ -249,10 +354,68 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
+	// Update initContainer (container spec) from a storage container CR if there is a match,
+	// otherwise initContainer is not updated.
+	// Priority: CR > configMap
+	storageContainerSpec, err := getContainerSpecForStorageUri(srcURI, mi.client)
+	if err != nil {
+		return err
+	}
+	if storageContainerSpec != nil {
+		initContainer, err = mergeContainerSpecs(initContainer, storageContainerSpec)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Allow to override the uid for the case where ISTIO CNI with DNS proxy is enabled
+	// See for more: https://istio.io/latest/docs/setup/additional-setup/cni/#compatibility-with-application-init-containers.
+	if value, ok := pod.GetAnnotations()[constants.IstioSidecarUIDAnnotationKey]; ok {
+		if uid, err := strconv.ParseInt(value, 10, 64); err == nil {
+			initContainer.SecurityContext.RunAsUser = ptr.Int64(uid)
+		}
+	}
+
 	// Add init container to the spec
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, *initContainer)
 
 	return nil
+}
+
+// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
+// Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
+func mergeContainerSpecs(defaultContainer *v1.Container, crdContainer *v1.Container) (*v1.Container, error) {
+	if defaultContainer == nil {
+		return nil, fmt.Errorf("defaultContainer is nil")
+	}
+
+	containerName := defaultContainer.Name
+
+	defaultContainerJson, err := json.Marshal(*defaultContainer)
+	if err != nil {
+		return nil, err
+	}
+
+	overrides, err := json.Marshal(*crdContainer)
+	if err != nil {
+		return nil, err
+	}
+
+	mergedContainer := v1.Container{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, mergedContainer)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(jsonResult, &mergedContainer); err != nil {
+		return nil, err
+	}
+
+	if mergedContainer.Name == "" {
+		mergedContainer.Name = containerName
+	}
+
+	return &mergedContainer, nil
 }
 
 func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {

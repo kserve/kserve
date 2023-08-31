@@ -24,7 +24,7 @@ kustomize build docs/samples/metrics-and-monitoring/prometheus | kubectl apply -
 
 > Note: The above steps install Kubernetes resource objects in the `kfserving-monitoring` namespace. This is Kustomizable. To install under a different namespace, say `my-monitoring`, change `kfserving-monitoring` to `my-monitoring` in the following three files: a) `prometheus-operator/namespace.yaml`, b) `prometheus-operator/kustomization.yaml`, and c) `prometheus/kustomization.yaml`.
 
-### How Metrics are Scaped
+### How Metrics are Scraped
 
 * [This](https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/user-guides/getting-started.md) article provides details of how Prometheus setup using the above operator actually scrapes metrics.
 

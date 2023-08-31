@@ -1,8 +1,10 @@
 .PHONY: test
 
 dev_install:
-	pip install -e .
-	pip install -e .[test]
+	poetry install --with test,dev --extras "storage"
+
+install_dependencies:
+	poetry install --with=test --no-interaction --no-root --extras "storage"
 
 test:
 	cd ../ && pytest -W ignore kserve/test

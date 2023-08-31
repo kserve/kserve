@@ -13,19 +13,21 @@
 # limitations under the License.
 
 import os
-from typing import Dict
+from typing import Dict, Union
 
-import kserve
+import pandas as pd
 from jpmml_evaluator import make_evaluator
-from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
-
-from kserve.errors import ModelMissingError
+from jpmml_evaluator.py4j import Py4JBackend, launch_gateway
+from kserve.errors import ModelMissingError, InferenceError
 from kserve.storage import Storage
+from kserve import Model
+from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve.protocol.infer_type import InferRequest, InferResponse
 
 MODEL_EXTENSIONS = ('.pmml')
 
 
-class PmmlModel(kserve.Model):
+class PmmlModel(Model):
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
@@ -57,10 +59,11 @@ class PmmlModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        instances = payload["instances"]
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
-            result = [self.evaluator.evaluate(dict(zip(self.input_fields, instance))) for instance in instances]
-            return {"predictions": result}
+            instances = get_predict_input(payload)
+            results = [self.evaluator.evaluate(
+                dict(zip(self.input_fields, instance))) for instance in instances]
+            return get_predict_response(payload, pd.DataFrame(results), self.name)
         except Exception as e:
-            raise Exception("Failed to predict %s" % e)
+            raise InferenceError(str(e))

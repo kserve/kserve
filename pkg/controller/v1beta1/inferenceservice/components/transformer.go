@@ -21,17 +21,20 @@ import (
 	"net/url"
 	"time"
 
+	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	raw "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -47,14 +50,17 @@ type Transformer struct {
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder
+	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
 
-func NewTransformer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig) Component {
+func NewTransformer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig,
+	deploymentMode constants.DeploymentModeType) Component {
 	return &Transformer{
 		client:                 client,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
+		deploymentMode:         deploymentMode,
 		Log:                    ctrl.Log.WithName("TransformerReconciler"),
 	}
 }
@@ -74,23 +80,52 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)
 
-	deployConfig, err := v1beta1.NewDeployConfig(p.client)
-	if err != nil {
-		return ctrl.Result{}, err
+	transformerName := constants.TransformerServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name)
+	if p.deploymentMode == constants.RawDeployment {
+		existing := &corev1.Service{}
+		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
+	} else {
+		existing := &knservingv1.Service{}
+		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		if err == nil {
+			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
+			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
+		}
 	}
 
+	// Labels and annotations from transformer component
+	// Label filter will be handled in ksvc_reconciler
+	transformerLabels := isvc.Spec.Transformer.Labels
+	transformerAnnotations := utils.Filter(isvc.Spec.Transformer.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
+
+	// Labels and annotations priority: transformer component > isvc
+	// Labels and annotations from high priority will overwrite that from low priority
 	objectMeta := metav1.ObjectMeta{
-		Name:      constants.DefaultTransformerServiceName(isvc.Name),
+		Name:      transformerName,
 		Namespace: isvc.Namespace,
-		Labels: utils.Union(isvc.Labels, map[string]string{
-			constants.InferenceServicePodLabelKey: isvc.Name,
-			constants.KServiceComponentLabel:      string(v1beta1.TransformerComponent),
-		}),
-		Annotations: annotations,
+		Labels: utils.Union(
+			isvc.Labels,
+			transformerLabels,
+			map[string]string{
+				constants.InferenceServicePodLabelKey: isvc.Name,
+				constants.KServiceComponentLabel:      string(v1beta1.TransformerComponent),
+			},
+		),
+		Annotations: utils.Union(
+			annotations,
+			transformerAnnotations,
+		),
 	}
 
 	// Need to wait for predictor URL in modelmesh deployment mode
-	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.ModelMeshDeployment {
+	if p.deploymentMode == constants.ModelMeshDeployment {
 		// check if predictor URL is populated
 		predictorURL := (*url.URL)(isvc.Status.Components["predictor"].URL)
 		if predictorURL == nil {
@@ -112,21 +147,21 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	}
 
 	if len(isvc.Spec.Transformer.PodSpec.Containers) == 0 {
-		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
+		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
 		isvc.Spec.Transformer.PodSpec = v1beta1.PodSpec{
 			Containers: []corev1.Container{
 				*container,
 			},
 		}
 	} else {
-		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
+		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
 		isvc.Spec.Transformer.PodSpec.Containers[0] = *container
 	}
 
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 
 	// Here we allow switch between knative and vanilla deployment
-	if isvcutils.GetDeploymentMode(annotations, deployConfig) == constants.RawDeployment {
+	if p.deploymentMode == constants.RawDeployment {
 		r, err := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
 			&podSpec)
 		if err != nil {
@@ -157,14 +192,13 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
 			&podSpec, isvc.Status.Components[v1beta1.TransformerComponent])
 		if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for predictor")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for transformer")
 		}
 		status, err := r.Reconcile()
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile predictor")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile transformer")
 		}
 		isvc.Status.PropagateStatus(v1beta1.TransformerComponent, status)
 	}
-
 	return ctrl.Result{}, nil
 }

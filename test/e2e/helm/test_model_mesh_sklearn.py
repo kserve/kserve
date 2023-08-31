@@ -28,7 +28,6 @@ from kserve import (
     V1beta1StorageSpec,
     constants
 )
-
 from ..common.utils import predict_modelmesh
 
 
@@ -71,7 +70,7 @@ def test_sklearn_modelmesh():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name)
-    pods = kserve_client.core_api.list_namespaced_pod("default", label_selector="name=modelmesh-serving-mlserver-0.x")
+    pods = kserve_client.core_api.list_namespaced_pod("default", label_selector="name=modelmesh-serving-mlserver-1.x")
 
     pod_name = pods.items[0].metadata.name
     res = predict_modelmesh(service_name, "./data/mm_sklearn_input.json", pod_name)

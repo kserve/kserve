@@ -1,0 +1,15 @@
+{{- if .Values.kserve.modelmesh.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: modelmesh-webhook-server-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - port: 9443
+      protocol: TCP
+      targetPort: webhook
+  selector:
+    control-plane: modelmesh-controller
+{{- end }}

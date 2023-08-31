@@ -22,8 +22,8 @@ import json
 from .utils import Predictor
 from kserve.storage import Storage
 
-ADULT_EXPLAINER_URI = "gs://kfserving-examples/models/sklearn/1.0/income/explainer-py37-0.6.2"
-ADULT_MODEL_URI = "gs://kfserving-examples/models/sklearn/1.0/income/model"
+ADULT_EXPLAINER_URI = "gs://kfserving-examples/models/sklearn/1.3/income/explainer"
+ADULT_MODEL_URI = "gs://kfserving-examples/models/sklearn/1.3/income/model"
 EXPLAINER_FILENAME = "explainer.dill"
 
 

@@ -214,7 +214,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 
 			containerPort := constants.InferenceServiceDefaultHttpPort
 			if len(container.Ports) > 0 {
-				containerPort = fmt.Sprint((container.Ports[0].ContainerPort))
+				containerPort = fmt.Sprint(container.Ports[0].ContainerPort)
 			}
 
 			args = append(args, "--component-port", containerPort)
@@ -282,6 +282,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Inject credentials
 	if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
 		pod.Namespace,
+		pod.Annotations,
 		pod.Spec.ServiceAccountName,
 		agentContainer,
 		&pod.Spec.Volumes,

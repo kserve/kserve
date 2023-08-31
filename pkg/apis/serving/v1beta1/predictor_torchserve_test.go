@@ -191,6 +191,17 @@ func TestTorchServeSpec_GetProtocol(t *testing.T) {
 			},
 			expected: constants.ProtocolV1,
 		},
+		"ProtocolSpecified": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+					},
+				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
+			},
+			expected: constants.ProtocolV2,
+		},
 	}
 
 	for name, scenario := range scenarios {

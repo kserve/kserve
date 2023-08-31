@@ -1,28 +1,48 @@
 kserve:
-  version: &defaultVersion v0.10.1
-  modelmeshVersion: &defaultModelMeshVersion v0.10.0
+  version: &defaultVersion v0.11.0
+  modelmeshVersion: &defaultModelMeshVersion v0.11.0
   agent:
     image: kserve/agent
+    tag: *defaultVersion
+  router:
+    image: kserve/router
     tag: *defaultVersion
   storage:
     image: kserve/storage-initializer
     tag: *defaultVersion
+    storageSpecSecretName: storage-config
+    storageSecretNameAnnotation: serving.kserve.io/secretName
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+      endpoint: ""
+      useHttps: ""
+      region: ""
+      verifySSL: ""
+      useVirtualBucket: ""
+      useAnonymousCredential: ""
+      CABundle: ""
   metricsaggregator:
     enableMetricAggregation: "false"
     enablePrometheusScraping: "false"
   controller:
     deploymentMode: "Serverless"
+    rbacProxyImage: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
     gateway:
       domain: example.com
+      domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
+      urlScheme: http
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local
       ingressGateway:
         gateway: knative-serving/knative-ingress-gateway
         gatewayService: istio-ingressgateway.istio-system.svc.cluster.local
+        className: istio
+    nodeSelector: {}
+    tolerations: []
+    topologySpreadConstraints: []
+    affinity: {}
     image: kserve/kserve-controller
     tag: *defaultVersion
     resources:
@@ -33,7 +53,23 @@ kserve:
         cpu: 100m
         memory: 300Mi
   modelmesh:
+    enabled: true
     controller:
+      nodeSelector: {}
+      tolerations: []
+      topologySpreadConstraints: []
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: control-plane
+                      operator: In
+                      values:
+                        - modelmesh-controller
+                topologyKey: topology.kubernetes.io/zone
       image: kserve/modelmesh-controller
       tag: *defaultModelMeshVersion
     config:
@@ -45,14 +81,14 @@ kserve:
       restProxyImageTag: *defaultModelMeshVersion
       podsPerRuntime: 2
   servingruntime:
-    modelNamePlaceholder: '{{.Name}}'
+    modelNamePlaceholder: "{{.Name}}"
     tensorflow:
       image: tensorflow/serving
       tag: 2.6.2
     mlserver:
       image: docker.io/seldonio/mlserver
-      tag: 1.0.0
-      modelClassPlaceholder: '{{.Labels.modelClass}}'
+      tag: 1.3.2
+      modelClassPlaceholder: "{{.Labels.modelClass}}"
     sklearnserver:
       image: kserve/sklearnserver
       tag: *defaultVersion
@@ -61,7 +97,7 @@ kserve:
       tag: *defaultVersion
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
-      tag: 21.09-py3
+      tag: 23.05-py3
     pmmlserver:
       image: kserve/pmmlserver
       tag: *defaultVersion
@@ -74,14 +110,11 @@ kserve:
     torchserve:
       image: pytorch/torchserve-kfs
       tag: 0.6.1
-      serviceEnvelopePlaceholder: '{{.Labels.serviceEnvelope}}'
-      protocolVersionPlaceholder: '{{.Labels.iscvProtocol}}'
+      serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
+      protocolVersionPlaceholder: "{{.Labels.iscvProtocol}}"
     alibi:
       image: kserve/alibi-explainer
       defaultVersion: *defaultVersion
     art:
       image: kserve/art-explainer
-      defaultVersion: *defaultVersion
-    aix:
-      image: kserve/aix-explainer
       defaultVersion: *defaultVersion

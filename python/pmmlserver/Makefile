@@ -1,8 +1,10 @@
 
 dev_install:
-	pip install -e .
-	pip install -e .[test]
+	poetry install --with test
 
+install_dependencies:
+	poetry install --with=test --no-interaction --no-root
+	
 test: type_check
 	pytest -W ignore
 

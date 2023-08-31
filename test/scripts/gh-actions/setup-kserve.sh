@@ -38,7 +38,6 @@ echo "Add storageSpec testing secrets ..."
 kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
 
 echo "Installing KServe Python SDK ..."
-python3 -m pip install --upgrade pip
 pushd python/kserve >/dev/null
-    pip3 install -e .[test] --user
+    poetry install --with=test --no-interaction
 popd

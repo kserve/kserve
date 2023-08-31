@@ -36,6 +36,8 @@ import (
 var configMap = &v1.ConfigMap{
 	Data: map[string]string{
 		"credentials": `{
+            "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+            "storageSpecSecretName": "storage-secret",
 			"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
 			"s3" : {
 				"s3AccessKeyIDName": "awsAccessKeyID",
@@ -162,12 +164,145 @@ func TestS3CredentialBuilder(t *testing.T) {
 		},
 	}
 
-	builder := NewCredentialBulder(c, configMap)
+	builder := NewCredentialBuilder(c, configMap)
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil,
+			scenario.serviceAccount.Name,
+			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
+			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+		)
+		if scenario.shouldFail && err == nil {
+			t.Errorf("Test %q failed: returned success but expected error", name)
+		}
+		// Validate
+		if !scenario.shouldFail {
+			if err != nil {
+				t.Errorf("Test %q failed: returned error: %v", name, err)
+			}
+			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
+			}
+		}
+		g.Expect(c.Delete(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+
+	}
+}
+
+func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingServiceAccount := &v1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: "default",
+		},
+	}
+	existingS3Secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "s3-secret",
+			Namespace: "default",
+			Annotations: map[string]string{
+				s3.InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+			},
+		},
+		Data: map[string][]byte{
+			"awsAccessKeyID":     {},
+			"awsSecretAccessKey": {},
+		},
+	}
+	scenarios := map[string]struct {
+		inputConfiguration    *knservingv1.Configuration
+		expectedConfiguration *knservingv1.Configuration
+		shouldFail            bool
+	}{
+		"Build s3 secrets envs": {
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Env: []v1.EnvVar{
+											{
+												Name: s3.AWSAccessKeyId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "s3-secret",
+														},
+														Key: "awsAccessKeyID",
+													},
+												},
+											},
+											{
+												Name: s3.AWSSecretAccessKey,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "s3-secret",
+														},
+														Key: "awsSecretAccessKey",
+													},
+												},
+											},
+											{
+												Name:  s3.S3Endpoint,
+												Value: "s3.aws.com",
+											},
+											{
+												Name:  s3.AWSEndpointUrl,
+												Value: "https://s3.aws.com",
+											},
+											{
+												Name:  s3.S3VerifySSL,
+												Value: "1",
+											},
+											{
+												Name:  s3.AWSAnonymousCredential,
+												Value: "false",
+											},
+											{
+												Name:  s3.AWSRegion,
+												Value: "us-east-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
+	}
+
+	builder := NewCredentialBuilder(c, configMap)
+	for name, scenario := range scenarios {
+		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+		annotations := map[string]string{
+			"serving.kserve.io/storageSecretName": "s3-secret",
+		}
+		err := builder.CreateSecretVolumeAndEnv(existingServiceAccount.Namespace, annotations,
+			existingServiceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -263,11 +398,11 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	builder := NewCredentialBulder(c, configMap)
+	builder := NewCredentialBuilder(c, configMap)
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -373,12 +508,12 @@ func TestGCSCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	builder := NewCredentialBulder(c, configMap)
+	builder := NewCredentialBuilder(c, configMap)
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -515,10 +650,10 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 	g.Expect(c.Create(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
-	builder := NewCredentialBulder(c, configMap)
+	builder := NewCredentialBuilder(c, configMap)
 	for name, scenario := range scenarios {
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -626,10 +761,10 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 	g.Expect(c.Create(context.TODO(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
-	builder := NewCredentialBulder(c, configMap)
+	builder := NewCredentialBuilder(c, configMap)
 	for name, scenario := range scenarios {
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -766,10 +901,10 @@ func TestAzureCredentialBuilder(t *testing.T) {
 	g.Expect(c.Create(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
-	builder := NewCredentialBulder(c, configMap)
+	builder := NewCredentialBuilder(c, configMap)
 	for name, scenario := range scenarios {
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -870,10 +1005,10 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 	g.Expect(c.Create(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
-	builder := NewCredentialBulder(c, configMap)
+	builder := NewCredentialBuilder(c, configMap)
 	for name, scenario := range scenarios {
 
-		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
@@ -898,7 +1033,7 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	namespace := "default"
-	builder := NewCredentialBulder(c, configMap)
+	builder := NewCredentialBuilder(c, configMap)
 
 	scenarios := map[string]struct {
 		secret            *v1.Secret
@@ -1393,7 +1528,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 		if err := c.Create(context.TODO(), tc.secret); err != nil {
 			t.Errorf("Failed to create secret %s: %v", "storage-secret", err)
 		}
-		err := builder.CreateStorageSpecSecretEnvs(namespace, tc.storageKey, tc.storageSecretName, tc.overrideParams, tc.container)
+		err := builder.CreateStorageSpecSecretEnvs(namespace, nil, tc.storageKey, tc.overrideParams, tc.container)
 		if !tc.shouldFail {
 			g.Expect(err).Should(gomega.BeNil())
 			g.Expect(tc.container).Should(tc.matcher)

@@ -15,13 +15,17 @@
 import os
 import sys
 import uuid
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import InferParameter
 from typing import Dict, Union
 
+from kserve.utils.numpy_codec import from_np_dtype
+import pandas as pd
+import numpy as np
 import psutil
-
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
+from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
 
 
 def is_running_in_k8s():
@@ -90,18 +94,17 @@ def is_structured_cloudevent(body: Dict) -> bool:
            and "data" in body
 
 
-def create_response_cloudevent(model_name: str, body: Union[Dict, CloudEvent], response: Dict,
+def create_response_cloudevent(model_name: str, response: Dict, req_attributes: Dict,
                                binary_event=False) -> tuple:
     ce_attributes = {}
 
     if os.getenv("CE_MERGE", "false").lower() == "true":
         if binary_event:
-            ce_attributes = body._attributes
+            ce_attributes = req_attributes
             if "datacontenttype" in ce_attributes:  # Optional field so must check
                 del ce_attributes["datacontenttype"]
         else:
-            ce_attributes = body
-            del ce_attributes["data"]
+            ce_attributes = req_attributes
 
         # Remove these fields so we generate new ones
         del ce_attributes["id"]
@@ -133,3 +136,91 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
         headers[metadatum.key] = metadatum.value
 
     return headers
+
+
+def get_predict_input(payload: Union[Dict, InferRequest]) -> Union[np.ndarray, pd.DataFrame]:
+    if isinstance(payload, Dict):
+        instances = payload["inputs"] if "inputs" in payload else payload["instances"]
+        if len(instances) == 0:
+            return np.array(instances)
+        if isinstance(instances[0], Dict):
+            dfs = []
+            for input in instances:
+                dfs.append(pd.DataFrame(input))
+            inputs = pd.concat(dfs, axis=0)
+            return inputs
+        else:
+            return np.array(instances)
+
+    elif isinstance(payload, InferRequest):
+        content_type = ''
+        parameters = payload.parameters
+        if parameters:
+            if isinstance(parameters.get("content_type"), InferParameter):
+                # for v2 grpc, we get InferParameter obj eg: {"content_type": string_param: "pd"}
+                content_type = str(parameters.get("content_type").string_param)
+            else:
+                # for v2 http, we get string eg: {"content_type": "pd"}
+                content_type = parameters.get("content_type")
+
+        if content_type == "pd":
+            return payload.as_dataframe()
+        else:
+            input = payload.inputs[0]
+            return input.as_numpy()
+
+
+def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.ndarray, pd.DataFrame],
+                         model_name: str) -> Union[Dict, InferResponse]:
+    if isinstance(payload, Dict):
+        infer_outputs = result
+        if isinstance(result, pd.DataFrame):
+            infer_outputs = []
+            for label, row in result.iterrows():
+                infer_outputs.append(row.to_dict())
+        elif isinstance(result, np.ndarray):
+            infer_outputs = result.tolist()
+        return {"predictions": infer_outputs}
+    elif isinstance(payload, InferRequest):
+        infer_outputs = []
+        if isinstance(result, pd.DataFrame):
+            for col in result.columns:
+                infer_output = InferOutput(
+                    name=col,
+                    shape=list(result[col].shape),
+                    datatype=from_np_dtype(result[col].dtype),
+                    data=result[col].tolist()
+                )
+                infer_outputs.append(infer_output)
+        else:
+            infer_output = InferOutput(
+                name="output-0",
+                shape=list(result.shape),
+                datatype=from_np_dtype(result.dtype),
+                data=result.flatten().tolist()
+            )
+            infer_outputs.append(infer_output)
+        return InferResponse(
+            model_name=model_name,
+            infer_outputs=infer_outputs,
+            response_id=payload.id if payload.id else generate_uuid()
+        )
+
+
+def strtobool(val: str) -> bool:
+    """Convert a string representation of truth to True or False.
+
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+
+    Adapted from deprecated `distutils`
+    https://github.com/python/cpython/blob/3.11/Lib/distutils/util.py
+    """
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    else:
+        raise ValueError("invalid truth value %r" % (val,))

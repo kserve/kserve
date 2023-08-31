@@ -57,7 +57,7 @@ var (
 type ComponentImplementation interface {
 	Default(config *InferenceServicesConfig)
 	Validate() error
-	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container
+	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container
 	GetStorageUri() *string
 	GetStorageSpec() *StorageSpec
 	GetProtocol() constants.InferenceServiceProtocol
@@ -105,6 +105,14 @@ type ComponentExtensionSpec struct {
 	// Activate request batching and batching configurations
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
+	// Labels that will be add to the component pod.
+	// More info: http://kubernetes.io/docs/user-guide/labels
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations that will be add to the component pod.
+	// More info: http://kubernetes.io/docs/user-guide/annotations
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ScaleMetric enum

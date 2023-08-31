@@ -1,3 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 resources:
   - kserve-tensorflow-serving.yaml
   - kserve-sklearnserver.yaml
@@ -21,7 +24,7 @@ images:
 
   - name: mlserver
     newName: docker.io/seldonio/mlserver
-    newTag: 1.0.0
+    newTag: 1.3.2
 
   - name: kserve-xgbserver
     newName: kserve/xgbserver
@@ -29,7 +32,7 @@ images:
 
   - name: kserve-tritonserver
     newName: nvcr.io/nvidia/tritonserver
-    newTag: 21.09-py3
+    newTag: 23.05-py3
 
   - name: kserve-pmmlserver
     newName: kserve/pmmlserver
