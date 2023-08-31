@@ -44,5 +44,5 @@ images:
     newTag: latest
 
   - name: kserve-torchserve
-    newName: jagadeeshj/torchserve-kfs
-    newTag: grpc_v2
+    newName: pytorch/torchserve-kfs
+    newTag: 0.8.2
