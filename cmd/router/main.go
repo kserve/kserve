@@ -120,12 +120,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 		if route == nil {
 			errorMessage := "None of the routes matched with the switch condition"
 			log.Error(err, errorMessage)
-			/*
-				TODO Should it be 500 or 404 when none of the routes match.
-				For backward compatibility 500 is needed but 404 also looks fine since the router got bad input and didn't know what to do.
-				See what reviewers say.
-			*/
-			return nil, 500, errors.New(errorMessage)
+			return nil, 404, errors.New(errorMessage)
 		}
 		stepType := "serviceUrl"
 		if route.NodeName != "" {
@@ -182,7 +177,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			}
 			select {
 			case ensembleStepOutput = <-resultChan:
-				if ensembleStepOutput.StepStatusCode != 200 && currentNode.Steps[i].Dependency == v1alpha1.Hard {
+				if !isSuccessFul(ensembleStepOutput.StepStatusCode) && currentNode.Steps[i].Dependency == v1alpha1.Hard {
 					log.Info("This step is a hard dependency and it is unsuccessful", "stepName", currentNode.Steps[i].StepName, "statusCode", ensembleStepOutput.StepStatusCode)
 					stepResponse, _ := json.Marshal(ensembleStepOutput.StepResponse) // TODO check if you need err handling for Marshalling
 					return stepResponse, ensembleStepOutput.StepStatusCode, nil      // First failed hard dependency will decide the response code for ensemble node
@@ -279,7 +274,6 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 		log.Error(err, "failed to process request")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		//w.WriteHeader(http.StatusInternalServerError)
 		w.Write(prepareErrorResponse(err, "Failed to process request"))
 	} else {
 		if json.Valid(response) {

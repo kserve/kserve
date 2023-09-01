@@ -398,9 +398,16 @@ def test_ig_scenario3():
 @pytest.mark.kourier
 def test_ig_scenario4():
     """
-    Scenario: Switch graph with 1 step as hard dependency and other one as soft dependency
-    Expectation: IG will return response of error_isvc when condition for that step matches
-    and will return response of success_isvc when condition for that step matches
+    Scenario: Switch graph with 1 step as hard dependency and other one as soft dependency.
+    Will be testing 3 cases in this test case:
+    Expectation:
+    Case 1. IG will return response of error_isvc when condition for that step matches
+    Case 2. IG will return response of success_isvc when condition for that step matches
+    Case 3. IG will return 404 with error message when no condition matches
+       {
+               "error": "Failed to process request",
+               "cause": "None of the routes matched with the switch condition",
+       }
     """
     logging.info("Starting test test_ig_scenario4")
     suffix = str(uuid.uuid4())[1:6]
@@ -442,6 +449,7 @@ def test_ig_scenario4():
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=KSERVE_TEST_NAMESPACE)
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
+    # Case 1
     with pytest.raises(HTTPError) as exc_info:
         predict_ig(
             graph_name,
@@ -453,6 +461,7 @@ def test_ig_scenario4():
     assert exc_info.value.response.json() == {"detail": "Intentional 404 code"}
     assert exc_info.value.response.status_code == 404
 
+    # Case 2
     response = predict_ig(
         graph_name,
         os.path.join(
@@ -461,6 +470,7 @@ def test_ig_scenario4():
     )
     assert response == {"message": "SUCCESS"}
 
+    # Case 3
     with pytest.raises(HTTPError) as exc_info:
         predict_ig(
             graph_name,
@@ -473,11 +483,11 @@ def test_ig_scenario4():
         "error": "Failed to process request",
         "cause": "None of the routes matched with the switch condition",
     }
-    assert exc_info.value.response.status_code == 500
+    assert exc_info.value.response.status_code == 404
 
-    # kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
-    # kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
-    # kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.graph
