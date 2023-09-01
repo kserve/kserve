@@ -82,14 +82,13 @@ func TestSimpleModelChainer(t *testing.T) {
 		"Authorization": {"Bearer Token"},
 	}
 
-	res, statusCode, err := routeStep("root", graphSpec, jsonBytes, headers)
+	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
 		"predictions": "2",
 	}
 	fmt.Printf("final response:%v\n", response)
-	fmt.Println(statusCode)
 	assert.Equal(t, expectedResponse, response)
 }
 

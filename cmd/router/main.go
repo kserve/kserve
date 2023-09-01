@@ -261,7 +261,7 @@ func prepareErrorResponse(err error, errorMessage string) []byte {
 	}
 	errorResponseBytes, err := json.Marshal(igRoutingErr)
 	if err != nil {
-		log.Error(errors.New("error happened while marshalling"), "marshalling error")
+		log.Error(err, "marshalling error")
 	}
 	return errorResponseBytes
 }
