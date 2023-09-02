@@ -76,6 +76,9 @@ deploy: manifests
 	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
 	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
 	${KUSTOMIZE} build config/default | kubectl apply -f -
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	sleep 2
+	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev: manifests
@@ -87,6 +90,7 @@ deploy-dev: manifests
 	${KUSTOMIZE} build config/overlays/development | kubectl apply -f -
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	sleep 2
 	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
@@ -125,17 +129,9 @@ deploy-helm: manifests
 
 undeploy: kustomize
 	${KUSTOMIZE} build config/default | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 undeploy-dev: kustomize
 	${KUSTOMIZE} build config/overlays/development | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen kustomize

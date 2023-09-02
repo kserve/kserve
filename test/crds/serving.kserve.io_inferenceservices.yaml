@@ -1131,6 +1131,10 @@ spec:
                       type: boolean
                     name:
                       type: string
+                    priority:
+                      format: int32
+                      minimum: 1
+                      type: integer
                     version:
                       type: string
                   required:
@@ -19595,6 +19599,10 @@ spec:
                       type: boolean
                     name:
                       type: string
+                    priority:
+                      format: int32
+                      minimum: 1
+                      type: integer
                     version:
                       type: string
                   required:
