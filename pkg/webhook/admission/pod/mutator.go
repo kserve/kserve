@@ -84,7 +84,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 }
 
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap, targetNs *v1.Namespace) error {
-	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
+	credentialBuilder := credentials.NewCredentialBuilder(mutator.Client, configMap)
 
 	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
 	if err != nil {
@@ -94,6 +94,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap, targetNs *v
 	storageInitializer := &StorageInitializerInjector{
 		credentialBuilder: credentialBuilder,
 		config:            storageInitializerConfig,
+		client:            mutator.Client,
 	}
 
 	loggerConfig, err := getLoggerConfigs(configMap)

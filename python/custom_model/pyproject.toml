@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "custom-model"
-version = "0.11.0rc0"
+version = "0.11.0"
 description = "Custom model implementation. Not intended for use outside KServe Frameworks Images."
 authors = ["The KServe Authors"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -12,7 +12,7 @@ packages = [
 python = ">=3.9,<3.12"
 kserve = {path = "../kserve", develop = true}
 torchvision = {version = "0.15.1+cpu", source = "pytorch"}
-torch = {version = "2.0.0+cpu", source = "pytorch"}
+torch = {version = "2.0.0", source = "pytorch"}
 pillow = "~9.3.0"
 
 

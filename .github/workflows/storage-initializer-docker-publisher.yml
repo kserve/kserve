@@ -48,15 +48,20 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Build image
-        run: |
-          cd python
-          docker buildx build . --file storage-initializer.Dockerfile --tag $IMAGE_NAME
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v2
 
-      - name: Log into registry
-        run: docker login -u ${{ secrets.QUAY_USER }} -p ${{ secrets.QUAY_PASSWORD }} quay.io
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: Push image
+      - name: Login to Quay.io
+        uses: docker/login-action@v2
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Export version variable
         run: |
           IMAGE_ID=quay.io/${{ vars.QUAY_OWNER }}/$IMAGE_NAME
 
@@ -72,14 +77,20 @@ jobs:
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
           [[ "$VERSION" =~ ^release- ]] && VERSION=$(echo $VERSION | sed 's/^release-//')-latest
-
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
-
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
           
+          TAGS=$IMAGE_ID:$VERSION
           # If a vX.Y.Z release is being built, also update the vX.Y tag.
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && MINOR_VERSION=$(echo $VERSION | sed 's/\(.*\)\.[[:digit:]]\+$/\1/')
-          [ ! -z "$MINOR_VERSION" ] && docker tag $IMAGE_NAME $IMAGE_ID:$MINOR_VERSION
-          [ ! -z "$MINOR_VERSION" ] && docker push $IMAGE_ID:$MINOR_VERSION || true
+          [ ! -z "env.MINOR_VERSION" ] && TAGS=$TAGS,$IMAGE_ID:$MINOR_VERSION
+          
+          echo TAGS=$TAGS >> $GITHUB_ENV
+
+
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          platforms: linux/amd64, linux/arm64/v8
+          context: python
+          file: python/storage-initializer.Dockerfile
+          push: true
+          tags: ${{ env.TAGS }}

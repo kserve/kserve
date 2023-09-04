@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lgbserver"
-version = "0.11.0rc0"
+version = "0.11.0"
 description = "Model Server implementation for LightGBM. Not intended for use outside KServe Frameworks Images."
 authors = ["Lin Yiming <linyiming@ainnovation.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"

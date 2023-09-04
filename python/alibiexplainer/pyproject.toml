@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "alibiexplainer"
-version = "0.11.0rc0"
+version = "0.11.0"
 description = "Model Explanation Server. Not intended for use outside KServe Frameworks Images."
 authors = ["cliveseldon <cc@seldon.io>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "artserver"
-version = "0.11.0rc0"
+version = "0.11.0"
 description = "Model Server implementation for AI Robustness Toolbox. Not intended for use outside KServe Frameworks Images."
 authors = ["Andrew Butler <Andrew.Butler@ibm.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"

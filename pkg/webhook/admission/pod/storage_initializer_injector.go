@@ -17,19 +17,21 @@ limitations under the License.
 package pod
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
-
 	v1 "k8s.io/api/core/v1"
-
 	"knative.dev/pkg/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -50,13 +52,13 @@ type StorageInitializerConfig struct {
 	CpuLimit                   string `json:"cpuLimit"`
 	MemoryRequest              string `json:"memoryRequest"`
 	MemoryLimit                string `json:"memoryLimit"`
-	StorageSpecSecretName      string `json:"storageSpecSecretName"`
 	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
 }
 
 type StorageInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
 	config            *StorageInitializerConfig
+	client            client.Client
 }
 
 func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerConfig, error) {
@@ -80,6 +82,28 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 	}
 
 	return storageInitializerConfig, nil
+}
+
+func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1.Container, error) {
+	storageContainers := &v1alpha1.ClusterStorageContainerList{}
+	if err := client.List(context.TODO(), storageContainers); err != nil {
+		return nil, err
+	}
+
+	for _, sc := range storageContainers.Items {
+		if sc.IsDisabled() {
+			continue
+		}
+		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+		if err != nil {
+			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
+		}
+		if supported {
+			return &sc.Spec.Container, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // InjectStorageInitializer injects an init container to provision model data
@@ -300,33 +324,47 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod, targ
 	storageKey := pod.ObjectMeta.Annotations[constants.StorageSpecKeyAnnotationKey]
 	// Inject Storage Spec credentials if exist
 	if hasStorageSpec == "true" {
-		storageSpecSecret := mi.config.StorageSpecSecretName
 		var overrideParams map[string]string
 		if storageSpecParam, ok := pod.ObjectMeta.Annotations[constants.StorageSpecParamAnnotationKey]; ok {
 			if err := json.Unmarshal([]byte(storageSpecParam), &overrideParams); err != nil {
 				return err
 			}
 		}
-		if storageSpecSecret == "" {
-			storageSpecSecret = constants.DefaultStorageSpecSecret
-		}
 		if err := mi.credentialBuilder.CreateStorageSpecSecretEnvs(
 			pod.Namespace,
+			pod.Annotations,
 			storageKey,
-			storageSpecSecret,
 			overrideParams,
 			initContainer,
 		); err != nil {
 			return err
 		}
+		// initContainer.Args[0] is set up in CreateStorageSpecSecretEnvs
+		// srcURI is updated here to match storage container CRs below
+		srcURI = initContainer.Args[0]
 	} else {
 		// Inject service account credentials if storage spec doesn't exist
 		if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
 			pod.Namespace,
+			pod.Annotations,
 			pod.Spec.ServiceAccountName,
 			initContainer,
 			&pod.Spec.Volumes,
 		); err != nil {
+			return err
+		}
+	}
+
+	// Update initContainer (container spec) from a storage container CR if there is a match,
+	// otherwise initContainer is not updated.
+	// Priority: CR > configMap
+	storageContainerSpec, err := getContainerSpecForStorageUri(srcURI, mi.client)
+	if err != nil {
+		return err
+	}
+	if storageContainerSpec != nil {
+		initContainer, err = mergeContainerSpecs(initContainer, storageContainerSpec)
+		if err != nil {
 			return err
 		}
 	}
@@ -368,6 +406,42 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod, targ
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, *initContainer)
 
 	return nil
+}
+
+// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
+// Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
+func mergeContainerSpecs(defaultContainer *v1.Container, crdContainer *v1.Container) (*v1.Container, error) {
+	if defaultContainer == nil {
+		return nil, fmt.Errorf("defaultContainer is nil")
+	}
+
+	containerName := defaultContainer.Name
+
+	defaultContainerJson, err := json.Marshal(*defaultContainer)
+	if err != nil {
+		return nil, err
+	}
+
+	overrides, err := json.Marshal(*crdContainer)
+	if err != nil {
+		return nil, err
+	}
+
+	mergedContainer := v1.Container{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, mergedContainer)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(jsonResult, &mergedContainer); err != nil {
+		return nil, err
+	}
+
+	if mergedContainer.Name == "" {
+		mergedContainer.Name = containerName
+	}
+
+	return &mergedContainer, nil
 }
 
 func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {

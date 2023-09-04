@@ -62,6 +62,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Build runtime server images
         run: |
           ./test/scripts/gh-actions/build-server-runtimes.sh predictor,transformer
@@ -147,6 +150,9 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
 
@@ -227,6 +233,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -285,6 +292,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -337,7 +345,8 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          
+
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -390,6 +399,7 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -442,6 +452,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -503,6 +514,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -541,6 +553,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
@@ -584,6 +597,7 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
         with:
@@ -618,8 +632,8 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 25
         run: |
-          export KSERVE_INGRESS_HOST_PORT=$(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" \
-          --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" \
+          export KSERVE_INGRESS_HOST_PORT=$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
+          --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
           --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
           
           ./test/scripts/gh-actions/run-e2e-tests.sh "kourier"
@@ -632,6 +646,7 @@ jobs:
           docker image ls
           kubectl get pods -n kserve
           kubectl get pods -n kserve-ci-e2e-test
+          kubectl get pods -A --field-selector=metadata.namespace!=kserve,metadata.namespace!=kserve-ci-e2e-test
           
           kubectl describe pods -n kserve-ci-e2e-test
           kubectl get events -n kserve-ci-e2e-test
@@ -639,5 +654,5 @@ jobs:
           kubectl logs -l 'component in (predictor)' -c kserve-container -n kserve-ci-e2e-test --tail 500
           kubectl logs -l 'component in (transformer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
           kubectl logs -l 'component in (explainer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
-          kubectl logs $(kubectl get pod -n kourier-system -l "app=3scale-kourier-gateway" --output=jsonpath="{.items[0].metadata.name}") -n kourier-system
+          kubectl logs $(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" --output=jsonpath="{.items[0].metadata.name}") -n knative-serving
 
