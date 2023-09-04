@@ -49,16 +49,18 @@ class V1alpha1SupportedModelFormat(object):
     openapi_types = {
         'auto_select': 'bool',
         'name': 'str',
+        'priority': 'int',
         'version': 'str'
     }
 
     attribute_map = {
         'auto_select': 'autoSelect',
         'name': 'name',
+        'priority': 'priority',
         'version': 'version'
     }
 
-    def __init__(self, auto_select=None, name='', version=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, auto_select=None, name='', priority=None, version=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1SupportedModelFormat - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,6 +68,7 @@ class V1alpha1SupportedModelFormat(object):
 
         self._auto_select = None
         self._name = None
+        self._priority = None
         self._version = None
         self.discriminator = None
 
@@ -73,6 +76,8 @@ class V1alpha1SupportedModelFormat(object):
             self.auto_select = auto_select
         if name is not None:
             self.name = name
+        if priority is not None:
+            self.priority = priority
         if version is not None:
             self.version = version
 
@@ -121,6 +126,29 @@ class V1alpha1SupportedModelFormat(object):
         """
 
         self._name = name
+
+    @property
+    def priority(self):
+        """Gets the priority of this V1alpha1SupportedModelFormat.  # noqa: E501
+
+        Priority of this serving runtime for auto selection. This is used to select the serving runtime if more than one serving runtime supports the same model format. The value should be greater than zero.  The higher the value, the higher the priority. Priority is not considered if AutoSelect is either false or not specified. Priority can be overridden by specifying the runtime in the InferenceService.  # noqa: E501
+
+        :return: The priority of this V1alpha1SupportedModelFormat.  # noqa: E501
+        :rtype: int
+        """
+        return self._priority
+
+    @priority.setter
+    def priority(self, priority):
+        """Sets the priority of this V1alpha1SupportedModelFormat.
+
+        Priority of this serving runtime for auto selection. This is used to select the serving runtime if more than one serving runtime supports the same model format. The value should be greater than zero.  The higher the value, the higher the priority. Priority is not considered if AutoSelect is either false or not specified. Priority can be overridden by specifying the runtime in the InferenceService.  # noqa: E501
+
+        :param priority: The priority of this V1alpha1SupportedModelFormat.  # noqa: E501
+        :type: int
+        """
+
+        self._priority = priority
 
     @property
     def version(self):
