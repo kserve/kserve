@@ -30,7 +30,8 @@ fi
 
 if ! type telepresence >/dev/null 2>&1; then
   echo "Telepresence is not installed."
-  echo "Please install it, e.g. with \"brew install telepresence\""
+  echo "Please install it, e.g. with \"brew install telepresence\" for Mac"
+  echo "or download it from https://www.getambassador.io/docs/telepresence/latest/install for all OS"
   exit 1
 fi
 
