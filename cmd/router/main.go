@@ -65,7 +65,6 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	if err != nil {
 		log.Error(err, "error while reading the response")
 	}
-	log.Info("Exiting callService", "serviceUrl", serviceUrl)
 	return body, resp.StatusCode, err
 }
 
