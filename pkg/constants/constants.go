@@ -191,7 +191,8 @@ var (
 
 // Webhook Constants
 var (
-	PodMutatorWebhookName = KServeName + "-pod-mutator-webhook"
+	PodMutatorWebhookName              = KServeName + "-pod-mutator-webhook"
+	ServingRuntimeValidatorWebhookName = KServeName + "-servingRuntime-validator-webhook"
 )
 
 // GPU Constants

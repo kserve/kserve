@@ -10,9 +10,11 @@ spec:
     - name: tensorflow
       version: "1"
       autoSelect: true
+      priority: 2
     - name: tensorflow
       version: "2"
       autoSelect: true
+      priority: 2
   protocolVersions:
     - v1
     - grpc-v1
