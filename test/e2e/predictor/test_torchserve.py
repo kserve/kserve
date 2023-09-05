@@ -158,10 +158,8 @@ def test_torchserve_grpc_v2():
     response = predict_grpc(
         service_name=service_name, payload=payload, model_name=model_name
     )
-    fields = response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    points = ["%.3f" % (point) for point in list(field_value)]
-    assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
+    fields = response.outputs[0].contents.int64_contents
+    assert fields == [2]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
