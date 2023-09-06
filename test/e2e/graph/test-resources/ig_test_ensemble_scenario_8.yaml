@@ -1,4 +1,4 @@
-# Since both the steps are sift deps, so output will be combined output of both steps
+# Since HARD step will return non-200, so IG will return that step's output as IG's output
 apiVersion: serving.kserve.io/v1alpha1
 kind: InferenceGraph
 metadata:
