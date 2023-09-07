@@ -22,8 +22,10 @@ COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
 COPY ./storage-initializer /storage-initializer
 
+USER root
 RUN chmod +x /storage-initializer/scripts/initializer-entrypoint
 RUN mkdir /work
+USER 1000
 WORKDIR /work
 
 ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]

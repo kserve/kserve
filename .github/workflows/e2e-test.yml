@@ -66,7 +66,7 @@ jobs:
       - name: Build storage initializer image
         run: |
           cd python
-          ddocker buildx build -t kserve/storage-initializer:${GITHUB_SHA} -f storage-initializer.Dockerfile .
+          docker buildx build -t kserve/storage-initializer:${GITHUB_SHA} -f storage-initializer.Dockerfile .
 
       - name: Upload build base image
         uses: ishworkh/docker-image-artifact-upload@v1
