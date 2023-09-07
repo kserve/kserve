@@ -192,11 +192,17 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # If 'uri' is set to "s3://test-bucket/a/b/c/model.bin", then
             # the downloader will add to temp dir: model.bin
             # (without any subpaths).
+            # If the bucket path is s3://test/models
+            # Objects: churn, churn-pickle, churn-pickle-logs
+            bucket_path_last_part = bucket_path.split("/")[-1]
+            object_last_path = obj.key.split("/")[-1]
+            bucket_path_parent_part = bucket_path.rsplit("/", 1)[0]
+
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
                 exact_obj_found = True
-            elif obj.key.rsplit("/", 1)[-1].startswith(bucket_path.rsplit("/", 1)[-1]):
-                target_key = obj.key.replace(bucket_path.rsplit("/", 1)[0], "", 1).lstrip("/")
+            elif object_last_path.startswith(bucket_path_last_part):
+                target_key = obj.key.replace(bucket_path_parent_part, "", 1).lstrip("/")
             else:
                 target_key = obj.key.replace(bucket_path, "").lstrip("/")
 
