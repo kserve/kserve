@@ -525,38 +525,37 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/storage-initializer:${{ github.sha }}"
+
       - name: Build queue proxy extension image
         run: |
           ./test/scripts/gh-actions/build-qpext-image.sh
           docker image ls
-      - name: Upload qpext image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "kserve/qpext:${{ github.sha }}"
-      - name: Download qpext image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/qpext:${{ github.sha }}"
+
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
+
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Patch qpext image
         run : |
           kubectl patch configmaps -n knative-serving config-deployment --patch '{"data": {"queue-sidecar-image": "kserve/qpext:${{ github.sha }}"}}'
           kubectl describe configmaps -n knative-serving config-deployment
+
       - name: Run queue proxy extension E2E tests
         timeout-minutes: 30
         run: |
           ./test/scripts/gh-actions/run-qpext-test.sh
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
