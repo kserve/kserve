@@ -39,7 +39,6 @@ def test_torchserve_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            image="pytorch/torchserve-kfs:0.8.2",
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             protocol_version="v1",
             resources=V1ResourceRequirements(
@@ -78,7 +77,6 @@ def test_torchserve_v2_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            image="pytorch/torchserve-kfs:0.8.2",
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v2",
             protocol_version="v2",
             resources=V1ResourceRequirements(
@@ -173,6 +171,7 @@ def test_torchserve_runtime_kserve():
                 requests={"cpu": "100m", "memory": "4Gi"},
                 limits={"cpu": "1", "memory": "4Gi"},
             ),
+            env=[V1EnvVar(name="PROTOCOL_VERSION", value="v1")],
         ),
     )
 
