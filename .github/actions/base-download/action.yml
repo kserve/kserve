@@ -14,8 +14,3 @@ runs:
       uses: ishworkh/docker-image-artifact-download@v1
       with:
         image: "kserve/agent:${{ github.sha }}"
-    
-    - name: Download storage initializer image
-      uses: ishworkh/docker-image-artifact-download@v1
-      with:
-        image: "kserve/storage-initializer:${{ github.sha }}"
