@@ -26,6 +26,8 @@ CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26
+SUCCESS_200_ISVC_IMG ?= success-200-isvc
+ERROR_404_ISVC_IMG ?= error-404-isvc
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -297,6 +299,18 @@ docker-build-qpext:
 
 docker-build-push-qpext: docker-build-qpext
 	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
+
+docker-build-success-200-isvc:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG} -f success_200_isvc.Dockerfile .
+
+docker-push-success-200-isvc: docker-build-success-200-isvc
+	docker push ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}
+
+docker-build-error-node-404:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG} -f error_404_isvc.Dockerfile .
+
+docker-push-error-node-404: docker-build-error-node-404
+	docker push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}
 
 test-qpext:
 	cd qpext && go test -v ./... -cover

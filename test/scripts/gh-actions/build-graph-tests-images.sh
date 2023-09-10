@@ -14,21 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The script is used to deploy knative and kserve, and run e2e tests.
+# The script is used to build all the queue-proxy extension image.
 
 set -o errexit
 set -o nounset
 set -o pipefail
+echo "Github SHA ${GITHUB_SHA}"
+export SUCCESS_200_ISVC_IMG=kserve/success-200-isvc:${GITHUB_SHA}
+export ERROR_404_ISVC_IMG=kserve/error-404-isvc:${GITHUB_SHA}
 
-echo "Starting E2E functional tests ..."
-if [ $# -eq 2 ]; then
-  echo "Parallelism requested for pytest is $2"
-else
-  echo "No parallelism requested for pytest. Will use default value of 1"
-fi
-
-PARALLELISM="${2:-1}"
-source python/kserve/.venv/bin/activate
-pushd test/e2e >/dev/null
-  pytest -m "$1" --ignore=qpext --log-level=INFO -o log_cli=true -n $PARALLELISM
+pushd python >/dev/null
+echo "Building success_200_isvc image"
+docker buildx build -t ${SUCCESS_200_ISVC_IMG} -f success_200_isvc.Dockerfile .
+echo "Done building success_200_isvc image"
+echo "Building error_404_isvc image"
+docker buildx build -t ${ERROR_404_ISVC_IMG} -f error_404_isvc.Dockerfile .
+echo "Done building error_404_isvc image"
 popd
+echo "Done building images"
+

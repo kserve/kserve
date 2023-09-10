@@ -98,7 +98,7 @@ func TestSimpleModelChainer(t *testing.T) {
 		"Authorization": {"Bearer Token"},
 	}
 
-	res, err := routeStep("root", graphSpec, jsonBytes, headers)
+	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
@@ -170,7 +170,7 @@ func TestSimpleModelEnsemble(t *testing.T) {
 	headers := http.Header{
 		"Authorization": {"Bearer Token"},
 	}
-	res, err := routeStep("root", graphSpec, jsonBytes, headers)
+	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
@@ -349,7 +349,7 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 	headers := http.Header{
 		"Authorization": {"Bearer Token"},
 	}
-	res, err := routeStep("root", graphSpec, jsonBytes, headers)
+	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedModel3Response := map[string]interface{}{
@@ -413,7 +413,7 @@ func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 	}
 	// Propagating no header
 	headersToPropagate = []string{}
-	res, err := callService(model1Url.String(), jsonBytes, headers)
+	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
@@ -458,7 +458,7 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 	}
 	// Propagating only 1 header "Test-Header-Key"
 	headersToPropagate = []string{"Test-Header-Key"}
-	res, err := callService(model1Url.String(), jsonBytes, headers)
+	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
@@ -504,7 +504,7 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 	}
 	// Propagating multiple headers "Test-Header-Key"
 	headersToPropagate = []string{"Test-Header-Key", "Authorization"}
-	res, err := callService(model1Url.String(), jsonBytes, headers)
+	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
