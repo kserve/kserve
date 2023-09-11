@@ -742,6 +742,7 @@ def test_ig_scenario8():
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
 
+
 @pytest.mark.graph
 @pytest.mark.kourier
 def test_ig_scenario9():
@@ -792,15 +793,14 @@ def test_ig_scenario9():
 
     response = predict_ig(
         graph_name,
-        os.path.join(
-            IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"
-        ),
+        os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     )
     assert response == {"message": "SUCCESS"}
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
+
 
 @pytest.mark.graph
 @pytest.mark.kourier
@@ -853,9 +853,7 @@ def test_ig_scenario10():
     with pytest.raises(HTTPError) as exc_info:
         predict_ig(
             graph_name,
-            os.path.join(
-                IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"
-            ),
+            os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
         )
 
     assert exc_info.value.response.json() == {"detail": "Intentional 404 code"}
