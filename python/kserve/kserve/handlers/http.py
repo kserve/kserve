@@ -22,7 +22,8 @@ from kserve.kfmodel_repository import KFModelRepository
 from kserve.kfmodel import ModelType
 from datetime import datetime
 
-from ray.serve.api import RayServeHandle
+# AIP: remove ray
+# from ray.serve.api import RayServeHandle
 
 
 class HTTPHandler(tornado.web.RequestHandler):
@@ -66,11 +67,12 @@ class PredictHandler(HTTPHandler):
                 )
         # call model locally or remote model workers
         model = self.get_model(name)
-        if not isinstance(model, RayServeHandle):
-            response = await model(body)
-        else:
-            model_handle = model
-            response = await model_handle.remote(body)
+        # AIP: remove ray
+        # if not isinstance(model, RayServeHandle):
+        response = await model(body)
+        # else:
+        #     model_handle = model
+        #     response = await model_handle.remote(body)
         # process response from the model
         if has_binary_headers(self.request.headers):
             event = CloudEvent(body._attributes, response)
@@ -100,9 +102,10 @@ class ExplainHandler(HTTPHandler):
             )
         # call model locally or remote model workers
         model = self.get_model(name)
-        if not isinstance(model, RayServeHandle):
-            response = await model(body, model_type=ModelType.EXPLAINER)
-        else:
-            model_handle = model
-            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
+        # AIP: remove ray
+        # if not isinstance(model, RayServeHandle):
+        response = await model(body, model_type=ModelType.EXPLAINER)
+        # else:
+        #     model_handle = model
+        #     response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
         self.write(response)

@@ -11,9 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Union
+from typing import List, Optional, Any
 from kserve import KFModel
-from ray.serve.api import RayServeHandle
+# AIP: remove ray
+# from ray.serve.api import RayServeHandle
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -31,10 +32,10 @@ class KFModelRepository:
     def set_models_dir(self, models_dir):  # used for unit tests
         self.models_dir = models_dir
 
-    def get_model(self, name: str) -> Optional[Union[KFModel, RayServeHandle]]:
+    def get_model(self, name: str) -> Optional[KFModel]:
         return self.models.get(name, None)
 
-    def get_models(self) -> List[Union[KFModel, RayServeHandle]]:
+    def get_models(self) -> List[KFModel]:
         return list(self.models.values())
 
     def is_model_ready(self, name: str):
@@ -50,7 +51,7 @@ class KFModelRepository:
     def update(self, model: KFModel):
         self.models[model.name] = model
 
-    def update_handle(self, name: str, model_handle: RayServeHandle):
+    def update_handle(self, name: str, model_handle: Any):
         self.models[name] = model_handle
 
     def load(self, name: str) -> bool:

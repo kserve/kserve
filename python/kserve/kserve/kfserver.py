@@ -16,7 +16,7 @@ import logging
 import json
 import inspect
 import sys
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, Any
 import tornado.ioloop
 import tornado.web
 import tornado.httpserver
@@ -28,8 +28,9 @@ from .utils import utils
 from kserve.handlers.http import PredictHandler, ExplainHandler
 from kserve import KFModel
 from kserve.kfmodel_repository import KFModelRepository
-from ray.serve.api import Deployment, RayServeHandle
-from ray import serve
+# AIP: remove ray
+# from ray.serve.api import Deployment, RayServeHandle
+# from ray import serve
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -94,22 +95,23 @@ class KFServer:
              UnloadHandler, dict(models=self.registered_models)),
         ])
 
-    def start(self, models: Union[List[KFModel], Dict[str, Deployment]], nest_asyncio: bool = False):
+    def start(self, models: Union[List[KFModel], Dict[str, Any]], nest_asyncio: bool = False):
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, KFModel):
                     self.register_model(model)
                 else:
                     raise RuntimeError("Model type should be KFModel")
-        elif isinstance(models, dict):
-            if all([isinstance(v, Deployment) for v in models.values()]):
-                serve.start(detached=True, http_host='0.0.0.0', http_port=9071)
-                for key in models:
-                    models[key].deploy()
-                    handle = models[key].get_handle()
-                    self.register_model_handle(key, handle)
-            else:
-                raise RuntimeError("Model type should be RayServe Deployment")
+        # AIP: remove ray
+        # elif isinstance(models, dict):
+        #     if all([isinstance(v, Deployment) for v in models.values()]):
+        #         serve.start(detached=True, http_host='0.0.0.0', http_port=9071)
+        #         for key in models:
+        #             models[key].deploy()
+        #             handle = models[key].get_handle()
+        #             self.register_model_handle(key, handle)
+        #     else:
+        #         raise RuntimeError("Model type should be RayServe Deployment")
         else:
             raise RuntimeError("Unknown model collection types")
 
@@ -138,7 +140,7 @@ class KFServer:
 
         tornado.ioloop.IOLoop.current().start()
 
-    def register_model_handle(self, name: str, model_handle: RayServeHandle):
+    def register_model_handle(self, name: str, model_handle: Any):
         self.registered_models.update_handle(name, model_handle)
         logging.info("Registering model handle: %s", name)
 
