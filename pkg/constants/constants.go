@@ -154,8 +154,8 @@ var (
 
 // Autoscaler Class
 var (
-	AutoscalerClassHPA  AutoscalerClassType = "hpa"
-	AutoscalerClassNone AutoscalerClassType = "none"
+	AutoscalerClassHPA      AutoscalerClassType = "hpa"
+	AutoscalerClassExternal AutoscalerClassType = "external"
 )
 
 // Autoscaler Metrics
@@ -171,7 +171,7 @@ var (
 // Autoscaler Class Allowed List
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
-	AutoscalerClassNone,
+	AutoscalerClassExternal,
 }
 
 // Autoscaler Metrics Allowed List

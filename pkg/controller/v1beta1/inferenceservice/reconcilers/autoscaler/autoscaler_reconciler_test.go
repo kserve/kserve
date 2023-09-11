@@ -60,7 +60,7 @@ func TestGetAutoscalerClass(t *testing.T) {
 				Namespace:   namespace,
 				Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
 			},
-			expectedAutoScalerType: constants.AutoscalerClassNone,
+			expectedAutoScalerType: constants.AutoscalerClassExternal,
 		},
 	}
 

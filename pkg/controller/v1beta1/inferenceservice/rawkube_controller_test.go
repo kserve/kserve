@@ -495,7 +495,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualHPA.Spec).To(gomega.Equal(expectedHPA.Spec))
 		})
 		It("Should have ingress/service/deployment created", func() {
-			By("By creating a new InferenceService with AutoscalerClassNone")
+			By("By creating a new InferenceService with AutoscalerClassExternal")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
