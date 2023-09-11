@@ -95,7 +95,7 @@ class KFServer:
              UnloadHandler, dict(models=self.registered_models)),
         ])
 
-    def start(self, models: Union[List[KFModel], Dict[str, Any]], nest_asyncio: bool = False):
+    def start(self, models: Union[List[KFModel], Dict[str]], nest_asyncio: bool = False):
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, KFModel):
