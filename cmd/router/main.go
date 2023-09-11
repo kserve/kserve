@@ -104,16 +104,35 @@ type EnsembleStepOutput struct {
 	StepStatusCode int
 }
 
+// See if reviewer suggests a better name for this function
+func handleSplitterORSwitchNode(route *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, int, error) {
+	var statusCode int
+	var responseBytes []byte
+	var err error
+	stepType := "serviceUrl"
+	if route.NodeName != "" {
+		stepType = "node"
+	}
+	log.Info("Starting execution of step", "type", stepType, "stepName", route.StepName)
+	if responseBytes, statusCode, err = executeStep(route, graph, input, headers); err != nil {
+		return nil, 500, err
+	}
+
+	if route.Dependency == v1alpha1.Hard && !isSuccessFul(statusCode) {
+		log.Info("This step is a hard dependency and it is unsuccessful", "stepName", route.StepName, "statusCode", statusCode)
+	}
+	return responseBytes, statusCode, nil
+}
+
 func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), "node", nodeName)
 	currentNode := graph.Nodes[nodeName]
 
 	if currentNode.RouterType == v1alpha1.Splitter {
-		return executeStep(pickupRoute(currentNode.Steps), graph, input, headers)
+		route := pickupRoute(currentNode.Steps)
+		return handleSplitterORSwitchNode(route, graph, input, headers)
 	}
 	if currentNode.RouterType == v1alpha1.Switch {
-		var statusCode int
-		var responseBytes []byte
 		var err error
 		route := pickupRouteByCondition(input, currentNode.Steps)
 		if route == nil {
@@ -121,23 +140,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			log.Error(err, errorMessage)
 			return nil, 404, errors.New(errorMessage)
 		}
-		stepType := "serviceUrl"
-		if route.NodeName != "" {
-			stepType = "node"
-		}
-		log.Info("Starting execution of step", "type", stepType, "stepName", route.StepName)
-		if responseBytes, statusCode, err = executeStep(route, graph, input, headers); err != nil {
-			return nil, 500, err
-		}
-
-		if route.Dependency == v1alpha1.Hard {
-			if !isSuccessFul(statusCode) {
-				log.Info("This step is a hard dependency and it is unsuccessful", "stepName", route.StepName, "statusCode", statusCode)
-				// Stop the execution right away if step is hard dep and is unsuccessful
-				return responseBytes, statusCode, nil
-			}
-		}
-		return responseBytes, statusCode, nil
+		return handleSplitterORSwitchNode(route, graph, input, headers)
 	}
 	if currentNode.RouterType == v1alpha1.Ensemble {
 		ensembleRes := make([]chan EnsembleStepOutput, len(currentNode.Steps))
@@ -221,12 +224,12 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				return nil, 500, err
 			}
 			/*
-				Only if a step is a hard dependency, we will check for its success.
+			   Only if a step is a hard dependency, we will check for its success.
 			*/
 			if step.Dependency == v1alpha1.Hard {
 				if !isSuccessFul(statusCode) {
 					log.Info("This step is a hard dependency and it is unsuccessful", "stepName", step.StepName, "statusCode", statusCode)
-					// Stop the execution right away if step is hard dep and is unsuccessful
+					// Stop the execution of sequence right away if step is a hard dependency and is unsuccessful
 					return responseBytes, statusCode, nil
 				}
 			}
