@@ -91,6 +91,7 @@ mypy = "^0.991"
 portforward = "^0.4.3"
 avro = "^1.11.0"
 tomlkit = "^0.11.6"
+jinja2 = "^3.1.2"
 
 [tool.poetry-version-plugin]
 source = "file"
