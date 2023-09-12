@@ -222,8 +222,8 @@ func main() {
 	log.Info("registering webhooks to the webhook server")
 	hookServer.Register("/mutate-pods", &webhook.Admission{Handler: &pod.Mutator{}})
 
-	log.Info("registering cluster serving runtime validator webhook to the webhook server")
-	hookServer.Register("/validate-serving-kserve-io-v1alpha1-clusterservingruntime", &webhook.Admission{Handler: &servingruntime.ClusterServingRuntimeValidator{}})
+	//log.Info("registering cluster serving runtime validator webhook to the webhook server")
+	//hookServer.Register("/validate-serving-kserve-io-v1alpha1-clusterservingruntime", &webhook.Admission{Handler: &servingruntime.ClusterServingRuntimeValidator{}})
 
 	log.Info("registering serving runtime validator webhook to the webhook server")
 	hookServer.Register("/validate-serving-kserve-io-v1alpha1-servingruntime", &webhook.Admission{Handler: &servingruntime.ServingRuntimeValidator{}})

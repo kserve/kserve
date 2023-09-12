@@ -34,17 +34,17 @@ import (
 var log = logf.Log.WithName(constants.ServingRuntimeValidatorWebhookName)
 
 const (
-	InvalidPriorityError                      = "Same priority assigned for the model format %s"
-	InvalidPriorityServingRuntimeError        = "%s in the servingruntimes %s and %s in namespace %s"
-	InvalidPriorityClusterServingRuntimeError = "%s in the clusterservingruntimes %s and %s"
+	InvalidPriorityError               = "Same priority assigned for the model format %s"
+	InvalidPriorityServingRuntimeError = "%s in the servingruntimes %s and %s in namespace %s"
+	//InvalidPriorityClusterServingRuntimeError = "%s in the clusterservingruntimes %s and %s"
 )
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-clusterservingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterservingruntimes,versions=v1alpha1,name=clusterservingruntime.kserve-webhook-server.validator
-
-type ClusterServingRuntimeValidator struct {
-	Client  client.Client
-	Decoder *admission.Decoder
-}
+//// kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-clusterservingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterservingruntimes,versions=v1alpha1,name=clusterservingruntime.kserve-webhook-server.validator
+//
+//type ClusterServingRuntimeValidator struct {
+//	Client  client.Client
+//	Decoder *admission.Decoder
+//}
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-servingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=servingruntimes,versions=v1alpha1,name=servingruntime.kserve-webhook-server.validator
 
@@ -79,32 +79,32 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 	return admission.Allowed("")
 }
 
-// Handle validates the incoming request
-func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
-	clusterServingRuntime := &v1alpha1.ClusterServingRuntime{}
-	if err := csr.Decoder.Decode(req, clusterServingRuntime); err != nil {
-		log.Error(err, "Failed to decode cluster serving runtime", "name", clusterServingRuntime.Name)
-		return admission.Errored(http.StatusBadRequest, err)
-	}
-
-	ExistingRuntimes := &v1alpha1.ClusterServingRuntimeList{}
-	if err := csr.Client.List(context.TODO(), ExistingRuntimes); err != nil {
-		log.Error(err, "Failed to get cluster serving runtime list")
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
-
-	// Only validate for priority if the new cluster serving runtime is not disabled
-	if clusterServingRuntime.Spec.IsDisabled() {
-		return admission.Allowed("")
-	}
-
-	for i := range ExistingRuntimes.Items {
-		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, clusterServingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
-			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, clusterServingRuntime.Name))
-		}
-	}
-	return admission.Allowed("")
-}
+//// Handle validates the incoming request
+//func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
+//	clusterServingRuntime := &v1alpha1.ClusterServingRuntime{}
+//	if err := csr.Decoder.Decode(req, clusterServingRuntime); err != nil {
+//		log.Error(err, "Failed to decode cluster serving runtime", "name", clusterServingRuntime.Name)
+//		return admission.Errored(http.StatusBadRequest, err)
+//	}
+//
+//	ExistingRuntimes := &v1alpha1.ClusterServingRuntimeList{}
+//	if err := csr.Client.List(context.TODO(), ExistingRuntimes); err != nil {
+//		log.Error(err, "Failed to get cluster serving runtime list")
+//		return admission.Errored(http.StatusInternalServerError, err)
+//	}
+//
+//	// Only validate for priority if the new cluster serving runtime is not disabled
+//	if clusterServingRuntime.Spec.IsDisabled() {
+//		return admission.Allowed("")
+//	}
+//
+//	for i := range ExistingRuntimes.Items {
+//		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, clusterServingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
+//			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, clusterServingRuntime.Name))
+//		}
+//	}
+//	return admission.Allowed("")
+//}
 
 func areSupportedModelFormatsEqual(m1 v1alpha1.SupportedModelFormat, m2 v1alpha1.SupportedModelFormat) bool {
 	if strings.EqualFold(m1.Name, m2.Name) && ((m1.Version == nil && m2.Version == nil) ||
@@ -151,20 +151,20 @@ func contains[T comparable](slice []T, element T) bool {
 	return false
 }
 
-// InjectClient injects the client.
-func (csr *ClusterServingRuntimeValidator) InjectClient(c client.Client) error {
-	csr.Client = c
-	return nil
-}
+//// InjectClient injects the client.
+//func (csr *ClusterServingRuntimeValidator) InjectClient(c client.Client) error {
+//	csr.Client = c
+//	return nil
+//}
 
 // ClusterServingRuntimeValidator implements admission.DecoderInjector.
 // A decoder will be automatically injected.
 
-// InjectDecoder injects the decoder.
-func (csr *ClusterServingRuntimeValidator) InjectDecoder(d *admission.Decoder) error {
-	csr.Decoder = d
-	return nil
-}
+//// InjectDecoder injects the decoder.
+//func (csr *ClusterServingRuntimeValidator) InjectDecoder(d *admission.Decoder) error {
+//	csr.Decoder = d
+//	return nil
+//}
 
 // InjectClient injects the client.
 func (sr *ServingRuntimeValidator) InjectClient(c client.Client) error {
