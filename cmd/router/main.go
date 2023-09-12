@@ -137,8 +137,9 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 		route := pickupRouteByCondition(input, currentNode.Steps)
 		if route == nil {
 			errorMessage := "None of the routes matched with the switch condition"
+			err = errors.New(errorMessage)
 			log.Error(err, errorMessage)
-			return nil, 404, errors.New(errorMessage)
+			return nil, 404, err
 		}
 		return handleSplitterORSwitchNode(route, graph, input, headers)
 	}
