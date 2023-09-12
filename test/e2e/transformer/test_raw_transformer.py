@@ -41,7 +41,8 @@ def test_transformer():
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={'cpu': '1', 'memory': '1Gi'}
-            )
+            ),
+            env=[V1EnvVar(name="PROTOCOL_VERSION", value="v1")],
         ),
     )
     transformer = V1beta1TransformerSpec(
