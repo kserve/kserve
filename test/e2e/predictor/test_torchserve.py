@@ -26,7 +26,7 @@ from kserve import (
     V1beta1ModelSpec,
     V1beta1ModelFormat,
 )
-from kubernetes.client import V1ResourceRequirements, V1ContainerPort, V1EnvVar
+from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 
 from ..common.utils import predict, grpc_stub
 from ..common.utils import KSERVE_TEST_NAMESPACE
@@ -51,7 +51,6 @@ def test_torchserve_kserve():
                     "memory": "1Gi"
                 },
             ),
-            env=[V1EnvVar(name="PROTOCOL_VERSION", value="v1")],
         ),
     )
 
@@ -89,7 +88,6 @@ def test_torchserve_v2_kserve():
                     "memory": "1Gi"
                 },
             ),
-            env=[V1EnvVar(name="PROTOCOL_VERSION", value="v2")],
         ),
     )
 
@@ -171,7 +169,6 @@ def test_torchserve_runtime_kserve():
                 requests={"cpu": "100m", "memory": "4Gi"},
                 limits={"cpu": "1", "memory": "4Gi"},
             ),
-            env=[V1EnvVar(name="PROTOCOL_VERSION", value="v1")],
         ),
     )
 

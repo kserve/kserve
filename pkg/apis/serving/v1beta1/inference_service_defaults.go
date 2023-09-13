@@ -310,6 +310,13 @@ func (isvc *InferenceService) SetTorchServeDefaults() {
 	if constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion {
 		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
 	}
+
+	// set torchserve env variable "PROTOCOL_VERSION" based on ProtocolVersion
+	isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
+		v1.EnvVar{
+			Name:  constants.ProtocolVersionENV,
+			Value: string(*isvc.Spec.Predictor.Model.ProtocolVersion),
+		})
 }
 
 func (isvc *InferenceService) SetTritonDefaults() {
