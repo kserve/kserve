@@ -20,7 +20,8 @@ from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from http import HTTPStatus
 from enum import Enum
-from ray.serve.utils import ServeRequest
+# AIP: remove ray
+# from ray.serve.utils import ServeRequest
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -112,8 +113,9 @@ class KFModel:
                                 status_code=HTTPStatus.BAD_REQUEST,
                                 reason="Unrecognized request format: %s" % e
                             )
-        elif isinstance(request, ServeRequest):
-            return await request.body()
+        # AIP: remove ray
+        # elif isinstance(request, ServeRequest):
+        #     return await request.body()
         elif isinstance(request, dict):
 
             if "time" in request \
