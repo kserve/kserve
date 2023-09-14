@@ -18,6 +18,7 @@ package pod
 import (
 	"context"
 	"encoding/json"
+	v12 "k8s.io/api/admission/v1"
 	"net/http"
 
 	v1 "k8s.io/api/core/v1"
@@ -62,7 +63,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 	// For some reason pod namespace is always empty when coming to pod mutator, need to set from admission request
 	pod.Namespace = req.AdmissionRequest.Namespace
 
-	if err := mutator.mutate(pod, configMap); err != nil {
+	if err := mutator.mutate(pod, configMap, req); err != nil {
 		log.Error(err, "Failed to mutate pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
@@ -76,7 +77,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
-func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
+func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap, req admission.Request) error {
 	credentialBuilder := credentials.NewCredentialBuilder(mutator.Client, configMap)
 
 	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
@@ -117,11 +118,15 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		return err
 	}
 
-	mutators := []func(pod *v1.Pod) error{
+	var mutators []func(pod *v1.Pod) error
+	mutators = []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
 		agentInjector.InjectAgent,
-		metricsAggregator.InjectMetricsAggregator,
+	}
+
+	if req.Operation == v12.Create {
+		mutators = append(mutators, metricsAggregator.InjectMetricsAggregator)
 	}
 
 	for _, mutator := range mutators {
