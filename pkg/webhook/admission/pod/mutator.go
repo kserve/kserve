@@ -126,6 +126,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap, req admissi
 	}
 
 	if req.Operation == v12.Create {
+		log.Info("Enabling metrics aggregator mutator since it is a Create operation")
 		mutators = append(mutators, metricsAggregator.InjectMetricsAggregator)
 	}
 
