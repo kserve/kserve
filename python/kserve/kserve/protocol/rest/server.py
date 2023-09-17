@@ -37,7 +37,8 @@ from kserve.protocol.dataplane import DataPlane
 from .v1_endpoints import V1Endpoints
 from .v2_datamodels import (InferenceResponse, ModelMetadataResponse,
                             ModelReadyResponse, ServerLiveResponse,
-                            ServerMetadataResponse, ServerReadyResponse)
+                            ServerMetadataResponse, ServerReadyResponse,
+                            ListModelsResponse)
 from .v2_endpoints import V2Endpoints
 
 
@@ -100,6 +101,8 @@ class RESTServer:
                              response_model=ServerLiveResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/health/ready", v2_endpoints.ready,
                              response_model=ServerReadyResponse, tags=["V2"]),
+                FastAPIRoute(r"/v2/models", v2_endpoints.models,
+                             response_model=ListModelsResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}",
                              v2_endpoints.model_metadata, response_model=ModelMetadataResponse, tags=["V2"]),
                 FastAPIRoute(r"/v2/models/{model_name}/versions/{model_version}",

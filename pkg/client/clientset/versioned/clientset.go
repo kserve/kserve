@@ -33,8 +33,7 @@ type Interface interface {
 	ServingV1beta1() servingv1beta1.ServingV1beta1Interface
 }
 
-// Clientset contains the clients for groups. Each group has exactly one
-// version included in a Clientset.
+// Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
 	servingV1beta1 *servingv1beta1.ServingV1beta1Client

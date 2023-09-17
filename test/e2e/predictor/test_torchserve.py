@@ -102,7 +102,7 @@ def test_torchserve_v2_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/torchserve_input_v2.json", model_name="mnist")
+    res = predict(service_name, "./data/torchserve_input_v2.json", model_name="mnist", protocol_version="v2")
     assert (res.get("outputs")[0]["data"] == [1])
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 

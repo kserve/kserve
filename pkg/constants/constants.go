@@ -191,7 +191,8 @@ var (
 
 // Webhook Constants
 var (
-	PodMutatorWebhookName = KServeName + "-pod-mutator-webhook"
+	PodMutatorWebhookName              = KServeName + "-pod-mutator-webhook"
+	ServingRuntimeValidatorWebhookName = KServeName + "-servingRuntime-validator-webhook"
 )
 
 // GPU Constants
@@ -241,11 +242,12 @@ const (
 
 // InferenceService protocol enums
 const (
-	ProtocolV1      InferenceServiceProtocol = "v1"
-	ProtocolV2      InferenceServiceProtocol = "v2"
-	ProtocolGRPCV1  InferenceServiceProtocol = "grpc-v1"
-	ProtocolGRPCV2  InferenceServiceProtocol = "grpc-v2"
-	ProtocolUnknown InferenceServiceProtocol = ""
+	ProtocolV1         InferenceServiceProtocol = "v1"
+	ProtocolV2         InferenceServiceProtocol = "v2"
+	ProtocolGRPCV1     InferenceServiceProtocol = "grpc-v1"
+	ProtocolGRPCV2     InferenceServiceProtocol = "grpc-v2"
+	ProtocolUnknown    InferenceServiceProtocol = ""
+	ProtocolVersionENV                          = "PROTOCOL_VERSION"
 )
 
 // InferenceService Endpoint Ports
