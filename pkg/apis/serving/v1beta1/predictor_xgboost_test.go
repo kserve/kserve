@@ -47,26 +47,6 @@ func TestXGBoostValidation(t *testing.T) {
 			},
 			matcher: gomega.BeNil(),
 		},
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				XGBoost: &XGBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("s3://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				XGBoost: &XGBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("invaliduri://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
 	}
 
 	for name, scenario := range scenarios {

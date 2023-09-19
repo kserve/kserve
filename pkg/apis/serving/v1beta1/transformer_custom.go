@@ -45,9 +45,7 @@ func NewCustomTransformer(podSpec *PodSpec) *CustomTransformer {
 
 // Validate returns an error if invalid
 func (c *CustomTransformer) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(c.GetStorageUri()),
-	})
+	return utils.FirstNonNilError([]error{})
 }
 
 // Default sets defaults on the resource

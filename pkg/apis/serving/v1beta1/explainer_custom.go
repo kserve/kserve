@@ -39,9 +39,7 @@ func NewCustomExplainer(podSpec *PodSpec) *CustomExplainer {
 
 // Validate the spec
 func (s *CustomExplainer) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(s.GetStorageUri()),
-	})
+	return utils.FirstNonNilError([]error{})
 }
 
 // Default sets defaults on the resource

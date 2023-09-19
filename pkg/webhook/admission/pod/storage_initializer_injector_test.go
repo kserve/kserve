@@ -387,6 +387,57 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 			},
 			expectedErrorPrefix: "Invalid configuration: cannot find container",
 		},
+		"AzureBlobNoAccountFails": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "https://blob.core.windows.net/triton/simple_string/",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expectedErrorPrefix: "storageUri",
+		},
+		"AzureBlobNoContainerFails": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "https://foo.blob.core.windows.net/",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expectedErrorPrefix: "storageUri",
+		},
+		"tUnknownStorageURIPrefixFails": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "blob://foo/bar",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expectedErrorPrefix: "storageUri",
+		},
 	}
 
 	for name, scenario := range scenarios {
@@ -1874,6 +1925,28 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}
+
+func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
+	validUris := []string{
+		"https://kfserving.blob.core.windows.net/triton/simple_string/",
+		"https://kfserving.blob.core.windows.net/triton/simple_string",
+		"https://kfserving.blob.core.windows.net/triton/",
+		"https://kfserving.blob.core.windows.net/triton",
+		"https://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz",
+		"http://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz",
+		"hdfs://",
+		"webhdfs://",
+		"some/relative/path",
+		"/",
+		"foo",
+		"",
+	}
+	for _, uri := range validUris {
+		if err := validateStorageURIForDefaultStorageInitializer(uri); err != nil {
+			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}
 }

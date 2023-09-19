@@ -43,7 +43,6 @@ func NewCustomPredictor(podSpec *PodSpec) *CustomPredictor {
 // Validate returns an error if invalid
 func (c *CustomPredictor) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(c.GetStorageUri()),
 		c.validateCustomProtocol(),
 	})
 }
