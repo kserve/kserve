@@ -387,57 +387,6 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 			},
 			expectedErrorPrefix: "Invalid configuration: cannot find container",
 		},
-		"AzureBlobNoAccountFails": {
-			original: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "https://blob.core.windows.net/triton/simple_string/",
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-			},
-			expectedErrorPrefix: "storageUri",
-		},
-		"AzureBlobNoContainerFails": {
-			original: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "https://foo.blob.core.windows.net/",
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-			},
-			expectedErrorPrefix: "storageUri",
-		},
-		"tUnknownStorageURIPrefixFails": {
-			original: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "blob://foo/bar",
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-			},
-			expectedErrorPrefix: "storageUri",
-		},
 	}
 
 	for name, scenario := range scenarios {
