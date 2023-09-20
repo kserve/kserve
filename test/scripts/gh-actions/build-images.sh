@@ -25,6 +25,7 @@ echo "Github SHA ${GITHUB_SHA}"
 export CONTROLLER_IMG=kserve/kserve-controller:${GITHUB_SHA}
 STORAGE_INIT_IMG=kserve/storage-initializer:${GITHUB_SHA}
 AGENT_IMG=kserve/agent:${GITHUB_SHA}
+ROUTER_IMG=kserve/router:${GITHUB_SHA}
 
 
 echo "Building Kserve controller image"
@@ -32,6 +33,9 @@ docker buildx build . -t ${CONTROLLER_IMG}
 
 echo "Building agent image"
 docker buildx build -f agent.Dockerfile . -t ${AGENT_IMG}
+
+echo "Building router image"
+docker buildx build -f router.Dockerfile . -t ${ROUTER_IMG}
 
 pushd python >/dev/null
   echo "Building storage initializer"

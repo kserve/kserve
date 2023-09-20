@@ -19,3 +19,8 @@ runs:
       uses: ishworkh/docker-image-artifact-download@v1
       with:
         image: "kserve/storage-initializer:${{ github.sha }}"
+
+    - name: Download router image
+      uses: ishworkh/docker-image-artifact-download@v1
+      with:
+        image: "kserve/router:${{ github.sha }}"

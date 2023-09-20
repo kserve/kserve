@@ -17,7 +17,6 @@ import unittest.mock as mock
 
 from botocore.client import Config
 from botocore import UNSIGNED
-
 from kserve.storage import Storage
 
 STORAGE_MODULE = 'kserve.storage.storage'
@@ -138,6 +137,45 @@ AWS_TEST_CREDENTIALS = {"AWS_ACCESS_KEY_ID": "testing",
                         "AWS_SECRET_ACCESS_KEY": "testing",
                         "AWS_SECURITY_TOKEN": "testing",
                         "AWS_SESSION_TOKEN": "testing"}
+
+
+@mock.patch(STORAGE_MODULE + '.boto3')
+def test_multikey(mock_storage):
+    # given
+    bucket_name = 'foo'
+    paths = ['b/model.bin']
+    object_paths = ['test/a/' + p for p in paths]
+
+    # when
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+    Storage._download_s3(f's3://{bucket_name}/test/a', 'dest_path')
+
+    # then
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert arg_list == expected_call_args_list('test/a', 'dest_path', paths)
+
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix='test/a')
+
+
+@mock.patch(STORAGE_MODULE + '.boto3')
+def test_files_with_no_extension(mock_storage):
+
+    # given
+    bucket_name = 'foo'
+    paths = ['churn-pickle', 'churn-pickle-logs', 'churn-pickle-report']
+    object_paths = ['test/' + p for p in paths]
+
+    # when
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+    Storage._download_s3(f's3://{bucket_name}/test/churn-pickle', 'dest_path')
+
+    # then
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+
+    # Download only the exact file if found; otherwise, download all files with the given prefix
+    assert arg_list[0] == expected_call_args_list('test', 'dest_path', paths)[0]
+
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix='test/churn-pickle')
 
 
 def test_get_S3_config():

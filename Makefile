@@ -26,6 +26,8 @@ CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26
+SUCCESS_200_ISVC_IMG ?= success-200-isvc
+ERROR_404_ISVC_IMG ?= error-404-isvc
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -76,6 +78,9 @@ deploy: manifests
 	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
 	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
 	${KUSTOMIZE} build config/default | kubectl apply -f -
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	sleep 2
+	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev: manifests
@@ -87,6 +92,7 @@ deploy-dev: manifests
 	${KUSTOMIZE} build config/overlays/development | kubectl apply -f -
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	sleep 2
 	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
@@ -125,17 +131,9 @@ deploy-helm: manifests
 
 undeploy: kustomize
 	${KUSTOMIZE} build config/default | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 undeploy-dev: kustomize
 	${KUSTOMIZE} build config/overlays/development | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen kustomize
@@ -301,6 +299,18 @@ docker-build-qpext:
 
 docker-build-push-qpext: docker-build-qpext
 	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
+
+docker-build-success-200-isvc:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG} -f success_200_isvc.Dockerfile .
+
+docker-push-success-200-isvc: docker-build-success-200-isvc
+	docker push ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}
+
+docker-build-error-node-404:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG} -f error_404_isvc.Dockerfile .
+
+docker-push-error-node-404: docker-build-error-node-404
+	docker push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}
 
 test-qpext:
 	cd qpext && go test -v ./... -cover

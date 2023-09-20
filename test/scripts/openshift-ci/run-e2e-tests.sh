@@ -107,5 +107,6 @@ kustomize build $PROJECT_ROOT/config/overlays/test/runtimes | \
 #
 echo "Run E2E tests: $1"
 pushd $PROJECT_ROOT >/dev/null
+  export GITHUB_SHA=$(git rev-parse HEAD)
   ./test/scripts/gh-actions/run-e2e-tests.sh "$1"
 popd
