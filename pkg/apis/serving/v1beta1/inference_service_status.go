@@ -209,6 +209,8 @@ const (
 	RuntimeNotRecognized FailureReason = "RuntimeNotRecognized"
 	// The current Predictor Spec is invalid or unsupported
 	InvalidPredictorSpec FailureReason = "InvalidPredictorSpec"
+	// Storage URI is not supported
+	InvalidStorageURI FailureReason = "InvalidStorageURI"
 )
 
 type FailureInfo struct {

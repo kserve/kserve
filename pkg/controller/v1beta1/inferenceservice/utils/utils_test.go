@@ -17,11 +17,12 @@ limitations under the License.
 package utils
 
 import (
+	"strconv"
+	"testing"
+
 	"github.com/onsi/gomega/types"
 	"knative.dev/pkg/apis"
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
-	"strconv"
-	"testing"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -1717,5 +1719,87 @@ func TestGetPredictorEndpoint(t *testing.T) {
 				t.Errorf("got %s, want %s", res, scenario.expectedUrl)
 			}
 		})
+	}
+}
+
+func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
+	validUris := []string{
+		"https://kfserving.blob.core.windows.net/triton/simple_string/",
+		"https://kfserving.blob.core.windows.net/triton/simple_string",
+		"https://kfserving.blob.core.windows.net/triton/",
+		"https://kfserving.blob.core.windows.net/triton",
+		"https://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz",
+		"http://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz",
+		"hdfs://",
+		"webhdfs://",
+		"some/relative/path",
+		"/",
+		"foo",
+		"",
+	}
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		klog.Error(err, "Failed to add v1alpha1 to scheme")
+	}
+	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
+	for _, uri := range validUris {
+		if err := ValidateStorageURI(&uri, mockClient); err != nil {
+			t.Errorf("%q validation failed: %s", uri, err)
+		}
+	}
+}
+
+func TestValidateStorageURIForCustomPrefix(t *testing.T) {
+	invalidUris := []string{
+		"custom://custom.com/model",
+	}
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		klog.Error(err, "Failed to add v1alpha1 to scheme")
+	}
+	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
+	for _, uri := range invalidUris {
+		if err := ValidateStorageURI(&uri, mockClient); err == nil {
+			t.Errorf("%q validation failed: error expected", uri)
+		}
+	}
+}
+
+func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
+	customSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/storage-initializer:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("200Mi"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+		},
+	}
+
+	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
+		Items: []v1alpha1.ClusterStorageContainer{customSpec},
+	}
+	validUris := []string{
+		"custom://custom.com/model/",
+	}
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		klog.Error(err, "Failed to add v1alpha1 to scheme")
+	}
+	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
+	for _, uri := range validUris {
+		if err := ValidateStorageURI(&uri, mockClient); err != nil {
+			t.Errorf("%q validation failed: %s", uri, err)
+		}
 	}
 }

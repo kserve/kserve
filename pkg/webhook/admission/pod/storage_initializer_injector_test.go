@@ -1721,7 +1721,7 @@ func TestGetStorageContainerSpec(t *testing.T) {
 	for name, scenario := range scenarios {
 		var container *v1.Container
 
-		if container, err = getContainerSpecForStorageUri(scenario.storageUri, mockClient); err != nil {
+		if container, err = GetContainerSpecForStorageUri(scenario.storageUri, mockClient); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
@@ -1925,28 +1925,6 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
-		}
-	}
-}
-
-func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
-	validUris := []string{
-		"https://kfserving.blob.core.windows.net/triton/simple_string/",
-		"https://kfserving.blob.core.windows.net/triton/simple_string",
-		"https://kfserving.blob.core.windows.net/triton/",
-		"https://kfserving.blob.core.windows.net/triton",
-		"https://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz",
-		"http://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz",
-		"hdfs://",
-		"webhdfs://",
-		"some/relative/path",
-		"/",
-		"foo",
-		"",
-	}
-	for _, uri := range validUris {
-		if err := validateStorageURIForDefaultStorageInitializer(uri); err != nil {
-			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}
 }

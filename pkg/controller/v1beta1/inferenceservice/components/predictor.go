@@ -247,6 +247,14 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.New("must provide only one of storageUri and storage.path")
 		}
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
+		if err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidStorageURI,
+				Message: "StorageURI is not supported",
+			})
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %v", err)
+		}
 	}
 
 	predictorName := constants.PredictorServiceName(isvc.Name)

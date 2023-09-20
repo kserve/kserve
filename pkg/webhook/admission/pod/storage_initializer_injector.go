@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -30,7 +29,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
-	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,13 +43,6 @@ const (
 	PvcURIPrefix                            = "pvc://"
 	PvcSourceMountName                      = "kserve-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
-	AzureBlobURL                            = "blob.core.windows.net"
-	AzureBlobURIRegEx                       = "https://(.+?).blob.core.windows.net/(.+)"
-	UnsupportedStorageURIFormatError        = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
-)
-
-var (
-	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://"}
 )
 
 type StorageInitializerConfig struct {
@@ -92,7 +83,7 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 	return storageInitializerConfig, nil
 }
 
-func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1.Container, error) {
+func GetContainerSpecForStorageUri(storageUri string, client client.Client) (*v1.Container, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := client.List(context.TODO(), storageContainers); err != nil {
 		return nil, err
@@ -366,17 +357,13 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	// Update initContainer (container spec) from a storage container CR if there is a match,
 	// otherwise initContainer is not updated.
 	// Priority: CR > configMap
-	storageContainerSpec, err := getContainerSpecForStorageUri(srcURI, mi.client)
+	storageContainerSpec, err := GetContainerSpecForStorageUri(srcURI, mi.client)
 	if err != nil {
 		return err
 	}
 	if storageContainerSpec != nil {
 		initContainer, err = mergeContainerSpecs(initContainer, storageContainerSpec)
 		if err != nil {
-			return err
-		}
-	} else {
-		if err = validateStorageURIForDefaultStorageInitializer(srcURI); err != nil {
 			return err
 		}
 	}
@@ -444,24 +431,4 @@ func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	}
 
 	return pvcName, pvcPath, nil
-}
-
-func validateStorageURIForDefaultStorageInitializer(storageURI string) error {
-	// local path (not some protocol?)
-	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
-		return nil
-	}
-
-	// need to verify Azure Blob first, because it uses http(s):// prefix
-	if strings.Contains(storageURI, AzureBlobURL) {
-		azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-		if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
-			return nil
-		}
-	} else {
-		if utils.IsPrefixSupported(storageURI, SupportedStorageURIPrefixList) {
-			return nil
-		}
-	}
-	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
 }

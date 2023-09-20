@@ -22,22 +22,34 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"regexp"
 	"sort"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	goerrors "github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// Constants
+var (
+	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://"}
+)
+
+const (
+	AzureBlobURL      = "blob.core.windows.net"
+	AzureBlobURIRegEx = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
 // IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
@@ -317,4 +329,38 @@ func sortPodsByCreatedTimestampDesc(pods *v1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
 		return pods.Items[j].ObjectMeta.CreationTimestamp.Before(&pods.Items[i].ObjectMeta.CreationTimestamp)
 	})
+}
+
+func ValidateStorageURI(storageURI *string, client client.Client) error {
+	if storageURI == nil {
+		return nil
+	}
+
+	// StorageURI is defined in a storage container CR.
+	storageContainerSpec, err := pod.GetContainerSpecForStorageUri(*storageURI, client)
+	if err != nil {
+		return err
+	}
+	if storageContainerSpec != nil {
+		return nil
+	}
+
+	// local path (not some protocol?)
+	if !regexp.MustCompile("\\w+?://").MatchString(*storageURI) {
+		return nil
+	}
+
+	// need to verify Azure Blob first, because it uses http(s):// prefix
+	if strings.Contains(*storageURI, AzureBlobURL) {
+		azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
+		if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
+			return nil
+		}
+	} else {
+		if utils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf(v1beta1.UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
 }
