@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -1740,7 +1739,7 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 	s := runtime.NewScheme()
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
-		klog.Error(err, "Failed to add v1alpha1 to scheme")
+		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range validUris {
@@ -1757,7 +1756,7 @@ func TestValidateStorageURIForCustomPrefix(t *testing.T) {
 	s := runtime.NewScheme()
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
-		klog.Error(err, "Failed to add v1alpha1 to scheme")
+		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range invalidUris {
@@ -1794,7 +1793,7 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 	s := runtime.NewScheme()
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
-		klog.Error(err, "Failed to add v1alpha1 to scheme")
+		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
 	}
 	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
 	for _, uri := range validUris {

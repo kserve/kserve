@@ -79,10 +79,6 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
 		if err != nil {
-			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
-				Reason:  v1beta1.InvalidStorageURI,
-				Message: "StorageURI is not supported",
-			})
 			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %v", err)
 		}
 	}

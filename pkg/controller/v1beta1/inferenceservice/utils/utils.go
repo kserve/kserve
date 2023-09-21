@@ -336,7 +336,7 @@ func ValidateStorageURI(storageURI *string, client client.Client) error {
 		return nil
 	}
 
-	// StorageURI is defined in a storage container CR.
+	// Step 1: Passes the validation if we have a storage container CR that supports this storageURI.
 	storageContainerSpec, err := pod.GetContainerSpecForStorageUri(*storageURI, client)
 	if err != nil {
 		return err
@@ -345,6 +345,7 @@ func ValidateStorageURI(storageURI *string, client client.Client) error {
 		return nil
 	}
 
+	// Step 2: Does the default storage initializer image support this storageURI?
 	// local path (not some protocol?)
 	if !regexp.MustCompile("\\w+?://").MatchString(*storageURI) {
 		return nil
