@@ -38,6 +38,10 @@ var (
 	}
 	// logger for the mutating webhook.
 	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
+
+	// deprecatedFieldName is used for checking whether the deprecated predictor old schema is used or not.
+	// If it is then a warning is thrown by the validating webhook.
+	deprecatedFieldName string
 )
 
 // +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kserve-webhook-server.defaulter
@@ -98,6 +102,7 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		isvc.setPredictorModelDefaults()
 		components = append(components, &isvc.Spec.Predictor)
 	} else {
+		// TODO: For reviewer: This validation is already done in isvc validating webhook. Is this needed here?
 		// If this is a modelmesh predictor, we still want to do "Exactly One" validation.
 		if err := validateExactlyOneImplementation(&isvc.Spec.Predictor); err != nil {
 			mutatorLogger.Error(ExactlyOneErrorFor(&isvc.Spec.Predictor), "Missing component implementation")
@@ -119,30 +124,39 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 func (isvc *InferenceService) setPredictorModelDefaults() {
 	switch {
 	case isvc.Spec.Predictor.SKLearn != nil:
+		deprecatedFieldName = constants.SupportedModelSKLearn
 		isvc.assignSKLearnRuntime()
 
 	case isvc.Spec.Predictor.Tensorflow != nil:
+		deprecatedFieldName = constants.SupportedModelTensorflow
 		isvc.assignTensorflowRuntime()
 
 	case isvc.Spec.Predictor.XGBoost != nil:
+		deprecatedFieldName = constants.SupportedModelXGBoost
 		isvc.assignXGBoostRuntime()
 
 	case isvc.Spec.Predictor.PyTorch != nil:
+		deprecatedFieldName = constants.SupportedModelPyTorch
 		isvc.assignPyTorchRuntime()
 
 	case isvc.Spec.Predictor.Triton != nil:
+		deprecatedFieldName = constants.SupportedModelTriton
 		isvc.assignTritonRuntime()
 
 	case isvc.Spec.Predictor.ONNX != nil:
+		deprecatedFieldName = constants.SupportedModelONNX
 		isvc.assignONNXRuntime()
 
 	case isvc.Spec.Predictor.PMML != nil:
+		deprecatedFieldName = constants.SupportedModelPMML
 		isvc.assignPMMLRuntime()
 
 	case isvc.Spec.Predictor.LightGBM != nil:
+		deprecatedFieldName = constants.SupportedModelLightGBM
 		isvc.assignLightGBMRuntime()
 
 	case isvc.Spec.Predictor.Paddle != nil:
+		deprecatedFieldName = constants.SupportedModelPaddle
 		isvc.assignPaddleRuntime()
 	}
 }

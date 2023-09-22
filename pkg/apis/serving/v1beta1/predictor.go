@@ -32,22 +32,31 @@ type PredictorImplementation interface {
 // PredictorSpec defines the configuration for a predictor,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type PredictorSpec struct {
+	// Deprecated: This is deprecated in favor of Model field.
 	// Spec for SKLearn model server
 	SKLearn *SKLearnSpec `json:"sklearn,omitempty"`
+	// Deprecated: This is deprecated in favor of Model field.
 	// Spec for XGBoost model server
 	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`
+	// Deprecated: This is deprecated in favor of Model field.
 	// Spec for TFServing (https://github.com/tensorflow/serving)
 	Tensorflow *TFServingSpec `json:"tensorflow,omitempty"`
+	// Deprecated: This is deprecated in favor of Model field.
 	// Spec for TorchServe (https://pytorch.org/serve)
 	PyTorch *TorchServeSpec `json:"pytorch,omitempty"`
+	// Deprecated: This is deprecated in favor of Model field.
 	// Spec for Triton Inference Server (https://github.com/triton-inference-server/server)
 	Triton *TritonSpec `json:"triton,omitempty"`
+	// Deprecated: This is deprecated in favor of Model field.
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXRuntimeSpec `json:"onnx,omitempty"`
+	// Deprecated: This is deprecated in favor of Model field.
 	// Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)
 	PMML *PMMLSpec `json:"pmml,omitempty"`
+	// Deprecated: This is deprecated in favor of Model field.
 	// Spec for LightGBM model server
 	LightGBM *LightGBMSpec `json:"lightgbm,omitempty"`
+	// Deprecated: This is deprecated in favor of Model field.
 	// Spec for Paddle model server (https://github.com/PaddlePaddle/Serving)
 	Paddle *PaddleServerSpec `json:"paddle,omitempty"`
 
