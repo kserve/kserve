@@ -54,11 +54,11 @@ func TestGetAutoscalerClass(t *testing.T) {
 			expectedAutoScalerType: constants.AutoscalerClassHPA,
 		},
 		{
-			name: "Return none AutoScaler,if the autoscalerClass annotation set none",
+			name: "Return external AutoScaler,if the autoscalerClass annotation set external",
 			isvcMetaData: &metav1.ObjectMeta{
 				Name:        serviceName,
 				Namespace:   namespace,
-				Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
+				Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
 			},
 			expectedAutoScalerType: constants.AutoscalerClassExternal,
 		},

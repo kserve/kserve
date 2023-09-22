@@ -552,7 +552,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
 						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "none",
+						"serving.kserve.io/autoscalerClass": "external",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -616,7 +616,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "none",
+								"serving.kserve.io/autoscalerClass":                        "external",
 							},
 						},
 						Spec: v1.PodSpec{
