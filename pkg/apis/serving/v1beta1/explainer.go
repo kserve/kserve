@@ -60,7 +60,6 @@ var _ Component = &ExplainerSpec{}
 // Validate returns an error if invalid
 func (e *ExplainerExtensionSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(e.GetStorageUri()),
 		validateStorageSpec(e.GetStorageSpec(), e.GetStorageUri()),
 	})
 }
