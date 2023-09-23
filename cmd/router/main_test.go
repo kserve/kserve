@@ -515,3 +515,24 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 	fmt.Printf("final response:%v\n", response)
 	assert.Equal(t, expectedResponse, response)
 }
+
+
+func TestMalformedURL(t *testing.T) {
+
+
+
+        malformedURL := "http://single-1.default.{$your-domain}/switch"
+
+        _, _, err := callService(malformedURL, []byte{}, http.Header{})
+
+        if err == nil {
+
+                t.Fatal("Eexpect error from malformed URL  \n")
+
+        }
+
+
+
+}
+
+
