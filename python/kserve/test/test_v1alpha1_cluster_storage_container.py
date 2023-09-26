@@ -29,6 +29,8 @@ from __future__ import absolute_import
 import unittest
 import datetime
 
+from kubernetes.client import V1Container
+
 import kserve
 from kserve.models.v1alpha1_cluster_storage_container import V1alpha1ClusterStorageContainer  # noqa: E501
 from kserve.rest import ApiException
@@ -54,10 +56,10 @@ class TestV1alpha1ClusterStorageContainer(unittest.TestCase):
                 disabled = True, 
                 kind = '0', 
                 metadata = None, 
-                spec = kserve.models.v1alpha1/storage_container_spec.v1alpha1.StorageContainerSpec(
-                    container = None, 
+                spec = kserve.models.v1alpha1_storage_container_spec.V1alpha1StorageContainerSpec(
+                    container = V1Container(name="test-container", image="kserve/testimage:0.11"),
                     supported_uri_formats = [
-                        kserve.models.v1alpha1/supported_uri_format.v1alpha1.SupportedUriFormat(
+                        kserve.models.v1alpha1_supported_uri_format.V1alpha1SupportedUriFormat(
                             prefix = '0', 
                             regex = '0', )
                         ], )
