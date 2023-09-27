@@ -18,12 +18,13 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
+KUBE_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 CODEGEN_VERSION=$(cd "${KUBE_ROOT}" && grep 'k8s.io/code-generator' go.mod | awk '{print $2}')
-CODEGEN_PKG="$GOPATH/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
+
 if [ -z "${GOPATH:-}" ]; then
     export GOPATH=$(go env GOPATH)
 fi
+CODEGEN_PKG="$GOPATH/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
 
 chmod +x "${CODEGEN_PKG}/generate-groups.sh"
 
@@ -31,7 +32,7 @@ chmod +x "${CODEGEN_PKG}/generate-groups.sh"
 # So, we add each to a separate directory.
 # Generating files for v1alpha1
 "${CODEGEN_PKG}/generate-groups.sh" \
-    all \
+    "deepcopy,client,informer,lister" \
     "github.com/kserve/kserve/pkg/clientv1alpha1" \
     "github.com/kserve/kserve/pkg/apis" \
     "serving:v1alpha1" \
@@ -39,7 +40,7 @@ chmod +x "${CODEGEN_PKG}/generate-groups.sh"
 
 # Generating files for v1beta1
 "${CODEGEN_PKG}/generate-groups.sh" \
-    all \
+    "deepcopy,client,informer,lister" \
     "github.com/kserve/kserve/pkg/client" \
     "github.com/kserve/kserve/pkg/apis" \
     "serving:v1beta1" \

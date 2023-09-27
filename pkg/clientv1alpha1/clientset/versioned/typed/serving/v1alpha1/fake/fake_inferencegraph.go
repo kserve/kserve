@@ -24,7 +24,6 @@ import (
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakeInferenceGraphs struct {
 	ns   string
 }
 
-var inferencegraphsResource = schema.GroupVersionResource{Group: "serving", Version: "v1alpha1", Resource: "inferencegraphs"}
+var inferencegraphsResource = v1alpha1.SchemeGroupVersion.WithResource("inferencegraphs")
 
-var inferencegraphsKind = schema.GroupVersionKind{Group: "serving", Version: "v1alpha1", Kind: "InferenceGraph"}
+var inferencegraphsKind = v1alpha1.SchemeGroupVersion.WithKind("InferenceGraph")
 
 // Get takes name of the inferenceGraph, and returns the corresponding inferenceGraph object, and an error if there is any.
 func (c *FakeInferenceGraphs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.InferenceGraph, err error) {

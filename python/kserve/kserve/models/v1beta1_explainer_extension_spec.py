@@ -59,7 +59,9 @@ class V1beta1ExplainerExtensionSpec(object):
         'name': 'str',
         'ports': 'list[V1ContainerPort]',
         'readiness_probe': 'V1Probe',
+        'resize_policy': 'list[V1ContainerResizePolicy]',
         'resources': 'V1ResourceRequirements',
+        'restart_policy': 'str',
         'runtime_version': 'str',
         'security_context': 'V1SecurityContext',
         'startup_probe': 'V1Probe',
@@ -88,7 +90,9 @@ class V1beta1ExplainerExtensionSpec(object):
         'name': 'name',
         'ports': 'ports',
         'readiness_probe': 'readinessProbe',
+        'resize_policy': 'resizePolicy',
         'resources': 'resources',
+        'restart_policy': 'restartPolicy',
         'runtime_version': 'runtimeVersion',
         'security_context': 'securityContext',
         'startup_probe': 'startupProbe',
@@ -104,7 +108,7 @@ class V1beta1ExplainerExtensionSpec(object):
         'working_dir': 'workingDir'
     }
 
-    def __init__(self, args=None, command=None, config=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, readiness_probe=None, resources=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, args=None, command=None, config=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -122,7 +126,9 @@ class V1beta1ExplainerExtensionSpec(object):
         self._name = None
         self._ports = None
         self._readiness_probe = None
+        self._resize_policy = None
         self._resources = None
+        self._restart_policy = None
         self._runtime_version = None
         self._security_context = None
         self._startup_probe = None
@@ -162,8 +168,12 @@ class V1beta1ExplainerExtensionSpec(object):
             self.ports = ports
         if readiness_probe is not None:
             self.readiness_probe = readiness_probe
+        if resize_policy is not None:
+            self.resize_policy = resize_policy
         if resources is not None:
             self.resources = resources
+        if restart_policy is not None:
+            self.restart_policy = restart_policy
         if runtime_version is not None:
             self.runtime_version = runtime_version
         if security_context is not None:
@@ -462,6 +472,29 @@ class V1beta1ExplainerExtensionSpec(object):
         self._readiness_probe = readiness_probe
 
     @property
+    def resize_policy(self):
+        """Gets the resize_policy of this V1beta1ExplainerExtensionSpec.  # noqa: E501
+
+        Resources resize policy for the container.  # noqa: E501
+
+        :return: The resize_policy of this V1beta1ExplainerExtensionSpec.  # noqa: E501
+        :rtype: list[V1ContainerResizePolicy]
+        """
+        return self._resize_policy
+
+    @resize_policy.setter
+    def resize_policy(self, resize_policy):
+        """Sets the resize_policy of this V1beta1ExplainerExtensionSpec.
+
+        Resources resize policy for the container.  # noqa: E501
+
+        :param resize_policy: The resize_policy of this V1beta1ExplainerExtensionSpec.  # noqa: E501
+        :type: list[V1ContainerResizePolicy]
+        """
+
+        self._resize_policy = resize_policy
+
+    @property
     def resources(self):
         """Gets the resources of this V1beta1ExplainerExtensionSpec.  # noqa: E501
 
@@ -481,6 +514,29 @@ class V1beta1ExplainerExtensionSpec(object):
         """
 
         self._resources = resources
+
+    @property
+    def restart_policy(self):
+        """Gets the restart_policy of this V1beta1ExplainerExtensionSpec.  # noqa: E501
+
+        RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
+
+        :return: The restart_policy of this V1beta1ExplainerExtensionSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._restart_policy
+
+    @restart_policy.setter
+    def restart_policy(self, restart_policy):
+        """Sets the restart_policy of this V1beta1ExplainerExtensionSpec.
+
+        RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
+
+        :param restart_policy: The restart_policy of this V1beta1ExplainerExtensionSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._restart_policy = restart_policy
 
     @property
     def runtime_version(self):

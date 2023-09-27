@@ -32,6 +32,10 @@ func (c *FakeServingV1alpha1) ClusterServingRuntimes(namespace string) v1alpha1.
 	return &FakeClusterServingRuntimes{c, namespace}
 }
 
+func (c *FakeServingV1alpha1) ClusterStorageContainers(namespace string) v1alpha1.ClusterStorageContainerInterface {
+	return &FakeClusterStorageContainers{c, namespace}
+}
+
 func (c *FakeServingV1alpha1) InferenceGraphs(namespace string) v1alpha1.InferenceGraphInterface {
 	return &FakeInferenceGraphs{c, namespace}
 }

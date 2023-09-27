@@ -830,7 +830,7 @@ class V1beta1CustomTransformer(object):
     def restart_policy(self):
         """Gets the restart_policy of this V1beta1CustomTransformer.  # noqa: E501
 
-        Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
+        Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
 
         :return: The restart_policy of this V1beta1CustomTransformer.  # noqa: E501
         :rtype: str
@@ -841,7 +841,7 @@ class V1beta1CustomTransformer(object):
     def restart_policy(self, restart_policy):
         """Sets the restart_policy of this V1beta1CustomTransformer.
 
-        Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
+        Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
 
         :param restart_policy: The restart_policy of this V1beta1CustomTransformer.  # noqa: E501
         :type: str
@@ -899,7 +899,7 @@ class V1beta1CustomTransformer(object):
     def scheduling_gates(self):
         """Gets the scheduling_gates of this V1beta1CustomTransformer.  # noqa: E501
 
-        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. More info:  https://git.k8s.io/enhancements/keps/sig-scheduling/3521-pod-scheduling-readiness.  This is an alpha-level feature enabled by PodSchedulingReadiness feature gate.  # noqa: E501
+        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  This is a beta feature enabled by the PodSchedulingReadiness feature gate.  # noqa: E501
 
         :return: The scheduling_gates of this V1beta1CustomTransformer.  # noqa: E501
         :rtype: list[V1PodSchedulingGate]
@@ -910,7 +910,7 @@ class V1beta1CustomTransformer(object):
     def scheduling_gates(self, scheduling_gates):
         """Sets the scheduling_gates of this V1beta1CustomTransformer.
 
-        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. More info:  https://git.k8s.io/enhancements/keps/sig-scheduling/3521-pod-scheduling-readiness.  This is an alpha-level feature enabled by PodSchedulingReadiness feature gate.  # noqa: E501
+        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  This is a beta feature enabled by the PodSchedulingReadiness feature gate.  # noqa: E501
 
         :param scheduling_gates: The scheduling_gates of this V1beta1CustomTransformer.  # noqa: E501
         :type: list[V1PodSchedulingGate]
