@@ -18,6 +18,7 @@ package inferenceservice
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
 
 	netv1 "k8s.io/api/networking/v1"
@@ -89,8 +90,10 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient.Create(context.Background(), kfservingNamespaceObj)).Should(Succeed())
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0",
+		Scheme: scheme.Scheme,
+		Metrics: server.Options{
+			BindAddress: "0",
+		},
 	})
 	Expect(err).ToNot(HaveOccurred())
 

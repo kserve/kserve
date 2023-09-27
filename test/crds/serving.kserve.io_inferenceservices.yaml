@@ -869,6 +869,19 @@ spec:
                           format: int32
                           type: integer
                       type: object
+                    resizePolicy:
+                      items:
+                        properties:
+                          resourceName:
+                            type: string
+                          restartPolicy:
+                            type: string
+                        required:
+                        - resourceName
+                        - restartPolicy
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                     resources:
                       properties:
                         claims:
@@ -900,6 +913,8 @@ spec:
                             x-kubernetes-int-or-string: true
                           type: object
                       type: object
+                    restartPolicy:
+                      type: string
                     securityContext:
                       properties:
                         allowPrivilegeEscalation:
@@ -2293,6 +2308,19 @@ spec:
                         format: int32
                         type: integer
                     type: object
+                  resizePolicy:
+                    items:
+                      properties:
+                        resourceName:
+                          type: string
+                        restartPolicy:
+                          type: string
+                      required:
+                      - resourceName
+                      - restartPolicy
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
                   resources:
                     properties:
                       claims:
@@ -2324,6 +2352,8 @@ spec:
                           x-kubernetes-int-or-string: true
                         type: object
                     type: object
+                  restartPolicy:
+                    type: string
                   securityContext:
                     properties:
                       allowPrivilegeEscalation:
@@ -3845,6 +3875,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -3876,6 +3919,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -4465,6 +4510,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -4496,6 +4554,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -5099,6 +5159,19 @@ spec:
                               format: int32
                               type: integer
                           type: object
+                        resizePolicy:
+                          items:
+                            properties:
+                              resourceName:
+                                type: string
+                              restartPolicy:
+                                type: string
+                            required:
+                            - resourceName
+                            - restartPolicy
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         resources:
                           properties:
                             claims:
@@ -5130,6 +5203,8 @@ spec:
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
+                        restartPolicy:
+                          type: string
                         securityContext:
                           properties:
                             allowPrivilegeEscalation:
@@ -5757,6 +5832,19 @@ spec:
                               format: int32
                               type: integer
                           type: object
+                        resizePolicy:
+                          items:
+                            properties:
+                              resourceName:
+                                type: string
+                              restartPolicy:
+                                type: string
+                            required:
+                            - resourceName
+                            - restartPolicy
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         resources:
                           properties:
                             claims:
@@ -5788,6 +5876,8 @@ spec:
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
+                        restartPolicy:
+                          type: string
                         securityContext:
                           properties:
                             allowPrivilegeEscalation:
@@ -7714,6 +7804,19 @@ spec:
                               format: int32
                               type: integer
                           type: object
+                        resizePolicy:
+                          items:
+                            properties:
+                              resourceName:
+                                type: string
+                              restartPolicy:
+                                type: string
+                            required:
+                            - resourceName
+                            - restartPolicy
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         resources:
                           properties:
                             claims:
@@ -7745,6 +7848,8 @@ spec:
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
+                        restartPolicy:
+                          type: string
                         securityContext:
                           properties:
                             allowPrivilegeEscalation:
@@ -8372,6 +8477,19 @@ spec:
                               format: int32
                               type: integer
                           type: object
+                        resizePolicy:
+                          items:
+                            properties:
+                              resourceName:
+                                type: string
+                              restartPolicy:
+                                type: string
+                            required:
+                            - resourceName
+                            - restartPolicy
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         resources:
                           properties:
                             claims:
@@ -8403,6 +8521,8 @@ spec:
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
+                        restartPolicy:
+                          type: string
                         securityContext:
                           properties:
                             allowPrivilegeEscalation:
@@ -8974,6 +9094,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -9005,6 +9138,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -9610,6 +9745,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -9641,6 +9789,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtime:
                         type: string
                       runtimeVersion:
@@ -10231,6 +10381,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -10262,6 +10425,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -10856,6 +11021,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -10887,6 +11065,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -11468,6 +11648,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -11499,6 +11692,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -12087,6 +12282,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -12118,6 +12326,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -12826,6 +13036,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -12857,6 +13080,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -13440,6 +13665,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -13471,6 +13709,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -14130,6 +14370,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -14161,6 +14414,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -15453,6 +15708,19 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resizePolicy:
+                        items:
+                          properties:
+                            resourceName:
+                              type: string
+                            restartPolicy:
+                              type: string
+                          required:
+                          - resourceName
+                          - restartPolicy
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       resources:
                         properties:
                           claims:
@@ -15484,6 +15752,8 @@ spec:
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      restartPolicy:
+                        type: string
                       runtimeVersion:
                         type: string
                       securityContext:
@@ -16460,6 +16730,19 @@ spec:
                               format: int32
                               type: integer
                           type: object
+                        resizePolicy:
+                          items:
+                            properties:
+                              resourceName:
+                                type: string
+                              restartPolicy:
+                                type: string
+                            required:
+                            - resourceName
+                            - restartPolicy
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         resources:
                           properties:
                             claims:
@@ -16491,6 +16774,8 @@ spec:
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
+                        restartPolicy:
+                          type: string
                         securityContext:
                           properties:
                             allowPrivilegeEscalation:
@@ -17118,6 +17403,19 @@ spec:
                               format: int32
                               type: integer
                           type: object
+                        resizePolicy:
+                          items:
+                            properties:
+                              resourceName:
+                                type: string
+                              restartPolicy:
+                                type: string
+                            required:
+                            - resourceName
+                            - restartPolicy
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         resources:
                           properties:
                             claims:
@@ -17149,6 +17447,8 @@ spec:
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
+                        restartPolicy:
+                          type: string
                         securityContext:
                           properties:
                             allowPrivilegeEscalation:
@@ -18310,6 +18610,8 @@ spec:
                 properties:
                   CACerts:
                     type: string
+                  audience:
+                    type: string
                   name:
                     type: string
                   url:
@@ -18325,6 +18627,8 @@ spec:
                     address:
                       properties:
                         CACerts:
+                          type: string
+                        audience:
                           type: string
                         name:
                           type: string
@@ -19342,6 +19646,19 @@ spec:
                           format: int32
                           type: integer
                       type: object
+                    resizePolicy:
+                      items:
+                        properties:
+                          resourceName:
+                            type: string
+                          restartPolicy:
+                            type: string
+                        required:
+                        - resourceName
+                        - restartPolicy
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                     resources:
                       properties:
                         claims:
@@ -19373,6 +19690,8 @@ spec:
                             x-kubernetes-int-or-string: true
                           type: object
                       type: object
+                    restartPolicy:
+                      type: string
                     securityContext:
                       properties:
                         allowPrivilegeEscalation:
@@ -20418,6 +20737,8 @@ spec:
               address:
                 properties:
                   CACerts:
+                    type: string
+                  audience:
                     type: string
                   name:
                     type: string

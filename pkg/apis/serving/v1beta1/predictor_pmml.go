@@ -36,6 +36,8 @@ var (
 // Validate returns an error if invalid
 func (p *PMMLSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
+		// TODO: For Reviewer: Is this still valid ? https://github.com/kserve/kserve/blob/823107299b8d93481c8d179ce2bbc726d0414448/docs/samples/v1beta1/pmml/README.md?plain=1#L9
+		// But we are not validating against workers when pmml is specified through model field.
 		ValidateMaxArgumentWorkers(p.Container.Args, 1),
 		validateStorageSpec(p.GetStorageSpec(), p.GetStorageUri()),
 	})

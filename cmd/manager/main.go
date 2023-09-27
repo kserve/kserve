@@ -19,6 +19,8 @@ package main
 import (
 	"flag"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -107,10 +109,14 @@ func main() {
 	log.Info("Setting up manager")
 	options := GetOptions()
 	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: options.metricsAddr,
-		Port:               options.webhookPort,
-		LeaderElection:     options.enableLeaderElection,
-		LeaderElectionID:   LeaderLockName,
+		Metrics: server.Options{
+			BindAddress: options.metricsAddr,
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: options.webhookPort,
+		}),
+		LeaderElection:   options.enableLeaderElection,
+		LeaderElectionID: LeaderLockName,
 	})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")
@@ -131,17 +137,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	client, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
+	k8sClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
 		log.Error(err, "unable to create new client.")
 	}
 
-	deployConfig, err := v1beta1.NewDeployConfig(client)
+	deployConfig, err := v1beta1.NewDeployConfig(k8sClient)
 	if err != nil {
 		log.Error(err, "unable to get deploy config.")
 		os.Exit(1)
 	}
-	ingressConfig, err := v1beta1.NewIngressConfig(client)
+	ingressConfig, err := v1beta1.NewIngressConfig(k8sClient)
 	if err != nil {
 		log.Error(err, "unable to get ingress config.")
 		os.Exit(1)
@@ -220,13 +226,19 @@ func main() {
 	hookServer := mgr.GetWebhookServer()
 
 	log.Info("registering webhooks to the webhook server")
-	hookServer.Register("/mutate-pods", &webhook.Admission{Handler: &pod.Mutator{}})
+	hookServer.Register("/mutate-pods", &webhook.Admission{
+		Handler: &pod.Mutator{Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme())},
+	})
 
 	log.Info("registering cluster serving runtime validator webhook to the webhook server")
-	hookServer.Register("/validate-serving-kserve-io-v1alpha1-clusterservingruntime", &webhook.Admission{Handler: &servingruntime.ClusterServingRuntimeValidator{}})
+	hookServer.Register("/validate-serving-kserve-io-v1alpha1-clusterservingruntime", &webhook.Admission{
+		Handler: &servingruntime.ClusterServingRuntimeValidator{Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme())},
+	})
 
 	log.Info("registering serving runtime validator webhook to the webhook server")
-	hookServer.Register("/validate-serving-kserve-io-v1alpha1-servingruntime", &webhook.Admission{Handler: &servingruntime.ServingRuntimeValidator{}})
+	hookServer.Register("/validate-serving-kserve-io-v1alpha1-servingruntime", &webhook.Admission{
+		Handler: &servingruntime.ServingRuntimeValidator{Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme())},
+	})
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha1.TrainedModel{}).

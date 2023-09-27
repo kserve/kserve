@@ -66,7 +66,7 @@
       }
     },
     "v1alpha1.ClusterServingRuntimeList": {
-      "description": "ServingRuntimeList contains a list of ServingRuntime",
+      "description": "ClusterServingRuntimeList contains a list of ServingRuntime",
       "type": "object",
       "required": [
         "items"
@@ -81,6 +81,57 @@
           "items": {
             "default": {},
             "$ref": "#/definitions/v1alpha1.ClusterServingRuntime"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.ClusterStorageContainer": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.StorageContainerSpec"
+        }
+      }
+    },
+    "v1alpha1.ClusterStorageContainerList": {
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.ClusterStorageContainer"
           }
         },
         "kind": {
@@ -237,6 +288,10 @@
         },
         "data": {
           "description": "request data sent to the next route with input/output from the previous step $request $response.predictions",
+          "type": "string"
+        },
+        "dependency": {
+          "description": "to decide whether a step is a hard or a soft dependency in the Inference Graph",
           "type": "string"
         },
         "name": {
@@ -562,6 +617,29 @@
       "description": "ServingRuntimeStatus defines the observed state of ServingRuntime",
       "type": "object"
     },
+    "v1alpha1.StorageContainerSpec": {
+      "description": "StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
+      "type": "object",
+      "required": [
+        "container",
+        "supportedUriFormats"
+      ],
+      "properties": {
+        "container": {
+          "description": "Container spec for the storage initializer init container",
+          "default": {},
+          "$ref": "#/definitions/v1.Container"
+        },
+        "supportedUriFormats": {
+          "description": "List of URI formats that this container supports",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.SupportedUriFormat"
+          }
+        }
+      }
+    },
     "v1alpha1.StorageHelper": {
       "type": "object",
       "properties": {
@@ -589,6 +667,18 @@
         },
         "version": {
           "description": "Version of the model format. Used in validating that a predictor is supported by a runtime. Can be \"major\", \"major.minor\" or \"major.minor.patch\".",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.SupportedUriFormat": {
+      "description": "SupportedUriFormat can be either prefix or regex. Todo: Add validation that only one of them is set.",
+      "type": "object",
+      "properties": {
+        "prefix": {
+          "type": "string"
+        },
+        "regex": {
           "type": "string"
         }
       }
@@ -758,10 +848,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Defaults to latest Explainer Version",
@@ -924,10 +1027,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Defaults to latest Explainer Version",
@@ -1294,7 +1410,7 @@
           "x-kubernetes-patch-strategy": "merge,retainKeys"
         },
         "restartPolicy": {
-          "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
+          "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
           "type": "string"
         },
         "runtimeClassName": {
@@ -1306,7 +1422,7 @@
           "type": "string"
         },
         "schedulingGates": {
-          "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. More info:  https://git.k8s.io/enhancements/keps/sig-scheduling/3521-pod-scheduling-readiness.\n\nThis is an alpha-level feature enabled by PodSchedulingReadiness feature gate.",
+          "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.\n\nThis is a beta feature enabled by the PodSchedulingReadiness feature gate.",
           "type": "array",
           "items": {
             "default": {},
@@ -1546,7 +1662,7 @@
           "x-kubernetes-patch-strategy": "merge,retainKeys"
         },
         "restartPolicy": {
-          "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
+          "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
           "type": "string"
         },
         "runtimeClassName": {
@@ -1558,7 +1674,7 @@
           "type": "string"
         },
         "schedulingGates": {
-          "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. More info:  https://git.k8s.io/enhancements/keps/sig-scheduling/3521-pod-scheduling-readiness.\n\nThis is an alpha-level feature enabled by PodSchedulingReadiness feature gate.",
+          "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.\n\nThis is a beta feature enabled by the PodSchedulingReadiness feature gate.",
           "type": "array",
           "items": {
             "default": {},
@@ -1798,7 +1914,7 @@
           "x-kubernetes-patch-strategy": "merge,retainKeys"
         },
         "restartPolicy": {
-          "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
+          "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
           "type": "string"
         },
         "runtimeClassName": {
@@ -1810,7 +1926,7 @@
           "type": "string"
         },
         "schedulingGates": {
-          "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. More info:  https://git.k8s.io/enhancements/keps/sig-scheduling/3521-pod-scheduling-readiness.\n\nThis is an alpha-level feature enabled by PodSchedulingReadiness feature gate.",
+          "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.\n\nThis is a beta feature enabled by the PodSchedulingReadiness feature gate.",
           "type": "array",
           "items": {
             "default": {},
@@ -2000,10 +2116,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Defaults to latest Explainer Version",
@@ -2686,10 +2815,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
@@ -2909,10 +3051,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtime": {
           "description": "Specific ClusterServingRuntime/ServingRuntime name to use for deployment.",
@@ -3091,10 +3246,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
@@ -3244,10 +3412,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
@@ -3396,10 +3577,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
@@ -3798,10 +3992,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
@@ -3999,7 +4206,7 @@
           }
         },
         "lightgbm": {
-          "description": "Spec for LightGBM model server",
+          "description": "Deprecated: This is deprecated in favor of Model field. Spec for LightGBM model server",
           "$ref": "#/definitions/v1beta1.LightGBMSpec"
         },
         "logger": {
@@ -4034,7 +4241,7 @@
           "x-kubernetes-map-type": "atomic"
         },
         "onnx": {
-          "description": "Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)",
+          "description": "Deprecated: This is deprecated in favor of Model field. Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)",
           "$ref": "#/definitions/v1beta1.ONNXRuntimeSpec"
         },
         "os": {
@@ -4050,11 +4257,11 @@
           }
         },
         "paddle": {
-          "description": "Spec for Paddle model server (https://github.com/PaddlePaddle/Serving)",
+          "description": "Deprecated: This is deprecated in favor of Model field. Spec for Paddle model server (https://github.com/PaddlePaddle/Serving)",
           "$ref": "#/definitions/v1beta1.PaddleServerSpec"
         },
         "pmml": {
-          "description": "Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)",
+          "description": "Deprecated: This is deprecated in favor of Model field. Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)",
           "$ref": "#/definitions/v1beta1.PMMLSpec"
         },
         "preemptionPolicy": {
@@ -4071,7 +4278,7 @@
           "type": "string"
         },
         "pytorch": {
-          "description": "Spec for TorchServe (https://pytorch.org/serve)",
+          "description": "Deprecated: This is deprecated in favor of Model field. Spec for TorchServe (https://pytorch.org/serve)",
           "$ref": "#/definitions/v1beta1.TorchServeSpec"
         },
         "readinessGates": {
@@ -4152,7 +4359,7 @@
           "type": "boolean"
         },
         "sklearn": {
-          "description": "Spec for SKLearn model server",
+          "description": "Deprecated: This is deprecated in favor of Model field. Spec for SKLearn model server",
           "$ref": "#/definitions/v1beta1.SKLearnSpec"
         },
         "subdomain": {
@@ -4160,7 +4367,7 @@
           "type": "string"
         },
         "tensorflow": {
-          "description": "Spec for TFServing (https://github.com/tensorflow/serving)",
+          "description": "Deprecated: This is deprecated in favor of Model field. Spec for TFServing (https://github.com/tensorflow/serving)",
           "$ref": "#/definitions/v1beta1.TFServingSpec"
         },
         "terminationGracePeriodSeconds": {
@@ -4197,7 +4404,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "triton": {
-          "description": "Spec for Triton Inference Server (https://github.com/triton-inference-server/server)",
+          "description": "Deprecated: This is deprecated in favor of Model field. Spec for Triton Inference Server (https://github.com/triton-inference-server/server)",
           "$ref": "#/definitions/v1beta1.TritonSpec"
         },
         "volumes": {
@@ -4211,7 +4418,7 @@
           "x-kubernetes-patch-strategy": "merge,retainKeys"
         },
         "xgboost": {
-          "description": "Spec for XGBoost model server",
+          "description": "Deprecated: This is deprecated in favor of Model field. Spec for XGBoost model server",
           "$ref": "#/definitions/v1beta1.XGBoostSpec"
         }
       }
@@ -4298,10 +4505,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
@@ -4476,10 +4696,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
@@ -4629,10 +4862,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
@@ -5089,10 +5335,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
@@ -5242,10 +5501,23 @@
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
+        "resizePolicy": {
+          "description": "Resources resize policy for the container.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.ContainerResizePolicy"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "resources": {
           "description": "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "restartPolicy": {
+          "description": "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+          "type": "string"
         },
         "runtimeVersion": {
           "description": "Runtime version of the predictor docker image",
