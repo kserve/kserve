@@ -122,7 +122,7 @@ For Exposing grafana and prometheus under istio ingress refer.[Remotely accessin
 Apply below deployment
 
 ```yaml
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
   name: grafana-gateway
@@ -138,7 +138,7 @@ spec:
     hosts:
     - "grafana.example.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: grafana-vs
@@ -155,7 +155,7 @@ spec:
         port:
           number: 3000
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: grafana

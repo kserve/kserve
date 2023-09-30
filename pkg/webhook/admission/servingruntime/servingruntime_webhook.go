@@ -150,33 +150,3 @@ func contains[T comparable](slice []T, element T) bool {
 	}
 	return false
 }
-
-// InjectClient injects the client.
-func (csr *ClusterServingRuntimeValidator) InjectClient(c client.Client) error {
-	csr.Client = c
-	return nil
-}
-
-// ClusterServingRuntimeValidator implements admission.DecoderInjector.
-// A decoder will be automatically injected.
-
-// InjectDecoder injects the decoder.
-func (csr *ClusterServingRuntimeValidator) InjectDecoder(d *admission.Decoder) error {
-	csr.Decoder = d
-	return nil
-}
-
-// InjectClient injects the client.
-func (sr *ServingRuntimeValidator) InjectClient(c client.Client) error {
-	sr.Client = c
-	return nil
-}
-
-// ServingRuntimeValidator implements admission.DecoderInjector.
-// A decoder will be automatically injected.
-
-// InjectDecoder injects the decoder.
-func (sr *ServingRuntimeValidator) InjectDecoder(d *admission.Decoder) error {
-	sr.Decoder = d
-	return nil
-}
