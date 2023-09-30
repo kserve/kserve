@@ -33,7 +33,7 @@ import (
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -305,7 +305,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&v1beta1api.InferenceService{}).
 			Owns(&knservingv1.Service{}).
-			Owns(&v1alpha3.VirtualService{}).
+			Owns(&istioclientv1beta1.VirtualService{}).
 			Owns(&appsv1.Deployment{}).
 			Complete(r)
 	} else {

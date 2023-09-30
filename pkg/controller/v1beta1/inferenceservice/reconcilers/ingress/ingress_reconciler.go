@@ -19,13 +19,14 @@ package ingress
 import (
 	"context"
 	"fmt"
-
+	"github.com/google/go-cmp/cmp"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	utils "github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
-	istiov1alpha3 "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"google.golang.org/protobuf/testing/protocmp"
+	istiov1beta1 "istio.io/api/networking/v1beta1"
+	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -223,11 +224,11 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 	return nil
 }
 
-func createHTTPRouteDestination(gatewayService string) *istiov1alpha3.HTTPRouteDestination {
-	httpRouteDestination := &istiov1alpha3.HTTPRouteDestination{
-		Destination: &istiov1alpha3.Destination{
+func createHTTPRouteDestination(gatewayService string) *istiov1beta1.HTTPRouteDestination {
+	httpRouteDestination := &istiov1beta1.HTTPRouteDestination{
+		Destination: &istiov1beta1.Destination{
 			Host: gatewayService,
-			Port: &istiov1alpha3.PortSelector{
+			Port: &istiov1beta1.PortSelector{
 				Number: constants.CommonDefaultHttpPort,
 			},
 		},
@@ -236,20 +237,20 @@ func createHTTPRouteDestination(gatewayService string) *istiov1alpha3.HTTPRouteD
 	return httpRouteDestination
 }
 
-func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool, config *v1beta1.IngressConfig) []*istiov1alpha3.HTTPMatchRequest {
-	var uri *istiov1alpha3.StringMatch
+func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool, config *v1beta1.IngressConfig) []*istiov1beta1.HTTPMatchRequest {
+	var uri *istiov1beta1.StringMatch
 	if prefix != "" {
-		uri = &istiov1alpha3.StringMatch{
-			MatchType: &istiov1alpha3.StringMatch_Regex{
+		uri = &istiov1beta1.StringMatch{
+			MatchType: &istiov1beta1.StringMatch_Regex{
 				Regex: prefix,
 			},
 		}
 	}
-	matchRequests := []*istiov1alpha3.HTTPMatchRequest{
+	matchRequests := []*istiov1beta1.HTTPMatchRequest{
 		{
 			Uri: uri,
-			Authority: &istiov1alpha3.StringMatch{
-				MatchType: &istiov1alpha3.StringMatch_Regex{
+			Authority: &istiov1beta1.StringMatch{
+				MatchType: &istiov1beta1.StringMatch_Regex{
 					Regex: constants.HostRegExp(internalHost),
 				},
 			},
@@ -258,10 +259,10 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 	}
 	if !isInternal {
 		matchRequests = append(matchRequests,
-			&istiov1alpha3.HTTPMatchRequest{
+			&istiov1beta1.HTTPMatchRequest{
 				Uri: uri,
-				Authority: &istiov1alpha3.StringMatch{
-					MatchType: &istiov1alpha3.StringMatch_Regex{
+				Authority: &istiov1beta1.StringMatch{
+					MatchType: &istiov1beta1.StringMatch_Regex{
 						Regex: constants.HostRegExp(targetHost),
 					},
 				},
@@ -271,7 +272,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 	return matchRequests
 }
 
-func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig) *v1alpha3.VirtualService {
+func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig) *istioclientv1beta1.VirtualService {
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		status := corev1.ConditionFalse
 		if isvc.Status.IsConditionUnknown(v1beta1.PredictorReady) {
@@ -317,7 +318,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	if serviceHost == serviceInternalHostName {
 		isInternal = true
 	}
-	httpRoutes := []*istiov1alpha3.HTTPRoute{}
+	httpRoutes := []*istiov1beta1.HTTPRoute{}
 	// Build explain route
 	expBackend := constants.ExplainerServiceName(isvc.Name)
 	if useDefault {
@@ -336,14 +337,14 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			})
 			return nil
 		}
-		explainerRouter := istiov1alpha3.HTTPRoute{
+		explainerRouter := istiov1beta1.HTTPRoute{
 			Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
 				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
-			Route: []*istiov1alpha3.HTTPRouteDestination{
+			Route: []*istiov1beta1.HTTPRouteDestination{
 				createHTTPRouteDestination(config.LocalGatewayServiceName),
 			},
-			Headers: &istiov1alpha3.Headers{
-				Request: &istiov1alpha3.Headers_HeaderOperations{
+			Headers: &istiov1beta1.Headers{
+				Request: &istiov1beta1.Headers_HeaderOperations{
 					Set: map[string]string{
 						"Host": network.GetServiceHostname(expBackend, isvc.Namespace),
 					},
@@ -353,14 +354,14 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		httpRoutes = append(httpRoutes, &explainerRouter)
 	}
 	// Add predict route
-	httpRoutes = append(httpRoutes, &istiov1alpha3.HTTPRoute{
+	httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
 		Match: createHTTPMatchRequest("", serviceHost,
 			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
-		Route: []*istiov1alpha3.HTTPRouteDestination{
+		Route: []*istiov1beta1.HTTPRouteDestination{
 			createHTTPRouteDestination(config.LocalGatewayServiceName),
 		},
-		Headers: &istiov1alpha3.Headers{
-			Request: &istiov1alpha3.Headers_HeaderOperations{
+		Headers: &istiov1beta1.Headers{
+			Request: &istiov1beta1.Headers_HeaderOperations{
 				Set: map[string]string{
 					"Host": network.GetServiceHostname(backend, isvc.Namespace),
 				},
@@ -387,43 +388,43 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		url.Path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
 		url.Host = config.IngressDomain
 		// In this case, we have a path-based URL so we add a path-based rule
-		httpRoutes = append(httpRoutes, &istiov1alpha3.HTTPRoute{
-			Match: []*istiov1alpha3.HTTPMatchRequest{
+		httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
+			Match: []*istiov1beta1.HTTPMatchRequest{
 				{
-					Uri: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Prefix{
+					Uri: &istiov1beta1.StringMatch{
+						MatchType: &istiov1beta1.StringMatch_Prefix{
 							Prefix: url.Path + "/",
 						},
 					},
-					Authority: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Regex{
+					Authority: &istiov1beta1.StringMatch{
+						MatchType: &istiov1beta1.StringMatch_Regex{
 							Regex: constants.HostRegExp(url.Host),
 						},
 					},
 					Gateways: []string{config.IngressGateway},
 				},
 				{
-					Uri: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Exact{
+					Uri: &istiov1beta1.StringMatch{
+						MatchType: &istiov1beta1.StringMatch_Exact{
 							Exact: url.Path,
 						},
 					},
-					Authority: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Regex{
+					Authority: &istiov1beta1.StringMatch{
+						MatchType: &istiov1beta1.StringMatch_Regex{
 							Regex: constants.HostRegExp(url.Host),
 						},
 					},
 					Gateways: []string{config.IngressGateway},
 				},
 			},
-			Rewrite: &istiov1alpha3.HTTPRewrite{
+			Rewrite: &istiov1beta1.HTTPRewrite{
 				Uri: "/",
 			},
-			Route: []*istiov1alpha3.HTTPRouteDestination{
+			Route: []*istiov1beta1.HTTPRouteDestination{
 				createHTTPRouteDestination(config.LocalGatewayServiceName),
 			},
-			Headers: &istiov1alpha3.Headers{
-				Request: &istiov1alpha3.Headers_HeaderOperations{
+			Headers: &istiov1beta1.Headers{
+				Request: &istiov1beta1.Headers_HeaderOperations{
 					Set: map[string]string{
 						"Host": network.GetServiceHostname(backend, isvc.Namespace),
 					},
@@ -437,14 +438,14 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
-	desiredIngress := &v1alpha3.VirtualService{
+	desiredIngress := &istioclientv1beta1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        isvc.Name,
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
 			Labels:      isvc.Labels,
 		},
-		Spec: istiov1alpha3.VirtualService{
+		Spec: istiov1beta1.VirtualService{
 			Hosts:    hosts,
 			Gateways: gateways,
 			Http:     httpRoutes,
@@ -484,7 +485,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			return errors.Wrapf(err, "fails to set owner reference for ingress")
 		}
 
-		existing := &v1alpha3.VirtualService{}
+		existing := &istioclientv1beta1.VirtualService{}
 		err = ir.client.Get(context.TODO(), types.NamespacedName{Name: desiredIngress.Name, Namespace: desiredIngress.Namespace}, existing)
 		if err != nil {
 			if apierr.IsNotFound(err) {
@@ -493,11 +494,12 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			}
 		} else {
 			if !routeSemanticEquals(desiredIngress, existing) {
-				existing.Spec = desiredIngress.Spec
-				existing.Annotations = desiredIngress.Annotations
-				existing.Labels = desiredIngress.Labels
+				deepCopy := existing.DeepCopy()
+				deepCopy.Spec = *desiredIngress.Spec.DeepCopy()
+				deepCopy.Annotations = desiredIngress.Annotations
+				deepCopy.Labels = desiredIngress.Labels
 				log.Info("Update Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
-				err = ir.client.Update(context.TODO(), existing)
+				err = ir.client.Update(context.TODO(), deepCopy)
 			}
 		}
 		if err != nil {
@@ -537,8 +539,8 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 }
 
-func routeSemanticEquals(desired, existing *v1alpha3.VirtualService) bool {
-	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
+func routeSemanticEquals(desired, existing *istioclientv1beta1.VirtualService) bool {
+	return cmp.Equal(desired.Spec.DeepCopy(), existing.Spec.DeepCopy(), protocmp.Transform()) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
 }
