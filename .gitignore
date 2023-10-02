@@ -25,6 +25,7 @@ venv/
  
 # editor and IDE paraphernalia
 .idea
+.editorconfig
 .vscode
 .project
 *.swp

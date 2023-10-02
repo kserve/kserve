@@ -27,6 +27,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	raw "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
@@ -76,6 +77,10 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := transformer.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %v", err)
+		}
 	}
 	addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)

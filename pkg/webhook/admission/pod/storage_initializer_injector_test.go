@@ -1670,7 +1670,7 @@ func TestGetStorageContainerSpec(t *testing.T) {
 	for name, scenario := range scenarios {
 		var container *v1.Container
 
-		if container, err = getContainerSpecForStorageUri(scenario.storageUri, mockClient); err != nil {
+		if container, err = GetContainerSpecForStorageUri(scenario.storageUri, mockClient); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))

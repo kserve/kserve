@@ -772,7 +772,7 @@ jobs:
           --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
           --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
           
-          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "2"
 
           kubectl get pods -n kserve
 
