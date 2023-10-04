@@ -81,7 +81,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: python/sklearnserver/.venv
-          key: sklearn-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock, **/sklearnserver/poetry.lock') }}
+          key: sklearn-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/sklearnserver/poetry.lock') }}
         # install sklearn server dependencies if cache does not exist
       - name: Install sklearn dependencies
         if: steps.cached-sklearn-dependencies.outputs.cache-hit != 'true'
