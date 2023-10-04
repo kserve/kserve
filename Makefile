@@ -75,26 +75,27 @@ run: generate fmt vet lint
 deploy: manifests
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
-	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
+	${KUSTOMIZE} edit remove resource ../certmanager; \
+	else ${KUSTOMIZE} edit add resource ../certmanager; fi;
 	${KUSTOMIZE} build config/default | kubectl apply -f -
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	sleep 2
 	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
-	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+
 
 deploy-dev: manifests
 	./hack/image_patch_dev.sh development
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
-	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
+	${KUSTOMIZE} edit remove resource ../certmanager; \
+	else ${KUSTOMIZE} edit add resource ../certmanager; fi;
 	${KUSTOMIZE} build config/overlays/development | kubectl apply -f -
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	sleep 2
 	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
-	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev-sklearn: docker-push-sklearn kustomize
 	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
