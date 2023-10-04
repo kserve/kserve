@@ -2947,12 +2947,13 @@ files = [
 
 [[package]]
 name = "tritonclient"
-version = "2.38.0.69485444"
+version = "2.37.0.9383150"
 description = "Python client library and utilities for communicating with Triton Inference Server"
 optional = false
 python-versions = "*"
 files = [
-    {file = "tritonclient-2.38.0.69485444-py3-none-manylinux2014_aarch64.whl", hash = "sha256:504b60d565c66a6ddf247f4e654ed64b19661a17a240486ac4dd847bf7666ed6"},
+    {file = "tritonclient-2.37.0.9383150-py3-none-any.whl", hash = "sha256:9b38199e588172cbe8718ad0c059145ecfa7d157ba472eebdf85fbe4dda9d1ba"},
+    {file = "tritonclient-2.37.0.9383150-py3-none-manylinux1_x86_64.whl", hash = "sha256:50811e0b6fe24e47d0d91999566a56b37c79d233da414d566ad2653c87c07d1e"},
 ]
 
 [package.dependencies]
