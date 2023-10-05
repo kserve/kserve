@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: kserve
+data:
+  logger: |-
+    {
+        "image" : "docker.io/rachitchauhan885/agent-59c2cdf0cc2970eed0581d28646561d9@sha256:fc7f7b60970a583159b1cfb9f040eb75089cfbc7db2f375ba3a31c5c65006f37",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "100Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "100m"
+    }
+  batcher: |-
+    {
+        "image" : "docker.io/rachitchauhan885/agent-59c2cdf0cc2970eed0581d28646561d9@sha256:fc7f7b60970a583159b1cfb9f040eb75089cfbc7db2f375ba3a31c5c65006f37",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "100Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "100m"
+    }
+  agent: |-
+    {
+        "image" : "docker.io/rachitchauhan885/agent-59c2cdf0cc2970eed0581d28646561d9@sha256:fc7f7b60970a583159b1cfb9f040eb75089cfbc7db2f375ba3a31c5c65006f37",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "500Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "100m"
+    }
+  router: |-
+    {
+        "image" : "docker.io/rachitchauhan885/router-20acce65bc84b6e5b28ae59ce41635d3@sha256:9d2a796c64791024e70f6493073f3b64b236766a4b5d7e68c4e634a74ef2de15",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "500Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "100m"
+    }
+  metricsAggregator: |-
+    {
+        "enableMetricAggregation": "false",
+        "enablePrometheusScraping" : "false"
+    }
+  ingress: |-
+    {
+        "ingressGateway" : "knative-serving/knative-ingress-gateway",
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+        "localGateway" : "knative-serving/knative-local-gateway",
+        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+        "ingressDomain"  : "svc.cluster.local",
+        "ingressClassName" : "istio",
+        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+        "urlScheme": "http",
+        "disableIstioVirtualHost": false
+    }
+  deploy: |-
+    {
+      "defaultDeploymentMode": "RawDeployment"
+    }
