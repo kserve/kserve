@@ -302,17 +302,17 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.28.59"
+version = "1.28.60"
 description = "The AWS SDK for Python"
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "boto3-1.28.59-py3-none-any.whl", hash = "sha256:7623b52c135becf145f762a9cc4203a1fb30055bb1cc7a254f82e5f7954d44a1"},
-    {file = "boto3-1.28.59.tar.gz", hash = "sha256:aa861e5568a564a5ce2fff5413d6ae2cda0eed7399b3a949bc861a20915e2046"},
+    {file = "boto3-1.28.60-py3-none-any.whl", hash = "sha256:d5f270c2c9a051f78c308cbba4268458e8df441057b73ba140742707ac1bc7ea"},
+    {file = "boto3-1.28.60.tar.gz", hash = "sha256:dccb49cc10b31314b8553c6c9614c44b2249e0d0285d73f608a5d2010f6e1d82"},
 ]
 
 [package.dependencies]
-botocore = ">=1.31.59,<1.32.0"
+botocore = ">=1.31.60,<1.32.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.7.0,<0.8.0"
 
@@ -321,13 +321,13 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.31.59"
+version = "1.31.60"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "botocore-1.31.59-py3-none-any.whl", hash = "sha256:6485a700744c60fcbf4bba4fcacb22067f601e79fb0c27fae04cf07b03c5e8f9"},
-    {file = "botocore-1.31.59.tar.gz", hash = "sha256:159f637300206a0b37b49c1bee61265650843f591e9cb62e9adcb3d1c2afec91"},
+    {file = "botocore-1.31.60-py3-none-any.whl", hash = "sha256:b6de7a6a03ca3da18b78615a2cb5221c9fdb9483d3f50cb4281ae038b3f22d9f"},
+    {file = "botocore-1.31.60.tar.gz", hash = "sha256:578470a15a5bd64f67437a81f23feccba85084167acf63c56acada2c1c1d95d8"},
 ]
 
 [package.dependencies]
@@ -1477,7 +1477,7 @@ requests = {version = "^2.20.0", optional = true}
 six = "^1.16.0"
 tabulate = "^0.9.0"
 timing-asgi = "^0.3.0"
-tritonclient = "^2.18.0"
+tritonclient = "^2.18.0,!=2.38.0.69485444"
 urllib3 = {version = "^1.26.8", optional = true}
 uvicorn = {version = "^0.19.0", extras = ["standard"]}
 
@@ -2976,13 +2976,13 @@ files = [
 
 [[package]]
 name = "tritonclient"
-version = "2.37.0.9383150"
+version = "2.38.0.69485441"
 description = "Python client library and utilities for communicating with Triton Inference Server"
 optional = false
 python-versions = "*"
 files = [
-    {file = "tritonclient-2.37.0.9383150-py3-none-any.whl", hash = "sha256:9b38199e588172cbe8718ad0c059145ecfa7d157ba472eebdf85fbe4dda9d1ba"},
-    {file = "tritonclient-2.37.0.9383150-py3-none-manylinux1_x86_64.whl", hash = "sha256:50811e0b6fe24e47d0d91999566a56b37c79d233da414d566ad2653c87c07d1e"},
+    {file = "tritonclient-2.38.0.69485441-py3-none-any.whl", hash = "sha256:8b971759374e19868e9c157955d31c43b74972a4bc4139b83e853756fcc418d2"},
+    {file = "tritonclient-2.38.0.69485441-py3-none-manylinux1_x86_64.whl", hash = "sha256:cb188b6854523127b1984b09e1db7e8c03208fd687f1b5d017c8be09bbcdeec7"},
 ]
 
 [package.dependencies]

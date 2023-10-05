@@ -336,3 +336,6 @@ apidocs:
 .PHONY: check-doc-links
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
+
+poetry-update-lockfiles:
+	bash -ec 'for value in $$(find . -name poetry.lock -exec dirname {} \;); do (cd "$${value}" && echo "Updating $${value}/poetry.lock" && poetry update --lock); done'
