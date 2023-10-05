@@ -16,6 +16,10 @@ on:
 env:
   IMAGE_NAME: sklearnserver
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
@@ -86,4 +90,3 @@ jobs:
           file: python/sklearn.Dockerfile
           push: true
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
-

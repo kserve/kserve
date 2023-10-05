@@ -16,6 +16,10 @@ on:
 env:
   IMAGE_NAME: storage-initializer
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
@@ -77,7 +81,6 @@ jobs:
 
           echo VERSION=$VERSION >> $GITHUB_ENV
           echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
-
 
       - name: Build and push
         uses: docker/build-push-action@v3

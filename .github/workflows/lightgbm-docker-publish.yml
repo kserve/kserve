@@ -14,7 +14,11 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: lgbserver 
+  IMAGE_NAME: lgbserver
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Run tests.
