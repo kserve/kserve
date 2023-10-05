@@ -4,7 +4,7 @@ Organization: KServe
 
 Organization Description: KServe is a highly scalable and standards based Model Inference Platform on Kubernetes for Trusted AI
 
-Version information: KServe 0.10.1. Works for Kubeflow 1.7
+Version information: KServe 0.11.1. Works for Kubeflow 1.8
 
 **Note:** To use the KServe 0.7.0 version of this component which runs on Kubeflow 1.5, then change the load_component_from_url in the usage section with the following YAML instead:
 ```
