@@ -97,7 +97,7 @@ deploy-dev: manifests
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev-raw: manifests
-	./hack/image_patch_dev_raw.sh development-raw
+	./hack/image_patch_dev.sh development-raw
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
