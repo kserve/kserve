@@ -166,6 +166,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         endpoint_url = os.getenv("AWS_ENDPOINT_URL")
         if endpoint_url:
             kwargs.update({"endpoint_url": endpoint_url})
+        verify_ssl = os.getenv("S3_VERIFY_SSL")
+        if verify_ssl:
+            verify_ssl = verify_ssl != "0"
+            kwargs.update({"verify": verify_ssl})
         s3 = boto3.resource("s3", **kwargs)
         parsed = urlparse(uri, scheme='s3')
         bucket_name = parsed.netloc
