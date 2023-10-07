@@ -24,7 +24,6 @@ import (
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakeTrainedModels struct {
 	ns   string
 }
 
-var trainedmodelsResource = schema.GroupVersionResource{Group: "serving", Version: "v1alpha1", Resource: "trainedmodels"}
+var trainedmodelsResource = v1alpha1.SchemeGroupVersion.WithResource("trainedmodels")
 
-var trainedmodelsKind = schema.GroupVersionKind{Group: "serving", Version: "v1alpha1", Kind: "TrainedModel"}
+var trainedmodelsKind = v1alpha1.SchemeGroupVersion.WithKind("TrainedModel")
 
 // Get takes name of the trainedModel, and returns the corresponding trainedModel object, and an error if there is any.
 func (c *FakeTrainedModels) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.TrainedModel, err error) {
