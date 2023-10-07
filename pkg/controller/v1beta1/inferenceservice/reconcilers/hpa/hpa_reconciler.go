@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -56,7 +57,6 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 	var metrics []autoscalingv2.MetricSpec
 	var utilization int32
 	annotations := metadata.Annotations
-
 	resourceName := corev1.ResourceCPU
 
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
@@ -86,7 +86,6 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 			Target: metricTarget,
 		},
 	}
-
 	metrics = append(metrics, ms)
 	return metrics
 }
@@ -115,9 +114,8 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			},
 			MinReplicas: &minReplicas,
 			MaxReplicas: maxReplicas,
-
-			Metrics:  metrics,
-			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+			Metrics:     metrics,
+			Behavior:    &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 		},
 	}
 	return hpa
@@ -177,4 +175,8 @@ func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, err
 	} else {
 		return existingHPA, nil
 	}
+}
+
+func (r *HPAReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	return controllerutil.SetControllerReference(owner, r.HPA, scheme)
 }
