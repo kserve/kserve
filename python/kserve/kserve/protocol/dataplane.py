@@ -19,16 +19,15 @@ import cloudevents.exceptions as ce
 import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.api import RayServeHandle
+from ray.serve.handle import RayServeHandle
 
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import ModelType
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
-from .infer_type import InferRequest
+from .infer_type import InferRequest, InferResponse
 from ..constants import constants
-from .grpc import grpc_predict_v2_pb2 as pb
 import time
 import logging
 
@@ -207,7 +206,7 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest, CloudEvent], Dict]:
+    def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest], Dict]:
         t1 = time.time()
         attributes = {}
         if isinstance(body, InferRequest):
@@ -235,16 +234,14 @@ class DataPlane:
         logging.debug(f"decoded request in {round((t2 - t1) * 1000, 9)}ms")
         return decoded_body, attributes
 
-    def decode_cloudevent(self, body) -> Tuple[Union[Dict, InferRequest, CloudEvent], Dict]:
+    def decode_cloudevent(self, body) -> Tuple[Union[Dict, InferRequest], Dict]:
         decoded_body = body
         attributes = {}
         if isinstance(body, CloudEvent):
-            # Try to decode and parse JSON UTF-8 if possible, otherwise
-            # just pass the CloudEvent data on to the predict function.
-            # This is for the cases that CloudEvent encoding is protobuf, avro etc.
+            attributes = body._get_attributes()
+            decoded_body = body.get_data()
             try:
-                decoded_body = orjson.loads(body.data.decode('UTF-8'))
-                attributes = body._get_attributes()
+                decoded_body = orjson.loads(decoded_body.decode('UTF-8'))
             except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
                 # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
                 if "content-type" in body._attributes and \
@@ -264,6 +261,8 @@ class DataPlane:
         # if we received a cloudevent, then also return a cloudevent
         is_cloudevent = False
         is_binary_cloudevent = False
+        if isinstance(response, InferResponse):
+            response = response.to_rest()
         if headers:
             if has_binary_headers(headers):
                 is_cloudevent = True
@@ -283,9 +282,9 @@ class DataPlane:
     async def infer(
             self,
             model_name: str,
-            body: Union[bytes, Dict, InferRequest],
+            request: Union[Dict, InferRequest],
             headers: Optional[Dict[str, str]] = None
-    ) -> Tuple[Union[str, bytes, Dict, pb.ModelInferResponse], Dict[str, str]]:
+    ) -> Tuple[Union[Dict, InferResponse], Dict[str, str]]:
         """Performs inference on the specified model with the provided body and headers.
 
         If the ``body`` contains an encoded `CloudEvent`_, then it will be decoded and processed.
@@ -293,7 +292,7 @@ class DataPlane:
 
         Args:
             model_name (str): Model name.
-            body (bytes|Dict): Request body data.
+            request (bytes|Dict): Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
@@ -306,28 +305,25 @@ class DataPlane:
 
         .. _CloudEvent: https://cloudevents.io/
         """
-        body, req_attributes = self.decode(body, headers)
-
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if not isinstance(model, RayServeHandle):
-            response = await model(body, headers=headers)
+            response = await model(request, headers=headers)
         else:
             model_handle: RayServeHandle = model
-            response = await model_handle.remote(body, headers=headers)
+            response = await model_handle.remote(request, headers=headers)
 
-        response, response_headers = self.encode(model_name, response, headers, req_attributes)
-        return response, response_headers
+        return response, headers
 
     async def explain(self, model_name: str,
-                      body: Union[bytes, Dict, InferRequest],
+                      request: Union[bytes, Dict, InferRequest],
                       headers: Optional[Dict[str, str]] = None
-                      ) -> Tuple[Union[str, bytes, Dict], Dict[str, str]]:
+                      ) -> Tuple[Union[str, bytes, Dict, InferResponse], Dict[str, str]]:
         """Performs explanation for the specified model.
 
         Args:
             model_name (str): Model name to be used for explanation.
-            body (bytes|Dict): Request body data.
+            request (bytes|Dict): Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
@@ -336,14 +332,11 @@ class DataPlane:
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
-        body, req_attributes = self.decode(body, headers)
-
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if not isinstance(model, RayServeHandle):
-            response = await model(body, model_type=ModelType.EXPLAINER)
+            response = await model(request, model_type=ModelType.EXPLAINER)
         else:
             model_handle = model
-            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
-        response, response_headers = self.encode(model_name, response, headers, req_attributes)
-        return response, response_headers
+            response = await model_handle.remote(request, model_type=ModelType.EXPLAINER)
+        return response, headers

@@ -78,6 +78,17 @@ class MetadataTensor(BaseModel):
     shape: List[int]
 
 
+class ListModelsResponse(BaseModel):
+    """ListModelsResponse
+
+        $models_list_response =
+        {
+          "models" : [ $string, ... ]
+        }
+    """
+    models: List[str]
+
+
 class ModelMetadataResponse(BaseModel):
     """ModelMetadataResponse
 

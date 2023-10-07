@@ -16,7 +16,7 @@ do
         continue
     fi
     pushd "${folder}"
-        poetry install
+        poetry lock --no-update
     popd
 
 done

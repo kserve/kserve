@@ -50,7 +50,6 @@ var (
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(t.GetStorageUri()),
 		t.validateGPU(),
 		validateStorageSpec(t.GetStorageSpec(), t.GetStorageUri()),
 	})
@@ -81,5 +80,8 @@ func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Com
 }
 
 func (t *TFServingSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if t.ProtocolVersion != nil {
+		return *t.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

@@ -60,20 +60,10 @@ func NewGraphKnativeServiceReconciler(client client.Client,
 	}
 }
 
-func (r *GraphKnativeServiceReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
-	desired := r.Service
-	existing := &knservingv1.Service{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
-	if err != nil {
-		if apierr.IsNotFound(err) {
-			log.Info("Creating inference graph knative service", "namespace", desired.Namespace, "name", desired.Name)
-			return &desired.Status, r.client.Create(context.TODO(), desired)
-		}
-		return nil, err
-	}
+func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) error {
 	// Return if no differences to reconcile.
 	if semanticEquals(desired, existing) {
-		return &existing.Status, nil
+		return nil
 	}
 
 	// Reconcile differences and update
@@ -86,14 +76,35 @@ func (r *GraphKnativeServiceReconciler) Reconcile() (*knservingv1.ServiceStatus,
 	}
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
-		return &existing.Status, errors.Wrapf(err, "failed to diff inference graph knative service configuration spec")
+		return errors.Wrapf(err, "failed to diff inference graph knative service configuration spec")
 	}
 	log.Info("inference graph knative service configuration diff (-desired, +observed):", "diff", diff)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	existing.Spec.Traffic = desired.Spec.Traffic
+	return nil
+}
+
+func (r *GraphKnativeServiceReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
+	desired := r.Service
+	existing := &knservingv1.Service{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
+	if err != nil {
+		if apierr.IsNotFound(err) {
+			log.Info("Creating inference graph knative service", "namespace", desired.Namespace, "name", desired.Name)
+			return &desired.Status, r.client.Create(context.TODO(), desired)
+		}
+		return nil, err
+	}
+
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		log.Info("Updating inference graph knative service", "namespace", desired.Namespace, "name", desired.Name)
+		if err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
+			return err
+		}
+		if err := reconcileKsvc(desired, existing); err != nil {
+			return err
+		}
 		return r.client.Update(context.TODO(), existing)
 	})
 	if err != nil {
@@ -130,15 +141,24 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
 	}
 
+	// ksvc metadata.annotations
+	ksvcAnnotations := make(map[string]string)
+
+	if value, ok := annotations[constants.KnativeOpenshiftEnablePassthroughKey]; ok {
+		ksvcAnnotations[constants.KnativeOpenshiftEnablePassthroughKey] = value
+		delete(annotations, constants.KnativeOpenshiftEnablePassthroughKey)
+	}
+
 	labels = utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
 	})
 	labels[constants.InferenceGraphLabel] = componentMeta.Name
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      componentMeta.Name,
-			Namespace: componentMeta.Namespace,
-			Labels:    componentMeta.Labels,
+			Name:        componentMeta.Name,
+			Namespace:   componentMeta.Namespace,
+			Labels:      componentMeta.Labels,
+			Annotations: ksvcAnnotations,
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{

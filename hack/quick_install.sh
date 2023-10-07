@@ -1,4 +1,4 @@
-set -e
+set -eo pipefail
 ############################################################
 # Help                                                     #
 ############################################################
@@ -30,15 +30,17 @@ while getopts ":hsr" option; do
    esac
 done
 
-export ISTIO_VERSION=1.16.2
+export ISTIO_VERSION=1.17.2
 export KNATIVE_SERVING_VERSION=knative-v1.10.1
 export KNATIVE_ISTIO_VERSION=knative-v1.10.0
-export KSERVE_VERSION=v0.10.1
+export KSERVE_VERSION=v0.11.1
 export CERT_MANAGER_VERSION=v1.3.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
-KUBE_VERSION=$(kubectl version --short=true | grep "Server Version" | awk -F '.' '{print $2}')
-if [ ${KUBE_VERSION} -lt 24 ];
+get_kube_version(){
+    kubectl version --short=true 2>/dev/null || kubectl version | awk -F '.' '/Server Version/ {print $2}'
+}
+if [ $(get_kube_version) -lt 24 ];
 then
    echo "😱 install requires at least Kubernetes 1.24";
    exit 1;

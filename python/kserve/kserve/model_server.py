@@ -12,28 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import argparse
 import asyncio
 import concurrent.futures
-import logging
+import multiprocessing
 import signal
 import socket
-from distutils.util import strtobool
-from typing import List, Dict, Union, Optional
+from multiprocessing import Process
+from typing import Dict, List, Optional, Union
 
 from ray import serve as rayserve
-from ray.serve.api import Deployment, RayServeHandle
+from ray.serve.api import Deployment
+from ray.serve.handle import RayServeHandle
 
+from .logging import KSERVE_LOG_CONFIG, logger
+from .model import Model
+from .model_repository import ModelRepository
+from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
+from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
-import multiprocessing
-from multiprocessing import Process
-
-from .model import Model
-from .protocol.dataplane import DataPlane
-from .protocol.model_repository_extension import ModelRepositoryExtension
-from .model_repository import ModelRepository
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -49,22 +49,20 @@ parser.add_argument("--max_threads", default=4, type=int,
                     help="The number of max processing threads in each worker.")
 parser.add_argument('--max_asyncio_workers', default=None, type=int,
                     help='Max number of asyncio workers to spawn')
-parser.add_argument("--enable_grpc", default=True, type=lambda x: bool(strtobool(x)),
+parser.add_argument("--enable_grpc", default=True, type=lambda x: utils.strtobool(x),
                     help="Enable gRPC for the model server")
-parser.add_argument("--enable_docs_url", default=False, type=lambda x: bool(strtobool(x)),
+parser.add_argument("--enable_docs_url", default=False, type=lambda x: utils.strtobool(x),
                     help="Enable docs url '/docs' to display Swagger UI.")
-parser.add_argument("--enable_latency_logging", default=True, type=lambda x: bool(strtobool(x)),
+parser.add_argument("--enable_latency_logging", default=True, type=lambda x: utils.strtobool(x),
                     help="Output a log per request with latency metrics.")
+parser.add_argument("--configure_logging", default=True, type=lambda x: utils.strtobool(x),
+                    help="Whether to configure KServe and Uvicorn logging")
 parser.add_argument("--log_config_file", default=None, type=str,
                     help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
 parser.add_argument("--access_log_format", default=None, type=str,
                     help="Format to set for the access log (provided by asgi-logger).")
 
 args, _ = parser.parse_known_args()
-
-FORMAT = '%(asctime)s.%(msecs)03d %(process)s %(name)s %(levelname)s [%(funcName)s():%(lineno)s] %(message)s'
-DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-logging.basicConfig(level=logging.INFO, format=FORMAT, datefmt=DATE_FORMAT)
 
 
 class ModelServer:
@@ -80,7 +78,8 @@ class ModelServer:
         enable_grpc (bool): Whether to turn on grpc server. Default: ``True``
         enable_docs_url (bool): Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
         enable_latency_logging (bool): Whether to log latency metric. Default: ``True``.
-        log_config_file (dict): File path containing UvicornServer's log config. Default: ``None``.
+        configure_logging (bool): Whether to configure KServe and Uvicorn logging. Default: ``True``.
+        log_config (dict or str): File path or dict containing log config. Default: ``None``.
         access_log_format (string): Format to set for the access log (provided by asgi-logger). Default: ``None``
     """
 
@@ -93,7 +92,8 @@ class ModelServer:
                  enable_grpc: bool = args.enable_grpc,
                  enable_docs_url: bool = args.enable_docs_url,
                  enable_latency_logging: bool = args.enable_latency_logging,
-                 log_config_file: str = args.log_config_file,
+                 configure_logging: bool = args.configure_logging,
+                 log_config: Optional[Union[Dict, str]] = args.log_config_file,
                  access_log_format: str = args.access_log_format):
         self.registered_models = registered_models
         self.http_port = http_port
@@ -111,7 +111,15 @@ class ModelServer:
         if self.enable_grpc:
             self._grpc_server = GRPCServer(grpc_port, self.dataplane,
                                            self.model_repository_extension)
-        self.log_config_file = log_config_file
+
+        # Logs can be passed as a path to a file or a dictConfig.
+        # We rely on Uvicorn to configure the loggers for us.
+        if configure_logging:
+            self.log_config = log_config if log_config is not None else KSERVE_LOG_CONFIG
+        else:
+            # By setting log_config to None we tell Uvicorn not to configure logging
+            self.log_config = None
+
         self.access_log_format = access_log_format
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
@@ -139,37 +147,43 @@ class ModelServer:
         if self.max_asyncio_workers is None:
             # formula as suggest in https://bugs.python.org/issue35279
             self.max_asyncio_workers = min(32, utils.cpu_count() + 4)
-        logging.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
+        logger.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
         asyncio.get_event_loop().set_default_executor(
             concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
 
         async def serve():
-            serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            serversocket.bind(('0.0.0.0', self.http_port))
-            serversocket.listen(5)
-
-            logging.info(f"Starting uvicorn with {self.workers} workers")
+            logger.info(f"Starting uvicorn with {self.workers} workers")
             loop = asyncio.get_event_loop()
-            for sig in [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]:
+            if sys.platform not in ['win32', 'win64']:
+                sig_list = [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]
+            else:
+                sig_list = [signal.SIGINT, signal.SIGTERM]
+
+            for sig in sig_list:
                 loop.add_signal_handler(
                     sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
                 )
-            self._rest_server = UvicornServer(self.http_port, [serversocket],
-                                              self.dataplane, self.model_repository_extension,
-                                              self.enable_docs_url, log_config_file=self.log_config_file,
-                                              access_log_format=self.access_log_format)
             if self.workers == 1:
+                self._rest_server = UvicornServer(self.http_port, [],
+                                                  self.dataplane, self.model_repository_extension,
+                                                  self.enable_docs_url,
+                                                  log_config=self.log_config,
+                                                  access_log_format=self.access_log_format)
                 await self._rest_server.run()
             else:
                 # Since py38 MacOS/Windows defaults to use spawn for starting multiprocessing.
                 # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
                 # Spawn does not work with FastAPI/uvicorn in multiprocessing mode, use fork for multiprocessing
                 # https://github.com/tiangolo/fastapi/issues/1586
+                serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                serversocket.bind(('0.0.0.0', self.http_port))
+                serversocket.listen(5)
                 multiprocessing.set_start_method('fork')
                 server = UvicornServer(self.http_port, [serversocket],
                                        self.dataplane, self.model_repository_extension,
-                                       self.enable_docs_url, custom_log_config=self.log_config)
+                                       self.enable_docs_url, log_config=self.log_config,
+                                       access_log_format=self.access_log_format)
                 for _ in range(self.workers):
                     p = Process(target=server.run_sync)
                     p.start()
@@ -183,21 +197,21 @@ class ModelServer:
         asyncio.run(servers_task())
 
     async def stop(self, sig: Optional[int] = None):
-        logging.info("Stopping the model server")
+        logger.info("Stopping the model server")
         if self._rest_server:
-            logging.info("Stopping the rest server")
+            logger.info("Stopping the rest server")
             await self._rest_server.stop()
         if self._grpc_server:
-            logging.info("Stopping the grpc server")
+            logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)
-        logging.info("Registering model handle: %s", name)
+        logger.info("Registering model handle: %s", name)
 
     def register_model(self, model: Model):
         if not model.name:
             raise Exception(
                 "Failed to register model, model.name must be provided.")
         self.registered_models.update(model)
-        logging.info("Registering model: %s", model.name)
+        logger.info("Registering model: %s", model.name)

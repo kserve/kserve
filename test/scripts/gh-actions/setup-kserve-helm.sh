@@ -28,7 +28,7 @@ cat ./charts/kserve-resources/values.yaml
 make deploy-helm
 
 echo "Updating modelmesh default replicas count..."
-kubectl patch clusterservingruntimes mlserver-0.x --type='merge' -p '{"spec":{"replicas":1}}'
+kubectl patch clusterservingruntimes mlserver-1.x --type='merge' -p '{"spec":{"replicas":1}}'
 
 echo "Get events of all pods ..."
 kubectl get events -A
@@ -42,17 +42,6 @@ kubectl create namespace kserve-ci-e2e-test
 
 echo "Add storageSpec testing secrets ..."
 kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
-
-echo "Installing Poetry"
-export POETRY_VERSION=1.4.0
-pip install poetry==$POETRY_VERSION
-poetry config virtualenvs.create true
-poetry config virtualenvs.in-project true
-poetry config installer.parallel true
-
-echo "Installing Poetry Version Plugin"
-pip install -e python/plugin/poetry-version-plugin
-poetry self show plugins  
 
 echo "Installing KServe Python SDK ..."
 python3 -m pip install --upgrade pip

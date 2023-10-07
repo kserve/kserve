@@ -21,7 +21,6 @@ import numpy
 
 from PIL import Image
 from torchvision import transforms
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 from kserve import Model, ModelServer, model_server, InferInput, InferRequest, InferResponse
 from kserve.model import PredictorProtocol
 
@@ -53,10 +52,11 @@ def image_transform(model_name, data):
 
 
 class ImageTransformer(Model):
-    def __init__(self, name: str, predictor_host: str, protocol: str):
+    def __init__(self, name: str, predictor_host: str, protocol: str, use_ssl: bool):
         super().__init__(name)
         self.predictor_host = predictor_host
         self.protocol = protocol
+        self.use_ssl = use_ssl
         self.ready = True
 
     def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) \
@@ -81,16 +81,16 @@ class ImageTransformer(Model):
         else:
             return infer_request
 
-    def postprocess(self, infer_response: Union[Dict, ModelInferResponse], headers: Dict[str, str] = None) \
+    def postprocess(self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
             -> Union[Dict, InferResponse]:
         if "request-type" in headers and headers["request-type"] == "v1":
             if self.protocol == PredictorProtocol.REST_V1.value:
                 return infer_response
             else:
-                res = super().postprocess(infer_response, headers)
+                res = infer_response.to_rest()
                 return {"predictions": res["outputs"][0]["data"]}
         else:
-            return super().postprocess(infer_response, headers)
+            return infer_response
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])
@@ -103,9 +103,12 @@ parser.add_argument(
 parser.add_argument(
     "--model_name", help="The name that the model is served under."
 )
+parser.add_argument(
+    "--use_ssl", help="Use ssl for connecting to the predictor", action='store_true'
+)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     model = ImageTransformer(args.model_name, predictor_host=args.predictor_host,
-                             protocol=args.protocol)
+                             protocol=args.protocol, use_ssl=args.use_ssl)
     ModelServer().start([model])

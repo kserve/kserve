@@ -247,6 +247,10 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.New("must provide only one of storageUri and storage.path")
 		}
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %v", err)
+		}
 	}
 
 	predictorName := constants.PredictorServiceName(isvc.Name)
@@ -263,15 +267,33 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}
 	}
-	// Labels and annotations from isvc will overwrite labels and annotations from ServingRuntimePodSpec
+
+	// Labels and annotations from predictor component
+	// Label filter will be handled in ksvc_reconciler
+	predictorLabels := isvc.Spec.Predictor.Labels
+	predictorAnnotations := utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
+
+	// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec
+	// Labels and annotations from high priority will overwrite that from low priority
 	objectMeta := metav1.ObjectMeta{
 		Name:      predictorName,
 		Namespace: isvc.Namespace,
-		Labels: utils.Union(sRuntimeLabels, isvc.Labels, map[string]string{
-			constants.InferenceServicePodLabelKey: isvc.Name,
-			constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
-		}),
-		Annotations: utils.Union(sRuntimeAnnotations, annotations),
+		Labels: utils.Union(
+			sRuntimeLabels,
+			isvc.Labels,
+			predictorLabels,
+			map[string]string{
+				constants.InferenceServicePodLabelKey: isvc.Name,
+				constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+			},
+		),
+		Annotations: utils.Union(
+			sRuntimeAnnotations,
+			annotations,
+			predictorAnnotations,
+		),
 	}
 
 	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)
@@ -321,17 +343,16 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
 	}
-	statusSpec, _ := isvc.Status.Components[v1beta1.PredictorComponent]
+	statusSpec := isvc.Status.Components[v1beta1.PredictorComponent]
 	if rawDeployment {
 		podLabelValue = constants.GetRawServiceLabel(predictorName)
 	} else {
 		podLabelValue = statusSpec.LatestCreatedRevision
 	}
-	podList, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, podLabelKey, podLabelValue)
+	predictorPods, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, podLabelKey, podLabelValue)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
-	isvc.Status.PropagateModelStatus(statusSpec, podList, rawDeployment)
-
+	isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment)
 	return ctrl.Result{}, nil
 }

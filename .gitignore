@@ -8,7 +8,8 @@
 *.pyc
 *.egg-info/
 bin
-
+.venv/
+venv/
 # Test binary, build with `go test -c`
 *.test
 
@@ -24,6 +25,7 @@ bin
  
 # editor and IDE paraphernalia
 .idea
+.editorconfig
 .vscode
 .project
 *.swp

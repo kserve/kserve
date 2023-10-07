@@ -31,12 +31,13 @@ import (
 
 // KServe Constants
 var (
-	KServeName                     = "kserve"
-	KServeAPIGroupName             = "serving.kserve.io"
-	KnativeAutoscalingAPIGroupName = "autoscaling.knative.dev"
-	KnativeServingAPIGroupName     = "serving.knative.dev"
-	KServeNamespace                = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	KServeDefaultVersion           = "v0.5.0"
+	KServeName                       = "kserve"
+	KServeAPIGroupName               = "serving.kserve.io"
+	KnativeAutoscalingAPIGroupName   = "autoscaling.knative.dev"
+	KnativeServingAPIGroupNamePrefix = "serving.knative"
+	KnativeServingAPIGroupName       = KnativeServingAPIGroupNamePrefix + ".dev"
+	KServeNamespace                  = getEnvOrDefault("POD_NAMESPACE", "kserve")
+	KServeDefaultVersion             = "v0.5.0"
 )
 
 // InferenceService Constants
@@ -83,6 +84,7 @@ var (
 	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/min-scale"
 	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/max-scale"
 	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
+	KnativeOpenshiftEnablePassthroughKey        = "serving.knative.openshift.io/enablePassthrough"
 	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
 	SetPrometheusAnnotation                     = KServeAPIGroupName + "/enable-prometheus-scraping"
 	KserveContainerPrometheusPortKey            = "prometheus.kserve.io/port"
@@ -131,8 +133,9 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName = KServeName + "-controller-manager"
-	DefaultMinReplicas  = 1
+	ControllerLabelName          = KServeName + "-controller-manager"
+	DefaultMinReplicas           = 1
+	IstioSidecarUIDAnnotationKey = KServeAPIGroupName + "/storage-initializer-uid"
 )
 
 type AutoscalerClassType string
@@ -188,7 +191,8 @@ var (
 
 // Webhook Constants
 var (
-	PodMutatorWebhookName = KServeName + "-pod-mutator-webhook"
+	PodMutatorWebhookName              = KServeName + "-pod-mutator-webhook"
+	ServingRuntimeValidatorWebhookName = KServeName + "-servingRuntime-validator-webhook"
 )
 
 // GPU Constants
@@ -238,11 +242,12 @@ const (
 
 // InferenceService protocol enums
 const (
-	ProtocolV1      InferenceServiceProtocol = "v1"
-	ProtocolV2      InferenceServiceProtocol = "v2"
-	ProtocolGRPCV1  InferenceServiceProtocol = "grpc-v1"
-	ProtocolGRPCV2  InferenceServiceProtocol = "grpc-v2"
-	ProtocolUnknown InferenceServiceProtocol = ""
+	ProtocolV1         InferenceServiceProtocol = "v1"
+	ProtocolV2         InferenceServiceProtocol = "v2"
+	ProtocolGRPCV1     InferenceServiceProtocol = "grpc-v1"
+	ProtocolGRPCV2     InferenceServiceProtocol = "grpc-v2"
+	ProtocolUnknown    InferenceServiceProtocol = ""
+	ProtocolVersionENV                          = "PROTOCOL_VERSION"
 )
 
 // InferenceService Endpoint Ports

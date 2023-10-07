@@ -41,7 +41,7 @@ bugs that might have been introduced in recent development cycles.</br></br>
 Create a branch from the master and do the following:
 1. Update the version number in following places:
     1. [VERSION](../python/VERSION) to `${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
-    2. [quick_install.sh](../hack/quick_install.sh#L35) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+    2. [quick_install.sh](../hack/quick_install.sh#L36) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     3. [Chart.yaml in kserve-crd](../charts/kserve-crd/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     4. [Chart.yaml in kserve-resources](../charts/kserve-resources/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     5. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`

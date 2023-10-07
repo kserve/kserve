@@ -25,7 +25,9 @@ QPEXT_IMG ?= qpext
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26
+ENVTEST_K8S_VERSION = 1.27
+SUCCESS_200_ISVC_IMG ?= success-200-isvc
+ERROR_404_ISVC_IMG ?= error-404-isvc
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -38,8 +40,8 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v3.8.7
-CONTROLLER_TOOLS_VERSION ?= v0.4.0
+KUSTOMIZE_VERSION ?= v5.0.3
+CONTROLLER_TOOLS_VERSION ?= v0.12.0
 
 # CPU/Memory limits for controller-manager
 KSERVE_CONTROLLER_CPU_LIMIT ?= 100m
@@ -73,50 +75,50 @@ run: generate fmt vet lint
 deploy: manifests
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	kustomize edit remove resource certmanager/certificate.yaml; \
-	else kustomize edit add resource certmanager/certificate.yaml; fi;
-	kustomize build config/default | kubectl apply -f -
+	${KUSTOMIZE} edit remove resource ../certmanager; \
+	else ${KUSTOMIZE} edit add resource ../certmanager; fi;
+	${KUSTOMIZE} build config/default | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	sleep 2
+	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
+
 
 deploy-dev: manifests
 	./hack/image_patch_dev.sh development
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	kustomize edit remove resource certmanager/certificate.yaml; \
-	else kustomize edit add resource certmanager/certificate.yaml; fi;
-	kustomize build config/overlays/development | kubectl apply -f -
+	${KUSTOMIZE} edit remove resource ../certmanager; \
+	else ${KUSTOMIZE} edit add resource ../certmanager; fi;
+	${KUSTOMIZE} build config/overlays/development | kubectl apply -f -
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kustomize build config/runtimes | kubectl apply -f -
-	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	sleep 2
+	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
 
-deploy-dev-sklearn: docker-push-sklearn
-	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${SKLEARN_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+deploy-dev-sklearn: docker-push-sklearn kustomize
+	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
 
-deploy-dev-xgb: docker-push-xgb
-	./hack/model_server_patch_dev.sh xgboost ${KO_DOCKER_REPO}/${XGB_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+deploy-dev-xgb: docker-push-xgb kustomize
+	./hack/serving_runtime_image_patch.sh "kserve-xgbserver.yaml" "${KO_DOCKER_REPO}/${XGB_IMG}"
 
-deploy-dev-lgb: docker-push-lgb
-	./hack/model_server_patch_dev.sh lightgbm ${KO_DOCKER_REPO}/${LGB_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+deploy-dev-lgb: docker-push-lgb kustomize
+	./hack/serving_runtime_image_patch.sh "kserve-lgbserver.yaml" "${KO_DOCKER_REPO}/${LGB_IMG}"
 
 deploy-dev-pmml : docker-push-pmml
-	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${PMML_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	./hack/serving_runtime_image_patch.sh "kserve-pmmlserver.yaml" "${KO_DOCKER_REPO}/${PMML_IMG}"
 
 deploy-dev-paddle: docker-push-paddle
-	./hack/model_server_patch_dev.sh paddle ${KO_DOCKER_REPO}/${PADDLE_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	./hack/serving_runtime_image_patch.sh "kserve-paddleserver.yaml" "${KO_DOCKER_REPO}/${PADDLE_IMG}"
 
-deploy-dev-alibi: docker-push-alibi
+deploy-dev-alibi: docker-push-alibi kustomize
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	${KUSTOMIZE} build config/overlays/dev-image-config | kubectl apply -f -
 
-deploy-dev-storageInitializer: docker-push-storageInitializer
+deploy-dev-storageInitializer: docker-push-storageInitializer kustomize
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	${KUSTOMIZE} build config/overlays/dev-image-config | kubectl apply -f -
 
 deploy-ci: manifests
 	kubectl apply -k config/overlays/test
@@ -128,22 +130,14 @@ deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
 	helm install kserve charts/kserve-resources/ --wait --timeout 180s
 
-undeploy:
-	kustomize build config/default | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
+undeploy: kustomize
+	${KUSTOMIZE} build config/default | kubectl delete -f -
 
-undeploy-dev:
-	kustomize build config/overlays/development | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kserve.io
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferencegraph.serving.kserve.io
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kserve.io
+undeploy-dev: kustomize
+	${KUSTOMIZE} build config/overlays/development | kubectl delete -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+manifests: controller-gen kustomize
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
@@ -174,7 +168,7 @@ manifests: controller-gen
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_inferenceservices.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_clusterservingruntimes.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_servingruntimes.yaml
-	kustomize build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
+	${KUSTOMIZE} build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
 
 # Run go fmt against code
 fmt:
@@ -306,6 +300,18 @@ docker-build-qpext:
 
 docker-build-push-qpext: docker-build-qpext
 	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
+
+docker-build-success-200-isvc:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG} -f success_200_isvc.Dockerfile .
+
+docker-push-success-200-isvc: docker-build-success-200-isvc
+	docker push ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}
+
+docker-build-error-node-404:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG} -f error_404_isvc.Dockerfile .
+
+docker-push-error-node-404: docker-build-error-node-404
+	docker push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}
 
 test-qpext:
 	cd qpext && go test -v ./... -cover

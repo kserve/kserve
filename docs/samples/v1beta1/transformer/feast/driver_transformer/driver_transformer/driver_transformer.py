@@ -16,7 +16,6 @@ import logging
 
 import requests
 import numpy as np
-from cloudevents.http import CloudEvent
 
 import kserve
 from kserve import InferRequest, InferResponse, InferInput
@@ -127,7 +126,7 @@ class DriverTransformer(kserve.Model):
 
         return request
 
-    def preprocess(self, inputs: Union[Dict, CloudEvent, InferRequest],
+    def preprocess(self, inputs: Union[Dict, InferRequest],
                    headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         """Pre-process activity of the driver input data.
 

@@ -230,6 +230,20 @@ type InferenceTarget struct {
 	ServiceURL string `json:"serviceUrl,omitempty"`
 }
 
+// InferenceStepDependencyType constant for inference step dependency
+// +k8s:openapi-gen=true
+// +kubebuilder:validation:Enum=Soft;Hard
+type InferenceStepDependencyType string
+
+// StepDependency Enum
+const (
+	// Soft
+	Soft InferenceStepDependencyType = "Soft"
+
+	// Hard
+	Hard InferenceStepDependencyType = "Hard"
+)
+
 // InferenceStep defines the inference target of the current step with condition, weights and data.
 // +k8s:openapi-gen=true
 type InferenceStep struct {
@@ -254,6 +268,10 @@ type InferenceStep struct {
 	// routing based on the condition
 	// +optional
 	Condition string `json:"condition,omitempty"`
+
+	// to decide whether a step is a hard or a soft dependency in the Inference Graph
+	// +optional
+	Dependency InferenceStepDependencyType `json:"dependency,omitempty"`
 }
 
 // InferenceGraphStatus defines the InferenceGraph conditions and status
@@ -269,6 +287,7 @@ type InferenceGraphStatus struct {
 // InferenceGraphList contains a list of InferenceGraph
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type InferenceGraphList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strconv"
 
 	"regexp"
@@ -47,21 +48,21 @@ var (
 var _ webhook.Validator = &InferenceService{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (isvc *InferenceService) ValidateCreate() error {
+func (isvc *InferenceService) ValidateCreate() (admission.Warnings, error) {
 	validatorLogger.Info("validate create", "name", isvc.Name)
-
+	var allWarnings admission.Warnings
 	annotations := isvc.Annotations
 
 	if err := validateInferenceServiceName(isvc); err != nil {
-		return err
+		return allWarnings, err
 	}
 
 	if err := validateInferenceServiceAutoscaler(isvc); err != nil {
-		return err
+		return allWarnings, err
 	}
 
 	if err := validateAutoscalerTargetUtilizationPercentage(isvc); err != nil {
-		return err
+		return allWarnings, err
 	}
 
 	for _, component := range []Component{
@@ -71,18 +72,18 @@ func (isvc *InferenceService) ValidateCreate() error {
 	} {
 		if !reflect.ValueOf(component).IsNil() {
 			if err := validateExactlyOneImplementation(component); err != nil {
-				return err
+				return allWarnings, err
 			}
 			if err := utils.FirstNonNilError([]error{
 				component.GetImplementation().Validate(),
 				component.GetExtensions().Validate(),
 				validateAutoScalingCompExtension(annotations, component.GetExtensions()),
 			}); err != nil {
-				return err
+				return allWarnings, err
 			}
 		}
 	}
-	return nil
+	return allWarnings, nil
 }
 
 // Validate scaling options component extensions
@@ -98,16 +99,16 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
+func (isvc *InferenceService) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	validatorLogger.Info("validate update", "name", isvc.Name)
 
 	return isvc.ValidateCreate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (isvc *InferenceService) ValidateDelete() error {
+func (isvc *InferenceService) ValidateDelete() (admission.Warnings, error) {
 	validatorLogger.Info("validate delete", "name", isvc.Name)
-	return nil
+	return nil, nil
 }
 
 // GetIntReference returns the pointer for the integer input

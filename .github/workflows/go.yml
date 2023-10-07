@@ -2,9 +2,10 @@ name: Go
 
 on:
   push:
-    branches: [ master ]
+    branches: [master, release*]
   pull_request:
     branches: []
+  workflow_dispatch:
 
 jobs:
 
@@ -16,7 +17,7 @@ jobs:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: '1.20'
       id: go
 
     - name: Check out code into the Go module directory

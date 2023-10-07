@@ -17,8 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
@@ -43,26 +44,6 @@ func TestPaddleValidation(t *testing.T) {
 				},
 			},
 			matcher: gomega.BeNil(),
-		},
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				Paddle: &PaddleServerSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("s3://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				Paddle: &PaddleServerSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("invaliduri://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
 		},
 	}
 
@@ -174,6 +155,24 @@ func TestPaddleServerSpec_GetProtocol(t *testing.T) {
 				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
 			expected: constants.ProtocolV1,
+		},
+		"ProtocolSpecified": {
+			spec: PredictorSpec{
+				Paddle: &PaddleServerSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+						StorageURI:      proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
+						},
+					},
+				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
+			},
+			expected: constants.ProtocolV2,
 		},
 	}
 

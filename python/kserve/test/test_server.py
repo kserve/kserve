@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import io
 import json
 import os
@@ -33,7 +34,6 @@ from kserve.protocol.rest.server import RESTServer
 
 from kserve.protocol.infer_type import InferRequest
 from kserve.utils.utils import get_predict_input, get_predict_response
-
 
 test_avsc_schema = '''
         {
@@ -146,13 +146,11 @@ class DummyAvroCEModel(Model):
         return record1
 
     def preprocess(self, request, headers: Dict[str, str] = None):
-        if isinstance(request, CloudEvent):
-            attributes = request._attributes
-            assert attributes["specversion"] == "1.0"
-            assert attributes["source"] == "https://example.com/event-producer"
-            assert attributes["type"] == "com.example.sampletype1"
-            assert attributes["content-type"] == "application/avro"
-            return self._parserequest(request.data)
+        assert headers["ce-specversion"] == "1.0"
+        assert headers["ce-source"] == "https://example.com/event-producer"
+        assert headers["ce-type"] == "com.example.sampletype1"
+        assert headers["ce-content-type"] == "application/avro"
+        return self._parserequest(request)
 
     async def predict(self, request, headers=None):
         return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
@@ -232,6 +230,11 @@ class TestTFHttpServer:
 
     def test_list_models(self, http_server_client):
         resp = http_server_client.get('/v1/models')
+        assert resp.status_code == 200
+        assert resp.json() == {"models": ["TestModel"]}
+
+    def test_list_models_v2(self, http_server_client):
+        resp = http_server_client.get('/v2/models')
         assert resp.status_code == 200
         assert resp.json() == {"models": ["TestModel"]}
 
@@ -351,6 +354,7 @@ class TestTFHttpServerCloudEvent:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         model = DummyCEModel("TestModel")
+        model.load()
         server = ModelServer()
         server.register_model(model)
         rest_server = RESTServer(server.dataplane, server.model_repository_extension)
@@ -489,6 +493,7 @@ class TestTFHttpServerAvroCloudEvent:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         model = DummyAvroCEModel("TestModel")
+        model.load()
         server = ModelServer()
         server.register_model(model)
         rest_server = RESTServer(server.dataplane, server.model_repository_extension)
@@ -564,3 +569,41 @@ class TestTFHttpServerLoadAndUnLoadFailure:
     def test_unload_fail(self, http_server_client):
         resp = http_server_client.post('/v2/repository/models/model/unload', data=b'')
         assert resp.status_code == 404
+
+
+class TestTFHttpServerModelNotReady:
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        model = DummyModel("TestModel")
+        server = ModelServer()
+        server.register_model(model)
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
+
+    @pytest.fixture(scope='class')
+    def http_server_client(self, app):
+        return TestClient(app)
+
+    def test_model_not_ready_v1(self, http_server_client):
+        resp = http_server_client.get('/v1/models/TestModel')
+        assert resp.status_code == 503
+
+    def test_model_not_ready_v2(self, http_server_client):
+        resp = http_server_client.get('/v2/models/TestModel/ready')
+        assert resp.status_code == 503
+
+    def test_predict(self, http_server_client):
+        resp = http_server_client.post('/v1/models/TestModel:predict',
+                                       data=b'{"instances":[[1,2]]}')
+        assert resp.status_code == 503
+
+    def test_infer(self, http_server_client):
+        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
+        resp = http_server_client.post('/v2/models/TestModel/infer',
+                                       data=input_data)
+        assert resp.status_code == 503
+
+    def test_explain(self, http_server_client):
+        resp = http_server_client.post('/v1/models/TestModel:explain',
+                                       data=b'{"instances":[[1,2]]}')
+        assert resp.status_code == 503

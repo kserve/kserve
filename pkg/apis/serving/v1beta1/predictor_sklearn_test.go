@@ -47,26 +47,6 @@ func TestSKLearnValidation(t *testing.T) {
 			},
 			matcher: gomega.BeNil(),
 		},
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				SKLearn: &SKLearnSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("s3://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				SKLearn: &SKLearnSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("invaliduri://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
 	}
 
 	for name, scenario := range scenarios {

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aifserver"
-version = "0.10.1"
+version = "0.11.1"
 description = "'Model Server implementation for AI fairness. Not intended for use outside KServe Frameworks Images."
 authors = ["Andrew Butler <Andrew.Butler@ibm.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -11,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.12"
 kserve = {path = "../kserve", develop = true}
 aif360 = "^0.2.3"
 nest-asyncio = "^1.4.0"

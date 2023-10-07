@@ -45,10 +45,10 @@ func TestFunctionalDifferentFlags(t *testing.T) {
 		cmd := exec.Command(cmdName, scenario.cmdArgs...)
 		spec, err := cmd.Output()
 		g.Expect(err).Should(gomega.BeNil())
-		swagger := &openapi3.Swagger{}
+		swagger := &openapi3.T{}
 		g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
 
-		expectedSwagger := &openapi3.Swagger{}
+		expectedSwagger := &openapi3.T{}
 		g.Expect(json.Unmarshal(scenario.expectedSpec, &expectedSwagger)).To(gomega.Succeed())
 
 		// test equality, ignoring order in JSON arrays
@@ -111,11 +111,11 @@ func TestOutputToFile(t *testing.T) {
 	g.Expect(stdErr).To(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.BeNil())
 	spec := readFile(outputFileName, t)
-	swagger := &openapi3.Swagger{}
+	swagger := &openapi3.T{}
 	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
 
 	expectedSpec := readFile("TestFlowers.golden.json", t)
-	expectedSwagger := &openapi3.Swagger{}
+	expectedSwagger := &openapi3.T{}
 	g.Expect(json.Unmarshal(expectedSpec, &expectedSwagger)).To(gomega.Succeed())
 
 	// test equality, ignoring order in JSON arrays
@@ -159,7 +159,7 @@ func cmd(wd string) string {
 	return filepath.Dir(wd) + "/bin/tf2openapi"
 }
 
-func expectSwaggerEquality(swagger *openapi3.Swagger, expectedSwagger *openapi3.Swagger, g *gomega.GomegaWithT) {
+func expectSwaggerEquality(swagger *openapi3.T, expectedSwagger *openapi3.T, g *gomega.GomegaWithT) {
 	g.Expect(swagger.Paths).Should(gomega.Equal(expectedSwagger.Paths))
 	g.Expect(swagger.OpenAPI).Should(gomega.Equal(expectedSwagger.OpenAPI))
 	g.Expect(swagger.Info).Should(gomega.Equal(expectedSwagger.Info))
@@ -180,5 +180,5 @@ func expectJsonEquality(actual *openapi3.Schema, expected *openapi3.Schema, g *g
 	g.Expect(actual.Required).To(gomega.ConsistOf(expected.Required))
 	g.Expect(actual.Properties).Should(gomega.Not(gomega.BeNil()))
 	g.Expect(actual.Properties).Should(gomega.Equal(expected.Properties))
-	g.Expect(actual.AdditionalPropertiesAllowed).Should(gomega.Equal(expected.AdditionalPropertiesAllowed))
+	g.Expect(actual.AdditionalProperties).Should(gomega.Equal(expected.AdditionalProperties))
 }

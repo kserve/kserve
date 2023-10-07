@@ -1,5 +1,5 @@
-alibi==0.6.0
-scikit-learn == 0.20.3
+alibi>=0.9.1
+scikit-learn>=1.0.0
 dill>=0.3.0
 plotly>=4.2.1
 matplotlib

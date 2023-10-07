@@ -94,6 +94,7 @@ def test_sklearn_v2_mlserver():
 
 
 @pytest.mark.slow
+@pytest.mark.kourier
 def test_sklearn_runtime_kserve():
     service_name = "isvc-sklearn-runtime"
     predictor = V1beta1PredictorSpec(
@@ -263,7 +264,7 @@ def test_sklearn_v2_mixed():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/mixedtype",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.3/mixedtype",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -300,7 +301,7 @@ def test_sklearn_v2_mixed_grpc():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/mixedtype",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.3/mixedtype/",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},

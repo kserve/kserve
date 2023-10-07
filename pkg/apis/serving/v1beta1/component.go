@@ -19,7 +19,6 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -46,10 +45,7 @@ const (
 
 // Constants
 var (
-	SupportedStorageURIPrefixList     = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://"}
 	SupportedStorageSpecURIPrefixList = []string{"s3://", "hdfs://", "webhdfs://"}
-	AzureBlobURL                      = "blob.core.windows.net"
-	AzureBlobURIRegEx                 = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
 // ComponentImplementation interface is implemented by predictor, transformer, and explainer implementations
@@ -105,6 +101,14 @@ type ComponentExtensionSpec struct {
 	// Activate request batching and batching configurations
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
+	// Labels that will be add to the component pod.
+	// More info: http://kubernetes.io/docs/user-guide/labels
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations that will be add to the component pod.
+	// More info: http://kubernetes.io/docs/user-guide/annotations
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ScaleMetric enum
@@ -153,31 +157,6 @@ func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
 		}
 	}
 	return nil
-}
-
-func validateStorageURI(storageURI *string) error {
-	if storageURI == nil {
-		return nil
-	}
-
-	// local path (not some protocol?)
-	if !regexp.MustCompile("\\w+?://").MatchString(*storageURI) {
-		return nil
-	}
-
-	// need to verify Azure Blob first, because it uses http(s):// prefix
-	if strings.Contains(*storageURI, AzureBlobURL) {
-		azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-		if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
-			return nil
-		}
-	} else {
-		if utils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
-			return nil
-		}
-	}
-
-	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
 }
 
 func validateReplicas(minReplicas *int, maxReplicas int) error {

@@ -14,7 +14,6 @@
 import kserve
 from typing import Dict, Union
 import numpy as np
-from cloudevents.http import CloudEvent
 
 from kserve import InferRequest, InferResponse
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
@@ -42,7 +41,7 @@ class BertTransformer(kserve.Model):
         self.model_name = "bert_tf_v2_large_fp16_128_v2"
         self.triton_client = None
 
-    def preprocess(self, inputs: Union[Dict, CloudEvent, InferRequest],
+    def preprocess(self, inputs: Union[Dict, InferRequest],
                    headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
         self.doc_tokens = data_processing.convert_doc_tokens(self.short_paragraph_text)
         self.features = data_processing.convert_examples_to_features(self.doc_tokens, inputs["instances"][0],

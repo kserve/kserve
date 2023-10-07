@@ -18,11 +18,13 @@ package components
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
@@ -72,6 +74,10 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := explainer.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		err := isvcutils.ValidateStorageURI(sourceURI, e.client)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %v", err)
+		}
 	}
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
 
@@ -93,14 +99,30 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 	}
 
+	// Labels and annotations from explainer component
+	// Label filter will be handled in ksvc_reconciler
+	explainerLabels := isvc.Spec.Explainer.Labels
+	explainerAnnotations := utils.Filter(isvc.Spec.Explainer.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
+
+	// Labels and annotations priority: explainer component > isvc
+	// Labels and annotations from high priority will overwrite that from low priority
 	objectMeta := metav1.ObjectMeta{
 		Name:      explainerName,
 		Namespace: isvc.Namespace,
-		Labels: utils.Union(isvc.Labels, map[string]string{
-			constants.InferenceServicePodLabelKey: isvc.Name,
-			constants.KServiceComponentLabel:      string(v1beta1.ExplainerComponent),
-		}),
-		Annotations: annotations,
+		Labels: utils.Union(
+			isvc.Labels,
+			explainerLabels,
+			map[string]string{
+				constants.InferenceServicePodLabelKey: isvc.Name,
+				constants.KServiceComponentLabel:      string(v1beta1.ExplainerComponent),
+			},
+		),
+		Annotations: utils.Union(
+			annotations,
+			explainerAnnotations,
+		),
 	}
 	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig, predictorName)
 	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {

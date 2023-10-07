@@ -46,26 +46,6 @@ func TestLightGBMValidation(t *testing.T) {
 			},
 			matcher: gomega.BeNil(),
 		},
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				LightGBM: &LightGBMSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("s3://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				LightGBM: &LightGBMSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("invaliduri://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
 	}
 
 	for name, scenario := range scenarios {
@@ -277,6 +257,17 @@ func TestLightGBMGetProtocol(t *testing.T) {
 				},
 			},
 			matcher: gomega.Equal(constants.ProtocolV1),
+		},
+		"ProtocolSpecified": {
+			spec: PredictorSpec{
+				LightGBM: &LightGBMSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI:      proto.String("s3://modelzoo"),
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV2),
 		},
 	}
 	for name, scenario := range scenarios {

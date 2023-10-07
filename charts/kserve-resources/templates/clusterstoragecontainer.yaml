@@ -1,0 +1,23 @@
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: ClusterStorageContainer
+metadata:
+  name: default
+spec:
+  container:
+    name: storage-initializer
+    image: "{{ .Values.kserve.storage.image }}:{{ .Values.kserve.storage.tag }}"
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: 100m
+      limits:
+        memory: 1Gi
+        cpu: "1"
+  supportedUriFormats:
+    - prefix: gs://
+    - prefix: s3://
+    - prefix: hdfs://
+    - prefix: webhdfs://
+    - regex: "https://(.+?).blob.core.windows.net/(.+)"
+    - regex: "https://(.+?).file.core.windows.net/(.+)"
+    - regex: "https?://(.+)/(.+)"

@@ -34,11 +34,11 @@ fi
 echo "Generating Python SDK for KServe ..."
 java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
 
-# revert following files since they are diveraged from generated ones
+# revert following files since they are diverged from generated ones
 git checkout python/kserve/README.md
 git checkout python/kserve/kserve/__init__.py
-git checkout python/kserve/setup.py
-git checkout python/kserve/requirements.txt
+git clean -f python/kserve/setup.py
+git clean -f python/kserve/requirements.txt
 
 # Update kubernetes docs link.
 K8S_IMPORT_LIST=`cat hack/python-sdk/swagger_config.json|grep "V1" | awk -F"\"" '{print $2}'`

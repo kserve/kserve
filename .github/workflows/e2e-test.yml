@@ -2,13 +2,14 @@ name: E2E Tests
 
 on:
   pull_request:
-    branches: [master]
+    branches: [master, release*]
     paths:
       - '**'
       - '!.github/**'
       - '!docs/**'
       - '!**.md'
       - '.github/workflows/e2e-test.yml'
+  workflow_dispatch:
 
 env:
    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -17,7 +18,7 @@ jobs:
   kserve-image-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build KServe images
         run: |
@@ -40,10 +41,34 @@ jobs:
         with:
           image: "kserve/storage-initializer:${{ github.sha }}"
 
-  predictor-runtime-build:
+      - name: Upload router image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/router:${{ github.sha }}"
+
+  poetry-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Check poetry lock file consistency
+        run: ./test/scripts/gh-actions/check-poetry-lockfile.sh
+
+  predictor-runtime-build:
+    runs-on: ubuntu-latest
+    needs: [poetry-check]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
 
       - name: Build runtime server images
         run: |
@@ -90,11 +115,12 @@ jobs:
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
           image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
-  
+
   explainer-runtime-build:
     runs-on: ubuntu-latest
+    needs: [poetry-check]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build runtime server images
         run: |
@@ -112,20 +138,58 @@ jobs:
         with:
           image: "kserve/art-explainer:${{ github.sha }}"
 
+  graph-tests-images-build:
+    runs-on: ubuntu-latest
+    needs: [ poetry-check ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Build test images needed for graph tests
+        run: |
+          ./test/scripts/gh-actions/build-graph-tests-images.sh
+          docker image ls
+
+      - name: Upload success_200_isvc predictor image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/success-200-isvc:${{ github.sha }}"
+
+      - name: Upload error_404_isvc predictor image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/error-404-isvc:${{ github.sha }}"
+
   test-fast:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build, graph-tests-images-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
-          go-version: '1.17.3'
-      - uses: actions/setup-python@v4
+          go-version: '1.20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/base-download
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+     
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -147,28 +211,137 @@ jobs:
         with:
           image: "kserve/pmmlserver:${{ github.sha }}"
 
+      - name: Download transformer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/image-transformer:${{ github.sha }}"
+
+      - name: Download success_200_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/success-200-isvc:${{ github.sha }}"
+
+      - name: Download error_404_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/error-404-isvc:${{ github.sha }}"
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
-      - name: Run E2E tests
-        timeout-minutes: 50
+
+      - name: Run all E2E tests except graph
+        timeout-minutes: 60
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml or graph"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml"
 
           kubectl get pods -n kserve
+
+      - name: Run E2E tests for graph
+        timeout-minutes: 120
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "2"
+
+          kubectl get pods -n kserve
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+
+  test-path-based-routing:
+    runs-on: ubuntu-latest
+    needs: [ kserve-image-build, predictor-runtime-build, explainer-runtime-build, graph-tests-images-build ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download sklearn server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/sklearnserver:${{ github.sha }}"
+
+      - name: Download xgb server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/xgbserver:${{ github.sha }}"
+
+      - name: Download lgb server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/lgbserver:${{ github.sha }}"
+
+      - name: Download pmml image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/pmmlserver:${{ github.sha }}"
+
+      - name: Download transformer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/image-transformer:${{ github.sha }}"
+
+      - name: Download success_200_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/success-200-isvc:${{ github.sha }}"
+
+      - name: Download error_404_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/error-404-isvc:${{ github.sha }}"
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
       - name: Patch inferenceservice config
         run : |
           kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
+
       - name: Run E2E tests with path-based routing
-        timeout-minutes: 40
+        timeout-minutes: 50
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh fast
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -178,15 +351,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
@@ -209,18 +384,23 @@ jobs:
         with:
           image: "kserve/paddleserver:${{ github.sha }}"
 
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
-        timeout-minutes: 50
+        timeout-minutes: 90
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh slow
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -230,15 +410,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
@@ -256,18 +438,23 @@ jobs:
         with:
           image: "kserve/art-explainer:${{ github.sha }}"
 
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh explainer
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -277,17 +464,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/base-download
 
+      - uses: ./.github/actions/free-up-disk-space
+      - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
+      - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -304,18 +492,23 @@ jobs:
         with:
           image: "kserve/xgbserver:${{ github.sha }}"
 
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms"
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -325,14 +518,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
       - name: Build queue proxy extension image
         run: |
@@ -350,7 +545,8 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
-
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -374,15 +570,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Download custom model grpc image
@@ -410,16 +608,21 @@ jobs:
         with:
           image: "kserve/lgbserver:${{ github.sha }}"
 
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "grpc"
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -429,16 +632,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install Kserve from helm
         run: |
@@ -446,11 +654,13 @@ jobs:
           ./test/scripts/gh-actions/setup-kserve-helm.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
-        timeout-minutes: 40
+        timeout-minutes: 50
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "helm"
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -461,15 +671,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.17.3'
+          go-version: '1.20'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
+      - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
@@ -477,19 +689,106 @@ jobs:
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
 
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh raw
 
           kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+  test-kourier:
+    runs-on: ubuntu-latest
+    needs: [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.20'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - uses: ./.github/actions/free-up-disk-space
+      - uses: ./.github/actions/minikube-setup
+      - uses: ./.github/actions/kserve-dep-setup
+        with:
+          network-layer: 'kourier'
+      - uses: ./.github/actions/base-download
+
+      - name: Download sklearn server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/sklearnserver:${{ github.sha }}"
+
+      - name: Download xgb server image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/xgbserver:${{ github.sha }}"
+
+      - name: Download success_200_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/success-200-isvc:${{ github.sha }}"
+
+      - name: Download error_404_isvc predictor image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/error-404-isvc:${{ github.sha }}"
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Patch inferenceservice config to disable istio
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-disable-istio.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests
+        timeout-minutes: 120
+        run: |
+          export KSERVE_INGRESS_HOST_PORT=$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
+          --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
+          --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
+          
+          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "2"
+
+          kubectl get pods -n kserve
+
+      - name: Check system status
+        if: always()
+        run: |
+          docker image ls
+          kubectl get pods -n kserve
+          kubectl get pods -n kserve-ci-e2e-test
+          kubectl get pods -A --field-selector=metadata.namespace!=kserve,metadata.namespace!=kserve-ci-e2e-test
+          
+          kubectl describe pods -n kserve-ci-e2e-test
+          kubectl get events -n kserve-ci-e2e-test
+          kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager
+          kubectl logs -l 'component in (predictor)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+          kubectl logs -l 'component in (transformer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+          kubectl logs -l 'component in (explainer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+          kubectl logs $(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" --output=jsonpath="{.items[0].metadata.name}") -n knative-serving
+
