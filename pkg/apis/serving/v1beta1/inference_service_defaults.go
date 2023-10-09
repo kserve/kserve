@@ -145,6 +145,14 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 	case isvc.Spec.Predictor.Paddle != nil:
 		isvc.assignPaddleRuntime()
 	}
+
+	if isvc.Spec.Predictor.Model != nil && isvc.Spec.Predictor.Model.ProtocolVersion == nil {
+		if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton {
+			// set 'v2' as default protocol version for triton server
+			protocolV2 := constants.ProtocolV2
+			isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
+		}
+	}
 }
 
 func (isvc *InferenceService) assignSKLearnRuntime() {
