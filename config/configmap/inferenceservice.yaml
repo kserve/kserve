@@ -501,12 +501,13 @@ data:
       "enablePrometheusScraping" : "false"
     }
   
+  # Add http_proxy/HTTP_PROXY, https_proxy/HTTP_PROXY, no_proxy/NO_PROXY values as per your organization
   proxy: |-
     {
-      "http_proxy": "<enter http proxy>",
-      "https_proxy": "<enter https proxy",
-      "no_proxy": "<enter no proxy>",
-      "HTTP_PROXY": "<enter http proxy>",
-      "HTTPS_PROXY": "<enter https proxy",
-      "NO_PROXY": "<enter no proxy>"
+      "http_proxy": "http://your-web-proxy-url:port",
+      "https_proxy": "https://your-web-proxy-url:port",
+      "no_proxy": ".your-internal-domain",
+      "HTTP_PROXY": "http://your-web-proxy-url:port",
+      "HTTPS_PROXY": "https://your-web-proxy-url:port",
+      "NO_PROXY": ".your-internal-domain",
     }
