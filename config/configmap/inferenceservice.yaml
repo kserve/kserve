@@ -500,3 +500,13 @@ data:
       "enableMetricAggregation": "false",
       "enablePrometheusScraping" : "false"
     }
+  
+  proxy: |-
+    {
+      "http_proxy": "<enter http proxy>",
+      "https_proxy": "<enter https proxy",
+      "no_proxy": "<enter no proxy>",
+      "HTTP_PROXY": "<enter http proxy>",
+      "HTTPS_PROXY": "<enter https proxy",
+      "NO_PROXY": "<enter no proxy>"
+    }
