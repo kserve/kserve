@@ -17,6 +17,7 @@ import argparse
 from pmmlserver import PmmlModel
 
 import kserve
+from kserve.errors import WorkersShouldBeLessThanMaxWorkersError
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -28,7 +29,16 @@ parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
                     help='The name that the model is served under.')
 args, _ = parser.parse_known_args()
 
+
+def validate_max_workers(actual_workers: int, max_workers: int):
+    if actual_workers > max_workers:
+        raise WorkersShouldBeLessThanMaxWorkersError(max_workers=1)
+
+
 if __name__ == "__main__":
     model = PmmlModel(args.model_name, args.model_dir)
     model.load()
-    kserve.ModelServer().start([model])
+    server = kserve.ModelServer()
+    # pmmlserver based on [Py4J](https://github.com/bartdag/py4j) and that doesn't support multiprocess mode.
+    validate_max_workers(server.workers, 1)
+    server.start([model])
