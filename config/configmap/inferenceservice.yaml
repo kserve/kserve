@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: inferenceservice-config
-  namespace: <namespace_name>
+  namespace: kserve
 data:
   _example: |-
     ################################
