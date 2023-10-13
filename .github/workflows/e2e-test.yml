@@ -251,14 +251,10 @@ jobs:
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml" "2"
 
-          kubectl get pods -n kserve
-
       - name: Run E2E tests for graph
         timeout-minutes: 120
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "2"
-
-          kubectl get pods -n kserve
 
       - name: Check system status
         if: always()
@@ -355,8 +351,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "fast" "2"
 
-          kubectl get pods -n kserve
-
       - name: Check system status
         if: always()
         run: |
@@ -415,8 +409,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "slow" "2"
 
-          kubectl get pods -n kserve
-
       - name: Check system status
         if: always()
         run: |
@@ -469,8 +461,6 @@ jobs:
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "2"
-
-          kubectl get pods -n kserve
 
       - name: Check system status
         if: always()
@@ -525,8 +515,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms" "2"
 
-          kubectl get pods -n kserve
-
       - name: Check system status
         if: always()
         run: |
@@ -578,7 +566,7 @@ jobs:
         timeout-minutes: 30
         run: |
           ./test/scripts/gh-actions/run-qpext-test.sh
-          kubectl get pods -n kserve
+
       - name: Check system status
         if: always()
         run: |
@@ -640,7 +628,6 @@ jobs:
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "grpc" "2"
-          kubectl get pods -n kserve
 
       - name: Check system status
         if: always()
@@ -684,7 +671,6 @@ jobs:
       - name: Check system status
         if: always()
         run: |
-          kubectl get pods --all-namespaces
           ./test/scripts/gh-actions/status-check.sh
 
   test-raw:
@@ -724,8 +710,6 @@ jobs:
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "2"
-
-          kubectl get pods -n kserve
 
       - name: Check system status
         if: always()
@@ -801,15 +785,4 @@ jobs:
       - name: Check system status
         if: always()
         run: |
-          docker image ls
-          kubectl get pods -n kserve
-          kubectl get pods -n kserve-ci-e2e-test
-          kubectl get pods -A --field-selector=metadata.namespace!=kserve,metadata.namespace!=kserve-ci-e2e-test
-
-          kubectl describe pods -n kserve-ci-e2e-test
-          kubectl get events -n kserve-ci-e2e-test
-          kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager
-          kubectl logs -l 'component in (predictor)' -c kserve-container -n kserve-ci-e2e-test --tail 500
-          kubectl logs -l 'component in (transformer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
-          kubectl logs -l 'component in (explainer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
-          kubectl logs $(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" --output=jsonpath="{.items[0].metadata.name}") -n knative-serving
+          ./test/scripts/gh-actions/status-check.sh "kourier"
