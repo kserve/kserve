@@ -249,7 +249,7 @@ jobs:
       - name: Run all E2E tests except graph
         timeout-minutes: 60
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml" "2"
 
           kubectl get pods -n kserve
 
@@ -353,7 +353,7 @@ jobs:
       - name: Run E2E tests with path-based routing
         timeout-minutes: 50
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh fast
+          ./test/scripts/gh-actions/run-e2e-tests.sh "fast" "2"
 
           kubectl get pods -n kserve
 
@@ -413,7 +413,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 90
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh slow
+          ./test/scripts/gh-actions/run-e2e-tests.sh "slow" "2"
 
           kubectl get pods -n kserve
 
@@ -468,7 +468,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh explainer
+          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "2"
 
           kubectl get pods -n kserve
 
@@ -523,7 +523,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms" "2"
 
           kubectl get pods -n kserve
 
@@ -639,7 +639,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "grpc"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "grpc" "2"
           kubectl get pods -n kserve
 
       - name: Check system status
@@ -723,7 +723,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh raw
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "2"
 
           kubectl get pods -n kserve
 
