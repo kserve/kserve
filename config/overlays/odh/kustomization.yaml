@@ -5,5 +5,55 @@ resources:
 - ../../default
 - user-cluster-roles.yaml
 
-patchesStrategicMerge:
-- remove-namespace.yaml
+namespace: opendatahub
+
+patches:
+- path: remove-namespace.yaml
+- path: inferenceservice-config-patch.yaml
+
+replacements:
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldpath: data.kserve-controller
+  targets:
+  - select:
+      kind: Deployment
+      name: kserve-controller-manager
+    fieldPaths:
+    - spec.template.spec.containers.[name=manager].image
+
+configMapGenerator:
+- envs:
+  - params.env
+  name: kserve-parameters
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+vars:
+- fieldref:
+    fieldpath: data.kserve-storage-initializer
+  name: kserve-storage-initializer
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: kserve-parameters
+- fieldref:
+    fieldpath: data.kserve-agent
+  name: kserve-agent
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: kserve-parameters
+- fieldref:
+    fieldpath: data.kserve-router
+  name: kserve-router
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: kserve-parameters
+
+configurations:
+  - params.yaml
+

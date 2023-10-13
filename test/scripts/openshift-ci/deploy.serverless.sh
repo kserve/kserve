@@ -98,6 +98,12 @@ spec:
       enabled: true
 EOF
 
+# Apparently, as part of KNative installation, deployments can be restarted because
+# of configuration changes, leading to waitpodready to fail sometimes.
+# Let's sleep 2minutes to let the KNative operator to stabilize the installation before
+# checking for the readiness of KNative stack.
+sleep 120
+
 waitpodready "knative-serving" "app=controller"
 waitpodready "knative-serving" "app=net-istio-controller"
 waitpodready "knative-serving" "app=net-istio-webhook"
