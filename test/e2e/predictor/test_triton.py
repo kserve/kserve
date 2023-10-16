@@ -77,9 +77,8 @@ def test_triton_runtime_with_transformer():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="pytorch",
+                name="triton",
             ),
-            runtime="kserve-tritonserver",
             storage_uri='gs://kfserving-examples/models/torchscript',
             ports=[V1ContainerPort(name="h2c", protocol="TCP", container_port=9000)],
             resources=V1ResourceRequirements(
