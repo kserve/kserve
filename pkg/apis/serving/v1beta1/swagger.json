@@ -220,6 +220,11 @@
         "resources": {
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "timeout": {
+          "description": "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
+          "type": "integer",
+          "format": "int64"
         }
       }
     },

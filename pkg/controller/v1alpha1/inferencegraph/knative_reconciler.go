@@ -20,6 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -36,10 +39,8 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"strings"
 )
 
 var log = logf.Log.WithName("GraphKsvcReconciler")
@@ -168,6 +169,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 						Annotations: annotations,
 					},
 					Spec: knservingv1.RevisionSpec{
+						TimeoutSeconds: graph.Spec.TimeoutSeconds,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
