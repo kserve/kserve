@@ -25,8 +25,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
 
 	"github.com/go-logr/logr"
@@ -170,7 +172,38 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	deploymentMode := isvcutils.GetDeploymentMode(graph.ObjectMeta.Annotations, deployConfig)
 	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.RawDeployment {
-		err := fmt.Errorf("RawDeployment mode is not supported for InferenceGraph")
+		// create desired service object.
+		desiredSvc := createGraphService(graph, routerConfig)
+
+		//create the reconciler
+		reconciler, err := raw.NewRawKubeReconciler(r.Client, r.Scheme, sets.Empty{}, nil,
+			desiredSvc)
+
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
+		}
+		//set Deployment Controller
+		if err := controllerutil.SetControllerReference(graph, reconciler.Deployment.Deployment, r.Scheme); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for predictor")
+		}
+		//set Service Controller
+		if err := controllerutil.SetControllerReference(graph, reconciler.Service.Service, r.Scheme); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for predictor")
+		}
+		//set autoscaler Controller
+		if reconciler.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
+			if err := controllerutil.SetControllerReference(graph, reconciler.Scaler.Autoscaler.HPA.HPA, r.Scheme); err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "fails to set HPA owner reference for predictor")
+			}
+		}
+
+		//reconcile
+		_, err = reconciler.Reconcile()
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile predictor")
+		}
+
+		err = fmt.Errorf("RawDeployment mode is not supported for InferenceGraph")
 		r.Log.Error(err, "name", graph.GetName())
 		return reconcile.Result{}, err
 	}
