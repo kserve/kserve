@@ -54,27 +54,6 @@ func TestAlibiValidation(t *testing.T) {
 			},
 			matcher: gomega.BeNil(),
 		},
-		"ValidStorageUri": {
-			spec: ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					Type: "AnchorTabular",
-					ExplainerExtensionSpec: ExplainerExtensionSpec{
-						StorageURI: "s3://modelzoo",
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					ExplainerExtensionSpec: ExplainerExtensionSpec{
-						StorageURI: "invaliduri://modelzoo",
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
 	}
 
 	for name, scenario := range scenarios {

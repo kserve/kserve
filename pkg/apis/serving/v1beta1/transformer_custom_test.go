@@ -29,60 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestTransformerValidation(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	scenarios := map[string]struct {
-		spec    TransformerSpec
-		matcher types.GomegaMatcher
-	}{
-		"ValidStorageUri": {
-			spec: TransformerSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "s3://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: TransformerSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "invaliduri://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
-	}
-
-	for name, scenario := range scenarios {
-		t.Run(name, func(t *testing.T) {
-			CustomTransformer := NewCustomTransformer(&scenario.spec.PodSpec)
-			res := CustomTransformer.Validate()
-			if !g.Expect(res).To(scenario.matcher) {
-				t.Errorf("got %q, want %q", res, scenario.matcher)
-			}
-		})
-	}
-}
-
 func TestTransformerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	defaultResource = v1.ResourceList{

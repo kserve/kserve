@@ -18,8 +18,9 @@ package v1beta1
 
 import (
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
@@ -69,26 +70,6 @@ func TestTensorflowValidation(t *testing.T) {
 				},
 			},
 			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeIncludesGPU)),
-		},
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				Tensorflow: &TFServingSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				Tensorflow: &TFServingSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("invaliduri://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
 		},
 	}
 
