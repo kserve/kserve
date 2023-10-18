@@ -102,6 +102,22 @@ replacements:
         options:
           delimiter: '/'
           index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: clusterservingruntime.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: servingruntime.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
 
 patches:
 - path: patches/statefulset.yaml
