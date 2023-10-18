@@ -21308,6 +21308,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: kubeflow/serving-cert
+  creationTimestamp: null
   labels:
     app: kserve
     app.kubernetes.io/name: kserve
@@ -21368,7 +21369,8 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: kserve/serving-cert
+    cert-manager.io/inject-ca-from: kubeflow/serving-cert
+  creationTimestamp: null
   labels:
     app: kserve
     app.kubernetes.io/name: kserve
@@ -21401,6 +21403,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: kubeflow/serving-cert
+  creationTimestamp: null
   labels:
     app: kserve
     app.kubernetes.io/name: kserve
@@ -21433,6 +21436,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: kubeflow/serving-cert
+  creationTimestamp: null
   labels:
     app: kserve
     app.kubernetes.io/name: kserve
@@ -21464,7 +21468,8 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: kserve/serving-cert
+    cert-manager.io/inject-ca-from: kubeflow/serving-cert
+  creationTimestamp: null
   labels:
     app: kserve
     app.kubernetes.io/name: kserve
@@ -21497,6 +21502,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: kubeflow/serving-cert
+  creationTimestamp: null
   labels:
     app: kserve
     app.kubernetes.io/name: kserve
