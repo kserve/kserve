@@ -25,10 +25,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/inferencegraph/reconcilers"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
 
 	"github.com/go-logr/logr"
@@ -145,12 +144,14 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		for i, route := range router.Steps {
 			isvc := v1beta1.InferenceService{}
 			if route.ServiceName != "" {
+				r.Log.Info("provided servicename", "serviceName", route.ServiceName)
 				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.ServiceName}, &isvc)
 				if err == nil {
 					if graph.Spec.Nodes[node].Steps[i].ServiceURL == "" {
 						serviceUrl, err := isvcutils.GetPredictorEndpoint(&isvc)
 						if err == nil {
 							graph.Spec.Nodes[node].Steps[i].ServiceURL = serviceUrl
+							r.Log.Info("url ready", "serviceUrl", serviceUrl)
 						} else {
 							r.Log.Info("inference service is not ready", "name", route.ServiceName)
 							return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.ServiceName)
@@ -174,9 +175,20 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if deploymentMode == constants.RawDeployment {
 		// create desired service object.
 		desiredSvc := createGraphService(graph, routerConfig)
+		r.Log.Info("desired spec:", "desiredspec", desiredSvc)
+
+		r.Log.Info("name:", "meta name", graph.ObjectMeta.Name)
+		r.Log.Info("namespace:", "meta namespace", graph.ObjectMeta.Namespace)
+
+		objectMeta := constructGraphObjectMeta("bmopuriigjenkinstest1", "kserve-test")
+
+		componentExtensionSpec := constructGraphComponentExtensionSpec(graph.ObjectMeta.Annotations)
+		r.Log.Info("objectmeta:", "object meta", objectMeta)
+
+		r.Log.Info("extensionspec:", "extension spec", componentExtensionSpec)
 
 		//create the reconciler
-		reconciler, err := raw.NewRawKubeReconciler(r.Client, r.Scheme, sets.Empty{}, nil,
+		reconciler, err := reconcilers.NewRawKubeReconciler(r.Client, r.Scheme, objectMeta, &componentExtensionSpec,
 			desiredSvc)
 
 		if err != nil {
@@ -184,28 +196,31 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 		//set Deployment Controller
 		if err := controllerutil.SetControllerReference(graph, reconciler.Deployment.Deployment, r.Scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for predictor")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
 		}
 		//set Service Controller
 		if err := controllerutil.SetControllerReference(graph, reconciler.Service.Service, r.Scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for predictor")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for inference graph")
 		}
+
 		//set autoscaler Controller
 		if reconciler.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
 			if err := controllerutil.SetControllerReference(graph, reconciler.Scaler.Autoscaler.HPA.HPA, r.Scheme); err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "fails to set HPA owner reference for predictor")
+				return ctrl.Result{}, errors.Wrapf(err, "fails to set HPA owner reference for inference graph")
 			}
 		}
 
 		//reconcile
 		_, err = reconciler.Reconcile()
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile predictor")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw")
+		} else {
+			return ctrl.Result{}, nil
 		}
 
-		err = fmt.Errorf("RawDeployment mode is not supported for InferenceGraph")
-		r.Log.Error(err, "name", graph.GetName())
-		return reconcile.Result{}, err
+		//err = fmt.Errorf("RawDeployment mode is not supported for InferenceGraph")
+		//r.Log.Error(err, "name", graph.GetName())
+		//return reconcile.Result{}, err
 	}
 	//@TODO check raw deployment mode
 	desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
