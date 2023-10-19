@@ -29,7 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var log = logf.Log.WithName("RawKubeReconciler")
 
 // RawKubeReconciler reconciles the Native K8S Resources
 type RawKubeReconciler struct {
@@ -47,12 +50,16 @@ func NewRawKubeReconciler(client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec) (*RawKubeReconciler, error) {
+
 	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt)
+	log.Info("autoscaler as well", "as", as)
 	if err != nil {
 		return nil, err
 	}
 
 	url, err := createRawURL(client, componentMeta)
+	log.Info("url generated", "url", url)
+	log.Info("name and namespace", "name, namespace", componentMeta)
 	if err != nil {
 		return nil, err
 	}
@@ -90,15 +97,18 @@ func (r *RawKubeReconciler) Reconcile() (*appsv1.Deployment, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	//reconcile Service
 	_, err = r.Service.Reconcile()
 	if err != nil {
 		return nil, err
 	}
-	//reconcile HPA
+	//reconcile Autoscaler
 	_, err = r.Scaler.Reconcile()
+	log.Info("scaler reconciled as well for inference graph")
 	if err != nil {
 		return nil, err
 	}
+
 	return deployment, nil
 }
