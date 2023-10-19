@@ -1,5 +1,5 @@
 kserve:
-  version: &defaultVersion v0.11.0
+  version: &defaultVersion v0.11.1
   modelmeshVersion: &defaultModelMeshVersion v0.11.0
   agent:
     image: kserve/agent
@@ -109,7 +109,7 @@ kserve:
       tag: *defaultVersion
     torchserve:
       image: pytorch/torchserve-kfs
-      tag: 0.8.0
+      tag: 0.8.2
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
     alibi:
       image: kserve/alibi-explainer

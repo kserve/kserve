@@ -37,7 +37,6 @@ var (
 func (p *PMMLSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		ValidateMaxArgumentWorkers(p.Container.Args, 1),
-		validateStorageURI(p.GetStorageUri()),
 		validateStorageSpec(p.GetStorageSpec(), p.GetStorageUri()),
 	})
 }

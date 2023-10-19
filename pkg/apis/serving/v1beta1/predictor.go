@@ -137,7 +137,6 @@ func (s *PredictorSpec) GetExtensions() *ComponentExtensionSpec {
 // Validate returns an error if invalid
 func (p *PredictorExtensionSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(p.GetStorageUri()),
 		// TODO: Re-enable storage spec validation once azure/gcs are supported.
 		// Enabling this currently prevents those storage types from working with ModelMesh.
 		// validateStorageSpec(p.GetStorageSpec(), p.GetStorageUri()),

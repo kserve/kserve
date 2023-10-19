@@ -84,7 +84,7 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 	return storageInitializerConfig, nil
 }
 
-func getContainerSpecForStorageUri(storageUri string, client client.Client) (*v1.Container, error) {
+func GetContainerSpecForStorageUri(storageUri string, client client.Client) (*v1.Container, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := client.List(context.TODO(), storageContainers); err != nil {
 		return nil, err
@@ -358,7 +358,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod, targ
 	// Update initContainer (container spec) from a storage container CR if there is a match,
 	// otherwise initContainer is not updated.
 	// Priority: CR > configMap
-	storageContainerSpec, err := getContainerSpecForStorageUri(srcURI, mi.client)
+	storageContainerSpec, err := GetContainerSpecForStorageUri(srcURI, mi.client)
 	if err != nil {
 		return err
 	}
