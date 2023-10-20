@@ -115,7 +115,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	deploymentMode := isvcutils.GetDeploymentMode(annotations, deployConfig)
-	r.Log.Info("Inference service deployment mode - bmopuri change ", "deployment mode ", deploymentMode)
+	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 
 	if deploymentMode == constants.ModelMeshDeployment {
 		if isvc.Spec.Transformer == nil {

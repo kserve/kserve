@@ -70,21 +70,3 @@ data:
         "enablePrometheusScraping" : "false"
     }
 EOF
-cat >> config/overlays/${OVERLAY}/configmap/inferenceservice_patch.yaml << EOF
-  ingress: |-
-    {
-        "ingressGateway" : "knative-serving/knative-ingress-gateway",
-        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
-        "localGateway" : "knative-serving/knative-local-gateway",
-        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
-        "ingressDomain"  : "svc.cluster.local",
-        "ingressClassName" : "istio",
-        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
-        "urlScheme": "http",
-        "disableIstioVirtualHost": false
-    }
-  deploy: |-
-    {
-      "defaultDeploymentMode": "RawDeployment"
-    }
-EOF
