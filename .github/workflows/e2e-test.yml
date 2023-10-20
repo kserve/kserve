@@ -311,25 +311,10 @@ jobs:
         with:
           image: "kserve/lgbserver:${{ github.sha }}"
 
-      - name: Download pmml image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/pmmlserver:${{ github.sha }}"
-
       - name: Download transformer image
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/image-transformer:${{ github.sha }}"
-
-      - name: Download success_200_isvc predictor image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/success-200-isvc:${{ github.sha }}"
-
-      - name: Download error_404_isvc predictor image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/error-404-isvc:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
