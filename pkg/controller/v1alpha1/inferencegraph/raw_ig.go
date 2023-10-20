@@ -30,7 +30,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 	podSpec := &v1.PodSpec{
 		Containers: []v1.Container{
 			{
-				Name:  "bmopuriigjenkinstest1",
+				Name:  graph.ObjectMeta.Name,
 				Image: config.Image,
 				Args: []string{
 					"--graph-json",
@@ -131,10 +131,8 @@ func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme,
 	}
 
 	//set autoscaler Controller
-	if reconciler.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
-		if err := controllerutil.SetControllerReference(graph, reconciler.Scaler.Autoscaler.HPA.HPA, scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set HPA owner reference for inference graph")
-		}
+	if err := reconciler.Scaler.Autoscaler.SetControllerReferences(graph, scheme); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "fails to set autoscaler owner references for inference graph")
 	}
 
 	//reconcile
