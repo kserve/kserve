@@ -64,7 +64,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				Name:      "resouce-ig",
 				Namespace: "resource-ig-namespace",
 				Annotations: map[string]string{
-					"serving.kserve.io/deploymentMode": string(constants.Serverless),
+					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
 				},
 			},
 
@@ -99,7 +99,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				Name:      "affinity-ig",
 				Namespace: "affinity-ig-namespace",
 				Annotations: map[string]string{
-					"serving.kserve.io/deploymentMode": string(constants.Serverless),
+					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
 				},
 			},
 
@@ -147,7 +147,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				Name:      "env-ig",
 				Namespace: "env-ig-namespace",
 				Annotations: map[string]string{
-					"serving.kserve.io/deploymentMode": string(constants.Serverless),
+					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
 				},
 			},
 
