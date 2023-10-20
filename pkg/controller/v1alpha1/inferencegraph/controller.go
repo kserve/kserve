@@ -25,10 +25,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/inferencegraph/reconcilers"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -47,7 +47,6 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -173,80 +172,42 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	deploymentMode := isvcutils.GetDeploymentMode(graph.ObjectMeta.Annotations, deployConfig)
 	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.RawDeployment {
-		// create desired service object.
-		desiredSvc := createGraphService(graph, routerConfig)
-		r.Log.Info("desired spec:", "desiredspec", desiredSvc)
 
-		r.Log.Info("name:", "meta name", graph.ObjectMeta.Name)
-		r.Log.Info("namespace:", "meta namespace", graph.ObjectMeta.Namespace)
+		_, err = handleInferenceGraphRawDeployment(r.Client, r.Scheme, graph, routerConfig)
 
-		objectMeta := constructGraphObjectMeta("bmopuriigjenkinstest1", "kserve-test")
-
-		componentExtensionSpec := constructGraphComponentExtensionSpec(graph.ObjectMeta.Annotations)
-		r.Log.Info("objectmeta:", "object meta", objectMeta)
-
-		r.Log.Info("extensionspec:", "extension spec", componentExtensionSpec)
-
-		//create the reconciler
-		reconciler, err := reconcilers.NewRawKubeReconciler(r.Client, r.Scheme, objectMeta, &componentExtensionSpec,
-			desiredSvc)
-
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
-		}
-		//set Deployment Controller
-		if err := controllerutil.SetControllerReference(graph, reconciler.Deployment.Deployment, r.Scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
-		}
-		//set Service Controller
-		if err := controllerutil.SetControllerReference(graph, reconciler.Service.Service, r.Scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for inference graph")
-		}
-
-		//set autoscaler Controller
-		if reconciler.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
-			if err := controllerutil.SetControllerReference(graph, reconciler.Scaler.Autoscaler.HPA.HPA, r.Scheme); err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "fails to set HPA owner reference for inference graph")
-			}
-		}
-
-		//reconcile
-		_, err = reconciler.Reconcile()
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw")
-		} else {
-			return ctrl.Result{}, nil
 		}
-
 		//err = fmt.Errorf("RawDeployment mode is not supported for InferenceGraph")
 		//r.Log.Error(err, "name", graph.GetName())
 		//return reconcile.Result{}, err
-	}
-	//@TODO check raw deployment mode
-	desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
-	err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, desired)
-	ksvcStatus, err := knativeReconciler.Reconcile()
-	if err != nil {
-		r.Log.Error(err, "failed to reconcile inference graph ksvc", "name", graph.GetName())
-		return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph ksvc")
-	}
+	} else {
+		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
+		err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, desired)
+		ksvcStatus, err := knativeReconciler.Reconcile()
+		if err != nil {
+			r.Log.Error(err, "failed to reconcile inference graph ksvc", "name", graph.GetName())
+			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph ksvc")
+		}
 
-	r.Log.Info("updating inference graph status", "status", ksvcStatus)
-	graph.Status.Conditions = ksvcStatus.Status.Conditions
-	//@TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status
-	for _, con := range ksvcStatus.Status.Conditions {
-		if con.Type == apis.ConditionReady {
-			if con.Status == "True" {
-				graph.Status.URL = ksvcStatus.URL
-			} else {
-				graph.Status.URL = nil
+		r.Log.Info("updating inference graph status", "status", ksvcStatus)
+		graph.Status.Conditions = ksvcStatus.Status.Conditions
+		//@TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status
+		for _, con := range ksvcStatus.Status.Conditions {
+			if con.Type == apis.ConditionReady {
+				if con.Status == "True" {
+					graph.Status.URL = ksvcStatus.URL
+				} else {
+					graph.Status.URL = nil
+				}
 			}
 		}
 	}
+
 	if err := r.updateStatus(graph); err != nil {
 		r.Recorder.Eventf(graph, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
