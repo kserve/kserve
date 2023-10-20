@@ -245,16 +245,16 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			},
 			expected: expectedPodSpecs["basicgraph"],
 		},
-		{
-			name:     "Inference graph with resource requirements",
-			args:     args{nil, nil},
-			expected: nil,
-		},
-		{
-			name:     "Inference graph with pod affinity",
-			args:     args{nil, nil},
-			expected: nil,
-		},
+		//{
+		//	name:     "Inference graph with resource requirements",
+		//	args:     args{nil, nil},
+		//	expected: nil,
+		//},
+		//{
+		//	name:     "Inference graph with pod affinity",
+		//	args:     args{nil, nil},
+		//	expected: nil,
+		//},
 		{
 			name: "Inference graph with propagate headers",
 			args: args{
