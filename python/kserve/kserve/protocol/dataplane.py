@@ -20,7 +20,7 @@ import orjson
 import ray
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.handle import _DeploymentHandleBase, RayServeSyncHandle
+from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
 
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
@@ -33,6 +33,12 @@ import time
 import logging
 
 JSON_HEADERS = ["application/json", "application/cloudevents+json", "application/ld+json"]
+
+# RayServeHandle used to be the return type of serve.run.
+# RayServeSyncHandle has been the return type of serve.run since Ray 2.5.
+# DeploymentHandle will be the new return type (still under feature flag in Ray 2.7).
+# ref https://github.com/ray-project/ray/pull/37817
+ModelHandleType = Union[Model, RayServeHandle, RayServeSyncHandle, DeploymentHandle]
 
 
 class DataPlane:
@@ -51,23 +57,21 @@ class DataPlane:
     def model_registry(self):
         return self._model_registry
 
-    def get_model_from_registry(self, name: str) -> Union[Model, _DeploymentHandleBase]:
+    def get_model_from_registry(self, name: str) -> ModelHandleType:
         model = self._model_registry.get_model(name)
         if model is None:
             raise ModelNotFound(name)
 
         return model
 
-    def get_model(self, name: str) -> Union[Model, _DeploymentHandleBase]:
+    def get_model(self, name: str) -> ModelHandleType:
         """Get the model instance with the given name.
-
-        The instance can be either ``Model`` or ``_DeploymentHandleBase``.
 
         Args:
             name (str): Model name.
 
         Returns:
-            Model|_DeploymentHandleBase: Instance of the model.
+            ModelHandleType: Instance of the model.
         """
         model = self._model_registry.get_model(name)
         if model is None:
@@ -165,13 +169,16 @@ class DataPlane:
         # TODO: model versioning is not supported yet
         model = self.get_model_from_registry(model_name)
 
-        if not isinstance(model, _DeploymentHandleBase):
+        if isinstance(model, RayServeSyncHandle):
+            input_types = ray.get(model.get_input_types.remote())
+            output_types = ray.get(model.get_output_types.remote())
+        elif isinstance(model, (RayServeHandle, DeploymentHandle)):
+            input_types = await model.get_input_types.remote()
+            output_types = await model.get_output_types.remote()
+        else:
             input_types = model.get_input_types()
             output_types = model.get_output_types()
-        else:
-            model_handle: _DeploymentHandleBase = model
-            input_types = await model_handle.get_input_types.remote()
-            output_types = await model_handle.get_output_types.remote()
+
         return {
             "name": model_name,
             "platform": "",
@@ -310,7 +317,7 @@ class DataPlane:
         model = self.get_model(model_name)
         if isinstance(model, RayServeSyncHandle):
             response = ray.get(model.remote(request, headers=headers))
-        elif isinstance(model, _DeploymentHandleBase):
+        elif isinstance(model, (RayServeHandle, DeploymentHandle)):
             response = await model.remote(request, headers=headers)
         else:
             response = await model(request, headers=headers)
@@ -337,7 +344,7 @@ class DataPlane:
         model = self.get_model(model_name)
         if isinstance(model, RayServeSyncHandle):
             response = ray.get(model.remote(request, model_type=ModelType.EXPLAINER))
-        elif isinstance(model, _DeploymentHandleBase):
+        elif isinstance(model, (RayServeHandle, DeploymentHandle)):
             response = await model.remote(request, model_type=ModelType.EXPLAINER)
         else:
             response = await model(request, model_type=ModelType.EXPLAINER)
