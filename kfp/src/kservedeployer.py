@@ -21,6 +21,7 @@ import time
 import yaml
 
 from kubernetes import client
+from kubernetes.client.models import V1ResourceRequirements
 
 from kserve import constants
 from kserve import KServeClient
@@ -50,8 +51,9 @@ AVAILABLE_FRAMEWORKS = {
 }
 
 
-def create_predictor_spec(framework, storage_uri, canary_traffic_percent,
-                          service_account, min_replicas, max_replicas, containers, request_timeout):
+def create_predictor_spec(framework, runtime_version, resource_requests, resource_limits, 
+                          storage_uri, canary_traffic_percent, service_account, min_replicas, 
+                          max_replicas, containers, request_timeout):
     """
     Create and return V1beta1PredictorSpec to be used in a V1beta1InferenceServiceSpec
     object.
@@ -81,7 +83,14 @@ def create_predictor_spec(framework, storage_uri, canary_traffic_percent,
     setattr(
         predictor_spec,
         framework,
-        AVAILABLE_FRAMEWORKS[framework](storage_uri=storage_uri)
+        AVAILABLE_FRAMEWORKS[framework](
+            storage_uri=storage_uri, 
+            resources=V1ResourceRequirements(
+                requests=resource_requests,
+                limits=resource_limits
+            ),
+            runtime_version=runtime_version
+        )
     )
     return predictor_spec
 
@@ -178,10 +187,10 @@ def submit_api_request(kserve_client, action, name, isvc, namespace=None,
         return outputs
 
 
-def perform_action(action, model_name, model_uri, canary_traffic_percent, namespace,
-                   framework, custom_model_spec, service_account, inferenceservice_yaml,
-                   request_timeout, autoscaling_target=0, enable_istio_sidecar=True,
-                   watch_timeout=300, min_replicas=0, max_replicas=0):
+def perform_action(action, model_name, model_uri, canary_traffic_percent, namespace, framework, 
+                   runtime_version, resource_requests, resource_limits, custom_model_spec, 
+                   service_account, inferenceservice_yaml, request_timeout, autoscaling_target=0, 
+                   enable_istio_sidecar=True, watch_timeout=300, min_replicas=0, max_replicas=0):
     """
     Perform the specified action. If the action is not 'delete' and `inferenceService_yaml`
     was provided, the dict representation of the YAML will be sent directly to the
@@ -224,8 +233,9 @@ def perform_action(action, model_name, model_uri, canary_traffic_percent, namesp
 
         # Build the V1beta1PredictorSpec.
         predictor_spec = create_predictor_spec(
-            framework, model_uri, canary_traffic_percent, service_account,
-            min_replicas, max_replicas, containers, request_timeout
+            framework, runtime_version, resource_requests, resource_limits, 
+            model_uri, canary_traffic_percent, service_account, min_replicas, 
+            max_replicas, containers, request_timeout
         )
 
         isvc = create_inference_service(metadata, predictor_spec)
@@ -288,6 +298,24 @@ def main():
         default=""
     )
     parser.add_argument(
+        "--runtime-version",
+        type=str,
+        help="Runtime Version of Machine Learning Framework",
+        default="latest"
+    )
+    parser.add_argument(
+        "--resource-requests",
+        type=json.loads,
+        help="CPU and Memory requests for Model Serving",
+        default='{"cpu": "0.5", "memory": "512Mi"}',
+    )
+    parser.add_argument(
+        "--resource-limits",
+        type=json.loads,
+        help="CPU and Memory limits for Model Serving",
+        default='{"cpu": "1", "memory": "1Gi"}',
+    )
+    parser.add_argument(
         "--custom-model-spec",
         type=json.loads,
         help="The container spec for a custom model runtime",
@@ -342,6 +370,9 @@ def main():
     canary_traffic_percent = int(args.canary_traffic_percent)
     namespace = args.namespace
     framework = args.framework.lower()
+    runtime_version = args.runtime_version.lower()
+    resource_requests = args.resource_requests
+    resource_limits = args.resource_limits
     output_path = args.output_path
     custom_model_spec = args.custom_model_spec
     autoscaling_target = int(args.autoscaling_target)
@@ -381,6 +412,9 @@ def main():
         canary_traffic_percent=canary_traffic_percent,
         namespace=namespace,
         framework=framework,
+        runtime_version=runtime_version,
+        resource_requests=resource_requests,
+        resource_limits=resource_limits,
         custom_model_spec=custom_model_spec,
         autoscaling_target=autoscaling_target,
         service_account=service_account,
