@@ -478,6 +478,13 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 							Ref: ref("k8s.io/api/core/v1.Affinity"),
 						},
 					},
+					"timeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 				Required: []string{"nodes"},
 			},

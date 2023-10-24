@@ -108,6 +108,7 @@ class ModelServer:
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models)
         self._grpc_server = None
+        self._rest_server = None
         if self.enable_grpc:
             self._grpc_server = GRPCServer(grpc_port, self.dataplane,
                                            self.model_repository_extension)
@@ -180,12 +181,12 @@ class ModelServer:
                 serversocket.bind(('0.0.0.0', self.http_port))
                 serversocket.listen(5)
                 multiprocessing.set_start_method('fork')
-                server = UvicornServer(self.http_port, [serversocket],
-                                       self.dataplane, self.model_repository_extension,
-                                       self.enable_docs_url, log_config=self.log_config,
-                                       access_log_format=self.access_log_format)
+                self._rest_server = UvicornServer(self.http_port, [serversocket],
+                                                  self.dataplane, self.model_repository_extension,
+                                                  self.enable_docs_url, log_config=self.log_config,
+                                                  access_log_format=self.access_log_format)
                 for _ in range(self.workers):
-                    p = Process(target=server.run_sync)
+                    p = Process(target=self._rest_server.run_sync)
                     p.start()
 
         async def servers_task():

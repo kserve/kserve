@@ -50,6 +50,9 @@ type InferenceGraphSpec struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
+	// TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.
+	// +optional
+	TimeoutSeconds *int64 `json:"timeout,omitempty"`
 }
 
 // InferenceRouterType constant for inference routing types
