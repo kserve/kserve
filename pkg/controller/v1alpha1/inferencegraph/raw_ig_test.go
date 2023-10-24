@@ -94,54 +94,6 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			},
 		},
 
-		"withaffinity": {
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "affinity-ig",
-				Namespace: "affinity-ig-namespace",
-				Annotations: map[string]string{
-					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
-				},
-			},
-
-			Spec: v1alpha1.InferenceGraphSpec{
-				Affinity: &v1.Affinity{
-					PodAffinity: &v1.PodAffinity{
-						PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
-							{
-								Weight: 100,
-								PodAffinityTerm: v1.PodAffinityTerm{
-									LabelSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{
-											{
-												Key:      "serving.kserve.io/inferencegraph",
-												Operator: metav1.LabelSelectorOpIn,
-												Values: []string{
-													"affinity-ig",
-												},
-											},
-										},
-									},
-									TopologyKey: "topology.kubernetes.io/zone",
-								},
-							},
-						},
-					},
-				},
-				Nodes: map[string]v1alpha1.InferenceRouter{
-					v1alpha1.GraphRootNodeName: {
-						RouterType: v1alpha1.Sequence,
-						Steps: []v1alpha1.InferenceStep{
-							{
-								InferenceTarget: v1alpha1.InferenceTarget{
-									ServiceURL: "http://someservice.exmaple.com",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-
 		"withenv": {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "env-ig",
@@ -221,17 +173,6 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 		},
 	}
 
-	//obj := metav1.ObjectMeta{
-	//	Name:      "model",
-	//	Namespace: "test",
-	//	Annotations: map[string]string{
-	//		"annotation": "annotation-value",
-	//	},
-	//	Labels: map[string]string{
-	//		"label": "label-value",
-	//	},
-	//}
-
 	scenarios := []struct {
 		name     string
 		args     args
@@ -247,11 +188,6 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 		},
 		//{
 		//	name:     "Inference graph with resource requirements",
-		//	args:     args{nil, nil},
-		//	expected: nil,
-		//},
-		//{
-		//	name:     "Inference graph with pod affinity",
 		//	args:     args{nil, nil},
 		//	expected: nil,
 		//},
@@ -273,5 +209,4 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			}
 		})
 	}
-
 }
