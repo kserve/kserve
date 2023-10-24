@@ -75,6 +75,14 @@ const (
 
 // InferenceService Annotations
 var (
+	InferenceGraphMinScaleAnnotationKey = KServeAPIGroupName + "/min-scale"
+	InferenceGraphMaxScaleAnnotationKey = KServeAPIGroupName + "/max-scale"
+	InferenceGraphTargetAnnotationKey   = KServeAPIGroupName + "/target"
+	InferenceGraphMetricsAnnotationKey  = KServeAPIGroupName + "/metrics"
+)
+
+// InferenceService Annotations
+var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
 	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
 	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
