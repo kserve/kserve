@@ -18,10 +18,12 @@ package inferencegraph
 
 import (
 	"context"
+	"fmt"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -472,6 +474,106 @@ var _ = Describe("Inference Graph controller test", func() {
 			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
 			Expect(err).Should(BeNil())
 			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+		})
+	})
+
+	Context("When creating an inferencegraph in Raw deployment mode with annotations", func() {
+		It("Should create a raw k8s resources with podspec", func() {
+			By("By creating a new InferenceGraph")
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			graphName := "igraw1"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			ctx := context.Background()
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.exmaple.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer k8sClient.Delete(ctx, ig)
+			inferenceGraphSubmitted := &v1alpha1.InferenceGraph{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
+				if err != nil {
+					return false
+				}
+				By("Inference graph retrieved")
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			actualK8sDeploymentCreated := &appsv1.Deployment{}
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, serviceKey, actualK8sDeploymentCreated); err != nil {
+					return false
+				}
+				fmt.Println(actualK8sDeploymentCreated)
+				By("K8s Deployment retrieved")
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			actualK8sServiceCreated := &v1.Service{}
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, serviceKey, actualK8sServiceCreated); err != nil {
+					return false
+				}
+				By("K8s Service retrieved")
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			//No KNative Service should get created in Raw deployment mode
+			actualKnServiceCreated := &knservingv1.Service{}
+			Eventually(func() bool {
+				if err := k8sClient.Get(context.TODO(), serviceKey, actualKnServiceCreated); err != nil {
+					By("KNative Service not retrieved")
+					return false
+				}
+				return true
+			}, timeout).
+				Should(BeFalse())
+
+			//No Knative Route should get created in Raw deployment mode
+			actualKnRouteCreated := &knservingv1.Route{}
+			Eventually(func() bool {
+				if err := k8sClient.Get(context.TODO(), serviceKey, actualKnRouteCreated); err != nil {
+					return false
+				}
+				return true
+			}, timeout).
+				Should(BeFalse())
+
+			var result = int32(1)
+			Expect(actualK8sDeploymentCreated.Name).To(Equal(graphName))
+			Expect(actualK8sDeploymentCreated.Spec.Replicas).To(Equal(&result))
+			//Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers).To(Not(nil))
+			//Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers[0].Image).To(Not(nil))
+			//Expect(cmp.Diff(actualK8sDeploymentCreated.Spec, expectedIGDeployment.Spec)).To(Equal(""))
 		})
 	})
 

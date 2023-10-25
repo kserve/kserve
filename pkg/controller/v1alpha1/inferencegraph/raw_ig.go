@@ -107,7 +107,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme,
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 	log.Info("desired spec:", "desiredspec", desiredSvc)
 
-	objectMeta := constructGraphObjectMeta("bmopuriigjenkinstest1", "kserve-test")
+	objectMeta := constructGraphObjectMeta(graph.ObjectMeta.Name, graph.ObjectMeta.Namespace)
 
 	componentExtensionSpec := constructGraphComponentExtensionSpec(graph.ObjectMeta.Annotations)
 	log.Info("objectmeta:", "object meta", objectMeta)
