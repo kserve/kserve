@@ -231,6 +231,13 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 exact_obj_found = True
             elif object_last_path.startswith(bucket_path_last_part):
                 target_key = obj.key.replace(bucket_path_parent_part, "", 1).lstrip("/")
+
+                # If the object exists inside a folder, we will only take the object.
+                # Example: If the bucket path is s3://test/model
+                # Object: model.pkl
+                # The target key is model/model.pkl, but we need to create the target without the folder.
+                if "/" in target_key:
+                    target_key = target_key.split("/")[-1]
             else:
                 target_key = obj.key.replace(bucket_path, "").lstrip("/")
 
