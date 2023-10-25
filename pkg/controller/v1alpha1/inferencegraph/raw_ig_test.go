@@ -61,7 +61,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 		},
 		"withresource": {
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "resouce-ig",
+				Name:      "resource-ig",
 				Namespace: "resource-ig-namespace",
 				Annotations: map[string]string{
 					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
@@ -171,6 +171,28 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				},
 			},
 		},
+		"withresource": {
+			Containers: []v1.Container{
+				{
+					Image: "kserve/router:v0.10.0",
+					Name:  "resource-ig",
+					Args: []string{
+						"--graph-json",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"500Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}}}",
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							v1.ResourceCPU:    resource.MustParse("100m"),
+							v1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+						Requests: v1.ResourceList{
+							v1.ResourceCPU:    resource.MustParse("100m"),
+							v1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	scenarios := []struct {
@@ -186,11 +208,11 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			},
 			expected: expectedPodSpecs["basicgraph"],
 		},
-		//{
-		//	name:     "Inference graph with resource requirements",
-		//	args:     args{nil, nil},
-		//	expected: nil,
-		//},
+		{
+			name:     "Inference graph with resource requirements",
+			args:     args{testIGSpecs["withresource"], &routerConfig},
+			expected: expectedPodSpecs["withresource"],
+		},
 		{
 			name: "Inference graph with propagate headers",
 			args: args{

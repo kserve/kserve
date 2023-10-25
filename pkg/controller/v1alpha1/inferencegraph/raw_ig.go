@@ -19,7 +19,7 @@ import (
 	"strings"
 )
 
-var logger = logf.Log.WithName("Inference Graph RAWDeploymentMode")
+var logger = logf.Log.WithName("InferenceGraphRAWDeploymentMode")
 
 func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *RouterConfig) *v1.PodSpec {
 	bytes, err := json.Marshal(graph.Spec)
