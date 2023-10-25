@@ -54,17 +54,19 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 
 	// To avoid headers matched more than one time which will lead to duplication of header values
 	matchedHeaders := map[string]bool{}
+	var headersToPropagate []string
 	for _, p := range compiledHeaderPatterns {
 		for h, values := range headers {
 			if _, ok := matchedHeaders[h]; !ok && p.MatchString(h) {
 				matchedHeaders[h] = true
+				headersToPropagate = append(headersToPropagate, h)
 				for _, v := range values {
 					req.Header.Add(h, v)
 				}
 			}
 		}
 	}
-
+	log.Info("These headers will be propagated by the router to all the steps", "headers", headersToPropagate)
 	if val := req.Header.Get("Content-Type"); val == "" {
 		req.Header.Add("Content-Type", "application/json")
 	}
@@ -332,7 +334,7 @@ func main() {
 	flag.Parse()
 	logf.SetLogger(zap.New())
 	if headersToPropagateEnvVar, ok := os.LookupEnv(constants.RouterHeadersPropagateEnvVar); ok {
-		log.Info("The headers that will match these patterns will be propagated by the router to all the steps.",
+		log.Info("The headers that will match these patterns will be propagated by the router to all the steps",
 			"headersToPropagateEnvVar", headersToPropagateEnvVar)
 		compiledHeaderPatterns = compilePatterns(strings.Split(headersToPropagateEnvVar, ","))
 	}
