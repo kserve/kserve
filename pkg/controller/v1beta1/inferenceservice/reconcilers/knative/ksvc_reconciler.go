@@ -36,7 +36,6 @@ import (
 	knserving "knative.dev/serving/pkg/apis/serving"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -234,7 +233,7 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	// Do a dry-run update to avoid diffs generated because knative defaulter webhook is
 	// called when creating or updating the knative service. This will populate our local knative service object with any default values
 	// that are present on the remote version.
-	if err = r.client.Update(context.TODO(), desired, kclient.DryRunAll); err != nil {
+	if err = r.client.Update(context.TODO(), desired, client.DryRunAll); err != nil {
 		log.Error(err, "Failed to perform dry-run create of knative service", "service", desired.Name)
 		return nil, err
 	}

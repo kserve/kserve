@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	knserving "knative.dev/serving/pkg/apis/serving"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -95,6 +96,20 @@ func (r *GraphKnativeServiceReconciler) Reconcile() (*knservingv1.ServiceStatus,
 			log.Info("Creating inference graph knative service", "namespace", desired.Namespace, "name", desired.Name)
 			return &desired.Status, r.client.Create(context.TODO(), desired)
 		}
+		return nil, err
+	}
+
+	// Set ResourceVersion which is required for update operation.
+	desired.ResourceVersion = existing.ResourceVersion
+	// Add immutable annotations to avoid validation error during dry-run update.
+	desired.Annotations[knserving.CreatorAnnotation] = existing.Annotations[knserving.CreatorAnnotation]
+	desired.Annotations[knserving.UpdaterAnnotation] = existing.Annotations[knserving.UpdaterAnnotation]
+
+	// Do a dry-run update to avoid diffs generated because knative defaulter webhook is
+	// called when creating or updating the knative service. This will populate our local knative service object with any default values
+	// that are present on the remote version.
+	if err = r.client.Update(context.TODO(), desired, client.DryRunAll); err != nil {
+		log.Error(err, "Failed to perform dry-run create of knative service", "service", desired.Name)
 		return nil, err
 	}
 
@@ -199,10 +214,6 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 			},
 		}
 	}
-
-	//Call setDefaults on desired knative service here to avoid diffs generated because knative defaulter webhook is
-	//called when creating or updating the knative service
-	service.SetDefaults(context.TODO())
 	return service
 }
 
