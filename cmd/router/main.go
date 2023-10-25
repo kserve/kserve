@@ -52,7 +52,8 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		return nil, 500, err
 	}
 
-	matchedHeaders := map[string]bool{} // To avoid headers matched more than one time which will lead to duplication of header values
+	// To avoid headers matched more than one time which will lead to duplication of header values
+	matchedHeaders := map[string]bool{}
 	for _, p := range compiledHeaderPatterns {
 		for h, values := range headers {
 			if _, ok := matchedHeaders[h]; !ok && p.MatchString(h) {
@@ -76,12 +77,12 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			log.Error(err, "an error has occurred while closing the response body")
+			log.Error(err, "An error has occurred while closing the response body")
 		}
 	}(resp.Body)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Error(err, "error while reading the response")
+		log.Error(err, "Error while reading the response")
 	}
 	return body, resp.StatusCode, err
 }
@@ -314,7 +315,7 @@ func compilePatterns(patterns []string) []*regexp.Regexp {
 	for _, p := range patterns {
 		c, err := regexp.Compile(p)
 		if err != nil {
-			log.Error(err, "failed to compile header pattern", "pattern", p)
+			log.Error(err, "Failed to compile header pattern", "pattern", p)
 		} else {
 			compiled = append(compiled, c)
 		}
@@ -331,7 +332,7 @@ func main() {
 	flag.Parse()
 	logf.SetLogger(zap.New())
 	if headersToPropagateEnvVar, ok := os.LookupEnv(constants.RouterHeadersPropagateEnvVar); ok {
-		log.Info("the headers that will match these pattern will be propagated by the router to all the steps.",
+		log.Info("The headers that will match these patterns will be propagated by the router to all the steps.",
 			"headersToPropagateEnvVar", headersToPropagateEnvVar)
 		compiledHeaderPatterns = compilePatterns(strings.Split(headersToPropagateEnvVar, ","))
 	}

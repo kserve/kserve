@@ -341,7 +341,7 @@ data:
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
            "cpuLimit": "1",
-           "Headers": {
+           "headers": {
              "propagate": []
            }
        }
@@ -364,8 +364,9 @@ data:
            "cpuLimit": "1"
 
            # Propagate the specified headers to all the steps specified in an InferenceGraph.
-           # You can either specify the exact header names or use Golang supported regex patterns to propagate multiple headers.
-           "Headers": {
+           # You can either specify the exact header names or use [Golang supported regex patterns]
+           # (https://pkg.go.dev/regexp/syntax@go1.21.3#hdr-Syntax) to propagate multiple headers.
+           "headers": {
              "propagate": [
                 "Authorization",
                 "Test-Header-*",
