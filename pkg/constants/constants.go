@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/network"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/networking/pkg/http/header"
 )
 
 // KServe Constants
@@ -77,7 +78,7 @@ const (
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
 	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
-	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
+	EnableTagRoutingAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
 	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
@@ -226,7 +227,8 @@ const (
 )
 
 var (
-	LocalGatewayHost = "knative-local-gateway.istio-system.svc." + network.GetClusterDomainName()
+	LocalGatewayHost         = "knative-local-gateway.istio-system.svc." + network.GetClusterDomainName()
+	TagBasedRoutingHeaderKey = strings.ToLower(header.RouteTagKey)
 )
 
 // InferenceService Component enums
@@ -277,6 +279,8 @@ const (
 const (
 	InferenceServiceDefault = "default"
 	InferenceServiceCanary  = "canary"
+	LatestRevisionTag       = "latest"
+	PrevRevisionTag         = "prev"
 )
 
 // InferenceService model server args

@@ -237,13 +237,26 @@ func createHTTPRouteDestination(gatewayService string) *istiov1beta1.HTTPRouteDe
 	return httpRouteDestination
 }
 
-func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool, config *v1beta1.IngressConfig) []*istiov1beta1.HTTPMatchRequest {
+func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool, config *v1beta1.IngressConfig,
+	headers *map[string]string) []*istiov1beta1.HTTPMatchRequest {
 	var uri *istiov1beta1.StringMatch
+	var headersMatch map[string]*istiov1beta1.StringMatch
+
 	if prefix != "" {
 		uri = &istiov1beta1.StringMatch{
 			MatchType: &istiov1beta1.StringMatch_Regex{
 				Regex: prefix,
 			},
+		}
+	}
+	if headers != nil {
+		headersMatch = map[string]*istiov1beta1.StringMatch{}
+		for h, v := range *headers {
+			headersMatch[h] = &istiov1beta1.StringMatch{
+				MatchType: &istiov1beta1.StringMatch_Exact{
+					Exact: v,
+				},
+			}
 		}
 	}
 	matchRequests := []*istiov1beta1.HTTPMatchRequest{
@@ -254,6 +267,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 					Regex: constants.HostRegExp(internalHost),
 				},
 			},
+			Headers:  headersMatch,
 			Gateways: []string{config.LocalGateway},
 		},
 	}
@@ -266,6 +280,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 						Regex: constants.HostRegExp(targetHost),
 					},
 				},
+				Headers:  headersMatch,
 				Gateways: []string{config.IngressGateway},
 			})
 	}
@@ -286,11 +301,13 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		return nil
 	}
 	backend := constants.PredictorServiceName(isvc.Name)
+	component := v1beta1.PredictorComponent
 	if useDefault {
 		backend = constants.DefaultPredictorServiceName(isvc.Name)
 	}
 
 	if isvc.Spec.Transformer != nil {
+		component = v1beta1.TransformerComponent
 		backend = constants.TransformerServiceName(isvc.Name)
 		if useDefault {
 			backend = constants.DefaultTransformerServiceName(isvc.Name)
@@ -318,6 +335,16 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	if serviceHost == serviceInternalHostName {
 		isInternal = true
 	}
+	hosts := []string{
+		network.GetServiceHostname(isvc.Name, isvc.Namespace),
+	}
+	gateways := []string{
+		config.LocalGateway,
+	}
+	if !isInternal {
+		hosts = append(hosts, serviceHost)
+		gateways = append(gateways, config.IngressGateway)
+	}
 	httpRoutes := []*istiov1beta1.HTTPRoute{}
 	// Build explain route
 	expBackend := constants.ExplainerServiceName(isvc.Name)
@@ -337,9 +364,49 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			})
 			return nil
 		}
+
+		// Tag header based routing
+		// Should be before explainer general routing rule
+		if value, ok := isvc.Annotations[constants.EnableTagRoutingAnnotationKey]; ok && value == "true" {
+			httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
+				Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
+					network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config,
+					&map[string]string{constants.TagBasedRoutingHeaderKey: constants.LatestRevisionTag}),
+				Route: []*istiov1beta1.HTTPRouteDestination{
+					createHTTPRouteDestination(config.LocalGatewayServiceName),
+				},
+				Headers: &istiov1beta1.Headers{
+					Request: &istiov1beta1.Headers_HeaderOperations{
+						Set: map[string]string{
+							"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(expBackend, isvc.Namespace)),
+						},
+					},
+				},
+			})
+			// Create the rule only if previous revision exist
+			if status, ok := isvc.Status.Components[v1beta1.ExplainerComponent]; ok && len(status.Traffic) > 1 {
+				httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
+					Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
+						network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config,
+						&map[string]string{constants.TagBasedRoutingHeaderKey: constants.PrevRevisionTag}),
+					Route: []*istiov1beta1.HTTPRouteDestination{
+						createHTTPRouteDestination(config.LocalGatewayServiceName),
+					},
+					Headers: &istiov1beta1.Headers{
+						Request: &istiov1beta1.Headers_HeaderOperations{
+							Set: map[string]string{
+								"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(expBackend, isvc.Namespace)),
+							},
+						},
+					},
+				})
+			}
+
+		}
+
 		explainerRouter := istiov1beta1.HTTPRoute{
 			Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
-				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
+				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config, nil),
 			Route: []*istiov1beta1.HTTPRouteDestination{
 				createHTTPRouteDestination(config.LocalGatewayServiceName),
 			},
@@ -353,10 +420,47 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		}
 		httpRoutes = append(httpRoutes, &explainerRouter)
 	}
+
 	// Add predict route
+	// Tag header based routing
+	// Should be before predictor general routing rule
+	if value, ok := isvc.Annotations[constants.EnableTagRoutingAnnotationKey]; ok && value == "true" {
+		httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
+			Match: createHTTPMatchRequest("", serviceHost, network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config,
+				&map[string]string{constants.TagBasedRoutingHeaderKey: constants.LatestRevisionTag}),
+			Route: []*istiov1beta1.HTTPRouteDestination{
+				createHTTPRouteDestination(config.LocalGatewayServiceName),
+			},
+			Headers: &istiov1beta1.Headers{
+				Request: &istiov1beta1.Headers_HeaderOperations{
+					Set: map[string]string{
+						"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(backend, isvc.Namespace)),
+					},
+				},
+			},
+		})
+		// Create the rule only if previous revision exist
+		if status, ok := isvc.Status.Components[component]; ok && len(status.Traffic) > 1 {
+			httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
+				Match: createHTTPMatchRequest("", serviceHost, network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config,
+					&map[string]string{constants.TagBasedRoutingHeaderKey: constants.PrevRevisionTag}),
+				Route: []*istiov1beta1.HTTPRouteDestination{
+					createHTTPRouteDestination(config.LocalGatewayServiceName),
+				},
+				Headers: &istiov1beta1.Headers{
+					Request: &istiov1beta1.Headers_HeaderOperations{
+						Set: map[string]string{
+							"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(backend, isvc.Namespace)),
+						},
+					},
+				},
+			})
+		}
+	}
+
 	httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
 		Match: createHTTPMatchRequest("", serviceHost,
-			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
+			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config, nil),
 		Route: []*istiov1beta1.HTTPRouteDestination{
 			createHTTPRouteDestination(config.LocalGatewayServiceName),
 		},
@@ -368,16 +472,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			},
 		},
 	})
-	hosts := []string{
-		network.GetServiceHostname(isvc.Name, isvc.Namespace),
-	}
-	gateways := []string{
-		config.LocalGateway,
-	}
-	if !isInternal {
-		hosts = append(hosts, serviceHost)
-		gateways = append(gateways, config.IngressGateway)
-	}
+
 	if config.PathTemplate != "" {
 		path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, config)
 		if err != nil {
@@ -388,6 +483,129 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		url.Path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
 		url.Host = config.IngressDomain
 		// In this case, we have a path-based URL so we add a path-based rule
+
+		// Tag header based routing
+		// Should be before general routing rule
+		if value, ok := isvc.Annotations[constants.EnableTagRoutingAnnotationKey]; ok && value == "true" {
+			httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
+				Match: []*istiov1beta1.HTTPMatchRequest{
+					{
+						Uri: &istiov1beta1.StringMatch{
+							MatchType: &istiov1beta1.StringMatch_Prefix{
+								Prefix: url.Path + "/",
+							},
+						},
+						Authority: &istiov1beta1.StringMatch{
+							MatchType: &istiov1beta1.StringMatch_Regex{
+								Regex: constants.HostRegExp(url.Host),
+							},
+						},
+						Headers: map[string]*istiov1beta1.StringMatch{
+							constants.TagBasedRoutingHeaderKey: {
+								MatchType: &istiov1beta1.StringMatch_Exact{
+									Exact: constants.LatestRevisionTag,
+								},
+							},
+						},
+						Gateways: []string{config.IngressGateway},
+					},
+					{
+						Uri: &istiov1beta1.StringMatch{
+							MatchType: &istiov1beta1.StringMatch_Exact{
+								Exact: url.Path,
+							},
+						},
+						Authority: &istiov1beta1.StringMatch{
+							MatchType: &istiov1beta1.StringMatch_Regex{
+								Regex: constants.HostRegExp(url.Host),
+							},
+						},
+						Headers: map[string]*istiov1beta1.StringMatch{
+							constants.TagBasedRoutingHeaderKey: {
+								MatchType: &istiov1beta1.StringMatch_Exact{
+									Exact: constants.LatestRevisionTag,
+								},
+							},
+						},
+						Gateways: []string{config.IngressGateway},
+					},
+				},
+				Rewrite: &istiov1beta1.HTTPRewrite{
+					Uri: "/",
+				},
+				Route: []*istiov1beta1.HTTPRouteDestination{
+					createHTTPRouteDestination(config.LocalGatewayServiceName),
+				},
+				Headers: &istiov1beta1.Headers{
+					Request: &istiov1beta1.Headers_HeaderOperations{
+						Set: map[string]string{
+							"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(backend, isvc.Namespace)),
+						},
+					},
+				},
+			})
+			// Create the rule only if previous revision exist
+			if status, ok := isvc.Status.Components[component]; ok && len(status.Traffic) > 1 {
+				httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
+					Match: []*istiov1beta1.HTTPMatchRequest{
+						{
+							Uri: &istiov1beta1.StringMatch{
+								MatchType: &istiov1beta1.StringMatch_Prefix{
+									Prefix: url.Path + "/",
+								},
+							},
+							Authority: &istiov1beta1.StringMatch{
+								MatchType: &istiov1beta1.StringMatch_Regex{
+									Regex: constants.HostRegExp(url.Host),
+								},
+							},
+							Headers: map[string]*istiov1beta1.StringMatch{
+								constants.TagBasedRoutingHeaderKey: {
+									MatchType: &istiov1beta1.StringMatch_Exact{
+										Exact: constants.PrevRevisionTag,
+									},
+								},
+							},
+							Gateways: []string{config.IngressGateway},
+						},
+						{
+							Uri: &istiov1beta1.StringMatch{
+								MatchType: &istiov1beta1.StringMatch_Exact{
+									Exact: url.Path,
+								},
+							},
+							Authority: &istiov1beta1.StringMatch{
+								MatchType: &istiov1beta1.StringMatch_Regex{
+									Regex: constants.HostRegExp(url.Host),
+								},
+							},
+							Headers: map[string]*istiov1beta1.StringMatch{
+								constants.TagBasedRoutingHeaderKey: {
+									MatchType: &istiov1beta1.StringMatch_Exact{
+										Exact: constants.PrevRevisionTag,
+									},
+								},
+							},
+							Gateways: []string{config.IngressGateway},
+						},
+					},
+					Rewrite: &istiov1beta1.HTTPRewrite{
+						Uri: "/",
+					},
+					Route: []*istiov1beta1.HTTPRouteDestination{
+						createHTTPRouteDestination(config.LocalGatewayServiceName),
+					},
+					Headers: &istiov1beta1.Headers{
+						Request: &istiov1beta1.Headers_HeaderOperations{
+							Set: map[string]string{
+								"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(backend, isvc.Namespace)),
+							},
+						},
+					},
+				})
+			}
+		}
+
 		httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
 			Match: []*istiov1beta1.HTTPMatchRequest{
 				{
