@@ -69,7 +69,7 @@ class Model:
         """
         self.name = name
         self.ready = False
-        self.protocol = PredictorProtocol.REST_V1.value
+        self.protocol = PredictorProtocol.REST_V2.value
         self.predictor_host = None
         self.explainer_host = None
         # The timeout matches what is set in generated Istio resources.
