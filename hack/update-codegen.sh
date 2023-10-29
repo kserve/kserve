@@ -22,11 +22,14 @@ KUBE_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 CODEGEN_VERSION=$(cd "${KUBE_ROOT}" && grep 'k8s.io/code-generator' go.mod | awk '{print $2}')
 
 if [ -z "${GOPATH:-}" ]; then
-    export GOPATH=$(go env GOPATH)
+    GOPATH=$(go env GOPATH)
+    export GOPATH
 fi
 CODEGEN_PKG="$GOPATH/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
 
+# To avoid permission denied error
 chmod +x "${CODEGEN_PKG}/generate-groups.sh"
+chmod +x "${CODEGEN_PKG}/generate-internal-groups.sh"
 
 # We can not generate client-go for v1alpha1 and v1beta1 and add them to the same directory.
 # So, we add each to a separate directory.
