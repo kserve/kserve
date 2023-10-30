@@ -602,3 +602,59 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 	fmt.Printf("final response:%v\n", response)
 	assert.Equal(t, expectedResponse, response)
 }
+
+func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing.T) {
+	// Start a local HTTP server
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		// Putting headers as part of response so that we can assert the headers' presence later
+		response := make(map[string]interface{})
+		response["predictions"] = "1"
+		matchedHeaders := map[string]bool{}
+		for _, p := range compiledHeaderPatterns {
+			for h, values := range req.Header {
+				if _, ok := matchedHeaders[h]; !ok && p.MatchString(h) {
+					matchedHeaders[h] = true
+					response[h] = values[0]
+				}
+			}
+		}
+		responseBytes, err := json.Marshal(response)
+		_, err = rw.Write(responseBytes)
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model1.Close()
+
+	input := map[string]interface{}{
+		"instances": []string{
+			"test",
+			"test2",
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{
+		"Authorization": {"Bearer Token"},
+		"Test-Header-1": {"Test-Header-1"},
+		"Test-Header-2": {"Test-Header-2"},
+		"Test-Header-3": {"Test-Header-3"},
+	}
+	// Using invalid regex pattern
+	headersToPropagate := []string{"Test-Header-[0-9", "Auth*"}
+	compiledHeaderPatterns = compilePatterns(headersToPropagate)
+	res, _, err := callService(model1Url.String(), jsonBytes, headers)
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	// Invalid pattern should be ignored.
+	expectedResponse := map[string]interface{}{
+		"predictions":   "1",
+		"Authorization": "Bearer Token",
+	}
+	fmt.Printf("final response:%v\n", response)
+	assert.Equal(t, expectedResponse, response)
+}
