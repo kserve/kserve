@@ -232,12 +232,23 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             elif object_last_path.startswith(bucket_path_last_part):
                 target_key = obj.key.replace(bucket_path_parent_part, "", 1).lstrip("/")
 
-                # If the object exists inside a folder, we will only take the object.
-                # Example: If the bucket path is s3://test/model
+                # Example: If the bucket path is s3://mlflow/test/artifacts/model
                 # Object: model.pkl
-                # The target key is model/model.pkl, but we need to create the target without the folder.
+                # obj.key: test/artifacts/model/model.pkl
+                # bucket_path_last_part: model
+                # object_last_path: model.pkl
+                # bucket_path_parent_part -> test/artifacts
+                # target_key -> model/model.pkl
+
+                # If the object is in a folder, and the folder's name matches the start of the object's name,
+                # we exclude the folder's name from the target key. We're already searching in the parent folder,
+                # so there's no need to include the folder name in the target.
+
                 if "/" in target_key:
-                    target_key = target_key.split("/")[-1]
+                    target_key_parent_folder = target_key.split("/")[0]
+                    target_key_obj = target_key.split("/")[-1]
+                    if target_key_obj.startswith(target_key_parent_folder):
+                        target_key = target_key.replace((target_key.split("/")[0]+'/'), "", 1)
             else:
                 target_key = obj.key.replace(bucket_path, "").lstrip("/")
 
