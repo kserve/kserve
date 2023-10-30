@@ -93,7 +93,7 @@ var (
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
 	DefaultPrometheusPath                       = "/metrics"
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
-	DefaultPodPrometheusPort                    = "9090"
+	DefaultPodPrometheusPort                    = "9091"
 )
 
 // InferenceService Internal Annotations
