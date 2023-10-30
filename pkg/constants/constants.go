@@ -73,7 +73,7 @@ const (
 	AgentModelDirArgName  = "--model-dir"
 )
 
-// InferenceService Annotations
+// InferenceGraph Annotations
 var (
 	InferenceGraphMinScaleAnnotationKey = KServeAPIGroupName + "/min-scale"
 	InferenceGraphMaxScaleAnnotationKey = KServeAPIGroupName + "/max-scale"

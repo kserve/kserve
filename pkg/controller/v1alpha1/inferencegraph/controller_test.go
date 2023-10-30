@@ -571,9 +571,9 @@ var _ = Describe("Inference Graph controller test", func() {
 			var result = int32(1)
 			Expect(actualK8sDeploymentCreated.Name).To(Equal(graphName))
 			Expect(actualK8sDeploymentCreated.Spec.Replicas).To(Equal(&result))
-			//Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers).To(Not(nil))
-			//Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers[0].Image).To(Not(nil))
-			//Expect(cmp.Diff(actualK8sDeploymentCreated.Spec, expectedIGDeployment.Spec)).To(Equal(""))
+			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers).To(Not(BeNil()))
+			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers[0].Image).To(Not(BeNil()))
+			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers[0].Args).To(Not(BeNil()))
 		})
 	})
 
