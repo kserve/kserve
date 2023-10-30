@@ -257,9 +257,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 					},
+					RouteSpec: knservingv1.RouteSpec{
+						Traffic: []knservingv1.TrafficTarget{{LatestRevision: proto.Bool(true), Percent: proto.Int64(100)}},
+					},
 				},
 			}
-			expectedService.SetDefaults(context.TODO())
+			// Set ResourceVersion which is required for update operation.
+			expectedService.ResourceVersion = actualService.ResourceVersion
+
+			// Do a dry-run update. This will populate our local knative service object with any default values
+			// that are present on the remote version.
+			err := k8sClient.Update(context.TODO(), expectedService, client.DryRunAll)
+			Expect(err).Should(BeNil())
 			Expect(kmp.SafeDiff(actualService.Spec, expectedService.Spec)).To(Equal(""))
 			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			// update predictor
@@ -557,7 +566,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			expectedTransformerService.SetDefaults(context.TODO())
+			// Set ResourceVersion which is required for update operation.
+			expectedTransformerService.ResourceVersion = transformerService.ResourceVersion
+
+			// Do a dry-run update. This will populate our local knative service object with any default values
+			// that are present on the remote version.
+			err := k8sClient.Update(context.TODO(), expectedTransformerService, client.DryRunAll)
+			Expect(err).Should(BeNil())
 			Expect(cmp.Diff(transformerService.Spec, expectedTransformerService.Spec)).To(gomega.Equal(""))
 
 			// mock update knative service status since knative serving controller is not running in test
@@ -852,7 +867,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			expectedExplainerService.SetDefaults(context.TODO())
+			// Set ResourceVersion which is required for update operation.
+			expectedExplainerService.ResourceVersion = explainerService.ResourceVersion
+
+			// Do a dry-run update. This will populate our local knative service object with any default values
+			// that are present on the remote version.
+			err := k8sClient.Update(context.TODO(), explainerService, client.DryRunAll)
+			Expect(err).Should(BeNil())
 			Expect(cmp.Diff(explainerService.Spec, expectedExplainerService.Spec)).To(gomega.Equal(""))
 
 			// mock update knative service status since knative serving controller is not running in test
@@ -1472,7 +1493,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 
-			expectedPredictorService.SetDefaults(context.TODO())
+			// Set ResourceVersion which is required for update operation.
+			expectedPredictorService.ResourceVersion = predictorService.ResourceVersion
+
+			// Do a dry-run update. This will populate our local knative service object with any default values
+			// that are present on the remote version.
+			err := k8sClient.Update(context.TODO(), predictorService, client.DryRunAll)
+			Expect(err).Should(BeNil())
 			Expect(cmp.Diff(predictorService.Spec, expectedPredictorService.Spec)).To(gomega.Equal(""))
 
 		})
