@@ -303,6 +303,9 @@ const (
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 
+// Default path to mount CA bundle secret volume
+const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
+
 // Multi-model InferenceService
 const (
 	ModelConfigVolumeName = "model-config"
