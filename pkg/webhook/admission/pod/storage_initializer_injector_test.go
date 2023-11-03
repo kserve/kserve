@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package pod
 
 import (
@@ -41,6 +42,8 @@ const (
 	StorageInitializerDefaultCPULimit                   = "1"
 	StorageInitializerDefaultMemoryRequest              = "200Mi"
 	StorageInitializerDefaultMemoryLimit                = "1Gi"
+	StorageInitializerDefaultCaBundleSecretName         = ""
+	StorageInitializerDefaultCaBundleVolumeMountPath    = "/etc/ssl/custom-certs"
 	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
 )
 
@@ -50,6 +53,8 @@ var (
 		CpuLimit:                   StorageInitializerDefaultCPULimit,
 		MemoryRequest:              StorageInitializerDefaultMemoryRequest,
 		MemoryLimit:                StorageInitializerDefaultMemoryLimit,
+		CaBundleSecretName:         StorageInitializerDefaultCaBundleSecretName,
+		CaBundleVolumeMountPath:    StorageInitializerDefaultCaBundleVolumeMountPath,
 		EnableDirectPvcVolumeMount: StorageInitializerDefaultEnableDirectPvcVolumeMount,
 	}
 
@@ -1034,11 +1039,13 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
-				Image:         "kserve/storage-initializer@sha256:xxx",
-				CpuRequest:    StorageInitializerDefaultCPURequest,
-				CpuLimit:      StorageInitializerDefaultCPULimit,
-				MemoryRequest: StorageInitializerDefaultMemoryRequest,
-				MemoryLimit:   StorageInitializerDefaultMemoryLimit,
+				Image:                   "kserve/storage-initializer@sha256:xxx",
+				CpuRequest:              StorageInitializerDefaultCPURequest,
+				CpuLimit:                StorageInitializerDefaultCPULimit,
+				MemoryRequest:           StorageInitializerDefaultMemoryRequest,
+				MemoryLimit:             StorageInitializerDefaultMemoryLimit,
+				CaBundleSecretName:      StorageInitializerDefaultCaBundleSecretName,
+				CaBundleVolumeMountPath: StorageInitializerDefaultCaBundleVolumeMountPath,
 			},
 			client: c,
 		}
@@ -1069,18 +1076,22 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 						"CpuRequest":   		 "100m",
 						"CpuLimit":      		 "1",
 						"MemoryRequest": 		 "200Mi",
-						"MemoryLimit":   		 "1Gi"
+						"MemoryLimit":   		 "1Gi",
+						"CaBundleSecretName":      "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
 					}`,
 				},
 				BinaryData: map[string][]byte{},
 			},
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&StorageInitializerConfig{
-					Image:         "gcr.io/kserve/storage-initializer:latest",
-					CpuRequest:    "100m",
-					CpuLimit:      "1",
-					MemoryRequest: "200Mi",
-					MemoryLimit:   "1Gi",
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200Mi",
+					MemoryLimit:             "1Gi",
+					CaBundleSecretName:      "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
 				}),
 				gomega.BeNil(),
 			},
@@ -1096,18 +1107,22 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 						"CpuRequest":   		 "100m",
 						"CpuLimit":      		 "1",
 						"MemoryRequest": 		 "200MC",
-						"MemoryLimit":   		 "1Gi"
+						"MemoryLimit":   		 "1Gi",
+						"CaBundleSecretName":      "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
 					}`,
 				},
 				BinaryData: map[string][]byte{},
 			},
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&StorageInitializerConfig{
-					Image:         "gcr.io/kserve/storage-initializer:latest",
-					CpuRequest:    "100m",
-					CpuLimit:      "1",
-					MemoryRequest: "200MC",
-					MemoryLimit:   "1Gi",
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200MC",
+					MemoryLimit:             "1Gi",
+					CaBundleSecretName:      "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
 				}),
 				gomega.HaveOccurred(),
 			},
@@ -1156,6 +1171,173 @@ func TestParsePvcURI(t *testing.T) {
 			g.Expect(err).Should(tc.matchers[2])
 		})
 
+	}
+}
+
+func TestCaBundleSecretVolumeMount(t *testing.T) {
+	scenarios := map[string]struct {
+		storageConfig *StorageInitializerConfig
+		original      *v1.Pod
+		expected      *v1.Pod
+	}{
+		"StorageInitializerInjectedAndMountsCaBundleSecretVolume": {
+			storageConfig: &StorageInitializerConfig{
+				Image:              "kserve/storage-initializer:latest",
+				CpuRequest:         "100m",
+				CpuLimit:           "1",
+				MemoryRequest:      "200Mi",
+				MemoryLimit:        "1Gi",
+				CaBundleSecretName: "custom-certs", // enable CA bundle secret volume mount
+			},
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+								{
+									Name:      "custom-certs",
+									MountPath: constants.DefaultCaBundleVolumeMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "custom-certs",
+							VolumeSource: v1.VolumeSource{
+								Secret: &v1.SecretVolumeSource{
+									SecretName: "custom-certs",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"StorageInitializerNotInjectedAndMountsCaBundleSecretVolume": {
+			storageConfig: storageInitializerConfig,
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: scenario.storageConfig,
+			client: c,
+		}
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
 	}
 }
 

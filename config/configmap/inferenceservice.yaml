@@ -10,7 +10,7 @@ data:
     #    EXAMPLE CONFIGURATION     #
     #                              #
     ################################
-    
+
     # This block is not actually functional configuration,
     # but serves to illustrate the available configuration
     # options and document them in a way that is accessible
@@ -19,7 +19,7 @@ data:
     # These sample configuration options may be copied out of
     # this example block and unindented to be in the data block
     # to actually change the configuration.
-    
+
     # ====================================== EXPLAINERS CONFIGURATION ======================================
     # Example
     explainers: |-
@@ -417,6 +417,8 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
+        "caBundleSecretName": "",
+        "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
         "enableDirectPvcVolumeMount": false
     }
 
