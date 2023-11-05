@@ -344,3 +344,48 @@ spec:
         limits:
           cpu: "1"
           memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-ovms
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8888'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: openvino_ir
+      version: opset11
+      autoSelect: true
+    - name: onnx
+      version: "1"
+    - name: tensorflow
+      version: "1"
+      autoSelect: true
+    - name: tensorflow
+      version: "2"
+      autoSelect: true
+    - name: paddle
+      version: "2"
+      autoSelect: true
+  protocolVersions:
+    - v2
+    - grpc-v2
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.ovms.image }}:{{ .Values.kserve.servingruntime.ovms.tag }}"
+      args:
+        - --model_name={{.Name}}
+        - --port=8001
+        - --rest_port=8888
+        - --model_path=/mnt/models
+        - --file_system_poll_wait_seconds=0
+        - --grpc_bind_address=127.0.0.1
+        - --rest_bind_address=127.0.0.1
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
