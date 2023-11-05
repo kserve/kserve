@@ -64,6 +64,19 @@ class ModelNotFound(Exception):
         return self.reason
 
 
+class WorkersShouldBeLessThanMaxWorkersError(Exception):
+    """
+    Exception class indicating provided workers greater than the maximum workers allowed.
+    HTTP Servers should return HTTP_404 (Not Found).
+    """
+
+    def __init__(self, max_workers=None):
+        self.reason = f"Workers cannot be greater than {max_workers}"
+
+    def __str__(self):
+        return self.reason
+
+
 class ModelNotReady(RuntimeError):
     def __init__(self, model_name: str, detail: str = None):
         self.model_name = model_name

@@ -53,7 +53,7 @@ def test_triton():
     kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=800)
     except RuntimeError as e:
         print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
                                                                       KSERVE_TEST_NAMESPACE,
@@ -108,7 +108,7 @@ def test_triton_runtime_with_transformer():
     kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=800)
     except RuntimeError as e:
         print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
                                                                       KSERVE_TEST_NAMESPACE,

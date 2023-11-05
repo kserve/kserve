@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -318,40 +317,5 @@ func TestRejectBadNameIncludeDot(t *testing.T) {
 	isvc.Name = "abc.de"
 	warnings, err := isvc.ValidateCreate()
 	g.Expect(err).ShouldNot(gomega.Succeed())
-	g.Expect(warnings).Should(gomega.BeEmpty())
-}
-
-func TestPMMLWorkersArguments(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	isvc := InferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-		},
-		Spec: InferenceServiceSpec{
-			Predictor: PredictorSpec{
-				PMML: &PMMLSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("gs://testbucket/testmodel"),
-					},
-				},
-			},
-		},
-	}
-
-	isvc.Spec.Predictor.PMML.Container.Args = []string{"--workers=2"}
-	warnings, err := isvc.ValidateCreate()
-	g.Expect(err).Should(gomega.MatchError(fmt.Sprintf(MaxWorkersShouldBeLessThanMaxError, 1)))
-	g.Expect(warnings).Should(gomega.BeEmpty())
-
-	isvc.Spec.Predictor.PMML.Container.Args = []string{"--workers=foo"}
-	warnings, err = isvc.ValidateCreate()
-	g.Expect(err).Should(gomega.MatchError(InvalidWorkerArgument))
-	g.Expect(warnings).Should(gomega.BeEmpty())
-
-	isvc.Spec.Predictor.PMML.Container.Args = []string{"--workers=1"}
-	warnings, err = isvc.ValidateCreate()
-	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
