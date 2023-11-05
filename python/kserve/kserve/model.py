@@ -126,7 +126,8 @@ class Model:
 
         with POST_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
-            response = self.postprocess(response, headers)
+            response = await self.postprocess(response, headers) if inspect.iscoroutinefunction(self.postprocess) \
+                else self.postprocess(response, headers)
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
@@ -212,7 +213,7 @@ class Model:
 
         return payload
 
-    def postprocess(self, response: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
+    async def postprocess(self, response: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
             -> Union[Dict, InferResponse]:
         """The postprocess handler can be overridden for inference response transformation.
 
