@@ -4,11 +4,11 @@ metadata:
   name: kserve-ovms
 spec:
   annotations:
-    prometheus.kserve.io/port: '8000'
+    prometheus.kserve.io/port: '8888'
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
-    - name: openvino
-      version: "1"
+    - name: openvino_ir
+      version: opset11
       autoSelect: true
     - name: onnx
       version: "1"
