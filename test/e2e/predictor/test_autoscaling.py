@@ -13,7 +13,11 @@
 # limitations under the License.
 
 import os
+
+import pytest
 from kubernetes import client
+from kubernetes.client import V1ResourceRequirements
+
 from kserve import (
     constants,
     KServeClient,
@@ -22,11 +26,8 @@ from kserve import (
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
 )
-from kubernetes.client import V1ResourceRequirements
-import pytest
-
-from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
+from ..common.utils import predict
 
 TARGET = "autoscaling.knative.dev/target"
 METRIC = "autoscaling.knative.dev/metric"
@@ -195,6 +196,8 @@ def test_sklearn_scale_raw():
     api_instance = kserve_client.api_instance
     hpa_resp = api_instance.list_namespaced_custom_object(group='autoscaling', version='v1',
                                                           namespace=KSERVE_TEST_NAMESPACE,
+                                                          label_selector=f"serving.kserve.io/inferenceservice="
+                                                                         f"{service_name}",
                                                           plural='horizontalpodautoscalers')
 
     assert (hpa_resp['items'][0]['spec']['targetCPUUtilizationPercentage'] == 50)

@@ -36,7 +36,6 @@ var (
 // Validate returns an error if invalid
 func (p *PMMLSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		ValidateMaxArgumentWorkers(p.Container.Args, 1),
 		validateStorageSpec(p.GetStorageSpec(), p.GetStorageUri()),
 	})
 }
