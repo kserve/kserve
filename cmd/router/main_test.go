@@ -523,11 +523,11 @@ func TestMalformedURL(t *testing.T) {
 
         malformedURL := "http://single-1.default.{$your-domain}/switch"
 
-        _, _, err := callService(malformedURL, []byte{}, http.Header{})
+        _, response, err := callService(malformedURL, []byte{}, http.Header{})
 
-        if err == nil {
+        if err != nil {
 
-                t.Fatal("Eexpect error from malformed URL  \n")
+                assert.Equal(t, 500, response)
 
         }
 
