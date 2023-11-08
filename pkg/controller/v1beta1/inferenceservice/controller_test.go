@@ -258,7 +258,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					RouteSpec: knservingv1.RouteSpec{
-						Traffic: []knservingv1.TrafficTarget{{LatestRevision: proto.Bool(true), Percent: proto.Int64(100)}},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(100)}},
 					},
 				},
 			}
@@ -562,7 +566,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					RouteSpec: knservingv1.RouteSpec{
-						Traffic: []knservingv1.TrafficTarget{{LatestRevision: proto.Bool(true), Percent: proto.Int64(100)}},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(100)}},
 					},
 				},
 			}
@@ -863,7 +871,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					RouteSpec: knservingv1.RouteSpec{
-						Traffic: []knservingv1.TrafficTarget{{LatestRevision: proto.Bool(true), Percent: proto.Int64(100)}},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(100)}},
 					},
 				},
 			}
@@ -1173,11 +1185,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			expectedTrafficTarget := []knservingv1.TrafficTarget{
 				{
+					Tag:            constants.LatestRevisionTag,
 					LatestRevision: proto.Bool(true),
 					Percent:        proto.Int64(20),
 				},
 				{
-					Tag:            "prev",
+					Tag:            constants.PrevRevisionTag,
 					RevisionName:   "revision-v1",
 					LatestRevision: proto.Bool(false),
 					Percent:        proto.Int64(80),
@@ -1208,6 +1221,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Update(context.TODO(), rolloutIsvc)).NotTo(gomega.HaveOccurred())
 			expectedTrafficTarget = []knservingv1.TrafficTarget{
 				{
+					Tag:            constants.LatestRevisionTag,
 					LatestRevision: proto.Bool(true),
 					Percent:        proto.Int64(100),
 				},
@@ -1488,7 +1502,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					RouteSpec: knservingv1.RouteSpec{
-						Traffic: []knservingv1.TrafficTarget{{LatestRevision: proto.Bool(true), Percent: proto.Int64(100)}},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(100)}},
 					},
 				},
 			}
