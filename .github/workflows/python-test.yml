@@ -175,9 +175,8 @@ jobs:
           pytest --cov=lgbserver ./lgbserver
 
       # ----------------------------------------Paddle Server Unit Tests------------------------------------------------
-      # load cached paddle venv if cache exists and paddle test should not run if python version is 3.11
+      # load cached paddle venv if cache exists
       - name: Load cached paddle venv
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.11') }}
         id: cached-paddle-dependencies
         uses: actions/cache@v3
         with:
@@ -185,25 +184,23 @@ jobs:
           key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/paddleserver/poetry.lock') }}
         # install paddle server dependencies if cache does not exist
       - name: Install paddle dependencies
-        if: ${{ steps.cached-paddle-dependencies.outputs.cache-hit != 'true' && !startsWith(steps.setup-python.outputs.python-version, '3.11') }}
+        if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
         run: |
           echo "python version ${{ steps.setup-python.outputs.python-version }}"
           cd python/paddleserver
           make install_dependencies
       - name: Install paddleserver
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.11') }}
         run: |
           cd python/paddleserver
           make dev_install
       - name: Test paddleserver
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.11') }}
         run: |
           cd python
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
 
       # ----------------------------------------Alibi Explainer Unit Tests------------------------------------------------
-      # load cached alibi venv if cache exists and alibi test should not run if python version is 3.11
+      # load cached alibi venv if cache exists
       - name: Load cached alibi venv
         id: cached-alibi-dependencies
         uses: actions/cache@v3
