@@ -53,6 +53,7 @@ func TestBuildS3EnvVars(t *testing.T) {
 				InferenceServiceS3UseVirtualBucketAnnotation: "true",
 				InferenceServiceS3UseAnonymousCredential:     "true",
 				InferenceServiceS3CABundleAnnotation:         "value",
+				InferenceServiceS3CABundleSecretAnnotation:   "value",
 			},
 			expected: []v1.EnvVar{
 				{
@@ -85,6 +86,10 @@ func TestBuildS3EnvVars(t *testing.T) {
 				},
 				{
 					Name:  AWSCABundle,
+					Value: "value",
+				},
+				{
+					Name:  AWSCABundleSecret,
 					Value: "value",
 				},
 			},

@@ -79,6 +79,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
                "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
                "ingressDomain": "example.com"
             }`,
+			"storageInitializer": `{
+							"image" : "kserve/storage-initializer:latest",
+							"memoryRequest": "100Mi",
+							"memoryLimit": "1Gi",
+							"cpuRequest": "100m",
+							"cpuLimit": "1",
+							"caBundleSecretName": "",
+							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+							"enableDirectPvcVolumeMount": false
+					}`,
 		}
 
 		It("Should have ingress/service/deployment/hpa created", func() {
