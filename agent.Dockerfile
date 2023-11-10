@@ -9,7 +9,6 @@ RUN go mod download
 
 COPY pkg/    pkg/
 COPY cmd/    cmd/
-RUN go mod tidy
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o agent ./cmd/agent
