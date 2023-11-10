@@ -232,7 +232,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             elif object_last_path.startswith(bucket_path_last_part):
                 target_key = obj.key.replace(bucket_path_parent_part, "", 1).lstrip("/")
 
-                # Example: If the bucket path is s3://mlflow/test/artifacts/model
+                # Example: If the bucket path is folder s3://mlflow/test/artifacts/model
                 # Object: model.pkl
                 # obj.key: test/artifacts/model/model.pkl
                 # bucket_path_last_part: model
@@ -248,6 +248,8 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                     target_key_parent_folder = target_key.split("/")[0]
                     target_key_obj = target_key.split("/")[-1]
                     if target_key_obj.startswith(target_key_parent_folder):
+                        # Since the bucket path already ends with this parent folder,
+                        # the parent folder has been removed.
                         target_key = target_key.replace((target_key.split("/")[0]+'/'), "", 1)
             else:
                 target_key = obj.key.replace(bucket_path, "").lstrip("/")
