@@ -44,7 +44,7 @@ spec:
     - name: sklearn
       version: "0"
       autoSelect: true
-      priority: 1
+      priority: 2
     - name: sklearn
       version: "1"
       autoSelect: true
