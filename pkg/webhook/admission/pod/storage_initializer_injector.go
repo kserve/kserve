@@ -358,6 +358,33 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			return err
 		}
 	}
+	
+	// Inject CA bundle secret if set
+	caBundleSecretName := mi.config.CaBundleSecretName
+	if caBundleSecretName != "" {
+		caBundleVolumeMountPath := mi.config.CaBundleVolumeMountPath
+		if caBundleVolumeMountPath == "" {
+			caBundleVolumeMountPath = constants.DefaultCaBundleVolumeMountPath
+		}
+		
+		caBundleVolume := v1.Volume{
+			Name: CaBundleVolumeName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: caBundleSecretName,
+				},
+			},
+		}
+
+		caBundleVolumeMount := v1.VolumeMount{
+			Name:      CaBundleVolumeName,
+			MountPath: caBundleVolumeMountPath,
+			ReadOnly:  true,
+		}
+		
+		pod.Spec.Volumes = append(pod.Spec.Volumes, caBundleVolume)
+		initContainer.VolumeMounts = append(initContainer.VolumeMounts, caBundleVolumeMount)
+	}
 
 	// Inject CA bundle secret if caBundleSecretName or  constants.DefaultGlobalCaBundleSecretName annotation set
 	caBundleSecretName := mi.config.CaBundleSecretName
