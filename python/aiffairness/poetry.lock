@@ -1030,7 +1030,7 @@ format-nongpl = ["fqdn", "idna", "isoduration", "jsonpointer (>1.13)", "rfc3339-
 
 [[package]]
 name = "kserve"
-version = "0.11.0"
+version = "0.11.1"
 description = "KServe Python SDK"
 optional = false
 python-versions = ">=3.8,<3.12"
