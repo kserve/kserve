@@ -239,7 +239,7 @@ spec:
   protocolVersions:
     - v1
     - v2
-    - grpc-v1
+    - grpc-v2
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.torchserve.image }}:{{ .Values.kserve.servingruntime.torchserve.tag }}"
