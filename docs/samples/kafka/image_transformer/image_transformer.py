@@ -54,8 +54,11 @@ class ImageTransformer(kserve.Model):
             return {"instances": [request]}
         raise Exception("unknown event")
 
-    def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
-            -> Union[Dict, ModelInferResponse]:
+    async def postprocess(
+            self,
+            response: Union[Dict, InferResponse, ModelInferResponse],
+            headers: Dict[str, str] = None
+    ) -> Union[Dict, ModelInferResponse]:
         logging.info("response: %s", response)
         index = response["predictions"][0]["classes"]
         logging.info("digit:" + str(index))
