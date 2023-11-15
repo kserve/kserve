@@ -39,6 +39,7 @@ const (
 	S3UseVirtualBucket     = "S3_USER_VIRTUAL_BUCKET"
 	AWSAnonymousCredential = "awsAnonymousCredential"
 	AWSCABundle            = "AWS_CA_BUNDLE"
+	AWSCABundleSecret      = "AWS_CA_BUNDLE_SECRET"
 )
 
 type S3Config struct {
@@ -50,6 +51,7 @@ type S3Config struct {
 	S3VerifySSL              string `json:"s3VerifySSL,omitempty"`
 	S3UseVirtualBucket       string `json:"s3UseVirtualBucket,omitempty"`
 	S3UseAnonymousCredential string `json:"s3UseAnonymousCredential,omitempty"`
+	S3CABundleSecret         string `json:"s3CABundleSecret,omitempty"`
 	S3CABundle               string `json:"s3CABundle,omitempty"`
 }
 
@@ -60,6 +62,7 @@ var (
 	InferenceServiceS3SecretHttpsAnnotation      = constants.KServeAPIGroupName + "/" + "s3-usehttps"
 	InferenceServiceS3UseVirtualBucketAnnotation = constants.KServeAPIGroupName + "/" + "s3-usevirtualbucket"
 	InferenceServiceS3UseAnonymousCredential     = constants.KServeAPIGroupName + "/" + "s3-useanoncredential"
+	InferenceServiceS3CABundleSecretAnnotation   = constants.KServeAPIGroupName + "/" + "s3-cabundle-secret"
 	InferenceServiceS3CABundleAnnotation         = constants.KServeAPIGroupName + "/" + "s3-cabundle"
 )
 

@@ -170,6 +170,23 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if verify_ssl:
             verify_ssl = verify_ssl != "0"
             kwargs.update({"verify": verify_ssl})
+        # If verify_ssl is true, then check there is custom ca bundle cert
+        if verify_ssl:
+            global_ca_bundle_secret = os.getenv("CA_BUNDLE_SECRET_NAME")
+            if global_ca_bundle_secret:
+                isvc_aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
+                if isvc_aws_ca_bundle_path:
+                    ca_bundle_full_path = isvc_aws_ca_bundle_path
+                else:
+                    global_ca_bundle_volume_mount_path = os.getenv("CA_BUNDLE_VOLUME_MOUNT_POINT")
+                    ca_bundle_full_path = global_ca_bundle_volume_mount_path + "/cabundle.crt"
+
+                if os.path.exists(ca_bundle_full_path):
+                    print(f"ca bundle file({ca_bundle_full_path}) exists.")
+                    kwargs.update({"verify": global_ca_bundle_volume_mount_path + "/cabundle.crt"})
+                else:
+                    raise RuntimeError(
+                       "Failed to find ca bundle file(%s)." % ca_bundle_full_path)
         s3 = boto3.resource("s3", **kwargs)
         parsed = urlparse(uri, scheme='s3')
         bucket_name = parsed.netloc

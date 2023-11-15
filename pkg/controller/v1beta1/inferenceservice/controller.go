@@ -28,6 +28,7 @@ import (
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
+	cabundlesecret "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundlesecret"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
@@ -168,6 +169,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
 	}
+
+	// Reconcile cabundlesecret
+	caBundleSecretReconciler := cabundlesecret.NewCaBundleSecretReconciler(r.Client, r.Scheme)
+	if err := caBundleSecretReconciler.Reconcile(isvc); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	reconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
 		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Scheme, isvcConfig, deploymentMode))

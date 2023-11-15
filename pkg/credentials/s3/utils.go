@@ -117,5 +117,16 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		})
 	}
 
+	customCABundleSecret, ok := annotations[InferenceServiceS3CABundleSecretAnnotation]
+	if !ok {
+		customCABundleSecret = s3Config.S3CABundleSecret
+	}
+	if customCABundleSecret != "" {
+		envs = append(envs, v1.EnvVar{
+			Name:  AWSCABundleSecret,
+			Value: customCABundleSecret,
+		})
+	}
+
 	return envs
 }
