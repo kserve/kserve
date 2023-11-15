@@ -10,6 +10,7 @@ namespace: opendatahub
 patches:
 - path: remove-namespace.yaml
 - path: inferenceservice-config-patch.yaml
+- path: set-resources-manager-patch.yaml
 
 replacements:
 - source:
@@ -56,4 +57,3 @@ vars:
 
 configurations:
   - params.yaml
-
