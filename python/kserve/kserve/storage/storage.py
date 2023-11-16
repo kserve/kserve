@@ -172,7 +172,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             kwargs.update({"verify": verify_ssl})
         # If verify_ssl is true, then check there is custom ca bundle cert
         if verify_ssl:
-            global_ca_bundle_secret = os.getenv("CA_BUNDLE_SECRET_NAME")
+            global_ca_bundle_secret = os.getenv("CA_BUNDLE_CONFIGMAP_NAME")
             if global_ca_bundle_secret:
                 isvc_aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
                 if isvc_aws_ca_bundle_path:

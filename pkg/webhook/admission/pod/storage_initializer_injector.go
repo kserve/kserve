@@ -54,7 +54,7 @@ type StorageInitializerConfig struct {
 	CpuLimit                   string `json:"cpuLimit"`
 	MemoryRequest              string `json:"memoryRequest"`
 	MemoryLimit                string `json:"memoryLimit"`
-	CaBundleSecretName         string `json:"caBundleSecretName"`
+	CaBundleConfigMapName      string `json:"caBundleConfigMapName"`
 	CaBundleVolumeMountPath    string `json:"caBundleVolumeMountPath"`
 	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
 }
@@ -359,23 +359,23 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	// Inject CA bundle secret if caBundleSecretName or  constants.DefaultGlobalCaBundleSecretName annotation set
-	caBundleSecretName := mi.config.CaBundleSecretName
-	if ok := needCaBundelMount(caBundleSecretName, initContainer); ok {
+	// Inject CA bundle configMap if caBundleConfigMapName or constants.DefaultGlobalCaBundleConfigMapName annotation set
+	caBundleConfigMapName := mi.config.CaBundleConfigMapName
+	if ok := needCaBundelMount(caBundleConfigMapName, initContainer); ok {
 		if pod.Namespace != constants.KServeNamespace {
-			caBundleSecretName = constants.DefaultGlobalCaBundleSecretName
+			caBundleConfigMapName = constants.DefaultGlobalCaBundleConfigMapName
 		}
 
 		for _, envVar := range initContainer.Env {
-			if envVar.Name == s3.AWSCABundleSecret {
-				caBundleSecretName = envVar.Value
+			if envVar.Name == s3.AWSCABundleConfigMap {
+				caBundleConfigMapName = envVar.Value
 				break
 			}
 		}
 
 		initContainer.Env = append(initContainer.Env, v1.EnvVar{
-			Name:  constants.GlobalCaBundleSecretNametEnvVarKey,
-			Value: caBundleSecretName,
+			Name:  constants.GlobalCaBundleConfigMapNametEnvVarKey,
+			Value: caBundleConfigMapName,
 		})
 
 		caBundleVolumeMountPath := mi.config.CaBundleVolumeMountPath
@@ -398,8 +398,10 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		caBundleVolume := v1.Volume{
 			Name: CaBundleVolumeName,
 			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: caBundleSecretName,
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: caBundleConfigMapName,
+					},
 				},
 			},
 		}
@@ -493,13 +495,13 @@ func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	return pvcName, pvcPath, nil
 }
 
-func needCaBundelMount(caBundleSecretName string, initContainer *v1.Container) bool {
+func needCaBundelMount(caBundleConfigMapName string, initContainer *v1.Container) bool {
 	result := false
-	if caBundleSecretName != "" {
+	if caBundleConfigMapName != "" {
 		result = true
 	}
 	for _, envVar := range initContainer.Env {
-		if envVar.Name == s3.AWSCABundleSecret {
+		if envVar.Name == s3.AWSCABundleConfigMap {
 			result = true
 			break
 		}

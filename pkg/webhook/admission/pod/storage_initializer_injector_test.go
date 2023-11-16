@@ -42,7 +42,7 @@ const (
 	StorageInitializerDefaultCPULimit                   = "1"
 	StorageInitializerDefaultMemoryRequest              = "200Mi"
 	StorageInitializerDefaultMemoryLimit                = "1Gi"
-	StorageInitializerDefaultCaBundleSecretName         = ""
+	StorageInitializerDefaultCaBundleConfigMapName         = ""
 	StorageInitializerDefaultCaBundleVolumeMountPath    = "/etc/ssl/custom-certs"
 	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
 )
@@ -53,7 +53,7 @@ var (
 		CpuLimit:                   StorageInitializerDefaultCPULimit,
 		MemoryRequest:              StorageInitializerDefaultMemoryRequest,
 		MemoryLimit:                StorageInitializerDefaultMemoryLimit,
-		CaBundleSecretName:         StorageInitializerDefaultCaBundleSecretName,
+		CaBundleConfigMapName:      StorageInitializerDefaultCaBundleConfigMapName,
 		CaBundleVolumeMountPath:    StorageInitializerDefaultCaBundleVolumeMountPath,
 		EnableDirectPvcVolumeMount: StorageInitializerDefaultEnableDirectPvcVolumeMount,
 	}
@@ -1194,7 +1194,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 				CpuLimit:                StorageInitializerDefaultCPULimit,
 				MemoryRequest:           StorageInitializerDefaultMemoryRequest,
 				MemoryLimit:             StorageInitializerDefaultMemoryLimit,
-				CaBundleSecretName:      StorageInitializerDefaultCaBundleSecretName,
+				CaBundleConfigMapName:   StorageInitializerDefaultCaBundleConfigMapName,
 				CaBundleVolumeMountPath: StorageInitializerDefaultCaBundleVolumeMountPath,
 			},
 			client: c,
@@ -1227,7 +1227,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 						"CpuLimit":      		 "1",
 						"MemoryRequest": 		 "200Mi",
 						"MemoryLimit":   		 "1Gi",
-						"CaBundleSecretName":      "",
+						"CaBundleConfigMapName":      "",
 						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
 					}`,
 				},
@@ -1240,7 +1240,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 					CpuLimit:                "1",
 					MemoryRequest:           "200Mi",
 					MemoryLimit:             "1Gi",
-					CaBundleSecretName:      "",
+					CaBundleConfigMapName:   "",
 					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
 				}),
 				gomega.BeNil(),
@@ -1258,7 +1258,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 						"CpuLimit":      		 "1",
 						"MemoryRequest": 		 "200MC",
 						"MemoryLimit":   		 "1Gi",
-						"CaBundleSecretName":      "",
+						"CaBundleConfigMapName":      "",
 						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
 					}`,
 				},
@@ -1271,7 +1271,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 					CpuLimit:                "1",
 					MemoryRequest:           "200MC",
 					MemoryLimit:             "1Gi",
-					CaBundleSecretName:      "",
+					CaBundleConfigMapName:   "",
 					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
 				}),
 				gomega.HaveOccurred(),
@@ -1324,7 +1324,7 @@ func TestParsePvcURI(t *testing.T) {
 	}
 }
 
-func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
+func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	var configMap = &v1.ConfigMap{
 		Data: map[string]string{
@@ -1344,7 +1344,7 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 		original      *v1.Pod
 		expected      *v1.Pod
 	}{
-		"DoNotMountWithCaBundleSecretVolumeWhenCaBundleSecretNameNotSet": {
+		"DoNotMountWithCaBundleConfigMapVolumeWhenCaBundleConfigMapNameNotSet": {
 			storageConfig: storageInitializerConfig,
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1438,14 +1438,14 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 		},
-		"MountsCaBundleSecretVolumeWhenCaBundleSecretNameSet": {
+		"MountsCaBundleConfigMapVolumeWhenCaBundleConfigMapNameSet": {
 			storageConfig: &StorageInitializerConfig{
-				Image:              "kserve/storage-initializer:latest",
-				CpuRequest:         "100m",
-				CpuLimit:           "1",
-				MemoryRequest:      "200Mi",
-				MemoryLimit:        "1Gi",
-				CaBundleSecretName: "custom-certs", // enable CA bundle secret volume mount
+				Image:                 "kserve/storage-initializer:latest",
+				CpuRequest:            "100m",
+				CpuLimit:              "1",
+				MemoryRequest:         "200Mi",
+				MemoryLimit:           "1Gi",
+				CaBundleConfigMapName: "custom-certs", // enable CA bundle config volume mount
 			},
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1517,7 +1517,7 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 										},
 									},
 								},
-								{Name: "CA_BUNDLE_SECRET_NAME", Value: constants.DefaultGlobalCaBundleSecretName},
+								{Name: "CA_BUNDLE_CONFIGMAP_NAME", Value: constants.DefaultGlobalCaBundleConfigMapName},
 								{Name: "CA_BUNDLE_VOLUME_MOUNT_POINT", Value: "/etc/ssl/custom-certs"},
 							},
 							Resources:                resourceRequirement,
@@ -1545,8 +1545,10 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: CaBundleVolumeName,
 							VolumeSource: v1.VolumeSource{
-								Secret: &v1.SecretVolumeSource{
-									SecretName: constants.DefaultGlobalCaBundleSecretName,
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: constants.DefaultGlobalCaBundleConfigMapName,
+									},
 								},
 							},
 						},
@@ -1554,7 +1556,7 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 		},
-		"MountsCaBundleSecretVolumeByAnnotation": {
+		"MountsCaBundleConfigMapVolumeByAnnotation": {
 			storageConfig: &StorageInitializerConfig{
 				Image:         "kserve/storage-initializer:latest",
 				CpuRequest:    "100m",
@@ -1567,7 +1569,7 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 					Name:      "s3-secret",
 					Namespace: "default",
 					Annotations: map[string]string{
-						s3.InferenceServiceS3CABundleSecretAnnotation: "cabundle-annotation",
+						s3.InferenceServiceS3CABundleConfigMapAnnotation: "cabundle-annotation",
 					},
 				},
 				Data: map[string][]byte{
@@ -1635,8 +1637,8 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 										},
 									},
 								},
-								{Name: "AWS_CA_BUNDLE_SECRET", Value: "cabundle-annotation"},
-								{Name: "CA_BUNDLE_SECRET_NAME", Value: "cabundle-annotation"},
+								{Name: "AWS_CA_BUNDLE_CONFIGMAP", Value: "cabundle-annotation"},
+								{Name: "CA_BUNDLE_CONFIGMAP_NAME", Value: "cabundle-annotation"},
 								{Name: "CA_BUNDLE_VOLUME_MOUNT_POINT", Value: "/etc/ssl/custom-certs"},
 							},
 							Resources:                resourceRequirement,
@@ -1664,8 +1666,10 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: CaBundleVolumeName,
 							VolumeSource: v1.VolumeSource{
-								Secret: &v1.SecretVolumeSource{
-									SecretName: "cabundle-annotation",
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "cabundle-annotation",
+									},
 								},
 							},
 						},
@@ -1673,21 +1677,21 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 		},
-		"MountsCaBundleSecretVolumeByAnnotationInstreadOfConfigMap": {
+		"MountsCaBundleConfigMapVolumeByAnnotationInstreadOfConfigMap": {
 			storageConfig: &StorageInitializerConfig{
-				Image:              "kserve/storage-initializer:latest",
-				CpuRequest:         "100m",
-				CpuLimit:           "1",
-				MemoryRequest:      "200Mi",
-				MemoryLimit:        "1Gi",
-				CaBundleSecretName: "custom-certs", // enable CA bundle secret volume mount
+				Image:                 "kserve/storage-initializer:latest",
+				CpuRequest:            "100m",
+				CpuLimit:              "1",
+				MemoryRequest:         "200Mi",
+				MemoryLimit:           "1Gi",
+				CaBundleConfigMapName: "custom-certs", // enable CA bundle secret volume mount
 			},
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "s3-secret",
 					Namespace: "default",
 					Annotations: map[string]string{
-						s3.InferenceServiceS3CABundleSecretAnnotation: "cabundle-annotation",
+						s3.InferenceServiceS3CABundleConfigMapAnnotation: "cabundle-annotation",
 					},
 				},
 				Data: map[string][]byte{
@@ -1755,8 +1759,8 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 										},
 									},
 								},
-								{Name: "AWS_CA_BUNDLE_SECRET", Value: "cabundle-annotation"},
-								{Name: "CA_BUNDLE_SECRET_NAME", Value: "cabundle-annotation"},
+								{Name: "AWS_CA_BUNDLE_CONFIGMAP", Value: "cabundle-annotation"},
+								{Name: "CA_BUNDLE_CONFIGMAP_NAME", Value: "cabundle-annotation"},
 								{Name: "CA_BUNDLE_VOLUME_MOUNT_POINT", Value: "/etc/ssl/custom-certs"},
 							},
 							Resources:                resourceRequirement,
@@ -1784,8 +1788,10 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: CaBundleVolumeName,
 							VolumeSource: v1.VolumeSource{
-								Secret: &v1.SecretVolumeSource{
-									SecretName: "cabundle-annotation",
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "cabundle-annotation",
+									},
 								},
 							},
 						},
@@ -1793,7 +1799,7 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 		},
-		"DoNotSetMountsCaBundleSecretVolumePathByAnnotationIfCaBundleSecretNameDidNotSet": {
+		"DoNotSetMountsCaBundleConfigMapVolumePathByAnnotationIfCaBundleConfigMapNameDidNotSet": {
 			storageConfig: storageInitializerConfig,
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1891,14 +1897,14 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 		},
-		"SetMountsCaBundleSecretVolumePathByAnnotationInstreadOfConfigMap": {
+		"SetMountsCaBundleConfigMapVolumePathByAnnotationInstreadOfConfigMap": {
 			storageConfig: &StorageInitializerConfig{
 				Image:                   "kserve/storage-initializer:latest",
 				CpuRequest:              "100m",
 				CpuLimit:                "1",
 				MemoryRequest:           "200Mi",
 				MemoryLimit:             "1Gi",
-				CaBundleSecretName:      "custom-certs", // enable CA bundle secret volume mount
+				CaBundleConfigMapName:   "custom-certs", // enable CA bundle secret volume mount
 				CaBundleVolumeMountPath: "/path/to",     // set CA bundle secret volume mount path
 			},
 			secret: &v1.Secret{
@@ -1975,7 +1981,7 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 									},
 								},
 								{Name: "AWS_CA_BUNDLE", Value: "/annotation/path/to/annotation-ca.crt"},
-								{Name: "CA_BUNDLE_SECRET_NAME", Value: constants.DefaultGlobalCaBundleSecretName},
+								{Name: "CA_BUNDLE_CONFIGMAP_NAME", Value: constants.DefaultGlobalCaBundleConfigMapName},
 								{Name: "CA_BUNDLE_VOLUME_MOUNT_POINT", Value: "/annotation/path/to"},
 							},
 							Resources:                resourceRequirement,
@@ -2003,8 +2009,10 @@ func TestCaBundleSecretVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: CaBundleVolumeName,
 							VolumeSource: v1.VolumeSource{
-								Secret: &v1.SecretVolumeSource{
-									SecretName: constants.DefaultGlobalCaBundleSecretName,
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: constants.DefaultGlobalCaBundleConfigMapName,
+									},
 								},
 							},
 						},

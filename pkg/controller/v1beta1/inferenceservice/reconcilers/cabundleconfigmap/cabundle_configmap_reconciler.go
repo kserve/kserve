@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cabundlesecret
+package cabundleconfigmap
 
 import (
 	"context"
@@ -37,22 +37,22 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var log = logf.Log.WithName("CaBundleSecretReconciler")
+var log = logf.Log.WithName("CaBundleConfigMapReconciler")
 
-type CaBundleSecretReconciler struct {
+type CaBundleConfigMapReconciler struct {
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-func NewCaBundleSecretReconciler(client client.Client, scheme *runtime.Scheme) *CaBundleSecretReconciler {
-	return &CaBundleSecretReconciler{
+func NewCaBundleConfigMapReconciler(client client.Client, scheme *runtime.Scheme) *CaBundleConfigMapReconciler {
+	return &CaBundleConfigMapReconciler{
 		client: client,
 		scheme: scheme,
 	}
 }
 
-func (c *CaBundleSecretReconciler) Reconcile(isvc *kservev1beta1.InferenceService) error {
-	log.Info("Reconciling CaBundleSecret")
+func (c *CaBundleConfigMapReconciler) Reconcile(isvc *kservev1beta1.InferenceService) error {
+	log.Info("Reconciling CaBundleConfigMap")
 
 	isvcConfigMap := &corev1.ConfigMap{}
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, isvcConfigMap)
@@ -69,93 +69,92 @@ func (c *CaBundleSecretReconciler) Reconcile(isvc *kservev1beta1.InferenceServic
 		}
 	}
 
-	var newCaBundleSecret *corev1.Secret
-	if storageInitializerConfig.CaBundleSecretName == "" {
+	var newCaBundleConfigMap *corev1.ConfigMap
+	if storageInitializerConfig.CaBundleConfigMapName == "" {
 		return nil
 	} else {
-		newCaBundleSecret, err = c.getCabundleSecretForUserNS(storageInitializerConfig.CaBundleSecretName, constants.KServeNamespace, isvc.Namespace)
+		newCaBundleConfigMap, err = c.getCabundleConfigMapForUserNS(storageInitializerConfig.CaBundleConfigMapName, constants.KServeNamespace, isvc.Namespace)
 		if err != nil {
 			return fmt.Errorf("fails to get cabundle secret for creating to user namespace: %w", err)
 		}
 	}
 
-	if err := c.ReconcileCaBundleSecret(newCaBundleSecret); err != nil {
+	if err := c.ReconcileCaBundleConfigMap(newCaBundleConfigMap); err != nil {
 		return fmt.Errorf("fails to reconcile ca bundle secret: %w", err)
 	}
 
 	return nil
 }
 
-func (c *CaBundleSecretReconciler) getCabundleSecretForUserNS(caBundleNameInConfig string, kserveNamespace string, isvcNamespace string) (*corev1.Secret, error) {
-	var newCaBundleSecret *corev1.Secret
+func (c *CaBundleConfigMapReconciler) getCabundleConfigMapForUserNS(caBundleNameInConfig string, kserveNamespace string, isvcNamespace string) (*corev1.ConfigMap, error) {
+	var newCaBundleConfigMap *corev1.ConfigMap
 	log.Info("In caBundleNameInConfig")
 
 	// Check if cabundle Secret exist & the cabundle.crt exist in the data in controller namespace
 	// If it does not exist, return error
-	caBundleSecret := &corev1.Secret{}
+	caBundleConfigMap := &corev1.ConfigMap{}
 	if err := c.client.Get(context.TODO(),
-		types.NamespacedName{Name: caBundleNameInConfig, Namespace: kserveNamespace}, caBundleSecret); err == nil {
+		types.NamespacedName{Name: caBundleNameInConfig, Namespace: kserveNamespace}, caBundleConfigMap); err == nil {
 
-		if cabundleSecretData := caBundleSecret.Data[constants.DefaultCaBundleFileName]; cabundleSecretData == nil {
+		if caBundleConfigMapData := caBundleConfigMap.Data[constants.DefaultCaBundleFileName]; caBundleConfigMapData == "" {
 			return nil, fmt.Errorf("specified cabundle file %s not found in cabundle secret %s",
 				constants.DefaultCaBundleFileName, caBundleNameInConfig)
 		} else {
-			secretData := map[string][]byte{
-				constants.DefaultCaBundleFileName: cabundleSecretData,
+			configData := map[string]string{
+				constants.DefaultCaBundleFileName: caBundleConfigMapData,
 			}
-			newCaBundleSecret = getDesiredCaBundleSecretForUserNS(constants.DefaultGlobalCaBundleSecretName, isvcNamespace, secretData)
+			newCaBundleConfigMap = getDesiredCaBundleConfigMapForUserNS(constants.DefaultGlobalCaBundleConfigMapName, isvcNamespace, configData)
 		}
 	} else {
 		return nil, fmt.Errorf("can't read cabundle secret %s: %w", constants.DefaultCaBundleFileName, err)
 	}
 
-	return newCaBundleSecret, nil
+	return newCaBundleConfigMap, nil
 }
 
-func getDesiredCaBundleSecretForUserNS(secretName string, namespace string, cabundleData map[string][]byte) *corev1.Secret {
-	desiredSecret := &corev1.Secret{
+func getDesiredCaBundleConfigMapForUserNS(secretName string, namespace string, cabundleData map[string]string) *corev1.ConfigMap {
+	desiredSecret := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: namespace,
 		},
-		Type: corev1.SecretTypeOpaque,
 		Data: cabundleData,
 	}
 
 	return desiredSecret
 }
 
-// ReconcileCaBundleSecret will manage the creation, update and deletion of the ca bundle Secret
-func (c *CaBundleSecretReconciler) ReconcileCaBundleSecret(desiredSecret *corev1.Secret) error {
-	log.Info("Reconciling ReconcileCaBundleSecret")
+// ReconcileCaBundleConfigMap will manage the creation, update and deletion of the ca bundle Secret
+func (c *CaBundleConfigMapReconciler) ReconcileCaBundleConfigMap(desiredConfigMap *corev1.ConfigMap) error {
+	log.Info("Reconciling ReconcileCaBundleConfigMap")
 
 	// Create secret if does not exist
-	existingSecret := &corev1.Secret{}
-	err := c.client.Get(context.TODO(), types.NamespacedName{Name: desiredSecret.Name, Namespace: desiredSecret.Namespace}, existingSecret)
+	existingConfigMap := &corev1.ConfigMap{}
+	err := c.client.Get(context.TODO(), types.NamespacedName{Name: desiredConfigMap.Name, Namespace: desiredConfigMap.Namespace}, existingConfigMap)
 	if err != nil {
 		if apierr.IsNotFound(err) {
-			log.Info("Creating cabundle secret", "namespace", desiredSecret.Namespace, "name", desiredSecret.Name)
-			err = c.client.Create(context.TODO(), desiredSecret)
+			log.Info("Creating cabundle configmap", "namespace", desiredConfigMap.Namespace, "name", desiredConfigMap.Name)
+			err = c.client.Create(context.TODO(), desiredConfigMap)
 		}
 		return err
 	}
 
 	// Return if no differences to reconcile.
-	if equality.Semantic.DeepEqual(desiredSecret, existingSecret) {
+	if equality.Semantic.DeepEqual(desiredConfigMap, existingConfigMap) {
 		return nil
 	}
 
 	// Reconcile differences and update
-	diff, err := kmp.SafeDiff(desiredSecret.Data, existingSecret.Data)
+	diff, err := kmp.SafeDiff(desiredConfigMap.Data, existingConfigMap.Data)
 	if err != nil {
-		return fmt.Errorf("failed to diff cabundle secret: %w", err)
+		return fmt.Errorf("failed to diff cabundle configmap: %w", err)
 	}
-	log.Info("Reconciling cabundle secret diff (-desired, +observed):", "diff", diff)
-	log.Info("Updating cabundle secret", "namespace", existingSecret.Namespace, "name", existingSecret.Name)
-	existingSecret.Data = desiredSecret.Data
-	err = c.client.Update(context.TODO(), existingSecret)
+	log.Info("Reconciling cabundle configmap diff (-desired, +observed):", "diff", diff)
+	log.Info("Updating cabundle configmap", "namespace", existingConfigMap.Namespace, "name", existingConfigMap.Name)
+	existingConfigMap.Data = desiredConfigMap.Data
+	err = c.client.Update(context.TODO(), existingConfigMap)
 	if err != nil {
-		return fmt.Errorf("fails to update cabundle secret: %w", err)
+		return fmt.Errorf("fails to update cabundle configmap: %w", err)
 	}
 
 	return nil

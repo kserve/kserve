@@ -39,7 +39,7 @@ const (
 	S3UseVirtualBucket     = "S3_USER_VIRTUAL_BUCKET"
 	AWSAnonymousCredential = "awsAnonymousCredential"
 	AWSCABundle            = "AWS_CA_BUNDLE"
-	AWSCABundleSecret      = "AWS_CA_BUNDLE_SECRET"
+	AWSCABundleConfigMap   = "AWS_CA_BUNDLE_CONFIGMAP"
 )
 
 type S3Config struct {
@@ -51,19 +51,19 @@ type S3Config struct {
 	S3VerifySSL              string `json:"s3VerifySSL,omitempty"`
 	S3UseVirtualBucket       string `json:"s3UseVirtualBucket,omitempty"`
 	S3UseAnonymousCredential string `json:"s3UseAnonymousCredential,omitempty"`
-	S3CABundleSecret         string `json:"s3CABundleSecret,omitempty"`
+	S3CABundleConfigMap      string `json:"s3CABundleConfigMap,omitempty"`
 	S3CABundle               string `json:"s3CABundle,omitempty"`
 }
 
 var (
-	InferenceServiceS3SecretEndpointAnnotation   = constants.KServeAPIGroupName + "/" + "s3-endpoint"
-	InferenceServiceS3SecretRegionAnnotation     = constants.KServeAPIGroupName + "/" + "s3-region"
-	InferenceServiceS3SecretSSLAnnotation        = constants.KServeAPIGroupName + "/" + "s3-verifyssl"
-	InferenceServiceS3SecretHttpsAnnotation      = constants.KServeAPIGroupName + "/" + "s3-usehttps"
-	InferenceServiceS3UseVirtualBucketAnnotation = constants.KServeAPIGroupName + "/" + "s3-usevirtualbucket"
-	InferenceServiceS3UseAnonymousCredential     = constants.KServeAPIGroupName + "/" + "s3-useanoncredential"
-	InferenceServiceS3CABundleSecretAnnotation   = constants.KServeAPIGroupName + "/" + "s3-cabundle-secret"
-	InferenceServiceS3CABundleAnnotation         = constants.KServeAPIGroupName + "/" + "s3-cabundle"
+	InferenceServiceS3SecretEndpointAnnotation    = constants.KServeAPIGroupName + "/" + "s3-endpoint"
+	InferenceServiceS3SecretRegionAnnotation      = constants.KServeAPIGroupName + "/" + "s3-region"
+	InferenceServiceS3SecretSSLAnnotation         = constants.KServeAPIGroupName + "/" + "s3-verifyssl"
+	InferenceServiceS3SecretHttpsAnnotation       = constants.KServeAPIGroupName + "/" + "s3-usehttps"
+	InferenceServiceS3UseVirtualBucketAnnotation  = constants.KServeAPIGroupName + "/" + "s3-usevirtualbucket"
+	InferenceServiceS3UseAnonymousCredential      = constants.KServeAPIGroupName + "/" + "s3-useanoncredential"
+	InferenceServiceS3CABundleConfigMapAnnotation = constants.KServeAPIGroupName + "/" + "s3-cabundle-configmap"
+	InferenceServiceS3CABundleAnnotation          = constants.KServeAPIGroupName + "/" + "s3-cabundle"
 )
 
 func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {

@@ -63,7 +63,7 @@ data:
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
            "cpuLimit": "1",
-           "caBundleSecretName": "",
+           "caBundleConfigMapName": "",
            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
            "enableDirectPvcVolumeMount": false,
        }
@@ -84,10 +84,10 @@ data:
            # cpuLimit is the limits.cpu to set for the storage initializer init container.
            "cpuLimit": "1",
        
-           # caBundleSecretName is the Secret will be copied to a user namespace for the storage initializer init container.
-           "caBundleSecretName": "",
+           # caBundleConfigMapName is the ConfigMap will be copied to a user namespace for the storage initializer init container.
+           "caBundleConfigMapName": "",
 
-           # caBundleVolumeMountPath is the mount point for the secret set by caBundleSecretName for the storage initializer init container.
+           # caBundleVolumeMountPath is the mount point for the secret set by caBundleConfigMapName for the storage initializer init container.
            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 
            # enableDirectPvcVolumeMount controls whether users can mount pvc volumes directly.
@@ -425,7 +425,7 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
-        "caBundleSecretName": "",
+        "caBundleConfigMapName": "",
         "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
         "enableDirectPvcVolumeMount": false
     }

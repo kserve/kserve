@@ -310,11 +310,11 @@ const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
 const DefaultCaBundleFileName = "cabundle.crt"
 
 // Default secret name that will be created in the user namespace.
-const DefaultGlobalCaBundleSecretName = "global-ca-bundle"
+const DefaultGlobalCaBundleConfigMapName = "global-ca-bundle"
 
 // Custom CA Secret Environment Variables
 const (
-	GlobalCaBundleSecretNametEnvVarKey      = "CA_BUNDLE_SECRET_NAME"
+	GlobalCaBundleConfigMapNametEnvVarKey   = "CA_BUNDLE_CONFIGMAP_NAME"
 	GlobalCaBundleVolumeMountPathtEnvVarKey = "CA_BUNDLE_VOLUME_MOUNT_POINT"
 )
 

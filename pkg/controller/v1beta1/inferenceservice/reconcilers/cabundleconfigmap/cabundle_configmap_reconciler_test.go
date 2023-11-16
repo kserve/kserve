@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cabundlesecret
+package cabundleconfigmap
 
 import (
 	"testing"
@@ -25,36 +25,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestGetDesiredCaBundleSecretForUserNS(t *testing.T) {
-	cabundleSecretData := make(map[string][]byte)
+func TestGetDesiredCaBundleConfigMapForUserNS(t *testing.T) {
+	cabundleConfigMapData := make(map[string]string)
 
 	// cabundle data
-	cabundleSecretData["cabundle.crt"] = []byte("SAMPLE_CA_BUNDLE")
+	cabundleConfigMapData["cabundle.crt"] = "SAMPLE_CA_BUNDLE"
 	targetNamespace := "test"
 	testCases := []struct {
 		name                   string
 		namespace              string
-		secretData             map[string][]byte
-		expectedCopiedCaSecret *corev1.Secret
+		configMapData          map[string]string
+		expectedCopiedCaSecret *corev1.ConfigMap
 	}{
 		{
-			name:       "Do not create a ca secret,if CaBundleSecretName is '' in storageConfig of inference-config configmap",
-			namespace:  targetNamespace,
-			secretData: cabundleSecretData,
-			expectedCopiedCaSecret: &corev1.Secret{
+			name:          "Do not create a ca bundle configmap,if CaBundleConfigMapName is '' in storageConfig of inference-config configmap",
+			namespace:     targetNamespace,
+			configMapData: cabundleConfigMapData,
+			expectedCopiedCaSecret: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultGlobalCaBundleSecretName,
+					Name:      constants.DefaultGlobalCaBundleConfigMapName,
 					Namespace: targetNamespace,
 				},
-				Type: corev1.SecretTypeOpaque,
-				Data: cabundleSecretData,
+				Data: cabundleConfigMapData,
 			},
 		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getDesiredCaBundleSecretForUserNS(constants.DefaultGlobalCaBundleSecretName, tt.namespace, tt.secretData)
+			result := getDesiredCaBundleConfigMapForUserNS(constants.DefaultGlobalCaBundleConfigMapName, tt.namespace, tt.configMapData)
 			if diff := cmp.Diff(tt.expectedCopiedCaSecret, result); diff != "" {
 				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
 			}

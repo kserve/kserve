@@ -85,7 +85,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"memoryLimit": "1Gi",
 							"cpuRequest": "100m",
 							"cpuLimit": "1",
-							"caBundleSecretName": "",
+							"caBundleConfigMapName": "",
 							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 							"enableDirectPvcVolumeMount": false
 					}`,

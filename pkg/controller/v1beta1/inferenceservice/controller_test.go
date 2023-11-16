@@ -85,7 +85,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								"memoryLimit": "1Gi",
 								"cpuRequest": "100m",
 								"cpuLimit": "1",
-								"caBundleSecretName": "",
+								"CaBundleConfigMapName": "",
 								"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 								"enableDirectPvcVolumeMount": false
 						}`,
@@ -2098,8 +2098,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}))
 		})
 	})
-	Context("Set CaBundle Secret in inferenceservice-config confimap", func() {
-		It("Should not create a global cabundle secret in a user namespace when CaBundleSecretName set ''", func() {
+	Context("Set CaBundle ConfigMap in inferenceservice-config confimap", func() {
+		It("Should not create a global cabundle configMap in a user namespace when CaBundleConfigMapName set ''", func() {
 			// Create configmap
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2144,9 +2144,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
-			caBundleSecret := &v1.Secret{}
+			caBundleConfigMap := &v1.Secret{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleSecretName, Namespace: "default"}, caBundleSecret)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
 				if err != nil {
 					if apierr.IsNotFound(err) {
 						return true
@@ -2156,7 +2156,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 		})
-		It("Should not create a global cabundle secret in a user namespace when the target cabundle secret in the configmap does not exist", func() {
+		It("Should not create a global cabundle configmap in a user namespace when the target cabundle configmap in the 'inferenceservice-config' configmap does not exist", func() {
 			// Create configmap
 			copiedConfigs := make(map[string]string)
 			for key, value := range configs {
@@ -2167,7 +2167,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"memoryLimit": "1Gi",
 							"cpuRequest": "100m",
 							"cpuLimit": "1",
-							"caBundleSecretName": "not-exist-secret",
+							"CaBundleConfigMapName": "not-exist-secret",
 							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 							"enableDirectPvcVolumeMount": false						
 					}`
@@ -2175,6 +2175,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					copiedConfigs[key] = value
 				}
 			}
+			//To-Do Jhouse
 			fmt.Print(copiedConfigs)
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2220,9 +2221,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
-			caBundleSecret := &v1.Secret{}
+			caBundleConfigMap := &v1.Secret{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleSecretName, Namespace: "default"}, caBundleSecret)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
 				if err != nil {
 					if apierr.IsNotFound(err) {
 						return true
@@ -2232,7 +2233,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 		})
-		It("Should not create a global cabundle secret in a user namespace when the cabundle.crt file data does not exist in the target cabundle secret in the configmap", func() {
+		It("Should not create a global cabundle configmap in a user namespace when the cabundle.crt file data does not exist in the target cabundle configmap in the 'inferenceservice-config' configmap", func() {
 			// Create configmap
 			copiedConfigs := make(map[string]string)
 			for key, value := range configs {
@@ -2243,7 +2244,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"memoryLimit": "1Gi",
 							"cpuRequest": "100m",
 							"cpuLimit": "1",
-							"caBundleSecretName": "test-cabundle-with-wrong-file-name",
+							"CaBundleConfigMapName": "test-cabundle-with-wrong-file-name",
 							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 							"enableDirectPvcVolumeMount": false						
 					}`
@@ -2263,18 +2264,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create original cabundle secret with wrong file name
-			cabundleSecretData := make(map[string][]byte)
-			cabundleSecretData["wrong-cabundle-name.crt"] = []byte("SAMPLE_CA_BUNDLE")
-			var originalCabundleSecret = &v1.Secret{
+			cabundleConfigMapData := make(map[string]string)
+			cabundleConfigMapData["wrong-cabundle-name.crt"] = "SAMPLE_CA_BUNDLE"
+			var originalCabundleConfigMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-cabundle-with-wrong-file-name",
 					Namespace: constants.KServeNamespace,
 				},
-				Data: cabundleSecretData,
+				Data: cabundleConfigMapData,
 			}
 
-			Expect(k8sClient.Create(context.TODO(), originalCabundleSecret)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), originalCabundleSecret)
+			Expect(k8sClient.Create(context.TODO(), originalCabundleConfigMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), originalCabundleConfigMap)
 
 			By("By creating a new InferenceService")
 			serviceName := "sample-isvc-3"
@@ -2309,9 +2310,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
-			caBundleSecret := &v1.Secret{}
+			caBundleConfigMap := &v1.ConfigMap{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleSecretName, Namespace: "default"}, caBundleSecret)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
 				if err != nil {
 					if apierr.IsNotFound(err) {
 						return true
@@ -2321,7 +2322,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 
-		It("Should create a global cabundle secret in a user namespace when it meets all conditions and an inferenceservice is created", func() {
+		It("Should create a global cabundle configmap in a user namespace when it meets all conditions and an inferenceservice is created", func() {
 			// Create configmap
 			copiedConfigs := make(map[string]string)
 			for key, value := range configs {
@@ -2332,7 +2333,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					"memoryLimit": "1Gi",
 					"cpuRequest": "100m",
 					"cpuLimit": "1",
-					"caBundleSecretName": "test-cabundle-with-right-file-name",
+					"CaBundleConfigMapName": "test-cabundle-with-right-file-name",
 					"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 					"enableDirectPvcVolumeMount": false						
 			}`
@@ -2351,20 +2352,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
-			//Create original cabundle secret with wrong file name
-			cabundleSecretData := make(map[string][]byte)
+			//Create original cabundle configmap with wrong file name
+			cabundleConfigMapData := make(map[string]string)
 			// cabundle data
-			cabundleSecretData["cabundle.crt"] = []byte("SAMPLE_CA_BUNDLE")
-			var originalCabundleSecret = &v1.Secret{
+			cabundleConfigMapData["cabundle.crt"] = "SAMPLE_CA_BUNDLE"
+			var originalCabundleConfigMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-cabundle-with-right-file-name",
 					Namespace: constants.KServeNamespace,
 				},
-				Data: cabundleSecretData,
+				Data: cabundleConfigMapData,
 			}
 
-			Expect(k8sClient.Create(context.TODO(), originalCabundleSecret)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), originalCabundleSecret)
+			Expect(k8sClient.Create(context.TODO(), originalCabundleConfigMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), originalCabundleConfigMap)
 
 			By("By creating a new InferenceService")
 			serviceName := "sample-isvc-4"
@@ -2399,9 +2400,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
-			caBundleSecret := &v1.Secret{}
+			caBundleConfigMap := &v1.ConfigMap{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleSecretName, Namespace: "default"}, caBundleSecret)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
 				if err != nil {
 					if apierr.IsNotFound(err) {
 						return false
