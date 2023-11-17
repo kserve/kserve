@@ -68,27 +68,27 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		}
 		configs = map[string]string{
 			"explainers": `{
-               "alibi": {
-                  "image": "kserve/alibi-explainer",
-			      "defaultImageVersion": "latest"
-               }
-            }`,
+				"alibi": {
+					"image": "kserve/alibi-explainer",
+					"defaultImageVersion": "latest"
+				}
+			}`,
 			"ingress": `{
-               "ingressGateway": "knative-serving/knative-ingress-gateway",
-               "ingressService": "test-destination",
-               "localGateway": "knative-serving/knative-local-gateway",
-               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
-            }`,
+				"ingressGateway": "knative-serving/knative-ingress-gateway",
+				"ingressService": "test-destination",
+				"localGateway": "knative-serving/knative-local-gateway",
+				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+			}`,
 			"storageInitializer": `{
-								"image" : "kserve/storage-initializer:latest",
-								"memoryRequest": "100Mi",
-								"memoryLimit": "1Gi",
-								"cpuRequest": "100m",
-								"cpuLimit": "1",
-								"CaBundleConfigMapName": "",
-								"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-								"enableDirectPvcVolumeMount": false
-						}`,
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"CaBundleConfigMapName": "",
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"enableDirectPvcVolumeMount": false
+			}`,
 		}
 	)
 	Context("When creating inference service with predictor", func() {
@@ -2144,7 +2144,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
-			caBundleConfigMap := &v1.Secret{}
+			caBundleConfigMap := &v1.ConfigMap{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
 				if err != nil {
@@ -2221,7 +2221,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
-			caBundleConfigMap := &v1.Secret{}
+			caBundleConfigMap := &v1.ConfigMap{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
 				if err != nil {
@@ -2263,7 +2263,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
-			// Create original cabundle secret with wrong file name
+			// Create original cabundle configmap with wrong file name
 			cabundleConfigMapData := make(map[string]string)
 			cabundleConfigMapData["wrong-cabundle-name.crt"] = "SAMPLE_CA_BUNDLE"
 			var originalCabundleConfigMap = &v1.ConfigMap{

@@ -303,19 +303,19 @@ const (
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 
-// Default path to mount CA bundle secret volume
+// Default path to mount CA bundle configmap volume
 const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
 
 // Default name for CA bundle file
 const DefaultCaBundleFileName = "cabundle.crt"
 
-// Default secret name that will be created in the user namespace.
+// Default CA bundle configmap name that will be created in the user namespace.
 const DefaultGlobalCaBundleConfigMapName = "global-ca-bundle"
 
-// Custom CA Secret Environment Variables
+// Custom CA bundle configmap Environment Variables
 const (
-	GlobalCaBundleConfigMapNametEnvVarKey   = "CA_BUNDLE_CONFIGMAP_NAME"
-	GlobalCaBundleVolumeMountPathtEnvVarKey = "CA_BUNDLE_VOLUME_MOUNT_POINT"
+	CaBundleConfigMapNameEnvVarKey   = "CA_BUNDLE_CONFIGMAP_NAME"
+	CaBundleVolumeMountPathEnvVarKey = "CA_BUNDLE_VOLUME_MOUNT_POINT"
 )
 
 // Multi-model InferenceService

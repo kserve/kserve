@@ -359,24 +359,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	// Inject CA bundle configMap if caBundleConfigMapName or constants.DefaultGlobalCaBundleConfigMapName annotation set
+	// Inject CA bundle configMap if caBundleConfigMapName or constants.DefaultGlobalCaBundleConfigMapName annotation is set
 	caBundleConfigMapName := mi.config.CaBundleConfigMapName
 	if ok := needCaBundelMount(caBundleConfigMapName, initContainer); ok {
 		if pod.Namespace != constants.KServeNamespace {
 			caBundleConfigMapName = constants.DefaultGlobalCaBundleConfigMapName
 		}
-
-		for _, envVar := range initContainer.Env {
-			if envVar.Name == s3.AWSCABundleConfigMap {
-				caBundleConfigMapName = envVar.Value
-				break
-			}
-		}
-
-		initContainer.Env = append(initContainer.Env, v1.EnvVar{
-			Name:  constants.GlobalCaBundleConfigMapNametEnvVarKey,
-			Value: caBundleConfigMapName,
-		})
 
 		caBundleVolumeMountPath := mi.config.CaBundleVolumeMountPath
 		if caBundleVolumeMountPath == "" {
@@ -384,14 +372,21 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 
 		for _, envVar := range initContainer.Env {
+			if envVar.Name == s3.AWSCABundleConfigMap {
+				caBundleConfigMapName = envVar.Value
+			}
 			if envVar.Name == s3.AWSCABundle {
 				caBundleVolumeMountPath = filepath.Dir(envVar.Value)
-				break
 			}
 		}
 
 		initContainer.Env = append(initContainer.Env, v1.EnvVar{
-			Name:  constants.GlobalCaBundleVolumeMountPathtEnvVarKey,
+			Name:  constants.CaBundleConfigMapNameEnvVarKey,
+			Value: caBundleConfigMapName,
+		})
+
+		initContainer.Env = append(initContainer.Env, v1.EnvVar{
+			Name:  constants.CaBundleVolumeMountPathEnvVarKey,
 			Value: caBundleVolumeMountPath,
 		})
 

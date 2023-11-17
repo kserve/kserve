@@ -117,6 +117,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             os.environ["AWS_SECRET_ACCESS_KEY"] = storage_secret_json.get("secret_access_key", "")
             os.environ["AWS_DEFAULT_REGION"] = storage_secret_json.get("region", "")
             os.environ["AWS_CA_BUNDLE"] = storage_secret_json.get("certificate", "")
+            os.environ["CA_BUNDLE_CONFIGMAP_NAME"] = storage_secret_json.get("cabundle_configmap", "")            
             os.environ["awsAnonymousCredential"] = storage_secret_json.get("anonymous", "")
 
         if storage_secret_json.get("type", "") == "hdfs" or storage_secret_json.get("type", "") == "webhdfs":
@@ -172,10 +173,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             kwargs.update({"verify": verify_ssl})
         # If verify_ssl is true, then check there is custom ca bundle cert
         if verify_ssl:
-            global_ca_bundle_secret = os.getenv("CA_BUNDLE_CONFIGMAP_NAME")
-            if global_ca_bundle_secret:
+            global_ca_bundle_configmap = os.getenv("CA_BUNDLE_CONFIGMAP_NAME")
+            if global_ca_bundle_configmap:
                 isvc_aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
-                if isvc_aws_ca_bundle_path:
+                if isvc_aws_ca_bundle_path and isvc_aws_ca_bundle_path != "":
                     ca_bundle_full_path = isvc_aws_ca_bundle_path
                 else:
                     global_ca_bundle_volume_mount_path = os.getenv("CA_BUNDLE_VOLUME_MOUNT_POINT")
@@ -183,7 +184,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
                 if os.path.exists(ca_bundle_full_path):
                     print(f"ca bundle file({ca_bundle_full_path}) exists.")
-                    kwargs.update({"verify": global_ca_bundle_volume_mount_path + "/cabundle.crt"})
+                    kwargs.update({"verify": ca_bundle_full_path})
                 else:
                     raise RuntimeError(
                        "Failed to find ca bundle file(%s)." % ca_bundle_full_path)

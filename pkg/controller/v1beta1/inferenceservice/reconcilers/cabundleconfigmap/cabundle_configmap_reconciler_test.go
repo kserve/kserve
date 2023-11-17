@@ -35,13 +35,13 @@ func TestGetDesiredCaBundleConfigMapForUserNS(t *testing.T) {
 		name                   string
 		namespace              string
 		configMapData          map[string]string
-		expectedCopiedCaSecret *corev1.ConfigMap
+		expectedCopiedCaConfigMap *corev1.ConfigMap
 	}{
 		{
 			name:          "Do not create a ca bundle configmap,if CaBundleConfigMapName is '' in storageConfig of inference-config configmap",
 			namespace:     targetNamespace,
 			configMapData: cabundleConfigMapData,
-			expectedCopiedCaSecret: &corev1.ConfigMap{
+			expectedCopiedCaConfigMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.DefaultGlobalCaBundleConfigMapName,
 					Namespace: targetNamespace,
@@ -54,7 +54,7 @@ func TestGetDesiredCaBundleConfigMapForUserNS(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			result := getDesiredCaBundleConfigMapForUserNS(constants.DefaultGlobalCaBundleConfigMapName, tt.namespace, tt.configMapData)
-			if diff := cmp.Diff(tt.expectedCopiedCaSecret, result); diff != "" {
+			if diff := cmp.Diff(tt.expectedCopiedCaConfigMap, result); diff != "" {
 				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
 			}
 		})
