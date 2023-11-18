@@ -50,8 +50,8 @@ ingress : |- {
 oc rollout restart deployment kserve-controller-manager -n kserve
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 
-# Install KServe built-in servingruntimes
-oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml"
+# Install KServe built-in servingruntimes and storagecontainers
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml"
 ```
 
 ## Installation with Service Mesh
@@ -96,9 +96,9 @@ oc apply -f openshift/cert-manager/operator.yaml
 export KSERVE_VERSION=v0.10.1
 oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve.yaml"
 
-# Install KServe built-in serving runtimes
+# Install KServe built-in serving runtimes and storagecontainers
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml"
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resoucess.yaml"
 
 # Add NetworkPolicies to allow traffic to kserve webhook
 oc apply -f openshift/networkpolicies.yaml
