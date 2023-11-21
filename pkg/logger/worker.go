@@ -19,11 +19,10 @@ package logger
 import (
 	"context"
 	"fmt"
-	"github.com/cloudevents/sdk-go"
+
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/transport"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
-	"net/http"
-	"time"
 )
 
 const (
@@ -61,10 +60,7 @@ func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogg
 		Work:        make(chan LogRequest),
 		WorkerQueue: workerQueue,
 		QuitChan:    make(chan bool),
-		Client: http.Client{
-			Timeout: 60 * time.Second,
-		},
-		CeCtx: cloudevents.ContextWithEncoding(context.Background(), cloudevents.Binary),
+		CeCtx:       cloudevents.WithEncodingBinary(context.Background()),
 	}
 }
 
@@ -74,15 +70,13 @@ type Worker struct {
 	Work        chan LogRequest
 	WorkerQueue chan chan LogRequest
 	QuitChan    chan bool
-	Client      http.Client
 	CeCtx       context.Context
 	CeTransport transport.Transport
 }
 
 func (w *Worker) sendCloudEvent(logReq LogRequest) error {
-	t, err := cloudevents.NewHTTPTransport(
+	t, err := cloudevents.NewHTTP(
 		cloudevents.WithTarget(logReq.Url.String()),
-		cloudevents.WithEncoding(cloudevents.HTTPBinaryV1),
 	)
 
 	if err != nil {
@@ -97,11 +91,7 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	}
 	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
-	if logReq.ReqType == InferenceRequest {
-		event.SetType(CEInferenceRequest)
-	} else {
-		event.SetType(CEInferenceResponse)
-	}
+	event.SetType(logReq.ReqType)
 
 	event.SetExtension(InferenceServiceAttr, logReq.InferenceService)
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
@@ -109,15 +99,12 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	event.SetExtension(EndpointAttr, logReq.Endpoint)
 
 	event.SetSource(logReq.SourceUri.String())
-	if logReq.ContentType != "" {
-		event.SetDataContentType(logReq.ContentType)
-	}
-	if err := event.SetData(*logReq.Bytes); err != nil {
+	if err := event.SetData(logReq.ContentType, *logReq.Bytes); err != nil {
 		return fmt.Errorf("while setting cloudevents data: %s", err)
 	}
 
-	if _, _, err := c.Send(w.CeCtx, event); err != nil {
-		return fmt.Errorf("while sending event: %s", err)
+	if result := c.Send(w.CeCtx, event); cloudevents.IsUndelivered(result) {
+		return fmt.Errorf("while sending event: %s", result)
 	}
 	return nil
 }
