@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import os
 import sys
 import uuid
@@ -173,7 +172,7 @@ def get_predict_input(payload: Union[Dict, InferRequest], columns: List = None) 
         if content_type == "pd":
             return payload.as_dataframe()
         else:
-            infer_inputs = merge_request_inputs(copy.deepcopy(payload.inputs))
+            infer_inputs = merge_request_inputs(payload.inputs.copy())
             return infer_inputs
 
 
