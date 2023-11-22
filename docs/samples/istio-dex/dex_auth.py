@@ -1,34 +1,7 @@
-# KFServing on Kubeflow with Istio-Dex
-
-This example shows how to create a KFServing InferenceService as well as sending a prediction request to the InferenceService in an Istio-Dex environment.
-
-We will be using the [SKLearn example](/docs/samples/v1beta1/sklearn/v1) to create our InferenceService.
-
-## Setup
-Deploy a Multi-user, auth-enabled Kubeflow from [Kustomize manifests](https://github.com/kubeflow/manifests#installation).
-
-## Create the InferenceService
-
-Apply the CRD to your namespace (this example uses the namespace `kubeflow-user-example-com`)
-
-```bash
-kubectl apply -f sklearn.yaml -n kubeflow-user-example-com
-```
-
-Expected Output
-```
-$ inferenceservice.serving.kserve.io/sklearn-iris created
-```
-
-## Run a prediction
-
-### Authentication 
-The below python code defines a *get_istio_auth_session()* function that returns a session cookie by authenticating with dex.
-
-```python
 import re
 from urllib.parse import urlsplit
 import requests
+
 
 def get_istio_auth_session(url: str, username: str, password: str) -> dict:
     """
@@ -127,92 +100,30 @@ def get_istio_auth_session(url: str, username: str, password: str) -> dict:
         auth_session["authservice_session"] = s.cookies.get("authservice_session")
 
     return auth_session
-```
 
-### Prediction
 
-This python code uses the above function to obtain the authservice_session token in order to 
-send authenticated prediction requests to the `InferenceService`.
+if __name__ == "__main__":
+    KUBEFLOW_ENDPOINT = "http://localhost:8080"     # Cluster IP and port
+    KUBEFLOW_USERNAME = "user@example.com"
+    KUBEFLOW_PASSWORD = "12341234"
+    MODEL_NAME = "sklearn-iris"
+    SERVICE_HOSTNAME = "sklearn-iris.kubeflow-user-example-com.example.com"
+    PREDICT_ENDPOINT = f"{KUBEFLOW_ENDPOINT}/v1/models/{MODEL_NAME}:predict"
+    iris_input = {"instances": [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]]}
 
-```python
-import requests 
+    _auth_session = get_istio_auth_session(
+        url=KUBEFLOW_ENDPOINT, username=KUBEFLOW_USERNAME, password=KUBEFLOW_PASSWORD
+    )
 
-KUBEFLOW_ENDPOINT = "http://localhost:8080"   # Cluster IP and port
-KUBEFLOW_USERNAME = "user@example.com"
-KUBEFLOW_PASSWORD = "12341234"
-MODEL_NAME = "sklearn-iris"
-SERVICE_HOSTNAME = "sklearn-iris.kubeflow-user-example-com.example.com"
-PREDICT_ENDPOINT = f"{KUBEFLOW_ENDPOINT}/v1/models/{MODEL_NAME}:predict"
-iris_input = {"instances": [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]]}
+    cookies = {"authservice_session": _auth_session['authservice_session']}
+    jar = requests.cookies.cookiejar_from_dict(cookies)
 
-_auth_session = get_istio_auth_session(
-    url=KUBEFLOW_ENDPOINT, username=KUBEFLOW_USERNAME, password=KUBEFLOW_PASSWORD
-)
-
-cookies = {"authservice_session": _auth_session['authservice_session']}
-jar = requests.cookies.cookiejar_from_dict(cookies)
-
-res = requests.post(
-    url=PREDICT_ENDPOINT,
-    headers={"Host": SERVICE_HOSTNAME, "Content-Type": "application/json"},
-    cookies=jar,
-    json=iris_input,
-    timeout=200,
-)
-print("Status Code: ", res.status_code)
-print("Response: ", res.json())
-```
-> **NOTE:**
-> Change the Variables as necessary. 
-> 
-> You can get the cluster IP by executing the following command.
-> ```bash
-> kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}'
-> ```
-> 
-> You can get the `SERVICE_HOSTNAME` by executing the following command.
-> ```bash
-> kubectl get -n kubeflow-user-example-com inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3
-> ```
-
-### Expected Output
-
-```bash
-Status Code: 200
-Response: {"predictions": [1, 1]}
-```
-### FAQ
-
-1. Why I am getting 404 not found error ?
-
-   Check the url and service hostname for typos. If you are sending request from outside the cluster and service 
-   hostname ends with `svc.cluster.local` domain, you need to [configure the domain/DNS](https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/#configure-dns)
-   in knative serving.
-
-2. Why I am getting 403 Forbidden RBAC access denied error ?
-   
-   If you are using istio sidecar injection then, disable it by adding the annotation `sidecar.istio.io/inject: false` to the InferenceService
-   or create an [Istio AuthorizationPolicy](https://istio.io/latest/docs/reference/config/security/authorization-policy/) to grant access to the pods.
-   Here is an example AuthorizationPolicy which grants access to the predictor pods.
-   ```yaml
-   apiVersion: security.istio.io/v1
-   kind: AuthorizationPolicy
-   metadata:
-     name: allow-predictor
-     namespace: istio-system
-   spec:
-     selector:
-       matchLabels:
-         component: predictor
-     action: ALLOW
-     rules:
-       - to:
-         - operation:
-             paths:
-               - /metrics
-               - /healthz
-               - /ready
-               - /wait-for-drain
-               - /v1/models/*
-               - /v2/models/*
-    ```
+    res = requests.post(
+        url=PREDICT_ENDPOINT,
+        headers={"Host": SERVICE_HOSTNAME, "Content-Type": "application/json"},
+        cookies=jar,
+        json=iris_input,
+        timeout=200,
+    )
+    print("Status Code: ", res.status_code)
+    print("Response: ", res.json())
