@@ -155,7 +155,8 @@ def explain_response(service_name, input_json):
     time.sleep(10)
     cluster_ip = get_cluster_ip()
     host = urlparse(isvc["status"]["url"]).netloc
-    url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
+    path = urlparse(isvc["status"]["url"]).path
+    url = f"http://{cluster_ip}{path}/v1/models/{service_name}:explain"
     headers = {"Host": host}
     with open(input_json) as json_file:
         data = json.load(json_file)

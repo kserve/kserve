@@ -316,6 +316,16 @@ jobs:
         with:
           image: "kserve/image-transformer:${{ github.sha }}"
 
+      - name: Download alibi image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/alibi-explainer:${{ github.sha }}"
+
+      - name: Download art explainer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/art-explainer:${{ github.sha }}"
+
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
@@ -334,7 +344,7 @@ jobs:
       - name: Run E2E tests with path-based routing
         timeout-minutes: 50
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or explainer" "2"
 
       - name: Check system status
         if: always()
