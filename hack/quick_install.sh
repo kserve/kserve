@@ -122,9 +122,9 @@ if [ ${MAJOR_VERSION} -eq 0 ] && [ ${MINOR_VERSION} -le 6 ]; then KSERVE_CONFIG=
 # Retry inorder to handle that it may take a minute or so for the TLS assets required for the webhook to function to be provisioned
 kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/${KSERVE_CONFIG}
 
-# Install KServe built-in servingruntimes
+# Install KServe built-in servingruntimes and storagecontainers
 kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml
+kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml
 echo "😀 Successfully installed KServe"
 
 # Clean up
