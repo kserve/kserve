@@ -117,6 +117,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             os.environ["AWS_SECRET_ACCESS_KEY"] = storage_secret_json.get("secret_access_key", "")
             os.environ["AWS_DEFAULT_REGION"] = storage_secret_json.get("region", "")
             os.environ["AWS_CA_BUNDLE"] = storage_secret_json.get("certificate", "")
+            os.environ["S3_VERIFY_SSL"] = storage_secret_json.get("verify_ssl", "1")
             os.environ["awsAnonymousCredential"] = storage_secret_json.get("anonymous", "")
 
         if storage_secret_json.get("type", "") == "hdfs" or storage_secret_json.get("type", "") == "webhdfs":
@@ -168,7 +169,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             kwargs.update({"endpoint_url": endpoint_url})
         verify_ssl = os.getenv("S3_VERIFY_SSL")
         if verify_ssl:
-            verify_ssl = verify_ssl != "0"
+            verify_ssl = not verify_ssl.lower() in ["0", "false"]
             kwargs.update({"verify": verify_ssl})
         s3 = boto3.resource("s3", **kwargs)
         parsed = urlparse(uri, scheme='s3')
