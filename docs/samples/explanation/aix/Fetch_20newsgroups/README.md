@@ -29,7 +29,7 @@ Then you will see the explanation result as several charts.
 
 ![example explanation](aix-explanation.jpeg)
 
-Each chart title represents a class name (newsgroup). In this case, it has 20 differnt newsgroups related to computer, science, humanities, etc. Y-axis represents words that will make the article to be classfied to this newsgroup. X-axis indicates the magnitude.
+Each chart title represents a class name (newsgroup). In this case, it has 20 different newsgroups related to computer, science, humanities, etc. Y-axis represents words that will make the article to be classfied to this newsgroup. X-axis indicates the magnitude.
 
 ## Stopping the Inference Service
 

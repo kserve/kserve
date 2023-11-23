@@ -153,10 +153,12 @@ class DummyAvroCEModel(Model):
         return self._parserequest(request)
 
     async def predict(self, request, headers=None):
-        return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
+        return {"predictions": [[request['name'], request['favorite_number'],
+                                 request['favorite_color']]]}
 
     async def explain(self, request, headers=None):
-        return {"predictions": [[request['name'], request['favorite_number'], request['favorite_color']]]}
+        return {"predictions": [[request['name'], request['favorite_number'],
+                                 request['favorite_color']]]}
 
 
 class DummyModelRepository(ModelRepository):
@@ -198,11 +200,14 @@ class TestModel:
         with pytest.raises(InvalidInput):
             model.validate(bad_request)
 
+# Separate out v1 and v2 endpoint unit tests in
+# https://github.com/kserve/kserve/blob/master/python/kserve/test/test_server.py.
 
-class TestTFHttpServer:
+
+class TestV1Endpoints:
 
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def app(self):
         model = DummyModel("TestModel")
         model.load()
         server = ModelServer()
@@ -210,42 +215,75 @@ class TestTFHttpServer:
         rest_server = RESTServer(server.dataplane, server.model_repository_extension)
         return rest_server.create_application()
 
-    @pytest.fixture(scope='class')
+    @pytest.fixture(scope="class")
     def http_server_client(self, app):
         return TestClient(app, headers={"content-type": "application/json"})
 
-    def test_liveness(self, http_server_client):
+    def test_liveness_v1(self, http_server_client):
         resp = http_server_client.get('/')
         assert resp.status_code == 200
         assert resp.json() == {"status": "alive"}
 
-    def test_model(self, http_server_client):
+    def test_model_v1(self, http_server_client):
         resp = http_server_client.get('/v1/models/TestModel')
         assert resp.status_code == 200
 
-    def test_unknown_model(self, http_server_client):
+    def test_unknown_model_v1(self, http_server_client):
         resp = http_server_client.get('/v1/models/InvalidModel')
         assert resp.status_code == 404
         assert resp.json() == {"error": "Model with name InvalidModel does not exist."}
 
-    def test_list_models(self, http_server_client):
+    def test_list_models_v1(self, http_server_client):
         resp = http_server_client.get('/v1/models')
         assert resp.status_code == 200
         assert resp.json() == {"models": ["TestModel"]}
 
-    def test_list_models_v2(self, http_server_client):
-        resp = http_server_client.get('/v2/models')
-        assert resp.status_code == 200
-        assert resp.json() == {"models": ["TestModel"]}
-
-    def test_predict(self, http_server_client):
+    def test_predict_v1(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict',
                                        data=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers['content-type'] == "application/json"
 
-    def test_infer(self, http_server_client):
+    def test_explain_v1(self, http_server_client):
+        resp = http_server_client.post('/v1/models/TestModel:explain',
+                                       data=b'{"instances":[[1,2]]}')
+        assert resp.status_code == 200
+        assert resp.content == b'{"predictions":[[1,2]]}'
+        assert resp.headers['content-type'] == "application/json"
+
+    def test_unknown_path_v1(self, http_server_client):
+        resp = http_server_client.get('/unknown_path')
+        assert resp.status_code == 404
+        assert resp.json() == {"detail": "Not Found"}
+
+    def test_metrics_v1(self, http_server_client):
+        resp = http_server_client.get('/metrics')
+        assert resp.status_code == 200
+        assert resp.content is not None
+
+
+class TestV2Endpoints:
+
+    @pytest.fixture(scope="class")
+    def app(self):
+        model = DummyModel("TestModel")
+        model.load()
+        server = ModelServer()
+        server.register_model(model)
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
+
+    @pytest.fixture(scope="class")
+    def http_server_client(self, app):
+        return TestClient(app, headers={"content-type": "application/json"})
+
+    def test_list_models_v2(self, http_server_client):
+        resp = http_server_client.get('/v2/models')
+        assert resp.status_code == 200
+        assert resp.json() == {"models": ["TestModel"]}
+
+    def test_infer_v2(self, http_server_client):
         input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
         resp = http_server_client.post('/v2/models/TestModel/infer',
                                        data=input_data)
@@ -255,22 +293,12 @@ class TestTFHttpServer:
         assert result["outputs"][0]["data"] == [1, 2]
         assert resp.headers['content-type'] == "application/json"
 
-    def test_explain(self, http_server_client):
+    def test_explain_v2(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:explain',
                                        data=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers['content-type'] == "application/json"
-
-    def test_unknown_path(self, http_server_client):
-        resp = http_server_client.get('/unknown_path')
-        assert resp.status_code == 404
-        assert resp.json() == {"detail": "Not Found"}
-
-    def test_metrics(self, http_server_client):
-        resp = http_server_client.get('/metrics')
-        assert resp.status_code == 200
-        assert resp.content is not None
 
 
 class TestRayServer:

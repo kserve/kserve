@@ -49,6 +49,7 @@ class V1alpha1InferenceStep(object):
     openapi_types = {
         'condition': 'str',
         'data': 'str',
+        'dependency': 'str',
         'name': 'str',
         'node_name': 'str',
         'service_name': 'str',
@@ -59,6 +60,7 @@ class V1alpha1InferenceStep(object):
     attribute_map = {
         'condition': 'condition',
         'data': 'data',
+        'dependency': 'dependency',
         'name': 'name',
         'node_name': 'nodeName',
         'service_name': 'serviceName',
@@ -66,7 +68,7 @@ class V1alpha1InferenceStep(object):
         'weight': 'weight'
     }
 
-    def __init__(self, condition=None, data=None, name=None, node_name=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, condition=None, data=None, dependency=None, name=None, node_name=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceStep - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -74,6 +76,7 @@ class V1alpha1InferenceStep(object):
 
         self._condition = None
         self._data = None
+        self._dependency = None
         self._name = None
         self._node_name = None
         self._service_name = None
@@ -85,6 +88,8 @@ class V1alpha1InferenceStep(object):
             self.condition = condition
         if data is not None:
             self.data = data
+        if dependency is not None:
+            self.dependency = dependency
         if name is not None:
             self.name = name
         if node_name is not None:
@@ -141,6 +146,29 @@ class V1alpha1InferenceStep(object):
         """
 
         self._data = data
+
+    @property
+    def dependency(self):
+        """Gets the dependency of this V1alpha1InferenceStep.  # noqa: E501
+
+        to decide whether a step is a hard or a soft dependency in the Inference Graph  # noqa: E501
+
+        :return: The dependency of this V1alpha1InferenceStep.  # noqa: E501
+        :rtype: str
+        """
+        return self._dependency
+
+    @dependency.setter
+    def dependency(self, dependency):
+        """Sets the dependency of this V1alpha1InferenceStep.
+
+        to decide whether a step is a hard or a soft dependency in the Inference Graph  # noqa: E501
+
+        :param dependency: The dependency of this V1alpha1InferenceStep.  # noqa: E501
+        :type: str
+        """
+
+        self._dependency = dependency
 
     @property
     def name(self):

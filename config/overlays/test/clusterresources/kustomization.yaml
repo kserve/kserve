@@ -3,6 +3,8 @@ kind: Kustomization
 
 resources:
 - ../../../runtimes
+- ../../../storagecontainers
+
 
 images:
 - name: kserve/sklearnserver
@@ -18,4 +20,7 @@ images:
   newTag: latest
 
 - name: kserve/lgbserver
+  newTag: latest
+
+- name: kserve/storage-initializer
   newTag: latest

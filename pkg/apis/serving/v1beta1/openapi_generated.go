@@ -30,67 +30,71 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.BuiltInAdapter":            schema_pkg_apis_serving_v1alpha1_BuiltInAdapter(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntime":     schema_pkg_apis_serving_v1alpha1_ClusterServingRuntime(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntimeList": schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraph":            schema_pkg_apis_serving_v1alpha1_InferenceGraph(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphList":        schema_pkg_apis_serving_v1alpha1_InferenceGraphList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphSpec":        schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphStatus":      schema_pkg_apis_serving_v1alpha1_InferenceGraphStatus(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter":           schema_pkg_apis_serving_v1alpha1_InferenceRouter(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceStep":             schema_pkg_apis_serving_v1alpha1_InferenceStep(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceTarget":           schema_pkg_apis_serving_v1alpha1_InferenceTarget(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelSpec":                 schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntime":            schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeList":        schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimePodSpec":     schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeSpec":        schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeStatus":      schema_pkg_apis_serving_v1alpha1_ServingRuntimeStatus(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageHelper":             schema_pkg_apis_serving_v1alpha1_StorageHelper(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedModelFormat":      schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModel":              schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelList":          schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelSpec":          schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":           schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AlibiExplainerSpec":         schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                    schema_pkg_apis_serving_v1beta1_Batcher(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":     schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":        schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomExplainer":            schema_pkg_apis_serving_v1beta1_CustomExplainer(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomPredictor":            schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomTransformer":          schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeployConfig":               schema_pkg_apis_serving_v1beta1_DeployConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerConfig":            schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":     schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":              schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig":           schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.FailureInfo":                schema_pkg_apis_serving_v1beta1_FailureInfo(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceService":           schema_pkg_apis_serving_v1beta1_InferenceService(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceList":       schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceSpec":       schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceStatus":     schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":    schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":              schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":               schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                 schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat":                schema_pkg_apis_serving_v1beta1_ModelFormat(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelRevisionStates":        schema_pkg_apis_serving_v1beta1_ModelRevisionStates(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec":                  schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus":                schema_pkg_apis_serving_v1beta1_ModelStatus(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec":            schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec":                   schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec":           schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                    schema_pkg_apis_serving_v1beta1_PodSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":     schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":              schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec":                schema_pkg_apis_serving_v1beta1_StorageSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec":              schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec":             schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec":            schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec":                 schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec":                schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.BuiltInAdapter":              schema_pkg_apis_serving_v1alpha1_BuiltInAdapter(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntime":       schema_pkg_apis_serving_v1alpha1_ClusterServingRuntime(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntimeList":   schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainer":     schema_pkg_apis_serving_v1alpha1_ClusterStorageContainer(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainerList": schema_pkg_apis_serving_v1alpha1_ClusterStorageContainerList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraph":              schema_pkg_apis_serving_v1alpha1_InferenceGraph(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphList":          schema_pkg_apis_serving_v1alpha1_InferenceGraphList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphSpec":          schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphStatus":        schema_pkg_apis_serving_v1alpha1_InferenceGraphStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter":             schema_pkg_apis_serving_v1alpha1_InferenceRouter(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceStep":               schema_pkg_apis_serving_v1alpha1_InferenceStep(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceTarget":             schema_pkg_apis_serving_v1alpha1_InferenceTarget(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelSpec":                   schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntime":              schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeList":          schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimePodSpec":       schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeSpec":          schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeStatus":        schema_pkg_apis_serving_v1alpha1_ServingRuntimeStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageContainerSpec":        schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageHelper":               schema_pkg_apis_serving_v1alpha1_StorageHelper(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedModelFormat":        schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedUriFormat":          schema_pkg_apis_serving_v1alpha1_SupportedUriFormat(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModel":                schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelList":            schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelSpec":            schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":             schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AlibiExplainerSpec":           schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                      schema_pkg_apis_serving_v1beta1_Batcher(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":       schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":          schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomExplainer":              schema_pkg_apis_serving_v1beta1_CustomExplainer(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomPredictor":              schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomTransformer":            schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeployConfig":                 schema_pkg_apis_serving_v1beta1_DeployConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerConfig":              schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":       schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig":             schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.FailureInfo":                  schema_pkg_apis_serving_v1beta1_FailureInfo(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceService":             schema_pkg_apis_serving_v1beta1_InferenceService(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceList":         schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceSpec":         schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceStatus":       schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":      schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                 schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                  schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat":                  schema_pkg_apis_serving_v1beta1_ModelFormat(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelRevisionStates":          schema_pkg_apis_serving_v1beta1_ModelRevisionStates(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec":                    schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus":                  schema_pkg_apis_serving_v1beta1_ModelStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec":              schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec":                     schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec":             schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                      schema_pkg_apis_serving_v1beta1_PodSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":       schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                  schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec":                  schema_pkg_apis_serving_v1beta1_StorageSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec":                schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec":               schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec":              schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec":                   schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec":                  schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
 	}
 }
 
@@ -201,7 +205,7 @@ func schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ServingRuntimeList contains a list of ServingRuntime",
+				Description: "ClusterServingRuntimeList contains a list of ServingRuntime",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -243,6 +247,100 @@ func schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref common.Refer
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntime", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_ClusterStorageContainer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageContainerSpec"),
+						},
+					},
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageContainerSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_ClusterStorageContainerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainer"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainer", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -378,6 +476,13 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 					"affinity": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/api/core/v1.Affinity"),
+						},
+					},
+					"timeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 				},
@@ -543,6 +648,13 @@ func schema_pkg_apis_serving_v1alpha1_InferenceStep(ref common.ReferenceCallback
 					"condition": {
 						SchemaProps: spec.SchemaProps{
 							Description: "routing based on the condition",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dependency": {
+						SchemaProps: spec.SchemaProps{
+							Description: "to decide whether a step is a hard or a soft dependency in the Inference Graph",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1103,6 +1215,43 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeStatus(ref common.ReferenceC
 	}
 }
 
+func schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"container": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Container spec for the storage initializer init container",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.Container"),
+						},
+					},
+					"supportedUriFormats": {
+						SchemaProps: spec.SchemaProps{
+							Description: "List of URI formats that this container supports",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedUriFormat"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"container", "supportedUriFormats"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedUriFormat", "k8s.io/api/core/v1.Container"},
+	}
+}
+
 func schema_pkg_apis_serving_v1alpha1_StorageHelper(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1154,6 +1303,32 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 							Description: "Priority of this serving runtime for auto selection. This is used to select the serving runtime if more than one serving runtime supports the same model format. The value should be greater than zero.  The higher the value, the higher the priority. Priority is not considered if AutoSelect is either false or not specified. Priority can be overridden by specifying the runtime in the InferenceService.",
 							Type:        []string{"integer"},
 							Format:      "int32",
+						},
+					},
+				},
+				
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_SupportedUriFormat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SupportedUriFormat can be either prefix or regex. Todo: Add validation that only one of them is set.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"prefix": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"regex": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
@@ -1457,6 +1632,32 @@ func schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref common.ReferenceCallba
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -1580,7 +1781,7 @@ func schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -1747,6 +1948,32 @@ func schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref common.ReferenceCall
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -1870,7 +2097,7 @@ func schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -2186,7 +2413,7 @@ func schema_pkg_apis_serving_v1beta1_CustomExplainer(ref common.ReferenceCallbac
 					},
 					"restartPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
+							Description: "Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2503,7 +2730,7 @@ func schema_pkg_apis_serving_v1beta1_CustomExplainer(ref common.ReferenceCallbac
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. More info:  https://git.k8s.io/enhancements/keps/sig-scheduling/3521-pod-scheduling-readiness.\n\nThis is an alpha-level feature enabled by PodSchedulingReadiness feature gate.",
+							Description: "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.\n\nThis is a beta feature enabled by the PodSchedulingReadiness feature gate.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2637,7 +2864,7 @@ func schema_pkg_apis_serving_v1beta1_CustomPredictor(ref common.ReferenceCallbac
 					},
 					"restartPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
+							Description: "Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2954,7 +3181,7 @@ func schema_pkg_apis_serving_v1beta1_CustomPredictor(ref common.ReferenceCallbac
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. More info:  https://git.k8s.io/enhancements/keps/sig-scheduling/3521-pod-scheduling-readiness.\n\nThis is an alpha-level feature enabled by PodSchedulingReadiness feature gate.",
+							Description: "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.\n\nThis is a beta feature enabled by the PodSchedulingReadiness feature gate.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3088,7 +3315,7 @@ func schema_pkg_apis_serving_v1beta1_CustomTransformer(ref common.ReferenceCallb
 					},
 					"restartPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
+							Description: "Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3405,7 +3632,7 @@ func schema_pkg_apis_serving_v1beta1_CustomTransformer(ref common.ReferenceCallb
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. More info:  https://git.k8s.io/enhancements/keps/sig-scheduling/3521-pod-scheduling-readiness.\n\nThis is an alpha-level feature enabled by PodSchedulingReadiness feature gate.",
+							Description: "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.\n\nThis is a beta feature enabled by the PodSchedulingReadiness feature gate.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3652,6 +3879,32 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -3771,10 +4024,11 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -4882,6 +5136,32 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -5001,10 +5281,11 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -5085,6 +5366,7 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -5276,6 +5558,32 @@ func schema_pkg_apis_serving_v1beta1_ModelSpec(ref common.ReferenceCallback) com
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -5399,7 +5707,7 @@ func schema_pkg_apis_serving_v1beta1_ModelSpec(ref common.ReferenceCallback) com
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -5590,6 +5898,32 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -5709,10 +6043,11 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -5862,6 +6197,32 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -5981,10 +6342,11 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -6133,6 +6495,32 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -6252,10 +6640,11 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -6855,6 +7244,32 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -6974,10 +7389,11 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -7730,6 +8146,32 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -7849,10 +8291,11 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -8051,6 +8494,32 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -8170,10 +8639,11 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -8323,6 +8793,32 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -8442,10 +8938,11 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -9138,6 +9635,32 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -9257,10 +9780,11 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -9410,6 +9934,32 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"resizePolicy": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources resize policy for the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
+									},
+								},
+							},
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumeMounts": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -9529,9 +10079,10 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }

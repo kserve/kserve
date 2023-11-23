@@ -17,6 +17,10 @@ on:
 env:
   IMAGE_NAME: kserve-storage-initializer
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
@@ -84,7 +88,6 @@ jobs:
           [ ! -z "env.MINOR_VERSION" ] && TAGS=$TAGS,$IMAGE_ID:$MINOR_VERSION
           
           echo TAGS=$TAGS >> $GITHUB_ENV
-
 
       - name: Build and push
         uses: docker/build-push-action@v3

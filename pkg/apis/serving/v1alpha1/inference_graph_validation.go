@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"fmt"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"regexp"
 
@@ -61,42 +62,42 @@ var (
 var _ webhook.Validator = &InferenceGraph{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (ig *InferenceGraph) ValidateCreate() error {
+func (ig *InferenceGraph) ValidateCreate() (admission.Warnings, error) {
 	validatorLogger.Info("validate create", "name", ig.Name)
 
 	if err := validateInferenceGraphName(ig); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := validateInferenceGraphRouterRoot(ig); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := validateInferenceGraphStepNameUniqueness(ig); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := validateInferenceGraphSingleStepTargets(ig); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := validateInferenceGraphSplitterWeight(ig); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (ig *InferenceGraph) ValidateUpdate(old runtime.Object) error {
+func (ig *InferenceGraph) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	validatorLogger.Info("validate update", "name", ig.Name)
 
 	return ig.ValidateCreate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (ig *InferenceGraph) ValidateDelete() error {
+func (ig *InferenceGraph) ValidateDelete() (admission.Warnings, error) {
 	validatorLogger.Info("validate delete", "name", ig.Name)
-	return nil
+	return nil, nil
 }
 
 // Validation of unique step names

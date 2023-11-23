@@ -91,6 +91,9 @@ def test_lightgbm_runtime_kserve():
 
     res = predict(service_name, "./data/iris_input_v3.json")
     assert res["predictions"][0][0] > 0.5
+
+    res = predict(service_name, "./data/iris_input_v4.json")
+    assert res["predictions"][0][0] > 0.5
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 

@@ -25,7 +25,7 @@ QPEXT_IMG ?= qpext
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26
+ENVTEST_K8S_VERSION = 1.27
 SUCCESS_200_ISVC_IMG ?= success-200-isvc
 ERROR_404_ISVC_IMG ?= error-404-isvc
 
@@ -75,26 +75,27 @@ run: generate fmt vet lint
 deploy: manifests
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
-	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
+	${KUSTOMIZE} edit remove resource ../certmanager; \
+	else ${KUSTOMIZE} edit add resource ../certmanager; fi;
 	${KUSTOMIZE} build config/default | kubectl apply -f -
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	sleep 2
-	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
-	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	${KUSTOMIZE} build config/clusterresources | kubectl apply -f -
+
 
 deploy-dev: manifests
 	./hack/image_patch_dev.sh development
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
-	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
+	${KUSTOMIZE} edit remove resource ../certmanager; \
+	else ${KUSTOMIZE} edit add resource ../certmanager; fi;
 	${KUSTOMIZE} build config/overlays/development | kubectl apply -f -
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	sleep 2
-	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
-	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	${KUSTOMIZE} build config/clusterresources | kubectl apply -f -
 
 deploy-dev-sklearn: docker-push-sklearn kustomize
 	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
@@ -123,7 +124,7 @@ deploy-ci: manifests
 	kubectl apply -k config/overlays/test
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/overlays/test/runtimes
+	kubectl apply -k config/overlays/test/clusterresources
 
 deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
@@ -336,3 +337,6 @@ apidocs:
 .PHONY: check-doc-links
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
+
+poetry-update-lockfiles:
+	bash -ec 'for value in $$(find . -name poetry.lock -exec dirname {} \;); do (cd "$${value}" && echo "Updating $${value}/poetry.lock" && poetry update --lock); done'

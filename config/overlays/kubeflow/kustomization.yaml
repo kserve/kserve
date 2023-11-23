@@ -22,11 +22,10 @@ configurations:
 
 replacements:
   - source:
-      group: cert-manager.io
-      kind: Certificate
-      name: serving-cert
-      version: v1
       fieldPath: metadata.namespace
+      kind: Deployment
+      name: kserve-controller-manager
+      version: v1
     targets:
       - select:
           kind: CustomResourceDefinition
@@ -98,6 +97,22 @@ replacements:
       - select:
           kind: ValidatingWebhookConfiguration
           name: inferencegraph.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: clusterservingruntime.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: servingruntime.serving.kserve.io
         fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:

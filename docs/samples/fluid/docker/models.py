@@ -26,7 +26,7 @@ def handler(signal_received, frame):
 
 
 def check_gpu():
-    app.logger.info(f"CUDA is avaiable: {torch.cuda.is_available()}")
+    app.logger.info(f"CUDA is available: {torch.cuda.is_available()}")
 
     # setting device on GPU if available, else CPU
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
