@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -29,8 +30,8 @@ import (
 	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	"github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
-	istio_networking "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istio_networking "istio.io/api/networking/v1beta1"
+	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -154,8 +155,8 @@ func main() {
 		}
 		if ingressConfig.DisableIstioVirtualHost == false {
 			log.Info("Setting up Istio schemes")
-			if err := v1alpha3.AddToScheme(mgr.GetScheme()); err != nil {
-				log.Error(err, "unable to add Istio v1alpha3 APIs to scheme")
+			if err := istioclientv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
+				log.Error(err, "unable to add Istio v1beta1 APIs to scheme")
 				os.Exit(1)
 			}
 		}
@@ -220,13 +221,19 @@ func main() {
 	hookServer := mgr.GetWebhookServer()
 
 	log.Info("registering webhooks to the webhook server")
-	hookServer.Register("/mutate-pods", &webhook.Admission{Handler: &pod.Mutator{}})
+	hookServer.Register("/mutate-pods", &webhook.Admission{
+		Handler: &pod.Mutator{Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme())},
+	})
 
 	//log.Info("registering cluster serving runtime validator webhook to the webhook server")
-	//hookServer.Register("/validate-serving-kserve-io-v1alpha1-clusterservingruntime", &webhook.Admission{Handler: &servingruntime.ClusterServingRuntimeValidator{}})
+	//hookServer.Register("/validate-serving-kserve-io-v1alpha1-clusterservingruntime", &webhook.Admission{
+	//	Handler: &servingruntime.ClusterServingRuntimeValidator{Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme())},
+	//})
 
 	log.Info("registering serving runtime validator webhook to the webhook server")
-	hookServer.Register("/validate-serving-kserve-io-v1alpha1-servingruntime", &webhook.Admission{Handler: &servingruntime.ServingRuntimeValidator{}})
+	hookServer.Register("/validate-serving-kserve-io-v1alpha1-servingruntime", &webhook.Admission{
+		Handler: &servingruntime.ServingRuntimeValidator{Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme())},
+	})
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha1.TrainedModel{}).

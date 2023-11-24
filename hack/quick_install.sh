@@ -1,4 +1,4 @@
-set -e
+set -eo pipefail
 ############################################################
 # Help                                                     #
 ############################################################
@@ -37,8 +37,10 @@ export KSERVE_VERSION=v0.11.1
 export CERT_MANAGER_VERSION=v1.3.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
-KUBE_VERSION=$(kubectl version --short=true | grep "Server Version" | awk -F '.' '{print $2}')
-if [ ${KUBE_VERSION} -lt 24 ];
+get_kube_version(){
+    kubectl version --short=true 2>/dev/null || kubectl version | awk -F '.' '/Server Version/ {print $2}'
+}
+if [ $(get_kube_version) -lt 24 ];
 then
    echo "😱 install requires at least Kubernetes 1.24";
    exit 1;
@@ -120,9 +122,9 @@ if [ ${MAJOR_VERSION} -eq 0 ] && [ ${MINOR_VERSION} -le 6 ]; then KSERVE_CONFIG=
 # Retry inorder to handle that it may take a minute or so for the TLS assets required for the webhook to function to be provisioned
 kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/${KSERVE_CONFIG}
 
-# Install KServe built-in servingruntimes
+# Install KServe built-in servingruntimes and storagecontainers
 kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml
+kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml
 echo "😀 Successfully installed KServe"
 
 # Clean up

@@ -23,8 +23,9 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	gomegaTypes "github.com/onsi/gomega/types"
-	istiov1alpha3 "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"google.golang.org/protobuf/testing/protocmp"
+	istiov1beta1 "istio.io/api/networking/v1beta1"
+	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
@@ -46,18 +47,18 @@ func TestCreateVirtualService(t *testing.T) {
 	predictorHostname := constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain)
 	transformerHostname := constants.InferenceServiceHostName(constants.DefaultTransformerServiceName(serviceName), namespace, domain)
 	explainerHostname := constants.InferenceServiceHostName(constants.DefaultExplainerServiceName(serviceName), namespace, domain)
-	predictorRouteMatch := []*istiov1alpha3.HTTPMatchRequest{
+	predictorRouteMatch := []*istiov1beta1.HTTPMatchRequest{
 		{
-			Authority: &istiov1alpha3.StringMatch{
-				MatchType: &istiov1alpha3.StringMatch_Regex{
+			Authority: &istiov1beta1.StringMatch{
+				MatchType: &istiov1beta1.StringMatch_Regex{
 					Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 				},
 			},
 			Gateways: []string{constants.KnativeLocalGateway},
 		},
 		{
-			Authority: &istiov1alpha3.StringMatch{
-				MatchType: &istiov1alpha3.StringMatch_Regex{
+			Authority: &istiov1beta1.StringMatch{
+				MatchType: &istiov1beta1.StringMatch_Regex{
 					Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
 				},
 			},
@@ -70,7 +71,7 @@ func TestCreateVirtualService(t *testing.T) {
 		ingressConfig   *v1beta1.IngressConfig
 		useDefault      bool
 		componentStatus *v1beta1.InferenceServiceStatus
-		expectedService *v1alpha3.VirtualService
+		expectedService *istioclientv1beta1.VirtualService
 	}{{
 		name:            "nil status should not be ready",
 		componentStatus: nil,
@@ -123,22 +124,22 @@ func TestCreateVirtualService(t *testing.T) {
 				},
 			},
 		},
-		expectedService: &v1alpha3.VirtualService{
+		expectedService: &istioclientv1beta1.VirtualService{
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
-			Spec: istiov1alpha3.VirtualService{
+			Spec: istiov1beta1.VirtualService{
 				Hosts:    []string{serviceInternalHostName, serviceHostName},
 				Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
-				Http: []*istiov1alpha3.HTTPRoute{
+				Http: []*istiov1beta1.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
-						Route: []*istiov1alpha3.HTTPRouteDestination{
+						Route: []*istiov1beta1.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+								Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 							},
 						},
-						Headers: &istiov1alpha3.Headers{
-							Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+						Headers: &istiov1beta1.Headers{
+							Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 								"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
 						},
 					},
@@ -178,31 +179,31 @@ func TestCreateVirtualService(t *testing.T) {
 				},
 			},
 		},
-		expectedService: &v1alpha3.VirtualService{
+		expectedService: &istioclientv1beta1.VirtualService{
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
-			Spec: istiov1alpha3.VirtualService{
+			Spec: istiov1beta1.VirtualService{
 				Hosts:    []string{serviceInternalHostName},
 				Gateways: []string{constants.KnativeLocalGateway},
-				Http: []*istiov1alpha3.HTTPRoute{
+				Http: []*istiov1beta1.HTTPRoute{
 					{
-						Match: []*istiov1alpha3.HTTPMatchRequest{
+						Match: []*istiov1beta1.HTTPMatchRequest{
 							{
-								Authority: &istiov1alpha3.StringMatch{
-									MatchType: &istiov1alpha3.StringMatch_Regex{
+								Authority: &istiov1beta1.StringMatch{
+									MatchType: &istiov1beta1.StringMatch_Regex{
 										Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 									},
 								},
 								Gateways: []string{constants.KnativeLocalGateway},
 							},
 						},
-						Route: []*istiov1alpha3.HTTPRouteDestination{
+						Route: []*istiov1beta1.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+								Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 							},
 						},
-						Headers: &istiov1alpha3.Headers{
-							Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+						Headers: &istiov1beta1.Headers{
+							Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 								"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
 						},
 					},
@@ -286,22 +287,22 @@ func TestCreateVirtualService(t *testing.T) {
 					},
 				},
 			},
-			expectedService: &v1alpha3.VirtualService{
+			expectedService: &istioclientv1beta1.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
-				Spec: istiov1alpha3.VirtualService{
+				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
-					Http: []*istiov1alpha3.HTTPRoute{
+					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
-							Route: []*istiov1alpha3.HTTPRouteDestination{
+							Route: []*istiov1beta1.HTTPRouteDestination{
 								{
-									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
 								},
 							},
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
 								}},
 							},
@@ -358,22 +359,22 @@ func TestCreateVirtualService(t *testing.T) {
 					},
 				},
 			},
-			expectedService: &v1alpha3.VirtualService{
+			expectedService: &istioclientv1beta1.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
-				Spec: istiov1alpha3.VirtualService{
+				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
-					Http: []*istiov1alpha3.HTTPRoute{
+					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
-							Route: []*istiov1alpha3.HTTPRouteDestination{
+							Route: []*istiov1beta1.HTTPRouteDestination{
 								{
-									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
 								},
 							},
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
 								}},
 							},
@@ -457,63 +458,63 @@ func TestCreateVirtualService(t *testing.T) {
 					},
 				},
 			},
-			expectedService: &v1alpha3.VirtualService{
+			expectedService: &istioclientv1beta1.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
-				Spec: istiov1alpha3.VirtualService{
+				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
-					Http: []*istiov1alpha3.HTTPRoute{
+					Http: []*istiov1beta1.HTTPRoute{
 						{
-							Match: []*istiov1alpha3.HTTPMatchRequest{
+							Match: []*istiov1beta1.HTTPMatchRequest{
 								{
-									Uri: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Regex{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.ExplainPrefix(),
 										},
 									},
-									Authority: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Regex{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
 									Gateways: []string{constants.KnativeLocalGateway},
 								},
 								{
-									Uri: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Regex{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.ExplainPrefix(),
 										},
 									},
-									Authority: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Regex{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
 										},
 									},
 									Gateways: []string{constants.KnativeIngressGateway},
 								},
 							},
-							Route: []*istiov1alpha3.HTTPRouteDestination{
+							Route: []*istiov1beta1.HTTPRouteDestination{
 								{
-									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
 								},
 							},
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace)},
 								},
 							},
 						},
 						{
 							Match: predictorRouteMatch,
-							Route: []*istiov1alpha3.HTTPRouteDestination{
+							Route: []*istiov1beta1.HTTPRouteDestination{
 								{
-									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
 								},
 							},
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)},
 								},
 							},
@@ -558,79 +559,79 @@ func TestCreateVirtualService(t *testing.T) {
 					},
 				},
 			},
-			expectedService: &v1alpha3.VirtualService{
+			expectedService: &istioclientv1beta1.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
-				Spec: istiov1alpha3.VirtualService{
+				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName, "my-domain.com"},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
-					Http: []*istiov1alpha3.HTTPRoute{
+					Http: []*istiov1beta1.HTTPRoute{
 						{
-							Match: []*istiov1alpha3.HTTPMatchRequest{
+							Match: []*istiov1beta1.HTTPMatchRequest{
 								{
-									Authority: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Regex{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
 									Gateways: []string{constants.KnativeLocalGateway},
 								},
 								{
-									Authority: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Regex{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
 										},
 									},
 									Gateways: []string{constants.KnativeIngressGateway},
 								},
 							},
-							Route: []*istiov1alpha3.HTTPRouteDestination{
+							Route: []*istiov1beta1.HTTPRouteDestination{
 								{
-									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
 								},
 							},
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
 							},
 						},
 						{
-							Match: []*istiov1alpha3.HTTPMatchRequest{
+							Match: []*istiov1beta1.HTTPMatchRequest{
 								{
-									Uri: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Prefix{
 											Prefix: fmt.Sprintf("/serving/%s/%s/", namespace, serviceName),
 										},
 									},
-									Authority: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Regex{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp("my-domain.com"),
 										},
 									},
 									Gateways: []string{constants.KnativeIngressGateway},
 								},
 								{
-									Uri: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Exact{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Exact{
 											Exact: fmt.Sprintf("/serving/%s/%s", namespace, serviceName),
 										},
 									},
-									Authority: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Regex{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp("my-domain.com"),
 										},
 									},
 									Gateways: []string{constants.KnativeIngressGateway},
 								},
 							},
-							Rewrite: &istiov1alpha3.HTTPRewrite{
+							Rewrite: &istiov1beta1.HTTPRewrite{
 								Uri: "/",
 							},
-							Route: []*istiov1alpha3.HTTPRouteDestination{
+							Route: []*istiov1beta1.HTTPRouteDestination{
 								createHTTPRouteDestination("knative-local-gateway.istio-system.svc.cluster.local"),
 							},
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.Headers_HeaderOperations{
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{
 									Set: map[string]string{
 										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
 									},
@@ -673,22 +674,22 @@ func TestCreateVirtualService(t *testing.T) {
 					},
 				},
 			},
-			expectedService: &v1alpha3.VirtualService{
+			expectedService: &istioclientv1beta1.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
-				Spec: istiov1alpha3.VirtualService{
+				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
-					Http: []*istiov1alpha3.HTTPRoute{
+					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
-							Route: []*istiov1alpha3.HTTPRouteDestination{
+							Route: []*istiov1beta1.HTTPRouteDestination{
 								{
-									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
 								},
 							},
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
 							},
 						},
@@ -744,22 +745,22 @@ func TestCreateVirtualService(t *testing.T) {
 					},
 				},
 			},
-			expectedService: &v1alpha3.VirtualService{
+			expectedService: &istioclientv1beta1.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
-				Spec: istiov1alpha3.VirtualService{
+				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
-					Http: []*istiov1alpha3.HTTPRoute{
+					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
-							Route: []*istiov1alpha3.HTTPRouteDestination{
+							Route: []*istiov1beta1.HTTPRouteDestination{
 								{
-									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
 								},
 							},
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
 								}},
 							},
@@ -940,33 +941,33 @@ func TestCreateVirtualService(t *testing.T) {
 					},
 				},
 			},
-			expectedService: &v1alpha3.VirtualService{
+			expectedService: &istioclientv1beta1.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: map[string]string{
 					constants.VisibilityLabel: constants.ClusterLocalVisibility,
 				}},
-				Spec: istiov1alpha3.VirtualService{
+				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName},
 					Gateways: []string{constants.KnativeLocalGateway},
-					Http: []*istiov1alpha3.HTTPRoute{
+					Http: []*istiov1beta1.HTTPRoute{
 						{
-							Match: []*istiov1alpha3.HTTPMatchRequest{
+							Match: []*istiov1beta1.HTTPMatchRequest{
 								{
-									Authority: &istiov1alpha3.StringMatch{
-										MatchType: &istiov1alpha3.StringMatch_Regex{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
 									Gateways: []string{constants.KnativeLocalGateway},
 								},
 							},
-							Route: []*istiov1alpha3.HTTPRouteDestination{
+							Route: []*istiov1beta1.HTTPRouteDestination{
 								{
-									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
 									Weight:      100,
 								},
 							},
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
 							},
 						},
@@ -1007,7 +1008,7 @@ func TestCreateVirtualService(t *testing.T) {
 			}
 
 			actualService := createIngress(testIsvc, tc.useDefault, tc.ingressConfig)
-			if diff := cmp.Diff(tc.expectedService, actualService); diff != "" {
+			if diff := cmp.Diff(tc.expectedService.DeepCopy(), actualService.DeepCopy(), protocmp.Transform()); diff != "" {
 				t.Errorf("Test %q unexpected status (-want +got): %v", tc.name, diff)
 			}
 		})

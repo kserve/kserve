@@ -7,6 +7,7 @@ API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,ServingRuntimePodSpec,Volumes
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,ServingRuntimeSpec,ProtocolVersions
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,ServingRuntimeSpec,SupportedModelFormats
+API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,StorageContainerSpec,SupportedUriFormats
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,TrainedModelList,Items
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,Traffic
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServiceList,Items
@@ -18,6 +19,7 @@ API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,ReadinessGates
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,Tolerations
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,Volumes
+API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceGraphSpec,TimeoutSeconds
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceStep,StepName
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceTarget,ServiceURL
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,ModelSpec,StorageURI

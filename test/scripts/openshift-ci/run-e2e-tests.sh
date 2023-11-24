@@ -99,7 +99,7 @@ EOF
 
 oc apply -f $PROJECT_ROOT/config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
 
-kustomize build $PROJECT_ROOT/config/overlays/test/runtimes | \
+kustomize build $PROJECT_ROOT/config/overlays/test/clusterresources | \
   sed 's/ClusterServingRuntime/ServingRuntime/' | \
   sed "s|kserve/sklearnserver:latest|${SKLEARN_IMAGE}|" | \
   oc apply -n kserve-ci-e2e-test -f -

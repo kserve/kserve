@@ -48,7 +48,7 @@ import (
 
 var (
 	port          = flag.String("port", "9081", "Agent port")
-	componentPort = flag.String("component-port", "8080", "Component port")
+	componentPort = flag.Int("component-port", 8080, "Component port")
 	// model puller flags
 	enablePuller = flag.Bool("enable-puller", false, "Enable model puller")
 	configDir    = flag.String("config-dir", "/mnt/configs", "directory for model config files")
@@ -298,13 +298,13 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 	return newProbe
 }
 
-func buildServer(ctx context.Context, port string, userPort string, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
+func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
 	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
 
 	logging.Infof("Building server user port %s port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",
-		Host:   net.JoinHostPort("127.0.0.1", userPort),
+		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(userPort)),
 	}
 
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.

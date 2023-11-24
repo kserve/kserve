@@ -42,7 +42,7 @@ type RawKubeReconciler struct {
 	URL        *knapis.URL
 }
 
-// RawKubeReconciler creates raw kubernetes resource reconciler.
+// NewRawKubeReconciler creates raw kubernetes resource reconciler.
 func NewRawKubeReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
@@ -97,7 +97,7 @@ func (r *RawKubeReconciler) Reconcile() (*appsv1.Deployment, error) {
 		return nil, err
 	}
 	//reconcile HPA
-	_, err = r.Scaler.Reconcile()
+	err = r.Scaler.Reconcile()
 	if err != nil {
 		return nil, err
 	}

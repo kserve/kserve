@@ -7,6 +7,10 @@ on:
 env:
   HELM_CHARTS_PATH: charts
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   upload-helm-charts:
     runs-on: ubuntu-latest

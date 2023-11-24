@@ -16,7 +16,7 @@ import os
 import sys
 import uuid
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import InferParameter
-from typing import Dict, Union
+from typing import Dict, Union, List
 
 from kserve.utils.numpy_codec import from_np_dtype
 import pandas as pd
@@ -149,6 +149,24 @@ def get_predict_input(payload: Union[Dict, InferRequest]) -> Union[np.ndarray, p
                 dfs.append(pd.DataFrame(input))
             inputs = pd.concat(dfs, axis=0)
             return inputs
+
+        # Handles the following input format
+        # {'inputs': [
+        #     [{'sepal_width_(cm)': 3.5},
+        #      {'petal_length_(cm)': 1.4},
+        #      {'petal_width_(cm)': 0.2},
+        #      {'sepal_length_(cm)': 5.1}]
+        # ]}
+        elif isinstance(instances[0], List) and len(instances[0]) != 0 and isinstance(instances[0][0], Dict):
+            data: Dict[str, List] = {}
+            for instance in instances:
+                for item in instance:
+                    for key, val in item.items():
+                        if key in data:
+                            data[key].append(val)
+                        else:
+                            data[key] = [val]
+            return pd.DataFrame(data)
         else:
             return np.array(instances)
 

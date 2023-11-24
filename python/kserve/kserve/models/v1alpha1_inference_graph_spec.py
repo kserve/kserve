@@ -49,16 +49,18 @@ class V1alpha1InferenceGraphSpec(object):
     openapi_types = {
         'affinity': 'V1Affinity',
         'nodes': 'dict(str, V1alpha1InferenceRouter)',
-        'resources': 'V1ResourceRequirements'
+        'resources': 'V1ResourceRequirements',
+        'timeout': 'int'
     }
 
     attribute_map = {
         'affinity': 'affinity',
         'nodes': 'nodes',
-        'resources': 'resources'
+        'resources': 'resources',
+        'timeout': 'timeout'
     }
 
-    def __init__(self, affinity=None, nodes=None, resources=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, nodes=None, resources=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -67,6 +69,7 @@ class V1alpha1InferenceGraphSpec(object):
         self._affinity = None
         self._nodes = None
         self._resources = None
+        self._timeout = None
         self.discriminator = None
 
         if affinity is not None:
@@ -74,6 +77,8 @@ class V1alpha1InferenceGraphSpec(object):
         self.nodes = nodes
         if resources is not None:
             self.resources = resources
+        if timeout is not None:
+            self.timeout = timeout
 
     @property
     def affinity(self):
@@ -141,6 +146,29 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._resources = resources
+
+    @property
+    def timeout(self):
+        """Gets the timeout of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.  # noqa: E501
+
+        :return: The timeout of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, timeout):
+        """Sets the timeout of this V1alpha1InferenceGraphSpec.
+
+        TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.  # noqa: E501
+
+        :param timeout: The timeout of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._timeout = timeout
 
     def to_dict(self):
         """Returns the model properties as a dict"""

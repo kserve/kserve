@@ -5,6 +5,10 @@ on:
       - master
     types: ["closed"]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   cherry_pick_release_0_10:
     runs-on: ubuntu-latest

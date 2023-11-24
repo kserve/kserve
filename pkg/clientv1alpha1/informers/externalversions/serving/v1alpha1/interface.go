@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
 	ClusterServingRuntimes() ClusterServingRuntimeInformer
+	// ClusterStorageContainers returns a ClusterStorageContainerInformer.
+	ClusterStorageContainers() ClusterStorageContainerInformer
 	// InferenceGraphs returns a InferenceGraphInformer.
 	InferenceGraphs() InferenceGraphInformer
 	// ServingRuntimes returns a ServingRuntimeInformer.
@@ -48,6 +50,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
 func (v *version) ClusterServingRuntimes() ClusterServingRuntimeInformer {
 	return &clusterServingRuntimeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterStorageContainers returns a ClusterStorageContainerInformer.
+func (v *version) ClusterStorageContainers() ClusterStorageContainerInformer {
+	return &clusterStorageContainerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // InferenceGraphs returns a InferenceGraphInformer.

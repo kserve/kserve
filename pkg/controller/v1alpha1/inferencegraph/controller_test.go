@@ -27,9 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmp"
-	"knative.dev/pkg/ptr"
-	knservingdefaults "knative.dev/serving/pkg/apis/config"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 )
@@ -136,13 +135,12 @@ var _ = Describe("Inference Graph controller test", func() {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								ContainerConcurrency: ptr.Int64(knservingdefaults.DefaultContainerConcurrency),
-								TimeoutSeconds:       ptr.Int64(knservingdefaults.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: nil,
+								TimeoutSeconds:       nil,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
 											Image: "kserve/router:v0.10.0",
-											Name:  knservingdefaults.DefaultUserContainerName,
 											Env: []v1.EnvVar{
 												{
 													Name:  "PROPAGATE_HEADERS",
@@ -171,7 +169,13 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
-			expectedKnService.SetDefaults(context.TODO())
+			// Set ResourceVersion which is required for update operation.
+			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
+
+			// Do a dry-run update. This will populate our local knative service object with any default values
+			// that are present on the remote version.
+			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
+			Expect(err).Should(BeNil())
 			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
 		})
 	})
@@ -260,13 +264,12 @@ var _ = Describe("Inference Graph controller test", func() {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								ContainerConcurrency: ptr.Int64(knservingdefaults.DefaultContainerConcurrency),
-								TimeoutSeconds:       ptr.Int64(knservingdefaults.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: nil,
+								TimeoutSeconds:       nil,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
 											Image: "kserve/router:v0.10.0",
-											Name:  knservingdefaults.DefaultUserContainerName,
 											Env: []v1.EnvVar{
 												{
 													Name:  "PROPAGATE_HEADERS",
@@ -295,7 +298,13 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
-			expectedKnService.SetDefaults(context.TODO())
+			// Set ResourceVersion which is required for update operation.
+			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
+
+			// Do a dry-run update. This will populate our local knative service object with any default values
+			// that are present on the remote version.
+			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
+			Expect(err).Should(BeNil())
 			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
 		})
 	})
@@ -398,13 +407,12 @@ var _ = Describe("Inference Graph controller test", func() {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								ContainerConcurrency: ptr.Int64(knservingdefaults.DefaultContainerConcurrency),
-								TimeoutSeconds:       ptr.Int64(knservingdefaults.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: nil,
+								TimeoutSeconds:       nil,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
 											Image: "kserve/router:v0.10.0",
-											Name:  knservingdefaults.DefaultUserContainerName,
 											Env: []v1.EnvVar{
 												{
 													Name:  "PROPAGATE_HEADERS",
@@ -456,7 +464,13 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
-			expectedKnService.SetDefaults(context.TODO())
+			// Set ResourceVersion which is required for update operation.
+			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
+
+			// Do a dry-run update. This will populate our local knative service object with any default values
+			// that are present on the remote version.
+			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
+			Expect(err).Should(BeNil())
 			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
 		})
 	})

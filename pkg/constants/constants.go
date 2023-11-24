@@ -93,7 +93,7 @@ var (
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
 	DefaultPrometheusPath                       = "/metrics"
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
-	DefaultPodPrometheusPort                    = "9090"
+	DefaultPodPrometheusPort                    = "9091"
 )
 
 // InferenceService Internal Annotations
@@ -154,7 +154,8 @@ var (
 
 // Autoscaler Class
 var (
-	AutoscalerClassHPA AutoscalerClassType = "hpa"
+	AutoscalerClassHPA      AutoscalerClassType = "hpa"
+	AutoscalerClassExternal AutoscalerClassType = "external"
 )
 
 // Autoscaler Metrics
@@ -170,6 +171,7 @@ var (
 // Autoscaler Class Allowed List
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
+	AutoscalerClassExternal,
 }
 
 // Autoscaler Metrics Allowed List

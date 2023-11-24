@@ -24,177 +24,176 @@ generatorOptions:
   disableNameSuffixHash: true
 
 
+
 replacements:
-  - source:
-      version: v1
-      kind: Service
-      name: kserve-webhook-server-service
-      fieldPath: metadata.name
-    targets:
-      # - select:
-      #     kind: CustomResourceDefinition
-      #     name: inferenceservices.serving.kserve.io
-      #   fieldPaths:
-      #     - spec.conversion.webhook.clientConfig.service.name
-      - select:
-          kind: MutatingWebhookConfiguration
-          name: inferenceservice.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.name
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: inferenceservice.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.name
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: trainedmodel.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.name
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: inferencegraph.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.name
-#      - select:
-#          kind: ValidatingWebhookConfiguration
-#          name: clusterservingruntime.serving.kserve.io
-#        fieldPaths:
-#          - webhooks.*.clientConfig.service.name
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: servingruntime.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.name
-      - select:
-          kind: Certificate
-          name: serving-cert
-          namespace: kserve
-        fieldPaths:
-          - spec.commonName
-          - spec.dnsNames.0
-        options:
-          delimiter: '.'
-          index: 0
+- source:
+    fieldPath: metadata.name
+    kind: Service
+    name: kserve-webhook-server-service
+    version: v1
+  targets:
+#  - fieldPaths:
+#    - spec.conversion.webhook.clientConfig.service.name
+#    select:
+#      kind: CustomResourceDefinition
+#      name: inferenceservices.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: MutatingWebhookConfiguration
+      name: inferenceservice.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: inferenceservice.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: trainedmodel.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: inferencegraph.serving.kserve.io
+#  - fieldPaths:
+#    - webhooks.*.clientConfig.service.name
+#    select:
+#      kind: ValidatingWebhookConfiguration
+#      name: clusterservingruntime.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: servingruntime.serving.kserve.io
+  - fieldPaths:
+    - spec.commonName
+    - spec.dnsNames.0
+    options:
+      delimiter: '.'
+      index: 0
+    select:
+      kind: Certificate
+      name: serving-cert
+      namespace: kserve
+- source:
+    fieldPath: metadata.namespace
+    kind: Deployment
+    name: kserve-controller-manager
+    version: v1
+  targets:
+#  - fieldPaths:
+#    - spec.conversion.webhook.clientConfig.service.namespace
+#    select:
+#      kind: CustomResourceDefinition
+#      name: inferenceservices.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: MutatingWebhookConfiguration
+      name: inferenceservice.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: inferenceservice.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: trainedmodel.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: inferencegraph.serving.kserve.io
+#  - fieldPaths:
+#    - webhooks.*.clientConfig.service.namespace
+#    select:
+#      kind: ValidatingWebhookConfiguration
+#      name: clusterservingruntime.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: servingruntime.serving.kserve.io
+#  - fieldPaths:
+#    - spec.commonName
+#    - spec.dnsNames.0
+#    options:
+#      delimiter: '.'
+#      index: 1
+#    select:
+#      kind: Certificate
+#      name: serving-cert
+#      namespace: kserve
+#  - fieldPaths:
+#    - metadata.annotations.[cert-manager.io/inject-ca-from]
+#    options:
+#      delimiter: '/'
+#      index: 0
+#    select:
+#      kind: CustomResourceDefinition
+#      name: inferenceservices.serving.kserve.io
+#  - fieldPaths:
+#    - metadata.annotations.[cert-manager.io/inject-ca-from]
+#    options:
+#      delimiter: '/'
+#      index: 0
+#    select:
+#      kind: MutatingWebhookConfiguration
+#      name: inferenceservice.serving.kserve.io
+#  - fieldPaths:
+#    - metadata.annotations.[cert-manager.io/inject-ca-from]
+#    options:
+#      delimiter: '/'
+#      index: 0
+#    select:
+#      kind: ValidatingWebhookConfiguration
+#      name: inferenceservice.serving.kserve.io
+#  - fieldPaths:
+#    - metadata.annotations.[cert-manager.io/inject-ca-from]
+#    options:
+#      delimiter: '/'
+#      index: 0
+#    select:
+#      kind: ValidatingWebhookConfiguration
+#      name: trainedmodel.serving.kserve.io
+#  - fieldPaths:
+#    - metadata.annotations.[cert-manager.io/inject-ca-from]
+#    options:
+#      delimiter: '/'
+#      index: 0
+#    select:
+#      kind: ValidatingWebhookConfiguration
+#      name: inferencegraph.serving.kserve.io
+#  - fieldPaths:
+#    - metadata.annotations.[cert-manager.io/inject-ca-from]
+#    options:
+#      delimiter: '/'
+#      index: 0
+#    select:
+#      kind: ValidatingWebhookConfiguration
+#      name: clusterservingruntime.serving.kserve.io
+#  - fieldPaths:
+#    - metadata.annotations.[cert-manager.io/inject-ca-from]
+#    options:
+#      delimiter: '/'
+#      index: 0
+#    select:
+#      kind: ValidatingWebhookConfiguration
+#      name: servingruntime.serving.kserve.io
 
-  - source:
-      group: apps
-      kind: Deployment
-      name: kserve-controller-manager
-      version: v1
-      fieldPath: metadata.namespace
-    targets:
-      # - select:
-      #     kind: CustomResourceDefinition
-      #     name: inferenceservices.serving.kserve.io
-      #   fieldPaths:
-      #     - spec.conversion.webhook.clientConfig.service.namespace
-      - select:
-          kind: MutatingWebhookConfiguration
-          name: inferenceservice.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.namespace
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: inferenceservice.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.namespace
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: trainedmodel.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.namespace
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: inferencegraph.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.namespace
-#      - select:
-#          kind: ValidatingWebhookConfiguration
-#          name: clusterservingruntime.serving.kserve.io
-#        fieldPaths:
-#          - webhooks.*.clientConfig.service.namespace
-      - select:
-          kind: ValidatingWebhookConfiguration
-          name: servingruntime.serving.kserve.io
-        fieldPaths:
-          - webhooks.*.clientConfig.service.namespace
-#      - select:
-#          kind: Certificate
-#          name: serving-cert
-#          namespace: kserve
-#        fieldPaths:
-#          - spec.commonName
-#          - spec.dnsNames.0
-#        options:
-#          delimiter: '.'
-#          index: 1
-#      - select:
-#          kind: CustomResourceDefinition
-#          name: inferenceservices.serving.kserve.io
-#        fieldPaths:
-#          - metadata.annotations.[cert-manager.io/inject-ca-from]
-#        options:
-#          delimiter: '/'
-#          index: 0
-#      - select:
-#          kind: MutatingWebhookConfiguration
-#          name: inferenceservice.serving.kserve.io
-#        fieldPaths:
-#          - metadata.annotations.[cert-manager.io/inject-ca-from]
-#        options:
-#          delimiter: '/'
-#          index: 0
-#      - select:
-#          kind: ValidatingWebhookConfiguration
-#          name: inferenceservice.serving.kserve.io
-#        fieldPaths:
-#          - metadata.annotations.[cert-manager.io/inject-ca-from]
-#        options:
-#          delimiter: '/'
-#          index: 0
-#      - select:
-#          kind: ValidatingWebhookConfiguration
-#          name: trainedmodel.serving.kserve.io
-#        fieldPaths:
-#          - metadata.annotations.[cert-manager.io/inject-ca-from]
-#        options:
-#          delimiter: '/'
-#          index: 0
-#      - select:
-#          kind: ValidatingWebhookConfiguration
-#          name: inferencegraph.serving.kserve.io
-#        fieldPaths:
-#          - metadata.annotations.[cert-manager.io/inject-ca-from]
-#        options:
-#          delimiter: '/'
-#          index: 0
-#      - select:
-#          kind: ValidatingWebhookConfiguration
-#          name: clusterservingruntime.serving.kserve.io
-#        fieldPaths:
-#          - metadata.annotations.[cert-manager.io/inject-ca-from]
-#        options:
-#          delimiter: '/'
-#          index: 0
-#      - select:
-#          kind: ValidatingWebhookConfiguration
-#          name: servingruntime.serving.kserve.io
-#        fieldPaths:
-#          - metadata.annotations.[cert-manager.io/inject-ca-from]
-#        options:
-#          delimiter: '/'
-#          index: 0
-
-  # Protect the /metrics endpoint by putting it behind auth.
-  # Only one of manager_auth_proxy_patch.yaml and
-  # manager_prometheus_metrics_patch.yaml should be enabled.
-  # If you want your controller-manager to expose the /metrics
-  # endpoint w/o any authn/z, uncomment the following line and
-  # comment manager_auth_proxy_patch.yaml.
-  # Only one of manager_auth_proxy_patch.yaml and
-  # manager_prometheus_metrics_patch.yaml should be enabled.
-  #- manager_prometheus_metrics_patch.yaml
+    # Protect the /metrics endpoint by putting it behind auth.
+    # Only one of manager_auth_proxy_patch.yaml and
+    # manager_prometheus_metrics_patch.yaml should be enabled.
+    # If you want your controller-manager to expose the /metrics
+    # endpoint w/o any authn/z, uncomment the following line and
+    # comment manager_auth_proxy_patch.yaml.
+    # Only one of manager_auth_proxy_patch.yaml and
+    # manager_prometheus_metrics_patch.yaml should be enabled.
+    #- manager_prometheus_metrics_patch.yaml
 patches:
 - path: manager_image_patch.yaml
 #- path: manager_auth_proxy_patch.yaml

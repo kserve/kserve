@@ -14,7 +14,11 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: alibi-explainer 
+  IMAGE_NAME: alibi-explainer
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Run tests.
@@ -59,7 +63,7 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name:  Export version variable
+      - name: Export version variable
         run: |
           IMAGE_ID=kserve/$IMAGE_NAME
 
@@ -86,5 +90,3 @@ jobs:
           file: python/alibiexplainer.Dockerfile
           push: true
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
-
-
