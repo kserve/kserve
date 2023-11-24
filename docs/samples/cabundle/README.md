@@ -41,7 +41,7 @@ If you update this configuration after, please restart KServe controller pod.
 
 ### Using storage-config Secret
 
-If you want to apply the cabundle only to a specific inferenceservice, you can use a specific annotation or variable(`certificate`) on the `storage-config` Secret used by the inferenceservice.
+If you want to apply the cabundle only to a specific inferenceservice, you can use a specific annotation or variable(`cabundle_configmap`) on the `storage-config` Secret used by the inferenceservice.
 In this case, you have to create the cabundle ConfigMap in the user namespace before you create the inferenceservice.
 
 
@@ -75,7 +75,7 @@ In this case, you have to create the cabundle ConfigMap in the user namespace be
   type: Opaque
   ~~~
 
-- Or, set a variable `certificate` to `storage-config` Secret
+- Or, set a variable `cabundle_configmap` to `storage-config` Secret
   ~~~
   apiVersion: v1
   stringData:

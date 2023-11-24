@@ -42,7 +42,7 @@ const (
 	StorageInitializerDefaultCPULimit                   = "1"
 	StorageInitializerDefaultMemoryRequest              = "200Mi"
 	StorageInitializerDefaultMemoryLimit                = "1Gi"
-	StorageInitializerDefaultCaBundleConfigMapName         = ""
+	StorageInitializerDefaultCaBundleConfigMapName      = ""
 	StorageInitializerDefaultCaBundleVolumeMountPath    = "/etc/ssl/custom-certs"
 	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
 )

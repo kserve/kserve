@@ -52,7 +52,7 @@ func NewCaBundleConfigMapReconciler(client client.Client, scheme *runtime.Scheme
 }
 
 func (c *CaBundleConfigMapReconciler) Reconcile(isvc *kservev1beta1.InferenceService) error {
-	log.Info("Reconciling CaBundleConfigMap","namespace", isvc.Namespace)
+	log.Info("Reconciling CaBundleConfigMap", "namespace", isvc.Namespace)
 
 	isvcConfigMap := &corev1.ConfigMap{}
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, isvcConfigMap)

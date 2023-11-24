@@ -32,9 +32,9 @@ func TestGetDesiredCaBundleConfigMapForUserNS(t *testing.T) {
 	cabundleConfigMapData["cabundle.crt"] = "SAMPLE_CA_BUNDLE"
 	targetNamespace := "test"
 	testCases := []struct {
-		name                   string
-		namespace              string
-		configMapData          map[string]string
+		name                      string
+		namespace                 string
+		configMapData             map[string]string
 		expectedCopiedCaConfigMap *corev1.ConfigMap
 	}{
 		{

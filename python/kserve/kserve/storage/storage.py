@@ -118,7 +118,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             os.environ["AWS_DEFAULT_REGION"] = storage_secret_json.get("region", "")
             os.environ["AWS_CA_BUNDLE"] = storage_secret_json.get("certificate", "")
             os.environ["S3_VERIFY_SSL"] = storage_secret_json.get("verify_ssl", "1")
-            os.environ["CA_BUNDLE_CONFIGMAP_NAME"] = storage_secret_json.get("cabundle_configmap", "")            
             os.environ["awsAnonymousCredential"] = storage_secret_json.get("anonymous", "")
 
         if storage_secret_json.get("type", "") == "hdfs" or storage_secret_json.get("type", "") == "webhdfs":
@@ -172,6 +171,9 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if verify_ssl:
             verify_ssl = not verify_ssl.lower() in ["0", "false"]
             kwargs.update({"verify": verify_ssl})
+        else:
+            verify_ssl = True
+
         # If verify_ssl is true, then check there is custom ca bundle cert
         if verify_ssl:
             global_ca_bundle_configmap = os.getenv("CA_BUNDLE_CONFIGMAP_NAME")
@@ -182,7 +184,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 else:
                     global_ca_bundle_volume_mount_path = os.getenv("CA_BUNDLE_VOLUME_MOUNT_POINT")
                     ca_bundle_full_path = global_ca_bundle_volume_mount_path + "/cabundle.crt"
-
                 if os.path.exists(ca_bundle_full_path):
                     print(f"ca bundle file({ca_bundle_full_path}) exists.")
                     kwargs.update({"verify": ca_bundle_full_path})
