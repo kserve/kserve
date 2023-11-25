@@ -524,14 +524,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/build-qpext-image.sh
           docker image ls
-      - name: Upload qpext image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "kserve/qpext:${{ github.sha }}"
-      - name: Download qpext image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/qpext:${{ github.sha }}"
       - name: Download sklearn server image
         uses: ishworkh/docker-image-artifact-download@v1
         with:
