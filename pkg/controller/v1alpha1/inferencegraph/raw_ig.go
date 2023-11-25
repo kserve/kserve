@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package inferencegraph
 
 import (
@@ -22,7 +38,6 @@ import (
 var logger = logf.Log.WithName("InferenceGraphRawDeployer")
 
 /*
-*
 This function helps to create core podspec for a given inference graph spec and router configuration
 Also propagates headers onto podspec container environment variables.
 
@@ -65,7 +80,6 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 }
 
 /*
-*
 A simple utility to create a basic meta object given name and namespace;  Can be extended to accept labels, annotations as well
 */
 func constructGraphObjectMeta(name string, namespace string) metav1.ObjectMeta {
@@ -80,7 +94,6 @@ func constructGraphObjectMeta(name string, namespace string) metav1.ObjectMeta {
 }
 
 /*
-*
 Creates a component extension spec to pass through hpa annotation values such as minreplicas, maxreplicas, scalemetric etc.
 
 ComponentExtensionSpec exists for the purpose of Inference service predict/transformer components.  But we are using here for
@@ -136,7 +149,6 @@ func constructGraphComponentExtensionSpec(annotations map[string]string) v1beta1
 }
 
 /*
-*
 Handles bulk of raw deployment logic for Inference graph controller
 1. Constructs PodSpec
 2. Constructs Meta and Extensionspec
