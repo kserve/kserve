@@ -87,7 +87,7 @@ data:
            # caBundleConfigMapName is the ConfigMap will be copied to a user namespace for the storage initializer init container.
            "caBundleConfigMapName": "",
 
-           # caBundleVolumeMountPath is the mount point for the secret set by caBundleConfigMapName for the storage initializer init container.
+           # caBundleVolumeMountPath is the mount point for the configmap set by caBundleConfigMapName for the storage initializer init container.
            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 
            # enableDirectPvcVolumeMount controls whether users can mount pvc volumes directly.

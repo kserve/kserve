@@ -70,156 +70,6 @@ var (
 	}
 )
 
-func TestJOOHO(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	scenarios := map[string]struct {
-		sa       *v1.ServiceAccount
-		secret   *v1.Secret
-		original *v1.Pod
-		expected *v1.Pod
-	}{
-		"Test s3 secrets injection": {
-			sa: &v1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default",
-					Namespace: "default",
-				},
-				Secrets: []v1.ObjectReference{
-					{
-						Name:      "s3-secret",
-						Namespace: "default",
-					},
-				},
-			},
-			secret: &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "s3-secret",
-					Namespace: "default",
-					Annotations: map[string]string{
-						s3.InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
-					},
-				},
-				Data: map[string][]byte{
-					"awsAccessKeyID":     {},
-					"awsSecretAccessKey": {},
-				},
-			},
-			original: makePod(),
-			expected: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: "default",
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					InitContainers: []v1.Container{
-						{
-							Name:                     "storage-initializer",
-							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources:                resourceRequirement,
-							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-								},
-							},
-							Env: []v1.EnvVar{
-								{
-									Name: s3.AWSAccessKeyId,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
-												Name: "s3-secret",
-											},
-											Key: "awsAccessKeyID",
-										},
-									},
-								},
-								{
-									Name: s3.AWSSecretAccessKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
-												Name: "s3-secret",
-											},
-											Key: "awsSecretAccessKey",
-										},
-									},
-								},
-								{
-									Name:  s3.S3Endpoint,
-									Value: "s3.aws.com",
-								},
-								{
-									Name:  s3.AWSEndpointUrl,
-									Value: "https://s3.aws.com",
-								},
-							},
-						},
-					},
-					Volumes: []v1.Volume{
-						{
-							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	var configMap = &v1.ConfigMap{
-		Data: map[string]string{
-			"credentials": `{
-				"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
-				"s3" : {
-					"s3AccessKeyIDName": "awsAccessKeyID",
-					"s3SecretAccessKeyName": "awsSecretAccessKey"
-				}
-			}`,
-		},
-	}
-
-	builder := credentials.NewCredentialBuilder(c, configMap)
-	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
-
-		injector := &StorageInitializerInjector{
-			credentialBuilder: builder,
-			config:            storageInitializerConfig,
-			client:            c,
-		}
-		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
-			t.Errorf("Test %q unexpected failure [%s]", name, err.Error())
-		}
-		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
-			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
-		}
-
-		g.Expect(c.Delete(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
-	}
-}
-
 func TestStorageInitializerInjector(t *testing.T) {
 	scenarios := map[string]struct {
 		original *v1.Pod
@@ -1684,7 +1534,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				CpuLimit:              "1",
 				MemoryRequest:         "200Mi",
 				MemoryLimit:           "1Gi",
-				CaBundleConfigMapName: "custom-certs", // enable CA bundle secret volume mount
+				CaBundleConfigMapName: "custom-certs", // enable CA bundle configmap volume mount
 			},
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1904,8 +1754,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				CpuLimit:                "1",
 				MemoryRequest:           "200Mi",
 				MemoryLimit:             "1Gi",
-				CaBundleConfigMapName:   "custom-certs", // enable CA bundle secret volume mount
-				CaBundleVolumeMountPath: "/path/to",     // set CA bundle secret volume mount path
+				CaBundleConfigMapName:   "custom-certs", // enable CA bundle configmap volume mount
+				CaBundleVolumeMountPath: "/path/to",     // set CA bundle configmap volume mount path
 			},
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2043,21 +1893,6 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 		g.Expect(c.Delete(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
 	}
 
-	// for name, scenario := range scenarios {
-	// 	injector := &StorageInitializerInjector{
-	// 		credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
-	// 			Data: map[string]string{},
-	// 		}),
-	// 		config: scenario.storageConfig,
-	// 		client: c,
-	// 	}
-	// 	if err := injector.InjectStorageInitializer(scenario.original); err != nil {
-	// 		t.Errorf("Test %q unexpected result: %s", name, err)
-	// 	}
-	// 	if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
-	// 		t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
-	// 	}
-	// }
 }
 
 func TestDirectVolumeMountForPvc(t *testing.T) {
