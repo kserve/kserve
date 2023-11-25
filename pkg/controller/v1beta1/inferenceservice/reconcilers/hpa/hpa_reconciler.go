@@ -66,12 +66,26 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 		utilization = constants.DefaultCPUUtilization
 	}
 
-	if componentExt.ScaleTarget != nil {
-		utilization = int32(*componentExt.ScaleTarget)
-	}
+	if scaling, ok := annotations[constants.AutoscalerClass]; ok && constants.AutoscalerClassType(scaling) == constants.AutoscalerClassHPA {
+		// if target annotation exists
+		if target, ok := annotations[constants.InferenceGraphTargetAnnotationKey]; ok {
+			if value, err := strconv.Atoi(target); err == nil {
+				utilization = int32(value)
+			}
+		}
+		// if metric annotation exists
+		if metric, ok := annotations[constants.InferenceGraphMetricsAnnotationKey]; ok {
+			scaleMetric := v1beta1.ScaleMetric(metric)
+			resourceName = corev1.ResourceName(scaleMetric)
+		}
+	} else {
+		if componentExt.ScaleTarget != nil {
+			utilization = int32(*componentExt.ScaleTarget)
+		}
 
-	if componentExt.ScaleMetric != nil {
-		resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
+		if componentExt.ScaleMetric != nil {
+			resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
+		}
 	}
 
 	metricTarget := autoscalingv2.MetricTarget{
@@ -92,17 +106,50 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 
 func createHPA(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) *autoscalingv2.HorizontalPodAutoscaler {
-	var minReplicas int32
-	if componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
-		minReplicas = int32(constants.DefaultMinReplicas)
+	var minReplicas = int32(constants.DefaultMinReplicas)
+	var maxReplicas int32
+
+	var annotations = componentMeta.GetAnnotations()
+	// Inference graph can have these values defined in annotations section as shown below.
+	//annotations:
+	//	serving.kserve.io/class: "hpa"
+	//	serving.kserve.io/max-scale: "7"
+	//	serving.kserve.io/metric: rps
+	//	serving.kserve.io/min-scale: "1"
+	//	serving.kserve.io/target: "40"
+	if scaling, ok := annotations[constants.AutoscalerClass]; ok && constants.AutoscalerClassType(scaling) == constants.AutoscalerClassHPA {
+		var min, max string
+		// if min-scale annotation exists
+		if min, ok = annotations[constants.InferenceGraphMinScaleAnnotationKey]; ok {
+			if value, err := strconv.Atoi(min); err == nil {
+				minReplicas = int32(value)
+			}
+		}
+
+		// if max-scale annotation exists
+		if max, ok = annotations[constants.InferenceGraphMaxScaleAnnotationKey]; ok {
+			if value, err := strconv.Atoi(max); err == nil {
+				maxReplicas = int32(value)
+			}
+		}
 	} else {
-		minReplicas = int32(*componentExt.MinReplicas)
+		//For inference service kinds source replica info from componentExt spec
+		if componentExt.MinReplicas != nil {
+			minReplicas = int32(*componentExt.MinReplicas)
+		}
+		maxReplicas = int32(componentExt.MaxReplicas)
 	}
 
-	maxReplicas := int32(componentExt.MaxReplicas)
+	//Defaults check
+	if minReplicas < int32(constants.DefaultMinReplicas) {
+		minReplicas = int32(constants.DefaultMinReplicas)
+	}
+
+	//max cannot be less than min
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas
 	}
+
 	metrics := getHPAMetrics(componentMeta, componentExt)
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: componentMeta,
