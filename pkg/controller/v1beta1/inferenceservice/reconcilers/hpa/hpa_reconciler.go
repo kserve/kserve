@@ -56,6 +56,7 @@ func NewHPAReconciler(client client.Client,
 func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
 	var metrics []autoscalingv2.MetricSpec
 	var utilization int32
+	labels := metadata.Labels
 	annotations := metadata.Annotations
 	resourceName := corev1.ResourceCPU
 
@@ -66,7 +67,7 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 		utilization = constants.DefaultCPUUtilization
 	}
 
-	if scaling, ok := annotations[constants.AutoscalerClass]; ok && constants.AutoscalerClassType(scaling) == constants.AutoscalerClassHPA {
+	if _, ok := labels[constants.InferenceGraphLabel]; ok {
 		// if target annotation exists
 		if target, ok := annotations[constants.InferenceGraphTargetAnnotationKey]; ok {
 			if value, err := strconv.ParseInt(target, 10, 64); err == nil {
@@ -117,7 +118,9 @@ func createHPA(componentMeta metav1.ObjectMeta,
 	//	serving.kserve.io/metric: rps
 	//	serving.kserve.io/min-scale: "1"
 	//	serving.kserve.io/target: "40"
-	if scaling, ok := annotations[constants.AutoscalerClass]; ok && constants.AutoscalerClassType(scaling) == constants.AutoscalerClassHPA {
+	var labels = componentMeta.GetLabels()
+
+	if _, ok := labels[constants.InferenceGraphLabel]; ok {
 		var min, max string
 		// if min-scale annotation exists
 		if min, ok = annotations[constants.InferenceGraphMinScaleAnnotationKey]; ok {

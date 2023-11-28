@@ -82,16 +82,23 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 /*
 A simple utility to create a basic meta object given name and namespace;  Can be extended to accept labels, annotations as well
 */
-func constructGraphObjectMeta(name string, namespace string, annotations map[string]string) metav1.ObjectMeta {
+func constructGraphObjectMeta(name string, namespace string, annotations map[string]string,
+	labels map[string]string) metav1.ObjectMeta {
 
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
 
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	labels[constants.InferenceGraphLabel] = name
+
 	objectMeta := metav1.ObjectMeta{
 		Name:        name,
 		Namespace:   namespace,
-		Labels:      make(map[string]string),
+		Labels:      labels,
 		Annotations: annotations,
 	}
 
@@ -165,7 +172,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme,
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 
-	objectMeta := constructGraphObjectMeta(graph.ObjectMeta.Name, graph.ObjectMeta.Namespace, graph.ObjectMeta.Annotations)
+	objectMeta := constructGraphObjectMeta(graph.ObjectMeta.Name, graph.ObjectMeta.Namespace, graph.ObjectMeta.Annotations, graph.ObjectMeta.Labels)
 
 	//componentExtensionSpec := constructGraphComponentExtensionSpec(graph.ObjectMeta.Annotations)
 
