@@ -69,7 +69,7 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 	if scaling, ok := annotations[constants.AutoscalerClass]; ok && constants.AutoscalerClassType(scaling) == constants.AutoscalerClassHPA {
 		// if target annotation exists
 		if target, ok := annotations[constants.InferenceGraphTargetAnnotationKey]; ok {
-			if value, err := strconv.Atoi(target); err == nil {
+			if value, err := strconv.ParseInt(target, 10, 64); err == nil {
 				utilization = int32(value)
 			}
 		}
@@ -121,14 +121,14 @@ func createHPA(componentMeta metav1.ObjectMeta,
 		var min, max string
 		// if min-scale annotation exists
 		if min, ok = annotations[constants.InferenceGraphMinScaleAnnotationKey]; ok {
-			if value, err := strconv.Atoi(min); err == nil {
+			if value, err := strconv.ParseInt(min, 10, 64); err == nil {
 				minReplicas = int32(value)
 			}
 		}
 
 		// if max-scale annotation exists
 		if max, ok = annotations[constants.InferenceGraphMaxScaleAnnotationKey]; ok {
-			if value, err := strconv.Atoi(max); err == nil {
+			if value, err := strconv.ParseInt(max, 10, 64); err == nil {
 				maxReplicas = int32(value)
 			}
 		}
