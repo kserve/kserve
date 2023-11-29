@@ -637,7 +637,7 @@ class TestTFHttpServerModelNotReady:
         assert resp.status_code == 503
 
 class Testwithemptymodel:
-    def test_start_method_with_empty_model(self):
+    def test_with_empty_model(self):
         empty_model = []
         server = ModelServer()
         with pytest.raises(RuntimeError) as exc_info:
