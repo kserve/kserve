@@ -124,7 +124,9 @@ class ModelServer:
         self.access_log_format = access_log_format
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
-        if isinstance(models, list):
+        if not models:
+            raise RuntimeError("Model is empty")
+        elif isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):
                     self.register_model(model)

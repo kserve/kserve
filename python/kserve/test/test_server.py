@@ -635,3 +635,11 @@ class TestTFHttpServerModelNotReady:
         resp = http_server_client.post('/v1/models/TestModel:explain',
                                        data=b'{"instances":[[1,2]]}')
         assert resp.status_code == 503
+
+class Testwithemptymodel:
+    def test_start_method_with_empty_model(self):
+        empty_model = []
+        server = ModelServer()
+        with pytest.raises(RuntimeError) as exc_info:
+            server.start(empty_model)
+        assert str(exc_info.value) == "Model is empty"
