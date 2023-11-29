@@ -14,7 +14,7 @@
 from typing import Optional, List, Union, Dict
 
 import orjson
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 # TODO: in the future, this file can be auto generated
 # https://pydantic-docs.helpmanual.io/datamodel_code_generator/
@@ -102,7 +102,7 @@ class ModelMetadataResponse(BaseModel):
         }
     """
     name: str
-    versions: Optional[List[str]]
+    versions: Optional[List[str]] = None
     platform: str
     inputs: List[MetadataTensor]
     outputs: List[MetadataTensor]
@@ -136,7 +136,7 @@ class RequestInput(BaseModel):
     name: str
     shape: List[int]
     datatype: str
-    parameters: Optional[Parameters]
+    parameters: Optional[Parameters] = None
     data: List
 
 
@@ -150,7 +150,7 @@ class RequestOutput(BaseModel):
         }
     """
     name: str
-    parameters: Optional[Parameters]
+    parameters: Optional[Parameters] = None
 
 
 class ResponseOutput(BaseModel):
@@ -168,7 +168,7 @@ class ResponseOutput(BaseModel):
     name: str
     shape: List[int]
     datatype: str
-    parameters: Optional[Parameters]
+    parameters: Optional[Parameters] = None
     data: List
 
 
@@ -183,7 +183,7 @@ class InferenceRequest(BaseModel):
           "outputs" : [ $request_output, ... ] #optional
         }
     """
-    id: Optional[str]
+    id: Optional[str] = None
     parameters: Optional[Parameters] = None
     inputs: List[RequestInput]
     outputs: Optional[List[RequestOutput]] = None
@@ -229,10 +229,11 @@ class InferenceResponse(BaseModel):
         }
     """
     model_name: str
-    model_version: Optional[str]
+    model_version: Optional[str] = None
     id: str
-    parameters: Optional[Parameters]
+    parameters: Optional[Parameters] = None
     outputs: List[ResponseOutput]
+    model_config = ConfigDict(protected_namespaces='')
 
     class Config:
         schema_extra = {
