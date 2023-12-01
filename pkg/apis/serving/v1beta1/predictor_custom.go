@@ -71,9 +71,14 @@ func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
 
 func (c *CustomPredictor) GetStorageUri() *string {
 	// return the CustomSpecStorageUri env variable value if set on the spec
-	for _, envVar := range c.Containers[0].Env {
-		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
-			return &envVar.Value
+	for _, container := range c.Containers {
+		if container.Name == constants.InferenceServiceContainerName {
+			for _, envVar := range container.Env {
+				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
+					return &envVar.Value
+				}
+			}
+			break
 		}
 	}
 	return nil
