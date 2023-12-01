@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kserve/kserve/pkg/constants"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -318,4 +319,160 @@ func TestRejectBadNameIncludeDot(t *testing.T) {
 	warnings, err := isvc.ValidateCreate()
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
+}
+
+func TestValidateCollocationStorageURI(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc       *InferenceService
+		errMatcher gomega.OmegaMatcher
+	}{
+		"Collocation with transformer has storage uri specified": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "test/predictor:latest",
+									Env: []v1.EnvVar{
+										{
+											Name:  constants.CustomSpecStorageUriEnvVarKey,
+											Value: "gs://test/model",
+										},
+									},
+								},
+								{
+									Name:  constants.TransformerContainerName,
+									Image: "test/transformer:latest",
+									Env: []v1.EnvVar{
+										{
+											Name:  constants.CustomSpecStorageUriEnvVarKey,
+											Value: "gs://test/model",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError(StorageUriPresentInTransformerError),
+		},
+		"Collocation with no storage uri specified": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "test/predictor:latest",
+								},
+								{
+									Name:  constants.TransformerContainerName,
+									Image: "test/transformer:latest",
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Collocation with predictor has storage uri specified": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "test/predictor:latest",
+									Env: []v1.EnvVar{
+										{
+											Name:  constants.CustomSpecStorageUriEnvVarKey,
+											Value: "gs://test/model",
+										},
+									},
+								},
+								{
+									Name:  constants.TransformerContainerName,
+									Image: "test/transformer:latest",
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Predictor with no collocation": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Custom predictor with no collocation": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "test/predictor:latest",
+									Env: []v1.EnvVar{
+										{
+											Name:  constants.CustomSpecStorageUriEnvVarKey,
+											Value: "gs://test/model",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateCollocationStorageURI(scenario.isvc.Spec.Predictor)
+			g.Expect(err).Should(scenario.errMatcher)
+		})
+	}
+
 }
