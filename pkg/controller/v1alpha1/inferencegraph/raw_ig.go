@@ -21,8 +21,10 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/apis"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -204,9 +206,30 @@ func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme,
 		return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw")
 	}
 
-	//TODO still some work todo here
-	graph.Status.PropagateRawStatus(deployment, reconciler.URL)
-	logger.Info("status propagated:")
+	PropagateRawStatus(&graph.Status, deployment, reconciler.URL)
 
 	return ctrl.Result{}, nil
+}
+
+/*
+PropagateRawStatus Propagates deployment status onto Inference graph status.  In raw deployment mode, deployment available denotes the ready status for IG
+*/
+func PropagateRawStatus(graphStatus *v1alpha1api.InferenceGraphStatus, deployment *appsv1.Deployment, url *apis.URL) {
+
+	for _, con := range deployment.Status.Conditions {
+		if con.Type == appsv1.DeploymentAvailable {
+			graphStatus.URL = url
+
+			conditions := []apis.Condition{
+				{
+					Type:   apis.ConditionReady,
+					Status: v1.ConditionTrue,
+				},
+			}
+			graphStatus.SetConditions(conditions)
+			logger.Info("status propagated:")
+			break
+		}
+	}
+	graphStatus.ObservedGeneration = deployment.Status.ObservedGeneration
 }
