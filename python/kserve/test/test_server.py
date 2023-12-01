@@ -636,6 +636,7 @@ class TestTFHttpServerModelNotReady:
                                        data=b'{"instances":[[1,2]]}')
         assert resp.status_code == 503
 
+
 class Testwithemptymodel:
     def test_with_empty_model(self):
         empty_model = []
