@@ -9,7 +9,7 @@ Deploy a Multi-user, auth-enabled Kubeflow from [Kustomize manifests](https://gi
 
 ## Create the InferenceService
 
-Apply the CRD to your namespace (this example uses the namespace `kubeflow-user-example-com`)
+Create the InferenceService using the [manifest](sklearn.yaml) in your namespace (this example uses the namespace `kubeflow-user-example-com`)
 
 ```bash
 kubectl apply -f sklearn.yaml -n kubeflow-user-example-com
@@ -23,6 +23,50 @@ $ inferenceservice.serving.kserve.io/sklearn-iris created
 ## Run a prediction
 
 ### Authentication 
+There are 2 ways to authenticate with kubeflow in order to send prediction requests to the InferenceService.
+
+#### Authenticate through service account token
+By default, kubeflow creates two `ServiceAccount` namely `default-editor` and `default-viewer` for every user in their kubeflow user namespace.
+We are going to use the `default-editor` ServiceAccount to create a JWT token which allows us to authenticate with dex.
+```bash
+   kubectl get sa -n kubeflow-user-example-com
+```
+1. Create a JWT token for the `ServiceAccount` with audience `istio-ingressgateway.istio-system.svc.cluster.local`.
+   Modify the duration according to your needs.
+   ```shell
+    TOKEN=$(kubectl create token default-editor -n kubeflow-user-example-com --audience=istio-ingressgateway.istio-system.svc.cluster.local --duration=24h)
+   ```
+#### Prediction
+```bash
+curl -v -H "Host: sklearn-iris.kubeflow-user-example-com.example.com" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d @./iris-input.json http://localhost:8080/v1/models/sklearn-iris:predict
+```
+
+**Expected Output**
+```bash
+*   Trying 127.0.0.1:8080...
+* Connected to localhost (127.0.0.1) port 8080 (#0)
+> POST /v1/models/sklearn-iris:predict HTTP/1.1
+> Host: sklearn-iris.kubeflow-user-example-com.example.com
+> User-Agent: curl/7.85.0
+> Accept: */*
+> Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkY2S29nTmpNOGZmUkZiZnh2d2Q0QzJfNWc5UjIybF9FTXZ2ZXpORzM3VjQifQ.eyJhdWQiOlsiaXN0aW8taW5ncmVzc2dhdGV3YXkuaXN0aW8tc3lzdGVtLnN2Yy5jbHVzdGVyLmxvY2FsIl0sImV4cCI6MTcwMTQxOTYwNywiaWF0IjoxNzAxMzMzMjA3LCJpc3MiOiJodHRwczovL2t1YmVybmV0ZXMuZGVmYXVsdC5zdmMuY2x1c3Rlci5sb2NhbCIsImt1YmVybmV0ZXMuaW8iOnsibmFtZXNwYWNlIjoia3ViZWZsb3ctdXNlci1leGFtcGxlLWNvbSIsInNlcnZpY2VhY2NvdW50Ijp7Im5hbWUiOiJleHRlcm5hbC1jbGllbnQiLCJ1aWQiOiJhYTM5MTE1Mi03NjMzLTQyYTgtOWI3My03NmJkYmUzYjY0YTAifX0sIm5iZiI6MTcwMTMzMzIwNywic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50Omt1YmVmbG93LXVzZXItZXhhbXBsZS1jb206ZXh0ZXJuYWwtY2xpZW50In0.nmk7AnNN8x2MPW_x77yk8wAFwgyiyHWzYfM0F1FpdZvGoG5Xl_lEr_7wIE4PuYm0Y5ATSC6ug5BbGlPg6fgvARcSQZYqq8T6ha3YtXrtt7V_VJnGYjC3bIM1mKW7aiQBzhoTjecRAy4iOrdpMK4UNVgxEIYxTl-KNdaFStgrYY90u3yY51_birTSJBzwF4pdSVkJeR8YHvUeb3yTYGeTpab23NhcspeUoXXtSp2cqqaTS-LJd0JU_5y45DqzMmMGt4s2XWsuOsUl3AQ8iFqGKFfsBWaBp9cReETooGKcQN9dtOfOTZ9K-Kvr93oo5aycr7EzzPlFqapFP-9n7ueXQw
+> Content-Type: application/json
+> Content-Length: 76
+> 
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 200 OK
+< content-length: 21
+< content-type: application/json
+< date: Thu, 30 Nov 2023 08:48:50 GMT
+< server: istio-envoy
+< x-envoy-upstream-service-time: 72
+< 
+* Connection #0 to host localhost left intact
+{"predictions":[1,1]}
+```
+
+#### Authenticate through cookies
+
 The below python code defines a *get_istio_auth_session()* function that returns a session cookie by authenticating with dex.
 
 ```python
@@ -129,7 +173,7 @@ def get_istio_auth_session(url: str, username: str, password: str) -> dict:
     return auth_session
 ```
 
-### Prediction
+#### Prediction
 
 This python code uses the above function to obtain the authservice_session token in order to 
 send authenticated prediction requests to the `InferenceService`.
@@ -181,6 +225,7 @@ print("Response: ", res.json())
 Status Code: 200
 Response: {"predictions": [1, 1]}
 ```
+
 ### FAQ
 
 1. Why I am getting 404 not found error ?
@@ -191,28 +236,5 @@ Response: {"predictions": [1, 1]}
 
 2. Why I am getting 403 Forbidden RBAC access denied error ?
    
-   If you are using istio sidecar injection then, disable it by adding the annotation `sidecar.istio.io/inject: false` to the InferenceService
-   or create an [Istio AuthorizationPolicy](https://istio.io/latest/docs/reference/config/security/authorization-policy/) to grant access to the pods.
-   Here is an example AuthorizationPolicy which grants access to the predictor pods.
-   ```yaml
-   apiVersion: security.istio.io/v1
-   kind: AuthorizationPolicy
-   metadata:
-     name: allow-predictor
-     namespace: istio-system
-   spec:
-     selector:
-       matchLabels:
-         component: predictor
-     action: ALLOW
-     rules:
-       - to:
-         - operation:
-             paths:
-               - /metrics
-               - /healthz
-               - /ready
-               - /wait-for-drain
-               - /v1/models/*
-               - /v2/models/*
-    ```
+   If you are using istio sidecar injection then, create an [Istio AuthorizationPolicy](https://istio.io/latest/docs/reference/config/security/authorization-policy/) to grant access to the pods or 
+   disable it by adding the annotation `sidecar.istio.io/inject: false` to the InferenceService.
