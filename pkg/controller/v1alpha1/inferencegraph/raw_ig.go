@@ -18,21 +18,18 @@ package inferencegraph
 
 import (
 	"encoding/json"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strconv"
-
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 )
@@ -108,61 +105,6 @@ func constructGraphObjectMeta(name string, namespace string, annotations map[str
 }
 
 /*
-Creates a component extension spec to pass through hpa annotation values such as minreplicas, maxreplicas, scalemetric etc.
-
-ComponentExtensionSpec exists for the purpose of Inference service predict/transformer components.  But we are using here for
-Inference graph raw deployment as well merely to pass through MaxReplicas, MinReplicas, ScaleTarget and ScaleMetric values
-to reuse all the code writeen in v1beta1/inferenceservice/reconcilers.
-*/
-func constructGraphComponentExtensionSpec(annotations map[string]string) v1beta1.ComponentExtensionSpec {
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-
-	var minReplicas, maxReplicas, target, metric string
-
-	componentExtSpec := v1beta1.ComponentExtensionSpec{}
-
-	// Inference graph can have these values defined in annotations section as shown below.
-	//annotations:
-	//	serving.kserve.io/class: "hpa"
-	//	serving.kserve.io/max-scale: "7"
-	//	serving.kserve.io/metric: rps
-	//	serving.kserve.io/min-scale: "1"
-	//	serving.kserve.io/target: "40"
-
-	if scaling, ok := annotations[constants.AutoscalerClass]; ok && constants.AutoscalerClassType(scaling) == constants.AutoscalerClassHPA {
-
-		// if min-scale annotation exists
-		if minReplicas, ok = annotations[constants.InferenceGraphMinScaleAnnotationKey]; ok {
-			if value, err := strconv.Atoi(minReplicas); err == nil {
-				componentExtSpec.MinReplicas = &value
-			}
-		}
-
-		// if max-scale annotation exists
-		if maxReplicas, ok = annotations[constants.InferenceGraphMaxScaleAnnotationKey]; ok {
-			if value, err := strconv.Atoi(maxReplicas); err == nil {
-				componentExtSpec.MaxReplicas = value
-			}
-		}
-		// if target annotation exists
-		if target, ok = annotations[constants.InferenceGraphTargetAnnotationKey]; ok {
-			if value, err := strconv.Atoi(target); err == nil {
-				componentExtSpec.ScaleTarget = &value
-			}
-		}
-		// if metric annotation exists
-		if metric, ok = annotations[constants.InferenceGraphMetricsAnnotationKey]; ok {
-			scaleMetric := v1beta1.ScaleMetric(metric)
-			componentExtSpec.ScaleMetric = &scaleMetric
-		}
-	}
-
-	return componentExtSpec
-}
-
-/*
 Handles bulk of raw deployment logic for Inference graph controller
 1. Constructs PodSpec
 2. Constructs Meta and Extensionspec
@@ -175,8 +117,6 @@ func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme,
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 
 	objectMeta := constructGraphObjectMeta(graph.ObjectMeta.Name, graph.ObjectMeta.Namespace, graph.ObjectMeta.Annotations, graph.ObjectMeta.Labels)
-
-	//componentExtensionSpec := constructGraphComponentExtensionSpec(graph.ObjectMeta.Annotations)
 
 	//create the reconciler
 	reconciler, err := raw.NewRawKubeReconciler(cl, scheme, objectMeta, nil, desiredSvc)
