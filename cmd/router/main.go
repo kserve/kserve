@@ -46,9 +46,9 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	defer timeTrack(time.Now(), "step", serviceUrl)
 	log.Info("Entering callService", "url", serviceUrl)
 	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
-	if err != nil { 
-		log.Error(err, "An error occurred while preparing request object with serviceUrl.", "serviceUrl", serviceUrl) 
-		return nil,500, err 
+	if err != nil {
+		log.Error(err, "An error occurred while preparing request object with serviceUrl.", "serviceUrl", serviceUrl)
+		return nil, 500, err
 	}
 	for _, h := range headersToPropagate {
 		if values, ok := headers[h]; ok {
