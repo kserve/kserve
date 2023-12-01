@@ -31,7 +31,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 logging.basicConfig(level=logging.INFO)
 
 
-@pytest.mark.transformer
+@pytest.mark.raw
 def test_transformer():
     service_name = 'raw-transformer'
     predictor = V1beta1PredictorSpec(

@@ -33,6 +33,9 @@ logging.basicConfig(level=logging.INFO)
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 MODEL_CLASS_NAME = "modelClass"
+INFERENCESERVICE_CONTAINER = "kserve-container"
+TRANSFORMER_CONTAINER = "transformer-container"
+STORAGE_URI_ENV = "STORAGE_URI"
 
 
 def grpc_stub(service_name, namespace):
