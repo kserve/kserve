@@ -70,7 +70,7 @@ def test_batcher_raw():
     except RuntimeError as e:
         print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
                                                                       KSERVE_TEST_NAMESPACE,
-                                                                      "services", service_name + "-predictor-default"))
+                                                                      "services", service_name + "-predictor"))
         pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
                                                           label_selector='serving.kserve.io/inferenceservice={}'.
                                                           format(service_name))
