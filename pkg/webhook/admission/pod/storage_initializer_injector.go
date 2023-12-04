@@ -361,7 +361,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 	// Inject CA bundle configMap if caBundleConfigMapName or constants.DefaultGlobalCaBundleConfigMapName annotation is set
 	caBundleConfigMapName := mi.config.CaBundleConfigMapName
-	if ok := needCaBundelMount(caBundleConfigMapName, initContainer); ok {
+	if ok := needCaBundleMount(caBundleConfigMapName, initContainer); ok {
 		if pod.Namespace != constants.KServeNamespace {
 			caBundleConfigMapName = constants.DefaultGlobalCaBundleConfigMapName
 		}
@@ -490,7 +490,7 @@ func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	return pvcName, pvcPath, nil
 }
 
-func needCaBundelMount(caBundleConfigMapName string, initContainer *v1.Container) bool {
+func needCaBundleMount(caBundleConfigMapName string, initContainer *v1.Container) bool {
 	result := false
 	if caBundleConfigMapName != "" {
 		result = true

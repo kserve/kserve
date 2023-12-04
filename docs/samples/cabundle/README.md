@@ -1,6 +1,6 @@
 # KServe with Self Signed Certificate Model Registry
 
-If you are using a model registry with a self-signed certificate, you must either skip ssl verify or apply the appropriate cabundle to the storage-initializer to create a connection with the registry.
+If you are using a model registry with a self-signed certificate, you must either skip ssl verify or apply the appropriate CA bundle to the storage-initializer to create a connection with the registry.
 This document explains three methods that can be used in KServe, described below:
 
 - Configure CA bundle for storage-initializer
@@ -56,7 +56,7 @@ In this case, you have to create the cabundle ConfigMap in the user namespace be
   kind: ConfigMap
   metadata:
     name: local-cabundle
-    namespace: kserve
+    namespace: kserve-demo
   ~~~
 
 - Add an annotation `serving.kserve.io/s3-cabundle-configmap` to `storage-config` Secret

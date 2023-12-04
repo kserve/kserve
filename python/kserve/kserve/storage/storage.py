@@ -185,7 +185,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                     global_ca_bundle_volume_mount_path = os.getenv("CA_BUNDLE_VOLUME_MOUNT_POINT")
                     ca_bundle_full_path = global_ca_bundle_volume_mount_path + "/cabundle.crt"
                 if os.path.exists(ca_bundle_full_path):
-                    print(f"ca bundle file({ca_bundle_full_path}) exists.")
+                    logging.info('ca bundle file(%s) exists.' % (ca_bundle_full_path))
                     kwargs.update({"verify": ca_bundle_full_path})
                 else:
                     raise RuntimeError(
