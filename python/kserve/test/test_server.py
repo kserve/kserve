@@ -185,7 +185,7 @@ class DummyNeverReadyModel(Model):
         super().__init__(name)
         self.name = name
         self.ready = False
-        
+
 
 @pytest.mark.asyncio
 class TestModel:
@@ -653,10 +653,8 @@ class TestWithUnhealthModel:
         assert str(exc_info.value) == "Model is not provided"
 
     def test_with_not_ready_model(self):
-        model=DummyNeverReadyModel("Dummy")
+        model = DummyNeverReadyModel("Dummy")
         server = ModelServer()
         with pytest.raises(RuntimeError) as exc_info:
             server.start([model])
         assert str(exc_info.value) == "No ready Model"
-
-
