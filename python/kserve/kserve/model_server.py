@@ -125,7 +125,7 @@ class ModelServer:
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         if not models:
-            raise RuntimeError("Model is empty")
+            raise RuntimeError("Model is not provided")
         elif isinstance(models, list):
             at_least_one_model_ready = False
             for model in models:
