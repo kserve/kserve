@@ -180,6 +180,13 @@ class DummyModelRepository(ModelRepository):
                 return False
 
 
+class DummyNeverReadyModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
+        
+
 @pytest.mark.asyncio
 class TestModel:
 
@@ -637,10 +644,19 @@ class TestTFHttpServerModelNotReady:
         assert resp.status_code == 503
 
 
-class Testwithemptymodel:
+class TestWithUnhealthModel:
     def test_with_empty_model(self):
         empty_model = []
         server = ModelServer()
         with pytest.raises(RuntimeError) as exc_info:
             server.start(empty_model)
-        assert str(exc_info.value) == "Model is empty"
+        assert str(exc_info.value) == "Model is not provided"
+
+    def test_with_not_ready_model(self):
+        model=DummyNeverReadyModel("Dummy")
+        server = ModelServer()
+        with pytest.raises(RuntimeError) as exc_info:
+            server.start([model])
+        assert str(exc_info.value) == "No ready Model"
+
+

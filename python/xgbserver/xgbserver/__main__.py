@@ -43,4 +43,4 @@ if __name__ == "__main__":
 
     kserve.ModelServer(
         registered_models=XGBoostModelRepository(args.model_dir, args.nthread)
-    ).start([model] if model.ready else [])
+    ).start([model])
