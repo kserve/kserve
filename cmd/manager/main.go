@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -108,10 +109,14 @@ func main() {
 	log.Info("Setting up manager")
 	options := GetOptions()
 	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: options.metricsAddr,
-		Port:               options.webhookPort,
-		LeaderElection:     options.enableLeaderElection,
-		LeaderElectionID:   LeaderLockName,
+		Metrics: metricsserver.Options{
+			BindAddress: options.metricsAddr,
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: options.webhookPort,
+		}),
+		LeaderElection:   options.enableLeaderElection,
+		LeaderElectionID: LeaderLockName,
 	})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")

@@ -112,13 +112,17 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 storage_secret_json[key] = value
 
         if storage_secret_json.get("type", "") == "s3":
-            os.environ["AWS_ENDPOINT_URL"] = storage_secret_json.get("endpoint_url", "")
-            os.environ["AWS_ACCESS_KEY_ID"] = storage_secret_json.get("access_key_id", "")
-            os.environ["AWS_SECRET_ACCESS_KEY"] = storage_secret_json.get("secret_access_key", "")
-            os.environ["AWS_DEFAULT_REGION"] = storage_secret_json.get("region", "")
-            os.environ["AWS_CA_BUNDLE"] = storage_secret_json.get("certificate", "")
-            os.environ["S3_VERIFY_SSL"] = storage_secret_json.get("verify_ssl", "1")
-            os.environ["awsAnonymousCredential"] = storage_secret_json.get("anonymous", "")
+            for env_var, key in (
+                ("AWS_ENDPOINT_URL", "endpoint_url"),
+                ("AWS_ACCESS_KEY_ID", "access_key_id"),
+                ("AWS_SECRET_ACCESS_KEY", "secret_access_key"),
+                ("AWS_DEFAULT_REGION", "region"),
+                ("AWS_CA_BUNDLE", "certificate"),
+                ("S3_VERIFY_SSL", "verify_ssl"),
+                ("awsAnonymousCredential", "anonymous"),
+            ):
+                if key in storage_secret_json:
+                    os.environ[env_var] = storage_secret_json.get(key)
 
         if storage_secret_json.get("type", "") == "hdfs" or storage_secret_json.get("type", "") == "webhdfs":
             temp_dir = tempfile.mkdtemp()
