@@ -931,7 +931,7 @@ def test_inference_graph_raw_mode():
     ig = V1alpha1InferenceGraph(
         api_version=constants.KSERVE_V1ALPHA1,
         kind=constants.KSERVE_KIND_INFERENCEGRAPH,
-        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations),
         spec=graph_spec,
     )
 
@@ -1049,7 +1049,7 @@ def test_inference_graph_raw_mode_with_hpa():
     ig = V1alpha1InferenceGraph(
         api_version=constants.KSERVE_V1ALPHA1,
         kind=constants.KSERVE_KIND_INFERENCEGRAPH,
-        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations),
         spec=graph_spec,
     )
 
