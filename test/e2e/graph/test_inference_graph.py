@@ -868,9 +868,9 @@ def test_ig_scenario10():
 @pytest.mark.kourier
 def test_inference_graph_raw_mode():
     logging.info("Starting test test_inference_graph_raw_mode")
-    sklearn_name = "isvc-sklearn-graph"
-    xgb_name = "isvc-xgboost-graph"
-    graph_name = "model-chainer"
+    sklearn_name = "isvc-sklearn-graph-raw"
+    xgb_name = "isvc-xgboost-graph-raw"
+    graph_name = "model-chainer-raw"
 
     annotations = dict()
     annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
@@ -982,9 +982,9 @@ def test_inference_graph_raw_mode():
 @pytest.mark.kourier
 def test_inference_graph_raw_mode_with_hpa():
     logging.info("Starting test test_inference_graph_raw_mode_with_hpa")
-    sklearn_name = "isvc-sklearn-graph"
-    xgb_name = "isvc-xgboost-graph"
-    graph_name = "model-chainer"
+    sklearn_name = "isvc-sklearn-graph-raw-hpa"
+    xgb_name = "isvc-xgboost-graph-raw-hpa"
+    graph_name = "model-chainer-raw-hpa"
 
     annotations = dict()
     annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
