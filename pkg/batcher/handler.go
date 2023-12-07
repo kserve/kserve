@@ -63,9 +63,10 @@ type InputInfo struct {
 }
 
 type Response struct {
-	Message     string        `json:"message"`
-	BatchID     string        `json:"batchId"`
-	Predictions []interface{} `json:"predictions"`
+	Message      string        `json:"message"`
+	BatchID      string        `json:"batchId"`
+	Predictions  []interface{} `json:"predictions"`
+	ResponseCode int           `json:"response_code"`
 }
 
 type ResponseError struct {
@@ -116,9 +117,10 @@ type V2InputInfo struct {
 }
 
 type V2Response struct {
-	Message     string         `json:"message"`
-	BatchID     string         `json:"batchId"`
-	Predictions *InferResponse `json:"predictions"`
+	Message      string         `json:"message"`
+	BatchID      string         `json:"batchId"`
+	Predictions  *InferResponse `json:"predictions"`
+	ResponseCode int            `json:"response_code"`
 }
 type InferResponse struct {
 	ModelName    string                  `json:"model_name"`
@@ -169,9 +171,10 @@ func (handler *BatchHandler) batchPredict() {
 		handler.log.Errorf("error response with code %v", rr)
 		for _, v := range handler.batcherInfo.ContextMap {
 			res := Response{
-				Message:     string(responseBody),
-				BatchID:     "",
-				Predictions: nil,
+				Message:      string(responseBody),
+				BatchID:      "",
+				Predictions:  nil,
+				ResponseCode: rr.Code,
 			}
 			*v.ChannelOut <- res
 		}
@@ -181,8 +184,9 @@ func (handler *BatchHandler) batchPredict() {
 		if err != nil {
 			for _, v := range handler.batcherInfo.ContextMap {
 				res := Response{
-					Message: err.Error(),
-					BatchID: handler.batcherInfo.BatchID,
+					Message:      err.Error(),
+					BatchID:      handler.batcherInfo.BatchID,
+					ResponseCode: http.StatusInternalServerError,
 				}
 				*v.ChannelOut <- res
 			}
@@ -191,8 +195,9 @@ func (handler *BatchHandler) batchPredict() {
 			if len(handler.batcherInfo.PredictionResponse.Predictions) != len(handler.batcherInfo.Instances) {
 				for _, v := range handler.batcherInfo.ContextMap {
 					res := Response{
-						Message: "size of prediction is not equal to the size of instances",
-						BatchID: handler.batcherInfo.BatchID,
+						Message:      "size of prediction is not equal to the size of instances",
+						BatchID:      handler.batcherInfo.BatchID,
+						ResponseCode: http.StatusInternalServerError,
 					}
 					*v.ChannelOut <- res
 				}
@@ -203,9 +208,10 @@ func (handler *BatchHandler) batchPredict() {
 						predictions = append(predictions, handler.batcherInfo.PredictionResponse.Predictions[i])
 					}
 					res := Response{
-						Message:     "",
-						BatchID:     handler.batcherInfo.BatchID,
-						Predictions: predictions,
+						Message:      "",
+						BatchID:      handler.batcherInfo.BatchID,
+						Predictions:  predictions,
+						ResponseCode: http.StatusOK,
 					}
 					*v.ChannelOut <- res
 				}
@@ -415,6 +421,13 @@ func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
+
+		// Set response status code if not 200
+		if response.ResponseCode != 200 {
+			handler.log.Infof("set response code %v", response.ResponseCode)
+			w.WriteHeader(response.ResponseCode)
+		}
+
 		_, err = w.Write(rspbytes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -433,11 +446,12 @@ func (handler *BatchHandler) v2BatchPredict() {
 	responseBody := rr.Body.Bytes()
 	if rr.Code != http.StatusOK {
 		handler.log.Errorf("error response with code %v", rr)
-		for _, v := range handler.batcherInfo.ContextMap {
-			res := Response{
-				Message:     string(responseBody),
-				BatchID:     "",
-				Predictions: nil,
+		for _, v := range handler.batcherInfo.V2ContextMap {
+			res := V2Response{
+				Message:      string(responseBody),
+				BatchID:      "",
+				Predictions:  nil,
+				ResponseCode: rr.Code,
 			}
 			*v.ChannelOut <- res
 		}
@@ -447,8 +461,9 @@ func (handler *BatchHandler) v2BatchPredict() {
 		if err != nil {
 			for _, v := range handler.batcherInfo.V2ContextMap {
 				res := V2Response{
-					Message: err.Error(),
-					BatchID: handler.batcherInfo.BatchID,
+					Message:      err.Error(),
+					BatchID:      handler.batcherInfo.BatchID,
+					ResponseCode: http.StatusInternalServerError,
 				}
 				*v.ChannelOut <- res
 			}
@@ -476,6 +491,7 @@ func (handler *BatchHandler) v2BatchPredict() {
 							Parameters:   handler.batcherInfo.InferResponse.Parameters,
 							Outputs:      predictions,
 						},
+						ResponseCode: http.StatusOK,
 					}
 					*v.ChannelOut <- res
 				}
@@ -517,14 +533,16 @@ func (handler *BatchHandler) v2BatchPredict() {
 							Parameters:   handler.batcherInfo.InferResponse.Parameters,
 							Outputs:      predictions,
 						},
+						ResponseCode: http.StatusOK,
 					}
 					*v.ChannelOut <- res
 				}
 			} else {
 				for _, v := range handler.batcherInfo.V2ContextMap {
 					res := V2Response{
-						Message: "size of prediction is not equal to the size of instances",
-						BatchID: handler.batcherInfo.BatchID,
+						Message:      "size of prediction is not equal to the size of instances",
+						BatchID:      handler.batcherInfo.BatchID,
+						ResponseCode: http.StatusInternalServerError,
 					}
 					*v.ChannelOut <- res
 				}
