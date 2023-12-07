@@ -356,7 +356,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
 	isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment)
-	
 	//Check if ModelStatus == True
 	CheckStatus(isvc)
 
