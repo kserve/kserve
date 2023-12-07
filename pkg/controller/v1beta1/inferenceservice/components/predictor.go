@@ -41,6 +41,10 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+        "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var _ Component = &Predictor{}
@@ -352,5 +356,29 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
 	isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment)
+	
+	//Check if ModelStatus == True
+	CheckStatus(isvc)
+
 	return ctrl.Result{}, nil
+}
+
+
+func CheckStatus(isvc *v1beta1.InferenceService) {
+
+	logf.SetLogger(zap.New())
+        log := logf.Log.WithName("CheckStatus")
+	var flag bool = true
+	for i:=0 ; i < 7 ; i++ {
+		//Check ModelHealth
+		if string(isvc.Status.Conditions[i].Status) != "True" {
+			log.Info("Type " + string(isvc.Status.Conditions[i].Type) +
+			" is now: " + string(isvc.Status.Conditions[i].Status))
+			flag = false
+		}
+        }
+	if flag {
+		log.Info("Inference Service is Ready !!")
+	}
+
 }
