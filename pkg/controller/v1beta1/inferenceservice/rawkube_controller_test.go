@@ -67,18 +67,27 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	Context("When creating inference service with raw kube predictor", func() {
 		configs := map[string]string{
 			"explainers": `{
-               "alibi": {
-                  "image": "kfserving/alibi-explainer",
-			      "defaultImageVersion": "latest"
-               }
-            }`,
+				"alibi": {
+					"image": "kserve/alibi-explainer",
+					"defaultImageVersion": "latest"
+				}
+			}`,
 			"ingress": `{
-               "ingressGateway": "knative-serving/knative-ingress-gateway",
-               "ingressService": "test-destination",
-               "localGateway": "knative-serving/knative-local-gateway",
-               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-               "ingressDomain": "example.com"
-            }`,
+				"ingressGateway": "knative-serving/knative-ingress-gateway",
+				"ingressService": "test-destination",
+				"localGateway": "knative-serving/knative-local-gateway",
+				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+			}`,
+			"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"CaBundleConfigMapName": "",
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"enableDirectPvcVolumeMount": false
+			}`,
 		}
 
 		It("Should have ingress/service/deployment/hpa created", func() {

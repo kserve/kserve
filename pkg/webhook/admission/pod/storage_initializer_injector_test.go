@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package pod
 
 import (
@@ -41,6 +42,8 @@ const (
 	StorageInitializerDefaultCPULimit                   = "1"
 	StorageInitializerDefaultMemoryRequest              = "200Mi"
 	StorageInitializerDefaultMemoryLimit                = "1Gi"
+	StorageInitializerDefaultCaBundleConfigMapName      = ""
+	StorageInitializerDefaultCaBundleVolumeMountPath    = "/etc/ssl/custom-certs"
 	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
 )
 
@@ -50,6 +53,8 @@ var (
 		CpuLimit:                   StorageInitializerDefaultCPULimit,
 		MemoryRequest:              StorageInitializerDefaultMemoryRequest,
 		MemoryLimit:                StorageInitializerDefaultMemoryLimit,
+		CaBundleConfigMapName:      StorageInitializerDefaultCaBundleConfigMapName,
+		CaBundleVolumeMountPath:    StorageInitializerDefaultCaBundleVolumeMountPath,
 		EnableDirectPvcVolumeMount: StorageInitializerDefaultEnableDirectPvcVolumeMount,
 	}
 
@@ -1034,11 +1039,13 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
-				Image:         "kserve/storage-initializer@sha256:xxx",
-				CpuRequest:    StorageInitializerDefaultCPURequest,
-				CpuLimit:      StorageInitializerDefaultCPULimit,
-				MemoryRequest: StorageInitializerDefaultMemoryRequest,
-				MemoryLimit:   StorageInitializerDefaultMemoryLimit,
+				Image:                   "kserve/storage-initializer@sha256:xxx",
+				CpuRequest:              StorageInitializerDefaultCPURequest,
+				CpuLimit:                StorageInitializerDefaultCPULimit,
+				MemoryRequest:           StorageInitializerDefaultMemoryRequest,
+				MemoryLimit:             StorageInitializerDefaultMemoryLimit,
+				CaBundleConfigMapName:   StorageInitializerDefaultCaBundleConfigMapName,
+				CaBundleVolumeMountPath: StorageInitializerDefaultCaBundleVolumeMountPath,
 			},
 			client: c,
 		}
@@ -1069,18 +1076,22 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 						"CpuRequest":   		 "100m",
 						"CpuLimit":      		 "1",
 						"MemoryRequest": 		 "200Mi",
-						"MemoryLimit":   		 "1Gi"
+						"MemoryLimit":   		 "1Gi",
+						"CaBundleConfigMapName":      "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
 					}`,
 				},
 				BinaryData: map[string][]byte{},
 			},
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&StorageInitializerConfig{
-					Image:         "gcr.io/kserve/storage-initializer:latest",
-					CpuRequest:    "100m",
-					CpuLimit:      "1",
-					MemoryRequest: "200Mi",
-					MemoryLimit:   "1Gi",
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200Mi",
+					MemoryLimit:             "1Gi",
+					CaBundleConfigMapName:   "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
 				}),
 				gomega.BeNil(),
 			},
@@ -1096,18 +1107,22 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 						"CpuRequest":   		 "100m",
 						"CpuLimit":      		 "1",
 						"MemoryRequest": 		 "200MC",
-						"MemoryLimit":   		 "1Gi"
+						"MemoryLimit":   		 "1Gi",
+						"CaBundleConfigMapName":      "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
 					}`,
 				},
 				BinaryData: map[string][]byte{},
 			},
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&StorageInitializerConfig{
-					Image:         "gcr.io/kserve/storage-initializer:latest",
-					CpuRequest:    "100m",
-					CpuLimit:      "1",
-					MemoryRequest: "200MC",
-					MemoryLimit:   "1Gi",
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200MC",
+					MemoryLimit:             "1Gi",
+					CaBundleConfigMapName:   "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
 				}),
 				gomega.HaveOccurred(),
 			},
@@ -1157,6 +1172,727 @@ func TestParsePvcURI(t *testing.T) {
 		})
 
 	}
+}
+
+func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	var configMap = &v1.ConfigMap{
+		Data: map[string]string{
+			"credentials": `{
+				"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
+				"s3" : {
+					"s3AccessKeyIDName": "awsAccessKeyID",
+					"s3SecretAccessKeyName": "awsSecretAccessKey"
+				}
+			}`,
+		},
+	}
+	scenarios := map[string]struct {
+		storageConfig *StorageInitializerConfig
+		secret        *v1.Secret
+		sa            *v1.ServiceAccount
+		original      *v1.Pod
+		expected      *v1.Pod
+	}{
+		"DoNotMountWithCaBundleConfigMapVolumeWhenCaBundleConfigMapNameNotSet": {
+			storageConfig: storageInitializerConfig,
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "s3-secret",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"awsAccessKeyID":     {},
+					"awsSecretAccessKey": {},
+				},
+			},
+			sa: &v1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Secrets: []v1.ObjectReference{
+					{
+						Name:      "s3-secret",
+						Namespace: "default",
+					},
+				},
+			},
+			original: makePod(),
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:  "storage-initializer",
+							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Env: []v1.EnvVar{
+								{
+									Name: s3.AWSAccessKeyId,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsAccessKeyID",
+										},
+									},
+								},
+								{
+									Name: s3.AWSSecretAccessKey,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsSecretAccessKey",
+										},
+									},
+								},
+							},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+		"MountsCaBundleConfigMapVolumeWhenCaBundleConfigMapNameSet": {
+			storageConfig: &StorageInitializerConfig{
+				Image:                 "kserve/storage-initializer:latest",
+				CpuRequest:            "100m",
+				CpuLimit:              "1",
+				MemoryRequest:         "200Mi",
+				MemoryLimit:           "1Gi",
+				CaBundleConfigMapName: "custom-certs", // enable CA bundle config volume mount
+			},
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "s3-secret",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"awsAccessKeyID":     {},
+					"awsSecretAccessKey": {},
+				},
+			},
+			sa: &v1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Secrets: []v1.ObjectReference{
+					{
+						Name:      "s3-secret",
+						Namespace: "default",
+					},
+				},
+			},
+			original: makePod(),
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:  "storage-initializer",
+							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Env: []v1.EnvVar{
+								{
+									Name: s3.AWSAccessKeyId,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsAccessKeyID",
+										},
+									},
+								},
+								{
+									Name: s3.AWSSecretAccessKey,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsSecretAccessKey",
+										},
+									},
+								},
+								{Name: "CA_BUNDLE_CONFIGMAP_NAME", Value: constants.DefaultGlobalCaBundleConfigMapName},
+								{Name: "CA_BUNDLE_VOLUME_MOUNT_POINT", Value: "/etc/ssl/custom-certs"},
+							},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+								{
+									Name:      CaBundleVolumeName,
+									MountPath: constants.DefaultCaBundleVolumeMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: CaBundleVolumeName,
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: constants.DefaultGlobalCaBundleConfigMapName,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"MountsCaBundleConfigMapVolumeByAnnotation": {
+			storageConfig: &StorageInitializerConfig{
+				Image:         "kserve/storage-initializer:latest",
+				CpuRequest:    "100m",
+				CpuLimit:      "1",
+				MemoryRequest: "200Mi",
+				MemoryLimit:   "1Gi",
+			},
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "s3-secret",
+					Namespace: "default",
+					Annotations: map[string]string{
+						s3.InferenceServiceS3CABundleConfigMapAnnotation: "cabundle-annotation",
+					},
+				},
+				Data: map[string][]byte{
+					"awsAccessKeyID":     {},
+					"awsSecretAccessKey": {},
+				},
+			},
+			sa: &v1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Secrets: []v1.ObjectReference{
+					{
+						Name:      "s3-secret",
+						Namespace: "default",
+					},
+				},
+			},
+			original: makePod(),
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:  "storage-initializer",
+							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Env: []v1.EnvVar{
+								{
+									Name: s3.AWSAccessKeyId,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsAccessKeyID",
+										},
+									},
+								},
+								{
+									Name: s3.AWSSecretAccessKey,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsSecretAccessKey",
+										},
+									},
+								},
+								{Name: "AWS_CA_BUNDLE_CONFIGMAP", Value: "cabundle-annotation"},
+								{Name: "CA_BUNDLE_CONFIGMAP_NAME", Value: "cabundle-annotation"},
+								{Name: "CA_BUNDLE_VOLUME_MOUNT_POINT", Value: "/etc/ssl/custom-certs"},
+							},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+								{
+									Name:      CaBundleVolumeName,
+									MountPath: constants.DefaultCaBundleVolumeMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: CaBundleVolumeName,
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "cabundle-annotation",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"MountsCaBundleConfigMapVolumeByAnnotationInstreadOfConfigMap": {
+			storageConfig: &StorageInitializerConfig{
+				Image:                 "kserve/storage-initializer:latest",
+				CpuRequest:            "100m",
+				CpuLimit:              "1",
+				MemoryRequest:         "200Mi",
+				MemoryLimit:           "1Gi",
+				CaBundleConfigMapName: "custom-certs", // enable CA bundle configmap volume mount
+			},
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "s3-secret",
+					Namespace: "default",
+					Annotations: map[string]string{
+						s3.InferenceServiceS3CABundleConfigMapAnnotation: "cabundle-annotation",
+					},
+				},
+				Data: map[string][]byte{
+					"awsAccessKeyID":     {},
+					"awsSecretAccessKey": {},
+				},
+			},
+			sa: &v1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Secrets: []v1.ObjectReference{
+					{
+						Name:      "s3-secret",
+						Namespace: "default",
+					},
+				},
+			},
+			original: makePod(),
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:  "storage-initializer",
+							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Env: []v1.EnvVar{
+								{
+									Name: s3.AWSAccessKeyId,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsAccessKeyID",
+										},
+									},
+								},
+								{
+									Name: s3.AWSSecretAccessKey,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsSecretAccessKey",
+										},
+									},
+								},
+								{Name: "AWS_CA_BUNDLE_CONFIGMAP", Value: "cabundle-annotation"},
+								{Name: "CA_BUNDLE_CONFIGMAP_NAME", Value: "cabundle-annotation"},
+								{Name: "CA_BUNDLE_VOLUME_MOUNT_POINT", Value: "/etc/ssl/custom-certs"},
+							},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+								{
+									Name:      CaBundleVolumeName,
+									MountPath: constants.DefaultCaBundleVolumeMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: CaBundleVolumeName,
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "cabundle-annotation",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"DoNotSetMountsCaBundleConfigMapVolumePathByAnnotationIfCaBundleConfigMapNameDidNotSet": {
+			storageConfig: storageInitializerConfig,
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "s3-secret",
+					Namespace: "default",
+					Annotations: map[string]string{
+						s3.InferenceServiceS3CABundleAnnotation: "/path/to/ca.crt",
+					},
+				},
+				Data: map[string][]byte{
+					"awsAccessKeyID":     {},
+					"awsSecretAccessKey": {},
+				},
+			},
+			sa: &v1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Secrets: []v1.ObjectReference{
+					{
+						Name:      "s3-secret",
+						Namespace: "default",
+					},
+				},
+			},
+			original: makePod(),
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:  "storage-initializer",
+							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Env: []v1.EnvVar{
+								{
+									Name: s3.AWSAccessKeyId,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsAccessKeyID",
+										},
+									},
+								},
+								{
+									Name: s3.AWSSecretAccessKey,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsSecretAccessKey",
+										},
+									},
+								},
+								{Name: "AWS_CA_BUNDLE", Value: "/path/to/ca.crt"},
+							},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+		"SetMountsCaBundleConfigMapVolumePathByAnnotationInstreadOfConfigMap": {
+			storageConfig: &StorageInitializerConfig{
+				Image:                   "kserve/storage-initializer:latest",
+				CpuRequest:              "100m",
+				CpuLimit:                "1",
+				MemoryRequest:           "200Mi",
+				MemoryLimit:             "1Gi",
+				CaBundleConfigMapName:   "custom-certs", // enable CA bundle configmap volume mount
+				CaBundleVolumeMountPath: "/path/to",     // set CA bundle configmap volume mount path
+			},
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "s3-secret",
+					Namespace: "default",
+					Annotations: map[string]string{
+						s3.InferenceServiceS3CABundleAnnotation: "/annotation/path/to/annotation-ca.crt",
+					},
+				},
+				Data: map[string][]byte{
+					"awsAccessKeyID":     {},
+					"awsSecretAccessKey": {},
+				},
+			},
+			sa: &v1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Secrets: []v1.ObjectReference{
+					{
+						Name:      "s3-secret",
+						Namespace: "default",
+					},
+				},
+			},
+			original: makePod(),
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:  "storage-initializer",
+							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Env: []v1.EnvVar{
+								{
+									Name: s3.AWSAccessKeyId,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsAccessKeyID",
+										},
+									},
+								},
+								{
+									Name: s3.AWSSecretAccessKey,
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "s3-secret",
+											},
+											Key: "awsSecretAccessKey",
+										},
+									},
+								},
+								{Name: "AWS_CA_BUNDLE", Value: "/annotation/path/to/annotation-ca.crt"},
+								{Name: "CA_BUNDLE_CONFIGMAP_NAME", Value: constants.DefaultGlobalCaBundleConfigMapName},
+								{Name: "CA_BUNDLE_VOLUME_MOUNT_POINT", Value: "/annotation/path/to"},
+							},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+								{
+									Name:      CaBundleVolumeName,
+									MountPath: "/annotation/path/to",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: CaBundleVolumeName,
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: constants.DefaultGlobalCaBundleConfigMapName,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	builder := credentials.NewCredentialBuilder(c, configMap)
+	for name, scenario := range scenarios {
+		g.Expect(c.Create(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
+
+		injector := &StorageInitializerInjector{
+			credentialBuilder: builder,
+			config:            scenario.storageConfig,
+			client:            c,
+		}
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected failure [%s]", name, err.Error())
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+
+		g.Expect(c.Delete(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
+	}
+
 }
 
 func TestDirectVolumeMountForPvc(t *testing.T) {
