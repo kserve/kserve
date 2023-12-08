@@ -471,7 +471,9 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 	}
 	// Propagating only 1 header "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-Key"}
-	compiledHeaderPatterns = compilePatterns(headersToPropagate)
+	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
+	assert.Nil(t, err)
+
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
@@ -524,7 +526,9 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 	}
 	// Propagating multiple headers "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-Key", "Authorization"}
-	compiledHeaderPatterns = compilePatterns(headersToPropagate)
+	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
+	assert.Nil(t, err)
+
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
@@ -588,7 +592,9 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 	}
 	// Propagating multiple headers "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-*", "Auth*"}
-	compiledHeaderPatterns = compilePatterns(headersToPropagate)
+	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
+	assert.Nil(t, err)
+
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
@@ -646,7 +652,9 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 	}
 	// Using invalid regex pattern
 	headersToPropagate := []string{"Test-Header-[0-9", "Auth*"}
-	compiledHeaderPatterns = compilePatterns(headersToPropagate)
+	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
+	assert.NotNil(t, err)
+
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)

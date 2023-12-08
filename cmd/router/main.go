@@ -19,8 +19,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	goerrors "errors"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"os"
@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/pkg/errors"
 
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -312,17 +313,18 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func compilePatterns(patterns []string) []*regexp.Regexp {
+func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
+	var allErrors []error
 	var compiled []*regexp.Regexp
 	for _, p := range patterns {
 		c, err := regexp.Compile(p)
 		if err != nil {
-			log.Error(err, "Failed to compile header pattern", "pattern", p)
+			allErrors = append(allErrors, errors.Wrap(err, fmt.Sprintf("failed to compile pattern %q", p)))
 		} else {
 			compiled = append(compiled, c)
 		}
 	}
-	return compiled
+	return compiled, goerrors.Join(allErrors...)
 }
 
 var (
@@ -334,9 +336,13 @@ func main() {
 	flag.Parse()
 	logf.SetLogger(zap.New())
 	if headersToPropagateEnvVar, ok := os.LookupEnv(constants.RouterHeadersPropagateEnvVar); ok {
+		var err error
 		log.Info("The headers that will match these patterns will be propagated by the router to all the steps",
 			"headersToPropagateEnvVar", headersToPropagateEnvVar)
-		compiledHeaderPatterns = compilePatterns(strings.Split(headersToPropagateEnvVar, ","))
+		compiledHeaderPatterns, err = compilePatterns(strings.Split(headersToPropagateEnvVar, ","))
+		if err != nil {
+			log.Error(err, "Failed to compile some header patterns")
+		}
 	}
 	inferenceGraph = &v1alpha1.InferenceGraphSpec{}
 	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
