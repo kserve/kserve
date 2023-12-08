@@ -48,6 +48,9 @@ config/overlays/development/configmap/inferenceservice_patch.yaml
 config/overlays/development/manager_auth_proxy_patch.yaml
 config/overlays/dev-image-config/inferenceservice_patch.yaml
 
+config/overlays/development-raw/manager_image_patch.yaml
+config/overlays/development-raw/configmap/inferenceservice_patch.yaml
+
 .ko.yaml
 
 # swagger-codegen tools and auto generated files but useless

@@ -97,6 +97,19 @@ deploy-dev: manifests
 	sleep 2
 	${KUSTOMIZE} build config/clusterresources | kubectl apply -f -
 
+deploy-dev-raw: manifests
+	./hack/image_patch_dev.sh development-raw
+	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
+	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
+	${KUSTOMIZE} edit remove resource certmanager/certificate.yaml; \
+	else ${KUSTOMIZE} edit add resource certmanager/certificate.yaml; fi;
+	${KUSTOMIZE} build config/overlays/development-raw | kubectl apply -f -
+	# TODO: Add runtimes as part of default deployment
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	sleep 10 # For now 2 secs does not workout as webhook takes time to come up
+	${KUSTOMIZE} build config/runtimes | kubectl apply -f -
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+
 deploy-dev-sklearn: docker-push-sklearn kustomize
 	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
 
