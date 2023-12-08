@@ -43,6 +43,7 @@ python-dateutil = "^2.8.0"
 numpy = "^1.23.5"
 psutil = "^5.9.0"
 ray = { version = "^2.8.0", extras = ["serve"] }
+async-timeout = { version = "^4.0.3", python = "==3.11.*" }
 grpcio = "^1.49.1"
 protobuf = "^3.19.0"
 prometheus-client = "^0.13.1"
