@@ -248,3 +248,106 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 		})
 	}
 }
+
+func TestConstructGraphObjectMeta(t *testing.T) {
+	type args struct {
+		name        string
+		namespace   string
+		annotations map[string]string
+		labels      map[string]string
+	}
+
+	scenarios := []struct {
+		name     string
+		args     args
+		expected metav1.ObjectMeta
+	}{
+		{
+			name: "Basic Inference graph",
+			args: args{
+				name:      "basic-ig",
+				namespace: "basic-ig-namespace",
+			},
+			expected: metav1.ObjectMeta{
+				Name:      "basic-ig",
+				Namespace: "basic-ig-namespace",
+				Labels: map[string]string{
+					"serving.kserve.io/inferencegraph": "basic-ig",
+				},
+				Annotations: map[string]string{},
+			},
+		},
+		{
+			name: "Inference graph with annotations",
+			args: args{
+				name:      "basic-ig",
+				namespace: "basic-ig-namespace",
+				annotations: map[string]string{
+					"test": "test",
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Name:      "basic-ig",
+				Namespace: "basic-ig-namespace",
+				Labels: map[string]string{
+					"serving.kserve.io/inferencegraph": "basic-ig",
+				},
+				Annotations: map[string]string{
+					"test": "test",
+				},
+			},
+		},
+		{
+			name: "Inference graph with labels",
+			args: args{
+				name:      "basic-ig",
+				namespace: "basic-ig-namespace",
+				labels: map[string]string{
+					"test": "test",
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Name:      "basic-ig",
+				Namespace: "basic-ig-namespace",
+				Labels: map[string]string{
+					"serving.kserve.io/inferencegraph": "basic-ig",
+					"test":                             "test",
+				},
+				Annotations: map[string]string{},
+			},
+		},
+		{
+			name: "Inference graph with annotations and labels",
+			args: args{
+				name:      "basic-ig",
+				namespace: "basic-ig-namespace",
+				annotations: map[string]string{
+					"test": "test",
+				},
+				labels: map[string]string{
+					"test": "test",
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Name:      "basic-ig",
+				Namespace: "basic-ig-namespace",
+				Labels: map[string]string{
+					"serving.kserve.io/inferencegraph": "basic-ig",
+					"test":                             "test",
+				},
+				Annotations: map[string]string{
+					"test": "test",
+				},
+			},
+		},
+	}
+
+	for _, tt := range scenarios {
+		t.Run(tt.name, func(t *testing.T) {
+			result := constructGraphObjectMeta(tt.args.name, tt.args.namespace, tt.args.annotations, tt.args.labels)
+			if diff := cmp.Diff(tt.expected, result); diff != "" {
+				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
+			}
+		})
+	}
+}
