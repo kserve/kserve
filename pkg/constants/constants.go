@@ -92,7 +92,7 @@ var (
 	PrometheusPortAnnotationKey                 = "prometheus.io/port"
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
 	DefaultPrometheusPath                       = "/metrics"
-	QueueProxyAggregatePrometheusMetricsPort    = "9088"
+	QueueProxyAggregatePrometheusMetricsPort    = 9088
 	DefaultPodPrometheusPort                    = "9091"
 )
 
@@ -258,6 +258,7 @@ const (
 	InferenceServiceDefaultAgentPortStr = "9081"
 	InferenceServiceDefaultAgentPort    = 9081
 	CommonDefaultHttpPort               = 80
+	AggregateMetricsPortName            = "aggr-metric"
 )
 
 // Labels to put on kservice
