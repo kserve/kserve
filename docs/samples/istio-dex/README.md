@@ -1,6 +1,6 @@
-# KFServing on Kubeflow with Istio-Dex
+# KServe on Kubeflow with Istio-Dex
 
-This example shows how to create a KFServing InferenceService as well as sending a prediction request to the InferenceService in an Istio-Dex environment.
+This example shows how to create an InferenceService as well as sending a prediction request to the InferenceService in an Istio-Dex environment.
 
 We will be using the [SKLearn example](/docs/samples/v1beta1/sklearn/v1) to create our InferenceService.
 
