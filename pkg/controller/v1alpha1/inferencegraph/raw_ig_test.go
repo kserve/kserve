@@ -18,17 +18,20 @@ package inferencegraph
 
 import (
 	"github.com/google/go-cmp/cmp"
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	. "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"testing"
 )
 
 func TestCreateInferenceGraphPodSpec(t *testing.T) {
 	type args struct {
-		graph  *v1alpha1.InferenceGraph
+		graph  *InferenceGraph
 		config *RouterConfig
 	}
 
@@ -54,19 +57,19 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 		},
 	}
 
-	testIGSpecs := map[string]*v1alpha1.InferenceGraph{
+	testIGSpecs := map[string]*InferenceGraph{
 		"basic": {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "basic-ig",
 				Namespace: "basic-ig-namespace",
 			},
-			Spec: v1alpha1.InferenceGraphSpec{
-				Nodes: map[string]v1alpha1.InferenceRouter{
-					v1alpha1.GraphRootNodeName: {
-						RouterType: v1alpha1.Sequence,
-						Steps: []v1alpha1.InferenceStep{
+			Spec: InferenceGraphSpec{
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
 							{
-								InferenceTarget: v1alpha1.InferenceTarget{
+								InferenceTarget: InferenceTarget{
 									ServiceURL: "http://someservice.exmaple.com",
 								},
 							},
@@ -84,13 +87,13 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				},
 			},
 
-			Spec: v1alpha1.InferenceGraphSpec{
-				Nodes: map[string]v1alpha1.InferenceRouter{
-					v1alpha1.GraphRootNodeName: {
-						RouterType: v1alpha1.Sequence,
-						Steps: []v1alpha1.InferenceStep{
+			Spec: InferenceGraphSpec{
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
 							{
-								InferenceTarget: v1alpha1.InferenceTarget{
+								InferenceTarget: InferenceTarget{
 									ServiceURL: "http://someservice.exmaple.com",
 								},
 							},
@@ -119,13 +122,13 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				},
 			},
 
-			Spec: v1alpha1.InferenceGraphSpec{
-				Nodes: map[string]v1alpha1.InferenceRouter{
-					v1alpha1.GraphRootNodeName: {
-						RouterType: v1alpha1.Sequence,
-						Steps: []v1alpha1.InferenceStep{
+			Spec: InferenceGraphSpec{
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
 							{
-								InferenceTarget: v1alpha1.InferenceTarget{
+								InferenceTarget: InferenceTarget{
 									ServiceURL: "http://someservice.exmaple.com",
 								},
 							},
@@ -347,6 +350,95 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 			result := constructGraphObjectMeta(tt.args.name, tt.args.namespace, tt.args.annotations, tt.args.labels)
 			if diff := cmp.Diff(tt.expected, result); diff != "" {
 				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
+			}
+		})
+	}
+}
+
+func TestPropagateRawStatus(t *testing.T) {
+	type args struct {
+		graphStatus *InferenceGraphStatus
+		deployment  *appsv1.Deployment
+		url         *apis.URL
+	}
+
+	scenarios := []struct {
+		name     string
+		args     args
+		expected *InferenceGraphStatus
+	}{
+		{
+			name: "Basic Inference graph with with graph status as ready and deployment available",
+			args: args{
+				graphStatus: &InferenceGraphStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							{
+								Type:   apis.ConditionReady,
+								Status: v1.ConditionTrue,
+							},
+						},
+					},
+				},
+				deployment: &appsv1.Deployment{
+					Status: appsv1.DeploymentStatus{
+						AvailableReplicas: 1,
+					},
+				},
+				url: &apis.URL{
+					Scheme: "http",
+					Host:   "test.com",
+				},
+			},
+			expected: &InferenceGraphStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   apis.ConditionReady,
+							Status: v1.ConditionTrue,
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name: "Basic Inference graph with with Inferencegraph status as not ready and deployment unavailable",
+			args: args{
+				graphStatus: &InferenceGraphStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							{
+								Type:   apis.ConditionReady,
+								Status: v1.ConditionFalse,
+							},
+						},
+					},
+				},
+				deployment: &appsv1.Deployment{
+					Status: appsv1.DeploymentStatus{
+						AvailableReplicas: 0,
+					},
+				},
+			},
+			expected: &InferenceGraphStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   apis.ConditionReady,
+							Status: v1.ConditionFalse,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range scenarios {
+		t.Run(tt.name, func(t *testing.T) {
+			PropagateRawStatus(tt.args.graphStatus, tt.args.deployment, tt.args.url)
+			if diff := cmp.Diff(tt.expected, tt.args.graphStatus); diff != "" {
+				t.Errorf("Test for graphstatus %q unexpected result (-want +got): %v", t.Name(), diff)
 			}
 		})
 	}
