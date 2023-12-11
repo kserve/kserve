@@ -112,12 +112,17 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 storage_secret_json[key] = value
 
         if storage_secret_json.get("type", "") == "s3":
-            os.environ["AWS_ENDPOINT_URL"] = storage_secret_json.get("endpoint_url", "")
-            os.environ["AWS_ACCESS_KEY_ID"] = storage_secret_json.get("access_key_id", "")
-            os.environ["AWS_SECRET_ACCESS_KEY"] = storage_secret_json.get("secret_access_key", "")
-            os.environ["AWS_DEFAULT_REGION"] = storage_secret_json.get("region", "")
-            os.environ["AWS_CA_BUNDLE"] = storage_secret_json.get("certificate", "")
-            os.environ["awsAnonymousCredential"] = storage_secret_json.get("anonymous", "")
+            for env_var, key in (
+                ("AWS_ENDPOINT_URL", "endpoint_url"),
+                ("AWS_ACCESS_KEY_ID", "access_key_id"),
+                ("AWS_SECRET_ACCESS_KEY", "secret_access_key"),
+                ("AWS_DEFAULT_REGION", "region"),
+                ("AWS_CA_BUNDLE", "certificate"),
+                ("S3_VERIFY_SSL", "verify_ssl"),
+                ("awsAnonymousCredential", "anonymous"),
+            ):
+                if key in storage_secret_json:
+                    os.environ[env_var] = storage_secret_json.get(key)
 
         if storage_secret_json.get("type", "") == "hdfs" or storage_secret_json.get("type", "") == "webhdfs":
             temp_dir = tempfile.mkdtemp()
@@ -168,8 +173,27 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             kwargs.update({"endpoint_url": endpoint_url})
         verify_ssl = os.getenv("S3_VERIFY_SSL")
         if verify_ssl:
-            verify_ssl = verify_ssl != "0"
+            verify_ssl = not verify_ssl.lower() in ["0", "false"]
             kwargs.update({"verify": verify_ssl})
+        else:
+            verify_ssl = True
+
+        # If verify_ssl is true, then check there is custom ca bundle cert
+        if verify_ssl:
+            global_ca_bundle_configmap = os.getenv("CA_BUNDLE_CONFIGMAP_NAME")
+            if global_ca_bundle_configmap:
+                isvc_aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
+                if isvc_aws_ca_bundle_path and isvc_aws_ca_bundle_path != "":
+                    ca_bundle_full_path = isvc_aws_ca_bundle_path
+                else:
+                    global_ca_bundle_volume_mount_path = os.getenv("CA_BUNDLE_VOLUME_MOUNT_POINT")
+                    ca_bundle_full_path = global_ca_bundle_volume_mount_path + "/cabundle.crt"
+                if os.path.exists(ca_bundle_full_path):
+                    logging.info('ca bundle file(%s) exists.' % (ca_bundle_full_path))
+                    kwargs.update({"verify": ca_bundle_full_path})
+                else:
+                    raise RuntimeError(
+                       "Failed to find ca bundle file(%s)." % ca_bundle_full_path)
         s3 = boto3.resource("s3", **kwargs)
         parsed = urlparse(uri, scheme='s3')
         bucket_name = parsed.netloc
