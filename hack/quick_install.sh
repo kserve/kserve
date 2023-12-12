@@ -124,7 +124,15 @@ kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VER
 
 # Install KServe built-in servingruntimes and storagecontainers
 kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml
+# kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml
+# TODO: Uncomment the line above and remove the following condition once kserve-cluster-resouces.yaml is added to the release assets.
+NUMERIC_KSERVE_VERSION=$(echo "$KSERVE_VERSION" | cut -c 2-)
+if awk 'BEGIN { exit !('"$NUMERIC_KSERVE_VERSION"' <= 0.11.2) }'; then
+    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml
+else
+    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml
+fi
+
 echo "😀 Successfully installed KServe"
 
 # Clean up
