@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
-	ctrl "sigs.k8s.io/controller-runtime"
+	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -112,7 +112,7 @@ Handles bulk of raw deployment logic for Inference graph controller
 4. Set controller referneces
 5. Finally reconcile
 */
-func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme, graph *v1alpha1api.InferenceGraph, routerConfig *RouterConfig) (ctrl.Result, error) {
+func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme, graph *v1alpha1api.InferenceGraph, routerConfig *RouterConfig) (*appsv1.Deployment, *knapis.URL, error) {
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 
@@ -122,39 +122,40 @@ func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme,
 	reconciler, err := raw.NewRawKubeReconciler(cl, scheme, objectMeta, nil, desiredSvc)
 
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
+		return nil, reconciler.URL, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
 	//set Deployment Controller
 	if err := controllerutil.SetControllerReference(graph, reconciler.Deployment.Deployment, scheme); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
+		return nil, reconciler.URL, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
 	}
 	//set Service Controller
 	if err := controllerutil.SetControllerReference(graph, reconciler.Service.Service, scheme); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for inference graph")
+		return nil, reconciler.URL, errors.Wrapf(err, "fails to set service owner reference for inference graph")
 	}
 
 	//set autoscaler Controller
 	if err := reconciler.Scaler.Autoscaler.SetControllerReferences(graph, scheme); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "fails to set autoscaler owner references for inference graph")
+		return nil, reconciler.URL, errors.Wrapf(err, "fails to set autoscaler owner references for inference graph")
 	}
 
 	//reconcile
 	deployment, err := reconciler.Reconcile()
-	logger.Info("reconciled:")
+	logger.Info("Result of inference graph raw reconcile", "deployment", deployment)
+	logger.Info("Result of reconcile", "err", err)
 
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw")
+		return deployment, reconciler.URL, errors.Wrapf(err, "fails to reconcile inference graph raw")
 	}
 
-	PropagateRawStatus(&graph.Status, deployment, reconciler.URL)
-
-	return ctrl.Result{}, nil
+	return deployment, reconciler.URL, nil
 }
 
 /*
-PropagateRawStatus Propagates deployment status onto Inference graph status.  In raw deployment mode, deployment available denotes the ready status for IG
+PropagateRawStatus Propagates deployment status onto Inference graph status.
+In raw deployment mode, deployment available denotes the ready status for IG
 */
-func PropagateRawStatus(graphStatus *v1alpha1api.InferenceGraphStatus, deployment *appsv1.Deployment, url *apis.URL) {
+func PropagateRawStatus(graphStatus *v1alpha1api.InferenceGraphStatus, deployment *appsv1.Deployment,
+	url *apis.URL) {
 
 	for _, con := range deployment.Status.Conditions {
 		if con.Type == appsv1.DeploymentAvailable {
