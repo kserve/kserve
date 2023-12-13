@@ -29,7 +29,7 @@ waitpodready() {
   local podlabel=${1?pod label is required}; shift
 
   waitforpodlabeled "$ns" "$podlabel"
-  sleep 10
+  sleep 2
   oc get pod -n $ns -l $podlabel
 
   echo "Waiting for pod -l $podlabel to become ready"
