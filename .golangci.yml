@@ -1,0 +1,21 @@
+run:
+  timeout: 5m
+
+output:
+  print-issued-lines: false
+  print-linter-name: true
+  uniq-by-line: false
+  path-prefix: ""
+  sort-results: true
+
+# REF: https://golangci-lint.run/usage/linters/
+linters:
+  enable:
+    - errorlint
+    - gosec
+    - prealloc
+    - unconvert
+    - unparam
+    - gofmt
+  disable:
+    - errcheck
