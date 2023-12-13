@@ -134,26 +134,4 @@ EOF
 # Waiting for OSSM minimum start
 waitpodready "istio-system" "app=istiod"
 
-# Create SMMR to enroll namespaces via a label. Also, set mTLS policy to strict by default.
-cat <<EOF | oc apply -f -
-apiVersion: maistra.io/v1
-kind: ServiceMeshMemberRoll
-metadata:
-  name: default
-  namespace: istio-system
-spec:
-  memberSelectors:
-  - matchLabels:
-      testing.kserve.io/add-to-mesh: "true"
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: default
-  namespace: istio-system
-spec:
-  mtls:
-    mode: STRICT
-EOF
-
 echo -e "\n  OSSM has partially started and should be fully ready soon."
