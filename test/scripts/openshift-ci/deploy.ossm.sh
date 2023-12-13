@@ -111,25 +111,24 @@ metadata:
   name: basic
   namespace: istio-system
 spec:
-  version: v2.3
-  tracing:
-    type: Jaeger
-    sampling: 10000
-# Uncomment if on ROSA
-#  security:
-#    identity:
-#      type: ThirdParty
   addons:
+    grafana:
+      enabled: false
+    kiali:
+      enabled: false
+      name: kiali
+    prometheus:
+      enabled: false
     jaeger:
       name: jaeger
-      install:
-        storage:
-          type: Memory
-    kiali:
-      enabled: true
-      name: kiali
-    grafana:
-      enabled: true
+  gateways:
+    openshiftRoute:
+      enabled: false
+  security:
+    identity:
+      type: ThirdParty
+  tracing:
+    type: None
 EOF
 
 # Waiting for OSSM minimum start
