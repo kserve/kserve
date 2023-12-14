@@ -127,10 +127,16 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 		if ok && strings.ToLower(useVirtualBucketString) == "false" {
 			useVirtualBucket = false
 		}
+		useAccelerateString, ok := os.LookupEnv(s3credential.S3UseAccelerate)
+		useAccelerate := false
+		if ok && strings.ToLower(useAccelerateString) == "true" {
+			useAccelerate = true
+		}
 
 		awsConfig := aws.Config{
 			Region:           aws.String(region),
 			S3ForcePathStyle: aws.Bool(!useVirtualBucket),
+			S3UseAccelerate:  aws.Bool(useAccelerate),
 		}
 
 		if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {

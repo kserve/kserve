@@ -37,6 +37,7 @@ const (
 	S3UseHttps             = "S3_USE_HTTPS"
 	S3VerifySSL            = "S3_VERIFY_SSL"
 	S3UseVirtualBucket     = "S3_USER_VIRTUAL_BUCKET"
+	S3UseAccelerate        = "S3_USE_ACCELERATE"
 	AWSAnonymousCredential = "awsAnonymousCredential"
 	AWSCABundle            = "AWS_CA_BUNDLE"
 	AWSCABundleConfigMap   = "AWS_CA_BUNDLE_CONFIGMAP"
@@ -50,6 +51,7 @@ type S3Config struct {
 	S3Region                 string `json:"s3Region,omitempty"`
 	S3VerifySSL              string `json:"s3VerifySSL,omitempty"`
 	S3UseVirtualBucket       string `json:"s3UseVirtualBucket,omitempty"`
+	S3UseAccelerate          string `json:"s3UseAccelerate,omitempty"`
 	S3UseAnonymousCredential string `json:"s3UseAnonymousCredential,omitempty"`
 	S3CABundleConfigMap      string `json:"s3CABundleConfigMap,omitempty"`
 	S3CABundle               string `json:"s3CABundle,omitempty"`
@@ -61,6 +63,7 @@ var (
 	InferenceServiceS3SecretSSLAnnotation         = constants.KServeAPIGroupName + "/" + "s3-verifyssl"
 	InferenceServiceS3SecretHttpsAnnotation       = constants.KServeAPIGroupName + "/" + "s3-usehttps"
 	InferenceServiceS3UseVirtualBucketAnnotation  = constants.KServeAPIGroupName + "/" + "s3-usevirtualbucket"
+	InferenceServiceS3UseAccelerateAnnotation     = constants.KServeAPIGroupName + "/" + "s3-useaccelerate"
 	InferenceServiceS3UseAnonymousCredential      = constants.KServeAPIGroupName + "/" + "s3-useanoncredential"
 	InferenceServiceS3CABundleConfigMapAnnotation = constants.KServeAPIGroupName + "/" + "s3-cabundle-configmap"
 	InferenceServiceS3CABundleAnnotation          = constants.KServeAPIGroupName + "/" + "s3-cabundle"
