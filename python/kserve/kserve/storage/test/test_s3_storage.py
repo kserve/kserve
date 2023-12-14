@@ -206,11 +206,11 @@ def test_get_S3_config():
         config5 = Storage.get_S3_config()
     assert config5.signature_version == ANON_CONFIG.signature_version
 
-    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "False"}):
+    with mock.patch.dict(os.environ, {"S3_USE_VIRTUAL_BUCKET": "False"}):
         config6 = Storage.get_S3_config()
     assert vars(config6) == vars(DEFAULT_CONFIG)
 
-    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "True"}):
+    with mock.patch.dict(os.environ, {"S3_USE_VIRTUAL_BUCKET": "True"}):
         config7 = Storage.get_S3_config()
     assert config7.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]
 
