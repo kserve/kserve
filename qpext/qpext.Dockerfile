@@ -1,9 +1,6 @@
 # Build the inference qpext binary
 FROM golang:1.21 as builder
 
-# To stamp vcs info on the binary
-COPY .git .git
-
 # Copy in the go src
 WORKDIR /go/src/github.com/kserve/kserve/qpext
 COPY qpext/go.mod  go.mod
