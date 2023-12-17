@@ -137,10 +137,14 @@ func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResu
 	}
 
 	//existed, check equivalent
-	if equality.Semantic.DeepEqual(r.HPA.Spec, existingHPA.Spec) {
+	if semanticHPAEquals(r.HPA, existingHPA) {
 		return constants.CheckResultExisted, existingHPA, nil
 	}
 	return constants.CheckResultUpdate, existingHPA, nil
+}
+
+func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler) bool {
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
 }
 
 // Reconcile ...
