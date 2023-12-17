@@ -138,9 +138,13 @@ pushing the image to dockerhub/container registry, and patching the knative depl
 the test image. The pods will then pick up the new configuration.
 
 
-(1) To build the qpext image in the kserve/qpext directory (as an example, `some_docker_repo` in dockerhub), run 
+(1) To build the qpext image in the ${KO_DOCKER_REPO}/qpext directory (as an example, `some_docker_repo` in dockerhub), run 
 ```shell
 make docker-build-push-qpext
+```
+(2) To build, push and patch the image, run
+```shell
+make deploy-dev-qpext
 ```
 
 Alternatively, build and push the image step by step yourself.
