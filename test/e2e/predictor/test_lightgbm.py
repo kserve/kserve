@@ -15,6 +15,7 @@
 import json
 import os
 
+import numpy
 import pytest
 from kubernetes import client
 from kubernetes.client import V1ContainerPort, V1ResourceRequirements
@@ -90,10 +91,13 @@ def test_lightgbm_runtime_kserve():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/iris_input_v3.json")
-    assert res["predictions"][0][0] > 0.5
+    assert numpy.argmax(res["predictions"][0]) == 0
 
     res = predict(service_name, "./data/iris_input_v4.json")
-    assert res["predictions"][0][0] > 0.5
+    assert numpy.argmax(res["predictions"][0]) == 0
+
+    res = predict(service_name, "./data/iris_input_v5.json")
+    assert numpy.argmax(res["predictions"][0]) == 0
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
