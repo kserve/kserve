@@ -65,6 +65,21 @@ spec:
                 fieldPath: metadata.namespace
           - name: SECRET_NAME
             value: kserve-webhook-server-cert
+        livenessProbe:
+          failureThreshold: 5
+          initialDelaySeconds: 10
+          httpGet:
+            path: /healthz
+            port: 8081
+          timeoutSeconds: 5
+        readinessProbe:
+          initialDelaySeconds: 10
+          failureThreshold: 10
+          periodSeconds: 5
+          httpGet:
+            path: /readyz
+            port: 8081
+          timeoutSeconds: 5
         resources:
 {{- if .Values.kserve.controller.resources }}
 {{ toYaml .Values.kserve.controller.resources | trim | indent 12 }}
