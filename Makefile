@@ -35,12 +35,10 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 ## Tool Binaries
-KUSTOMIZE ?= $(LOCALBIN)/kustomize
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v5.0.3
 CONTROLLER_TOOLS_VERSION ?= v0.12.0
 
 # CPU/Memory limits for controller-manager
@@ -75,33 +73,33 @@ run: generate fmt vet lint
 deploy: manifests
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	${KUSTOMIZE} edit remove resource ../certmanager; \
-	else ${KUSTOMIZE} edit add resource ../certmanager; fi;
-	${KUSTOMIZE} build config/default | kubectl apply -f -
+	kubectl delete --ignore-not-found=true -k ../certmanager; \
+	else kubectl apply -k ../certmanager; fi;
+	kubectl apply -k config/default
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	${KUSTOMIZE} build config/clusterresources | kubectl apply -f -
+	kubectl apply -k config/clusterresources
 
 
 deploy-dev: manifests
 	./hack/image_patch_dev.sh development
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	${KUSTOMIZE} edit remove resource ../certmanager; \
-	else ${KUSTOMIZE} edit add resource ../certmanager; fi;
-	${KUSTOMIZE} build config/overlays/development | kubectl apply -f -
+	kubectl delete --ignore-not-found=true -k ../certmanager; \
+	else kubectl apply -k ../certmanager; fi;
+	kubectl apply -k config/overlays/development
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	${KUSTOMIZE} build config/clusterresources | kubectl apply -f -
+	kubectl apply -k config/clusterresources
 
-deploy-dev-sklearn: docker-push-sklearn kustomize
+deploy-dev-sklearn: docker-push-sklearn
 	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
 
-deploy-dev-xgb: docker-push-xgb kustomize
+deploy-dev-xgb: docker-push-xgb
 	./hack/serving_runtime_image_patch.sh "kserve-xgbserver.yaml" "${KO_DOCKER_REPO}/${XGB_IMG}"
 
-deploy-dev-lgb: docker-push-lgb kustomize
+deploy-dev-lgb: docker-push-lgb
 	./hack/serving_runtime_image_patch.sh "kserve-lgbserver.yaml" "${KO_DOCKER_REPO}/${LGB_IMG}"
 
 deploy-dev-pmml : docker-push-pmml
@@ -110,13 +108,13 @@ deploy-dev-pmml : docker-push-pmml
 deploy-dev-paddle: docker-push-paddle
 	./hack/serving_runtime_image_patch.sh "kserve-paddleserver.yaml" "${KO_DOCKER_REPO}/${PADDLE_IMG}"
 
-deploy-dev-alibi: docker-push-alibi kustomize
+deploy-dev-alibi: docker-push-alibi
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
-	${KUSTOMIZE} build config/overlays/dev-image-config | kubectl apply -f -
+	kubectl apply -k config/overlays/dev-image-config
 
-deploy-dev-storageInitializer: docker-push-storageInitializer kustomize
+deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
-	${KUSTOMIZE} build config/overlays/dev-image-config | kubectl apply -f -
+	kubectl apply -k config/overlays/dev-image-config
 
 deploy-ci: manifests
 	kubectl apply -k config/overlays/test
@@ -128,14 +126,14 @@ deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
 	helm install kserve charts/kserve-resources/ --wait --timeout 180s
 
-undeploy: kustomize
-	${KUSTOMIZE} build config/default | kubectl delete -f -
+undeploy:
+	kubectl delete -k config/default
 
-undeploy-dev: kustomize
-	${KUSTOMIZE} build config/overlays/development | kubectl delete -f -
+undeploy-dev:
+	kubectl delete -k config/overlays/development
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen kustomize
+manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
@@ -154,19 +152,19 @@ manifests: controller-gen kustomize
 	#remove the required property on framework as name field needs to be optional
 	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers)' -i config/crd/serving.kserve.io_inferenceservices.yaml
 	#knative does not allow setting port on liveness or readiness probe
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml 
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
 	#With v1 and newer kubernetes protocol requires default
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_inferenceservices.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_clusterservingruntimes.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_servingruntimes.yaml
-	${KUSTOMIZE} build config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
+	kubectl kustomize config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
 
 # Run go fmt against code
 fmt:
@@ -320,12 +318,6 @@ test-qpext:
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
-
-KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
-.PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
-$(KUSTOMIZE): $(LOCALBIN)
-	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
