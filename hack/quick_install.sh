@@ -21,7 +21,7 @@ while getopts ":hsr" option; do
          Help
          exit;;
       r) # skip knative install
-	       deploymentMode=kubernetes;;
+         deploymentMode=kubernetes;;
       s) # install knative
          deploymentMode=serverless;;
      \?) # Invalid option
