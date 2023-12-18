@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=inferenceservice.kserve-webhook-server.pod-mutator
+// +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=inferenceservice.kserve-webhook-server.pod-mutator,reinvocationPolicy=IfNeeded
 var log = logf.Log.WithName(constants.PodMutatorWebhookName)
 
 // Mutator is a webhook that injects incoming pods
@@ -120,6 +120,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
+		storageInitializer.SetIstioCniSecurityContext,
 		agentInjector.InjectAgent,
 		metricsAggregator.InjectMetricsAggregator,
 	}
