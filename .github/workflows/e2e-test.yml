@@ -673,6 +673,11 @@ jobs:
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
 
+      - name: Download transformer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/image-transformer:${{ github.sha }}"
+
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
 

@@ -2175,7 +2175,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					copiedConfigs[key] = value
 				}
 			}
-			
+
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
