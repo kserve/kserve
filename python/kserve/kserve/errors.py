@@ -125,13 +125,13 @@ async def not_implemented_error_handler(_, exc):
 
 
 class NoModelReady(RuntimeError):
-        def __init__(self, models: [], detail: str = None):
-            self.models = models
-            self.detail = detail
+    def __init__(self, models: [], detail: str = None):
+        self.models = models
+        self.detail = detail
 
-        def __str__(self):
-            model_name_list = [model.name for model in self.models]
-            self.error_msg = f"Models with name {','.join(model_name_list)} are not ready."
-            if self.detail:
-                self.error_msg = self.error_msg + " " + self.detail
-            return self.error_msg
+    def __str__(self):
+        model_name_list = [model.name for model in self.models]
+        self.error_msg = f"Models with name {','.join(model_name_list)} are not ready."
+        if self.detail:
+            self.error_msg = self.error_msg + " " + self.detail
+        return self.error_msg
