@@ -154,7 +154,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 				// If there is an error, we will NOT send a request. As such, to know about errors, you will
 				// need to call the error endpoint of the puller
 				p.logger.Errorf("Failed to download model %s with err %v", modelName, err)
-				return
+				break
 			}
 			// Load the model onto the model server
 			resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/load", modelName),
@@ -184,7 +184,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 			// If there is an error, we will NOT do a delete... that could be problematic
 			if err := storage.RemoveDir(filepath.Join(p.Downloader.ModelDir, modelName)); err != nil {
 				p.logger.Error(err, "failing to delete model directory")
-				return
+				break
 			}
 			// unload model from model server
 			resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/unload", modelName),
