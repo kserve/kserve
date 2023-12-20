@@ -12,6 +12,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.0.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.3
+	github.com/tensorflow/tensorflow v2.6.5+incompatible
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.4.0
 	github.com/googleapis/google-cloud-go-testing v0.0.0-20210719221736-1c9a4c676720
@@ -96,6 +97,7 @@ require (
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/prometheus/statsd_exporter v0.25.0 // indirect
+	github.com/tensorflow/tensorflow v2.6.5+incompatible // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
