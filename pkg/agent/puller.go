@@ -154,28 +154,28 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 				// If there is an error, we will NOT send a request. As such, to know about errors, you will
 				// need to call the error endpoint of the puller
 				p.logger.Errorf("Failed to download model %s with err %v", modelName, err)
+				return
+			}
+			// Load the model onto the model server
+			resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/load", modelName),
+				"application/json",
+				bytes.NewBufferString("{}"))
+			if err != nil {
+				// handle error
+				p.logger.Errorf("Failed to Load model %s", modelName)
 			} else {
-				// Load the model onto the model server
-				resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/load", modelName),
-					"application/json",
-					bytes.NewBufferString("{}"))
-				if err != nil {
-					// handle error
-					p.logger.Errorf("Failed to Load model %s", modelName)
+				defer func(Body io.ReadCloser) {
+					newErr := Body.Close()
+					if newErr != nil {
+						p.logger.Error(newErr, "failed to close body")
+					}
+				}(resp.Body)
+				if resp.StatusCode == 200 {
+					p.logger.Infof("Successfully loaded model %s", modelName)
 				} else {
-					defer func(Body io.ReadCloser) {
-						newErr := Body.Close()
-						if newErr != nil {
-							p.logger.Error(newErr, "failed to close body")
-						}
-					}(resp.Body)
-					if resp.StatusCode == 200 {
-						p.logger.Infof("Successfully loaded model %s", modelName)
-					} else {
-						body, err := io.ReadAll(resp.Body)
-						if err == nil {
-							p.logger.Infof("Failed to load model %s with status [%d] and resp:%v", modelName, resp.StatusCode, body)
-						}
+					body, err := io.ReadAll(resp.Body)
+					if err == nil {
+						p.logger.Infof("Failed to load model %s with status [%d] and resp:%v", modelName, resp.StatusCode, body)
 					}
 				}
 			}
@@ -184,28 +184,28 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 			// If there is an error, we will NOT do a delete... that could be problematic
 			if err := storage.RemoveDir(filepath.Join(p.Downloader.ModelDir, modelName)); err != nil {
 				p.logger.Error(err, "failing to delete model directory")
+				return
+			}
+			// unload model from model server
+			resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/unload", modelName),
+				"application/json",
+				bytes.NewBufferString("{}"))
+			if err != nil {
+				// handle error
+				p.logger.Errorf("Failed to Unload model %s", modelName)
 			} else {
-				// unload model from model server
-				resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/unload", modelName),
-					"application/json",
-					bytes.NewBufferString("{}"))
-				if err != nil {
-					// handle error
-					p.logger.Errorf("Failed to Unload model %s", modelName)
+				defer func(Body io.ReadCloser) {
+					newErr := Body.Close()
+					if newErr != nil {
+						p.logger.Error(newErr, "failed to close body")
+					}
+				}(resp.Body)
+				if resp.StatusCode == 200 {
+					p.logger.Infof("Successfully unloaded model %s", modelName)
 				} else {
-					defer func(Body io.ReadCloser) {
-						newErr := Body.Close()
-						if newErr != nil {
-							p.logger.Error(newErr, "failed to close body")
-						}
-					}(resp.Body)
-					if resp.StatusCode == 200 {
-						p.logger.Infof("Successfully unloaded model %s", modelName)
-					} else {
-						body, err := io.ReadAll(resp.Body)
-						if err == nil {
-							p.logger.Infof("Failed to unload model %s with status [%d] and resp:%v", modelName, resp.StatusCode, body)
-						}
+					body, err := io.ReadAll(resp.Body)
+					if err == nil {
+						p.logger.Infof("Failed to unload model %s with status [%d] and resp:%v", modelName, resp.StatusCode, body)
 					}
 				}
 			}
