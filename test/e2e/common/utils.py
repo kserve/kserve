@@ -80,9 +80,7 @@ def predict_str(service_name, input_json, protocol_version="v1",
     )
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     time.sleep(10)
-    cluster_ip = get_cluster_ip()
-    host = urlparse(isvc["status"]["url"]).netloc
-    path = urlparse(isvc["status"]["url"]).path
+    cluster_ip, host, path = get_isvc_endpoint(isvc)
     headers = {"Host": host, "Content-Type": "application/json"}
 
     if model_name is None:
@@ -117,8 +115,7 @@ def predict_ig(ig_name, input_json, protocol_version="v1",
             version=version,
         )
 
-        cluster_ip = get_cluster_ip()
-        host = urlparse(ig["status"]["url"]).netloc
+        cluster_ip, host = get_isvc_endpoint(ig)
         headers = {"Host": host}
         url = f"http://{cluster_ip}"
 
@@ -153,8 +150,7 @@ def explain_response(service_name, input_json):
     )
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     time.sleep(10)
-    cluster_ip = get_cluster_ip()
-    host = urlparse(isvc["status"]["url"]).netloc
+    cluster_ip, host = get_isvc_endpoint(isvc)
     url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
     headers = {"Host": host}
     with open(input_json) as json_file:
@@ -209,7 +205,6 @@ def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
 
 
 def predict_grpc(service_name, payload, parameters=None, version=constants.KSERVE_V1BETA1_VERSION, model_name=None):
-    cluster_ip = get_cluster_ip()
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
@@ -217,7 +212,7 @@ def predict_grpc(service_name, payload, parameters=None, version=constants.KSERV
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    host = urlparse(isvc["status"]["url"]).netloc
+    cluster_ip, host = get_isvc_endpoint(isvc)
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
 
@@ -243,3 +238,13 @@ def predict_modelmesh(service_name, input_json, pod_name, model_name=None):
             url = f"http://localhost:8008/v2/models/{model_name}/infer"
             response = requests.post(url, json.dumps(data))
             return json.loads(response.content.decode("utf-8"))
+
+
+def get_isvc_endpoint(isvc):
+    host = urlparse(isvc["status"]["url"]).netloc
+    path = urlparse(isvc["status"]["url"]).path
+    if os.environ.get("CI_USE_ISVC_HOST") == "1":
+        cluster_ip = host
+    else:
+        cluster_ip = get_cluster_ip()
+    return cluster_ip, host, path
