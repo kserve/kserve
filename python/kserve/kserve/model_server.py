@@ -34,7 +34,7 @@ from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
-from kserve.errors import ModelNotReady
+from kserve.errors import NoModelReady
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -139,7 +139,7 @@ class ModelServer:
                 else:
                     raise RuntimeError("Model type should be 'Model'")
             if not at_least_one_model_ready:
-                raise ModelNotReady(models)
+                raise NoModelReady(models)
         elif isinstance(models, dict):
             if all([isinstance(v, Deployment) for v in models.values()]):
                 # TODO: make this port number a variable

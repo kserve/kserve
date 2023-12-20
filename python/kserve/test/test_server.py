@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 from ray import serve
 
 from kserve import Model, ModelServer, ModelRepository
-from kserve.errors import InvalidInput, ModelNotReady
+from kserve.errors import InvalidInput, NoModelReady
 from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
 
@@ -655,6 +655,6 @@ class TestWithUnhealthModel:
     def test_with_not_ready_model(self):
         model = DummyNeverReadyModel("Dummy")
         server = ModelServer()
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(NoModelReady) as exc_info:
             server.start([model])
-        assert str(exc_info.value) == str(ModelNotReady([model]))
+        assert exc_info.type == NoModelReady

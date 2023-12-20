@@ -122,3 +122,16 @@ async def model_not_ready_handler(_, exc):
 async def not_implemented_error_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
     return JSONResponse(status_code=HTTPStatus.NOT_IMPLEMENTED, content={"error": str(exc)})
+
+
+class NoModelReady(RuntimeError):
+        def __init__(self, models: [], detail: str = None):
+            self.models = models
+            self.detail = detail
+
+        def __str__(self):
+            model_name_list = [model.name for model in self.models]
+            self.error_msg = f"Models with name {','.join(model_name_list)} are not ready."
+            if self.detail:
+                self.error_msg = self.error_msg + " " + self.detail
+            return self.error_msg
