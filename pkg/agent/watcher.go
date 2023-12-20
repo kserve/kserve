@@ -83,7 +83,12 @@ func (w *Watcher) Start() {
 		w.logger.Error(err, "Failed to create model dir watcher")
 		panic(err)
 	}
-	defer watcher.Close()
+	defer func(watcher *fsnotify.Watcher) {
+		newErr := watcher.Close()
+		if newErr != nil {
+			w.logger.Error(newErr, "Failed to close watcher")
+		}
+	}(watcher)
 	if err = watcher.Add(w.configDir); err != nil {
 		w.logger.Error(err, "Failed to add watcher config dir")
 	}
