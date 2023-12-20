@@ -115,7 +115,7 @@ def predict_ig(ig_name, input_json, protocol_version="v1",
             version=version,
         )
 
-        cluster_ip, host = get_isvc_endpoint(ig)
+        cluster_ip, host, _ = get_isvc_endpoint(ig)
         headers = {"Host": host}
         url = f"http://{cluster_ip}"
 
@@ -150,7 +150,7 @@ def explain_response(service_name, input_json):
     )
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     time.sleep(10)
-    cluster_ip, host = get_isvc_endpoint(isvc)
+    cluster_ip, host, _ = get_isvc_endpoint(isvc)
     url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
     headers = {"Host": host}
     with open(input_json) as json_file:
@@ -212,7 +212,7 @@ def predict_grpc(service_name, payload, parameters=None, version=constants.KSERV
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    cluster_ip, host = get_isvc_endpoint(isvc)
+    cluster_ip, host, _ = get_isvc_endpoint(isvc)
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
 
