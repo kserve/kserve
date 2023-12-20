@@ -124,6 +124,10 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		metricsAggregator.InjectMetricsAggregator,
 	}
 
+	if storageInitializer.config.EnableOciImageSource {
+		mutators = append(mutators, storageInitializer.InjectModelcar)
+	}
+
 	for _, mutator := range mutators {
 		if err := mutator(pod); err != nil {
 			return err
