@@ -48,6 +48,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 )
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices;inferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
@@ -270,6 +271,12 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 			return errors.Wrapf(err, "fails to update InferenceService status")
 		} else {
 			// If there was a difference and there was no error.
+			reason := desiredService.Status.ModelStatus.LastFailureInfo.Reason
+			for i:=0 ; i < 7 ; i++ {
+				msg := string(desiredService.Status.Conditions[i].Type) + " -> " +
+				string(desiredService.Status.Conditions[i].Status)
+				r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(reason), msg)
+			}
 			isReady := inferenceServiceReadiness(desiredService.Status)
 			if wasReady && !isReady { // Moved to NotReady State
 				r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
@@ -281,7 +288,7 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		}
 		return nil
 	})
-	return err
+        return err
 }
 
 func inferenceServiceReadiness(status v1beta1api.InferenceServiceStatus) bool {
