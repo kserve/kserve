@@ -40,7 +40,7 @@ We will be creating the first release candidate (RC0) on the feature freeze day 
 bugs that might have been introduced in recent development cycles.</br></br>
 Create a branch from the master and do the following:
 1. Update the version number in following places:
-    1. [VERSION](../python/VERSION) to `${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
+    1. [VERSION](../python/VERSION) to `${MAJOR}.${MINOR}.${PATCH}rc${RELEASE_CANDIDATE_VERSION}` (note that the dash before "rc" is removed intentionally to meet [PyPI package version requirements](https://packaging.python.org/en/latest/specifications/version-specifiers/#public-version-identifiers))
     2. [quick_install.sh](../hack/quick_install.sh#L36) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     3. [Chart.yaml in kserve-crd](../charts/kserve-crd/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     4. [Chart.yaml in kserve-resources](../charts/kserve-resources/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
@@ -77,17 +77,17 @@ You can repeat same steps for RC2 or other release candidates if needed
 #### Updating the version in master 
 This will be the last commit before the release and last one to be cherry-picked into release branch. So, we have to update the release version in master to reflect the latest release we are at.  
 1. Create a PR with the following changes to update the version number in the following places in the master:
-   1. [VERSION](../python/VERSION) to `${MAJOR}.${MINOR}.${PATCH}-${RELEASE_VERSION}`
-   2. [quick_install.sh](../hack/quick_install.sh#L36) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_VERSION}`
-   3. [Chart.yaml in kserve-crd](../charts/kserve-crd/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_VERSION}`
-   4. [Chart.yaml in kserve-resources](../charts/kserve-resources/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_VERSION}`
-   5. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_VERSION}`
-2. Add a new version `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_VERSION}` in the `RELEASES` array in [generate-install.sh](../hack/generate-install.sh). Example: Refer [this commit](https://github.com/rachitchauhan43/kserve/commit/6e9bd24ea137a3619da3297b4ff000379f7b2b38#diff-5f8f3e3a8ca601067664c7bf00c05aa2290a6ba625312754856ec873b840b6dbR42)
+   1. [VERSION](../python/VERSION) to `${MAJOR}.${MINOR}.${PATCH}${RELEASE_VERSION}`
+   2. [quick_install.sh](../hack/quick_install.sh#L36) to `v${MAJOR}.${MINOR}.${PATCH}-${RELEASE_VERSION}`
+   3. [Chart.yaml in kserve-crd](../charts/kserve-crd/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-${RELEASE_VERSION}`
+   4. [Chart.yaml in kserve-resources](../charts/kserve-resources/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-${RELEASE_VERSION}`
+   5. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-${RELEASE_VERSION}`
+2. Add a new version `v${MAJOR}.${MINOR}.${PATCH}-${RELEASE_VERSION}` in the `RELEASES` array in [generate-install.sh](../hack/generate-install.sh). Example: Refer [this commit](https://github.com/rachitchauhan43/kserve/commit/6e9bd24ea137a3619da3297b4ff000379f7b2b38#diff-5f8f3e3a8ca601067664c7bf00c05aa2290a6ba625312754856ec873b840b6dbR42)
 3. Generate install manifest `./hack/generate-install.sh $VERSION`.
 4. Run `./hack/python-release.sh` to update pyproject.toml files for all packages. 
 5. Submit your PR and wait for it to merge.
 6. Once merged, cherry-pick the `merge commits` that have come out of PRs labeled with `cherrypick-approved` to the release branch (including the just created PR in step 1 in this section)
-7. Create a release  tag X.Y.Z from the release branch and do git push for both the branch and tag
+7. Create a release tag X.Y.Z from the release branch and do git push for both the branch and tag
 8. From that tag create the final release on GITHUB
 9. With this you are done with the creation of final release
 10. Announce in the community about the availability of release so that community can start consuming it
