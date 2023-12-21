@@ -1048,7 +1048,7 @@ files = [
 
 [[package]]
 name = "kserve"
-version = "0.11.1"
+version = "0.12.0rc0"
 description = "KServe Python SDK"
 optional = false
 python-versions = ">=3.8,<3.12"
@@ -1056,6 +1056,7 @@ files = []
 develop = true
 
 [package.dependencies]
+async-timeout = {version = "^4.0.3", markers = "python_version >= \"3.11.dev0\" and python_version < \"3.12.dev0\""}
 cloudevents = "^1.6.2"
 fastapi = "^0.95.0"
 grpcio = "^1.49.1"
