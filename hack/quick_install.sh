@@ -127,7 +127,7 @@ kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manage
 if [ ${MAJOR_VERSION} -eq 0 ] && [ ${MINOR_VERSION} -le 11 ]; then
     kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml
 else
-    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml
+    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resources.yaml
 fi
 
 echo "😀 Successfully installed KServe"
