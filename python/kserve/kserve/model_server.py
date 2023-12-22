@@ -133,9 +133,9 @@ class ModelServer:
                 if isinstance(model, Model):
                     if model.ready:
                         at_least_one_model_ready = True
-                    self.register_model(model)
-                    # pass whether to log request latency into the model
-                    model.enable_latency_logging = self.enable_latency_logging
+                        self.register_model(model)
+                        # pass whether to log request latency into the model
+                        model.enable_latency_logging = self.enable_latency_logging
                 else:
                     raise RuntimeError("Model type should be 'Model'")
             if not at_least_one_model_ready:
