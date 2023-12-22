@@ -1137,7 +1137,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					RevisionName:   "revision-v1",
 					Percent:        proto.Int64(100),
 				}}
-			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			Expect(retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				return k8sClient.Status().Update(context.TODO(), updatedService)
 			})).NotTo(gomega.HaveOccurred())
 
@@ -1966,7 +1966,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: "False",
 				},
 			}
-			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			Expect(retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				return k8sClient.Status().Update(context.TODO(), updatedService)
 			})).NotTo(gomega.HaveOccurred())
 

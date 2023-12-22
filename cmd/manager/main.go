@@ -141,17 +141,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	client, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
+	kubeClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
 		setupLog.Error(err, "unable to create new client.")
 	}
 
-	deployConfig, err := v1beta1.NewDeployConfig(client)
+	deployConfig, err := v1beta1.NewDeployConfig(kubeClient)
 	if err != nil {
 		setupLog.Error(err, "unable to get deploy config.")
 		os.Exit(1)
 	}
-	ingressConfig, err := v1beta1.NewIngressConfig(client)
+	ingressConfig, err := v1beta1.NewIngressConfig(kubeClient)
 	if err != nil {
 		setupLog.Error(err, "unable to get ingress config.")
 		os.Exit(1)
