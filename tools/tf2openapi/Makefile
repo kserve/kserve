@@ -1,4 +1,4 @@
-VENDOR_DIR := $(GOPATH)/src/github.com/kubeflow/kfserving/vendor
+VENDOR_DIR := $(GOPATH)/src/github.com/kserve/kserve/vendor
 TF_PROTO_SRC := $(VENDOR_DIR)/github.com/tensorflow/tensorflow
 TF_PROTO_OUT := generated
 
@@ -39,6 +39,6 @@ endif
 	rm -rf $$TEMP_DIR
 
 	# update meta_graph.pb.go to import generated package
-	perl -pi -e 's+github.com/tensorflow/tensorflow/tensorflow/go/core/framework+github.com/kubeflow/kfserving/tools/tf2openapi/$(TF_PROTO_OUT)/framework+g' \
+	perl -pi -e 's+github.com/tensorflow/tensorflow/tensorflow/go/core/framework+github.com/kserve/kserve/tools/tf2openapi/$(TF_PROTO_OUT)/framework+g' \
 	./generated/protobuf/meta_graph.pb.go
 

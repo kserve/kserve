@@ -13,8 +13,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
-	"github.com/golang/protobuf/proto"
 	"github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/kserve/kserve/tools/tf2openapi/generated/framework"
 	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
