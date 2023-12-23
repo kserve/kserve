@@ -20,7 +20,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"

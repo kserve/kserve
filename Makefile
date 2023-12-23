@@ -21,7 +21,7 @@ ALIBI_IMG ?= alibi-explainer
 AIF_IMG ?= aiffairness
 ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
-QPEXT_IMG ?= qpext
+QPEXT_IMG ?= qpext:latest
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -80,7 +80,6 @@ deploy: manifests
 	${KUSTOMIZE} build config/default | kubectl apply -f -
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	sleep 2
 	${KUSTOMIZE} build config/clusterresources | kubectl apply -f -
 
 
@@ -94,7 +93,6 @@ deploy-dev: manifests
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	sleep 2
 	${KUSTOMIZE} build config/clusterresources | kubectl apply -f -
 
 deploy-dev-sklearn: docker-push-sklearn kustomize
@@ -296,10 +294,13 @@ docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 
 docker-build-qpext:
-	cd qpext && docker buildx build -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext.Dockerfile .
+	docker buildx build -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext/qpext.Dockerfile .
 
 docker-build-push-qpext: docker-build-qpext
 	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
+
+deploy-dev-qpext: docker-build-push-qpext
+	kubectl patch cm config-deployment -n knative-serving --type merge --patch '{"data": {"queue-sidecar-image": "${KO_DOCKER_REPO}/${QPEXT_IMG}"}}'
 
 docker-build-success-200-isvc:
 	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG} -f success_200_isvc.Dockerfile .

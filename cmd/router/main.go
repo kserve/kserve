@@ -281,14 +281,19 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 		log.Error(err, "failed to process request")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		w.Write(prepareErrorResponse(err, "Failed to process request"))
+		_, writeErr := w.Write(prepareErrorResponse(err, "Failed to process request"))
+		if writeErr != nil {
+			log.Error(writeErr, "failed to write graphHandler response")
+		}
 	} else {
 		if json.Valid(response) {
 			w.Header().Set("Content-Type", "application/json")
 		}
 		w.WriteHeader(statusCode)
-		w.Write(response)
-
+		_, writeErr := w.Write(response)
+		if writeErr != nil {
+			log.Error(writeErr, "failed to write graphHandler response")
+		}
 	}
 }
 

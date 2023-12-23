@@ -30,7 +30,7 @@ while getopts ":hsr" option; do
    esac
 done
 
-export ISTIO_VERSION=1.17.2
+export ISTIO_VERSION=1.19.4
 export KNATIVE_SERVING_VERSION=knative-v1.10.1
 export KNATIVE_ISTIO_VERSION=knative-v1.10.0
 export KSERVE_VERSION=v0.11.1
@@ -131,7 +131,12 @@ kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VER
 
 # Install KServe built-in servingruntimes and storagecontainers
 kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml
+
+if [ ${MAJOR_VERSION} -eq 0 ] && [ ${MINOR_VERSION} -le 11 ]; then
+    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml
+else
+    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resources.yaml
+fi
 
 # Patch default deployment mode for raw deployment
 if [ $deploymentMode = kubernetes ]; then

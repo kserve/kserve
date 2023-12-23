@@ -90,13 +90,16 @@ func createAutoscaler(client client.Client,
 	case constants.AutoscalerClassExternal:
 		return &NoOpAutoscaler{}, nil
 	default:
-		return nil, fmt.Errorf("Unknown autoscaler class type: %v", ac)
+		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
 	}
 }
 
 // Reconcile ...
 func (r *AutoscalerReconciler) Reconcile() error {
 	//reconcile Autoscaler
-	r.Autoscaler.Reconcile()
+	_, err := r.Autoscaler.Reconcile()
+	if err != nil {
+		return err
+	}
 	return nil
 }

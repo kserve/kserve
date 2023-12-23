@@ -46,13 +46,14 @@ func TestBuildS3EnvVars(t *testing.T) {
 		},
 		"AllAnnotations": {
 			annotations: map[string]string{
-				InferenceServiceS3SecretEndpointAnnotation:   "s3.aws.com",
-				InferenceServiceS3SecretRegionAnnotation:     "us-east-2",
-				InferenceServiceS3SecretSSLAnnotation:        "0",
-				InferenceServiceS3SecretHttpsAnnotation:      "0",
-				InferenceServiceS3UseVirtualBucketAnnotation: "true",
-				InferenceServiceS3UseAnonymousCredential:     "true",
-				InferenceServiceS3CABundleAnnotation:         "value",
+				InferenceServiceS3SecretEndpointAnnotation:    "s3.aws.com",
+				InferenceServiceS3SecretRegionAnnotation:      "us-east-2",
+				InferenceServiceS3SecretSSLAnnotation:         "0",
+				InferenceServiceS3SecretHttpsAnnotation:       "0",
+				InferenceServiceS3UseVirtualBucketAnnotation:  "true",
+				InferenceServiceS3UseAnonymousCredential:      "true",
+				InferenceServiceS3CABundleAnnotation:          "value",
+				InferenceServiceS3CABundleConfigMapAnnotation: "value",
 			},
 			expected: []v1.EnvVar{
 				{
@@ -85,6 +86,10 @@ func TestBuildS3EnvVars(t *testing.T) {
 				},
 				{
 					Name:  AWSCABundle,
+					Value: "value",
+				},
+				{
+					Name:  AWSCABundleConfigMap,
 					Value: "value",
 				},
 			},
