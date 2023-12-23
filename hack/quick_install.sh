@@ -124,7 +124,12 @@ kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VER
 
 # Install KServe built-in servingruntimes and storagecontainers
 kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml
+if [ ${MAJOR_VERSION} -eq 0 ] && [ ${MINOR_VERSION} -le 11 ]; then
+    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml
+else
+    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resources.yaml
+fi
+
 echo "😀 Successfully installed KServe"
 
 # Clean up
