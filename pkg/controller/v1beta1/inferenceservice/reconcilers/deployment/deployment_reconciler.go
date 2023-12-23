@@ -141,8 +141,8 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 		if container.ImagePullPolicy == "" {
 			container.ImagePullPolicy = corev1.PullIfNotPresent
 		}
-		// generate default readiness probe for model server container
-		if container.Name == constants.InferenceServiceContainerName {
+		// generate default readiness probe for model server container and for transformer container in case of collocation
+		if container.Name == constants.InferenceServiceContainerName || container.Name == constants.TransformerContainerName {
 			if container.ReadinessProbe == nil {
 				if len(container.Ports) == 0 {
 					container.ReadinessProbe = &corev1.Probe{
