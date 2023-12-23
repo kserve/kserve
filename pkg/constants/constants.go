@@ -289,14 +289,12 @@ const (
 	ArgumentWorkers        = "--workers"
 )
 
-// InferenceService container name
+// InferenceService container names
 const (
 	InferenceServiceContainerName   = "kserve-container"
 	StorageInitializerContainerName = "storage-initializer"
-)
 
-// Transformer container name in collocation
-const (
+	// TransformerContainerName transformer container name in collocation
 	TransformerContainerName = "transformer-container"
 )
 

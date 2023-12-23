@@ -2045,13 +2045,8 @@ func TestTransformerCollocation(t *testing.T) {
 							},
 						},
 						{
-							Name: constants.TransformerContainerName,
-							Env: []v1.EnvVar{
-								{
-									Name:  constants.CustomSpecStorageUriEnvVarKey,
-									Value: "pvc://mypvcname/some/path/on/pvc",
-								},
-							},
+							Name:  constants.TransformerContainerName,
+							Image: "test/image:latest",
 						},
 					},
 				},
@@ -2084,13 +2079,8 @@ func TestTransformerCollocation(t *testing.T) {
 							},
 						},
 						{
-							Name: constants.TransformerContainerName,
-							Env: []v1.EnvVar{
-								{
-									Name:  constants.CustomSpecStorageUriEnvVarKey,
-									Value: constants.DefaultModelLocalMountPath,
-								},
-							},
+							Name:  constants.TransformerContainerName,
+							Image: "test/image:latest",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2167,13 +2157,8 @@ func TestTransformerCollocation(t *testing.T) {
 							},
 						},
 						{
-							Name: constants.TransformerContainerName,
-							Env: []v1.EnvVar{
-								{
-									Name:  constants.CustomSpecStorageUriEnvVarKey,
-									Value: "pvc://mypvcname/some/path/on/pvc",
-								},
-							},
+							Name:  constants.TransformerContainerName,
+							Image: "test/image:latest",
 						},
 					},
 				},
@@ -2202,13 +2187,8 @@ func TestTransformerCollocation(t *testing.T) {
 							},
 						},
 						{
-							Name: constants.TransformerContainerName,
-							Env: []v1.EnvVar{
-								{
-									Name:  constants.CustomSpecStorageUriEnvVarKey,
-									Value: constants.DefaultModelLocalMountPath,
-								},
-							},
+							Name:  constants.TransformerContainerName,
+							Image: "test/image:latest",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",

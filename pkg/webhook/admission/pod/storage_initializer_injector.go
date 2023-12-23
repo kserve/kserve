@@ -209,14 +209,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				}
 
 				transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, pvcSourceVolumeMount)
-
-				// change the CustomSpecStorageUri env variable value
-				// to the default model path if present
-				for index, envVar := range transformerContainer.Env {
-					if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
-						transformerContainer.Env[index].Value = constants.DefaultModelLocalMountPath
-					}
-				}
 			}
 			// change the CustomSpecStorageUri env variable value
 			// to the default model path if present
@@ -306,12 +298,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
 	if transformerContainer != nil {
 		transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, sharedVolumeReadMount)
-		// Change the CustomSpecStorageUri env variable value to the default model path if present
-		for index, envVar := range transformerContainer.Env {
-			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
-				transformerContainer.Env[index].Value = constants.DefaultModelLocalMountPath
-			}
-		}
 	}
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {
