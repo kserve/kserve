@@ -1,3 +1,4 @@
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -10,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 
 import os
 from kubernetes import client
@@ -129,6 +131,11 @@ def test_raw_transformer_collocation():
                     V1ContainerPort(
                         name="http",
                         container_port=8080,
+                        protocol="TCP"
+                    ),
+                    V1ContainerPort(
+                        name="grpc",
+                        container_port=8081,
                         protocol="TCP"
                     )
                 ],
