@@ -499,7 +499,8 @@ data:
         "ingressClassName" : "{{ .Values.kserve.controller.gateway.ingressGateway.className }}",
         "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}",
         "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
-        "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}"
+        "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
+        "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }}
     }
   logger: |-
     {
@@ -516,7 +517,11 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "enableDirectPvcVolumeMount": false,
+        "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
+        "cpuModelcar": "{{ .Values.kserve.storage.cpuModelcar }}",
+        "memoryModelcar": "{{ .Values.kserve.storage.memoryModelcar }}"
     }
   metricsAggregator: |-
     {

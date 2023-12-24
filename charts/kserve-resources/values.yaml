@@ -10,6 +10,9 @@ kserve:
   storage:
     image: kserve/storage-initializer
     tag: *defaultVersion
+    enableModelcar: false
+    cpuModelcar: 10m
+    memoryModelcar: 15Mi
     storageSpecSecretName: storage-config
     storageSecretNameAnnotation: serving.kserve.io/secretName
     s3:
@@ -32,6 +35,7 @@ kserve:
       domain: example.com
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
       urlScheme: http
+      disableIstioVirtualHost: false
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local
