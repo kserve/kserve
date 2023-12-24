@@ -447,7 +447,6 @@ data:
         "cpuLimit": "1",
         "caBundleConfigMapName": "",
         "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-        "enableDirectPvcVolumeMount": false
         "enableDirectPvcVolumeMount": false,
         "enableModelcar": false,
         "cpuModelcar": "10m",
