@@ -96,11 +96,7 @@ data:
            # enableDirectPvcVolumeMount controls whether users can mount pvc volumes directly.
            # if pvc volume is provided in storageuri then the pvc volume is directly mounted to /mnt/models in the user container.
            # rather than symlink it to a shared volume. For more info see https://github.com/kserve/kserve/issues/2737
-<<<<<<< HEAD
            "enableDirectPvcVolumeMount": true,
-=======
-           "enableDirectPvcVolumeMount": false,
->>>>>>> ab4a91cc (Add new storageUri schema "oci" that points to a OCI image)
     
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.
@@ -480,12 +476,7 @@ data:
         "cpuLimit": "1",
         "caBundleConfigMapName": "",
         "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-<<<<<<< HEAD
         "enableDirectPvcVolumeMount": true,
-=======
-        "enableDirectPvcVolumeMount": false
-        "enableDirectPvcVolumeMount": false,
->>>>>>> ab4a91cc (Add new storageUri schema "oci" that points to a OCI image)
         "enableModelcar": false,
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi"
