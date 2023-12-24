@@ -519,6 +519,8 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1",
         "enableDirectPvcVolumeMount": false,
+        "caBundleConfigMapName": "{{ .Values.kserve.storage.caBundleConfigMapName }}",
+        "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}",
         "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
         "cpuModelcar": "{{ .Values.kserve.storage.cpuModelcar }}",
         "memoryModelcar": "{{ .Values.kserve.storage.memoryModelcar }}"

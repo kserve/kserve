@@ -18635,6 +18635,8 @@ spec:
                 properties:
                   CACerts:
                     type: string
+                  audience:
+                    type: string
                   name:
                     type: string
                   url:
@@ -18650,6 +18652,8 @@ spec:
                     address:
                       properties:
                         CACerts:
+                          type: string
+                        audience:
                           type: string
                         name:
                           type: string
@@ -20759,6 +20763,8 @@ spec:
                 properties:
                   CACerts:
                     type: string
+                  audience:
+                    type: string
                   name:
                     type: string
                   url:
@@ -21243,36 +21249,50 @@ data:
     \      \"memoryRequest\": \"100Mi\",\n       \"memoryLimit\": \"1Gi\",\n       \"cpuRequest\":
     \"100m\",\n       \"cpuLimit\": \"1\",\n       \"caBundleConfigMapName\": \"\",\n
     \      \"caBundleVolumeMountPath\": \"/etc/ssl/custom-certs\",\n       \"enableDirectPvcVolumeMount\":
-    false,\n   }\n storageInitializer: |-\n   {\n       # image contains the default
-    storage initializer image uri.\n       \"image\" : \"kserve/storage-initializer:v0.12.0-rc0\",\n
-    \      \n       # memoryRequest is the requests.memory to set for the storage
-    initializer init container.\n       \"memoryRequest\": \"100Mi\",\n   \n        #
-    memoryLimit is the limits.memory to set for the storage initializer init container.\n
-    \      \"memoryLimit\": \"1Gi\",\n       \n       # cpuRequest is the requests.cpu
-    to set for the storage initializer init container.\n       \"cpuRequest\": \"100m\",\n
-    \      \n       # cpuLimit is the limits.cpu to set for the storage initializer
-    init container.\n       \"cpuLimit\": \"1\",\n   \n       # caBundleConfigMapName
-    is the ConfigMap will be copied to a user namespace for the storage initializer
-    init container.\n       \"caBundleConfigMapName\": \"\",\n\n       # caBundleVolumeMountPath
-    is the mount point for the configmap set by caBundleConfigMapName for the storage
+    false,\n       \"enableOciImageSource\": false,\n       \"enableModelcar\": false,\n
+    \      \"cpuModelcar\": \"10m\",\n       \"memoryModelcar\": \"15Mi\"\n   }\n
+    storageInitializer: |-\n   {\n       # image contains the default storage initializer
+    image uri.\n       \"image\" : \"kserve/storage-initializer:v0.12.0-rc0\",\n       \n
+    \      # memoryRequest is the requests.memory to set for the storage initializer
+    init container.\n       \"memoryRequest\": \"100Mi\",\n   \n        # memoryLimit
+    is the limits.memory to set for the storage initializer init container.\n       \"memoryLimit\":
+    \"1Gi\",\n       \n       # cpuRequest is the requests.cpu to set for the storage
+    initializer init container.\n       \"cpuRequest\": \"100m\",\n       \n       #
+    cpuLimit is the limits.cpu to set for the storage initializer init container.\n
+    \      \"cpuLimit\": \"1\",\n   \n       # caBundleConfigMapName is the ConfigMap
+    will be copied to a user namespace for the storage initializer init container.\n
+    \      \"caBundleConfigMapName\": \"\",\n\n       # caBundleVolumeMountPath is
+    the mount point for the configmap set by caBundleConfigMapName for the storage
     initializer init container.\n       \"caBundleVolumeMountPath\": \"/etc/ssl/custom-certs\",\n\n
     \      # enableDirectPvcVolumeMount controls whether users can mount pvc volumes
     directly.\n       # if pvc volume is provided in storageuri then the pvc volume
     is directly mounted to /mnt/models in the user container.\n       # rather than
     symlink it to a shared volume. For more info see https://github.com/kserve/kserve/issues/2737\n
-    \      \"enableDirectPvcVolumeMount\": false\n   }\n \n # ======================================
-    CREDENTIALS ======================================\n # Example\n credentials:
-    |-\n   {\n      \"storageSpecSecretName\": \"storage-config\",\n      \"storageSecretNameAnnotation\":
-    \"serving.kserve.io/storageSecretName\",\n      \"gcs\": {\n          \"gcsCredentialFileName\":
-    \"gcloud-application-credentials.json\"\n      },\n      \"s3\": {\n          \"s3AccessKeyIDName\":
-    \"AWS_ACCESS_KEY_ID\",\n          \"s3SecretAccessKeyName\": \"AWS_SECRET_ACCESS_KEY\",\n
-    \         \"s3Endpoint\": \"\",\n          \"s3UseHttps\": \"\",\n          \"s3Region\":
-    \"\",\n          \"s3VerifySSL\": \"\",\n          \"s3UseVirtualBucket\": \"\",\n
-    \         \"s3UseAnonymousCredential\": \"\",\n          \"s3CABundle\": \"\"\n
-    \     }\n   }\n # This is a global configuration used for downloading models from
-    the cloud storage.\n # You can override this configuration by specifying the annotations
-    on service account or static secret.\n # https://kserve.github.io/website/master/modelserving/storage/s3/s3/\n
-    # For a quick reference about AWS ENV variables:\n # AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html\n
+    \      \"enableDirectPvcVolumeMount\": false,\n\n       # enableModelcar enabled
+    allows you to directly access an OCI container image by\n       # using a source
+    URL with an \"oci://\" schema.\n       \"enableModelcar\": false,\n\n       #
+    cpuModelcar is the cpu request and limit that is used for the passive modelcar
+    container. It can be\n       # set very low, but should be allowed by any Kubernetes
+    LimitRange that might apply.\n       \"cpuModelcar\": \"10m\",\n\n       # cpuModelcar
+    is the memory request and limit that is used for the passive modelcar container.
+    It can be\n       # set very low, but should be allowed by any Kubernetes LimitRange
+    that might apply.\n       \"memoryModelcar\": \"15Mi\",\n\n       # uidModelcar
+    is the UID under with which the modelcar process and the main container is running.\n
+    \      # Some Kubernetes clusters might require this to be root (0). If not set
+    the user id is left untouched (default)\n       \"uidModelcar\": 10\n   }\n \n
+    # ====================================== CREDENTIALS ======================================\n
+    # Example\n credentials: |-\n   {\n      \"storageSpecSecretName\": \"storage-config\",\n
+    \     \"storageSecretNameAnnotation\": \"serving.kserve.io/storageSecretName\",\n
+    \     \"gcs\": {\n          \"gcsCredentialFileName\": \"gcloud-application-credentials.json\"\n
+    \     },\n      \"s3\": {\n          \"s3AccessKeyIDName\": \"AWS_ACCESS_KEY_ID\",\n
+    \         \"s3SecretAccessKeyName\": \"AWS_SECRET_ACCESS_KEY\",\n          \"s3Endpoint\":
+    \"\",\n          \"s3UseHttps\": \"\",\n          \"s3Region\": \"\",\n          \"s3VerifySSL\":
+    \"\",\n          \"s3UseVirtualBucket\": \"\",\n          \"s3UseAnonymousCredential\":
+    \"\",\n          \"s3CABundle\": \"\"\n      }\n   }\n # This is a global configuration
+    used for downloading models from the cloud storage.\n # You can override this
+    configuration by specifying the annotations on service account or static secret.\n
+    # https://kserve.github.io/website/master/modelserving/storage/s3/s3/\n # For
+    a quick reference about AWS ENV variables:\n # AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html\n
     # Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables\n
     #\n # The `s3AccessKeyIDName` and `s3SecretAccessKeyName` fields are only used
     from this configmap when static credentials (IAM User Access Key Secret)\n # are
@@ -21400,22 +21420,28 @@ data:
     ROUTER CONFIGURATION ======================================\n # Example\n router:
     |-\n   {\n       \"image\" : \"kserve/router:v0.12.0-rc0\",\n       \"memoryRequest\":
     \"100Mi\",\n       \"memoryLimit\": \"1Gi\",\n       \"cpuRequest\": \"100m\",\n
-    \      \"cpuLimit\": \"1\"\n   }\n # router is the implementation of inference
-    graph.\n router: |-\n   {\n       # image contains the default router image uri.\n
-    \      \"image\" : \"kserve/router:v0.12.0-rc0\",\n       \n       # memoryRequest
-    is the requests.memory to set for the router container.\n       \"memoryRequest\":
-    \"100Mi\",\n       \n       # memoryLimit is the limits.memory to set for the
-    router container.\n       \"memoryLimit\": \"1Gi\",\n       \n       # cpuRequest
-    is the requests.cpu to set for the router container.\n       \"cpuRequest\": \"100m\",\n
-    \      \n       # cpuLimit is the limits.cpu to set for the router container.\n
-    \      \"cpuLimit\": \"1\"\n   }\n \n # ======================================
-    DEPLOYMENT CONFIGURATION ======================================\n # Example\n
-    deploy: |-\n   {\n     \"defaultDeploymentMode\": \"Serverless\"\n   }\n deploy:
-    |-\n   {\n     # defaultDeploymentMode specifies the default deployment mode of
-    the kserve. The supported values are\n     # Serverless, RawDeployment and ModelMesh.
-    Users can override the deployment mode at service level\n     # by adding the
-    annotation serving.kserve.io/deploymentMode.For more info on deployment mode visit\n
-    \    # Serverless https://kserve.github.io/website/master/admin/serverless/serverless/\n
+    \      \"cpuLimit\": \"1\",\n       \"headers\": {\n         \"propagate\": []\n
+    \      }\n   }\n # router is the implementation of inference graph.\n router:
+    |-\n   {\n       # image contains the default router image uri.\n       \"image\"
+    : \"kserve/router:v0.12.0-rc0\",\n       \n       # memoryRequest is the requests.memory
+    to set for the router container.\n       \"memoryRequest\": \"100Mi\",\n       \n
+    \      # memoryLimit is the limits.memory to set for the router container.\n       \"memoryLimit\":
+    \"1Gi\",\n       \n       # cpuRequest is the requests.cpu to set for the router
+    container.\n       \"cpuRequest\": \"100m\",\n       \n       # cpuLimit is the
+    limits.cpu to set for the router container.\n       \"cpuLimit\": \"1\",\n       \n
+    \      # Propagate the specified headers to all the steps specified in an InferenceGraph.
+    \n       # You can either specify the exact header names or use [Golang supported
+    regex patterns]\n       # (https://pkg.go.dev/regexp/syntax@go1.21.3#hdr-Syntax)
+    to propagate multiple headers.\n       \"headers\": {\n         \"propagate\":
+    [\n            \"Authorization\",\n            \"Test-Header-*\",\n            \"*Trace-Id*\"\n
+    \        ]\n       }\n   }\n \n # ====================================== DEPLOYMENT
+    CONFIGURATION ======================================\n # Example\n deploy: |-\n
+    \  {\n     \"defaultDeploymentMode\": \"Serverless\"\n   }\n deploy: |-\n   {\n
+    \    # defaultDeploymentMode specifies the default deployment mode of the kserve.
+    The supported values are\n     # Serverless, RawDeployment and ModelMesh. Users
+    can override the deployment mode at service level\n     # by adding the annotation
+    serving.kserve.io/deploymentMode.For more info on deployment mode visit\n     #
+    Serverless https://kserve.github.io/website/master/admin/serverless/serverless/\n
     \    # RawDeployment https://kserve.github.io/website/master/admin/kubernetes_deployment/\n
     \    # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/\n     \"defaultDeploymentMode\":
     \"Serverless\"\n   }\n \n # ====================================== METRICS CONFIGURATION
@@ -21527,7 +21553,10 @@ data:
         "cpuLimit": "1",
         "caBundleConfigMapName": "",
         "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-        "enableDirectPvcVolumeMount": false
+        "enableDirectPvcVolumeMount": false,
+        "enableModelcar": false,
+        "cpuModelcar": "10m",
+        "memoryModelcar": "15Mi"
     }
 kind: ConfigMap
 metadata:
@@ -21626,11 +21655,26 @@ spec:
           value: kserve-webhook-server-cert
         image: kserve/kserve-controller:v0.12.0-rc0
         imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
         name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
+        readinessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
         resources:
           limits:
             cpu: 100m

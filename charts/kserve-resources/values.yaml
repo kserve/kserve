@@ -13,6 +13,8 @@ kserve:
     enableModelcar: false
     cpuModelcar: 10m
     memoryModelcar: 15Mi
+    caBundleConfigMapName: ""
+    caBundleVolumeMountPath: "/etc/ssl/custom-certs"
     storageSpecSecretName: storage-config
     storageSecretNameAnnotation: serving.kserve.io/secretName
     s3:
