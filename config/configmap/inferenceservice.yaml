@@ -66,7 +66,6 @@ data:
            "caBundleConfigMapName": "",
            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
            "enableDirectPvcVolumeMount": false,
-           "enableOciImageSource": false,
            "enableModelcar": false,
            "cpuModelcar": "10m",
            "memoryModelcar": "15Mi"
