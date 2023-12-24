@@ -19,16 +19,18 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	goerrors "errors"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/pkg/errors"
 
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -50,24 +52,40 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		log.Error(err, "An error occurred while preparing request object with serviceUrl.", "serviceUrl", serviceUrl)
 		return nil, 500, err
 	}
-	for _, h := range headersToPropagate {
-		if values, ok := headers[h]; ok {
-			for _, v := range values {
-				req.Header.Add(h, v)
+
+	// To avoid headers matched more than one time which will lead to duplication of header values
+	matchedHeaders := map[string]bool{}
+	var headersToPropagate []string
+	for _, p := range compiledHeaderPatterns {
+		for h, values := range headers {
+			if _, ok := matchedHeaders[h]; !ok && p.MatchString(h) {
+				matchedHeaders[h] = true
+				headersToPropagate = append(headersToPropagate, h)
+				for _, v := range values {
+					req.Header.Add(h, v)
+				}
 			}
 		}
 	}
-	req.Header.Add("Content-Type", "application/json")
+	log.Info("These headers will be propagated by the router to all the steps", "headers", headersToPropagate)
+	if val := req.Header.Get("Content-Type"); val == "" {
+		req.Header.Add("Content-Type", "application/json")
+	}
 	resp, err := http.DefaultClient.Do(req)
 
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error(err, "An error has occurred while closing the response body")
+		}
+	}(resp.Body)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Error(err, "error while reading the response")
+		log.Error(err, "Error while reading the response")
 	}
 	return body, resp.StatusCode, err
 }
@@ -281,33 +299,50 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 		log.Error(err, "failed to process request")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		_, writeErr := w.Write(prepareErrorResponse(err, "Failed to process request"))
-		if writeErr != nil {
-			log.Error(writeErr, "failed to write graphHandler response")
+		if _, err := w.Write(prepareErrorResponse(err, "Failed to process request")); err != nil {
+			log.Error(err, "failed to write graphHandler response")
 		}
 	} else {
 		if json.Valid(response) {
 			w.Header().Set("Content-Type", "application/json")
 		}
 		w.WriteHeader(statusCode)
-		_, writeErr := w.Write(response)
-		if writeErr != nil {
-			log.Error(writeErr, "failed to write graphHandler response")
+		if _, err := w.Write(response); err != nil {
+			log.Error(err, "failed to write graphHandler response")
 		}
 	}
 }
 
+func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
+	var allErrors []error
+	var compiled []*regexp.Regexp
+	for _, p := range patterns {
+		c, err := regexp.Compile(p)
+		if err != nil {
+			allErrors = append(allErrors, errors.Wrap(err, fmt.Sprintf("failed to compile pattern %q", p)))
+		} else {
+			compiled = append(compiled, c)
+		}
+	}
+	return compiled, goerrors.Join(allErrors...)
+}
+
 var (
-	jsonGraph          = flag.String("graph-json", "", "serialized json graph def")
-	headersToPropagate []string
+	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
+	compiledHeaderPatterns []*regexp.Regexp
 )
 
 func main() {
 	flag.Parse()
 	logf.SetLogger(zap.New())
 	if headersToPropagateEnvVar, ok := os.LookupEnv(constants.RouterHeadersPropagateEnvVar); ok {
-		log.Info("These headers will be propagated by the router to all the steps.", "headersToPropagateEnvVar", headersToPropagateEnvVar)
-		headersToPropagate = strings.Split(headersToPropagateEnvVar, ",")
+		var err error
+		log.Info("The headers that will match these patterns will be propagated by the router to all the steps",
+			"headersToPropagateEnvVar", headersToPropagateEnvVar)
+		compiledHeaderPatterns, err = compilePatterns(strings.Split(headersToPropagateEnvVar, ","))
+		if err != nil {
+			log.Error(err, "Failed to compile some header patterns")
+		}
 	}
 	inferenceGraph = &v1alpha1.InferenceGraphSpec{}
 	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
