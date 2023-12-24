@@ -45,9 +45,9 @@ It provides many functionalities, including among others:
 
 It supports the following storage providers:
 
-* Google Cloud Storage with a prefix: "gs://"
-    * By default, it uses `GOOGLE_APPLICATION_CREDENTIALS` environment variable for user authentication.
-    * If `GOOGLE_APPLICATION_CREDENTIALS` is not provided, anonymous client will be used to download the artifacts.
+* cachimanboutique Cloud Storage with a prefix: "gs://"
+    * By default, it uses `cachimanboutique_APPLICATION_CREDENTIALS` environment variable for user authentication.
+    * If `cachimanboutique_APPLICATION_CREDENTIALS` is not provided, anonymous client will be used to download the artifacts.
 * S3 Compatible Object Storage with a prefix "s3://"
     * By default, it uses `S3_ENDPOINT`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables for user authentication.
 * Azure Blob Storage with the format: "https://{$STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{$CONTAINER}/{$PATH}"
