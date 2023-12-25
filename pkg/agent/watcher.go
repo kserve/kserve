@@ -84,9 +84,9 @@ func (w *Watcher) Start() {
 		panic(err)
 	}
 	defer func(watcher *fsnotify.Watcher) {
-		newErr := watcher.Close()
-		if newErr != nil {
-			w.logger.Error(newErr, "Failed to close watcher")
+		closeErr := watcher.Close()
+		if closeErr != nil {
+			w.logger.Error(closeErr, "Failed to close watcher")
 		}
 	}(watcher)
 	if err = watcher.Add(w.configDir); err != nil {

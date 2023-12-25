@@ -194,12 +194,14 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 				// handle error
 				p.logger.Errorf("Failed to Unload model %s", modelName)
 			} else {
-				defer func(Body io.ReadCloser) {
-					newErr := Body.Close()
-					if newErr != nil {
-						p.logger.Error(newErr, "failed to close body")
-					}
-				}(resp.Body)
+				if resp != nil {
+					defer func(Body io.ReadCloser) {
+						newErr := Body.Close()
+						if newErr != nil {
+							p.logger.Error(newErr, "failed to close body")
+						}
+					}(resp.Body)
+				}
 				if resp.StatusCode == 200 {
 					p.logger.Infof("Successfully unloaded model %s", modelName)
 				} else {

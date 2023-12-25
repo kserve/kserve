@@ -74,9 +74,9 @@ func RemoveDir(dir string) error {
 		return err
 	}
 	defer func(d *os.File) {
-		newErr := d.Close()
-		if newErr != nil {
-			log.Error(newErr, "failed to close file")
+		closeErr := d.Close()
+		if closeErr != nil {
+			log.Error(closeErr, "failed to close file")
 		}
 	}(d)
 	names, err := d.Readdirnames(-1)

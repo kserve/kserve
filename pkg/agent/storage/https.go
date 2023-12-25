@@ -188,11 +188,11 @@ func extractZipFiles(reader io.Reader, dest string) error {
 		_, err = io.Copy(file, rc)
 		newErr := file.Close()
 		if newErr != nil {
-			log.Error(newErr, "failed to close file")
+			return newErr
 		}
 		newErr = rc.Close()
 		if newErr != nil {
-			log.Error(newErr, "failed to close file")
+			return newErr
 		}
 		if err != nil {
 			return fmt.Errorf("unable to copy file content: %v", err)

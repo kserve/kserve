@@ -115,9 +115,9 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 			Writer: file,
 			After: func() error {
 				defer func(file *os.File) {
-					newErr := file.Close()
-					if newErr != nil {
-						log.Error(newErr, "failed to close file")
+					closeErr := file.Close()
+					if closeErr != nil {
+						log.Error(closeErr, "failed to close file")
 					}
 				}(file)
 				return nil
