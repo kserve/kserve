@@ -303,7 +303,10 @@ data:
            "memoryRequest": "1Gi",
            "memoryLimit": "1Gi",
            "cpuRequest": "1",
-           "cpuLimit": "1"
+           "cpuLimit": "1",
+           "maxBatchSize": "32",
+           "maxLatency": "5000",
+           "timeout": "100"
        }
      batcher: |-
        {
@@ -321,6 +324,15 @@ data:
 
            # cpuLimit is the limits.cpu to set for the batcher container.
            "cpuLimit": "1"
+
+           # maxBatchSize is the default maximum batch size for batcher.
+           "maxBatchSize": "32",
+
+           # maxLatency is the default maximum latency for batcher.
+           "maxLatency": "5000",
+
+           # timeout is the default timeout for batcher.
+           "timeout": "100"
        }
 
      # ====================================== AGENT CONFIGURATION ======================================
@@ -446,7 +458,10 @@ data:
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "maxBatchSize": "32",
+        "maxLatency": "5000",
+        "timeout": "100"
     }
   router: |-
     {
