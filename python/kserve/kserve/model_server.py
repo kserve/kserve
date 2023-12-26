@@ -43,6 +43,12 @@ parser.add_argument("--http_port", default=DEFAULT_HTTP_PORT, type=int,
                     help="The HTTP Port listened to by the model server.")
 parser.add_argument("--grpc_port", default=DEFAULT_GRPC_PORT, type=int,
                     help="The GRPC Port listened to by the model server.")
+parser.add_argument("--predictor_host", default=None, type=str,
+                    help="host name for the predictor when calling from transformer.")
+parser.add_argument("--predictor_protocol", default=None, type=str,
+                    help="The inference protocol used for calling from transformer to predictor.")
+parser.add_argument("--use_ssl", default=None,
+                    help="Use ssl for connecting to the predictor", action='store_true')
 parser.add_argument("--workers", default=1, type=int,
                     help="The number of workers for multi-processing.")
 parser.add_argument("--max_threads", default=4, type=int,
@@ -81,6 +87,7 @@ class ModelServer:
         configure_logging (bool): Whether to configure KServe and Uvicorn logging. Default: ``True``.
         log_config (dict or str): File path or dict containing log config. Default: ``None``.
         access_log_format (string): Format to set for the access log (provided by asgi-logger). Default: ``None``
+        predictor_host(str): Host name for the predictor. Default: ``None``
     """
 
     def __init__(self, http_port: int = args.http_port,
@@ -94,7 +101,9 @@ class ModelServer:
                  enable_latency_logging: bool = args.enable_latency_logging,
                  configure_logging: bool = args.configure_logging,
                  log_config: Optional[Union[Dict, str]] = args.log_config_file,
-                 access_log_format: str = args.access_log_format):
+                 access_log_format: str = args.access_log_format,
+                 predictor_host: str = args.predictor_host
+                 ):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port

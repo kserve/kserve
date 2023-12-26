@@ -59,7 +59,8 @@ def get_latency_ms(start: float, end: float) -> float:
 
 
 class Model:
-    def __init__(self, name: str):
+    def __init__(self, name: str, predictor_host: str = None,
+                 predictor_protocol: str = PredictorProtocol.REST_V1.value):
         """KServe Model Public Interface
 
         Model is intended to be subclassed by various components within KServe.
@@ -69,8 +70,8 @@ class Model:
         """
         self.name = name
         self.ready = False
-        self.protocol = PredictorProtocol.REST_V1.value
-        self.predictor_host = None
+        self.protocol = predictor_protocol
+        self.predictor_host = predictor_host
         self.explainer_host = None
         # The timeout matches what is set in generated Istio resources.
         # We generally don't want things to time out at the request level here,
