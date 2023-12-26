@@ -224,33 +224,12 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # Objects: churn, churn-pickle, churn-pickle-logs
             bucket_path_last_part = bucket_path.split("/")[-1]
             object_last_path = obj.key.split("/")[-1]
-            bucket_path_parent_part = bucket_path.rsplit("/", 1)[0]
 
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
                 exact_obj_found = True
-            elif object_last_path.startswith(bucket_path_last_part):
-                target_key = obj.key.replace(bucket_path_parent_part, "", 1).lstrip("/")
-
-                # Example: If the bucket path is folder s3://mlflow/test/artifacts/model
-                # Object: model.pkl
-                # obj.key: test/artifacts/model/model.pkl
-                # bucket_path_last_part: model
-                # object_last_path: model.pkl
-                # bucket_path_parent_part -> test/artifacts
-                # target_key -> model/model.pkl
-
-                # If the object is in a folder, and the folder's name matches the start of the object's name,
-                # we exclude the folder's name from the target key. We're already searching in the parent folder,
-                # so there's no need to include the folder name in the target.
-
-                if "/" in target_key:
-                    target_key_parent_folder = target_key.split("/")[0]
-                    target_key_obj = target_key.split("/")[-1]
-                    if target_key_obj.startswith(target_key_parent_folder):
-                        # Since the bucket path already ends with this parent folder,
-                        # the parent folder has been removed.
-                        target_key = target_key.replace((target_key.split("/")[0]+'/'), "", 1)
+            elif bucket_path_last_part and object_last_path.startswith(bucket_path_last_part):
+                target_key = object_last_path
             else:
                 target_key = obj.key.replace(bucket_path, "").lstrip("/")
 
