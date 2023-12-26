@@ -77,6 +77,9 @@ kustomize build $PROJECT_ROOT/config/overlays/test | \
   oc apply -f -
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 
+echo "Installing odh-model-controller"
+oc apply -k $PROJECT_ROOT/test/scripts/openshift-ci
+
 echo "Add testing models to minio storage ..." # Reference: config/overlays/test/minio/minio-init-job.yaml
 curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o /tmp/sklearn-model.joblib
 oc expose service minio-service -n kserve && sleep 5
@@ -93,8 +96,16 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kserve-ci-e2e-test
-  labels:
-    testing.kserve.io/add-to-mesh: "true"
+---
+apiVersion: maistra.io/v1
+kind: ServiceMeshMember
+metadata:
+  name: default
+  namespace: kserve-ci-e2e-test
+spec:
+  controlPlaneRef:
+    namespace: istio-system
+    name: basic
 EOF
 
 oc apply -f $PROJECT_ROOT/config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
@@ -108,5 +119,6 @@ kustomize build $PROJECT_ROOT/config/overlays/test/clusterresources | \
 echo "Run E2E tests: $1"
 pushd $PROJECT_ROOT >/dev/null
   export GITHUB_SHA=$(git rev-parse HEAD)
+  export CI_USE_ISVC_HOST="1"
   ./test/scripts/gh-actions/run-e2e-tests.sh "$1"
 popd
