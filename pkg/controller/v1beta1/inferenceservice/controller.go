@@ -47,7 +47,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 )
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices;inferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
@@ -253,6 +252,15 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 			// This is important because the copy we loaded from the informer's
 			// cache may be stale and we don't want to overwrite a prior update
 			// to status with this stale state.
+
+			// Instead, if the model keep running on False state
+                        // Raise an event for info of failed conditions.
+			/** <code here> **/
+			if (!wasReady) {
+				msg := GetFailConditions(desiredService)
+				r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
+				fmt.Sprintf("InferenceService [%v] is not Ready because of: %s", desiredService.GetName(), msg))
+			}
 		} else if err := r.Status().Update(context.TODO(), desiredService); err != nil {
 			if apierr.IsConflict(err) {
 				return err
@@ -263,16 +271,11 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 			return errors.Wrapf(err, "fails to update InferenceService status")
 		} else {
 			// If there was a difference and there was no error.
-			reason := desiredService.Status.ModelStatus.LastFailureInfo.Reason
-			for i:=0 ; i < 7 ; i++ {
-				msg := string(desiredService.Status.Conditions[i].Type) + " -> " +
-				string(desiredService.Status.Conditions[i].Status)
-				r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(reason), msg)
-			}
 			isReady := inferenceServiceReadiness(desiredService.Status)
 			if wasReady && !isReady { // Moved to NotReady State
+				msg := GetFailConditions(desiredService)
 				r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
-					fmt.Sprintf("InferenceService [%v] is no longer Ready", desiredService.GetName()))
+				fmt.Sprintf("InferenceService [%v] is no longer Ready because of: %s", desiredService.GetName(), msg))
 			} else if !wasReady && isReady { // Moved to Ready State
 				r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(InferenceServiceReadyState),
 					fmt.Sprintf("InferenceService [%v] is Ready", desiredService.GetName()))
@@ -344,4 +347,14 @@ func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.In
 		}
 	}
 	return nil
+}
+
+func GetFailConditions (isvc *v1beta1api.InferenceService) string {
+	msg := ""
+        for _, cond := range isvc.Status.Conditions {
+		if string(cond.Status) == "False" {
+			msg = fmt.Sprintf("%s, %s", msg ,string(cond.Type))
+		}
+	}
+	return msg
 }

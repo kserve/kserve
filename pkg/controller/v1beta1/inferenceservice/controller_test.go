@@ -45,6 +45,9 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	
+	"testing"
+	"os/exec"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -2088,3 +2091,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 })
+
+func TestGetEvent(t *testing.T) {
+
+	applyCmd := exec.Command("kubectl", "apply", "-f", "https://raw.githubusercontent.com/kserve/kserve/master/docs/samples/v1beta1/onnx/onnx.yaml")
+	applyOutput, applyErr := applyCmd.CombinedOutput()
+	if applyErr != nil {
+		t.Fatalf("Error executing kubectl apply: %v\nOutput:\n%s\n", applyErr, applyOutput)
+	}
+
+	time.Sleep(30 * time.Second)
+	fmt.Println("kubectl apply completed successfully.")
+}
