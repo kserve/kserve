@@ -17,7 +17,7 @@ import kserve
 from typing import Dict, Union
 import numpy as np
 
-from kserve import InferRequest, InferResponse, InferInput, InferOutput, model_server, ModelServer
+from kserve import InferRequest, InferResponse, InferInput, model_server, ModelServer
 import tokenization
 import data_processing
 import logging
@@ -38,7 +38,8 @@ class Tokenizer(kserve.Model):
         self.tokenizer = tokenization.FullTokenizer(vocab_file=args.vocab_file, do_lower_case=True)
         self.ready = True
 
-    def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
+    def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) \
+            -> Union[Dict, InferRequest]:
         self.doc_tokens = data_processing.convert_doc_tokens(self.short_paragraph_text)
         self.features = data_processing.convert_examples_to_features(self.doc_tokens, payload["instances"][0],
                                                                      self.tokenizer, 128, 128, 64)

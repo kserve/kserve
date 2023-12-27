@@ -49,7 +49,8 @@ def test_custom_model_grpc():
                         container_port=8081,
                         name="h2c",
                         protocol="TCP"
-                    )]
+                    )],
+                args=["--model_name", model_name]
             )
         ]
     )
@@ -109,7 +110,8 @@ def test_predictor_grpc_with_transformer_grpc():
                         container_port=8081,
                         name="h2c",
                         protocol="TCP"
-                    )]
+                    )],
+                args=["--model_name", model_name]
             )
         ]
     )
@@ -190,7 +192,8 @@ def test_predictor_grpc_with_transformer_http():
                         container_port=8081,
                         name="h2c",
                         protocol="TCP"
-                    )]
+                    )],
+                args=["--model_name", model_name]
             )
         ]
     )
