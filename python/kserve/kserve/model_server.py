@@ -41,39 +41,44 @@ DEFAULT_GRPC_PORT = 8081
 parser = argparse.ArgumentParser(add_help=False)
 # Model Server Arguments: The arguments are passed to the kserve.ModelServer object
 parser.add_argument("--http_port", default=DEFAULT_HTTP_PORT, type=int,
-                    help="The HTTP Port listened to by the model server.")
+                    help="The HTTP Port listened to by the model server. Default to 8080.")
 parser.add_argument("--grpc_port", default=DEFAULT_GRPC_PORT, type=int,
-                    help="The GRPC Port listened to by the model server.")
+                    help="The GRPC Port listened to by the model server. Default to 8081.")
 parser.add_argument("--workers", default=1, type=int,
-                    help="The number of workers for multi-processing.")
+                    help="The number of uvicorn workers for multi-processing. Default to 1.")
 parser.add_argument("--max_threads", default=4, type=int,
-                    help="The number of max processing threads in each worker.")
+                    help="The number of max gRPC processing threads. Default to 4.")
 parser.add_argument('--max_asyncio_workers', default=None, type=int,
-                    help='Max number of asyncio workers to spawn')
+                    help='The max number of asyncio workers to spawn.')
 parser.add_argument("--enable_grpc", default=True, type=lambda x: utils.strtobool(x),
-                    help="Enable gRPC for the model server")
+                    help="Enable gRPC for the model server. Default to True.")
 parser.add_argument("--enable_docs_url", default=False, type=lambda x: utils.strtobool(x),
-                    help="Enable docs url '/docs' to display Swagger UI.")
+                    help="Enable docs url '/docs' to display Swagger UI. Default to False.")
 parser.add_argument("--enable_latency_logging", default=True, type=lambda x: utils.strtobool(x),
-                    help="Output a log per request with latency metrics.")
+                    help="Enable a log line per request with preprocess/predict/postprocess latency metrics. "
+                         "Default to True.")
 parser.add_argument("--configure_logging", default=True, type=lambda x: utils.strtobool(x),
-                    help="Whether to configure KServe and Uvicorn logging")
+                    help="Enable to configure KServe and Uvicorn logging. Default to True")
 parser.add_argument("--log_config_file", default=None, type=str,
                     help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
 parser.add_argument("--access_log_format", default=None, type=str,
-                    help="Format to set for the access log (provided by asgi-logger).")
+                    help="The access logging format.")
 
 # Model arguments: The arguments are passed to the kserve.Model object
-parser.add_argument("--model_name", default="default", type=str,
-                    help="the name of the model")
+parser.add_argument("--model_name", default="model", type=str,
+                    help="The name of the model. Default to model")
 parser.add_argument("--predictor_host", default=None, type=str,
-                    help="host name for the predictor when calling from transformer.")
+                    help="The host name used for calling to the predictor from transformer.")
+# For backwards compatibility.
+parser.add_argument("--protocol", default=None, type=str,
+                    help="The inference protocol used for calling to the predictor from transformer. "
+                         "Deprecated and replaced by --predictor_protocol")
 parser.add_argument("--predictor_protocol", default=None, type=str,
-                    help="The inference protocol used for the transformer to predictor http call.")
+                    help="The inference protocol used for calling to the predictor from transformer.")
 parser.add_argument("--predictor_use_ssl", default=None,
                     help="Use ssl for the http connection to the predictor", action='store_true')
 parser.add_argument("--predictor_request_timeout_seconds", default=600, type=int,
-                    help="Timeout seconds for the request to predictor")
+                    help="The timeout seconds for the request sent to the predictor. Default to 600s")
 args, _ = parser.parse_known_args()
 
 
