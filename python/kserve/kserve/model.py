@@ -60,7 +60,8 @@ def get_latency_ms(start: float, end: float) -> float:
 
 class Model:
     def __init__(self, name: str, predictor_host: str = None,
-                 predictor_protocol: str = PredictorProtocol.REST_V1.value):
+                 predictor_protocol: str = PredictorProtocol.REST_V1.value,
+                 predictor_use_ssl: bool = False, predictor_request_timeout_seconds: int = 600):
         """KServe Model Public Interface
 
         Model is intended to be subclassed by various components within KServe.
@@ -76,11 +77,11 @@ class Model:
         # The timeout matches what is set in generated Istio resources.
         # We generally don't want things to time out at the request level here,
         # timeouts should be handled elsewhere in the system.
-        self.timeout = 600
+        self.timeout = predictor_request_timeout_seconds
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
-        self.use_ssl = False
+        self.use_ssl = predictor_use_ssl
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        model_type: ModelType = ModelType.PREDICTOR,

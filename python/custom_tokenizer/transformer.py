@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
+import uuid
 
 import kserve
 from typing import Dict, Union
@@ -25,8 +26,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class Tokenizer(kserve.Model):
-    def __init__(self, name: str, predictor_host: str, predictor_protocol: str, use_ssl=False):
-        super().__init__(name)
+    def __init__(self, name: str, predictor_host: str, predictor_protocol: str, predictor_use_ssl=False):
+        super().__init__(name, predictor_host, predictor_protocol, predictor_use_ssl)
         self.short_paragraph_text = "The Apollo program was the third United States human spaceflight program. " \
                                     "First conceived as a three-man spacecraft to follow the one-man Project Mercury " \
                                     "which put the first Americans in space, Apollo was dedicated to President" \
@@ -34,12 +35,7 @@ class Tokenizer(kserve.Model):
                                     "flight of Apollo was in 1968. Apollo ran from 1961 to 1972 followed by " \
                                     "the Apollo-Soyuz Test Project a joint Earth orbit mission with " \
                                     "the Soviet Union in 1975."
-
-        self.predictor_host = predictor_host
-        self.protocol = predictor_protocol
-        self.use_ssl = use_ssl
         self.tokenizer = tokenization.FullTokenizer(vocab_file=args.vocab_file, do_lower_case=True)
-        self.model_name = name
         self.ready = True
 
     def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
@@ -59,14 +55,14 @@ class Tokenizer(kserve.Model):
                         InferInput(name="input_mask", datatype='INT32', shape=list(input_mask.shape),
                                    data=input_mask)
                         ]
-        return InferRequest(model_name=self.name, infer_inputs=infer_inputs)
+        return InferRequest(request_id=uuid.UUID, model_name=self.name, infer_inputs=infer_inputs)
 
     def postprocess(self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
             -> Union[Dict, InferResponse]:
-        logging.info(infer_response)
-        '''
-        end_logits = infer_response['outputs'][0]['data']
-        start_logits = infer_response['outputs'][1]['data']
+        logging.info(infer_response.__dict__)
+
+        end_logits = infer_response.outputs[0].data
+        start_logits = infer_response.outputs[1].data
         n_best_size = 20
 
         # The maximum length of an answer that can be generated. This is needed
@@ -76,20 +72,17 @@ class Tokenizer(kserve.Model):
         (prediction, nbest_json, scores_diff_json) = \
             data_processing.get_predictions(self.doc_tokens, self.features, start_logits, end_logits, n_best_size,
                                             max_answer_length)
-        '''
-        return {"predictions": 1, "prob": 0.1}
+
+        return {"predictions": prediction, "prob": nbest_json[0]['probability'] * 100.0}
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])
 parser.add_argument(
     "--vocab_file", help="The name of the vocab file."
 )
-parser.add_argument(
-    "--model_name", help="The name of the model."
-)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     model = Tokenizer(args.model_name, predictor_host=args.predictor_host,
-                      predictor_protocol=args.predictor_protocol, use_ssl=args.use_ssl)
+                      predictor_protocol=args.predictor_protocol, predictor_use_ssl=args.predictor_use_ssl)
     ModelServer().start([model])

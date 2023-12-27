@@ -279,10 +279,12 @@ class InferRequest:
             else:
                 infer_input_dict["data"] = infer_input.data
             infer_inputs.append(infer_input_dict)
-        return {
-            'id': self.id,
+        infer_request = {
             'inputs': infer_inputs
         }
+        if self.id:
+            infer_request["id"] = self.id
+        return infer_request
 
     def to_grpc(self) -> ModelInferRequest:
         """ Converts the InferRequest object to gRPC ModelInferRequest message

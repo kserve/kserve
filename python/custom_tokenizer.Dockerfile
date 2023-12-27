@@ -24,7 +24,7 @@ RUN cd kserve && poetry install --no-interaction --no-cache
 
 COPY custom_tokenizer/pyproject.toml custom_tokenizer/poetry.lock custom_tokenizer/
 RUN cd custom_tokenizer && poetry install --no-root --no-interaction --no-cache
-COPY custom_tokenizer custom_transformer
+COPY custom_tokenizer custom_tokenizer
 RUN cd custom_tokenizer && poetry install --no-interaction --no-cache
 
 
@@ -44,5 +44,5 @@ COPY --from=builder kserve kserve
 COPY --from=builder custom_tokenizer custom_tokenizer
 
 USER 1000
-ENTRYPOINT ["python", "-m", "custom_tokenizder.transformer"]
+ENTRYPOINT ["python", "-m", "custom_tokenizer.transformer"]
 
