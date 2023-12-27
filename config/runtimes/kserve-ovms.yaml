@@ -10,17 +10,22 @@ spec:
     - name: openvino_ir
       version: opset11
       autoSelect: true
+      priority: 1
     - name: onnx
       version: "1"
+      priority: 1
     - name: tensorflow
       version: "1"
       autoSelect: true
+      priority: 1
     - name: tensorflow
       version: "2"
       autoSelect: true
+      priority: 1
     - name: paddle
       version: "2"
       autoSelect: true
+      priority: 1
   protocolVersions:
     - v2
     - grpc-v2
