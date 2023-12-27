@@ -22,7 +22,7 @@ import numpy
 from PIL import Image
 from torchvision import transforms
 from kserve import Model, ModelServer, model_server, InferInput, InferRequest, InferResponse
-from kserve.model import PredictorProtocol
+from kserve.model import PredictorProtocol, PredictorConfig
 
 
 def image_transform(model_name, data):
@@ -53,7 +53,7 @@ def image_transform(model_name, data):
 
 class ImageTransformer(Model):
     def __init__(self, name: str, predictor_host: str, predictor_protocol: str, predictor_use_ssl: bool):
-        super().__init__(name, predictor_host, predictor_protocol, predictor_use_ssl)
+        super().__init__(name, PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl))
         self.ready = True
 
     def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) \

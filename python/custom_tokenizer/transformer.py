@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
-import uuid
 
 import kserve
 from typing import Dict, Union
@@ -23,12 +22,14 @@ import tokenization
 import data_processing
 import logging
 
+from kserve.model import PredictorConfig
+
 logging.basicConfig(level=logging.DEBUG)
 
 
 class Tokenizer(kserve.Model):
     def __init__(self, name: str, predictor_host: str, predictor_protocol: str, predictor_use_ssl=False):
-        super().__init__(name, predictor_host, predictor_protocol, predictor_use_ssl)
+        super().__init__(name, PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl))
         self.short_paragraph_text = "The Apollo program was the third United States human spaceflight program. " \
                                     "First conceived as a three-man spacecraft to follow the one-man Project Mercury " \
                                     "which put the first Americans in space, Apollo was dedicated to President" \
@@ -57,7 +58,7 @@ class Tokenizer(kserve.Model):
                         InferInput(name="input_mask", datatype='INT32', shape=list(input_mask.shape),
                                    data=input_mask)
                         ]
-        return InferRequest(request_id=uuid.UUID, model_name=self.name, infer_inputs=infer_inputs)
+        return InferRequest(model_name=self.name, infer_inputs=infer_inputs)
 
     def postprocess(self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
             -> Union[Dict, InferResponse]:

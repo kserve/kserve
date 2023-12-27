@@ -17,6 +17,7 @@ from typing import Optional, List, Dict
 import numpy
 import numpy as np
 import pandas as pd
+import uuid
 from tritonclient.utils import raise_error, serialize_byte_tensor
 
 from ..constants.constants import GRPC_CONTENT_DATATYPE_MAPPINGS
@@ -280,10 +281,9 @@ class InferRequest:
                 infer_input_dict["data"] = infer_input.data
             infer_inputs.append(infer_input_dict)
         infer_request = {
+            'id': self.id if self.id else str(uuid.uuid4()),
             'inputs': infer_inputs
         }
-        if self.id:
-            infer_request["id"] = self.id
         return infer_request
 
     def to_grpc(self) -> ModelInferRequest:

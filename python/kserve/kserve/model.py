@@ -15,7 +15,7 @@
 import inspect
 import time
 from enum import Enum
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 
 import grpc
 import httpx
@@ -58,10 +58,19 @@ def get_latency_ms(start: float, end: float) -> float:
     return round((end - start) * 1000, 9)
 
 
-class Model:
-    def __init__(self, name: str, predictor_host: str = None,
+class PredictorConfig:
+    def __init__(self, predictor_host: str,
                  predictor_protocol: str = PredictorProtocol.REST_V1.value,
-                 predictor_use_ssl: bool = False, predictor_request_timeout_seconds: int = 600):
+                 predictor_use_ssl: bool = False,
+                 predictor_request_timeout_seconds: int = 600):
+        self.predictor_host = predictor_host
+        self.predictor_protocol = predictor_protocol,
+        self.predictor_use_ssl = predictor_use_ssl,
+        self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
+
+
+class Model:
+    def __init__(self, name: str, predictor_config: Optional[PredictorConfig]):
         """KServe Model Public Interface
 
         Model is intended to be subclassed by various components within KServe.
@@ -71,17 +80,17 @@ class Model:
         """
         self.name = name
         self.ready = False
-        self.protocol = predictor_protocol
-        self.predictor_host = predictor_host
+        self.protocol = predictor_config.predictor_protocol
+        self.predictor_host = predictor_config.predictor_host
         self.explainer_host = None
         # The timeout matches what is set in generated Istio resources.
         # We generally don't want things to time out at the request level here,
         # timeouts should be handled elsewhere in the system.
-        self.timeout = predictor_request_timeout_seconds
+        self.timeout = predictor_config.predictor_request_timeout_seconds
+        self.use_ssl = predictor_config.predictor_use_ssl
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
-        self.use_ssl = predictor_use_ssl
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        model_type: ModelType = ModelType.PREDICTOR,
