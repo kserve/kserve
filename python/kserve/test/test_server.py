@@ -645,13 +645,6 @@ class TestTFHttpServerModelNotReady:
 
 
 class TestWithUnhealthModel:
-    def test_with_empty_model(self):
-        empty_model = []
-        server = ModelServer()
-        with pytest.raises(RuntimeError) as exc_info:
-            server.start(empty_model)
-        assert str(exc_info.value) == "Model is not provided"
-
     def test_with_not_ready_model(self):
         model = DummyNeverReadyModel("Dummy")
         server = ModelServer()

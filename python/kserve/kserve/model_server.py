@@ -125,9 +125,7 @@ class ModelServer:
         self.access_log_format = access_log_format
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
-        if not models:
-            raise RuntimeError("Model is not provided")
-        elif isinstance(models, list):
+        if isinstance(models, list):
             at_least_one_model_ready = False
             for model in models:
                 if isinstance(model, Model):
@@ -138,7 +136,7 @@ class ModelServer:
                         model.enable_latency_logging = self.enable_latency_logging
                 else:
                     raise RuntimeError("Model type should be 'Model'")
-            if not at_least_one_model_ready:
+            if not at_least_one_model_ready and models:
                 raise NoModelReady(models)
         elif isinstance(models, dict):
             if all([isinstance(v, Deployment) for v in models.values()]):
