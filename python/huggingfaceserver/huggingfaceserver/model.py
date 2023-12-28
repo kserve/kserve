@@ -19,7 +19,7 @@ from torch import Tensor
 
 from kserve.logging import logger
 import pathlib
-from typing import Dict, Union
+from typing import Dict, Union, Tuple
 
 from kserve.errors import InferenceError, ModelMissingError
 from kserve.storage import Storage
@@ -53,6 +53,7 @@ ARCHITECTURES_2_TASK = {
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     def __init__(self, model_name, **kwargs):
+        print(kwargs)
         super().__init__(model_name)
         self.kwargs = {}
         tp_degree = kwargs.get('tensor_parallel_degree', -1)
@@ -65,13 +66,13 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             self.kwargs["device_map"] = "auto"
             world_size = torch.cuda.device_count()
             assert world_size == tp_degree, f"TP degree ({tp_degree}) doesn't match available GPUs ({world_size})"
-        if "low_cpu_mem_usage" in kwargs:
-            kwargs["low_cpu_mem_usage"] = kwargs.get("low_cpu_mem_usage")
-        self.model_dir = kwargs['model_dir']
-        self.do_lower_case = kwargs['do_lower_case']
-        self.max_length = kwargs['max_length']
-        self.enable_streaming = kwargs['enable_streaming']
-        self.task = kwargs['task']
+        self.model_id = kwargs['model_id']
+        if not self.model_id:
+            self.model_dir = kwargs['model_dir']
+        self.do_lower_case = kwargs.get('do_lower_case', False)
+        self.max_length = kwargs.get('max_length', 2048)
+        self.enable_streaming = kwargs.get('enable_streaming', False)
+        self.task = kwargs.get('task', None)
         self.tokenizer = None
         self.model = None
         self.mapping = None
@@ -134,7 +135,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         return self.ready
 
     def preprocess(self, payload: InferRequest, headers: Dict[str, str] = None) -> \
-            Union[(Tensor, Tensor), InferRequest]:
+            Union[Tuple[Tensor, Tensor], InferRequest]:
         text_inputs = get_predict_input(payload)
         input_ids_batch = None
         attention_mask_batch = None
@@ -165,7 +166,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         else:
             return input_ids_batch, attention_mask_batch
 
-    async def predict(self, input_batch: Union[(Tensor, Tensor), InferRequest], headers: Dict[str, str] = None) -> \
+    async def predict(self, input_batch: Union[Tuple[Tensor, Tensor], InferRequest], headers: Dict[str, str] = None) -> \
             Union[Dict, InferResponse]:
         if self.predictor_host:
             return await super().predict(input_batch, headers)
