@@ -34,7 +34,6 @@ from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
-from kserve.errors import NoModelReady
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
