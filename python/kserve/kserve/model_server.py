@@ -128,9 +128,10 @@ class ModelServer:
             for model in models:
                 if isinstance(model, Model):
                     print(model.name, "ready status is", model.ready)
-                    self.register_model(model)
-                    # pass whether to log request latency into the model
-                    model.enable_latency_logging = self.enable_latency_logging
+                    if model.ready:
+                        self.register_model(model)
+                        # pass whether to log request latency into the model
+                        model.enable_latency_logging = self.enable_latency_logging
                 else:
                     raise RuntimeError("Model type should be 'Model'")
         elif isinstance(models, dict):
