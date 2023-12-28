@@ -178,7 +178,7 @@ class DummyModelRepository(ModelRepository):
                 raise Exception(f"Could not load model {name}.")
             else:
                 return False
-    
+
 
 class DummyNeverReadyModel(Model):
     def __init__(self, name):
