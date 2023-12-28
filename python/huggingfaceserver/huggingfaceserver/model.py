@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2024 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from torch import Tensor
 
 from kserve.logging import logger
 import pathlib
@@ -23,7 +24,10 @@ from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
 from kserve import Model
 import torch
-from transformers import pipeline, Conversation, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, AutoConfig
+from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, \
+    AutoConfig, \
+    AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
+    PreTrainedTokenizerBase, TensorType
 
 ARCHITECTURES_2_TASK = {
     "TapasForQuestionAnswering": "table-question-answering",
@@ -42,15 +46,27 @@ ARCHITECTURES_2_TASK = {
     "BloomModel": "text-generation",
 }
 
+PEFT_MODEL_TASK_TO_CLS = {
+    "SEQ_CLS": AutoModelForSequenceClassification,
+    "SEQ_2_SEQ_LM": AutoModelForSeq2SeqLM,
+    "CAUSAL_LM": AutoModelForCausalLM,
+    "TOKEN_CLS": AutoModelForTokenClassification,
+    "QUESTION_ANS": AutoModelForQuestionAnswering,
+}
+
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
-    def __init__(self, kwargs):
+    def __init__(self, model_name, **kwargs):
         self.hf_pipeline = None
-        model_name = kwargs['model_name']
-        super().__init__(kwargs['model_name'])
+        super().__init__(model_name)
         self.kwargs = {}
         tp_degree = kwargs.get('tensor_parallel_degree', -1)
-        self.device_id = kwargs.get('device_id', -1)
+        self.device_id = kwargs.get('device_id')
+        self.device = torch.device(
+            "cuda:" + str(self.device_id)
+            if torch.cuda.is_available() and self.device_id is not None
+            else "cpu"
+        )
         if "device_map" in kwargs:
             self.kwargs["device_map"] = kwargs['device_map']
         elif tp_degree > 0:
@@ -61,8 +77,12 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             kwargs["low_cpu_mem_usage"] = kwargs.get("low_cpu_mem_usage")
         self.model_id = kwargs['model_id']
         self.model_dir = kwargs['model_dir']
+        self.do_lower_case = kwargs['do_lower_case']
+        self.max_length = kwargs['max_length']
         self.enable_streaming = kwargs['enable_streaming']
         self.task = kwargs['task']
+        self.tokenizer = None
+        self.model = None
         self.ready = False
 
     @staticmethod
@@ -82,88 +102,38 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         return task
 
     def load(self) -> bool:
+        model_id_or_path = None
         if self.model_id:
             model_id_or_path = self.model_id
+
         if self.model_dir:
             model_id_or_path = pathlib.Path(Storage.download(self.model_dir))
-        if not self.task:
+        task = self.task
+        if not task:
             task = self.infer_task_from_model_architecture(model_id_or_path)
         logger.info(f"create inference pipeline for task: {task}")
-        self.hf_pipeline = self.get_pipeline(task=task,
-                                             model_id_or_path=model_id_or_path,
-                                             device=self.device_id,
-                                             kwargs=self.kwargs)
+        # load huggingface tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_id_or_path, do_lower_case=self.do_lower_case)
+        # load huggingface model using from_pretrained for inference mode
+        if not self.predictor_host:
+            if task == "sequence-classification":
+                self.model = AutoModelForSequenceClassification.from_pretrained(
+                    model_id_or_path)
+            elif task == "question-answering":
+                self.model = AutoModelForQuestionAnswering.from_pretrained(model_id_or_path)
+            elif task == "token-classification":
+                self.model = AutoModelForTokenClassification.from_pretrained(model_id_or_path)
+            elif task == "text-generation":
+                self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path)
+            else:
+                raise ValueError(
+                    f"Unsupported task {task}. Please check the supported`task` option."
+                )
+            self.model.eval()
+        logger.info("Transformer model from path %s loaded successfully", model_id_or_path)
         self.ready = True
         return self.ready
-
-    def get_pipeline(self, task: str, device: int, model_id_or_path: str,
-                     kwargs):
-        # define tokenizer or feature extractor as kwargs to load it the pipeline correctly
-        if task in {
-            "automatic-speech-recognition",
-            "image-segmentation",
-            "image-classification",
-            "audio-classification",
-            "object-detection",
-            "zero-shot-image-classification",
-        }:
-            kwargs["feature_extractor"] = model_id_or_path
-        else:
-            kwargs["tokenizer"] = model_id_or_path
-
-        use_pipeline = True
-        for element in ["load_in_8bit", "low_cpu_mem_usage"]:
-            if element in kwargs:
-                use_pipeline = False
-        # build pipeline
-        if use_pipeline:
-            if "device_map" in kwargs:
-                hf_pipeline = pipeline(task=task,
-                                       model=model_id_or_path,
-                                       **kwargs)
-            else:
-                hf_pipeline = pipeline(task=task,
-                                       model=model_id_or_path,
-                                       device=device,
-                                       **kwargs)
-        else:
-            tokenizer = AutoTokenizer.from_pretrained(model_id_or_path)
-            kwargs.pop("tokenizer", None)
-            model = AutoModelForCausalLM.from_pretrained(
-                model_id_or_path, **kwargs)
-            hf_pipeline = pipeline(task=task, model=model, tokenizer=tokenizer)
-
-        # wrap specific pipeline to support better ux
-        if task == "conversational":
-            hf_pipeline = self.wrap_conversation_pipeline(hf_pipeline)
-
-        if task == "text-generation":
-            hf_pipeline.tokenizer.padding_side = "left"
-            if not hf_pipeline.tokenizer.pad_token:
-                hf_pipeline.tokenizer.pad_token = hf_pipeline.tokenizer.eos_token
-            hf_pipeline = self.wrap_text_generation_pipeline(hf_pipeline)
-
-        return hf_pipeline
-
-    @staticmethod
-    def wrap_conversation_pipeline(hf_pipeline):
-
-        def wrapped_pipeline(inputs, *args, **kwargs):
-            converted_input = Conversation(
-                inputs["text"],
-                past_user_inputs=inputs.get("past_user_inputs", []),
-                generated_responses=inputs.get("generated_responses", []),
-            )
-            prediction = hf_pipeline(converted_input, *args, **kwargs)
-            return {
-                "generated_text": prediction.generated_responses[-1],
-                "conversation": {
-                    "past_user_inputs": prediction.past_user_inputs,
-                    "generated_responses": prediction.generated_responses,
-                },
-            }
-
-        return wrapped_pipeline
 
     @staticmethod
     def wrap_text_generation_pipeline(hf_pipeline):
@@ -190,36 +160,90 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
         return wrapped_pipeline
 
-    @staticmethod
-    def infer_task_from_model_architecture(model_config_path: str):
-        model_config = AutoConfig.from_pretrained(model_config_path)
-        architecture = model_config.architectures[0]
+    def preprocess(self, payload: InferRequest, headers: Dict[str, str] = None) -> Union[
+        (Tensor, Tensor), InferRequest]:
+        text_inputs = get_predict_input(payload)
+        input_ids_batch = None
+        attention_mask_batch = None
+        for input_text in text_inputs:
+            if isinstance(input_text, (bytes, bytearray)):
+                input_text = input_text.decode("utf-8")
 
-        task = None
-        for arch_options in ARCHITECTURES_2_TASK:
-            if architecture.endswith(arch_options):
-                task = ARCHITECTURES_2_TASK[arch_options]
-
-        if task is None:
-            raise ValueError(
-                f"Task couldn't be inferred from {architecture}. Please manually set `task` option."
+            inputs = self.tokenizer.encode_plus(
+                input_text,
+                max_length=int(self.max_length),
+                pad_to_max_length=True,
+                add_special_tokens=True,
+                return_tensors="pt",
             )
-        return task
+            input_ids = inputs["input_ids"].to(self.device)
+            attention_mask = inputs["attention_mask"].to(self.device)
+            if input_ids.shape is not None:
+                if input_ids_batch is None:
+                    input_ids_batch = input_ids
+                    attention_mask_batch = attention_mask
+                else:
+                    input_ids_batch = torch.cat((input_ids_batch, input_ids), 0)
+                    attention_mask_batch = torch.cat(
+                        (attention_mask_batch, attention_mask), 0
+                    )
+        if self.predictor_host:
+            return
+        else:
+            return input_ids_batch, attention_mask_batch
 
-    def predict(self, payload: InferRequest, headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
-        try:
-            inputs = [s for l in payload.inputs[0].data for s in l]
-            parameters = payload.parameters
-            if self.enable_streaming:
-                stream_generator = StreamingUtils.get_stream_generator(
-                    "Accelerate")
-                outputs.add_stream_content(
-                    stream_generator(self.model, self.tokenizer, data,
-                                     **parameters))
-                return outputs
+    def predict(self, input_batch: Union[(Tensor, Tensor), InferRequest], headers: Dict[str, str] = None) -> \
+            Union[Dict, InferResponse]:
+        inferences = []
+        if self.predictor_host:
+            inferences = super().predict(input_batch, headers)
+        else:
+            input_ids_batch, attention_mask_batch = input_batch
+            try:
+                if self.task == "sequence_classification":
+                    predictions = self.model(input_ids_batch, attention_mask_batch)
+                    num_rows, num_cols = predictions[0].shape
+                    for i in range(num_rows):
+                        out = predictions[0][i].unsqueeze(0)
+                        y_hat = out.argmax(1).item()
+                        predicted_idx = str(y_hat)
+                        inferences.append(self.mapping[predicted_idx])
+                elif self.task == "token_classification":
+                    outputs = self.model(input_ids_batch, attention_mask_batch)[0]
+                    print(
+                        "This the output size from the token classification model",
+                        outputs.size(),
+                    )
+                    print("This the output from the token classification model", outputs)
+                    num_rows = outputs.shape[0]
+                    for i in range(num_rows):
+                        output = outputs[i].unsqueeze(0)
+                        predictions = torch.argmax(output, dim=2)
+                        tokens = self.tokenizer.tokenize(
+                            self.tokenizer.decode(input_ids_batch[i])
+                        )
+                        if self.mapping:
+                            label_list = self.mapping["label_list"]
+                        label_list = label_list.strip("][").split(", ")
+                        prediction = [
+                            (token, label_list[prediction])
+                            for token, prediction in zip(tokens, predictions[0].tolist())
+                        ]
+                        inferences.append(prediction)
+                elif self.task == "text_generation":
+                    if self.setup_config["model_parallel"]:
+                        # Need to move the first device, as the transformer model has been placed there
+                        # https://github.com/huggingface/transformers/blob/v4.17.0/src/transformers/models/gpt2/modeling_gpt2.py#L970
+                        input_ids_batch = input_ids_batch.to("cuda:0")
+                    outputs = self.model.generate(
+                        input_ids_batch, max_length=50, do_sample=True, top_p=0.95, top_k=60
+                    )
+                    for i, x in enumerate(outputs):
+                        inferences.append(
+                            self.tokenizer.decode(outputs[i], skip_special_tokens=True)
+                        )
 
-            result = self.hf_pipeline(inputs, **parameters)
-            logger.info(result)
-            return get_predict_response(payload, result, self.name)
-        except Exception as e:
-            raise InferenceError(str(e))
+                    logger.info("Generated text: '%s'", inferences)
+            except Exception as e:
+                raise InferenceError(str(e))
+        return inferences
