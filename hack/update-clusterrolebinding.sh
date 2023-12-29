@@ -29,6 +29,6 @@ then
     mkdir ${TMPFILE}
 fi
 
-kustomize build ${CONFIG_DIR} -o ${TMPFILE}
+kubectl kustomize ${CONFIG_DIR} -o ${TMPFILE}
 for i in ${TMPFILE}/rbac.authorization.k8s.io*clusterrolebinding*.yaml; do kubectl auth reconcile -f $i; done
 rm -rf ${TMPFILE}
