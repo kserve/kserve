@@ -187,6 +187,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
         if self.predictor_host:
+            # when predictor_host is provided, serialize the tensor and send to optimized model serving runtime
+            # like NVIDIA triton inference server
             return await super().predict(input_batch, context)
         else:
             outputs = None
@@ -199,7 +201,10 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                     elif self.task == "token-classification":
                         outputs = self.model(**input_batch).logits
                     elif self.task == "text-generation" or self.task == "text2text-generation":
+                        # TODO implement with more efficient backend vllm and use the generate handler instead
                         outputs = self.model.generate(**input_batch)
+                    else:
+                        raise ValueError(f"Unsupported task {self.task}. Please check the supported`task` option.")
             except Exception as e:
                 raise InferenceError(str(e))
             return outputs
@@ -228,4 +233,6 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 inferences.append(predictions.tolist())
         elif self.task == "text-generation" or self.task == "text2text-generation":
             inferences = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        else:
+            raise ValueError(f"Unsupported task {self.task}. Please check the supported`task` option.")
         return get_predict_response(context["payload"], inferences, self.name)
