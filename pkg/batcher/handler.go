@@ -33,6 +33,7 @@ const (
 	SleepTime    = time.Microsecond * 100
 	MaxBatchSize = 32
 	MaxLatency   = 5000
+	Timeout      = 100
 )
 
 type Request struct {
@@ -101,6 +102,9 @@ func (handler *BatchHandler) batchPredict() {
 	})
 	reader := bytes.NewReader(jsonStr)
 	r := httptest.NewRequest("POST", handler.batcherInfo.Path, reader)
+	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(handler.Timeout))
+	defer cancel()
+	r = r.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	handler.next.ServeHTTP(rr, r)
 	responseBody := rr.Body.Bytes()
@@ -154,7 +158,8 @@ func (handler *BatchHandler) batchPredict() {
 }
 
 func (handler *BatchHandler) batch() {
-	handler.log.Infof("Starting batch loop maxLatency:%d, maxBatchSize:%d", handler.MaxLatency, handler.MaxBatchSize)
+	handler.log.Infof("Starting batch loop maxLatency:%d, maxBatchSize:%d, timeout:%d",
+		handler.MaxLatency, handler.MaxBatchSize, handler.Timeout)
 	for {
 		select {
 		case req := <-handler.channelIn:
@@ -192,6 +197,9 @@ func (handler *BatchHandler) Consume() {
 	if handler.MaxLatency <= 0 {
 		handler.MaxLatency = MaxLatency
 	}
+	if handler.Timeout <= 0 {
+		handler.Timeout = Timeout
+	}
 	handler.batcherInfo.InitializeInfo()
 	handler.batch()
 }
@@ -202,16 +210,18 @@ type BatchHandler struct {
 	channelIn    chan Input
 	MaxBatchSize int
 	MaxLatency   int
+	Timeout      int
 	batcherInfo  BatcherInfo
 }
 
-func New(maxBatchSize int, maxLatency int, handler http.Handler, logger *zap.SugaredLogger) *BatchHandler {
+func New(maxBatchSize int, maxLatency int, timeout int, handler http.Handler, logger *zap.SugaredLogger) *BatchHandler {
 	batchHandler := BatchHandler{
 		next:         handler,
 		log:          logger,
 		channelIn:    make(chan Input),
 		MaxBatchSize: maxBatchSize,
 		MaxLatency:   maxLatency,
+		Timeout:      timeout,
 	}
 	go batchHandler.Consume()
 	return &batchHandler
