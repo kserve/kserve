@@ -124,9 +124,9 @@ func (g *GCSObjectDownloader) DownloadFile(client stiface.Client, attrs *gstorag
 		)
 	}
 	defer func(reader stiface.Reader) {
-		newErr := reader.Close()
-		if newErr != nil {
-			log.Error(newErr, "failed to close reader")
+		closeErr := reader.Close()
+		if closeErr != nil {
+			log.Error(closeErr, "failed to close reader")
 		}
 	}(reader)
 	data, err := io.ReadAll(reader)
@@ -151,9 +151,9 @@ func (g *GCSObjectDownloader) WriteToFile(data []byte, attrs *gstorage.ObjectAtt
 		)
 	}
 	defer func(file *os.File) {
-		newErr := file.Close()
-		if newErr != nil {
-			log.Error(newErr, "failed to close file")
+		closeErr := file.Close()
+		if closeErr != nil {
+			log.Error(closeErr, "failed to close file")
 		}
 	}(file)
 	log.Info("Wrote " + attrs.Prefix + " to file " + file.Name())

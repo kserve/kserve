@@ -196,9 +196,9 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 			} else {
 				if resp != nil {
 					defer func(Body io.ReadCloser) {
-						newErr := Body.Close()
-						if newErr != nil {
-							p.logger.Error(newErr, "failed to close body")
+						closeErr := Body.Close()
+						if closeErr != nil {
+							p.logger.Error(closeErr, "failed to close body")
 						}
 					}(resp.Body)
 				}

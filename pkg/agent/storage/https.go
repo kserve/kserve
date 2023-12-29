@@ -86,9 +86,9 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 	}
 
 	defer func(Body io.ReadCloser) {
-		newErr := Body.Close()
-		if newErr != nil {
-			log.Error(newErr, "failed to close body")
+		closeErr := Body.Close()
+		if closeErr != nil {
+			log.Error(closeErr, "failed to close body")
 		}
 	}(resp.Body)
 	if resp.StatusCode != 200 {
@@ -186,13 +186,13 @@ func extractZipFiles(reader io.Reader, dest string) error {
 		}
 
 		_, err = io.Copy(file, rc)
-		newErr := file.Close()
-		if newErr != nil {
-			return newErr
+		closeErr := file.Close()
+		if closeErr != nil {
+			return closeErr
 		}
-		newErr = rc.Close()
-		if newErr != nil {
-			return newErr
+		closeErr = rc.Close()
+		if closeErr != nil {
+			return closeErr
 		}
 		if err != nil {
 			return fmt.Errorf("unable to copy file content: %v", err)
@@ -207,9 +207,9 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		return err
 	}
 	defer func(gzr *gzip.Reader) {
-		newErr := gzr.Close()
-		if newErr != nil {
-			log.Error(newErr, "failed to close reader")
+		closeErr := gzr.Close()
+		if closeErr != nil {
+			log.Error(closeErr, "failed to close reader")
 		}
 	}(gzr)
 
