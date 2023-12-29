@@ -19,9 +19,9 @@ from torch import Tensor
 
 from kserve.logging import logger
 import pathlib
-from typing import Dict, Union, Tuple
+from typing import Dict, Union, Tuple, Any
 
-from kserve.errors import InferenceError, ModelMissingError
+from kserve.errors import InferenceError
 from kserve.storage import Storage
 
 from kserve.protocol.infer_type import InferRequest, InferResponse
@@ -30,14 +30,13 @@ from kserve import Model
 import torch
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, \
     AutoConfig, \
-    AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
-    PreTrainedTokenizerBase, TensorType
+    AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering
 
 ARCHITECTURES_2_TASK = {
     "TapasForQuestionAnswering": "table-question-answering",
     "ForQuestionAnswering": "question-answering",
     "ForTokenClassification": "token-classification",
-    "ForSequenceClassification": "text-classification",
+    "ForSequenceClassification": "sequence-classification",
     "ForMultipleChoice": "multiple-choice",
     "ForMaskedLM": "fill-mask",
     "ForCausalLM": "text-generation",
@@ -52,7 +51,7 @@ ARCHITECTURES_2_TASK = {
 
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
-    def __init__(self, model_name, **kwargs):
+    def __init__(self, model_name, kwargs):
         print(kwargs)
         super().__init__(model_name)
         self.kwargs = {}
@@ -66,11 +65,11 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             self.kwargs["device_map"] = "auto"
             world_size = torch.cuda.device_count()
             assert world_size == tp_degree, f"TP degree ({tp_degree}) doesn't match available GPUs ({world_size})"
-        self.model_id = kwargs['model_id']
-        if not self.model_id:
-            self.model_dir = kwargs['model_dir']
+        self.model_id = kwargs.get('model_id', None)
+        self.model_dir = kwargs.get('model_dir', None)
         self.do_lower_case = kwargs.get('do_lower_case', False)
-        self.max_length = kwargs.get('max_length', 2048)
+        self.max_length = kwargs.get('max_length', None)
+        print(self.max_length)
         self.enable_streaming = kwargs.get('enable_streaming', False)
         self.task = kwargs.get('task', None)
         self.tokenizer = None
@@ -82,7 +81,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     def infer_task_from_model_architecture(model_config_path: str):
         model_config = AutoConfig.from_pretrained(model_config_path)
         architecture = model_config.architectures[0]
-
+        print(architecture)
         task = None
         for arch_options in ARCHITECTURES_2_TASK:
             if architecture.endswith(arch_options):
@@ -95,7 +94,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         return task
 
     def load(self) -> bool:
-        model_id_or_path = self.name
+        model_id_or_path = self.model_id
         if self.model_dir:
             model_id_or_path = pathlib.Path(Storage.download(self.model_dir))
             # Read the mapping file, index to object name
@@ -107,51 +106,54 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                         self.mapping = json.load(f)
                 else:
                     logger.warning("Missing the index_to_name.json file.")
-        task = self.task
-        if not task:
-            task = self.infer_task_from_model_architecture(model_id_or_path)
-        logger.info(f"create inference pipeline for task: {task}")
+        if not self.task:
+            self.task = self.infer_task_from_model_architecture(model_id_or_path)
+        logger.info(f"create inference pipeline for task: {self.task}")
         # load huggingface tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_id_or_path, do_lower_case=self.do_lower_case)
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
-            if task == "sequence-classification":
+            if self.task == "sequence-classification":
                 self.model = AutoModelForSequenceClassification.from_pretrained(
                     model_id_or_path)
-            elif task == "question-answering":
+            elif self.task == "question-answering":
                 self.model = AutoModelForQuestionAnswering.from_pretrained(model_id_or_path)
-            elif task == "token-classification":
+            elif self.task == "token-classification":
                 self.model = AutoModelForTokenClassification.from_pretrained(model_id_or_path)
-            elif task == "text-generation":
+            elif self.task == "text-generation":
                 self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path)
+            elif self.task == "text2text-generation":
+                self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path)
             else:
                 raise ValueError(
-                    f"Unsupported task {task}. Please check the supported`task` option."
+                    f"Unsupported task {self.task}. Please check the supported`task` option."
                 )
             self.model.eval()
             logger.info("Transformer model from path %s loaded successfully", model_id_or_path)
         self.ready = True
         return self.ready
 
-    def preprocess(self, payload: InferRequest, headers: Dict[str, str] = None) -> \
+    def preprocess(self, payload: InferRequest, context: Dict[str, Any] = None) -> \
             Union[Tuple[Tensor, Tensor], InferRequest]:
         text_inputs = get_predict_input(payload)
         input_ids_batch = None
         attention_mask_batch = None
         for input_text in text_inputs:
+            print(input_text)
             if isinstance(input_text, (bytes, bytearray)):
                 input_text = input_text.decode("utf-8")
 
             inputs = self.tokenizer.encode_plus(
                 input_text,
-                max_length=int(self.max_length),
-                pad_to_max_length=True,
+                max_length=self.max_length,
                 add_special_tokens=True,
                 return_tensors="pt",
             )
             input_ids = inputs["input_ids"].to(self.device)
             attention_mask = inputs["attention_mask"].to(self.device)
+            print(input_ids.shape)
+            print(attention_mask.shape)
             if input_ids.shape is not None:
                 if input_ids_batch is None:
                     input_ids_batch = input_ids
@@ -161,18 +163,22 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                     attention_mask_batch = torch.cat(
                         (attention_mask_batch, attention_mask), 0
                     )
+            print(input_ids_batch.shape)
+            print(inputs)
         if self.predictor_host:
             return
         else:
             return input_ids_batch, attention_mask_batch
 
-    async def predict(self, input_batch: Union[Tuple[Tensor, Tensor], InferRequest], headers: Dict[str, str] = None) -> \
-            Union[Dict, InferResponse]:
+    async def predict(self, input_batch: Union[Tuple[Tensor, Tensor], InferRequest], context: Dict[str, Any] = None) \
+            -> Union[Tensor, InferResponse]:
         if self.predictor_host:
-            return await super().predict(input_batch, headers)
+            return await super().predict(input_batch, context)
         else:
             input_ids_batch, attention_mask_batch = input_batch
             outputs = None
+            logger.info(f"perform inference for task: {self.task}")
+
             try:
                 if self.task == "sequence-classification":
                     outputs = self.model(input_ids_batch, attention_mask_batch)
@@ -182,16 +188,17 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                         "This is the output size from the token classification model", outputs.size(),
                     )
                     print("This is the output from the token classification model", outputs)
-                elif self.task == "text-generation":
-                    outputs = self.model.generate(
-                        input_ids_batch, attention_mask_batch)
+                elif self.task == "text-generation" or self.task == "text2text-generation":
+                    print("text generation")
+                    outputs = self.model.generate(input_ids_batch)
 
-                    logger.info("Generated outputs: '%s'", outputs)
+                    print("Generated outputs: '%s'", outputs)
             except Exception as e:
                 raise InferenceError(str(e))
             return outputs
 
-    def postprocess(self, outputs, headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
+    def postprocess(self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any] = None) \
+            -> Union[Dict, InferResponse]:
         inferences = []
         if self.task == "sequence-classification":
             num_rows, num_cols = outputs[0].shape
@@ -199,13 +206,14 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 out = outputs[0][i].unsqueeze(0)
                 y_hat = out.argmax(1).item()
                 predicted_idx = str(y_hat)
-                inferences.append(self.mapping[predicted_idx])
+                inferences.append(predicted_idx)
         elif self.task == "token-classification":
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 output = outputs[i].unsqueeze(0)
                 predictions = torch.argmax(output, dim=2)
                 inferences.append(predictions)
-        elif self.task == "text-generation":
+        elif self.task == "text-generation" or self.task == "text2text-generation":
             inferences = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        return inferences
+            print("Generated inferences: '%s'", inferences)
+        return get_predict_response(payload, inferences, self.name)

@@ -31,11 +31,14 @@ parser.add_argument('--enable_streaming', type=bool, default=False,
                     help='enable streaming mode')
 parser.add_argument('--tensor_parallel_degree', type=int, default=-1,
                     help='tensor parallel degree')
+parser.add_argument('--max_length', type=int, default=None,
+                    help='max sequence length')
 parser.add_argument('--task', required=False,  help="The task name")
 
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    print(args)
     print(vars(args))
     model = HuggingfaceModel(args.model_name, vars(args))
     try:

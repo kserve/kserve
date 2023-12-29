@@ -15,6 +15,9 @@
 import os
 import sys
 import uuid
+
+from torch import Tensor
+
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import InferParameter
 from typing import Dict, Union, List
 
@@ -181,8 +184,10 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
                 infer_outputs.append(row.to_dict())
         elif isinstance(result, np.ndarray):
             infer_outputs = result.tolist()
+        elif isinstance(result, Tensor):
+            infer_outputs = result.tolist()
         return {"predictions": infer_outputs}
-    elif isinstance(payload, InferRequest):
+    if isinstance(payload, InferRequest):
         infer_outputs = []
         if isinstance(result, pd.DataFrame):
             for col in result.columns:
