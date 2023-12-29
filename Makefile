@@ -79,7 +79,7 @@ deploy: manifests
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	kubectl apply -k config/clusterresources
-	git checkout HEAD -- ../certmanager/certificate.yaml
+	git checkout HEAD -- config/certmanager/certificate.yaml
 
 
 deploy-dev: manifests
@@ -93,7 +93,7 @@ deploy-dev: manifests
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	kubectl apply -k config/clusterresources
-	git checkout HEAD -- ../certmanager/certificate.yaml
+	git checkout HEAD -- config/certmanager/certificate.yaml
 
 deploy-dev-sklearn: docker-push-sklearn
 	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
