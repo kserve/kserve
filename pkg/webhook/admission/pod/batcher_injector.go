@@ -41,6 +41,8 @@ type BatcherConfig struct {
 	CpuLimit      string `json:"cpuLimit"`
 	MemoryRequest string `json:"memoryRequest"`
 	MemoryLimit   string `json:"memoryLimit"`
+	MaxBatchSize  string `json:"maxBatchSize"`
+	MaxLatency    string `json:"maxLatency"`
 }
 
 type BatcherInjector struct {
@@ -83,16 +85,22 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	var args []string
 
 	maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
-	if ok {
-		args = append(args, BatcherArgumentMaxBatchSize)
-		args = append(args, maxBatchSize)
+	if !ok {
+		if il.config.MaxBatchSize != "" && il.config.MaxBatchSize != "0" {
+			maxBatchSize = il.config.MaxBatchSize
+		}
 	}
+	args = append(args, BatcherArgumentMaxBatchSize)
+	args = append(args, maxBatchSize)
 
 	maxLatency, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
-	if ok {
-		args = append(args, BatcherArgumentMaxLatency)
-		args = append(args, maxLatency)
+	if !ok {
+		if il.config.MaxLatency != "" && il.config.MaxLatency != "0" {
+			maxLatency = il.config.MaxLatency
+		}
 	}
+	args = append(args, BatcherArgumentMaxLatency)
+	args = append(args, maxLatency)
 
 	timeout, ok := pod.ObjectMeta.Annotations[constants.BatcherTimeoutInternalAnnotationKey]
 	if ok {
