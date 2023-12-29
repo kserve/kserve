@@ -154,8 +154,10 @@ def get_predict_input(payload: Union[Dict, InferRequest], columns: List = None) 
             inputs = pd.concat(dfs, axis=0)
             return inputs
         else:
+            print(type(instances))
+            if instances(instances[0], str):
+                return instances
             return np.array(instances)
-
     elif isinstance(payload, InferRequest):
         content_type = ''
         parameters = payload.parameters

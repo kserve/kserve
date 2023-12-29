@@ -30,7 +30,8 @@ from kserve import Model
 import torch
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, \
     AutoConfig, \
-    AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering
+    AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
+    AutoModelForMaskedLM, BatchEncoding
 
 ARCHITECTURES_2_TASK = {
     "TapasForQuestionAnswering": "table-question-answering",
@@ -52,7 +53,6 @@ ARCHITECTURES_2_TASK = {
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     def __init__(self, model_name, kwargs):
-        print(kwargs)
         super().__init__(model_name)
         self.kwargs = {}
         tp_degree = kwargs.get('tensor_parallel_degree', -1)
@@ -69,7 +69,6 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.model_dir = kwargs.get('model_dir', None)
         self.do_lower_case = kwargs.get('do_lower_case', False)
         self.max_length = kwargs.get('max_length', None)
-        print(self.max_length)
         self.enable_streaming = kwargs.get('enable_streaming', False)
         self.task = kwargs.get('task', None)
         self.tokenizer = None
@@ -88,9 +87,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 task = ARCHITECTURES_2_TASK[arch_options]
 
         if task is None:
-            raise ValueError(
-                f"Task couldn't be inferred from {architecture}. Please manually set `task` option."
-            )
+            raise ValueError(f"Task couldn't be inferred from {architecture}. Please manually set `task` option.")
         return task
 
     def load(self) -> bool:
@@ -121,78 +118,75 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 self.model = AutoModelForQuestionAnswering.from_pretrained(model_id_or_path)
             elif self.task == "token-classification":
                 self.model = AutoModelForTokenClassification.from_pretrained(model_id_or_path)
+            elif self.task == "fill-mask":
+                self.model = AutoModelForMaskedLM.from_pretrained(model_id_or_path)
             elif self.task == "text-generation":
                 self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path)
             elif self.task == "text2text-generation":
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path)
             else:
-                raise ValueError(
-                    f"Unsupported task {self.task}. Please check the supported`task` option."
-                )
+                raise ValueError(f"Unsupported task {self.task}. Please check the supported`task` option.")
             self.model.eval()
             logger.info("Transformer model from path %s loaded successfully", model_id_or_path)
         self.ready = True
         return self.ready
 
-    def preprocess(self, payload: InferRequest, context: Dict[str, Any] = None) -> \
-            Union[Tuple[Tensor, Tensor], InferRequest]:
+    def preprocess(self, payload: Union[Dict, InferRequest], context: Dict[str, Any] = None) -> \
+            Union[BatchEncoding, InferRequest]:
+        context["payload"] = payload
         text_inputs = get_predict_input(payload)
-        input_ids_batch = None
-        attention_mask_batch = None
-        for input_text in text_inputs:
-            print(input_text)
-            if isinstance(input_text, (bytes, bytearray)):
-                input_text = input_text.decode("utf-8")
-
-            inputs = self.tokenizer.encode_plus(
-                input_text,
+        print("preprocessing!!!!!!!", type(text_inputs))
+        if self.predictor_host:
+            input_ids_batch = None
+            attention_mask_batch = None
+            inputs = []
+            for input_text in text_inputs:
+                if isinstance(input_text, (bytes, bytearray)):
+                    input_text = input_text.decode("utf-8")
+                input_encoded = self.tokenizer.encode_plus(
+                    text_inputs,
+                    max_length=self.max_length,
+                    add_special_tokens=True,
+                    return_tensors="pt",
+                )
+                input_ids = input_encoded["input_ids"].to(self.device)
+                attention_mask = input_encoded["attention_mask"].to(self.device)
+                if input_ids.shape is not None:
+                    if input_ids_batch is None:
+                        input_ids_batch = input_ids
+                        attention_mask_batch = attention_mask
+                    else:
+                        input_ids_batch = torch.cat((input_ids_batch, input_ids), 0)
+                        attention_mask_batch = torch.cat(
+                            (attention_mask_batch, attention_mask), 0
+                        )
+                inputs.append(input_encoded)
+            return inputs
+        else:
+            inputs = self.tokenizer(
+                text_inputs,
                 max_length=self.max_length,
-                add_special_tokens=True,
                 return_tensors="pt",
             )
-            input_ids = inputs["input_ids"].to(self.device)
-            attention_mask = inputs["attention_mask"].to(self.device)
-            print(input_ids.shape)
-            print(attention_mask.shape)
-            if input_ids.shape is not None:
-                if input_ids_batch is None:
-                    input_ids_batch = input_ids
-                    attention_mask_batch = attention_mask
-                else:
-                    input_ids_batch = torch.cat((input_ids_batch, input_ids), 0)
-                    attention_mask_batch = torch.cat(
-                        (attention_mask_batch, attention_mask), 0
-                    )
-            print(input_ids_batch.shape)
-            print(inputs)
-        if self.predictor_host:
-            return
-        else:
-            return input_ids_batch, attention_mask_batch
+            context["input_ids"] = inputs["input_ids"]
+            return inputs
 
-    async def predict(self, input_batch: Union[Tuple[Tensor, Tensor], InferRequest], context: Dict[str, Any] = None) \
+    async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
         if self.predictor_host:
             return await super().predict(input_batch, context)
         else:
-            input_ids_batch, attention_mask_batch = input_batch
             outputs = None
-            logger.info(f"perform inference for task: {self.task}")
-
             try:
-                if self.task == "sequence-classification":
-                    outputs = self.model(input_ids_batch, attention_mask_batch)
-                elif self.task == "token-classification":
-                    outputs = self.model(input_ids_batch, attention_mask_batch)[0]
-                    print(
-                        "This is the output size from the token classification model", outputs.size(),
-                    )
-                    print("This is the output from the token classification model", outputs)
-                elif self.task == "text-generation" or self.task == "text2text-generation":
-                    print("text generation")
-                    outputs = self.model.generate(input_ids_batch)
-
-                    print("Generated outputs: '%s'", outputs)
+                with torch.no_grad():
+                    if self.task == "sequence-classification":
+                        outputs = self.model(**input_batch)
+                    elif self.task == "fill-mask":
+                        outputs = self.model(**input_batch).logits
+                    elif self.task == "token-classification":
+                        outputs = self.model(**input_batch)[0]
+                    elif self.task == "text-generation" or self.task == "text2text-generation":
+                        outputs = self.model.generate(**input_batch)
             except Exception as e:
                 raise InferenceError(str(e))
             return outputs
@@ -205,8 +199,15 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             for i in range(num_rows):
                 out = outputs[0][i].unsqueeze(0)
                 y_hat = out.argmax(1).item()
-                predicted_idx = str(y_hat)
+                predicted_idx = y_hat
                 inferences.append(predicted_idx)
+        elif self.task == "fill-mask":
+            num_rows = outputs.shape[0]
+            for i in range(num_rows):
+                mask_pos = (context["input_ids"] == self.tokenizer.mask_token_id)[i]
+                mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
+                predicted_token_id = outputs[0, mask_token_index].argmax(axis=-1)
+                inferences.append(self.tokenizer.decode(predicted_token_id))
         elif self.task == "token-classification":
             num_rows = outputs.shape[0]
             for i in range(num_rows):
@@ -215,5 +216,5 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 inferences.append(predictions)
         elif self.task == "text-generation" or self.task == "text2text-generation":
             inferences = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            print("Generated inferences: '%s'", inferences)
-        return get_predict_response(payload, inferences, self.name)
+        print("inferences: '%s'", inferences)
+        return get_predict_response(context["payload"], inferences, self.name)
