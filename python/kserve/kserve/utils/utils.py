@@ -16,8 +16,6 @@ import os
 import sys
 import uuid
 
-from torch import Tensor
-
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import InferParameter
 from typing import Dict, Union, List
 
@@ -149,13 +147,12 @@ def get_predict_input(payload: Union[Dict, InferRequest], columns: List = None) 
         if isinstance(instances[0], Dict) or (
                 isinstance(instances[0], List) and len(instances[0]) != 0 and isinstance(instances[0][0], Dict)):
             dfs = []
-            for input in instances:
-                dfs.append(pd.DataFrame(input, columns=columns))
+            for instance in instances:
+                dfs.append(pd.DataFrame(instance, columns=columns))
             inputs = pd.concat(dfs, axis=0)
             return inputs
         else:
-            print(type(instances))
-            if instances(instances[0], str):
+            if isinstance(instances[0], str):
                 return instances
             return np.array(instances)
     elif isinstance(payload, InferRequest):
@@ -186,10 +183,8 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
                 infer_outputs.append(row.to_dict())
         elif isinstance(result, np.ndarray):
             infer_outputs = result.tolist()
-        elif isinstance(result, Tensor):
-            infer_outputs = result.tolist()
         return {"predictions": infer_outputs}
-    if isinstance(payload, InferRequest):
+    elif isinstance(payload, InferRequest):
         infer_outputs = []
         if isinstance(result, pd.DataFrame):
             for col in result.columns:
@@ -213,6 +208,8 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
             infer_outputs=infer_outputs,
             response_id=payload.id if payload.id else generate_uuid()
         )
+    else:
+        raise ValueError("unsupported payload type")
 
 
 def strtobool(val: str) -> bool:

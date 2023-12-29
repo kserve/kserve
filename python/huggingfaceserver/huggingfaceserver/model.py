@@ -24,7 +24,7 @@ from typing import Dict, Union, Tuple, Any
 from kserve.errors import InferenceError
 from kserve.storage import Storage
 
-from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
 from kserve.utils.utils import get_predict_input, get_predict_response
 from kserve import Model
 import torch
@@ -51,6 +51,34 @@ ARCHITECTURES_2_TASK = {
 }
 
 
+def from_torch_dtype(torch_dtype):
+    if torch_dtype == torch.bool:
+        return "BOOL"
+    elif torch_dtype == torch.int8:
+        return "INT8"
+    elif torch_dtype == torch.int16:
+        return "INT16"
+    elif torch_dtype == torch.int32:
+        return "INT32"
+    elif torch_dtype == torch.int64:
+        return "INT64"
+    elif torch_dtype == torch.uint8:
+        return "UINT8"
+    elif torch_dtype == torch.uint16:
+        return "UINT16"
+    elif torch_dtype == torch.uint32:
+        return "UINT32"
+    elif torch_dtype == torch.uint64:
+        return "UINT64"
+    elif torch_dtype == torch.float16:
+        return "FP16"
+    elif torch_dtype == torch.float32:
+        return "FP32"
+    elif torch_dtype == torch.float64:
+        return "FP64"
+    return None
+
+
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     def __init__(self, model_name, kwargs):
         super().__init__(model_name)
@@ -67,7 +95,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             assert world_size == tp_degree, f"TP degree ({tp_degree}) doesn't match available GPUs ({world_size})"
         self.model_id = kwargs.get('model_id', None)
         self.model_dir = kwargs.get('model_dir', None)
-        self.do_lower_case = kwargs.get('do_lower_case', False)
+        self.predictor_host = kwargs.get('predictor_host', None)
+        self.do_lower_case = kwargs.get('do_lower_case', True)
+        self.add_special_tokens = kwargs.get('add_special_tokens', True)
         self.max_length = kwargs.get('max_length', None)
         self.enable_streaming = kwargs.get('enable_streaming', False)
         self.task = kwargs.get('task', None)
@@ -80,7 +110,6 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     def infer_task_from_model_architecture(model_config_path: str):
         model_config = AutoConfig.from_pretrained(model_config_path)
         architecture = model_config.architectures[0]
-        print(architecture)
         task = None
         for arch_options in ARCHITECTURES_2_TASK:
             if architecture.endswith(arch_options):
@@ -135,40 +164,24 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             Union[BatchEncoding, InferRequest]:
         context["payload"] = payload
         text_inputs = get_predict_input(payload)
-        print("preprocessing!!!!!!!", type(text_inputs))
+        inputs = self.tokenizer(
+            text_inputs,
+            max_length=self.max_length,
+            add_special_tokens=self.add_special_tokens,
+            return_tensors="pt",
+        )
+        context["input_ids"] = inputs["input_ids"]
+        # Serialize to tensor
         if self.predictor_host:
-            input_ids_batch = None
-            attention_mask_batch = None
-            inputs = []
-            for input_text in text_inputs:
-                if isinstance(input_text, (bytes, bytearray)):
-                    input_text = input_text.decode("utf-8")
-                input_encoded = self.tokenizer.encode_plus(
-                    text_inputs,
-                    max_length=self.max_length,
-                    add_special_tokens=True,
-                    return_tensors="pt",
-                )
-                input_ids = input_encoded["input_ids"].to(self.device)
-                attention_mask = input_encoded["attention_mask"].to(self.device)
-                if input_ids.shape is not None:
-                    if input_ids_batch is None:
-                        input_ids_batch = input_ids
-                        attention_mask_batch = attention_mask
-                    else:
-                        input_ids_batch = torch.cat((input_ids_batch, input_ids), 0)
-                        attention_mask_batch = torch.cat(
-                            (attention_mask_batch, attention_mask), 0
-                        )
-                inputs.append(input_encoded)
-            return inputs
+            infer_inputs = []
+            for key, input_tensor in inputs.items():
+                infer_input = InferInput(name=key, datatype=from_torch_dtype(input_tensor.dtype),
+                                         shape=list(input_tensor.shape), data=input_tensor.numpy())
+                print(infer_input.data)
+                infer_inputs.append(infer_input)
+            infer_request = InferRequest(infer_inputs=infer_inputs, model_name=self.name)
+            return infer_request
         else:
-            inputs = self.tokenizer(
-                text_inputs,
-                max_length=self.max_length,
-                return_tensors="pt",
-            )
-            context["input_ids"] = inputs["input_ids"]
             return inputs
 
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
@@ -180,11 +193,11 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             try:
                 with torch.no_grad():
                     if self.task == "sequence-classification":
-                        outputs = self.model(**input_batch)
+                        outputs = self.model(**input_batch).logits
                     elif self.task == "fill-mask":
                         outputs = self.model(**input_batch).logits
                     elif self.task == "token-classification":
-                        outputs = self.model(**input_batch)[0]
+                        outputs = self.model(**input_batch).logits
                     elif self.task == "text-generation" or self.task == "text2text-generation":
                         outputs = self.model.generate(**input_batch)
             except Exception as e:
@@ -195,26 +208,24 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             -> Union[Dict, InferResponse]:
         inferences = []
         if self.task == "sequence-classification":
-            num_rows, num_cols = outputs[0].shape
+            num_rows, num_cols = outputs.shape
             for i in range(num_rows):
-                out = outputs[0][i].unsqueeze(0)
-                y_hat = out.argmax(1).item()
-                predicted_idx = y_hat
+                out = outputs[i].unsqueeze(0)
+                predicted_idx = out.argmax().item()
                 inferences.append(predicted_idx)
         elif self.task == "fill-mask":
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 mask_pos = (context["input_ids"] == self.tokenizer.mask_token_id)[i]
                 mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
-                predicted_token_id = outputs[0, mask_token_index].argmax(axis=-1)
+                predicted_token_id = outputs[i, mask_token_index].argmax(axis=-1)
                 inferences.append(self.tokenizer.decode(predicted_token_id))
         elif self.task == "token-classification":
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 output = outputs[i].unsqueeze(0)
                 predictions = torch.argmax(output, dim=2)
-                inferences.append(predictions)
+                inferences.append(predictions.tolist())
         elif self.task == "text-generation" or self.task == "text2text-generation":
             inferences = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        print("inferences: '%s'", inferences)
         return get_predict_response(context["payload"], inferences, self.name)

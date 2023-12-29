@@ -33,20 +33,21 @@ parser.add_argument('--tensor_parallel_degree', type=int, default=-1,
                     help='tensor parallel degree')
 parser.add_argument('--max_length', type=int, default=None,
                     help='max sequence length')
+parser.add_argument('--do_lower_case', type=bool, default=True,
+                    help='do lower case')
+parser.add_argument('--add_special_tokens', type=bool, default=True,
+                    help='the sequences will be encoded with the special tokens relative to their model')
 parser.add_argument('--task', required=False,  help="The task name")
 
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    print(args)
-    print(vars(args))
     model = HuggingfaceModel(args.model_name, vars(args))
     try:
         model.load()
     except ModelMissingError:
         logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
                       f"trying loading from model repository.")
-    print(args.model_id)
     if not args.model_id:
         kserve.ModelServer(registered_models=HuggingfaceModelRepository(args.model_dir)).start(
             [model] if model.ready else [])
