@@ -36,7 +36,6 @@ const (
 	BatcherDefaultMemoryLimit   = "1Gi"
 	BatcherDefaultMaxBatchSize  = "16"
 	BatcherDefaultMaxLatency    = "2000"
-	BatcherDefaultTimeout       = "30"
 )
 
 var (
@@ -129,8 +128,7 @@ func TestBatcherInjector(t *testing.T) {
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.BatcherInternalAnnotationKey:        "true",
-						constants.BatcherTimeoutInternalAnnotationKey: BatcherDefaultTimeout,
+						constants.BatcherInternalAnnotationKey: "true",
 					},
 					Labels: map[string]string{
 						"serving.kserve.io/inferenceservice": "sklearn",
@@ -152,7 +150,6 @@ func TestBatcherInjector(t *testing.T) {
 						constants.BatcherInternalAnnotationKey:             "true",
 						constants.BatcherMaxBatchSizeInternalAnnotationKey: BatcherDefaultMaxBatchSize,
 						constants.BatcherMaxLatencyInternalAnnotationKey:   BatcherDefaultMaxLatency,
-						constants.BatcherTimeoutInternalAnnotationKey:      BatcherDefaultTimeout,
 					},
 				},
 				Spec: v1.PodSpec{
@@ -168,8 +165,6 @@ func TestBatcherInjector(t *testing.T) {
 								BatcherDefaultMaxBatchSize,
 								BatcherArgumentMaxLatency,
 								BatcherDefaultMaxLatency,
-								BatcherArgumentTimeout,
-								BatcherDefaultTimeout,
 							},
 							Resources: batcherResourceRequirement,
 						},
@@ -259,8 +254,7 @@ func TestGetBatcherConfigs(t *testing.T) {
 						"MemoryRequest": "200Mi",
 						"MemoryLimit":   "1Gi",
 						"MaxBatchSize":  "32",
-						"MaxLatency":    "5000",
-						"Timeout":    	 "30"
+						"MaxLatency":    "5000"
 					}`,
 				},
 				BinaryData: map[string][]byte{},
@@ -274,7 +268,6 @@ func TestGetBatcherConfigs(t *testing.T) {
 					MemoryLimit:   "1Gi",
 					MaxBatchSize:  "32",
 					MaxLatency:    "5000",
-					Timeout:       "30",
 				}),
 				gomega.BeNil(),
 			},

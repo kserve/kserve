@@ -305,8 +305,7 @@ data:
            "cpuRequest": "1",
            "cpuLimit": "1",
            "maxBatchSize": "32",
-           "maxLatency": "5000",
-           "timeout": "100"
+           "maxLatency": "5000"
        }
      batcher: |-
        {
@@ -328,11 +327,8 @@ data:
            # maxBatchSize is the default maximum batch size for batcher.
            "maxBatchSize": "32",
 
-           # maxLatency is the default maximum latency for batcher.
-           "maxLatency": "5000",
-
-           # timeout is the default timeout for batcher.
-           "timeout": "100"
+           # maxLatency is the default maximum latency in milliseconds for batcher to wait and collect the batch.
+           "maxLatency": "5000"
        }
 
      # ====================================== AGENT CONFIGURATION ======================================
@@ -460,8 +456,7 @@ data:
         "cpuRequest": "1",
         "cpuLimit": "1",
         "maxBatchSize": "32",
-        "maxLatency": "5000",
-        "timeout": "100"
+        "maxLatency": "5000"
     }
   router: |-
     {
