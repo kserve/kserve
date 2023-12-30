@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from importlib import metadata
-from typing import Dict, Union, Tuple, Optional
+from typing import Dict, Union, Tuple, Optional, Any
 
 import cloudevents.exceptions as ce
 import orjson
@@ -32,7 +32,6 @@ from .infer_type import InferRequest, InferResponse
 from ..constants import constants
 import time
 import logging
-from vllm.outputs import RequestOutput
 
 JSON_HEADERS = ["application/json", "application/cloudevents+json", "application/ld+json"]
 
@@ -330,7 +329,7 @@ class DataPlane:
             model_name: str,
             request: Union[Dict, GenerateRequest],
             headers: Optional[Dict[str, str]] = None
-    ) -> Tuple[RequestOutput, Dict[str, str]]:
+    ) -> Tuple[Any, Dict[str, str]]:
         """Generate the text with the provided text prompt.
 
         Args:

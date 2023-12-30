@@ -15,7 +15,6 @@ import uuid
 
 from torch import Tensor
 
-from kserve.protocol.rest.v2_datamodels import GenerateRequest
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
 import pathlib
@@ -28,10 +27,14 @@ from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
 from kserve.utils.utils import get_predict_input, get_predict_response
 from kserve import Model
 import torch
-from vllm.outputs import RequestOutput
-from vllm.sampling_params import SamplingParams
-from vllm.engine.arg_utils import AsyncEngineArgs
-from vllm.vllm_async_engine import AsyncLLMEngine
+try:
+    from vllm.outputs import RequestOutput
+    from vllm.sampling_params import SamplingParams
+    from vllm.engine.arg_utils import AsyncEngineArgs
+    from vllm.vllm_async_engine import AsyncLLMEngine
+    _vllm = True
+except ImportError:
+    _vllm = False
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, \
     AutoConfig, \
     AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
@@ -77,7 +80,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.tokenizer = None
         self.model = None
         self.mapping = None
-        self.engine = AsyncLLMEngine.from_engine_args(engine_args)
+        self.engine = AsyncLLMEngine.from_engine_args(engine_args) if _vllm else None
         self.ready = False
 
     @staticmethod
@@ -87,11 +90,10 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         task = None
         for arch_options in ARCHITECTURES_2_TASK:
             if architecture.endswith(arch_options):
-                task = ARCHITECTURES_2_TASK[arch_options]
+                return ARCHITECTURES_2_TASK[arch_options]
 
         if task is None:
             raise ValueError(f"Task couldn't be inferred from {architecture}. Please manually set `task` option.")
-        return task
 
     def load(self) -> bool:
         model_id_or_path = self.model_id
@@ -150,7 +152,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             return inputs
 
     async def generate(self, input_batch: BatchEncoding, context: Dict[str, Any] = None) \
-            -> AsyncIterator[RequestOutput]:
+            -> AsyncIterator[Any]:
         parameters = context["payload"]["parameters"]
         prompt = context["payload"]["text_input"]
         sampling_params = SamplingParams(**parameters)

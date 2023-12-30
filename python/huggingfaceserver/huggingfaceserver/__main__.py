@@ -16,11 +16,12 @@ import argparse
 import logging
 
 from . import HuggingfaceModel, HuggingfaceModelRepository
-from vllm.engine.arg_utils import AsyncEngineArgs
 import kserve
 from kserve.errors import ModelMissingError
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
+parser.add_argument('--model_name', required=False,
+                    help='A URI pointer to the model binary')
 parser.add_argument('--model_dir', required=False,
                     help='A URI pointer to the model binary')
 parser.add_argument('--model_id', required=False,
@@ -36,11 +37,17 @@ parser.add_argument('--do_lower_case', type=bool, default=True,
 parser.add_argument('--add_special_tokens', type=bool, default=True,
                     help='the sequences will be encoded with the special tokens relative to their model')
 parser.add_argument('--task', required=False,  help="The task name")
-parser = AsyncEngineArgs.add_cli_args(parser)
+try:
+    from vllm.engine.arg_utils import AsyncEngineArgs
+    parser = AsyncEngineArgs.add_cli_args(parser)
+    _vllm = True
+except ImportError:
+    _vllm = False
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    engine_args = AsyncEngineArgs.from_cli_args(args)
+    print(args)
+    engine_args = AsyncEngineArgs.from_cli_args(args) if _vllm else None
     model = HuggingfaceModel(args.model_name, vars(args), engine_args)
     try:
         model.load()
