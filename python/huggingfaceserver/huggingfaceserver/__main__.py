@@ -16,7 +16,7 @@ import argparse
 import logging
 
 from . import HuggingfaceModel, HuggingfaceModelRepository
-
+from vllm.engine.arg_utils import AsyncEngineArgs
 import kserve
 from kserve.errors import ModelMissingError
 
@@ -36,11 +36,12 @@ parser.add_argument('--do_lower_case', type=bool, default=True,
 parser.add_argument('--add_special_tokens', type=bool, default=True,
                     help='the sequences will be encoded with the special tokens relative to their model')
 parser.add_argument('--task', required=False,  help="The task name")
-
+parser = AsyncEngineArgs.add_cli_args(parser)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    model = HuggingfaceModel(args.model_name, vars(args))
+    engine_args = AsyncEngineArgs.from_cli_args(args)
+    model = HuggingfaceModel(args.model_name, vars(args), engine_args)
     try:
         model.load()
     except ModelMissingError:

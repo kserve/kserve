@@ -11,13 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import uuid
 
 from torch import Tensor
 
+from kserve.protocol.rest.v2_datamodels import GenerateRequest
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
 import pathlib
-from typing import Dict, Union, Any
+from typing import Dict, Union, Any, AsyncIterator
 
 from kserve.errors import InferenceError, InvalidInput
 from kserve.storage import Storage
@@ -26,7 +28,10 @@ from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
 from kserve.utils.utils import get_predict_input, get_predict_response
 from kserve import Model
 import torch
-from vllm import LLM, SamplingParams
+from vllm.outputs import RequestOutput
+from vllm.sampling_params import SamplingParams
+from vllm.engine.arg_utils import AsyncEngineArgs
+from vllm.vllm_async_engine import AsyncLLMEngine
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, \
     AutoConfig, \
     AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
@@ -46,8 +51,10 @@ torch_dtype_to_oip_dtype_dict = {
 
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
-    def __init__(self, model_name, kwargs):
+    def __init__(self, model_name, kwargs, engine_args=None):
         super().__init__(model_name)
+        if kwargs is None:
+            kwargs = {}
         self.kwargs = {}
         tp_degree = kwargs.get('tensor_parallel_degree', -1)
         self.device = torch.device(
@@ -70,6 +77,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.tokenizer = None
         self.model = None
         self.mapping = None
+        self.engine = AsyncLLMEngine.from_engine_args(engine_args)
         self.ready = False
 
     @staticmethod
@@ -141,14 +149,16 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         else:
             return inputs
 
-    async def generate(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
-            -> Union[Tensor, InferResponse]:
-        sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
-
-        outputs = self.model.generate(**input_batch, sampling_params)
-
-        return outputs
-
+    async def generate(self, input_batch: BatchEncoding, context: Dict[str, Any] = None) \
+            -> AsyncIterator[RequestOutput]:
+        parameters = context["payload"]["parameters"]
+        prompt = context["payload"]["text_input"]
+        sampling_params = SamplingParams(**parameters)
+        request_id = str(uuid.uuid4())
+        results_generator = self.engine.generate(prompt, sampling_params=sampling_params,
+                                                 prompt_token_ids=input_batch["input_ids"],
+                                                 request_id=request_id)
+        return results_generator
 
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:

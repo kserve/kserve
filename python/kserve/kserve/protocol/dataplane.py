@@ -32,6 +32,7 @@ from .infer_type import InferRequest, InferResponse
 from ..constants import constants
 import time
 import logging
+from vllm.outputs import RequestOutput
 
 JSON_HEADERS = ["application/json", "application/cloudevents+json", "application/ld+json"]
 
@@ -329,7 +330,7 @@ class DataPlane:
             model_name: str,
             request: Union[Dict, GenerateRequest],
             headers: Optional[Dict[str, str]] = None
-    ) -> Tuple[Union[Dict, RequestOutput], Dict[str, str]]:
+    ) -> Tuple[RequestOutput, Dict[str, str]]:
         """Generate the text with the provided text prompt.
 
         Args:
@@ -338,7 +339,7 @@ class DataPlane:
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
-            Tuple[Union[str, bytes, Dict], Dict[str, str]]:
+            vllm.RequestOutput:
                 - response: The generate result.
                 - response_headers: Headers to construct the HTTP response.
 
