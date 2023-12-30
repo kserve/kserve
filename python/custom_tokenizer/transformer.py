@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class Tokenizer(kserve.Model):
-    def __init__(self, name: str, predictor_host: str, predictor_protocol: str, predictor_use_ssl=False):
+    def __init__(self, name: str, predictor_host: str, predictor_protocol: str, predictor_use_ssl: bool):
         super().__init__(name, PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl))
         self.short_paragraph_text = "The Apollo program was the third United States human spaceflight program. " \
                                     "First conceived as a three-man spacecraft to follow the one-man Project Mercury " \

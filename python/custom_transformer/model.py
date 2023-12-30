@@ -84,6 +84,7 @@ class ImageTransformer(Model):
             if self.protocol == PredictorProtocol.REST_V1.value:
                 return infer_response
             else:
+                # if predictor protocol is v2 but transformer uses v1
                 res = infer_response.to_rest()
                 return {"predictions": res["outputs"][0]["data"]}
         else:

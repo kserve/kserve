@@ -64,8 +64,8 @@ class PredictorConfig:
                  predictor_use_ssl: bool = False,
                  predictor_request_timeout_seconds: int = 600):
         self.predictor_host = predictor_host
-        self.predictor_protocol = predictor_protocol,
-        self.predictor_use_ssl = predictor_use_ssl,
+        self.predictor_protocol = predictor_protocol
+        self.predictor_use_ssl = predictor_use_ssl
         self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
 
 
