@@ -13,6 +13,12 @@ packages = [
 python = ">=3.9,<3.12"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
 transformers = "~4.29.2"
+vllm = { version = "^0.2.6", optional = true }
+
+[tool.poetry.extras]
+vllm = [
+    "vllm",
+]
 
 [tool.poetry.group.test]
 optional = true

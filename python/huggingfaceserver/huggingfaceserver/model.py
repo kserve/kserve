@@ -19,18 +19,18 @@ from kserve.logging import logger
 import pathlib
 from typing import Dict, Union, Any
 
-from kserve.errors import InferenceError
+from kserve.errors import InferenceError, InvalidInput
 from kserve.storage import Storage
 
 from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
 from kserve.utils.utils import get_predict_input, get_predict_response
 from kserve import Model
 import torch
+from vllm import LLM, SamplingParams
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, \
     AutoConfig, \
     AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
     AutoModelForMaskedLM, BatchEncoding
-
 
 torch_dtype_to_oip_dtype_dict = {
     torch.bool: "BOOL",
@@ -141,6 +141,15 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         else:
             return inputs
 
+    async def generate(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
+            -> Union[Tensor, InferResponse]:
+        sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
+
+        outputs = self.model.generate(**input_batch, sampling_params)
+
+        return outputs
+
+
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
         if self.predictor_host:
@@ -150,11 +159,11 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         else:
             try:
                 with torch.no_grad():
-                    if self.task == MLTask.text_generation.value:
-                        # TODO implement with more efficient backend vllm and use the generate handler instead
+                    if self.task == MLTask.text2text_generation.value:
                         outputs = self.model.generate(**input_batch)
-                    elif self.task == MLTask.text2text_generation.value:
-                        outputs = self.model.generate(**input_batch)
+                    elif self.task == MLTask.text_generation:
+                        raise InvalidInput(f"text generation is not supported for predict endpoint, "
+                                           f"use generate endpoint instead")
                     else:
                         outputs = self.model(**input_batch).logits
                     return outputs

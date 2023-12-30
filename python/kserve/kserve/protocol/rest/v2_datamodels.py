@@ -248,3 +248,31 @@ class InferenceResponse(BaseModel):
                 ]
             }
         }
+
+
+class GenerateRequest(BaseModel):
+    """GenerateRequest Model
+
+        $generate_request =
+        {
+          "id" : $string,
+          "parameters" : $parameters #optional,
+        }
+    """
+    prompt: Optional[str]
+    parameters: Optional[Parameters] = None
+    inputs: List[RequestInput]
+    outputs: Optional[List[RequestOutput]] = None
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "text_input": "Tell me about the AI",
+                "parameters":
+                    {
+                        "temperature": 0.8,
+                        "top_p": 0.9,
+                    }
+            }
+        }

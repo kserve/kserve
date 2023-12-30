@@ -22,6 +22,7 @@ from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
 
+from .rest.v2_datamodels import GenerateRequest
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import ModelType
@@ -321,6 +322,31 @@ class DataPlane:
             response = await model.remote(request, headers=headers)
         else:
             response = await model(request, headers=headers)
+        return response, headers
+
+    async def generate(
+            self,
+            model_name: str,
+            request: Union[Dict, GenerateRequest],
+            headers: Optional[Dict[str, str]] = None
+    ) -> Tuple[Union[Dict, RequestOutput], Dict[str, str]]:
+        """Generate the text with the provided text prompt.
+
+        Args:
+            model_name (str): Model name.
+            request (bytes|Dict): Generate Request body data.
+            headers: (Optional[Dict[str, str]]): Request headers.
+
+        Returns:
+            Tuple[Union[str, bytes, Dict], Dict[str, str]]:
+                - response: The generate result.
+                - response_headers: Headers to construct the HTTP response.
+
+        Raises:
+            InvalidInput: An error when the body bytes can't be decoded as JSON.
+        """
+        model = self.get_model(model_name)
+        response = await model(request, headers=headers)
         return response, headers
 
     async def explain(self, model_name: str,
