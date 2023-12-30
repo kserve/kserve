@@ -38,7 +38,7 @@ from .utils import utils
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
 
-parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 # Model Server Arguments: The arguments are passed to the kserve.ModelServer object
 parser.add_argument("--http_port", default=DEFAULT_HTTP_PORT, type=int,
                     help="The HTTP Port listened to by the model server.")
