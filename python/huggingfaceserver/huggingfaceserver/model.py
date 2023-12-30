@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-import os
-
 from torch import Tensor
 
+from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
 import pathlib
-from typing import Dict, Union, Tuple, Any
+from typing import Dict, Union, Any
 
 from kserve.errors import InferenceError
 from kserve.storage import Storage
@@ -33,50 +31,18 @@ from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokeni
     AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
     AutoModelForMaskedLM, BatchEncoding
 
-ARCHITECTURES_2_TASK = {
-    "TapasForQuestionAnswering": "table-question-answering",
-    "ForQuestionAnswering": "question-answering",
-    "ForTokenClassification": "token-classification",
-    "ForSequenceClassification": "sequence-classification",
-    "ForMultipleChoice": "multiple-choice",
-    "ForMaskedLM": "fill-mask",
-    "ForCausalLM": "text-generation",
-    "ForConditionalGeneration": "text2text-generation",
-    "MTModel": "text2text-generation",
-    "EncoderDecoderModel": "text2text-generation",
-    # Model specific task for backward comp
-    "GPT2LMHeadModel": "text-generation",
-    "T5WithLMHeadModel": "text2text-generation",
-    "BloomModel": "text-generation",
+
+torch_dtype_to_oip_dtype_dict = {
+    torch.bool: "BOOL",
+    torch.uint8: "UINT8",
+    torch.int8: "INT8",
+    torch.int16: "INT16",
+    torch.int32: "INT32",
+    torch.int64: "INT64",
+    torch.float16: "FP16",
+    torch.float32: "FP32",
+    torch.float64: "FP64",
 }
-
-
-def from_torch_dtype(torch_dtype):
-    if torch_dtype == torch.bool:
-        return "BOOL"
-    elif torch_dtype == torch.int8:
-        return "INT8"
-    elif torch_dtype == torch.int16:
-        return "INT16"
-    elif torch_dtype == torch.int32:
-        return "INT32"
-    elif torch_dtype == torch.int64:
-        return "INT64"
-    elif torch_dtype == torch.uint8:
-        return "UINT8"
-    elif torch_dtype == torch.uint16:
-        return "UINT16"
-    elif torch_dtype == torch.uint32:
-        return "UINT32"
-    elif torch_dtype == torch.uint64:
-        return "UINT64"
-    elif torch_dtype == torch.float16:
-        return "FP16"
-    elif torch_dtype == torch.float32:
-        return "FP32"
-    elif torch_dtype == torch.float64:
-        return "FP64"
-    return None
 
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
@@ -123,46 +89,37 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         model_id_or_path = self.model_id
         if self.model_dir:
             model_id_or_path = pathlib.Path(Storage.download(self.model_dir))
-            # Read the mapping file, index to object name
-            mapping_file_path = os.path.join(self.model_dir, "index_to_name.json")
-            # Question answering does not need the index_to_name.json file.
-            if self.task == "question_answering" or self.task == "text_generation":
-                if os.path.isfile(mapping_file_path):
-                    with open(mapping_file_path) as f:
-                        self.mapping = json.load(f)
-                else:
-                    logger.warning("Missing the index_to_name.json file.")
+            # TODO Read the mapping file, index to object name
         if not self.task:
             self.task = self.infer_task_from_model_architecture(model_id_or_path)
-        logger.info(f"create inference pipeline for task: {self.task}")
         # load huggingface tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_id_or_path, do_lower_case=self.do_lower_case)
+        logger.info(f"successfully loaded tokenizer for task: {self.task}")
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
-            if self.task == "sequence-classification":
+            if self.task == MLTask.sequence_classification.value:
                 self.model = AutoModelForSequenceClassification.from_pretrained(
                     model_id_or_path)
-            elif self.task == "question-answering":
+            elif self.task == MLTask.question_answering.value:
                 self.model = AutoModelForQuestionAnswering.from_pretrained(model_id_or_path)
-            elif self.task == "token-classification":
+            elif self.task == MLTask.token_classification.value:
                 self.model = AutoModelForTokenClassification.from_pretrained(model_id_or_path)
-            elif self.task == "fill-mask":
+            elif self.task == MLTask.fill_mask.value:
                 self.model = AutoModelForMaskedLM.from_pretrained(model_id_or_path)
-            elif self.task == "text-generation":
+            elif self.task == MLTask.text_generation.value:
                 self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path)
-            elif self.task == "text2text-generation":
+            elif self.task == MLTask.text2text_generation.value:
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path)
             else:
-                raise ValueError(f"Unsupported task {self.task}. Please check the supported`task` option.")
+                raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
             self.model.eval()
-            logger.info("Transformer model from path %s loaded successfully", model_id_or_path)
+            logger.info(f"successfully loaded huggingface model from path {model_id_or_path}")
         self.ready = True
         return self.ready
 
     def preprocess(self, payload: Union[Dict, InferRequest], context: Dict[str, Any] = None) -> \
             Union[BatchEncoding, InferRequest]:
-        context["payload"] = payload
         text_inputs = get_predict_input(payload)
         inputs = self.tokenizer(
             text_inputs,
@@ -170,14 +127,14 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             add_special_tokens=self.add_special_tokens,
             return_tensors="pt",
         )
+        context["payload"] = payload
         context["input_ids"] = inputs["input_ids"]
         # Serialize to tensor
         if self.predictor_host:
             infer_inputs = []
             for key, input_tensor in inputs.items():
-                infer_input = InferInput(name=key, datatype=from_torch_dtype(input_tensor.dtype),
+                infer_input = InferInput(name=key, datatype=torch_dtype_to_oip_dtype_dict.get(input_tensor.dtype, None),
                                          shape=list(input_tensor.shape), data=input_tensor.numpy())
-                print(infer_input.data)
                 infer_inputs.append(infer_input)
             infer_request = InferRequest(infer_inputs=infer_inputs, model_name=self.name)
             return infer_request
@@ -191,48 +148,43 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             # like NVIDIA triton inference server
             return await super().predict(input_batch, context)
         else:
-            outputs = None
             try:
                 with torch.no_grad():
-                    if self.task == "sequence-classification":
-                        outputs = self.model(**input_batch).logits
-                    elif self.task == "fill-mask":
-                        outputs = self.model(**input_batch).logits
-                    elif self.task == "token-classification":
-                        outputs = self.model(**input_batch).logits
-                    elif self.task == "text-generation" or self.task == "text2text-generation":
+                    if self.task == MLTask.text_generation.value:
                         # TODO implement with more efficient backend vllm and use the generate handler instead
                         outputs = self.model.generate(**input_batch)
+                    elif self.task == MLTask.text2text_generation.value:
+                        outputs = self.model.generate(**input_batch)
                     else:
-                        raise ValueError(f"Unsupported task {self.task}. Please check the supported`task` option.")
+                        outputs = self.model(**input_batch).logits
+                    return outputs
             except Exception as e:
                 raise InferenceError(str(e))
-            return outputs
 
     def postprocess(self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any] = None) \
             -> Union[Dict, InferResponse]:
         inferences = []
-        if self.task == "sequence-classification":
+        if self.task == MLTask.sequence_classification.value:
             num_rows, num_cols = outputs.shape
             for i in range(num_rows):
                 out = outputs[i].unsqueeze(0)
                 predicted_idx = out.argmax().item()
                 inferences.append(predicted_idx)
-        elif self.task == "fill-mask":
+        elif self.task == MLTask.fill_mask.value:
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 mask_pos = (context["input_ids"] == self.tokenizer.mask_token_id)[i]
                 mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
                 predicted_token_id = outputs[i, mask_token_index].argmax(axis=-1)
                 inferences.append(self.tokenizer.decode(predicted_token_id))
-        elif self.task == "token-classification":
+        elif self.task == MLTask.token_classification.value:
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 output = outputs[i].unsqueeze(0)
                 predictions = torch.argmax(output, dim=2)
                 inferences.append(predictions.tolist())
-        elif self.task == "text-generation" or self.task == "text2text-generation":
+        elif self.task == MLTask.text_generation.value or self.task == MLTask.text2text_generation.value:
             inferences = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
         else:
-            raise ValueError(f"Unsupported task {self.task}. Please check the supported`task` option.")
+            raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
         return get_predict_response(context["payload"], inferences, self.name)

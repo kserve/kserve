@@ -15,12 +15,10 @@
 import argparse
 import logging
 
-from huggingfaceserver import HuggingfaceModel, HuggingfaceModelRepository
+from . import HuggingfaceModel, HuggingfaceModelRepository
 
 import kserve
 from kserve.errors import ModelMissingError
-
-DEFAULT_MODEL_NAME = "model"
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument('--model_dir', required=False,

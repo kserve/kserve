@@ -14,7 +14,7 @@
 
 import os
 from kserve.model_repository import ModelRepository, MODEL_MOUNT_DIRS
-from huggingfaceserver import HuggingfaceModel
+from . import HuggingfaceModel
 
 
 class HuggingfaceModelRepository(ModelRepository):

@@ -27,6 +27,7 @@ from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+from ..errors import InvalidInput
 
 
 def is_running_in_k8s():
@@ -209,7 +210,7 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
             response_id=payload.id if payload.id else generate_uuid()
         )
     else:
-        raise ValueError("unsupported payload type")
+        raise InvalidInput(f"unsupported payload type {type(payload)}")
 
 
 def strtobool(val: str) -> bool:

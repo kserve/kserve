@@ -113,9 +113,9 @@ class InferInput:
 
     def as_string(self) -> List[List[str]]:
         if self.datatype == "BYTES":
-            return [s.decode("utf-8") for l in self._data for s in l]
+            return [s.decode("utf-8") for li in self._data for s in li]
         else:
-            raise InvalidInput("invalid datatype in the input")
+            raise InvalidInput(f"invalid datatype {self.datatype} in the input")
 
     def as_numpy(self) -> np.ndarray:
         """ Decode the inference input data as numpy array.
