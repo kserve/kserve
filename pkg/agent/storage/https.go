@@ -85,7 +85,12 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 		return fmt.Errorf("failed to make a request: %v", err)
 	}
 
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		closeErr := Body.Close()
+		if closeErr != nil {
+			log.Error(closeErr, "failed to close body")
+		}
+	}(resp.Body)
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("URI: %s returned a %d response code", h.StorageUri, resp.StatusCode)
 	}
@@ -123,7 +128,10 @@ func (h *HTTPSDownloader) extractHeaders() (map[string]string, error) {
 	var headers map[string]string
 	hostname := h.Uri.Hostname()
 	headerJSON := os.Getenv(hostname + HEADER_SUFFIX)
-	json.Unmarshal([]byte(headerJSON), &headers)
+	err := json.Unmarshal([]byte(headerJSON), &headers)
+	if err != nil {
+		log.Error(err, "failed to unmarshal headers")
+	}
 	return headers, nil
 }
 
@@ -172,15 +180,20 @@ func extractZipFiles(reader io.Reader, dest string) error {
 		if err != nil {
 			return err
 		}
-
 		rc, err := zipFile.Open()
 		if err != nil {
 			return fmt.Errorf("unable to open file: %v", err)
 		}
 
 		_, err = io.Copy(file, rc)
-		file.Close()
-		rc.Close()
+		closeErr := file.Close()
+		if closeErr != nil {
+			return closeErr
+		}
+		closeErr = rc.Close()
+		if closeErr != nil {
+			return closeErr
+		}
 		if err != nil {
 			return fmt.Errorf("unable to copy file content: %v", err)
 		}
@@ -193,7 +206,12 @@ func extractTarFiles(reader io.Reader, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer func(gzr *gzip.Reader) {
+		closeErr := gzr.Close()
+		if closeErr != nil {
+			log.Error(closeErr, "failed to close reader")
+		}
+	}(gzr)
 
 	tr := tar.NewReader(gzr)
 
