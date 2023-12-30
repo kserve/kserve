@@ -70,11 +70,11 @@ parser.add_argument("--predictor_host", default=None, type=str,
                     help="The host name used for calling to the predictor from transformer.")
 # For backwards compatibility.
 parser.add_argument("--protocol", default="v1", type=str,
-                    choices=["v1", "v2", "v2-grpc"],
+                    choices=["v1", "v2", "grpc-v2"],
                     help="The inference protocol used for calling to the predictor from transformer. "
                          "Deprecated and replaced by --predictor_protocol")
 parser.add_argument("--predictor_protocol", default="v1", type=str,
-                    choices=["v1", "v2", "v2-grpc"],
+                    choices=["v1", "v2", "grpc-v2"],
                     help="The inference protocol used for calling to the predictor from transformer.")
 parser.add_argument("--predictor_use_ssl", default=False, type=lambda x: utils.strtobool(x),
                     help="Use ssl for the http connection to the predictor.")
