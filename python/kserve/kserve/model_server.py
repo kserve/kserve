@@ -67,7 +67,6 @@ parser.add_argument("--access_log_format", default=None, type=str,
 parser.add_argument("--model_name", default="model", type=str,
                     help="The name of the model used on the endpoint path.")
 parser.add_argument("--predictor_host", default=None, type=str,
-                    choices=["v1", "v2", "v2-grpc"],
                     help="The host name used for calling to the predictor from transformer.")
 # For backwards compatibility.
 parser.add_argument("--protocol", default="v1", type=str,
@@ -75,6 +74,7 @@ parser.add_argument("--protocol", default="v1", type=str,
                     help="The inference protocol used for calling to the predictor from transformer. "
                          "Deprecated and replaced by --predictor_protocol")
 parser.add_argument("--predictor_protocol", default="v1", type=str,
+                    choices=["v1", "v2", "v2-grpc"],
                     help="The inference protocol used for calling to the predictor from transformer.")
 parser.add_argument("--predictor_use_ssl", default=False, type=lambda x: utils.strtobool(x),
                     help="Use ssl for the http connection to the predictor.")
