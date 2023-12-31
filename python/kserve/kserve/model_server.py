@@ -38,30 +38,48 @@ from .utils import utils
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
 
-parser = argparse.ArgumentParser(add_help=False)
+parser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+# Model Server Arguments: The arguments are passed to the kserve.ModelServer object
 parser.add_argument("--http_port", default=DEFAULT_HTTP_PORT, type=int,
                     help="The HTTP Port listened to by the model server.")
 parser.add_argument("--grpc_port", default=DEFAULT_GRPC_PORT, type=int,
                     help="The GRPC Port listened to by the model server.")
 parser.add_argument("--workers", default=1, type=int,
-                    help="The number of workers for multi-processing.")
+                    help="The number of uvicorn workers for multi-processing.")
 parser.add_argument("--max_threads", default=4, type=int,
-                    help="The number of max processing threads in each worker.")
+                    help="The max number of gRPC processing threads.")
 parser.add_argument('--max_asyncio_workers', default=None, type=int,
-                    help='Max number of asyncio workers to spawn')
+                    help='The max number of asyncio workers to spawn.')
 parser.add_argument("--enable_grpc", default=True, type=lambda x: utils.strtobool(x),
-                    help="Enable gRPC for the model server")
+                    help="Enable gRPC for the model server.")
 parser.add_argument("--enable_docs_url", default=False, type=lambda x: utils.strtobool(x),
                     help="Enable docs url '/docs' to display Swagger UI.")
 parser.add_argument("--enable_latency_logging", default=True, type=lambda x: utils.strtobool(x),
-                    help="Output a log per request with latency metrics.")
+                    help="Enable a log line per request with preprocess/predict/postprocess latency metrics.")
 parser.add_argument("--configure_logging", default=True, type=lambda x: utils.strtobool(x),
-                    help="Whether to configure KServe and Uvicorn logging")
+                    help="Enable to configure KServe and Uvicorn logging.")
 parser.add_argument("--log_config_file", default=None, type=str,
                     help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
 parser.add_argument("--access_log_format", default=None, type=str,
-                    help="Format to set for the access log (provided by asgi-logger).")
+                    help="The asgi access logging format.")
 
+# Model arguments: The arguments are passed to the kserve.Model object
+parser.add_argument("--model_name", default="model", type=str,
+                    help="The name of the model used on the endpoint path.")
+parser.add_argument("--predictor_host", default=None, type=str,
+                    help="The host name used for calling to the predictor from transformer.")
+# For backwards compatibility.
+parser.add_argument("--protocol", default="v1", type=str,
+                    choices=["v1", "v2", "grpc-v2"],
+                    help="The inference protocol used for calling to the predictor from transformer. "
+                         "Deprecated and replaced by --predictor_protocol")
+parser.add_argument("--predictor_protocol", default="v1", type=str,
+                    choices=["v1", "v2", "grpc-v2"],
+                    help="The inference protocol used for calling to the predictor from transformer.")
+parser.add_argument("--predictor_use_ssl", default=False, type=lambda x: utils.strtobool(x),
+                    help="Use ssl for the http connection to the predictor.")
+parser.add_argument("--predictor_request_timeout_seconds", default=600, type=int,
+                    help="The timeout seconds for the request sent to the predictor.")
 args, _ = parser.parse_known_args()
 
 
@@ -94,7 +112,8 @@ class ModelServer:
                  enable_latency_logging: bool = args.enable_latency_logging,
                  configure_logging: bool = args.configure_logging,
                  log_config: Optional[Union[Dict, str]] = args.log_config_file,
-                 access_log_format: str = args.access_log_format):
+                 access_log_format: str = args.access_log_format,
+                 ):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port

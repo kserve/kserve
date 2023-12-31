@@ -97,7 +97,7 @@ def test_triton_runtime_with_transformer():
                       resources=V1ResourceRequirements(
                           requests={'cpu': '10m', 'memory': '128Mi'},
                           limits={'cpu': '100m', 'memory': '512Mi'}),
-                      args=["--model_name", "cifar10", "--protocol", "grpc-v2"])]
+                      args=["--model_name", "cifar10", "--predictor_protocol", "grpc-v2"])]
     )
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,
