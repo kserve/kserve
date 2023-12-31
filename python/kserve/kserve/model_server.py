@@ -84,23 +84,6 @@ args, _ = parser.parse_known_args()
 
 
 class ModelServer:
-    """KServe ModelServer
-
-    Args:
-        http_port (int): HTTP port. Default: ``8080``.
-        grpc_port (int): GRPC port. Default: ``8081``.
-        workers (int): Number of workers for uvicorn. Default: ``1``.
-        max_threads (int): Max number of processing threads. Default: ``4``
-        max_asyncio_workers (int): Max number of AsyncIO threads. Default: ``None``
-        registered_models (ModelRepository): Model repository with registered models.
-        enable_grpc (bool): Whether to turn on grpc server. Default: ``True``
-        enable_docs_url (bool): Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
-        enable_latency_logging (bool): Whether to log latency metric. Default: ``True``.
-        configure_logging (bool): Whether to configure KServe and Uvicorn logging. Default: ``True``.
-        log_config (dict or str): File path or dict containing log config. Default: ``None``.
-        access_log_format (string): Format to set for the access log (provided by asgi-logger). Default: ``None``
-    """
-
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers,
@@ -114,6 +97,22 @@ class ModelServer:
                  log_config: Optional[Union[Dict, str]] = args.log_config_file,
                  access_log_format: str = args.access_log_format,
                  ):
+        """KServe ModelServer Constructor
+
+        Args:
+            http_port: HTTP port. Default: ``8080``.
+            grpc_port: GRPC port. Default: ``8081``.
+            workers: Number of uvicorn workers. Default: ``1``.
+            max_threads: Max number of gRPC processing threads. Default: ``4``
+            max_asyncio_workers: Max number of AsyncIO threads. Default: ``None``
+            registered_models: Model repository with registered models.
+            enable_grpc: Whether to turn on grpc server. Default: ``True``
+            enable_docs_url: Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
+            enable_latency_logging: Whether to log latency metric. Default: ``True``.
+            configure_logging: Whether to configure KServe and Uvicorn logging. Default: ``True``.
+            log_config: File path or dict containing log config. Default: ``None``.
+            access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``
+        """
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -143,6 +142,11 @@ class ModelServer:
         self.access_log_format = access_log_format
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
+        """ Start the model server with a set of registered models.
+
+        Args:
+            models: a list of models to register to the model server.
+        """
         if isinstance(models, list):
             for model in models:
                 if isinstance(model, Model):
@@ -217,6 +221,8 @@ class ModelServer:
         asyncio.run(servers_task())
 
     async def stop(self, sig: Optional[int] = None):
+        """ Stop the instances of REST and gRPC model servers.
+        """
         logger.info("Stopping the model server")
         if self._rest_server:
             logger.info("Stopping the rest server")

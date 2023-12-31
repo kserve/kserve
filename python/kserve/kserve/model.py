@@ -63,6 +63,14 @@ class PredictorConfig:
                  predictor_protocol: str = PredictorProtocol.REST_V1.value,
                  predictor_use_ssl: bool = False,
                  predictor_request_timeout_seconds: int = 600):
+        """ The configuration for the http call to the predictor
+
+        Args:
+            predictor_host: The host name of the predictor
+            predictor_protocol: The inference protocol used for predictor http call
+            predictor_use_ssl: Enable using ssl for http connection to the predictor
+            predictor_request_timeout_seconds: The request timeout seconds for the predictor http call
+        """
         self.predictor_host = predictor_host
         self.predictor_protocol = predictor_protocol
         self.predictor_use_ssl = predictor_use_ssl
@@ -73,10 +81,11 @@ class Model:
     def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
         """KServe Model Public Interface
 
-        Model is intended to be subclassed by various components within KServe.
+        Model is intended to be subclassed to implement the model handlers.
 
         Args:
-            name (str): Name of the model.
+            name: The name of the model.
+            predictor_config: The configurations for http call to the predictor.
         """
         self.name = name
         self.ready = False
@@ -99,9 +108,9 @@ class Model:
         """Method to call predictor or explainer with the given input.
 
         Args:
-            body (Dict|CloudEvent|InferRequest): Request payload body.
-            model_type (ModelType): Model type enum. Can be either predictor or explainer.
-            headers (Dict): Request headers.
+            body: Request body.
+            model_type: ModelType enum: `ModelType.PREDICTOR` or `ModelType.EXPLAINER`.
+            headers: Request headers.
 
         Returns:
             Dict: Response output from preprocess -> predictor/explainer -> postprocess
@@ -184,8 +193,8 @@ class Model:
         return payload
 
     def load(self) -> bool:
-        """Load handler can be overridden to load the model from storage
-        ``self.ready`` flag is used for model health check
+        """Load handler can be overridden to load the model from storage.
+        The `self.ready` should be set to True after the model is loaded. The flag is used for model health check.
 
         Returns:
             bool: True if model is ready, False otherwise
@@ -211,32 +220,33 @@ class Model:
 
     async def preprocess(self, payload: Union[Dict, InferRequest],
                          headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
-        """`preprocess` handler can be overridden for data or feature transformation.
-        The default implementation decodes to Dict if it is a binary CloudEvent
-        or gets the data field from a structured CloudEvent.
+        """ `preprocess` handler can be overridden for data or feature transformation.
+        The model decodes the request body to `Dict` for v1 endpoints and `InferRequest` for v2 endpoints.
 
         Args:
-            payload (Dict|InferRequest): Body of the request, v2 endpoints pass InferRequest.
-            headers (Dict): Request headers.
+            payload: Payload of the request.
+            headers: Request headers.
 
         Returns:
-            Dict|InferRequest: Transformed inputs to ``predict`` handler or return InferRequest for predictor call.
+            A Dict or InferRequest in KServe Model Transformer mode which is transmitted on the wire to predictor.
+            Tensors in KServe Predictor mode which is passed to predict handler for performing the inference.
         """
 
         return payload
 
-    async def postprocess(self, response: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
+    async def postprocess(self, result: Union[Dict, InferResponse], headers: Dict[str, str] = None) \
             -> Union[Dict, InferResponse]:
-        """The postprocess handler can be overridden for inference response transformation.
+        """ The `postprocess` handler can be overridden for inference result or response transformation.
+        The predictor sends back the inference result in `Dict` for v1 endpoints and `InferResponse` for v2 endpoints.
 
         Args:
-            response (Dict|InferResponse|ModelInferResponse): The response passed from ``predict`` handler.
-            headers (Dict): Request headers.
+            result: The inference result passed from `predict` handler or the HTTP response from predictor.
+            headers: Request headers.
 
         Returns:
-            Dict: post-processed response.
+            A Dict or InferResponse after post-process to return back to the client.
         """
-        return response
+        return result
 
     async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
         protocol = "https" if self.use_ssl else "http"
@@ -289,15 +299,18 @@ class Model:
 
     async def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest],
                       headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
-        """
+        """ The `predict` handler can be overridden for performing the inference.
+            By default, the predict handler makes call to predictor for the inference step.
 
         Args:
-            payload (Dict|InferRequest|ModelInferRequest): Prediction inputs passed from ``preprocess`` handler.
-            headers (Dict): Request headers.
+            payload: Model inputs passed from `preprocess` handler.
+            headers: Request headers.
 
         Returns:
-            Dict|InferResponse|ModelInferResponse: Return InferResponse for serializing the prediction result or
-            return the response from the predictor call.
+            Inference result or a Response from the predictor.
+
+        Raises:
+            HTTPStatusError when getting back an error response from the predictor.
         """
         if not self.predictor_host:
             raise NotImplementedError("Could not find predictor_host.")
@@ -311,22 +324,24 @@ class Model:
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.
-        The default implementation makes call to the explainer if ``explainer_host`` is specified
+        The default implementation makes call to the explainer if ``explainer_host`` is specified.
 
         Args:
-            payload (Dict): Dict passed from preprocess handler.
-            headers (Dict): Request headers.
+            payload: Explainer model inputs passed from preprocess handler.
+            headers: Request headers.
 
         Returns:
-            Dict: Response from the explainer.
+            An Explanation for the inference result.
+
+        Raises:
+            HTTPStatusError when getting back an error response from the explainer.
         """
         if self.explainer_host is None:
             raise NotImplementedError("Could not find explainer_host.")
 
         protocol = "https" if self.use_ssl else "http"
+        # Currently explainer only supports the kserve v1 endpoints
         explain_url = EXPLAINER_URL_FORMAT.format(protocol, self.explainer_host, self.name)
-        if self.protocol == PredictorProtocol.REST_V2.value:
-            explain_url = EXPLAINER_V2_URL_FORMAT.format(protocol, self.explainer_host, self.name)
         response = await self._http_client.post(
             url=explain_url,
             timeout=self.timeout,
