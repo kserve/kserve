@@ -276,6 +276,27 @@ class GenerateRequest(BaseModel):
         }
 
 
+class TokenOutput(BaseModel):
+    """Token Output Model
+
+    """
+    id: str
+    logprod: float
+    special: bool
+    text: str
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "id": "267",
+                "logprod": -2.0723474,
+                "special": False,
+                "text": " a",
+            }
+        }
+
+
 class GenerateResponse(BaseModel):
     """GenerateResponse Model
 
@@ -289,6 +310,7 @@ class GenerateResponse(BaseModel):
     text_output: str
     model_name: str
     model_version: Optional[str]
+    outputs: Optional[List[TokenOutput]]
 
     class Config:
         json_loads = orjson.loads
@@ -296,5 +318,13 @@ class GenerateResponse(BaseModel):
             "example": {
                 "text_output": "Tell me about the AI",
                 "model_name": "bloom7b1",
+                "outputs": [
+                    {
+                        "id": "267",
+                        "logprod": -2.0723474,
+                        "special": False,
+                        "text": " a",
+                    }
+                ]
             }
         }

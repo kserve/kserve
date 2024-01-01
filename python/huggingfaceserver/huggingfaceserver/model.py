@@ -17,7 +17,7 @@ from threading import Thread
 
 from torch import Tensor
 
-from kserve.protocol.rest.v2_datamodels import GenerateRequest
+from kserve.protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
 from .AsyncGenerateOutput import AsyncGenerateStream
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
@@ -195,7 +195,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 raise InferenceError(str(e))
 
     def postprocess(self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any] = None) \
-            -> Union[Dict, InferResponse]:
+            -> Union[Dict, InferResponse, GenerateResponse]:
         inferences = []
         if self.task == MLTask.sequence_classification.value:
             num_rows, num_cols = outputs.shape
@@ -220,7 +220,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             if context.get("streaming", "false") == "true":
                 return outputs
             else:
-                inferences = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+                outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+                return outputs
         else:
             raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
         return get_predict_response(context["payload"], inferences, self.name)

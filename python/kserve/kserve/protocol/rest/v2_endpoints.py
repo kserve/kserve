@@ -21,7 +21,7 @@ from starlette.responses import StreamingResponse, JSONResponse
 from ..infer_type import InferInput, InferRequest
 from .v2_datamodels import (
     InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
-    ModelMetadataResponse, InferenceResponse, ModelReadyResponse, ListModelsResponse, GenerateRequest
+    ModelMetadataResponse, InferenceResponse, ModelReadyResponse, ListModelsResponse, GenerateRequest, GenerateResponse
 )
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
@@ -165,7 +165,7 @@ class V2Endpoints:
         model_name: str,
         request_body: GenerateRequest,
         model_version: Optional[str] = None
-    ) -> Response:
+    ) -> GenerateResponse:
         """Generate handler.
 
         Args:
@@ -188,22 +188,25 @@ class V2Endpoints:
             raise ModelNotReady(model_name)
 
         request_headers = dict(raw_request.headers)
-        results_generator, response_headers = await self.dataplane.generate(model_name=model_name,
-                                                                            request=request_body,
-                                                                            headers=request_headers)
-        final_output = None
-        async for request_output in results_generator:
-            if await raw_request.is_disconnected():
-                # Abort the request if the client disconnects.
-                # await engine.abort(request_id)
-                return Response(status_code=499)
-            final_output = request_output
+        results, response_headers = await self.dataplane.generate(model_name=model_name,
+                                                                  request=request_body,
+                                                                  headers=request_headers)
 
-        assert final_output is not None
-        prompt = final_output.prompt
-        text_outputs = [prompt + output.text for output in final_output.outputs]
-        ret = {"text_output": text_outputs}
-        return JSONResponse(ret)
+        if isinstance(results, AsyncGenerator):
+            final_output = None
+            async for request_output in results:
+                if await raw_request.is_disconnected():
+                    # Abort the request if the client disconnects.
+                    # await engine.abort(request_id)
+                    return Response(status_code=499)
+                final_output = request_output
+
+            assert final_output is not None
+            prompt = request_body.text_input
+            text_outputs = [prompt + output.text for output in final_output.outputs]
+            return GenerateResponse(text_output=text_outputs[0], model_name=model_name)
+        else:
+            return GenerateResponse(text_output=results[0], model_name=model_name)
 
     async def generate_stream(
         self,
@@ -242,12 +245,19 @@ class V2Endpoints:
 
         async def stream_results() -> AsyncGenerator[bytes, None]:
             async for request_output in results_generator:
-                prompt = request_output.prompt
-                text_outputs = [
-                    prompt + output.text for output in request_output.outputs
-                ]
-                ret = {"text_output": text_outputs}
-                yield (json.dumps(ret) + "\0").encode("utf-8")
+                prompt = request_body.text_input
+                if hasattr(request_output, "outputs"):
+                    # process GenerateResponse
+                    text_outputs = [
+                        prompt + output.text for output in request_output.outputs
+                    ]
+                    ret = GenerateResponse(text_output=text_outputs[0], model_name=model_name,
+                                           outputs=request_output.outputs)
+                else:
+                    if request_output is None:
+                        request_output = ""
+                    ret = GenerateResponse(text_output=request_output, model_name=model_name)
+                yield (json.dumps(ret.json()) + "\0").encode("utf-8")
 
         return StreamingResponse(stream_results())
 

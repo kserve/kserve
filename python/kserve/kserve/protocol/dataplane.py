@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from importlib import metadata
-from typing import Dict, Union, Tuple, Optional, Any
+from typing import Dict, Union, Tuple, Optional, Any, AsyncIterator, List
 
 import cloudevents.exceptions as ce
 import orjson
@@ -22,7 +22,7 @@ from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
 
-from .rest.v2_datamodels import GenerateRequest
+from .rest.v2_datamodels import GenerateRequest, GenerateResponse
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import InferenceVerb
@@ -329,7 +329,7 @@ class DataPlane:
             model_name: str,
             request: Union[Dict, GenerateRequest],
             headers: Optional[Dict[str, str]] = None
-    ) -> Tuple[Any, Dict[str, str]]:
+    ) -> Tuple[Union[List[str], AsyncIterator[Any]], Dict[str, str]]:
         """Generate the text with the provided text prompt.
 
         Args:
@@ -338,9 +338,8 @@ class DataPlane:
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
-            vllm.RequestOutput:
-                - response: The generate result.
-                - response_headers: Headers to construct the HTTP response.
+            response: The generated output or output stream.
+            response_headers: Headers to construct the HTTP response.
 
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
@@ -369,7 +368,7 @@ class DataPlane:
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if isinstance(model, RayServeSyncHandle):
-            response = ray.get(model.remote(request, verb_type=InferenceVerb.EXPLAIN))
+            response = ray.get(model.remote(request, verb=InferenceVerb.EXPLAIN))
         elif isinstance(model, (RayServeHandle, DeploymentHandle)):
             response = await model.remote(request, verb=InferenceVerb.EXPLAIN)
         else:

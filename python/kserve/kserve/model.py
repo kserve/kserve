@@ -32,6 +32,7 @@ from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
                                                 ModelInferResponse)
 from .protocol.infer_type import InferRequest, InferResponse
+from .protocol.rest.v2_datamodels import GenerateResponse
 
 PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
 EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
@@ -105,7 +106,7 @@ class Model:
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        verb: InferenceVerb = InferenceVerb.PREDICT,
-                       headers: Dict[str, str] = None) -> Dict:
+                       headers: Dict[str, str] = None) -> Union[Dict, InferResponse, List[str]]:
         """Method to call predictor or explainer with the given input.
 
         Args:

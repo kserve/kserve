@@ -174,7 +174,7 @@ def get_predict_input(payload: Union[Dict, InferRequest], columns: List = None) 
             return input.as_numpy()
 
 
-def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.ndarray, pd.DataFrame],
+def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.ndarray, List, pd.DataFrame],
                          model_name: str) -> Union[Dict, InferResponse]:
     if isinstance(payload, Dict):
         infer_outputs = result
