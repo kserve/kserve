@@ -25,7 +25,7 @@ from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandl
 from .rest.v2_datamodels import GenerateRequest
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
-from ..model import ModelType
+from ..model import InferenceVerb
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
@@ -334,7 +334,7 @@ class DataPlane:
 
         Args:
             model_name (str): Model name.
-            request (bytes|Dict): Generate Request body data.
+            request (bytes|GenerateRequest): Generate Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
@@ -346,7 +346,7 @@ class DataPlane:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = self.get_model(model_name)
-        response = await model(request, headers=headers)
+        response = await model(request, headers=headers, verb=InferenceVerb.GENERATE)
         return response, headers
 
     async def explain(self, model_name: str,
@@ -369,9 +369,9 @@ class DataPlane:
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if isinstance(model, RayServeSyncHandle):
-            response = ray.get(model.remote(request, model_type=ModelType.EXPLAINER))
+            response = ray.get(model.remote(request, verb_type=InferenceVerb.EXPLAIN))
         elif isinstance(model, (RayServeHandle, DeploymentHandle)):
-            response = await model.remote(request, model_type=ModelType.EXPLAINER)
+            response = await model.remote(request, verb=InferenceVerb.EXPLAIN)
         else:
-            response = await model(request, model_type=ModelType.EXPLAINER)
+            response = await model(request, verb=InferenceVerb.EXPLAIN)
         return response, headers

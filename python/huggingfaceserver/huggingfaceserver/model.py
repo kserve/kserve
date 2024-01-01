@@ -11,10 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import uuid
+from threading import Thread
 
 from torch import Tensor
 
+from kserve.protocol.rest.v2_datamodels import GenerateRequest
+from .AsyncGenerateOutput import AsyncGenerateStream
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
 import pathlib
@@ -24,14 +28,16 @@ from kserve.errors import InferenceError, InvalidInput
 from kserve.storage import Storage
 
 from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
-from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve.utils.utils import get_predict_response
 from kserve import Model
 import torch
+
 try:
     from vllm.outputs import RequestOutput
     from vllm.sampling_params import SamplingParams
     from vllm.engine.arg_utils import AsyncEngineArgs
     from vllm.vllm_async_engine import AsyncLLMEngine
+
     _vllm = True
 except ImportError:
     _vllm = False
@@ -128,11 +134,11 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.ready = True
         return self.ready
 
-    def preprocess(self, payload: Union[Dict, InferRequest], context: Dict[str, Any] = None) -> \
+    def preprocess(self, payload: Union[Dict, InferRequest, GenerateRequest], context: Dict[str, Any] = None) -> \
             Union[BatchEncoding, InferRequest]:
-        text_inputs = get_predict_input(payload)
+        text_input = payload.text_input
         inputs = self.tokenizer(
-            text_inputs,
+            text_input,
             max_length=self.max_length,
             add_special_tokens=self.add_special_tokens,
             return_tensors="pt",
@@ -152,15 +158,25 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             return inputs
 
     async def generate(self, input_batch: BatchEncoding, context: Dict[str, Any] = None) \
-            -> AsyncIterator[Any]:
-        parameters = context["payload"]["parameters"]
-        prompt = context["payload"]["text_input"]
-        sampling_params = SamplingParams(**parameters)
+            -> Union[Tensor, AsyncIterator[Any]]:
+        parameters = context["payload"].parameters
+        prompt = context["payload"].text_input
         request_id = str(uuid.uuid4())
-        results_generator = self.engine.generate(prompt, sampling_params=sampling_params,
-                                                 prompt_token_ids=input_batch["input_ids"],
-                                                 request_id=request_id)
-        return results_generator
+        if _vllm:
+            sampling_params = SamplingParams(**parameters)
+            results_generator = self.engine.generate(prompt, sampling_params=sampling_params,
+                                                     prompt_token_ids=input_batch["input_ids"],
+                                                     request_id=request_id)
+            return results_generator
+        else:
+            if context.get("streaming", "false") == "true":
+                streamer = AsyncGenerateStream(self.tokenizer)
+                generation_kwargs = dict(**input_batch, streamer=streamer)
+                thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
+                thread.start()
+                return streamer
+            else:
+                return self.model.generate(**input_batch)
 
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
@@ -205,7 +221,10 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 predictions = torch.argmax(output, dim=2)
                 inferences.append(predictions.tolist())
         elif self.task == MLTask.text_generation.value or self.task == MLTask.text2text_generation.value:
-            inferences = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+            if context.get("streaming", "false") == "true":
+                return outputs
+            else:
+                inferences = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
         else:
             raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
         return get_predict_response(context["payload"], inferences, self.name)

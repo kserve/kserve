@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2024 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@ import kserve
 from kserve.errors import ModelMissingError
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
-parser.add_argument('--model_name', required=False,
-                    help='A URI pointer to the model binary')
+
 parser.add_argument('--model_dir', required=False,
                     help='A URI pointer to the model binary')
 parser.add_argument('--model_id', required=False,

@@ -255,14 +255,12 @@ class GenerateRequest(BaseModel):
 
         $generate_request =
         {
-          "id" : $string,
-          "parameters" : $parameters #optional,
+          "text_input" : $string,
+          "parameters" : $string #optional,
         }
     """
-    prompt: Optional[str]
+    text_input: str
     parameters: Optional[Parameters] = None
-    inputs: List[RequestInput]
-    outputs: Optional[List[RequestOutput]] = None
 
     class Config:
         json_loads = orjson.loads
@@ -274,5 +272,29 @@ class GenerateRequest(BaseModel):
                         "temperature": 0.8,
                         "top_p": 0.9,
                     }
+            }
+        }
+
+
+class GenerateResponse(BaseModel):
+    """GenerateResponse Model
+
+        $generate_response =
+        {
+          "text_output" : $string,
+          "model_name" : $string,
+          "model_version" : $string #optional,
+        }
+    """
+    text_output: str
+    model_name: str
+    model_version: Optional[str]
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "text_output": "Tell me about the AI",
+                "model_name": "bloom7b1",
             }
         }

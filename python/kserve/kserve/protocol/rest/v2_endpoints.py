@@ -235,6 +235,7 @@ class V2Endpoints:
             raise ModelNotReady(model_name)
 
         request_headers = dict(raw_request.headers)
+        request_headers["streaming"] = "true"
         results_generator, response_headers = await self.dataplane.generate(model_name=model_name,
                                                                             request=request_body,
                                                                             headers=request_headers)
