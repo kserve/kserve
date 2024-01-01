@@ -16,7 +16,7 @@ from typing import Optional, Dict, AsyncGenerator
 
 from fastapi.requests import Request
 from fastapi.responses import Response
-from starlette.responses import StreamingResponse, JSONResponse
+from starlette.responses import StreamingResponse
 
 from ..infer_type import InferInput, InferRequest
 from .v2_datamodels import (

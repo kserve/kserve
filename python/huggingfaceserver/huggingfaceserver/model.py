@@ -18,7 +18,7 @@ from threading import Thread
 from torch import Tensor
 
 from kserve.protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
-from .AsyncGenerateOutput import AsyncGenerateStream
+from .async_generate_stream import AsyncGenerateStream
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
 import pathlib

@@ -22,7 +22,7 @@ from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
 
-from .rest.v2_datamodels import GenerateRequest, GenerateResponse
+from .rest.v2_datamodels import GenerateRequest
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import InferenceVerb
