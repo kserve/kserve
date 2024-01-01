@@ -78,7 +78,6 @@ class PredictorConfig:
         self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
 
 
-
 class Model:
     def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
         """KServe Model Public Interface

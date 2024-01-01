@@ -33,11 +33,8 @@ from kserve import Model
 import torch
 
 try:
-    from vllm.outputs import RequestOutput
     from vllm.sampling_params import SamplingParams
-    from vllm.engine.arg_utils import AsyncEngineArgs
     from vllm.vllm_async_engine import AsyncLLMEngine
-
     _vllm = True
 except ImportError:
     _vllm = False
@@ -190,8 +187,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                     if self.task == MLTask.text2text_generation.value:
                         outputs = self.model.generate(**input_batch)
                     elif self.task == MLTask.text_generation:
-                        raise InvalidInput(f"text generation is not supported for predict endpoint, "
-                                           f"use generate endpoint instead")
+                        raise InvalidInput("text generation is not supported for predict/infer endpoint")
                     else:
                         outputs = self.model(**input_batch).logits
                     return outputs
