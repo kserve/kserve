@@ -206,7 +206,7 @@ class V2Endpoints:
             text_outputs = [prompt + output.text for output in final_output.outputs]
             return GenerateResponse(text_output=text_outputs[0], model_name=model_name)
         else:
-            return GenerateResponse(text_output=results[0], model_name=model_name)
+            return results
 
     async def generate_stream(
         self,

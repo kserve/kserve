@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from importlib import metadata
-from typing import Dict, Union, Tuple, Optional, Any, AsyncIterator, List
+from typing import Dict, Union, Tuple, Optional, Any, AsyncIterator
 
 import cloudevents.exceptions as ce
 import orjson
@@ -22,7 +22,7 @@ from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
 
-from .rest.v2_datamodels import GenerateRequest
+from .rest.v2_datamodels import GenerateRequest, GenerateResponse
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import InferenceVerb
@@ -329,7 +329,7 @@ class DataPlane:
             model_name: str,
             request: Union[Dict, GenerateRequest],
             headers: Optional[Dict[str, str]] = None
-    ) -> Tuple[Union[List[str], AsyncIterator[Any]], Dict[str, str]]:
+    ) -> Tuple[Union[GenerateResponse, AsyncIterator[Any]], Dict[str, str]]:
         """Generate the text with the provided text prompt.
 
         Args:
@@ -345,7 +345,7 @@ class DataPlane:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = self.get_model(model_name)
-        response = await model(request, headers=headers, verb=InferenceVerb.GENERATE)
+        response = await model.generate(request, headers=headers)
         return response, headers
 
     async def explain(self, model_name: str,

@@ -15,7 +15,7 @@
 import inspect
 import time
 from enum import Enum
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union, Optional, AsyncIterator, Any
 
 import grpc
 import httpx
@@ -32,6 +32,7 @@ from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
                                                 ModelInferResponse)
 from .protocol.infer_type import InferRequest, InferResponse
+from .protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
 
 PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
 EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
@@ -142,12 +143,6 @@ class Model:
                 start = time.time()
                 response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(payload, headers)
-                predict_ms = get_latency_ms(start, time.time())
-        elif verb == InferenceVerb.GENERATE:
-            with PREDICT_HIST_TIME.labels(**prom_labels).time():
-                start = time.time()
-                response = (await self.generate(payload, headers)) if inspect.iscoroutinefunction(self.generate) \
-                    else self.generate(payload, headers)
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
@@ -329,12 +324,12 @@ class Model:
             # return an InferResponse if this is REST V2, otherwise just return the dictionary
             return InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
 
-    async def generate(self, payload: Union[Dict, InferRequest, ModelInferRequest],
-                       headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
+    async def generate(self, payload: GenerateRequest,
+                       headers: Dict[str, str] = None) -> Union[GenerateResponse, AsyncIterator[Any]]:
         """`generate` handler can be overridden to implement text generation.
 
         """
-        return payload
+        raise NotImplementedError("generate is not implemented")
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.

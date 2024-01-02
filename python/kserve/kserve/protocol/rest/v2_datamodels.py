@@ -280,8 +280,8 @@ class TokenOutput(BaseModel):
     """Token Output Model
 
     """
-    id: str
-    logprod: float
+    id: int
+    logprob: float
     special: bool
     text: str
 
@@ -289,8 +289,8 @@ class TokenOutput(BaseModel):
         json_loads = orjson.loads
         schema_extra = {
             "example": {
-                "id": "267",
-                "logprod": -2.0723474,
+                "id": 267,
+                "logprob": -2.0723474,
                 "special": False,
                 "text": " a",
             }
