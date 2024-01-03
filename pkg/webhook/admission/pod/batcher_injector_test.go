@@ -75,7 +75,6 @@ func TestBatcherInjector(t *testing.T) {
 						constants.BatcherInternalAnnotationKey:             "true",
 						constants.BatcherMaxBatchSizeInternalAnnotationKey: "32",
 						constants.BatcherMaxLatencyInternalAnnotationKey:   "5000",
-						constants.BatcherTimeoutInternalAnnotationKey:      "60",
 					},
 					Labels: map[string]string{
 						"serving.kserve.io/inferenceservice": "sklearn",
@@ -97,7 +96,6 @@ func TestBatcherInjector(t *testing.T) {
 						constants.BatcherInternalAnnotationKey:             "true",
 						constants.BatcherMaxBatchSizeInternalAnnotationKey: "32",
 						constants.BatcherMaxLatencyInternalAnnotationKey:   "5000",
-						constants.BatcherTimeoutInternalAnnotationKey:      "60",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -113,8 +111,6 @@ func TestBatcherInjector(t *testing.T) {
 								"32",
 								BatcherArgumentMaxLatency,
 								"5000",
-								BatcherArgumentTimeout,
-								"60",
 							},
 							Resources: batcherResourceRequirement,
 						},

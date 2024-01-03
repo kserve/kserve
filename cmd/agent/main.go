@@ -66,7 +66,6 @@ var (
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
 	maxLatency    = flag.String("max-latency", "5000", "Max Latency in milliseconds")
-	timeout       = flag.String("timeout", "1", "Batcher timeout in milliseconds")
 	// probing flags
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
 	// This creates an abstract socket instead of an actual file.
@@ -111,7 +110,6 @@ type loggerArgs struct {
 type batcherArgs struct {
 	maxBatchSize int
 	maxLatency   int
-	timeout      int
 }
 
 func main() {
@@ -232,16 +230,9 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 		os.Exit(1)
 	}
 
-	batcherTimeout, err := strconv.Atoi(*timeout)
-	if err != nil || batcherTimeout <= 0 {
-		logger.Error(errors.New("Invalid batcher timeout"), *timeout)
-		os.Exit(1)
-	}
-
 	return &batcherArgs{
 		maxLatency:   maxLatencyInt,
 		maxBatchSize: maxBatchSizeInt,
-		timeout:      batcherTimeout,
 	}
 }
 
@@ -329,7 +320,7 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	var composedHandler http.Handler = httpProxy
 
 	if batcherArgs != nil {
-		composedHandler = batcher.New(batcherArgs.maxBatchSize, batcherArgs.maxLatency, batcherArgs.timeout, composedHandler, logging)
+		composedHandler = batcher.New(batcherArgs.maxBatchSize, batcherArgs.maxLatency, composedHandler, logging)
 	}
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,

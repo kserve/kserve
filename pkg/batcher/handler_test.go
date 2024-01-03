@@ -76,7 +76,7 @@ func TestBatcher(t *testing.T) {
 	logger.Infof("predictor url %s", predictorSvcUrl)
 	g.Expect(err).To(gomega.BeNil())
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
-	batchHandler := New(32, 50, -1, httpProxy, logger)
+	batchHandler := New(32, 50, httpProxy, logger)
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -116,7 +116,7 @@ func TestBatcherFail(t *testing.T) {
 	logger.Infof("predictor url %s", predictorSvcUrl)
 	g.Expect(err).To(gomega.BeNil())
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
-	batchHandler := New(32, 50, -1, httpProxy, logger)
+	batchHandler := New(32, 50, httpProxy, logger)
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -158,7 +158,7 @@ func TestBatcherDefaults(t *testing.T) {
 	logger.Infof("predictor url %s", predictorSvcUrl)
 	g.Expect(err).To(gomega.BeNil())
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
-	batchHandler := New(-1, -1, -1, httpProxy, logger)
+	batchHandler := New(-1, -1, httpProxy, logger)
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -169,5 +169,4 @@ func TestBatcherDefaults(t *testing.T) {
 	wg.Wait()
 	g.Expect(batchHandler.MaxBatchSize).To(gomega.Equal(MaxBatchSize))
 	g.Expect(batchHandler.MaxLatency).To(gomega.Equal(MaxLatency))
-	g.Expect(batchHandler.Timeout).To(gomega.Equal(Timeout))
 }
