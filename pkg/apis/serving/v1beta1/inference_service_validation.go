@@ -34,7 +34,8 @@ import (
 
 // regular expressions for validation of isvc name
 const (
-	IsvcNameFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+	IsvcNameFmt                         string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+	StorageUriPresentInTransformerError        = "storage uri should not be specified in transformer container"
 )
 
 var (
@@ -62,6 +63,10 @@ func (isvc *InferenceService) ValidateCreate() (admission.Warnings, error) {
 	}
 
 	if err := validateAutoscalerTargetUtilizationPercentage(isvc); err != nil {
+		return allWarnings, err
+	}
+
+	if err := validateCollocationStorageURI(isvc.Spec.Predictor); err != nil {
 		return allWarnings, err
 	}
 
@@ -234,10 +239,25 @@ func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 		target := *compExtSpec.ScaleTarget
 
 		if metric == MetricRPS && target < 1 {
-			return fmt.Errorf("The target for rps should be greater than 1")
+			return fmt.Errorf("the target for rps should be greater than 1")
 		}
 
 	}
 
+	return nil
+}
+
+// validates if transformer container has storage uri or not in collocation of predictor and transformer scenario
+func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
+	for _, container := range predictorSpec.Containers {
+		if container.Name == constants.TransformerContainerName {
+			for _, env := range container.Env {
+				if env.Name == constants.CustomSpecStorageUriEnvVarKey {
+					return fmt.Errorf(StorageUriPresentInTransformerError)
+				}
+			}
+			break
+		}
+	}
 	return nil
 }

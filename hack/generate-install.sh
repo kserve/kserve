@@ -50,6 +50,7 @@ RELEASES=(
     "v0.11.0-rc1"
     "v0.11.0"
     "v0.11.1"
+    "v0.12.0-rc0"
 )
 
 TAG=$1
@@ -65,9 +66,9 @@ KUBEFLOW_INSTALL_PATH=$INSTALL_DIR/kserve_kubeflow.yaml
 RUNTIMES_INSTALL_PATH=$INSTALL_DIR/kserve-cluster-resources.yaml
 
 mkdir -p $INSTALL_DIR
-kustomize build config/default | sed s/:latest/:$TAG/ > $INSTALL_PATH
-kustomize build config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
-kustomize build config/clusterresources | sed s/:latest/:$TAG/ > $RUNTIMES_INSTALL_PATH
+kubectl kustomize config/default | sed s/:latest/:$TAG/ > $INSTALL_PATH
+kubectl kustomize config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
+kubectl kustomize config/clusterresources | sed s/:latest/:$TAG/ > $RUNTIMES_INSTALL_PATH
 
 # Update ingressGateway in inferenceservice configmap as 'kubeflow/kubeflow-gateway'
 yq -i 'select(.metadata.name == "inferenceservice-config").data.ingress |= (fromjson | .ingressGateway = "kubeflow/kubeflow-gateway" | tojson)' $KUBEFLOW_INSTALL_PATH

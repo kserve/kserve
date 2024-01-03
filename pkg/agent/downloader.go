@@ -52,10 +52,15 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 				return errors.Wrapf(err, "failed to download model")
 			}
 			file, createErr := storage.Create(successFile)
-			defer file.Close()
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create success file")
 			}
+			defer func(file *os.File) {
+				err := file.Close()
+				if err != nil {
+					d.Logger.Errorf("Failed to close created file %v", err)
+				}
+			}(file)
 			encodedJson, err := json.Marshal(modelSpec)
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to encode model spec")

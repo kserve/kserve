@@ -473,6 +473,9 @@ spec:
                       x-kubernetes-int-or-string: true
                     type: object
                 type: object
+              timeout:
+                format: int64
+                type: integer
             required:
             - nodes
             type: object

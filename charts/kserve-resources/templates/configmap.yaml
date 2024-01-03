@@ -64,7 +64,10 @@ data:
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
            "cpuLimit": "1",
-           "enableDirectPvcVolumeMount": false
+           "enableDirectPvcVolumeMount": false,
+           "enableModelcar": false,
+           "cpuModelcar": "10m",
+           "memoryModelcar": "15Mi"
        }
      storageInitializer: |-
        {
@@ -86,7 +89,23 @@ data:
            # enableDirectPvcVolumeMount controls whether users can mount pvc volumes directly.
            # if pvc volume is provided in storageuri then the pvc volume is directly mounted to /mnt/models in the user container.
            # rather than symlink it to a shared volume. For more info see https://github.com/kserve/kserve/issues/2737
-           "enableDirectPvcVolumeMount": false
+           "enableDirectPvcVolumeMount": false,
+
+           # enableModelcar enabled allows you to directly access an OCI container image by
+           # using a source URL with an "oci://" schema.
+           "enableModelcar": false,
+
+           # cpuModelcar is the cpu request and limit that is used for the passive modelcar container. It can be
+           # set very low, but should be allowed by any Kubernetes LimitRange that might apply.
+           "cpuModelcar": "10m",
+
+           # cpuModelcar is the memory request and limit that is used for the passive modelcar container. It can be
+           # set very low, but should be allowed by any Kubernetes LimitRange that might apply.
+           "memoryModelcar": "15Mi",
+
+           # uidModelcar is the UID under with which the modelcar process and the main container is running.
+           # Some Kubernetes clusters might require this to be root (0). If not set the user id is left untouched (default)
+           "uidModelcar": 10
        }
 
      # ====================================== CREDENTIALS ======================================
@@ -284,7 +303,9 @@ data:
            "memoryRequest": "1Gi",
            "memoryLimit": "1Gi",
            "cpuRequest": "1",
-           "cpuLimit": "1"
+           "cpuLimit": "1",
+           "maxBatchSize": "32",
+           "maxLatency": "5000"
        }
      batcher: |-
        {
@@ -302,6 +323,12 @@ data:
 
            # cpuLimit is the limits.cpu to set for the batcher container.
            "cpuLimit": "1"
+
+           # maxBatchSize is the default maximum batch size for batcher.
+           "maxBatchSize": "32",
+
+           # maxLatency is the default maximum latency in milliseconds for batcher to wait and collect the batch.
+           "maxLatency": "5000"
        }
 
      # ====================================== AGENT CONFIGURATION ======================================
@@ -340,7 +367,10 @@ data:
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
-           "cpuLimit": "1"
+           "cpuLimit": "1",
+           "headers": {
+             "propagate": []
+           }
        }
      # router is the implementation of inference graph.
      router: |-
@@ -359,6 +389,17 @@ data:
 
            # cpuLimit is the limits.cpu to set for the router container.
            "cpuLimit": "1"
+
+           # Propagate the specified headers to all the steps specified in an InferenceGraph.
+           # You can either specify the exact header names or use [Golang supported regex patterns]
+           # (https://pkg.go.dev/regexp/syntax@go1.21.3#hdr-Syntax) to propagate multiple headers.
+           "headers": {
+             "propagate": [
+                "Authorization",
+                "Test-Header-*",
+                "*Trace-Id*"
+             ]
+           }
        }
 
      # ====================================== DEPLOYMENT CONFIGURATION ======================================
@@ -413,7 +454,9 @@ data:
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "maxBatchSize": "32",
+        "maxLatency": "5000"
     }
   router: |-
     {
@@ -466,7 +509,8 @@ data:
         "ingressClassName" : "{{ .Values.kserve.controller.gateway.ingressGateway.className }}",
         "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}",
         "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
-        "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}"
+        "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
+        "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }}
     }
   logger: |-
     {
@@ -483,7 +527,13 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "enableDirectPvcVolumeMount": false,
+        "caBundleConfigMapName": "{{ .Values.kserve.storage.caBundleConfigMapName }}",
+        "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}",
+        "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
+        "cpuModelcar": "{{ .Values.kserve.storage.cpuModelcar }}",
+        "memoryModelcar": "{{ .Values.kserve.storage.memoryModelcar }}"
     }
   metricsAggregator: |-
     {

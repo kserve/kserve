@@ -117,5 +117,16 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		})
 	}
 
+	customCABundleConfigMap, ok := annotations[InferenceServiceS3CABundleConfigMapAnnotation]
+	if !ok {
+		customCABundleConfigMap = s3Config.S3CABundleConfigMap
+	}
+	if customCABundleConfigMap != "" {
+		envs = append(envs, v1.EnvVar{
+			Name:  AWSCABundleConfigMap,
+			Value: customCABundleConfigMap,
+		})
+	}
+
 	return envs
 }

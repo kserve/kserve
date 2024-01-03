@@ -19,14 +19,11 @@ from pmmlserver import PmmlModel
 import kserve
 from kserve.errors import WorkersShouldBeLessThanMaxWorkersError
 
-DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
-parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
-                    help='The name that the model is served under.')
 args, _ = parser.parse_known_args()
 
 

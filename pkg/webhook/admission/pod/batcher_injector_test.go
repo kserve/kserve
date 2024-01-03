@@ -34,6 +34,8 @@ const (
 	BatcherDefaultCPULimit      = "1"
 	BatcherDefaultMemoryRequest = "200Mi"
 	BatcherDefaultMemoryLimit   = "1Gi"
+	BatcherDefaultMaxBatchSize  = "16"
+	BatcherDefaultMaxLatency    = "2000"
 )
 
 var (
@@ -43,6 +45,8 @@ var (
 		CpuLimit:      BatcherDefaultCPULimit,
 		MemoryRequest: BatcherDefaultMemoryRequest,
 		MemoryLimit:   BatcherDefaultMemoryLimit,
+		MaxBatchSize:  BatcherDefaultMaxBatchSize,
+		MaxLatency:    BatcherDefaultMaxLatency,
 	}
 
 	batcherResourceRequirement = v1.ResourceRequirements{
@@ -118,6 +122,56 @@ func TestBatcherInjector(t *testing.T) {
 				},
 			},
 		},
+		"AddDefaultBatcherConfig": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.BatcherInternalAnnotationKey: "true",
+					},
+					Labels: map[string]string{
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:         "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{
+						Name: "sklearn",
+					}},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+					Annotations: map[string]string{
+						constants.BatcherInternalAnnotationKey:             "true",
+						constants.BatcherMaxBatchSizeInternalAnnotationKey: BatcherDefaultMaxBatchSize,
+						constants.BatcherMaxLatencyInternalAnnotationKey:   BatcherDefaultMaxLatency,
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
+						{
+							Name:  BatcherContainerName,
+							Image: batcherConfig.Image,
+							Args: []string{
+								BatcherArgumentMaxBatchSize,
+								BatcherDefaultMaxBatchSize,
+								BatcherArgumentMaxLatency,
+								BatcherDefaultMaxLatency,
+							},
+							Resources: batcherResourceRequirement,
+						},
+					},
+				},
+			},
+		},
 		"DoNotAddBatcher": {
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -183,6 +237,37 @@ func TestGetBatcherConfigs(t *testing.T) {
 					CpuLimit:      "1",
 					MemoryRequest: "200Mi",
 					MemoryLimit:   "1Gi",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Default Batcher Config",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					BatcherConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/batcher:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi",
+						"MaxBatchSize":  "32",
+						"MaxLatency":    "5000"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&BatcherConfig{
+					Image:         "gcr.io/kfserving/batcher:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					MaxBatchSize:  "32",
+					MaxLatency:    "5000",
 				}),
 				gomega.BeNil(),
 			},

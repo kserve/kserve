@@ -27,7 +27,7 @@ kubectl get events -n kserve-ci-e2e-test
 echo "::endgroup::"
 
 echo "::group::Kserve Controller Logs"
-kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager
+kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager --tail -1
 echo "::endgroup::"
 
 echo "::group::Predictor Pod logs"

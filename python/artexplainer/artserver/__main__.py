@@ -18,15 +18,12 @@ from artserver import ARTModel
 
 import kserve
 
-DEFAULT_MODEL_NAME = "art-explainer"
 DEFAULT_ADVERSARY_TYPE = "SquareAttack"
 
 DEFAULT_MAX_ITER = "1000"
 DEFAULT_NB_CLASSES = "10"
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
-parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
-                    help='The name that the model is served under.')
 parser.add_argument('--adversary_type', default=DEFAULT_ADVERSARY_TYPE,
                     help='What type of adversarial tool to use.')
 parser.add_argument('--max_iter', default=DEFAULT_MAX_ITER,
@@ -34,7 +31,6 @@ parser.add_argument('--max_iter', default=DEFAULT_MAX_ITER,
 parser.add_argument('--nb_classes', default=DEFAULT_NB_CLASSES,
                     help='The number of different classification types.')
 
-parser.add_argument('--predictor_host', help='The host for the predictor', required=True)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":

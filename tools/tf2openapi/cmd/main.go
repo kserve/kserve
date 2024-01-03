@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/golang/protobuf/proto"
 	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
 	"github.com/kserve/kserve/tools/tf2openapi/generator"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 // Known error messages
@@ -91,7 +91,8 @@ func viewAPI(cmd *cobra.Command, args []string) {
 	}
 }
 
-/**
+/*
+*
 Raises errors when model is missing fields that would pose an issue for Schema generation
 */
 func unmarshalSavedModelPb(modelPb []byte) *pb.SavedModel {

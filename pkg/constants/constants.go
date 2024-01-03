@@ -289,19 +289,32 @@ const (
 	ArgumentWorkers        = "--workers"
 )
 
-// InferenceService container name
+// InferenceService container names
 const (
 	InferenceServiceContainerName   = "kserve-container"
 	StorageInitializerContainerName = "storage-initializer"
-)
 
-// Transformer container name in collocation
-const (
+	// TransformerContainerName transformer container name in collocation
 	TransformerContainerName = "transformer-container"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
+
+// Default path to mount CA bundle configmap volume
+const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
+
+// Default name for CA bundle file
+const DefaultCaBundleFileName = "cabundle.crt"
+
+// Default CA bundle configmap name that will be created in the user namespace.
+const DefaultGlobalCaBundleConfigMapName = "global-ca-bundle"
+
+// Custom CA bundle configmap Environment Variables
+const (
+	CaBundleConfigMapNameEnvVarKey   = "CA_BUNDLE_CONFIGMAP_NAME"
+	CaBundleVolumeMountPathEnvVarKey = "CA_BUNDLE_VOLUME_MOUNT_POINT"
+)
 
 // Multi-model InferenceService
 const (

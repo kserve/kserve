@@ -137,6 +137,12 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 			if _, ok = storageDataJson["bucket"]; ok && bucket == "" {
 				bucket = storageDataJson["bucket"]
 			}
+			if cabundle_configmap, ok := storageDataJson["cabundle_configmap"]; ok {
+				container.Env = append(container.Env, v1.EnvVar{
+					Name:  s3.AWSCABundleConfigMap,
+					Value: cabundle_configmap,
+				})
+			}
 		}
 
 		// Pass storage config json as SecretKeyRef env var
