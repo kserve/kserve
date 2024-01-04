@@ -1,0 +1,64 @@
+name: Automated Release
+on:
+  workflow_dispatch:
+    inputs:
+      releaseBranch:
+        description: 'The existing branch name to release from, e.g. release-0.12'
+        required: true
+      releaseTag:
+        description: 'The release tag, e.g. v0.12.0-rc0'
+        required: true
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.releaseBranch }}
+
+      - name: Install dependencies
+        run: |
+          go mod download
+
+      - name: Update Version
+        shell: bash
+        run: |
+          GOPATH=$(go env GOPATH)
+          KSERVE_PATH=$GOPATH/src/github.com/kserve/kserve
+          echo "KSERVE_PATH=$KSERVE_PATH" >> "$GITHUB_ENV"
+          mkdir -p $KSERVE_PATH
+          cp -a . $KSERVE_PATH
+          cd $KSERVE_PATH
+          export RELEASE_BRANCH=${{ inputs.releaseBranch }}
+          export RELEASE_TAG=${{ inputs.releaseTag }}
+          make bump-version
+          ./hack/generate-install.sh $RELEASE_TAG
+          ./hack/python-release.sh
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.releaseBranch }}
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
