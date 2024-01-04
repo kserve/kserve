@@ -23,7 +23,6 @@ import (
 
 	"knative.dev/pkg/kmp"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -32,9 +31,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	istiov1beta1 "istio.io/api/networking/v1beta1"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,17 +68,27 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		}
 		configs = map[string]string{
 			"explainers": `{
-               "alibi": {
-                  "image": "kserve/alibi-explainer",
-			      "defaultImageVersion": "latest"
-               }
-            }`,
+				"alibi": {
+					"image": "kserve/alibi-explainer",
+					"defaultImageVersion": "latest"
+				}
+			}`,
 			"ingress": `{
-               "ingressGateway": "knative-serving/knative-ingress-gateway",
-               "ingressService": "test-destination",
-               "localGateway": "knative-serving/knative-local-gateway",
-               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
-            }`,
+				"ingressGateway": "knative-serving/knative-ingress-gateway",
+				"ingressService": "test-destination",
+				"localGateway": "knative-serving/knative-local-gateway",
+				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+			}`,
+			"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"CaBundleConfigMapName": "",
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"enableDirectPvcVolumeMount": false
+			}`,
 		}
 	)
 	Context("When creating inference service with predictor", func() {
@@ -1126,7 +1137,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					RevisionName:   "revision-v1",
 					Percent:        proto.Int64(100),
 				}}
-			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			Expect(retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				return k8sClient.Status().Update(context.TODO(), updatedService)
 			})).NotTo(gomega.HaveOccurred())
 
@@ -1955,7 +1966,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: "False",
 				},
 			}
-			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			Expect(retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				return k8sClient.Status().Update(context.TODO(), updatedService)
 			})).NotTo(gomega.HaveOccurred())
 
@@ -2085,6 +2096,319 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Scheme: "http",
 				Host:   network.GetServiceHostname(fmt.Sprintf("%s-%s", serviceKey.Name, string(constants.Predictor)), serviceKey.Namespace),
 			}))
+		})
+	})
+	Context("Set CaBundle ConfigMap in inferenceservice-config confimap", func() {
+		It("Should not create a global cabundle configMap in a user namespace when CaBundleConfigMapName set ''", func() {
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			By("By creating a new InferenceService")
+			serviceName := "sample-isvc"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			caBundleConfigMap := &v1.ConfigMap{}
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
+				if err != nil {
+					if apierr.IsNotFound(err) {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+
+		})
+		It("Should not create a global cabundle configmap in a user namespace when the target cabundle configmap in the 'inferenceservice-config' configmap does not exist", func() {
+			// Create configmap
+			copiedConfigs := make(map[string]string)
+			for key, value := range configs {
+				if key == "storageInitializer" {
+					copiedConfigs[key] = `{
+							"image" : "kserve/storage-initializer:latest",
+							"memoryRequest": "100Mi",
+							"memoryLimit": "1Gi",
+							"cpuRequest": "100m",
+							"cpuLimit": "1",
+							"CaBundleConfigMapName": "not-exist-configmap",
+							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+							"enableDirectPvcVolumeMount": false						
+					}`
+				} else {
+					copiedConfigs[key] = value
+				}
+			}
+
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: copiedConfigs,
+			}
+
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			By("By creating a new InferenceService")
+			serviceName := "sample-isvc-2"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			caBundleConfigMap := &v1.ConfigMap{}
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
+				if err != nil {
+					if apierr.IsNotFound(err) {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+
+		})
+		It("Should not create a global cabundle configmap in a user namespace when the cabundle.crt file data does not exist in the target cabundle configmap in the 'inferenceservice-config' configmap", func() {
+			// Create configmap
+			copiedConfigs := make(map[string]string)
+			for key, value := range configs {
+				if key == "storageInitializer" {
+					copiedConfigs[key] = `{
+							"image" : "kserve/storage-initializer:latest",
+							"memoryRequest": "100Mi",
+							"memoryLimit": "1Gi",
+							"cpuRequest": "100m",
+							"cpuLimit": "1",
+							"CaBundleConfigMapName": "test-cabundle-with-wrong-file-name",
+							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+							"enableDirectPvcVolumeMount": false						
+					}`
+				} else {
+					copiedConfigs[key] = value
+				}
+			}
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: copiedConfigs,
+			}
+
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create original cabundle configmap with wrong file name
+			cabundleConfigMapData := make(map[string]string)
+			cabundleConfigMapData["wrong-cabundle-name.crt"] = "SAMPLE_CA_BUNDLE"
+			var originalCabundleConfigMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cabundle-with-wrong-file-name",
+					Namespace: constants.KServeNamespace,
+				},
+				Data: cabundleConfigMapData,
+			}
+
+			Expect(k8sClient.Create(context.TODO(), originalCabundleConfigMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), originalCabundleConfigMap)
+
+			By("By creating a new InferenceService")
+			serviceName := "sample-isvc-3"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			caBundleConfigMap := &v1.ConfigMap{}
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
+				if err != nil {
+					if apierr.IsNotFound(err) {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+		})
+
+		It("Should create a global cabundle configmap in a user namespace when it meets all conditions and an inferenceservice is created", func() {
+			// Create configmap
+			copiedConfigs := make(map[string]string)
+			for key, value := range configs {
+				if key == "storageInitializer" {
+					copiedConfigs[key] = `{
+					"image" : "kserve/storage-initializer:latest",
+					"memoryRequest": "100Mi",
+					"memoryLimit": "1Gi",
+					"cpuRequest": "100m",
+					"cpuLimit": "1",
+					"CaBundleConfigMapName": "test-cabundle-with-right-file-name",
+					"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+					"enableDirectPvcVolumeMount": false						
+			}`
+				} else {
+					copiedConfigs[key] = value
+				}
+			}
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: copiedConfigs,
+			}
+
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			//Create original cabundle configmap with right file name
+			cabundleConfigMapData := make(map[string]string)
+			// cabundle data
+			cabundleConfigMapData["cabundle.crt"] = "SAMPLE_CA_BUNDLE"
+			var originalCabundleConfigMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cabundle-with-right-file-name",
+					Namespace: constants.KServeNamespace,
+				},
+				Data: cabundleConfigMapData,
+			}
+
+			Expect(k8sClient.Create(context.TODO(), originalCabundleConfigMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), originalCabundleConfigMap)
+
+			By("By creating a new InferenceService")
+			serviceName := "sample-isvc-4"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			caBundleConfigMap := &v1.ConfigMap{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.DefaultGlobalCaBundleConfigMapName, Namespace: "default"}, caBundleConfigMap)
+				if err != nil {
+					if apierr.IsNotFound(err) {
+						return false
+					}
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 })

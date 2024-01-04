@@ -37,7 +37,7 @@ def test_tensorflow_kserve():
         tensorflow=V1beta1TFServingSpec(
             storage_uri='gs://kfserving-examples/models/tensorflow/flowers',
             resources=V1ResourceRequirements(
-                requests={'cpu': '10m', 'memory': '128Mi'},
+                requests={'cpu': '10m', 'memory': '256Mi'},
                 limits={'cpu': '100m', 'memory': '512Mi'}
             )
         )
@@ -73,8 +73,8 @@ def test_tensorflow_runtime_kserve():
             ),
             storage_uri='gs://kfserving-examples/models/tensorflow/flowers',
             resources=V1ResourceRequirements(
-                requests={'cpu': '10m', 'memory': '128Mi'},
-                limits={'cpu': '100m', 'memory': '256Mi'}
+                requests={'cpu': '10m', 'memory': '256Mi'},
+                limits={'cpu': '100m', 'memory': '512Mi'}
             )
         )
     )

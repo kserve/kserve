@@ -15,7 +15,7 @@ kserve = {path = "../../../kserve", develop = true}
 
 [tool.poetry-version-plugin]
 source = "file"
-file_path = "../VERSION"
+file_path = "../../../VERSION"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

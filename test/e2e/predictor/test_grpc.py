@@ -75,7 +75,8 @@ def test_custom_model_grpc():
                         container_port=8081,
                         name="h2c",
                         protocol="TCP"
-                    )]
+                    )],
+                args=["--model_name", model_name]
             )
         ]
     )
