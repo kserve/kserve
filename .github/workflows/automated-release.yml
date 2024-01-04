@@ -41,6 +41,9 @@ jobs:
           make bump-version
           ./hack/generate-install.sh $RELEASE_TAG
           ./hack/python-release.sh
+          git add -A
+          git commit -m "Prepare release"
+          git push origin $RELEASE_BRANCH
   publish-release:
     runs-on: ubuntu-latest
     needs: prepare-release
