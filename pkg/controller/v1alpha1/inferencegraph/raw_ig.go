@@ -19,6 +19,7 @@ package inferencegraph
 import (
 	"encoding/json"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	"github.com/pkg/errors"
@@ -81,8 +82,12 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 /*
 A simple utility to create a basic meta object given name and namespace;  Can be extended to accept labels, annotations as well
 */
-func constructGraphObjectMeta(name string, namespace string, annotations map[string]string,
-	labels map[string]string) metav1.ObjectMeta {
+func constructForRawDeployment(graph *v1alpha1api.InferenceGraph) (metav1.ObjectMeta, v1beta1.ComponentExtensionSpec) {
+
+	name := graph.ObjectMeta.Name
+	namespace := graph.ObjectMeta.Namespace
+	annotations := graph.ObjectMeta.Annotations
+	labels := graph.ObjectMeta.Labels
 
 	if annotations == nil {
 		annotations = make(map[string]string)
@@ -101,7 +106,14 @@ func constructGraphObjectMeta(name string, namespace string, annotations map[str
 		Annotations: annotations,
 	}
 
-	return objectMeta
+	componentExtensionSpec := v1beta1.ComponentExtensionSpec{
+		MaxReplicas: graph.Spec.MaxReplicas,
+		MinReplicas: graph.Spec.MinReplicas,
+		ScaleMetric: (*v1beta1.ScaleMetric)(graph.Spec.ScaleMetric),
+		ScaleTarget: graph.Spec.ScaleTarget,
+	}
+
+	return objectMeta, componentExtensionSpec
 }
 
 /*
@@ -116,10 +128,10 @@ func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme,
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 
-	objectMeta := constructGraphObjectMeta(graph.ObjectMeta.Name, graph.ObjectMeta.Namespace, graph.ObjectMeta.Annotations, graph.ObjectMeta.Labels)
+	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	//create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(cl, scheme, objectMeta, nil, desiredSvc)
+	reconciler, err := raw.NewRawKubeReconciler(cl, scheme, objectMeta, &componentExtSpec, desiredSvc)
 
 	if err != nil {
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")

@@ -73,14 +73,6 @@ const (
 	AgentModelDirArgName  = "--model-dir"
 )
 
-// InferenceGraph Annotations
-var (
-	InferenceGraphMinScaleAnnotationKey = KServeAPIGroupName + "/min-scale"
-	InferenceGraphMaxScaleAnnotationKey = KServeAPIGroupName + "/max-scale"
-	InferenceGraphTargetAnnotationKey   = KServeAPIGroupName + "/target"
-	InferenceGraphMetricsAnnotationKey  = KServeAPIGroupName + "/metrics"
-)
-
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"

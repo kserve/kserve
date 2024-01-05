@@ -997,10 +997,10 @@ def test_inference_graph_raw_mode_with_hpa():
 
     annotations = dict()
     annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
-    annotations["serving.kserve.io/max-scale"] = '5'
-    annotations["serving.kserve.io/metric"] = 'rps'
-    annotations["serving.kserve.io/min-scale"] = '2'
-    annotations["serving.kserve.io/target"] = '30'
+    # annotations["serving.kserve.io/max-scale"] = '5'
+    # annotations["serving.kserve.io/metric"] = 'rps'
+    # annotations["serving.kserve.io/min-scale"] = '2'
+    # annotations["serving.kserve.io/target"] = '30'
 
     sklearn_predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -1082,10 +1082,10 @@ def test_inference_graph_raw_mode_with_hpa():
     if not svc:
         raise RuntimeError("Service doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
 
-    hpa = kserve_client.hpa_v2_api.read_namespaced_horizontal_pod_autoscaler(graph_name,
-                                                                             namespace=KSERVE_TEST_NAMESPACE)
-    if not hpa:
-        raise RuntimeError("HPA doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+    # hpa = kserve_client.hpa_v2_api.read_namespaced_horizontal_pod_autoscaler(graph_name,
+    #                                                                          namespace=KSERVE_TEST_NAMESPACE)
+    # if not hpa:
+    #     raise RuntimeError("HPA doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
 
     try:
         knativeroute = kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",

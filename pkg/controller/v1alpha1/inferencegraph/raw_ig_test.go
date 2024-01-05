@@ -19,6 +19,7 @@ package inferencegraph
 import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -254,92 +255,156 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 
 func TestConstructGraphObjectMeta(t *testing.T) {
 	type args struct {
-		name        string
-		namespace   string
-		annotations map[string]string
-		labels      map[string]string
+		graph *InferenceGraph
 	}
+
+	type metaAndExt struct {
+		objectMeta   metav1.ObjectMeta
+		componentExt v1beta1.ComponentExtensionSpec
+	}
+
+	cpuResource := v1beta1.MetricCPU
 
 	scenarios := []struct {
 		name     string
 		args     args
-		expected metav1.ObjectMeta
+		expected metaAndExt
 	}{
 		{
 			name: "Basic Inference graph",
 			args: args{
-				name:      "basic-ig",
-				namespace: "basic-ig-namespace",
-			},
-			expected: metav1.ObjectMeta{
-				Name:      "basic-ig",
-				Namespace: "basic-ig-namespace",
-				Labels: map[string]string{
-					"serving.kserve.io/inferencegraph": "basic-ig",
+				graph: &InferenceGraph{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "basic-ig",
+						Namespace: "basic-ig-namespace",
+					},
 				},
-				Annotations: map[string]string{},
+			},
+			expected: metaAndExt{
+				objectMeta: metav1.ObjectMeta{
+					Name:      "basic-ig",
+					Namespace: "basic-ig-namespace",
+					Labels: map[string]string{
+						"serving.kserve.io/inferencegraph": "basic-ig",
+					},
+					Annotations: map[string]string{},
+				},
+
+				componentExt: v1beta1.ComponentExtensionSpec{
+					MaxReplicas: 0,
+					MinReplicas: nil,
+					ScaleMetric: nil,
+					ScaleTarget: nil,
+				},
 			},
 		},
 		{
-			name: "Inference graph with annotations",
+			name: "Inference graph with annotations , min and max replicas ",
 			args: args{
-				name:      "basic-ig",
-				namespace: "basic-ig-namespace",
-				annotations: map[string]string{
-					"test": "test",
+				graph: &InferenceGraph{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "basic-ig",
+						Namespace: "basic-ig-namespace",
+						Annotations: map[string]string{
+							"test": "test",
+						},
+					},
+					Spec: InferenceGraphSpec{
+						MinReplicas: v1beta1.GetIntReference(2),
+						MaxReplicas: 5,
+					},
 				},
 			},
-			expected: metav1.ObjectMeta{
-				Name:      "basic-ig",
-				Namespace: "basic-ig-namespace",
-				Labels: map[string]string{
-					"serving.kserve.io/inferencegraph": "basic-ig",
+			expected: metaAndExt{
+				objectMeta: metav1.ObjectMeta{
+					Name:      "basic-ig",
+					Namespace: "basic-ig-namespace",
+					Labels: map[string]string{
+						"serving.kserve.io/inferencegraph": "basic-ig",
+					},
+					Annotations: map[string]string{
+						"test": "test",
+					},
 				},
-				Annotations: map[string]string{
-					"test": "test",
+
+				componentExt: v1beta1.ComponentExtensionSpec{
+					MaxReplicas: 5,
+					MinReplicas: v1beta1.GetIntReference(2),
+					ScaleMetric: nil,
+					ScaleTarget: nil,
 				},
 			},
 		},
 		{
 			name: "Inference graph with labels",
 			args: args{
-				name:      "basic-ig",
-				namespace: "basic-ig-namespace",
-				labels: map[string]string{
-					"test": "test",
+				graph: &InferenceGraph{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "basic-ig",
+						Namespace: "basic-ig-namespace",
+						Labels: map[string]string{
+							"test": "test",
+						},
+					},
 				},
 			},
-			expected: metav1.ObjectMeta{
-				Name:      "basic-ig",
-				Namespace: "basic-ig-namespace",
-				Labels: map[string]string{
-					"serving.kserve.io/inferencegraph": "basic-ig",
-					"test":                             "test",
+			expected: metaAndExt{
+				objectMeta: metav1.ObjectMeta{
+					Name:      "basic-ig",
+					Namespace: "basic-ig-namespace",
+					Labels: map[string]string{
+						"serving.kserve.io/inferencegraph": "basic-ig",
+						"test":                             "test",
+					},
+					Annotations: map[string]string{},
 				},
-				Annotations: map[string]string{},
+				componentExt: v1beta1.ComponentExtensionSpec{
+					MaxReplicas: 0,
+					MinReplicas: nil,
+					ScaleMetric: nil,
+					ScaleTarget: nil,
+				},
 			},
 		},
 		{
 			name: "Inference graph with annotations and labels",
 			args: args{
-				name:      "basic-ig",
-				namespace: "basic-ig-namespace",
-				annotations: map[string]string{
-					"test": "test",
-				},
-				labels: map[string]string{
-					"test": "test",
+				graph: &InferenceGraph{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "basic-ig",
+						Namespace: "basic-ig-namespace",
+						Annotations: map[string]string{
+							"test": "test",
+						},
+						Labels: map[string]string{
+							"test": "test",
+						},
+					},
+					Spec: InferenceGraphSpec{
+						MinReplicas: v1beta1.GetIntReference(5),
+						MaxReplicas: 10,
+						ScaleTarget: v1beta1.GetIntReference(50),
+						ScaleMetric: (*ScaleMetric)(&cpuResource),
+					},
 				},
 			},
-			expected: metav1.ObjectMeta{
-				Name:      "basic-ig",
-				Namespace: "basic-ig-namespace",
-				Labels: map[string]string{
-					"serving.kserve.io/inferencegraph": "basic-ig",
-					"test":                             "test",
+			expected: metaAndExt{
+				objectMeta: metav1.ObjectMeta{
+					Name:      "basic-ig",
+					Namespace: "basic-ig-namespace",
+					Labels: map[string]string{
+						"serving.kserve.io/inferencegraph": "basic-ig",
+						"test":                             "test",
+					},
+					Annotations: map[string]string{
+						"test": "test",
+					},
 				},
-				Annotations: map[string]string{
-					"test": "test",
+				componentExt: v1beta1.ComponentExtensionSpec{
+					MinReplicas: v1beta1.GetIntReference(5),
+					MaxReplicas: 10,
+					ScaleTarget: v1beta1.GetIntReference(50),
+					ScaleMetric: &cpuResource,
 				},
 			},
 		},
@@ -347,8 +412,11 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 
 	for _, tt := range scenarios {
 		t.Run(tt.name, func(t *testing.T) {
-			result := constructGraphObjectMeta(tt.args.name, tt.args.namespace, tt.args.annotations, tt.args.labels)
-			if diff := cmp.Diff(tt.expected, result); diff != "" {
+			objMeta, componentExt := constructForRawDeployment(tt.args.graph)
+			if diff := cmp.Diff(tt.expected.objectMeta, objMeta); diff != "" {
+				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
+			}
+			if diff := cmp.Diff(tt.expected.componentExt, componentExt); diff != "" {
 				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
 			}
 		})

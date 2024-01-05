@@ -54,18 +54,19 @@ func TestCreateHPA(t *testing.T) {
 				Name:      "basic-ig",
 				Namespace: "basic-ig-namespace",
 				Annotations: map[string]string{
-					"annotation":                  "annotation-value",
-					"serving.kserve.io/max-scale": "5",
-					"serving.kserve.io/metric":    "rps",
-					"serving.kserve.io/min-scale": "2",
-					"serving.kserve.io/target":    "30",
+					"annotation": "annotation-value",
 				},
 				Labels: map[string]string{
 					"label":                            "label-value",
 					"serving.kserve.io/inferencegraph": "basic-ig",
 				},
 			},
-			componentExt: nil,
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				MinReplicas: v1beta1.GetIntReference(2),
+				MaxReplicas: 5,
+				ScaleTarget: v1beta1.GetIntReference(30),
+				ScaleMetric: &cpuResource,
+			},
 		},
 		"predictordefaulthpa": {
 			objectMeta: metav1.ObjectMeta{},
