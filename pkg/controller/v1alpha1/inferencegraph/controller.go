@@ -166,37 +166,58 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	deploymentMode := isvcutils.GetDeploymentMode(graph.ObjectMeta.Annotations, deployConfig)
-	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
+	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.RawDeployment {
-		err := fmt.Errorf("RawDeployment mode is not supported for InferenceGraph")
-		r.Log.Error(err, "name", graph.GetName())
-		return reconcile.Result{}, err
-	}
-	//@TODO check raw deployment mode
-	desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
-	err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, desired)
-	ksvcStatus, err := knativeReconciler.Reconcile()
-	if err != nil {
-		r.Log.Error(err, "failed to reconcile inference graph ksvc", "name", graph.GetName())
-		return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph ksvc")
-	}
+		//Create inference graph resources such as deployment, service, hpa in raw deployment mode
+		deployment, url, err := handleInferenceGraphRawDeployment(r.Client, r.Scheme, graph, routerConfig)
 
-	r.Log.Info("updating inference graph status", "status", ksvcStatus)
-	graph.Status.Conditions = ksvcStatus.Status.Conditions
-	//@TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status
-	for _, con := range ksvcStatus.Status.Conditions {
-		if con.Type == apis.ConditionReady {
-			if con.Status == "True" {
-				graph.Status.URL = ksvcStatus.URL
-			} else {
-				graph.Status.URL = nil
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw deployment")
+		}
+
+		r.Log.Info("Inference graph raw", "deployment conditions", deployment.Status.Conditions)
+		igAvailable := false
+		for _, con := range deployment.Status.Conditions {
+			if con.Type == appsv1.DeploymentAvailable {
+				igAvailable = true
+				break
+			}
+		}
+		if !igAvailable {
+			//If Deployment resource not yet available, IG is not available as well. Reconcile again.
+			return reconcile.Result{Requeue: true}, errors.Wrapf(err,
+				"Failed to find inference graph deployment  %s", graph.Name)
+		}
+		logger.Info("Inference graph raw before propagate status")
+		PropagateRawStatus(&graph.Status, deployment, url)
+	} else {
+		//@TODO check raw deployment mode
+		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
+		err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, desired)
+		ksvcStatus, err := knativeReconciler.Reconcile()
+		if err != nil {
+			r.Log.Error(err, "failed to reconcile inference graph ksvc", "name", graph.GetName())
+			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph ksvc")
+		}
+
+		r.Log.Info("updating inference graph status", "status", ksvcStatus)
+		graph.Status.Conditions = ksvcStatus.Status.Conditions
+		//@TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status
+		for _, con := range ksvcStatus.Status.Conditions {
+			if con.Type == apis.ConditionReady {
+				if con.Status == "True" {
+					graph.Status.URL = ksvcStatus.URL
+				} else {
+					graph.Status.URL = nil
+				}
 			}
 		}
 	}
+
 	if err := r.updateStatus(graph); err != nil {
 		r.Recorder.Eventf(graph, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
