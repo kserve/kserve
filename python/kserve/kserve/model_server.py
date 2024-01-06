@@ -130,6 +130,9 @@ class ModelServer:
         if self.enable_grpc:
             self._grpc_server = GRPCServer(grpc_port, self.dataplane,
                                            self.model_repository_extension)
+        DataPlane.predictor_host = args.predictor_host
+        DataPlane.predictor_protocol = args.predictor_protocol
+        DataPlane.predictor_use_ssl = args.predictor_use_ssl
 
         # Logs can be passed as a path to a file or a dictConfig.
         # We rely on Uvicorn to configure the loggers for us.
