@@ -239,6 +239,9 @@ class ModelServer:
                 logging.configure_logging(args.log_config_file)
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
+        DataPlane.predictor_host = args.predictor_host
+        DataPlane.predictor_protocol = args.predictor_protocol
+        DataPlane.predictor_use_ssl = args.predictor_use_ssl
 
     async def _serve_rest(self):
         logger.info(f"Starting uvicorn with {self.workers} workers")
