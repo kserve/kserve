@@ -642,3 +642,12 @@ class TestTFHttpServerModelNotReady:
         resp = http_server_client.post('/v1/models/TestModel:explain',
                                        data=b'{"instances":[[1,2]]}')
         assert resp.status_code == 503
+
+
+class TestWithUnhealthModel:
+    def test_with_not_ready_model(self):
+        model=DummyNeverReadyModel("Dummy")
+        server = ModelServer()
+        with pytest.raises(NoModelReady) as exc_info:
+            server.start([model])
+        assert exc_info.type == NoModelReady
