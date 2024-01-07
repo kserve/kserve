@@ -15,6 +15,7 @@
 import asyncio
 import unittest
 
+from kserve.model import PredictorConfig
 from .task import MLTask
 from .model import HuggingfaceModel
 
@@ -35,6 +36,17 @@ def test_bert():
     response = asyncio.run(model({"instances": ["The capital of France is [MASK].",
                                                 "The capital of [MASK] is paris."]}, headers={}))
     assert response == {"predictions": ["paris", "france"]}
+
+
+def test_bert_predictor_host():
+    model = HuggingfaceModel("bert", {"model_id": "bert-base-uncased",
+                                      "tensor_input_names": "input_ids",
+                                      "do_lower_case": True}, predictor_config=PredictorConfig(
+        predictor_host="localhost:8081", predictor_protocol="v2"))
+    model.load()
+
+    response = asyncio.run(model({"instances": ["The capital of France is [MASK]."]}, headers={}))
+    assert response == {"predictions": ["paris"]}
 
 
 def test_bert_sequence_classification():

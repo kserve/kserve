@@ -17,12 +17,13 @@ from threading import Thread
 
 from torch import Tensor
 
+from kserve.model import PredictorConfig
 from kserve.protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse, TokenOutput
 from .async_generate_stream import AsyncGenerateStream
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
 import pathlib
-from typing import Dict, Union, Any, AsyncIterator
+from typing import Dict, Union, Any, AsyncIterator, Optional
 
 from kserve.errors import InferenceError
 from kserve.storage import Storage
@@ -46,8 +47,9 @@ from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokeni
 
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
-    def __init__(self, model_name, kwargs, engine_args=None):
-        super().__init__(model_name)
+    def __init__(self, model_name: str, kwargs,
+                 engine_args=None, predictor_config: Optional[PredictorConfig] = None):
+        super().__init__(model_name, predictor_config)
         if kwargs is None:
             kwargs = {}
         self.kwargs = {}
@@ -63,11 +65,10 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             assert world_size == tp_degree, f"TP degree ({tp_degree}) doesn't match available GPUs ({world_size})"
         self.model_id = kwargs.get('model_id', None)
         self.model_dir = kwargs.get('model_dir', None)
-        self.predictor_host = kwargs.get('predictor_host', None)
         self.do_lower_case = kwargs.get('do_lower_case', True)
         self.add_special_tokens = kwargs.get('add_special_tokens', True)
         self.max_length = kwargs.get('max_length', None)
-        self.enable_streaming = kwargs.get('enable_streaming', False)
+        self.tensor_input_names = kwargs.get('tensor_input_names', None)
         self.task = kwargs.get('task', None)
         self.tokenizer = None
         self.model = None
@@ -136,9 +137,10 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             context["input_ids"] = inputs["input_ids"]
             infer_inputs = []
             for key, input_tensor in inputs.items():
-                infer_input = InferInput(name=key, datatype=input_tensor.dtype,
-                                         shape=list(input_tensor.shape), data=input_tensor)
-                infer_inputs.append(infer_input)
+                if (not self.tensor_input_names) or (key in self.tensor_input_names):
+                    infer_input = InferInput(name=key, datatype=input_tensor.dtype,
+                                             shape=list(input_tensor.shape), data=input_tensor)
+                    infer_inputs.append(infer_input)
             infer_request = InferRequest(infer_inputs=infer_inputs, model_name=self.name)
             return infer_request
         else:
@@ -172,6 +174,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             if headers.get("streaming", "false") == "true":
                 streamer = AsyncGenerateStream(self.tokenizer)
                 generation_kwargs = dict(**input_batch, streamer=streamer)
+                # TODO change to use thread pool executor
                 thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
                 thread.start()
                 return streamer
@@ -202,6 +205,13 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
     def postprocess(self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any] = None) \
             -> Union[Dict, InferResponse]:
+        input_ids = context["input_ids"]
+        request = context["payload"]
+        if isinstance(outputs, InferResponse):
+            shape = torch.Size(outputs.outputs[0].shape)
+            data = torch.Tensor(outputs.outputs[0].data)
+            outputs = data.view(shape)
+            input_ids = torch.Tensor(input_ids)
         inferences = []
         if self.task == MLTask.sequence_classification.value:
             num_rows, num_cols = outputs.shape
@@ -209,24 +219,24 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 out = outputs[i].unsqueeze(0)
                 predicted_idx = out.argmax().item()
                 inferences.append(predicted_idx)
-            return get_predict_response(context["payload"], inferences, self.name)
+            return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.fill_mask.value:
             num_rows = outputs.shape[0]
             for i in range(num_rows):
-                mask_pos = (context["input_ids"] == self.tokenizer.mask_token_id)[i]
+                mask_pos = (input_ids == self.tokenizer.mask_token_id)[i]
                 mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
                 predicted_token_id = outputs[i, mask_token_index].argmax(axis=-1)
                 inferences.append(self.tokenizer.decode(predicted_token_id))
-            return get_predict_response(context["payload"], inferences, self.name)
+            return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.token_classification.value:
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 output = outputs[i].unsqueeze(0)
                 predictions = torch.argmax(output, dim=2)
                 inferences.append(predictions.tolist())
-            return get_predict_response(context["payload"], inferences, self.name)
+            return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.text_generation.value or self.task == MLTask.text2text_generation.value:
             outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            return get_predict_response(context["payload"], outputs, self.name)
+            return get_predict_response(request, outputs, self.name)
         else:
             raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")

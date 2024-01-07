@@ -319,10 +319,13 @@ class InferRequest:
         """
         infer_inputs = []
         for infer_input in self.inputs:
+            datatype = infer_input.datatype
+            if isinstance(infer_input.datatype, numpy.dtype):
+                datatype = from_np_dtype(infer_input.datatype)
             infer_input_dict = {
                 "name": infer_input.name,
                 "shape": infer_input.shape,
-                "datatype": infer_input.datatype
+                "datatype": datatype
             }
             if isinstance(infer_input.data, numpy.ndarray):
                 infer_input.set_data_from_numpy(infer_input.data, binary_data=False)

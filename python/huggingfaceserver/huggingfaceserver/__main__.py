@@ -15,9 +15,15 @@
 import argparse
 import logging
 
+from kserve.model import PredictorConfig
 from . import HuggingfaceModel, HuggingfaceModelRepository
 import kserve
 from kserve.errors import ModelMissingError
+
+
+def list_of_strings(arg):
+    return arg.split(',')
+
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 
@@ -33,10 +39,13 @@ parser.add_argument('--do_lower_case', type=bool, default=True,
                     help='do lower case for the tokenizer')
 parser.add_argument('--add_special_tokens', type=bool, default=True,
                     help='the sequences will be encoded with the special tokens relative to their model')
-parser.add_argument('--task', required=False,  help="The ML task name")
+parser.add_argument('--tensor_input_names', type=list_of_strings, default=None,
+                    help='the tensor input names passed to the model')
+parser.add_argument('--task', required=False, help="The ML task name")
 
 try:
     from vllm.engine.arg_utils import AsyncEngineArgs
+
     parser = AsyncEngineArgs.add_cli_args(parser)
     _vllm = True
 except ImportError:
@@ -45,7 +54,12 @@ args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     engine_args = AsyncEngineArgs.from_cli_args(args) if _vllm else None
-    model = HuggingfaceModel(args.model_name, vars(args), engine_args)
+    predictor_config = PredictorConfig(args.predictor_host, args.predictor_protocol,
+                                       args.predictor_use_ssl,
+                                       args.predictor_request_timeout_seconds)
+    model = HuggingfaceModel(args.model_name,
+                             predictor_config=predictor_config,
+                             kwargs=vars(args), engine_args=engine_args)
     try:
         model.load()
     except ModelMissingError:
