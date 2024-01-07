@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 from ray import serve
 
 from kserve import Model, ModelServer, ModelRepository
-from kserve.errors import InvalidInput
+from kserve.errors import InvalidInput, NoModelReady
 from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
 
