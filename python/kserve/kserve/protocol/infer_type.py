@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import struct
 from typing import Optional, List, Dict, Union
 
 import numpy
@@ -20,13 +20,50 @@ import pandas as pd
 import uuid
 
 from google.protobuf.internal.containers import MessageMap
-from tritonclient.utils import serialize_byte_tensor
 
 from ..constants.constants import GRPC_CONTENT_DATATYPE_MAPPINGS
 from ..errors import InvalidInput, InferenceError
 from ..protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, InferTensorContents, ModelInferResponse, \
     InferParameter
 from ..utils.numpy_codec import to_np_dtype, from_np_dtype
+
+
+def serialize_byte_tensor(input_tensor: numpy.ndarray):
+    """
+    Serializes a bytes tensor into a flat numpy array of length prepended
+    bytes. The numpy array should use dtype of np.object_. For np.bytes_,
+    numpy will remove trailing zeros at the end of byte sequence and because
+    of this it should be avoided.
+    Args:
+        input_tensor : np.array of the bytes tensor to serialize.
+    Returns:
+        serialized_bytes_tensor : The 1-D numpy array of type uint8 containing the serialized bytes in 'C' order.
+    """
+
+    if input_tensor.size == 0:
+        return ()
+
+    # If the input is a tensor of string/bytes objects, then must flatten those
+    # into a 1-dimensional array containing the 4-byte byte size followed by the
+    # actual element bytes. All elements are concatenated together in "C" order.
+    if (input_tensor.dtype == np.object_) or (input_tensor.dtype.type == np.bytes_):
+        flattened_ls = []
+        for obj in np.nditer(input_tensor, flags=["refs_ok"], order="C"):
+            # If directly passing bytes to BYTES type,
+            # don't convert it to str as Python will encode the
+            # bytes which may distort the meaning
+            if input_tensor.dtype == np.object_:
+                if type(obj.item()) == bytes:
+                    s = obj.item()
+                else:
+                    s = str(obj.item()).encode("utf-8")
+            else:
+                s = obj.item()
+            flattened_ls.append(struct.pack("<I", len(s)))
+            flattened_ls.append(s)
+        flattened = b"".join(flattened_ls)
+        return flattened
+    return None
 
 
 class InferInput:
