@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import StrEnum, auto
+from enum import auto, Enum
 
 
-class MLTask(StrEnum):
+class MLTask(str, Enum):
     """
     Task defines the common ML tasks using Huggingface Transformer Models
     """

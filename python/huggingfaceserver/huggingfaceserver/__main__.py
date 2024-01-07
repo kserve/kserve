@@ -21,21 +21,20 @@ from kserve.errors import ModelMissingError
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 
-parser.add_argument('--model_dir', required=False,
+parser.add_argument('--model_dir', required=False, default="/mnt/models",
                     help='A URI pointer to the model binary')
 parser.add_argument('--model_id', required=False,
                     help='Huggingface model id')
-parser.add_argument('--enable_streaming', type=bool, default=False,
-                    help='enable streaming mode')
 parser.add_argument('--tensor_parallel_degree', type=int, default=-1,
                     help='tensor parallel degree')
 parser.add_argument('--max_length', type=int, default=None,
-                    help='max sequence length')
+                    help='max sequence length for the tokenizer')
 parser.add_argument('--do_lower_case', type=bool, default=True,
-                    help='do lower case')
+                    help='do lower case for the tokenizer')
 parser.add_argument('--add_special_tokens', type=bool, default=True,
                     help='the sequences will be encoded with the special tokens relative to their model')
-parser.add_argument('--task', required=False,  help="The task name")
+parser.add_argument('--task', required=False,  help="The ML task name")
+
 try:
     from vllm.engine.arg_utils import AsyncEngineArgs
     parser = AsyncEngineArgs.add_cli_args(parser)
@@ -45,7 +44,6 @@ except ImportError:
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    print(args)
     engine_args = AsyncEngineArgs.from_cli_args(args) if _vllm else None
     model = HuggingfaceModel(args.model_name, vars(args), engine_args)
     try:
