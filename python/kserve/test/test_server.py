@@ -646,7 +646,7 @@ class TestTFHttpServerModelNotReady:
 
 class TestWithUnhealthModel:
     def test_with_not_ready_model(self):
-        model=DummyNeverReadyModel("Dummy")
+        model = DummyNeverReadyModel("Dummy")
         server = ModelServer()
         with pytest.raises(NoModelReady) as exc_info:
             server.start([model])
