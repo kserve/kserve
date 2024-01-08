@@ -50,26 +50,6 @@ jobs:
           git config --global user.name "terrytangyuan"
           git add -A
           git commit -m "Prepare release"
-          set -e
           git push
           git tag ${{ inputs.releaseTag }}
           git push origin ${{ inputs.releaseTag }}
-
-  publish-release:
-    runs-on: ubuntu-latest
-    needs: prepare-release
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: 1.21
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v4
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
