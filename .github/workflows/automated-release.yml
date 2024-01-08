@@ -27,7 +27,7 @@ jobs:
         run: |
           go mod download
 
-      - name: Update Version
+      - name: Prepare Release
         shell: bash
         run: |
           GOPATH=$(go env GOPATH)
@@ -41,9 +41,16 @@ jobs:
           make bump-version
           ./hack/generate-install.sh $RELEASE_TAG
           ./hack/python-release.sh
+
+      - name: Update Release Branch
+        run: |-
+          git diff
+          git config --global user.email "terrytangyuan@gmail.com"
+          git config --global user.name "terrytangyuan"
           git add -A
-          git commit -m "Prepare release"
-          git push origin $RELEASE_BRANCH
+          git commit -m "Prepare release" || exit 0
+          git push
+
   publish-release:
     runs-on: ubuntu-latest
     needs: prepare-release
