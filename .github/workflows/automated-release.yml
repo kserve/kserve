@@ -42,7 +42,7 @@ jobs:
           ./hack/generate-install.sh $RELEASE_TAG
           ./hack/python-release.sh
 
-      - name: Update Release Branch
+      - name: Update Release Branch and Push Tag
         run: |-
           git diff
           git config --global user.email "terrytangyuan@gmail.com"
@@ -50,6 +50,8 @@ jobs:
           git add -A
           git commit -m "Prepare release" || exit 0
           git push
+          git tag ${{ inputs.releaseTag }}
+          git push origin ${{ inputs.releaseTag }}
 
   publish-release:
     runs-on: ubuntu-latest
@@ -57,9 +59,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ inputs.releaseBranch }}
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
