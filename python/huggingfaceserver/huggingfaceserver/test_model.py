@@ -14,6 +14,7 @@
 
 import asyncio
 import unittest
+from pytest_httpx import HTTPXMock
 
 from kserve.model import PredictorConfig
 from .task import MLTask
@@ -38,7 +39,11 @@ def test_bert():
     assert response == {"predictions": ["paris", "france"]}
 
 
-def test_bert_predictor_host():
+def test_bert_predictor_host(httpx_mock: HTTPXMock):
+    httpx_mock.add_response(json={"outputs": [{"name": "OUTPUT__0", "shape": [1, 9, 758],
+                                               "data": [1] * 9 * 758,
+                                               "datatype": "INT64"}]})
+
     model = HuggingfaceModel("bert", {"model_id": "bert-base-uncased",
                                       "tensor_input_names": "input_ids",
                                       "do_lower_case": True}, predictor_config=PredictorConfig(
@@ -46,7 +51,7 @@ def test_bert_predictor_host():
     model.load()
 
     response = asyncio.run(model({"instances": ["The capital of France is [MASK]."]}, headers={}))
-    assert response == {"predictions": ["paris"]}
+    assert response == {"predictions": ["[PAD]"]}
 
 
 def test_bert_sequence_classification():
