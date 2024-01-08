@@ -6,8 +6,9 @@ on:
         description: 'The existing branch name to release from, e.g. release-0.12'
         required: true
       releaseTag:
-        description: 'The release tag, e.g. v0.12.0-rc0'
+        description: 'The release tag, e.g. v0.12.0-rc1'
         required: true
+
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
@@ -38,18 +39,25 @@ jobs:
           cd $KSERVE_PATH
           export RELEASE_BRANCH=${{ inputs.releaseBranch }}
           export RELEASE_TAG=${{ inputs.releaseTag }}
+          
+          # Bump Versions
           make bump-version
           ./hack/generate-install.sh $RELEASE_TAG
           ./hack/python-release.sh
-
-      - name: Update Release Branch and Push Tag
-        run: |-
-          set +e
+          
+          # Update Release Branch and Push Tag
           git diff
           git config --global user.email "terrytangyuan@gmail.com"
           git config --global user.name "terrytangyuan"
           git add -A
-          git commit -m "Prepare release"
+          git commit -m "Prepare release" || exit 0
           git push
-          git tag ${{ inputs.releaseTag }}
-          git push origin ${{ inputs.releaseTag }}
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: ${{ contains(github.ref, 'rc') }}
+          target_commitish: ${{ inputs.releaseBranch }}
+          tag_name: ${{ inputs.releaseTag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
