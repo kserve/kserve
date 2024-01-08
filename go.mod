@@ -107,8 +107,8 @@ require (
 	golang.org/x/net v0.18.0 // indirect
 	golang.org/x/oauth2 v0.14.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
-	golang.org/x/sys v0.14.0 // indirect
-	golang.org/x/term v0.14.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/term v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.4.0 // indirect
 	golang.org/x/tools v0.15.0 // indirect
@@ -129,3 +129,9 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
+
+// The crypto is pulled from go/compute which is pulled by go/storage
+// this replace can be removed when version 1.36.1 of go/storage is released.
+// https://github.com/googleapis/google-cloud-go/tree/main/storage
+// Fixes CVE-2023-48795 - golang.org/x/crypto Authentication Bypass by Capture-replay
+replace golang.org/x/crypto => golang.org/x/crypto v0.17.0
