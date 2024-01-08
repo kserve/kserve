@@ -56,7 +56,7 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          prerelease: ${{ contains(github.ref, 'rc') }}
+          prerelease: ${{ contains(inputs.releaseTag, 'rc') }}
           target_commitish: ${{ inputs.releaseBranch }}
           tag_name: ${{ inputs.releaseTag }}
         env:
