@@ -44,11 +44,13 @@ jobs:
 
       - name: Update Release Branch and Push Tag
         run: |-
+          set +e
           git diff
           git config --global user.email "terrytangyuan@gmail.com"
           git config --global user.name "terrytangyuan"
           git add -A
-          git commit -m "Prepare release" || exit 0
+          git commit -m "Prepare release"
+          set -e
           git push
           git tag ${{ inputs.releaseTag }}
           git push origin ${{ inputs.releaseTag }}
