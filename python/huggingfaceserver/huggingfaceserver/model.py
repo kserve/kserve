@@ -117,6 +117,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             else:
                 raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
             self.model.eval()
+            self.model.to(self.device)
             logger.info(f"successfully loaded huggingface model from path {model_id_or_path}")
         self.ready = True
         return self.ready
@@ -193,6 +194,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             # like NVIDIA triton inference server
             return await super().predict(input_batch, context)
         else:
+            input_batch = input_batch.to(self.device)
             try:
                 with torch.no_grad():
                     if self.task == MLTask.text2text_generation.value or self.task == MLTask.text_generation:
