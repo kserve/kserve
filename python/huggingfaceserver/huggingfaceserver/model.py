@@ -174,13 +174,13 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             )
             if headers.get("streaming", "false") == "true":
                 streamer = AsyncGenerateStream(self.tokenizer)
-                generation_kwargs = dict(**input_batch, streamer=streamer)
+                generation_kwargs = dict(**input_batch, **parameters, treamer=streamer)
                 # TODO change to use thread pool executor
                 thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
                 thread.start()
                 return streamer
             else:
-                output_ids = self.model.generate(**input_batch)
+                output_ids = self.model.generate(**input_batch, **parameters)
                 outputs = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
                 token_outputs = [TokenOutput(id=output_id, special=False, logprob=0,  # TODO set logprob
                                              text=self.tokenizer.decode(output_id, skip_special_tokens=True))
