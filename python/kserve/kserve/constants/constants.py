@@ -97,3 +97,8 @@ DEFAULT_GRPC_PORT = 8081
 
 # Header containing the json length in case of REST raw response.
 INFERENCE_CONTENT_LENGTH_HEADER = "inference-header-content-length"
+
+
+class ModelType(Enum):
+    EXPLAINER = 1
+    PREDICTOR = 2

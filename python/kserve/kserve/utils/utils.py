@@ -19,6 +19,7 @@ import uuid
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import InferParameter
 from typing import Dict, Union, List
 
+from kserve.protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
 from kserve.utils.numpy_codec import from_np_dtype
 import pandas as pd
 import numpy as np
@@ -29,6 +30,10 @@ from grpc import ServicerContext
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
 from ..constants.constants import PredictorProtocol
 from ..errors import InvalidInput
+
+_channel: Union[grpc.aio.Channel, None] = None
+_grpc_client: Union[GRPCInferenceServiceStub, None] = None
+_http_client: Union[httpx.AsyncClient, None] = None
 
 
 def is_running_in_k8s():

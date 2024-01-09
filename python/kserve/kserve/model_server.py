@@ -164,6 +164,9 @@ parser.add_argument(
     type=int,
     help="The max message length for gRPC receive message.",
 )
+parser.add_argument("--enable_predictor_health_check", default=False, type=lambda x: utils.strtobool(x),
+                    help="The Transformer will perform liveness and readiness check for the predictor in addition to "
+                         "its health check. By default it is enabled if transformer and predictor is collocated.")
 args, _ = parser.parse_known_args()
 
 app = FastAPI(
@@ -242,6 +245,13 @@ class ModelServer:
         DataPlane.predictor_host = args.predictor_host
         DataPlane.predictor_protocol = args.predictor_protocol
         DataPlane.predictor_use_ssl = args.predictor_use_ssl
+
+        # Enable predictor health check if transformer and predictor is collocated
+        if (args.predictor_host is not None and
+                any(val in args.predictor_host.lower() for val in ["localhost", "127.0.0.1"])):
+            DataPlane.predictor_health_check = True
+        else:
+            DataPlane.predictor_health_check = args.enable_predictor_health_check
 
     async def _serve_rest(self):
         logger.info(f"Starting uvicorn with {self.workers} workers")

@@ -19,8 +19,6 @@ from typing import Dict, Optional, Tuple, Union, cast
 from inspect import iscoroutinefunction
 
 import cloudevents.exceptions as ce
-import grpc
-import httpx
 import orjson
 
 from cloudevents.http import CloudEvent, from_http
@@ -29,14 +27,14 @@ from cloudevents.sdk.converters.util import has_binary_headers
 from .rest.v2_datamodels import InferenceRequest
 from ..constants import constants
 from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
-from .grpc import grpc_predict_v2_pb2_grpc
 from .grpc import grpc_predict_v2_pb2 as pb
 from ..model import Model, PredictorProtocol
 from ..errors import InvalidInput, ModelNotFound
 from ..logging import logger
 from ..model import InferenceVerb, BaseKServeModel, InferenceModel
 from ..model_repository import ModelRepository
-from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
+from ..utils.utils import create_response_cloudevent, is_structured_cloudevent, get_grpc_client, get_http_client, \
+    get_liveness_endpoint, get_readiness_endpoint, get_model_ready_endpoint
 from .infer_type import InferRequest, InferResponse
 from .rest.openai import OpenAIModel
 
@@ -51,9 +49,10 @@ JSON_HEADERS = [
 class DataPlane:
     """KServe DataPlane"""
 
-    predictor_host = None
-    predictor_protocol = None
-    predictor_use_ssl = None
+    predictor_host: str = None
+    predictor_protocol: str = None
+    predictor_use_ssl: bool = None
+    predictor_health_check: bool = None
 
     def __init__(self, model_registry: ModelRepository):
         self._model_registry = model_registry
@@ -135,31 +134,19 @@ class DataPlane:
         Returns:
             Dict: {"status": "alive"}
         """
-
-        if DataPlane.predictor_host:
-            predictor_host = DataPlane.predictor_host
+        # If predictor host is present, then it means this is a transformer,
+        # We should also need to check the predictor server's health if predictor health check is enabled.
+        if DataPlane.predictor_health_check and DataPlane.predictor_host:
             if DataPlane.predictor_protocol == PredictorProtocol.GRPC_V2.value:
-                # requires appending the port to the predictor host for gRPC to work
-                if ":" not in predictor_host:
-                    port = 443 if DataPlane.predictor_use_ssl else 80
-                    predictor_host = f"{predictor_host}:{port}"
-                if DataPlane.predictor_use_ssl:
-                    _channel = grpc.aio.secure_channel(predictor_host, grpc.ssl_channel_credentials())
-                else:
-                    _channel = grpc.aio.insecure_channel(predictor_host)
-                async with _channel:
-                    grpc_client = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
-                    res = await grpc_client.ServerLive(pb.ServerLiveRequest())
-                    if not res.live:
-                        return {"status": "error"}
+                grpc_client = get_grpc_client(DataPlane.predictor_host, DataPlane.predictor_use_ssl)
+                res = await grpc_client.ServerLive(pb.ServerLiveRequest())
+                if not res.live:
+                    return {"status": "error"}
             elif (DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value or
                   DataPlane.predictor_protocol == PredictorProtocol.REST_V2.value):
-                scheme = "https" if DataPlane.predictor_use_ssl else "http"
-                url = f"{scheme}://{predictor_host}" \
-                    if DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value \
-                    else f"{scheme}://{predictor_host}/{DataPlane.predictor_protocol}/health/live"
-                async with httpx.AsyncClient() as client:
-                    res = await client.get(url)
+                res = await get_http_client().get(get_liveness_endpoint(DataPlane.predictor_host,
+                                                                        DataPlane.predictor_protocol,
+                                                                        DataPlane.predictor_use_ssl))
                 if DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value:
                     if not res.is_success or res.json().get("status", "error").lower() != "alive":
                         return {"status": "error"}
@@ -250,32 +237,19 @@ class DataPlane:
         Returns:
             bool: True
         """
-        if DataPlane.predictor_host:
-            predictor_host = DataPlane.predictor_host
+        # If predictor host is present, then it means this is a transformer,
+        # We should also need to check the predictor server's health if predictor health check is enabled.
+        if DataPlane.predictor_health_check and DataPlane.predictor_host:
             if DataPlane.predictor_protocol == PredictorProtocol.GRPC_V2.value:
-                # requires appending the port to the predictor host for gRPC to work
-                if ":" not in predictor_host:
-                    port = 443 if DataPlane.predictor_use_ssl else 80
-                    predictor_host = f"{predictor_host}:{port}"
-                if DataPlane.predictor_use_ssl:
-                    _channel = grpc.aio.secure_channel(predictor_host, grpc.ssl_channel_credentials())
-                else:
-                    _channel = grpc.aio.insecure_channel(predictor_host)
-                async with _channel:
-                    grpc_client = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
-                    res = await grpc_client.ServerReady(pb.ServerReadyRequest())
-                    if not res.ready:
-                        return False
+                grpc_client = get_grpc_client(DataPlane.predictor_host, DataPlane.predictor_use_ssl)
+                res = await grpc_client.ServerReady(pb.ServerReadyRequest())
+                if not res.ready:
+                    return False
             elif (DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value or
                   DataPlane.predictor_protocol == PredictorProtocol.REST_V2.value):
-                scheme = "https" if DataPlane.predictor_use_ssl else "http"
-                url = f"{scheme}://{predictor_host}" \
-                    if DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value \
-                    else f"{scheme}://{predictor_host}/{DataPlane.predictor_protocol}/health/ready"
-                async with httpx.AsyncClient() as client:
-                    res = await client.get(url)
-                # Since V1 protocol does not have a server ready endpoint, using server live endpoint to check
-                # predictor server readiness
+                res = await get_http_client().get(get_readiness_endpoint(DataPlane.predictor_host,
+                                                                         DataPlane.predictor_protocol,
+                                                                         DataPlane.predictor_use_ssl))
                 if DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value:
                     if not res.is_success or res.json().get("status", "error").lower() != "alive":
                         return False
@@ -298,31 +272,19 @@ class DataPlane:
         """
 
         # If predictor host is present, then it means this is a transformer,
-        # We should also check the predictor model's health
-        predictor_host = DataPlane.predictor_host
-        if predictor_host:
+        # We should also check the predictor model's health if predictor health check is enabled.
+        if DataPlane.predictor_health_check and DataPlane.predictor_host:
             if DataPlane.predictor_protocol == PredictorProtocol.GRPC_V2.value:
-                # requires appending the port to the predictor host for gRPC to work
-                if ":" not in predictor_host:
-                    port = 443 if DataPlane.predictor_use_ssl else 80
-                    predictor_host = f"{predictor_host}:{port}"
-                if DataPlane.predictor_use_ssl:
-                    _channel = grpc.aio.secure_channel(predictor_host, grpc.ssl_channel_credentials())
-                else:
-                    _channel = grpc.aio.insecure_channel(predictor_host)
-                async with _channel:
-                    grpc_client = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
-                    res = await grpc_client.ModelReady(pb.ModelReadyRequest(name=model_name))
-                    if not res.ready:
-                        return False
+                grpc_client = get_grpc_client(DataPlane.predictor_host, DataPlane.predictor_use_ssl)
+                res = await grpc_client.ModelReady(pb.ModelReadyRequest(name=model_name))
+                if not res.ready:
+                    return False
             elif (DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value or
                   DataPlane.predictor_protocol == PredictorProtocol.REST_V2.value):
-                scheme = "https" if DataPlane.predictor_use_ssl else "http"
-                url = f"{scheme}://{predictor_host}/{DataPlane.predictor_protocol}/models/{model_name}" \
-                    if DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value \
-                    else f"{scheme}://{predictor_host}/{DataPlane.predictor_protocol}/models/{model_name}/ready"
-                async with httpx.AsyncClient() as client:
-                    res = await client.get(url)
+                res = await get_http_client().get(get_model_ready_endpoint(DataPlane.predictor_host,
+                                                                           DataPlane.predictor_protocol,
+                                                                           DataPlane.predictor_use_ssl,
+                                                                           model_name))
                 # Need to convert the response to str, because v2 endpoint returns a bool value while v1 endpoint
                 # returns a string value.
                 if not res.is_success or str(res.json().get("ready", "False")).lower() == "false":
