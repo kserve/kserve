@@ -21,6 +21,7 @@ from typing import Any, AsyncIterator, Awaitable, Dict, List, Optional, Union
 from cloudevents.http import CloudEvent
 
 from .constants.constants import (
+    ModelType,
     PredictorProtocol,
     PREDICTOR_BASE_URL_FORMAT,
     EXPLAINER_BASE_URL_FORMAT,
