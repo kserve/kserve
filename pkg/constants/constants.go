@@ -451,6 +451,7 @@ func getEnvOrDefault(key string, fallback string) string {
 	return fallback
 }
 
+// nolint: unused
 func isEnvVarMatched(envVar, matchtedValue string) bool {
 	return getEnvOrDefault(envVar, "") == matchtedValue
 }
@@ -530,11 +531,11 @@ func ExplainPath(name string) string {
 }
 
 func PredictPrefix() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+(:predict)?")
+	return "^/v1/models/[\\w-]+(:predict)?"
 }
 
 func ExplainPrefix() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+:explain$")
+	return "^/v1/models/[\\w-]+:explain$"
 }
 
 func VirtualServiceHostname(name string, predictorHostName string) string {

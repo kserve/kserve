@@ -109,7 +109,7 @@ func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 	if ingress, ok := configMap.Data[IngressConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(ingress), &ingressConfig)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse ingress config json: %v", err)
+			return nil, fmt.Errorf("unable to parse ingress config json: %w", err)
 		}
 
 		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
@@ -122,7 +122,7 @@ func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 			// For now simply check that this is a valid template.
 			_, err := template.New("path-template").Parse(ingressConfig.PathTemplate)
 			if err != nil {
-				return nil, fmt.Errorf("Invalid ingress config, unable to parse pathTemplate: %v", err)
+				return nil, fmt.Errorf("Invalid ingress config, unable to parse pathTemplate: %w", err)
 			}
 			if ingressConfig.IngressDomain == "" {
 				return nil, fmt.Errorf("Invalid ingress config - igressDomain is required if pathTemplate is given")
@@ -149,7 +149,7 @@ func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig int
 	if data, ok := configMap.Data[key]; ok {
 		err := json.Unmarshal([]byte(data), componentConfig)
 		if err != nil {
-			return fmt.Errorf("Unable to unmarshall %v json string due to %v ", key, err)
+			return fmt.Errorf("Unable to unmarshall %v json string due to %w ", key, err)
 		}
 	}
 	return nil
@@ -165,7 +165,7 @@ func NewDeployConfig(cli client.Client) (*DeployConfig, error) {
 	if deploy, ok := configMap.Data[DeployConfigName]; ok {
 		err := json.Unmarshal([]byte(deploy), &deployConfig)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse deploy config json: %v", err)
+			return nil, fmt.Errorf("Unable to parse deploy config json: %w", err)
 		}
 
 		if deployConfig.DefaultDeploymentMode == "" {

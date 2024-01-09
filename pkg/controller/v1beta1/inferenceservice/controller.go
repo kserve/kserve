@@ -301,7 +301,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 			For(&v1beta1api.InferenceService{}).
 			Owns(&appsv1.Deployment{}).
 			Complete(r)
-	} else if ingressConfig.DisableIstioVirtualHost == false {
+	} else if !ingressConfig.DisableIstioVirtualHost {
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&v1beta1api.InferenceService{}).
 			Owns(&knservingv1.Service{}).

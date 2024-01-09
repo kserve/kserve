@@ -96,6 +96,7 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	return nil
 }
 
+// nolint: unused
 func hash(s string) string {
 	src := []byte(s)
 	dst := make([]byte, hex.EncodedLen(len(src)))
@@ -108,7 +109,7 @@ func extractProtocol(storageURI string) (storage.Protocol, error) {
 		return "", fmt.Errorf("there is no storageUri supplied")
 	}
 
-	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
+	if !regexp.MustCompile(`\w+?://`).MatchString(storageURI) {
 		return "", fmt.Errorf("there is no protocol specified for the storageUri")
 	}
 

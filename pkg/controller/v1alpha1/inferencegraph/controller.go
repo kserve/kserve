@@ -91,7 +91,7 @@ func getRouterConfigs(configMap *v1.ConfigMap) (*RouterConfig, error) {
 	if agentConfigValue, ok := configMap.Data["router"]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &routerConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall agent json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall agent json string due to %w ", err))
 		}
 	}
 

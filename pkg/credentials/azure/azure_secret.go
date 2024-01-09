@@ -47,7 +47,7 @@ var (
 )
 
 func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
-	var envs []v1.EnvVar
+	envs := make([]v1.EnvVar, 0, len(AzureEnvKeys))
 	for _, k := range AzureEnvKeys {
 		dataKey := k
 		legacyDataKey := legacyAzureEnvKeyMappings[k]

@@ -91,7 +91,7 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 }
 
 func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r := rand.New(rand.NewSource(time.Now().UnixNano())) // *lint gosec
 	//generate num [0,100)
 	point := r.Intn(99)
 	end := 0
@@ -353,7 +353,7 @@ func main() {
 
 	http.HandleFunc("/", graphHandler)
 
-	err = http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe(":8080", nil) // *lint gosec
 	if err != nil {
 		log.Error(err, "failed to listen on 8080")
 		os.Exit(1)

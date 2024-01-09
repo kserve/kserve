@@ -1,0 +1,30 @@
+run:
+  timeout: 5m
+  go: "1.21"
+  tests: false
+  skip-dirs: # skip auto gen folders
+    - "client/"
+    - "clientv1alpha1/"
+    - "tools/tf2openapi/generated/"
+
+issues:
+  max-same-issues: 20
+
+output:
+  print-issued-lines: false
+  print-linter-name: true
+  uniq-by-line: false
+  path-prefix: ""
+  sort-results: true
+
+# REF: https://golangci-lint.run/usage/linters/
+linters:
+  enable:
+    - errorlint
+    - gosec
+    - prealloc
+    - unconvert
+    - unparam
+    - gofmt
+  disable:
+    - errcheck

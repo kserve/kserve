@@ -20,6 +20,7 @@ import (
 	"flag"
 	"net/http"
 	"os"
+
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -51,7 +52,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
+	scheme   = runtime.NewScheme() //nolint: unused
 	setupLog = ctrl.Log.WithName("setup")
 )
 
@@ -162,7 +163,7 @@ func main() {
 			setupLog.Error(err, "unable to add Knative APIs to scheme")
 			os.Exit(1)
 		}
-		if ingressConfig.DisableIstioVirtualHost == false {
+		if !ingressConfig.DisableIstioVirtualHost {
 			setupLog.Info("Setting up Istio schemes")
 			if err := istioclientv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
 				setupLog.Error(err, "unable to add Istio v1beta1 APIs to scheme")

@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -43,7 +44,7 @@ func (m *HTTPSProvider) DownloadModel(modelDir string, modelName string, storage
 	log.Info("Download model ", "modelName", modelName, "storageUri", storageUri, "modelDir", modelDir)
 	uri, err := url.Parse(storageUri)
 	if err != nil {
-		return fmt.Errorf("unable to parse storage uri: %v", err)
+		return fmt.Errorf("unable to parse storage uri: %w", err)
 	}
 	HTTPSDownloader := &HTTPSDownloader{
 		StorageUri: storageUri,
@@ -82,7 +83,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 	// Query request
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to make a request: %v", err)
+		return fmt.Errorf("failed to make a request: %w", err)
 	}
 
 	defer func(Body io.ReadCloser) {
@@ -117,7 +118,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 			return err
 		}
 		if _, err = io.Copy(file, resp.Body); err != nil {
-			return fmt.Errorf("unable to copy file content: %v", err)
+			return fmt.Errorf("unable to copy file content: %w", err)
 		}
 	}
 
@@ -131,6 +132,7 @@ func (h *HTTPSDownloader) extractHeaders() (map[string]string, error) {
 	err := json.Unmarshal([]byte(headerJSON), &headers)
 	if err != nil {
 		log.Error(err, "failed to unmarshal headers")
+		return headers, err
 	}
 	return headers, nil
 }
@@ -138,13 +140,13 @@ func (h *HTTPSDownloader) extractHeaders() (map[string]string, error) {
 func createNewFile(fileFullName string) (*os.File, error) {
 	if FileExists(fileFullName) {
 		if err := os.Remove(fileFullName); err != nil {
-			return nil, fmt.Errorf("file is unable to be deleted: %v", err)
+			return nil, fmt.Errorf("file is unable to be deleted: %w", err)
 		}
 	}
 
 	file, err := Create(fileFullName)
 	if err != nil {
-		return nil, fmt.Errorf("file is already created: %v", err)
+		return nil, fmt.Errorf("file is already created: %w", err)
 	}
 	return file, nil
 }
@@ -157,7 +159,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 
 	zipReader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
-		return fmt.Errorf("unable to create new reader: %v", err)
+		return fmt.Errorf("unable to create new reader: %w", err)
 	}
 
 	// Read all the files from zip archive
@@ -182,7 +184,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 		}
 		rc, err := zipFile.Open()
 		if err != nil {
-			return fmt.Errorf("unable to open file: %v", err)
+			return fmt.Errorf("unable to open file: %w", err)
 		}
 
 		_, err = io.Copy(file, rc)
@@ -195,7 +197,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 			return closeErr
 		}
 		if err != nil {
-			return fmt.Errorf("unable to copy file content: %v", err)
+			return fmt.Errorf("unable to copy file content: %w", err)
 		}
 	}
 	return nil
@@ -218,10 +220,10 @@ func extractTarFiles(reader io.Reader, dest string) error {
 	// Read all the files from tar archive
 	for {
 		header, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return fmt.Errorf("unable to access next tar file: %v", err)
+			return fmt.Errorf("unable to access next tar file: %w", err)
 		}
 
 		fileFullPath := filepath.Join(dest, header.Name)
@@ -239,7 +241,7 @@ func extractTarFiles(reader io.Reader, dest string) error {
 			return err
 		}
 		if _, err := io.Copy(newFile, tr); err != nil {
-			return fmt.Errorf("unable to copy contents to %s: %v", header.Name, err)
+			return fmt.Errorf("unable to copy contents to %s: %w", header.Name, err)
 		}
 	}
 	return nil

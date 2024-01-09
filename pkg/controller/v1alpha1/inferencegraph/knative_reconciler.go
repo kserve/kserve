@@ -73,7 +73,7 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	// https://github.com/knative/serving/blob/main/pkg/apis/serving/v1/revision_defaults.go#L134
 	if desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == nil &&
 		existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks != nil &&
-		*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == false {
+		!*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks {
 		desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks = proto.Bool(false)
 	}
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
@@ -146,7 +146,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	}
 	labels := componentMeta.GetLabels()
 	if labels == nil {
-		labels = make(map[string]string)
+		labels = make(map[string]string) //nolint:ineffassign, staticcheck
 	}
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
