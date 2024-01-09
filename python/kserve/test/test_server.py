@@ -305,9 +305,11 @@ class TestRayServer:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         serve.start(http_options={"host": "0.0.0.0", "port": 9071})
+
         # https://github.com/ray-project/ray/blob/releases/2.8.0/python/ray/serve/deployment.py#L256
-        application = DummyServeModel.bind("TestModel")
-        handle = serve.run(target=application)
+        app = DummyServeModel.bind(name="TestModel")
+        handle = serve.run(app, name="TestModel", route_prefix="/")
+
         handle.load.remote()
 
         server = ModelServer()
