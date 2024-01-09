@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from enum import Enum
 
 # KServe K8S constants
 KSERVE_GROUP = 'serving.kserve.io'
@@ -71,3 +72,20 @@ OBSERVED_GENERATION = 'observedGeneration'
 
 # K8S metadata key constants
 GENERATION = 'generation'
+
+
+class ModelType(Enum):
+    EXPLAINER = 1
+    PREDICTOR = 2
+
+
+class PredictorProtocol(Enum):
+    REST_V1 = "v1"
+    REST_V2 = "v2"
+    GRPC_V2 = "grpc-v2"
+
+
+PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
+EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
+PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
+EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"

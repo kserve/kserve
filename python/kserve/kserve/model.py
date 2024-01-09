@@ -14,48 +14,22 @@
 
 import inspect
 import time
-from enum import Enum
 from typing import Dict, List, Union, Optional
 
-import grpc
-import httpx
 import orjson
 from cloudevents.http import CloudEvent
 from httpx import HTTPStatusError
 
+from .constants.constants import (PredictorProtocol, ModelType, PREDICTOR_URL_FORMAT, PREDICTOR_V2_URL_FORMAT,
+                                  EXPLAINER_URL_FORMAT)
 from .errors import InvalidInput
-
 from .logging import trace_logger
 from .metrics import (EXPLAIN_HIST_TIME, POST_HIST_TIME, PRE_HIST_TIME,
                       PREDICT_HIST_TIME, get_labels)
-from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
                                                 ModelInferResponse)
 from .protocol.infer_type import InferRequest, InferResponse
-
-PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
-EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
-PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
-EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
-
-
-class ModelType(Enum):
-    EXPLAINER = 1
-    PREDICTOR = 2
-
-
-class PredictorProtocol(Enum):
-    REST_V1 = "v1"
-    REST_V2 = "v2"
-    GRPC_V2 = "grpc-v2"
-
-
-def is_v2(protocol: PredictorProtocol) -> bool:
-    return protocol != PredictorProtocol.REST_V1
-
-
-def get_latency_ms(start: float, end: float) -> float:
-    return round((end - start) * 1000, 9)
+from .utils.utils import get_grpc_client, get_http_client, get_latency_ms, is_v2
 
 
 class PredictorConfig:
@@ -161,21 +135,13 @@ class Model:
     @property
     def _http_client(self):
         if self._http_client_instance is None:
-            self._http_client_instance = httpx.AsyncClient()
+            self._http_client_instance = get_http_client()
         return self._http_client_instance
 
     @property
     def _grpc_client(self):
         if self._grpc_client_stub is None:
-            # requires appending the port to the predictor host for gRPC to work
-            if ":" not in self.predictor_host:
-                port = 443 if self.use_ssl else 80
-                self.predictor_host = f"{self.predictor_host}:{port}"
-            if self.use_ssl:
-                _channel = grpc.aio.secure_channel(self.predictor_host, grpc.ssl_channel_credentials())
-            else:
-                _channel = grpc.aio.insecure_channel(self.predictor_host)
-            self._grpc_client_stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
+            self._grpc_client_stub = get_grpc_client(self.predictor_host, self.use_ssl)
         return self._grpc_client_stub
 
     def validate(self, payload):

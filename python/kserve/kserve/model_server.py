@@ -34,6 +34,7 @@ from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
+from .utils.utils import close_http_client, close_grpc_channel
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -80,6 +81,9 @@ parser.add_argument("--predictor_use_ssl", default=False, type=lambda x: utils.s
                     help="Use ssl for the http connection to the predictor.")
 parser.add_argument("--predictor_request_timeout_seconds", default=600, type=int,
                     help="The timeout seconds for the request sent to the predictor.")
+parser.add_argument("--enable_predictor_health_check", default=False, type=lambda x: utils.strtobool(x),
+                    help="The Transformer will perform liveness and readiness check for the predictor in addition to "
+                         "its health check. By default it is enabled if transformer and predictor is collocated.")
 args, _ = parser.parse_known_args()
 
 
@@ -133,6 +137,13 @@ class ModelServer:
         DataPlane.predictor_host = args.predictor_host
         DataPlane.predictor_protocol = args.predictor_protocol
         DataPlane.predictor_use_ssl = args.predictor_use_ssl
+
+        # Enable predictor health check if transformer and predictor is collocated
+        if (args.predictor_host is not None and
+                any(val in args.predictor_host.lower() for val in ["localhost", "127.0.0.1"])):
+            DataPlane.predictor_health_check = True
+        else:
+            DataPlane.predictor_health_check = args.enable_predictor_health_check
 
         # Logs can be passed as a path to a file or a dictConfig.
         # We rely on Uvicorn to configure the loggers for us.
@@ -233,6 +244,8 @@ class ModelServer:
         if self._grpc_server:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
+        await close_http_client()
+        await close_grpc_channel()
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)
