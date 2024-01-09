@@ -32,7 +32,6 @@ const (
 	BatcherEnableFlag           = "--enable-batcher"
 	BatcherArgumentMaxBatchSize = "--max-batchsize"
 	BatcherArgumentMaxLatency   = "--max-latency"
-	BatcherArgumentTimeout      = "--timeout"
 )
 
 type BatcherConfig struct {
@@ -101,12 +100,6 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	}
 	args = append(args, BatcherArgumentMaxLatency)
 	args = append(args, maxLatency)
-
-	timeout, ok := pod.ObjectMeta.Annotations[constants.BatcherTimeoutInternalAnnotationKey]
-	if ok {
-		args = append(args, BatcherArgumentTimeout)
-		args = append(args, timeout)
-	}
 
 	// Don't inject if Container already injected
 	for _, container := range pod.Spec.Containers {

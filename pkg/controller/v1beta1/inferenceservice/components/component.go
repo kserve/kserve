@@ -80,10 +80,6 @@ func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]stri
 			s := strconv.Itoa(*batcher.MaxLatency)
 			annotations[constants.BatcherMaxLatencyInternalAnnotationKey] = s
 		}
-		if batcher.Timeout != nil {
-			s := strconv.Itoa(*batcher.Timeout)
-			annotations[constants.BatcherTimeoutInternalAnnotationKey] = s
-		}
 		return true
 	}
 	return false
