@@ -190,6 +190,10 @@ generate: controller-gen
 	hack/update-openapigen.sh
 	hack/python-sdk/client-gen.sh
 
+bump-version:
+	# TBA
+	echo "bumping version numbers for this release"
+
 # Build the docker image
 docker-build: test
 	docker buildx build . -t ${IMG}
