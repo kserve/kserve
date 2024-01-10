@@ -263,14 +263,17 @@ def get_http_client():
 
 async def close_grpc_channel():
     global _channel
+    global _grpc_client
     if _channel is not None:
         await _channel.close()
+        _grpc_client = None
 
 
 async def close_http_client():
     global _http_client
     if _http_client is not None:
         await _http_client.aclose()
+        _http_client = None
 
 
 def get_liveness_endpoint(host: str, protocol: str, use_ssl: bool) -> str:
