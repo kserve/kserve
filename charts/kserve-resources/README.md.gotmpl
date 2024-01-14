@@ -8,7 +8,7 @@
 To install the chart, run the following:
 
 ```console
-$ helm install kserve oci://ghcr.io/kserve/charts/kserve --{{ template "chart.version" . }}
+$ helm install kserve oci://ghcr.io/kserve/charts/kserve --version {{ template "chart.version" . }}
 ```
 
 {{ template "chart.requirementsSection" . }}

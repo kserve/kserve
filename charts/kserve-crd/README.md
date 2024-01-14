@@ -9,7 +9,7 @@ Helm chart for deploying kserve crds
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-crd oci://ghcr.io/kserve/charts/kserve-crd --v0.12.0-rc1
+$ helm install kserve-crd oci://ghcr.io/kserve/charts/kserve-crd --version v0.12.0-rc1
 ```
 
 ----------------------------------------------

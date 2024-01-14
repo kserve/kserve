@@ -9,7 +9,7 @@ Helm chart for deploying kserve resources
 To install the chart, run the following:
 
 ```console
-$ helm install kserve oci://ghcr.io/kserve/charts/kserve --v0.12.0-rc1
+$ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0-rc1
 ```
 
 ## Values
