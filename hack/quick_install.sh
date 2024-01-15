@@ -31,6 +31,7 @@ while getopts ":hsr" option; do
 done
 
 export ISTIO_VERSION=1.19.4
+export ISTIO_DIR=istio-${ISTIO_VERSION}
 export KNATIVE_SERVING_VERSION=knative-v1.10.1
 export KNATIVE_ISTIO_VERSION=knative-v1.10.0
 export KSERVE_VERSION=v0.12.0-rc1
@@ -38,7 +39,7 @@ export CERT_MANAGER_VERSION=v1.3.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
 cleanup(){
-  rm -rf istio-${ISTIO_VERSION}
+  rm -rf ${ISTIO_DIR}
   rm -rf deploy-config-patch.yaml
 }
 trap cleanup EXIT
@@ -53,8 +54,12 @@ then
    exit 1;
 fi
 
-curl -L https://istio.io/downloadIstio | sh -
-cd istio-${ISTIO_VERSION}
+if [ -d ${ISTIO_DIR} ]; then
+  echo "Already downloaded ${ISTIO_DIR}"
+else
+  curl -L https://istio.io/downloadIstio | sh -
+fi
+cd ${ISTIO_DIR}
 
 # Create istio-system namespace
 cat <<EOF | kubectl apply -f -
