@@ -224,13 +224,12 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # Objects: churn, churn-pickle, churn-pickle-logs
             bucket_path_last_part = bucket_path.split("/")[-1]
             object_last_path = obj.key.split("/")[-1]
-            bucket_path_parent_part = bucket_path.rsplit("/", 1)[0]
 
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
                 exact_obj_found = True
-            elif object_last_path.startswith(bucket_path_last_part):
-                target_key = obj.key.replace(bucket_path_parent_part, "", 1).lstrip("/")
+            elif bucket_path_last_part and object_last_path.startswith(bucket_path_last_part):
+                target_key = object_last_path
             else:
                 target_key = obj.key.replace(bucket_path, "").lstrip("/")
 

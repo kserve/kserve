@@ -260,3 +260,22 @@ def test_update_with_storage_spec_s3(monkeypatch):
 
     # revert changes
     os.environ = previous_env
+
+
+@mock.patch(STORAGE_MODULE + '.boto3')
+def test_target_startswith_parent_folder_name(mock_storage):
+    bucket_name = 'foo'
+    paths = ["model.pkl", "a/model.pkl", "conda.yaml"]
+    object_paths = ['test/artifacts/model/' + p for p in paths]
+
+    # when
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+    Storage._download_s3(
+        f's3://{bucket_name}/test/artifacts/model', 'dest_path')
+
+    # then
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert arg_list[0] == expected_call_args_list(
+        'test/artifacts/model', 'dest_path', paths)[0]
+    mock_boto3_bucket.objects.filter.assert_called_with(
+        Prefix='test/artifacts/model')

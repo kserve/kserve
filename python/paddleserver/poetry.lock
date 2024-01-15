@@ -1380,7 +1380,7 @@ referencing = ">=0.31.0"
 
 [[package]]
 name = "kserve"
-version = "0.12.0rc0"
+version = "0.12.0rc1"
 description = "KServe Python SDK"
 optional = false
 python-versions = ">=3.8,<3.12"
@@ -1897,106 +1897,6 @@ python-versions = ">=3.7"
 files = [
     {file = "packaging-23.2-py3-none-any.whl", hash = "sha256:8c491190033a9af7e1d931d0b5dacc2ef47509b34dd0de67ed209b5203fc88c7"},
     {file = "packaging-23.2.tar.gz", hash = "sha256:048fb0e9405036518eaaf48a55953c750c11e1a1b68e0dd1a9d62ed0c092cfc5"},
-]
-
-[[package]]
-name = "paddle-bfloat"
-version = "0.1.7"
-description = "Paddle numpy bfloat16 package"
-optional = false
-python-versions = "*"
-files = [
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:89af9bab9b717139205a2a67c33280a179ed900edf1501fa224e80e5420adc01"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:a6f77283c9c16a33a1474832d4c502f818598ce3e5f279ff1828aa2722847367"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:a4a39ef52cf4748d2a361ee4864d2b7447a70ece7154062f9f94f0e0aac76a4e"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:28ff36b903808c9e8beb1b692eed489898d6064bdd756093593f4152c7f65145"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:5fa783c33034d8a0a2640a68fac96ac74706c5951f90b652727d07b62274c446"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:a888a67c71351d58c7fac84e2a2ee937b9843509fc47ebd2e9334b0d1cdd2075"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:be35151122e2a8f63eafb2b97949583d7de12b742d43cfc7d4b233e6566dacc8"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:2dbdbf1dfd76e10706d7471c840bbed189f7ef98dfd3f1a78b82c7b228cf816b"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:b03e845dc3734ee8a0e5c60f7b047769505e4bdd80daff8135d71198a98fedac"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:55f4cb557dfde0f414729f3144cf69fdacfbdb6cd17e7e9d0b0a2bf6933b30ae"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:fe11a1dae6ff6cd00cfce3e4dc94f87f86ac8d6024226b008c2b46f92c338cd5"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:4d5a7f305012a23f38cb6ce0a479b0da8cadc41ab0bab450cc5e53aa7f174b40"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-musllinux_1_1_ppc64le.whl", hash = "sha256:56e65cbf7504bcc5f86e78839a31e0277b273b195ce9f49c39acc51018c764e9"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-musllinux_1_1_s390x.whl", hash = "sha256:a093463cf15cede02dc26c88b6e7ea3d34a636c0daa11fe9502d0856a1eafcde"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:52a986fd84dd4bbcada5b48d950cad8873aa79a1b5d292c91e50a99329fc9c8c"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-win32.whl", hash = "sha256:6ff2adc16451f82963eb28b5bf729a281014b7f22c374f446c8e00ccc8db8149"},
-    {file = "paddle_bfloat-0.1.7-cp310-cp310-win_amd64.whl", hash = "sha256:e16a12237976361ba889ea605067834f1d35bb322f104d440e6845a93246c8f7"},
-    {file = "paddle_bfloat-0.1.7-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:79710f5d6885e3aaf296b2d7625730d51334013daa746b72c01a54bbe8f9e276"},
-    {file = "paddle_bfloat-0.1.7-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:c1d1cdce5748dcaade170e5d0658d91818728bb3a394df0e406f542865c351b4"},
-    {file = "paddle_bfloat-0.1.7-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:17a2a518aad80cc14e771fb8c5bbf50772c2ce8fa70f19518aae82cc14525743"},
-    {file = "paddle_bfloat-0.1.7-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e88543f038d3307a83fb264f5cfd7a0e8f5043325b38fc5211b1d754025b429f"},
-    {file = "paddle_bfloat-0.1.7-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:8bd7b8c6bec141f56e9bcef3bfdd2d48ba9f40ef42e159ceb23d38318743a1b6"},
-    {file = "paddle_bfloat-0.1.7-cp311-cp311-musllinux_1_1_i686.whl", hash = "sha256:9ae4ac92a4a57a043618a50c85040b3a6a5740968f2c517a622eee21dc4492a0"},
-    {file = "paddle_bfloat-0.1.7-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:07dd9e6bebe3eca7ec7f3efee71f8711afa68a7fe8447530662ce462499da6ce"},
-    {file = "paddle_bfloat-0.1.7-cp311-cp311-win32.whl", hash = "sha256:ca4bf30ae5a8d0c15180ee0026b931d07254655905151bcc7b484f91d858bb83"},
-    {file = "paddle_bfloat-0.1.7-cp311-cp311-win_amd64.whl", hash = "sha256:336c81cbb409ba5149696f07a9a37a769a0a481a56764072f2c3b00a1ea1ea6f"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:e73b52cf5bbaf75ce93715804c871fe889b3e3104ad853c4c9fe6cde604f9fb5"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e1fa8156dc7aa009769198d3d69f0dd5a52f62b5229803691c08e42fc281ae93"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:133a9a9616da72d5d8293d818a9a222c69498438cc9706f4fe29a6005a98e63e"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:ad05cb1f164ed4aa6c1db65b3edcca3455edd8f82264b6737bb7cd8d3bfc10c9"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9b57485eec8d3083932236b66960f91a107766a758443d326f0df57b97ef5c66"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-manylinux_2_5_i686.manylinux1_i686.manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:ad3b64b53f5e27cfc37236a97ef3a3ef974146e35b17834dd982240284140761"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:9348868c3fcc2fa926e3c87f9da46d0954c68c10b5bbee52c7738d374c04558a"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:09d8ad8ae78bcc32239249b00ed93548b6725871c74d25513c6d6b5b662dd15c"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-musllinux_1_1_aarch64.whl", hash = "sha256:be4133f55c24370c361dfe4a847f32c8f859675688dba82751e96f247bdb0cca"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-musllinux_1_1_i686.whl", hash = "sha256:fb962b17a806beaa15bad1d1a2be45864e7744e7c305f84311ce2e58077b623d"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-musllinux_1_1_ppc64le.whl", hash = "sha256:02fd34ebc4c1e8c463b2eaec6f4c48af81bc34af1d96f177739842703cd3e54d"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-musllinux_1_1_s390x.whl", hash = "sha256:5b28b17582285b803c1ec14d13100997c2180075e5cca4d9397aa1d5191f2e22"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-musllinux_1_1_x86_64.whl", hash = "sha256:c74ba54e8bb58744a8eafcb42dd6708a770f8b7033723b638faea007acfdd6a9"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-win32.whl", hash = "sha256:cd8ff2b5100c7d3c371a4992c45d19052c98e8961de4da66b38d5d76f4e88ded"},
-    {file = "paddle_bfloat-0.1.7-cp36-cp36m-win_amd64.whl", hash = "sha256:12517c5fde40a13795c787e1595019ecb1c77da996fcdc1a844ca3a893c45a03"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:1a142415a585f795844effe671c3772e14e1c3918722ae283bdf7d5aeda1c3f0"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:df4234f66d35fe1fbac8e4e956a0d4fde8ec368220a4fa9df051cfa7d7b9d921"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:90bb8d0b587a46606cabb134994ce824f5a704d35ff8d37743f832389b3a5ad7"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:e684892005e65608b8b89efc33c4043e74474ceca3b82af92817ee76f57d50c9"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:403dca1934f70b2a815cb2999753e3edb5fabb44b0407783a231333558d9f324"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-manylinux_2_5_i686.manylinux1_i686.manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:dee09a3adc447647b9c1aba55d0435420aa333fa2e4ad994616e2083b0ff8840"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:59362cd5a1f3a1354752ad45cebca4f43905d5768146dbf62230dd2e93abbaab"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:848421e7579fb724d94206bb3c0a31f891d52a3e2a8e23dc61129c8406158192"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-musllinux_1_1_aarch64.whl", hash = "sha256:9ba3b5d383a4b22ab9a46501c463f07392c57b5fa62da0364a8c4a283be96e4a"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-musllinux_1_1_i686.whl", hash = "sha256:165d85df08ca6fc8eb433bdfc806f970e289fa39bd1acc457fd92cd74fbdb976"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-musllinux_1_1_ppc64le.whl", hash = "sha256:be34b7088cd5a4fc923c8449d3c9bb3945f0a76f733727a5a0b2ecbee12cbd84"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-musllinux_1_1_s390x.whl", hash = "sha256:359885a35601f44856f1b9ab2e450c84ed42384c5a1d95437d71c90d11a44124"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-musllinux_1_1_x86_64.whl", hash = "sha256:71dbee82d26273ad6a2c9011deaf0bad6c28557cab14df6d5ca49e880420ce8a"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-win32.whl", hash = "sha256:4c54e9d8ddd3b05a7babdb748ce34cc72bd30d17ed6108844088f5a67503a2ad"},
-    {file = "paddle_bfloat-0.1.7-cp37-cp37m-win_amd64.whl", hash = "sha256:9b24501d26939b632907fc8bbf1f0cb1836c101f0c31ab60139dc07f6f66a347"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:accc85d449c7baaeff56dc30f11d06d668bb28812b273baa5ce3c06ebff06cb3"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:c6fa388966bedc39e832d4ab5e365c1d75af2a2ea875a3d2c925a20dfc5bcefe"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:40a900fa9d38c82814641e1f5d08e3835d519c600c3c42590a409b240de4e228"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9252cf5a50f56d4f6afc2ff21745207a9d4b946c94e594da99c187767af3e45f"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:f4892a8db2b4370494ab15988313a3b6b4e3a8b6a117dc989f2d381d67cda0ea"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:a4646aa7d85e49a6110feae57e5f95db558b42b58c4d031334bd84ed64632b02"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6abd928cd6e7b3d5465eda670226833ab4610380f3a48e7625e852a31ce6205a"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-manylinux_2_5_i686.manylinux1_i686.manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:c289b68b43a88ae4e61b0f857c231666897e0cc5003019b9f7ba78d064157f5e"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:c9e6bfacb194415bf8a5b9e7d4d7406c5d10df918be41f31ad935852ba303927"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:69ed36fcc727fc8d4426fd076a0e1db31fa92a31945fe53e6f8cead03801b42f"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:57cf1cb7a37008c4bc32e834ab6b7d14d5ba8ea384d7d7ec9048165722fd639f"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-musllinux_1_1_i686.whl", hash = "sha256:053f1d6333401a79a3a1b9d359695a099c52e3866e732d771f9ae916affc9440"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-musllinux_1_1_ppc64le.whl", hash = "sha256:366979e28dda4014927628740fdc0ab203c23d7b9880970e4904416141ea4e5a"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-musllinux_1_1_s390x.whl", hash = "sha256:36e69c136796bb9a0ac5135eef99d776142ec6ec5f3421d4b635a30604d6fdc7"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:954e8a3c24e3518675b76285f38ee6da588be571fa7bd12a4b004345d0959919"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-win32.whl", hash = "sha256:3cc9093df044562a240fe4c3720ffc346555a1ff567d296e5430a4d9bacaa0be"},
-    {file = "paddle_bfloat-0.1.7-cp38-cp38-win_amd64.whl", hash = "sha256:acfeda79e12a678fbc98ca816283a62f55d5eb9d62a27f8979d446acbc251191"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:bf1e30781a9155d44bc5b6ad9c4a868b3c2a22d9896c8f0a07f974487f743ef7"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:59ca62f3fc010c14cb212dacdb4f550e5b789615a4129da153be83ce05fba5cb"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:998061e4a69dca0806746f33964ae6c9a435b56ceda034d3688263ff91205d73"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:496f4db32d413cae615a4301d01956408def048e36dfef4c323ce31737a38461"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:024e6e8ab57d5b50d78a4e630956c9efd21527acad6d0b310d0c6d8f744dc08c"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:8663a39c167d6314b41586ce737a9cf5ec2544f5dfbe4dc88fd19088d6d4aa55"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a83f78441bf39420dfd265d2b33999c348a537ca78ff9803a436c146010c1d9b"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-manylinux_2_5_i686.manylinux1_i686.manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:940eafeab38b1b0d8df979c2152cff04be77930e33f0dfd416a4aed0514aed72"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:8f914ad0e58a96b4be371ccdcfc31fcc6a0b3d7bb123834e8b16507483f24a4b"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:01ad0c4d5d7282f80e58479ef769a73016bfeb130c64c4cc76558123d3389be5"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:a7d29ee3ce519eb6915e388d2a5bec908210b2254d501d15e95d05f7ebf5dde9"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-musllinux_1_1_i686.whl", hash = "sha256:0093d81e18a661443a326b59b74c39d470c56e53f74ee84a2f5a7b7278b73b73"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-musllinux_1_1_ppc64le.whl", hash = "sha256:be621fcdd81af0c8364cdff28284e40ab8aa4cfa1aea076b12ac9d8174405c63"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-musllinux_1_1_s390x.whl", hash = "sha256:7aab27bd5769a2747c04949e1236caaf06887a388b5062e07c541d840e82272f"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:f39fe90f9d654ea238d030ac185ab92664e64d718f1ac6453d7a5c755c6030d0"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-win32.whl", hash = "sha256:b5d547a373fb0dec492b5fc1e9d6eb5b76367cc15c2cc9e8e133a1897787dcbd"},
-    {file = "paddle_bfloat-0.1.7-cp39-cp39-win_amd64.whl", hash = "sha256:f24d1a6754cbffebbca60086710981231c7e2a734a9bb64d73f8a9cca86e8b64"},
-    {file = "paddle_bfloat-0.1.7.tar.gz", hash = "sha256:9ab8d00ad2ec5cebea7871cc8ee331eb916f31f676fb04e1d5aa3d64913ef71c"},
 ]
 
 [[package]]
