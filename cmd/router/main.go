@@ -18,27 +18,29 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
 
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"math/rand"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 	flag "github.com/spf13/pflag"
 )
 
@@ -330,9 +332,11 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 var (
 	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
 	compiledHeaderPatterns []*regexp.Regexp
+	timeout                int64
 )
 
 func main() {
+	flag.Int64Var(&timeout, "termination-grace-period", 300, "wait timeout period for in-flight requests during server shutdown")
 	flag.Parse()
 	logf.SetLogger(zap.New())
 	if headersToPropagateEnvVar, ok := os.LookupEnv(constants.RouterHeadersPropagateEnvVar); ok {
@@ -351,11 +355,47 @@ func main() {
 		os.Exit(1)
 	}
 
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: nil,
+	}
 	http.HandleFunc("/", graphHandler)
 
-	err = http.ListenAndServe(":8080", nil)
-	if err != nil {
-		log.Error(err, "failed to listen on 8080")
-		os.Exit(1)
+	go func() {
+		err = server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error(err, fmt.Sprintf("Failed to listen on address %v", server.Addr))
+			os.Exit(1)
+		}
+	}()
+
+	// Blocks until SIGTERM or SIGINT is received
+	handleSignals(server)
+}
+
+func handleSignals(server *http.Server) {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	sig := <-signalChan
+	log.Info("Received shutdown signal", "signal", sig)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+
+	// Shut down the server gracefully
+	if err := server.Shutdown(ctx); err != nil && errors.Is(err, http.ErrServerClosed) {
+		log.Error(err, "Failed to shutdown the server gracefully")
+
+		// Shut down the server forcefully if context deadline exceeded.
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Info("Shutting down the server forcefully ...")
+			if err := server.Close(); err != nil {
+				log.Error(err, "Failed to shutdown the server forcefully")
+				os.Exit(1)
+			}
+			log.Info("Server forcefully shutdown")
+		}
+	} else {
+		log.Info("Server gracefully shutdown")
 	}
 }
