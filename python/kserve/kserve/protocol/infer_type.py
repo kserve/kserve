@@ -49,8 +49,7 @@ class InferInput:
                    by using `set_data_from_numpy`.
             parameters : The additional inference parameters.
         """
-        if parameters is None:
-            parameters = {}
+
         self._name = name
         self._shape = shape
         self._datatype = datatype
@@ -95,7 +94,7 @@ class InferInput:
         return self._shape
 
     @property
-    def parameters(self) -> Union[Dict, MessageMap[str, InferParameter]]:
+    def parameters(self) -> Union[Dict, MessageMap[str, InferParameter], None]:
         """Get the parameters of the inference input associated with this object.
 
         Returns:
@@ -161,7 +160,8 @@ class InferInput:
                     str(self._shape)[1:-1]))
 
         if not binary_data:
-            self._parameters.pop('binary_data_size', None)
+            if self._parameters:
+                self._parameters.pop('binary_data_size', None)
             self._raw_data = None
             if self._datatype == "BYTES":
                 self._data = []
@@ -198,7 +198,10 @@ class InferInput:
                     self._raw_data = b''
             else:
                 self._raw_data = input_tensor.tobytes()
-            self._parameters['binary_data_size'] = len(self._raw_data)
+            if self._parameters is None:
+                self._parameters = {'binary_data_size': len(self._raw_data)}
+            else:
+                self._parameters['binary_data_size'] = len(self._raw_data)
 
 
 def get_content(datatype: str, data: InferTensorContents):
@@ -244,8 +247,7 @@ class InferRequest:
             from_grpc: Indicate if the data model is constructed from gRPC request.
             parameters: The additional inference parameters.
         """
-        if parameters is None:
-            parameters = {}
+
         self.id = request_id
         self.model_name = model_name
         self.inputs = infer_inputs
@@ -281,6 +283,8 @@ class InferRequest:
                 "shape": infer_input.shape,
                 "datatype": infer_input.datatype
             }
+            if infer_input.parameters:
+                infer_input_dict["parameters"] = to_http_parameters(infer_input.parameters)
             if isinstance(infer_input.data, numpy.ndarray):
                 infer_input.set_data_from_numpy(infer_input.data, binary_data=False)
                 infer_input_dict["data"] = infer_input.data
@@ -291,6 +295,8 @@ class InferRequest:
             'id': self.id if self.id else str(uuid.uuid4()),
             'inputs': infer_inputs
         }
+        if self.parameters:
+            infer_request['parameters'] = to_http_parameters(self.parameters)
         return infer_request
 
     def to_grpc(self) -> ModelInferRequest:
@@ -309,6 +315,8 @@ class InferRequest:
                 "shape": infer_input.shape,
                 "datatype": infer_input.datatype,
             }
+            if infer_input.parameters:
+                infer_input_dict["parameters"] = to_grpc_parameters(infer_input.parameters)
             if infer_input._raw_data is not None:
                 raw_input_contents.append(infer_input._raw_data)
             else:
@@ -326,7 +334,7 @@ class InferRequest:
             infer_inputs.append(infer_input_dict)
 
         return ModelInferRequest(id=self.id, model_name=self.model_name, inputs=infer_inputs,
-                                 raw_input_contents=raw_input_contents)
+                                 raw_input_contents=raw_input_contents, parameters=to_grpc_parameters(self.parameters))
 
     def as_dataframe(self) -> pd.DataFrame:
         """ Decode the tensor inputs as pandas dataframe.
@@ -358,8 +366,7 @@ class InferOutput:
                    raw_data is used for gRPC with numpy array bytes by calling set_data_from_numpy.
             parameters : The additional inference parameters.
         """
-        if parameters is None:
-            parameters = {}
+
         self._name = name
         self._shape = shape
         self._datatype = datatype
@@ -404,7 +411,7 @@ class InferOutput:
         return self._shape
 
     @property
-    def parameters(self) -> Union[Dict, MessageMap[str, InferParameter]]:
+    def parameters(self) -> Union[Dict, MessageMap[str, InferParameter], None]:
         """Get the parameters of inference output associated with this object.
 
         Returns:
@@ -470,7 +477,8 @@ class InferOutput:
                     str(self._shape)[1:-1]))
 
         if not binary_data:
-            self._parameters.pop('binary_data_size', None)
+            if self._parameters:
+                self._parameters.pop('binary_data_size', None)
             self._raw_data = None
             if self._datatype == "BYTES":
                 self._data = []
@@ -507,7 +515,10 @@ class InferOutput:
                     self._raw_data = b''
             else:
                 self._raw_data = output_tensor.tobytes()
-            self._parameters['binary_data_size'] = len(self._raw_data)
+            if self._parameters is None:
+                self._parameters = {'binary_data_size': len(self._raw_data)}
+            else:
+                self._parameters['binary_data_size'] = len(self._raw_data)
 
 
 class InferResponse:
@@ -530,8 +541,7 @@ class InferResponse:
             from_grpc: Indicate if the InferResponse is constructed from a gRPC response.
             parameters: The additional inference parameters.
         """
-        if parameters is None:
-            parameters = {}
+
         self.id = response_id
         self.model_name = model_name
         self.outputs = infer_outputs
@@ -562,11 +572,11 @@ class InferResponse:
                                      shape=list(output['shape']),
                                      datatype=output['datatype'],
                                      data=output['data'],
-                                     parameters=output.get('parameters', {}))
+                                     parameters=output.get('parameters', None))
                          for output in response['outputs']]
         return cls(model_name=model_name,
                    response_id=response.get('id', None),
-                   parameters=response.get('parameters', {}),
+                   parameters=response.get('parameters', None),
                    infer_outputs=infer_outputs)
 
     def to_rest(self) -> Dict:
@@ -582,6 +592,8 @@ class InferResponse:
                 "shape": infer_output.shape,
                 "datatype": infer_output.datatype
             }
+            if infer_output.parameters:
+                infer_output_dict["parameters"] = to_http_parameters(infer_output.parameters)
             if isinstance(infer_output.data, numpy.ndarray):
                 infer_output.set_data_from_numpy(infer_output.data, binary_data=False)
                 infer_output_dict["data"] = infer_output.data
@@ -595,6 +607,8 @@ class InferResponse:
             'model_name': self.model_name,
             'outputs': infer_outputs
         }
+        if self.parameters:
+            res['parameters'] = to_http_parameters(self.parameters)
         return res
 
     def to_grpc(self) -> ModelInferResponse:
@@ -613,6 +627,8 @@ class InferResponse:
                 "shape": infer_output.shape,
                 "datatype": infer_output.datatype,
             }
+            if infer_output.parameters:
+                infer_output_dict["parameters"] = to_grpc_parameters(infer_output.parameters)
             if infer_output._raw_data is not None:
                 raw_output_contents.append(infer_output._raw_data)
             else:
@@ -630,4 +646,44 @@ class InferResponse:
             infer_outputs.append(infer_output_dict)
 
         return ModelInferResponse(id=self.id, model_name=self.model_name, outputs=infer_outputs,
-                                  raw_output_contents=raw_output_contents)
+                                  raw_output_contents=raw_output_contents,
+                                  parameters=to_grpc_parameters(self.parameters))
+
+
+def to_grpc_parameters(parameters: Union[dict, MessageMap[str, InferParameter]]) -> Dict[str, InferParameter]:
+    """
+    Converts REST parameters to GRPC InferParameter objects
+
+    :param parameters: parameters to be converted.
+    :return: converted parameters as Dict[str, InferParameter]
+    :raises InvalidInput: if the parameter type is not supported.
+    """
+    if isinstance(parameters, dict):
+        for key, val in parameters.items():
+            if isinstance(val, str):
+                parameters[key] = InferParameter(string_param=val)
+            elif isinstance(val, bool):
+                parameters[key] = InferParameter(bool_param=val)
+            elif isinstance(val, int):
+                parameters[key] = InferParameter(int64_param=val)
+            else:
+                raise InvalidInput(f"to_grpc: invalid parameter value: {val}")
+    return parameters
+
+
+def to_http_parameters(parameters: Union[dict, MessageMap[str, InferParameter]]) -> Dict[str, str]:
+    """
+        Converts GRPC InferParameter parameters to REST parameters
+
+        :param parameters: parameters to be converted.
+        :return: converted parameters as Dict[str, str]
+        """
+    for key, val in parameters.items():
+        if isinstance(val, InferParameter):
+            if val.HasField("bool_param"):
+                parameters[key] = val.bool_param
+            elif val.HasField("int64_param"):
+                parameters[key] = val.int64_param
+            elif val.HasField("string_param"):
+                parameters[key] = val.string_param
+    return parameters
