@@ -7,6 +7,9 @@ metadata:
   labels:
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
+    {{- if .Values.kserve.controller.labels }}
+    {{- toYaml .Values.kserve.controller.labels | nindent 4 }}
+    {{- end }}
   annotations:
     prometheus.io/scrape: 'true'
 spec:
@@ -19,6 +22,9 @@ spec:
       labels:
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
+        {{- if .Values.kserve.controller.podLabels }}
+        {{- toYaml .Values.kserve.controller.podLabels | nindent 8 }}
+        {{- end }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
