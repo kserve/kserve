@@ -39,7 +39,6 @@ export CERT_MANAGER_VERSION=v1.3.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
 cleanup(){
-  rm -rf ${ISTIO_DIR}
   rm -rf deploy-config-patch.yaml
 }
 trap cleanup EXIT
@@ -108,6 +107,7 @@ EOF
 bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
 
 echo "😀 Successfully installed Istio"
+rm -rf ${ISTIO_DIR}
 
 # Install Knative
 if [ $deploymentMode = serverless ]; then
