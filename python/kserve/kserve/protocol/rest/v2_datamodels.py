@@ -276,8 +276,8 @@ class GenerateRequest(BaseModel):
         }
 
 
-class TokenOutput(BaseModel):
-    """Token Output Model
+class Token(BaseModel):
+    """Token Data Model
 
     """
     id: int
@@ -297,6 +297,50 @@ class TokenOutput(BaseModel):
         }
 
 
+class Details(BaseModel):
+    """Generate response details
+
+    """
+    finish_reason: str
+    logprobs: List[Token]
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "finish_reason": "stop",
+                "logprobs": [{
+                  "id": 267,
+                  "logprob": -2.0723474,
+                  "special": False,
+                  "text": " a",
+                }]
+            }
+        }
+
+
+class StreamingDetails(BaseModel):
+    """Generate response details
+
+    """
+    finish_reason: str
+    logprobs: Token
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "finish_reason": "stop",
+                "logprobs": {
+                  "id": 267,
+                  "logprob": -2.0723474,
+                  "special": False,
+                  "text": " a",
+                }
+            }
+        }
+
+
 class GenerateResponse(BaseModel):
     """GenerateResponse Model
 
@@ -305,12 +349,13 @@ class GenerateResponse(BaseModel):
           "text_output" : $string,
           "model_name" : $string,
           "model_version" : $string #optional,
+          "details": $Details #optional
         }
     """
     text_output: str
     model_name: str
     model_version: Optional[str]
-    outputs: Optional[List[TokenOutput]]
+    details: Optional[Details]
 
     class Config:
         json_loads = orjson.loads
@@ -318,13 +363,51 @@ class GenerateResponse(BaseModel):
             "example": {
                 "text_output": "Tell me about the AI",
                 "model_name": "bloom7b1",
-                "outputs": [
-                    {
+                "details": {
+                    "finish_reason": "stop",
+                    "logprobs": [
+                        {
+                            "id": "267",
+                            "logprob": -2.0723474,
+                            "special": False,
+                            "text": " a",
+                        }
+                    ]
+                }
+            }
+        }
+
+
+class GenerateStreamingResponse(BaseModel):
+    """GenerateStreamingResponse Model
+
+        $generate_response =
+        {
+          "text_output" : $string,
+          "model_name" : $string,
+          "model_version" : $string #optional,
+          "details": $Details #optional
+        }
+    """
+    text_output: str
+    model_name: str
+    model_version: Optional[str]
+    details: Optional[StreamingDetails]
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "text_output": "Tell me about the AI",
+                "model_name": "bloom7b1",
+                "details": {
+                    "finish_reason": "stop",
+                    "logprobs": {
                         "id": "267",
-                        "logprod": -2.0723474,
+                        "logprob": -2.0723474,
                         "special": False,
                         "text": " a",
                     }
-                ]
+                }
             }
         }

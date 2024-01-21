@@ -17,6 +17,7 @@ import unittest
 from pytest_httpx import HTTPXMock
 
 from kserve.model import PredictorConfig
+from kserve.protocol.rest.v2_datamodels import GenerateRequest
 from .task import MLTask
 from .model import HuggingfaceModel
 
@@ -75,6 +76,17 @@ def test_bert_token_classification():
     response = asyncio.run(model({"instances": [request, request]}, headers={}))
     assert response == {"predictions": [[[0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
                                         [[0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]]}
+
+
+def test_bloom():
+    model = HuggingfaceModel("bloom-560m",
+                             {"model_id": "bigscience/bloom-560m",
+                              "add_special_tokens": False})
+    model.load()
+
+    request = "Hello, my dog is cute"
+    response = asyncio.run(model.generate(generate_request=GenerateRequest(text_input=request), headers={}))
+    assert response.text_output == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog"
 
 
 if __name__ == '__main__':

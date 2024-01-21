@@ -18,7 +18,7 @@ from threading import Thread
 from torch import Tensor
 
 from kserve.model import PredictorConfig
-from kserve.protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse, TokenOutput
+from kserve.protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse, Token, Details
 from .async_generate_stream import AsyncGenerateStream
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
@@ -172,20 +172,27 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 add_special_tokens=self.add_special_tokens,
                 return_tensors="pt",
             )
+            input_batch = input_batch.to(self.device)
             if headers.get("streaming", "false") == "true":
                 streamer = AsyncGenerateStream(self.tokenizer)
-                generation_kwargs = dict(**input_batch, **parameters, treamer=streamer)
+                generation_kwargs = dict(**input_batch, streamer=streamer)
+                if parameters:
+                    generation_kwargs = dict(**input_batch, **parameters, streamer=streamer)
                 # TODO change to use thread pool executor
                 thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
                 thread.start()
                 return streamer
             else:
-                output_ids = self.model.generate(**input_batch, **parameters)
+                if parameters:
+                    output_ids = self.model.generate(**input_batch, **parameters)
+                else:
+                    output_ids = self.model.generate(**input_batch)
                 outputs = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
-                token_outputs = [TokenOutput(id=output_id, special=False, logprob=0,  # TODO set logprob
-                                             text=self.tokenizer.decode(output_id, skip_special_tokens=True))
+                token_outputs = [Token(id=output_id, special=False, logprob=0,  # TODO set logprob
+                                       text=self.tokenizer.decode(output_id, skip_special_tokens=True))
                                  for output_id in output_ids[0]]
-                return GenerateResponse(text_output=outputs[0], model_name=self.name, outputs=token_outputs)
+                generate_details = Details(finish_reason="length", logprobs=token_outputs)
+                return GenerateResponse(text_output=outputs[0], model_name=self.name, details=generate_details)
 
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
