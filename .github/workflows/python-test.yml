@@ -223,27 +223,26 @@ jobs:
           pytest --cov=alibiexplainer ./alibiexplainer
 
       # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
-      # @TODO this needs github action large runner
       # load cached huggingface venv if cache exists
-      #- name: Load cached huggingface venv
-      #  id: huggingface-dependencies
-      #  uses: actions/cache@v3
-      #  with:
-      #    path: python/huggingfaceserver/.venv
-      #    key: huggingface-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
-      #  # install huggingface server dependencies if cache does not exist
-      #- name: Install huggingface dependencies
-      #  if: steps.cached-huggingface-dependencies.outputs.cache-hit != 'true'
-      #  run: |
-      #    cd python/huggingfaceserver
-      #    make install_dependencies
-      #- name: Install huggingface server
-      #  run: |
-      #    cd python/huggingfaceserver
-      #    make dev_install
-      #- name: Test huggingfaceserver
-      #  run: |
-      #    cd python
-      #    source huggingfaceserver/.venv/bin/activate
-      #    pytest --cov=huggingfaceserver ./huggingfaceserver
+      - name: Load cached huggingface venv
+        id: huggingface-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/huggingfaceserver/.venv
+          key: huggingface-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
+        # install huggingface server dependencies if cache does not exist
+      - name: Install huggingface dependencies
+        if: steps.cached-huggingface-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/huggingfaceserver
+          make install_dependencies
+      - name: Install huggingface server
+        run: |
+          cd python/huggingfaceserver
+          make dev_install
+      - name: Test huggingfaceserver
+        run: |
+          cd python
+          source huggingfaceserver/.venv/bin/activate
+          pytest --cov=huggingfaceserver ./huggingfaceserver
 
