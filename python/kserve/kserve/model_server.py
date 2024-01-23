@@ -140,6 +140,37 @@ class ModelServer:
             self.log_config = None
 
         self.access_log_format = access_log_format
+    def initialize(self) -> None:
+        """ Initialize the UvicornServer object """
+      # To get the context of fastApi in application
+        if self.workers == 1:
+            self._rest_server = UvicornServer(self.http_port, [],
+                                                self.dataplane, self.model_repository_extension,
+                                                self.enable_docs_url,
+                                                log_config=self.log_config,
+                                                access_log_format=self.access_log_format)
+        else:
+            serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            serversocket.bind(('0.0.0.0', self.http_port))
+            serversocket.listen(5)
+            multiprocessing.set_start_method('fork')
+            self._rest_server = UvicornServer(self.http_port, [serversocket],
+                                              self.dataplane, self.model_repository_extension,
+                                              self.enable_docs_url, log_config=self.log_config,
+                                              access_log_format=self.access_log_format)
+        
+    def get_app(self):
+      # To get the context of fastApi in application using RawContextMiddleware
+        """
+        Get the FastAPI application object.
+
+        Returns:
+            FastAPI: The FastAPI application object used by the server.
+        """
+
+        # Returns the reference to fastapi object
+        return self._rest_server.cfg.app
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         """ Start the model server with a set of registered models.
@@ -188,11 +219,11 @@ class ModelServer:
                     sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
                 )
             if self.workers == 1:
-                self._rest_server = UvicornServer(self.http_port, [],
-                                                  self.dataplane, self.model_repository_extension,
-                                                  self.enable_docs_url,
-                                                  log_config=self.log_config,
-                                                  access_log_format=self.access_log_format)
+                # self._rest_server = UvicornServer(self.http_port, [],
+                #                                   self.dataplane, self.model_repository_extension,
+                #                                   self.enable_docs_url,
+                #                                   log_config=self.log_config,
+                #                                   access_log_format=self.access_log_format)
                 await self._rest_server.run()
             else:
                 # Since py38 MacOS/Windows defaults to use spawn for starting multiprocessing.
@@ -204,10 +235,10 @@ class ModelServer:
                 serversocket.bind(('0.0.0.0', self.http_port))
                 serversocket.listen(5)
                 multiprocessing.set_start_method('fork')
-                self._rest_server = UvicornServer(self.http_port, [serversocket],
-                                                  self.dataplane, self.model_repository_extension,
-                                                  self.enable_docs_url, log_config=self.log_config,
-                                                  access_log_format=self.access_log_format)
+                # self._rest_server = UvicornServer(self.http_port, [serversocket],
+                #                                   self.dataplane, self.model_repository_extension,
+                #                                   self.enable_docs_url, log_config=self.log_config,
+                #                                   access_log_format=self.access_log_format)
                 for _ in range(self.workers):
                     p = Process(target=self._rest_server.run_sync)
                     p.start()
