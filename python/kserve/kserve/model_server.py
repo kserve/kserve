@@ -129,7 +129,6 @@ class ModelServer:
             at_least_one_model_ready = False
             for model in models:
                 if isinstance(model, Model):
-                    print(model.name, "ready status is", model.ready)
                     if model.ready:
                         at_least_one_model_ready = True
                         self.register_model(model)
