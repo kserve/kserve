@@ -18,6 +18,7 @@ import os
 import re
 from typing import Dict
 from unittest import mock
+from unittest.mock import patch
 
 import avro.io
 import avro.schema
@@ -32,8 +33,9 @@ from kserve.errors import InvalidInput
 from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
 
-from kserve.protocol.infer_type import InferRequest
+from kserve.protocol.infer_type import InferRequest, InferInput, InferResponse, InferOutput
 from kserve.utils.utils import get_predict_input, get_predict_response
+from test.test_infer_type import InferRequestMatcher
 
 test_avsc_schema = '''
         {
@@ -200,6 +202,7 @@ class TestModel:
         with pytest.raises(InvalidInput):
             model.validate(bad_request)
 
+
 # Separate out v1 and v2 endpoint unit tests in
 # https://github.com/kserve/kserve/blob/master/python/kserve/test/test_server.py.
 
@@ -298,6 +301,46 @@ class TestV2Endpoints:
                                        data=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
+        assert resp.headers['content-type'] == "application/json"
+
+    def test_infer_parameters_v2(self, http_server_client):
+        req = InferRequest(model_name="TestModel", request_id="123",
+                           parameters={
+                               "test-str": "dummy",
+                               "test-bool": True,
+                               "test-int": 100
+                           },
+                           infer_inputs=[
+                               InferInput(name="input-0", datatype="INT32", shape=[1, 2], data=[1, 2],
+                                          parameters={
+                                              "test-str": "dummy",
+                                              "test-bool": True,
+                                              "test-int": 100
+                                          })])
+
+        input_data = json.dumps(req.to_rest()).encode('utf-8')
+        with patch.object(DummyModel, 'predict', new_callable=mock.Mock) as mock_predict:
+            mock_predict.return_value = InferResponse(model_name="TestModel", response_id="123",
+                                                      parameters={
+                                                          "test-str": "dummy",
+                                                          "test-bool": True,
+                                                          "test-int": 100
+                                                      },
+                                                      infer_outputs=[
+                                                          InferOutput(name="input-0",
+                                                                      datatype="INT32",
+                                                                      shape=[1, 2], data=[1, 2],
+                                                                      parameters={
+                                                                          "test-str": "dummy",
+                                                                          "test-bool": True,
+                                                                          "test-int": 100
+                                                                      })])
+            resp = http_server_client.post('/v2/models/TestModel/infer', content=input_data)
+            mock_predict.assert_called_with(InferRequestMatcher(req), mock.ANY)
+
+        result = json.loads(resp.content)
+        assert resp.status_code == 200
+        assert result["outputs"][0]["data"] == [1, 2]
         assert resp.headers['content-type'] == "application/json"
 
 
