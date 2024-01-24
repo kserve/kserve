@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudevents/sdk-go/pkg/cloudevents/transport"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 )
@@ -71,7 +70,6 @@ type Worker struct {
 	WorkerQueue chan chan LogRequest
 	QuitChan    chan bool
 	CeCtx       context.Context
-	CeTransport transport.Transport
 }
 
 func (w *Worker) sendCloudEvent(logReq LogRequest) error {
