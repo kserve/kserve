@@ -70,6 +70,8 @@ class V2Endpoints:
             ServerReadyResponse: Server ready message.
         """
         is_ready = await self.dataplane.ready()
+        if not is_ready:
+            pass
         return ServerReadyResponse(ready=is_ready)
 
     async def models(self) -> ListModelsResponse:

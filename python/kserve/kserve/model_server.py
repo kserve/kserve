@@ -245,13 +245,19 @@ class ModelServer:
         DataPlane.predictor_host = args.predictor_host
         DataPlane.predictor_protocol = args.predictor_protocol
         DataPlane.predictor_use_ssl = args.predictor_use_ssl
+        predictor_config = PredictorConfig(predictor_host=args.predictor_host,
+                                           predictor_protocol=args.predictor_protocol,
+                                           predictor_use_ssl=args.predictor_use_ssl,
+                                           predictor_health_check=args.enable_predictor_health_check)
 
         # Enable predictor health check if transformer and predictor is collocated
         if (args.predictor_host is not None and
                 any(val in args.predictor_host.lower() for val in ["localhost", "127.0.0.1"])):
-            DataPlane.predictor_health_check = True
-        else:
-            DataPlane.predictor_health_check = args.enable_predictor_health_check
+            predictor_config.predictor_health_check = True
+        self.dataplane = DataPlane(model_registry=registered_models, predictor_config=predictor_config)
+        if self.enable_grpc:
+            self._grpc_server = GRPCServer(grpc_port, self.dataplane,
+                                           self.model_repository_extension)
 
     async def _serve_rest(self):
         logger.info(f"Starting uvicorn with {self.workers} workers")
