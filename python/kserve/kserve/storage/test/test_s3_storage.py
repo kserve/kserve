@@ -183,7 +183,7 @@ def test_get_S3_config():
     DEFAULT_CONFIG = Config()
     ANON_CONFIG = Config(signature_version=UNSIGNED)
     VIRTUAL_CONFIG = Config(s3={"addressing_style": "virtual"})
-    USE_ACCELERATE_CONFIG = Config(s3={"use_accelerate_endpoint": False})
+    USE_ACCELERATE_CONFIG = Config(s3={"use_accelerate_endpoint": True})
 
     with mock.patch.dict(os.environ, {}):
         config1 = Storage.get_S3_config()
