@@ -27,9 +27,9 @@ from ...errors import InvalidInput
 class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
 
     def __init__(
-            self,
-            data_plane: DataPlane,
-            model_repository_extension: ModelRepositoryExtension,
+        self,
+        data_plane: DataPlane,
+        model_repository_extension: ModelRepositoryExtension,
     ):
         super().__init__()
         self._data_plane = data_plane
