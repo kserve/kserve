@@ -2756,8 +2756,41 @@ func createTestPodForModelcar() *v1.Pod {
 	return pod
 }
 
-func TestStorageInitializerInjectorWithConfig(t *testing.T) {
+func createTestPodForModelcarWithTransformer() *v1.Pod {
+	pod := createTestPodForModelcar()
+	pod.Spec.Containers = append(pod.Spec.Containers, v1.Container{Name: constants.TransformerContainerName})
+	return pod
+}
 
+func TestModelcarVolumeMounts(t *testing.T) {
+	t.Run("Test that volume mounts has been added (no transformer)", func(t *testing.T) {
+		pod := createTestPodForModelcar()
+		assert.Nil(t, getContainerWithName(pod, constants.TransformerContainerName))
+		checkVolumeMounts(t, pod, []string{ModelcarContainerName, constants.InferenceServiceContainerName})
+	})
+
+	t.Run("Test that volume mounts has been added (with transformer)", func(t *testing.T) {
+		pod := createTestPodForModelcarWithTransformer()
+		checkVolumeMounts(t, pod, []string{ModelcarContainerName, constants.InferenceServiceContainerName, constants.TransformerContainerName})
+	})
+}
+
+func checkVolumeMounts(t *testing.T, pod *v1.Pod, containerNames []string) {
+	injector := &StorageInitializerInjector{config: &StorageInitializerConfig{}}
+	err := injector.InjectModelcar(pod)
+	assert.Nil(t, err)
+
+	for _, containerName := range containerNames {
+		container := getContainerWithName(pod, containerName)
+		assert.NotNil(t, container)
+		volumeMounts := container.VolumeMounts
+		assert.NotEmpty(t, volumeMounts)
+		assert.Len(t, volumeMounts, 1)
+		assert.Equal(t, volumeMounts[0].MountPath, getParentDirectory(constants.DefaultModelLocalMountPath))
+	}
+}
+
+func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 	t.Run("Test empty config", func(t *testing.T) {
 		config := &StorageInitializerConfig{}
 		injector := &StorageInitializerInjector{config: config}

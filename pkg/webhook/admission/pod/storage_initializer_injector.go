@@ -148,18 +148,22 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 	if userContainer == nil {
 		return fmt.Errorf("no container found with name %s", constants.InferenceServiceContainerName)
 	}
-
+	transformerContainer := getContainerWithName(pod, constants.TransformerContainerName)
 	// Indicate to the runtime that it the model directory could be
 	// available a bit later only so that it should wait and retry when
 	// starting up
 	addOrReplaceEnv(userContainer, ModelInitModeEnv, "async")
 
-	// Mount volume initialized by the modelcar container to the user container
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, v1.VolumeMount{
+	// Mount volume initialized by the modelcar container to the user container and transformer (if exists)
+	modelMount := v1.VolumeMount{
 		Name:      StorageInitializerVolumeName,
 		MountPath: getParentDirectory(constants.DefaultModelLocalMountPath),
 		ReadOnly:  false,
-	})
+	}
+	userContainer.VolumeMounts = append(userContainer.VolumeMounts, modelMount)
+	if transformerContainer != nil {
+		transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, modelMount)
+	}
 
 	// If configured, run as the given user. There might be certain installations
 	// of Kubernetes where sharing the filesystem via the process namespace only works
