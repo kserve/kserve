@@ -149,11 +149,16 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         # S3UseVirtualBucket environment variable defined in s3_secret.go
         # use virtual hosted-style URLs if enabled
         virtual = ("true" == os.getenv("S3_USER_VIRTUAL_BUCKET", "false").lower())
+        # S3UseAccelerate environment variable defined in s3_secret.go
+        # use transfer acceleration if enabled
+        accelerate = ("true" == os.getenv("S3_USE_ACCELERATE", "false").lower())
 
         if anon:
             c = c.merge(Config(signature_version=UNSIGNED))
         if virtual:
             c = c.merge(Config(s3={"addressing_style": "virtual"}))
+        if accelerate:
+            c = c.merge(Config(s3={"use_accelerate_endpoint": accelerate}))
 
         return c
 
