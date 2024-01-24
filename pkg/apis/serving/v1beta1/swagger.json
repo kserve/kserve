@@ -209,6 +209,16 @@
         "affinity": {
           "$ref": "#/definitions/v1.Affinity"
         },
+        "maxReplicas": {
+          "description": "Maximum number of replicas for autoscaling.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+          "type": "integer",
+          "format": "int32"
+        },
         "nodes": {
           "description": "Map of InferenceGraph router nodes Each node defines the router which can be different routing types",
           "type": "object",
@@ -220,6 +230,15 @@
         "resources": {
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "scaleMetric": {
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "type": "string"
+        },
+        "scaleTarget": {
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "type": "integer",
+          "format": "int32"
         },
         "timeout": {
           "description": "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
