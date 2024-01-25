@@ -349,7 +349,8 @@ class InferRequest:
             infer_inputs.append(infer_input_dict)
 
         return ModelInferRequest(id=self.id, model_name=self.model_name, inputs=infer_inputs,
-                                 raw_input_contents=raw_input_contents, parameters=to_grpc_parameters(self.parameters))
+                                 raw_input_contents=raw_input_contents,
+                                 parameters=to_grpc_parameters(self.parameters) if self.parameters else None)
 
     def as_dataframe(self) -> pd.DataFrame:
         """ Decode the tensor inputs as pandas dataframe.
@@ -692,7 +693,7 @@ class InferResponse:
 
         return ModelInferResponse(id=self.id, model_name=self.model_name, outputs=infer_outputs,
                                   raw_output_contents=raw_output_contents,
-                                  parameters=to_grpc_parameters(self.parameters))
+                                  parameters=to_grpc_parameters(self.parameters) if self.parameters else None)
 
     def __eq__(self, other):
         if not isinstance(other, InferResponse):
@@ -710,7 +711,8 @@ class InferResponse:
         return True
 
 
-def to_grpc_parameters(parameters: Union[dict, MessageMap[str, InferParameter]]) -> Dict[str, InferParameter]:
+def to_grpc_parameters(parameters: Union[Dict[str, Union[str, bool, int]], MessageMap[str, InferParameter]]) \
+        -> Dict[str, InferParameter]:
     """
     Converts REST parameters to GRPC InferParameter objects
 
@@ -718,32 +720,37 @@ def to_grpc_parameters(parameters: Union[dict, MessageMap[str, InferParameter]])
     :return: converted parameters as Dict[str, InferParameter]
     :raises InvalidInput: if the parameter type is not supported.
     """
-    if isinstance(parameters, dict):
-        for key, val in parameters.items():
-            if isinstance(val, str):
-                parameters[key] = InferParameter(string_param=val)
-            elif isinstance(val, bool):
-                parameters[key] = InferParameter(bool_param=val)
-            elif isinstance(val, int):
-                parameters[key] = InferParameter(int64_param=val)
-            else:
-                raise InvalidInput(f"to_grpc: invalid parameter value: {val}")
-    return parameters
+    grpc_params: Dict[str, InferParameter] = {}
+    for key, val in parameters.items():
+        if isinstance(val, str):
+            grpc_params[key] = InferParameter(string_param=val)
+        elif isinstance(val, bool):
+            grpc_params[key] = InferParameter(bool_param=val)
+        elif isinstance(val, int):
+            grpc_params[key] = InferParameter(int64_param=val)
+        elif isinstance(val, InferParameter):
+            grpc_params[key] = val
+        else:
+            raise InvalidInput(f"to_grpc: invalid parameter value: {val}")
+    return grpc_params
 
 
-def to_http_parameters(parameters: Union[dict, MessageMap[str, InferParameter]]) -> Dict[str, str]:
+def to_http_parameters(parameters: Union[dict, MessageMap[str, InferParameter]]) -> Dict[str, Union[str, bool, int]]:
     """
         Converts GRPC InferParameter parameters to REST parameters
 
         :param parameters: parameters to be converted.
-        :return: converted parameters as Dict[str, str]
+        :return: converted parameters as Dict[str, Union[str, bool, int]]
         """
+    http_params: Dict[str, Union[str, bool, int]] = {}
     for key, val in parameters.items():
         if isinstance(val, InferParameter):
             if val.HasField("bool_param"):
-                parameters[key] = val.bool_param
+                http_params[key] = val.bool_param
             elif val.HasField("int64_param"):
-                parameters[key] = val.int64_param
+                http_params[key] = val.int64_param
             elif val.HasField("string_param"):
-                parameters[key] = val.string_param
-    return parameters
+                http_params[key] = val.string_param
+        else:
+            http_params[key] = val
+    return http_params
