@@ -35,7 +35,6 @@ from kserve.protocol.rest.server import RESTServer
 
 from kserve.protocol.infer_type import InferRequest, InferInput, InferResponse, InferOutput
 from kserve.utils.utils import get_predict_input, get_predict_response
-from test.test_infer_type import InferRequestMatcher
 
 test_avsc_schema = '''
         {
@@ -336,7 +335,7 @@ class TestV2Endpoints:
                                                                           "test-int": 100
                                                                       })])
             resp = http_server_client.post('/v2/models/TestModel/infer', content=input_data)
-            mock_predict.assert_called_with(InferRequestMatcher(req), mock.ANY)
+            mock_predict.assert_called_with(req, mock.ANY)
 
         result = json.loads(resp.content)
         assert resp.status_code == 200

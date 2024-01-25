@@ -203,6 +203,21 @@ class InferInput:
             else:
                 self._parameters['binary_data_size'] = len(self._raw_data)
 
+    def __eq__(self, other):
+        if not isinstance(other, InferInput):
+            return False
+        if self.name != other.name:
+            return False
+        if self.shape != other.shape:
+            return False
+        if self.datatype != other.datatype:
+            return False
+        if self.parameters != other.parameters:
+            return False
+        if self.data != other.data:
+            return False
+        return True
+
 
 def get_content(datatype: str, data: InferTensorContents):
     if datatype == "BOOL":
@@ -350,6 +365,21 @@ class InferRequest:
                               else val for val in input.data]
             dfs.append(pd.DataFrame(input_data, columns=[input.name]))
         return pd.concat(dfs, axis=1)
+
+    def __eq__(self, other):
+        if not isinstance(other, InferRequest):
+            return False
+        if self.model_name != other.model_name:
+            return False
+        if self.id != other.id:
+            return False
+        if self.from_grpc != other.from_grpc:
+            return False
+        if self.parameters != other.parameters:
+            return False
+        if self.inputs != other.inputs:
+            return False
+        return True
 
 
 class InferOutput:
@@ -520,6 +550,21 @@ class InferOutput:
             else:
                 self._parameters['binary_data_size'] = len(self._raw_data)
 
+    def __eq__(self, other):
+        if not isinstance(other, InferOutput):
+            return False
+        if self.name != other.name:
+            return False
+        if self.shape != other.shape:
+            return False
+        if self.datatype != other.datatype:
+            return False
+        if self.parameters != other.parameters:
+            return False
+        if self.data != other.data:
+            return False
+        return True
+
 
 class InferResponse:
     id: str
@@ -648,6 +693,21 @@ class InferResponse:
         return ModelInferResponse(id=self.id, model_name=self.model_name, outputs=infer_outputs,
                                   raw_output_contents=raw_output_contents,
                                   parameters=to_grpc_parameters(self.parameters))
+
+    def __eq__(self, other):
+        if not isinstance(other, InferResponse):
+            return False
+        if self.model_name != other.model_name:
+            return False
+        if self.id != other.id:
+            return False
+        if self.from_grpc != other.from_grpc:
+            return False
+        if self.parameters != other.parameters:
+            return False
+        if self.outputs != other.outputs:
+            return False
+        return True
 
 
 def to_grpc_parameters(parameters: Union[dict, MessageMap[str, InferParameter]]) -> Dict[str, InferParameter]:
