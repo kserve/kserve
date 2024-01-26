@@ -18,6 +18,7 @@ import os
 import re
 from typing import Dict
 from unittest import mock
+from unittest.mock import patch
 
 import avro.io
 import avro.schema
@@ -32,7 +33,7 @@ from kserve.errors import InvalidInput
 from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
 
-from kserve.protocol.infer_type import InferRequest
+from kserve.protocol.infer_type import InferRequest, InferInput, InferResponse, InferOutput
 from kserve.utils.utils import get_predict_input, get_predict_response
 
 test_avsc_schema = '''
@@ -200,6 +201,7 @@ class TestModel:
         with pytest.raises(InvalidInput):
             model.validate(bad_request)
 
+
 # Separate out v1 and v2 endpoint unit tests in
 # https://github.com/kserve/kserve/blob/master/python/kserve/test/test_server.py.
 
@@ -240,14 +242,14 @@ class TestV1Endpoints:
 
     def test_predict_v1(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict',
-                                       data=b'{"instances":[[1,2]]}')
+                                       content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers['content-type'] == "application/json"
 
     def test_explain_v1(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:explain',
-                                       data=b'{"instances":[[1,2]]}')
+                                       content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers['content-type'] == "application/json"
@@ -286,7 +288,7 @@ class TestV2Endpoints:
     def test_infer_v2(self, http_server_client):
         input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
         resp = http_server_client.post('/v2/models/TestModel/infer',
-                                       data=input_data)
+                                       content=input_data)
 
         result = json.loads(resp.content)
         assert resp.status_code == 200
@@ -295,9 +297,49 @@ class TestV2Endpoints:
 
     def test_explain_v2(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:explain',
-                                       data=b'{"instances":[[1,2]]}')
+                                       content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
+        assert resp.headers['content-type'] == "application/json"
+
+    def test_infer_parameters_v2(self, http_server_client):
+        req = InferRequest(model_name="TestModel", request_id="123",
+                           parameters={
+                               "test-str": "dummy",
+                               "test-bool": True,
+                               "test-int": 100
+                           },
+                           infer_inputs=[
+                               InferInput(name="input-0", datatype="INT32", shape=[1, 2], data=[1, 2],
+                                          parameters={
+                                              "test-str": "dummy",
+                                              "test-bool": True,
+                                              "test-int": 100
+                                          })])
+
+        input_data = json.dumps(req.to_rest()).encode('utf-8')
+        with patch.object(DummyModel, 'predict', new_callable=mock.Mock) as mock_predict:
+            mock_predict.return_value = InferResponse(model_name="TestModel", response_id="123",
+                                                      parameters={
+                                                          "test-str": "dummy",
+                                                          "test-bool": True,
+                                                          "test-int": 100
+                                                      },
+                                                      infer_outputs=[
+                                                          InferOutput(name="input-0",
+                                                                      datatype="INT32",
+                                                                      shape=[1, 2], data=[1, 2],
+                                                                      parameters={
+                                                                          "test-str": "dummy",
+                                                                          "test-bool": True,
+                                                                          "test-int": 100
+                                                                      })])
+            resp = http_server_client.post('/v2/models/TestModel/infer', content=input_data)
+            mock_predict.assert_called_with(req, mock.ANY)
+
+        result = json.loads(resp.content)
+        assert resp.status_code == 200
+        assert result["outputs"][0]["data"] == [1, 2]
         assert resp.headers['content-type'] == "application/json"
 
 
@@ -338,7 +380,7 @@ class TestRayServer:
 
     def test_predict(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict',
-                                       data=b'{"instances":[[1,2]]}')
+                                       content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers['content-type'] == "application/json"
@@ -346,7 +388,7 @@ class TestRayServer:
     def test_infer(self, http_server_client):
         input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
         resp = http_server_client.post('/v2/models/TestModel/infer',
-                                       data=input_data)
+                                       content=input_data)
 
         result = json.loads(resp.content)
         assert resp.status_code == 200
@@ -355,7 +397,7 @@ class TestRayServer:
 
     def test_explain(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:explain',
-                                       data=b'{"instances":[[1,2]]}')
+                                       content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers['content-type'] == "application/json"
@@ -398,7 +440,7 @@ class TestTFHttpServerCloudEvent:
         event = dummy_cloud_event({"instances": [[1, 2]]})
         headers, body = to_structured(event)
 
-        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
         body = json.loads(resp.content)
 
         assert resp.status_code == 200
@@ -417,7 +459,7 @@ class TestTFHttpServerCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]})
             headers, body = to_structured(event)
 
-            resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+            resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
             body = json.loads(resp.content)
 
             assert resp.status_code == 200
@@ -433,7 +475,7 @@ class TestTFHttpServerCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]}, add_extension=True)
             headers, body = to_structured(event)
 
-            resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+            resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
             body = json.loads(resp.content)
 
             assert resp.status_code == 200
@@ -451,7 +493,7 @@ class TestTFHttpServerCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True, add_extension=True)
             headers, body = to_binary(event)
 
-            resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+            resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
 
             assert resp.status_code == 200
             assert resp.headers['content-type'] == "application/json"
@@ -468,7 +510,7 @@ class TestTFHttpServerCloudEvent:
         event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
 
         assert resp.status_code == 200
         assert resp.headers['content-type'] == "application/json"
@@ -482,7 +524,7 @@ class TestTFHttpServerCloudEvent:
     def test_predict_ce_binary_bytes(self, http_server_client):
         event = dummy_cloud_event(b'{"instances":[[1,2]]}', set_contenttype=True)
         headers, body = to_binary(event)
-        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
 
         assert resp.status_code == 200
         assert resp.headers['content-type'] == "application/json"
@@ -497,7 +539,7 @@ class TestTFHttpServerCloudEvent:
         event = dummy_cloud_event(b'{', set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
 
         assert resp.status_code == 400
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: "
@@ -509,7 +551,7 @@ class TestTFHttpServerCloudEvent:
         event = dummy_cloud_event(b'0\x80\x80\x06World!\x00\x00', set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
 
         assert resp.status_code == 400
         error_regex = re.compile("Failed to decode or parse binary json cloudevent: "
@@ -546,7 +588,7 @@ class TestTFHttpServerAvroCloudEvent:
         event = dummy_cloud_event(data, set_contenttype=True, contenttype="application/avro")
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
-        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, data=body)
+        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
 
         assert resp.status_code == 200
         assert resp.headers['content-type'] == "application/json"
@@ -571,12 +613,12 @@ class TestTFHttpServerLoadAndUnLoad:
         return TestClient(app)
 
     def test_load(self, http_server_client):
-        resp = http_server_client.post('/v2/repository/models/model/load', data=b'')
+        resp = http_server_client.post('/v2/repository/models/model/load', content=b'')
         assert resp.status_code == 200
         assert resp.content == b'{"name":"model","load":true}'
 
     def test_unload(self, http_server_client):
-        resp = http_server_client.post('/v2/repository/models/model/unload', data=b'')
+        resp = http_server_client.post('/v2/repository/models/model/unload', content=b'')
         assert resp.status_code == 200
         assert resp.content == b'{"name":"model","unload":true}'
 
@@ -593,11 +635,11 @@ class TestTFHttpServerLoadAndUnLoadFailure:
         return TestClient(app)
 
     def test_load_fail(self, http_server_client):
-        resp = http_server_client.post('/v2/repository/models/model/load', data=b'')
+        resp = http_server_client.post('/v2/repository/models/model/load', content=b'')
         assert resp.status_code == 503
 
     def test_unload_fail(self, http_server_client):
-        resp = http_server_client.post('/v2/repository/models/model/unload', data=b'')
+        resp = http_server_client.post('/v2/repository/models/model/unload', content=b'')
         assert resp.status_code == 404
 
 
@@ -624,16 +666,16 @@ class TestTFHttpServerModelNotReady:
 
     def test_predict(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict',
-                                       data=b'{"instances":[[1,2]]}')
+                                       content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 503
 
     def test_infer(self, http_server_client):
         input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
         resp = http_server_client.post('/v2/models/TestModel/infer',
-                                       data=input_data)
+                                       content=input_data)
         assert resp.status_code == 503
 
     def test_explain(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:explain',
-                                       data=b'{"instances":[[1,2]]}')
+                                       content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 503
