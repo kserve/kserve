@@ -18,6 +18,7 @@ import os
 import pathlib
 import re
 from unittest import mock
+from unittest.mock import patch
 
 import avro
 import pytest
@@ -27,6 +28,7 @@ from cloudevents.http import CloudEvent
 from ray import serve
 
 from kserve.errors import InvalidInput, ModelNotFound
+from kserve.model import PredictorProtocol
 from kserve.protocol.dataplane import DataPlane
 from kserve.model_repository import ModelRepository
 from test.test_server import DummyModel, dummy_cloud_event, DummyCEModel, DummyAvroCEModel, \
@@ -93,12 +95,12 @@ class TestDataPlane:
         ready_model = DummyModel("ReadyModel")
         ready_model.load()
         dataplane._model_registry.update(ready_model)
-        assert dataplane.model_ready(ready_model.name) is True
+        assert await dataplane.model_ready(ready_model.name) is True
 
         not_ready_model = DummyModel("NotReadyModel")
         # model.load()  # Model not loaded, i.e. not ready
         dataplane._model_registry.update(not_ready_model)
-        assert dataplane.model_ready(not_ready_model.name) is False
+        assert await dataplane.model_ready(not_ready_model.name) is False
 
     async def test_server_metadata(self):
         with open(pathlib.Path(__file__).parent.parent / 'pyproject.toml') as toml_file:
@@ -363,3 +365,385 @@ class TestDataPlaneAvroCloudEvent:
         assert headers['ce-type'] == "io.kserve.inference.response"
         assert headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
         assert resp == b'{"predictions": [["foo", 1, "pink"]]}'
+
+
+@pytest.mark.asyncio
+class TestDataplaneTransformer:
+    @patch('kserve.protocol.dataplane.get_http_client')
+    async def test_server_liveness_v1(self, mock_get_http_client):
+        predictor_host = "dummy.host"
+        DataPlane.predictor_host = predictor_host
+        DataPlane.predictor_protocol = PredictorProtocol.REST_V1.value
+        DataPlane.predictor_use_ssl = False
+        DataPlane.predictor_health_check = True
+        mock_client = mock.AsyncMock()
+        mock_get_http_client.return_value = mock_client
+
+        # scenario: getting a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"status": "alive"}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.live()) == {"status": "alive"}
+        mock_client.get.assert_called_with(f"http://{predictor_host}")
+
+        # scenario: not a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = False
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.live()) == {"status": "error"}
+
+        # scenario: 2xx response with server not alive response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_client.get.return_value = mock_response = mock_response
+        mock_response.json.return_value = {"status": "error"}
+        assert (await DataPlane.live()) == {"status": "error"}
+
+        # scenario: getting a 2xx response from predictor with ssl enabled
+        DataPlane.predictor_use_ssl = True
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"status": "alive"}
+        mock_client.get.return_value = mock_response = mock_response
+        assert (await DataPlane.live()) == {"status": "alive"}
+        mock_client.get.assert_called_with(f"https://{predictor_host}")
+
+    @patch('kserve.protocol.dataplane.get_http_client')
+    async def test_server_liveness_v2(self, mock_get_http_client):
+        predictor_host = "dummy.host"
+        DataPlane.predictor_host = predictor_host
+        DataPlane.predictor_protocol = PredictorProtocol.REST_V2.value
+        DataPlane.predictor_use_ssl = False
+        DataPlane.predictor_health_check = True
+        mock_client = mock.AsyncMock()
+        mock_get_http_client.return_value = mock_client
+
+        # scenario: getting a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"live": True}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.live()) == {"status": "alive"}
+        mock_client.get.assert_called_with(f"http://{predictor_host}/{PredictorProtocol.REST_V2.value}/health/live")
+
+        # scenario: not a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = False
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.live()) == {"status": "error"}
+
+        # scenario: 2xx response with server not alive response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"live": False}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.live()) == {"status": "error"}
+
+        # scenario: getting a 2xx response from predictor with ssl enabled
+        DataPlane.predictor_use_ssl = True
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"live": True}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.live()) == {"status": "alive"}
+        mock_client.get.assert_called_with(f"https://{predictor_host}/{PredictorProtocol.REST_V2.value}/health/live")
+
+    @patch('kserve.protocol.dataplane.get_grpc_client')
+    async def test_server_liveness_grpc_v2(self, mock_get_grpc_client):
+        predictor_host = "dummy.host"
+        DataPlane.predictor_host = predictor_host
+        DataPlane.predictor_protocol = PredictorProtocol.GRPC_V2.value
+        DataPlane.predictor_use_ssl = False
+        DataPlane.predictor_health_check = True
+        mock_grpc_client = mock.AsyncMock()
+        mock_get_grpc_client.return_value = mock_grpc_client
+
+        # scenario: server alive response from predictor with default port
+        mock_grpc_client.ServerLive.return_value.live = True
+        assert (await DataPlane.live()) == {"status": "alive"}
+
+        # scenario: server not alive response from predictor
+        mock_grpc_client.ServerLive.return_value.live = False
+        assert (await DataPlane.live()) == {"status": "error"}
+
+    @patch('kserve.protocol.dataplane.get_http_client')
+    async def test_server_readiness_v1(self, mock_get_http_client):
+        predictor_host = "dummy.host"
+        DataPlane.predictor_host = predictor_host
+        DataPlane.predictor_protocol = PredictorProtocol.REST_V1.value
+        DataPlane.predictor_use_ssl = False
+        DataPlane.predictor_health_check = True
+        mock_client = mock.AsyncMock()
+        mock_get_http_client.return_value = mock_client
+
+        # scenario: getting a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"status": "alive"}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.ready()) is True
+        mock_client.get.assert_called_with(f"http://{predictor_host}")
+
+        # scenario: not a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = False
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.ready()) is False
+
+        # scenario: 2xx response with server not alive response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"status": "error"}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.ready()) is False
+
+        # scenario: getting a 2xx response from predictor with ssl enabled
+        DataPlane.predictor_use_ssl = True
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"status": "alive"}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.ready()) is True
+        mock_client.get.assert_called_with(f"https://{predictor_host}")
+
+    @patch('kserve.protocol.dataplane.get_http_client')
+    async def test_server_readiness_v2(self, mock_get_http_client):
+        predictor_host = "dummy.host"
+        DataPlane.predictor_host = predictor_host
+        DataPlane.predictor_protocol = PredictorProtocol.REST_V2.value
+        DataPlane.predictor_use_ssl = False
+        DataPlane.predictor_health_check = True
+        mock_client = mock.AsyncMock()
+        mock_get_http_client.return_value = mock_client
+
+        # scenario: getting a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": True}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.ready()) is True
+        mock_client.get.assert_called_with(f"http://{predictor_host}/{PredictorProtocol.REST_V2.value}/health/ready")
+
+        # scenario: not a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = False
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.ready()) is False
+
+        # scenario: 2xx response with server not ready response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": False}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.ready()) is False
+
+        # scenario: getting a 2xx response from predictor with ssl enabled
+        DataPlane.predictor_use_ssl = True
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": True}
+        mock_client.get.return_value = mock_response
+        assert (await DataPlane.ready()) is True
+        mock_client.get.assert_called_with(f"https://{predictor_host}/{PredictorProtocol.REST_V2.value}/health/ready")
+
+    @patch('kserve.protocol.dataplane.get_grpc_client')
+    async def test_server_readiness_grpc_v2(self, mock_get_grpc_client):
+        predictor_host = "dummy.host"
+        DataPlane.predictor_host = predictor_host
+        DataPlane.predictor_protocol = PredictorProtocol.GRPC_V2.value
+        DataPlane.predictor_use_ssl = False
+        DataPlane.predictor_health_check = True
+        mock_grpc_client = mock.AsyncMock()
+        mock_get_grpc_client.return_value = mock_grpc_client
+
+        # scenario: server ready response from predictor with default port
+        mock_grpc_client.ServerReady.return_value.ready = True
+        assert await DataPlane.ready() is True
+
+        # scenario: server not ready response from predictor
+        mock_grpc_client.ServerReady.return_value.ready = False
+        assert await DataPlane.ready() is False
+
+    @patch('kserve.protocol.dataplane.get_http_client')
+    async def test_model_readiness_v1(self, mock_get_http_client):
+        predictor_host = "dummy.host"
+        dataplane = DataPlane(model_registry=ModelRepository())
+        DataPlane.predictor_host = predictor_host
+        DataPlane.predictor_protocol = PredictorProtocol.REST_V1.value
+        DataPlane.predictor_use_ssl = False
+        DataPlane.predictor_health_check = True
+        mock_client = mock.AsyncMock()
+        mock_get_http_client.return_value = mock_client
+
+        # Transformer model ready
+        ready_model = DummyModel("ReadyModel")
+        ready_model.load()
+        dataplane._model_registry.update(ready_model)
+
+        # scenario: transformer model is ready and getting a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": "True"}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(ready_model.name) is True
+        mock_client.get.assert_called_with(f"http://{predictor_host}/{PredictorProtocol.REST_V1.value}"
+                                           f"/models/{ready_model.name}")
+
+        # scenario: transformer model is ready and getting not a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = False
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(ready_model.name) is False
+
+        # scenario: transformer model is ready and getting a 2xx response with model not ready from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": "False"}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(ready_model.name) is False
+
+        # Transformer model is not ready
+        not_ready_model = DummyModel("NotReadyModel")
+        # model.load()  # Model not loaded, i.e. not ready
+        dataplane._model_registry.update(not_ready_model)
+
+        # scenario: transformer model is not ready and getting a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": "True"}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(not_ready_model.name) is False
+
+        # scenario: transformer model is not ready and getting not a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = False
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(not_ready_model.name) is False
+
+        # scenario: transformer model is not ready and getting a 2xx response with model not ready from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": "False"}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(not_ready_model.name) is False
+
+        # scenario: transformer model is ready and getting a 2xx response from predictor with ssl enabled
+        DataPlane.predictor_use_ssl = True
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": "True"}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(ready_model.name) is True
+        mock_client.get.assert_called_with(f"https://{predictor_host}/{PredictorProtocol.REST_V1.value}"
+                                           f"/models/{ready_model.name}")
+
+    @patch('kserve.protocol.dataplane.get_http_client')
+    async def test_model_readiness_v2(self, mock_get_http_client):
+        predictor_host = "dummy.host"
+        dataplane = DataPlane(model_registry=ModelRepository())
+        DataPlane.predictor_host = predictor_host
+        DataPlane.predictor_protocol = PredictorProtocol.REST_V2.value
+        DataPlane.predictor_use_ssl = False
+        DataPlane.predictor_health_check = True
+        mock_client = mock.AsyncMock()
+        mock_get_http_client.return_value = mock_client
+
+        # Transformer model ready
+        ready_model = DummyModel("ReadyModel")
+        ready_model.load()
+        dataplane._model_registry.update(ready_model)
+
+        # scenario: transformer model is ready and getting a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": True}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(ready_model.name) is True
+        mock_client.get.assert_called_with(f"http://{predictor_host}/{PredictorProtocol.REST_V2.value}"
+                                           f"/models/{ready_model.name}/ready")
+
+        # scenario: transformer model is ready and getting not a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = False
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(ready_model.name) is False
+
+        # scenario: transformer model is ready and getting a 2xx response with model not ready from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": False}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(ready_model.name) is False
+
+        # Transformer model is not ready
+        not_ready_model = DummyModel("NotReadyModel")
+        # model.load()  # Model not loaded, i.e. not ready
+        dataplane._model_registry.update(not_ready_model)
+
+        # scenario: transformer model is not ready and getting a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": True}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(not_ready_model.name) is False
+
+        # scenario: transformer model is not ready and getting not a 2xx response from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = False
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(not_ready_model.name) is False
+
+        # scenario: transformer model is not ready and getting a 2xx response with model not ready from predictor
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": False}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(not_ready_model.name) is False
+
+        # scenario: transformer model is ready and getting a 2xx response from predictor with ssl enabled
+        DataPlane.predictor_use_ssl = True
+        mock_response = mock.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ready": True}
+        mock_client.get.return_value = mock_response
+        assert await dataplane.model_ready(ready_model.name) is True
+        mock_client.get.assert_called_with(f"https://{predictor_host}/{PredictorProtocol.REST_V2.value}/models/"
+                                           f"{ready_model.name}/ready")
+
+    @patch('kserve.protocol.dataplane.get_grpc_client')
+    async def test_model_readiness_grpc_v2(self, mock_get_grpc_client):
+        predictor_host = "dummy.host"
+        DataPlane.predictor_host = predictor_host
+        DataPlane.predictor_protocol = PredictorProtocol.GRPC_V2.value
+        DataPlane.predictor_use_ssl = False
+        dataplane = DataPlane(model_registry=ModelRepository())
+        DataPlane.predictor_health_check = True
+        mock_grpc_client = mock.AsyncMock()
+        mock_get_grpc_client.return_value = mock_grpc_client
+
+        # Transformer model ready
+        ready_model = DummyModel("ReadyModel")
+        ready_model.load()
+        dataplane._model_registry.update(ready_model)
+
+        # scenario: transformer model ready and predictor model ready response with default port
+        mock_grpc_client.ModelReady.return_value.ready = True
+        assert await dataplane.model_ready(ready_model.name) is True
+
+        # scenario: transformer model ready and predictor model is not ready response with default port
+        mock_grpc_client.ModelReady.return_value.ready = False
+        assert await dataplane.model_ready(ready_model.name) is False
+
+        # Transformer model is not ready
+        not_ready_model = DummyModel("NotReadyModel")
+        # model.load()  # Model not loaded, i.e. not ready
+        dataplane._model_registry.update(not_ready_model)
+
+        # scenario: transformer model not ready and predictor model ready response with default port
+        mock_grpc_client.ModelReady.return_value.ready = True
+        assert await dataplane.model_ready(not_ready_model.name) is False
+
+        # scenario: transformer model not ready and predictor model not ready response with default port
+        mock_grpc_client.ModelReady.return_value.ready = False
+        assert await dataplane.model_ready(not_ready_model.name) is False

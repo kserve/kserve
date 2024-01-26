@@ -15,9 +15,16 @@
 import os
 import sys
 import uuid
+
+import grpc
+import httpx
+
+from kserve.constants.constants import PredictorProtocol
+from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import InferParameter
 from typing import Dict, Union, List
 
+from kserve.protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
 from kserve.utils.numpy_codec import from_np_dtype
 import pandas as pd
 import numpy as np
@@ -26,6 +33,10 @@ from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+
+_channel: Union[grpc.aio.Channel, None] = None
+_grpc_client: Union[GRPCInferenceServiceStub, None] = None
+_http_client: Union[httpx.AsyncClient, None] = None
 
 
 def is_running_in_k8s():
@@ -225,3 +236,69 @@ def strtobool(val: str) -> bool:
         return False
     else:
         raise ValueError("invalid truth value %r" % (val,))
+
+
+def get_grpc_client(predictor_host: str, use_ssl: bool) -> grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub:
+    global _channel
+    global _grpc_client
+    if _grpc_client is None:
+        # requires appending the port to the predictor host for gRPC to work
+        if ":" not in predictor_host:
+            port = 443 if use_ssl else 80
+            predictor_host = f"{predictor_host}:{port}"
+        if use_ssl:
+            _channel = grpc.aio.secure_channel(predictor_host, grpc.ssl_channel_credentials())
+        else:
+            _channel = grpc.aio.insecure_channel(predictor_host)
+        _grpc_client = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
+    return _grpc_client
+
+
+def get_http_client():
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient()
+    return _http_client
+
+
+async def close_grpc_channel():
+    global _channel
+    global _grpc_client
+    if _channel is not None:
+        await _channel.close()
+        _grpc_client = None
+
+
+async def close_http_client():
+    global _http_client
+    if _http_client is not None:
+        await _http_client.aclose()
+        _http_client = None
+
+
+def get_liveness_endpoint(host: str, protocol: str, use_ssl: bool) -> str:
+    scheme = "https" if use_ssl else "http"
+    return f"{scheme}://{host}" if protocol == PredictorProtocol.REST_V1.value \
+        else f"{scheme}://{host}/{protocol}/health/live"
+
+
+def get_readiness_endpoint(host: str, protocol: str, use_ssl: bool) -> str:
+    scheme = "https" if use_ssl else "http"
+    # Since V1 protocol does not have a server ready endpoint, using server live endpoint to check
+    # predictor server readiness
+    return f"{scheme}://{host}" if protocol == PredictorProtocol.REST_V1.value \
+        else f"{scheme}://{host}/{protocol}/health/ready"
+
+
+def get_model_ready_endpoint(host: str, protocol: str, use_ssl: bool, model_name: str) -> str:
+    scheme = "https" if use_ssl else "http"
+    return f"{scheme}://{host}/{protocol}/models/{model_name}" if protocol == PredictorProtocol.REST_V1.value \
+        else f"{scheme}://{host}/{protocol}/models/{model_name}/ready"
+
+
+def is_v2(protocol: PredictorProtocol) -> bool:
+    return protocol != PredictorProtocol.REST_V1
+
+
+def get_latency_ms(start: float, end: float) -> float:
+    return round((end - start) * 1000, 9)

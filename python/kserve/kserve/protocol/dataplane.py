@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+import logging
 from importlib import metadata
 from typing import Dict, Union, Tuple, Optional
 
@@ -22,15 +24,15 @@ from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
 
-from ..model import Model
+from .grpc import grpc_predict_v2_pb2 as pb
+from ..model import Model, PredictorProtocol
 from ..errors import InvalidInput, ModelNotFound
 from ..model import ModelType
 from ..model_repository import ModelRepository
-from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
+from ..utils.utils import create_response_cloudevent, is_structured_cloudevent, get_grpc_client, get_http_client, \
+    get_liveness_endpoint, get_readiness_endpoint, get_model_ready_endpoint
 from .infer_type import InferRequest, InferResponse
 from ..constants import constants
-import time
-import logging
 
 JSON_HEADERS = ["application/json", "application/cloudevents+json", "application/ld+json"]
 
@@ -44,6 +46,11 @@ ModelHandleType = Union[Model, RayServeHandle, RayServeSyncHandle, DeploymentHan
 class DataPlane:
     """KServe DataPlane
     """
+
+    predictor_host: str = None
+    predictor_protocol: str = None
+    predictor_use_ssl: bool = None
+    predictor_health_check: bool = None
 
     def __init__(self, model_registry: ModelRepository):
         self._model_registry = model_registry
@@ -116,6 +123,25 @@ class DataPlane:
         Returns:
             Dict: {"status": "alive"}
         """
+        # If predictor host is present, then it means this is a transformer,
+        # We should also need to check the predictor server's health if predictor health check is enabled.
+        if DataPlane.predictor_health_check and DataPlane.predictor_host:
+            if DataPlane.predictor_protocol == PredictorProtocol.GRPC_V2.value:
+                grpc_client = get_grpc_client(DataPlane.predictor_host, DataPlane.predictor_use_ssl)
+                res = await grpc_client.ServerLive(pb.ServerLiveRequest())
+                if not res.live:
+                    return {"status": "error"}
+            elif (DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value or
+                  DataPlane.predictor_protocol == PredictorProtocol.REST_V2.value):
+                res = await get_http_client().get(get_liveness_endpoint(DataPlane.predictor_host,
+                                                                        DataPlane.predictor_protocol,
+                                                                        DataPlane.predictor_use_ssl))
+                if DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value:
+                    if not res.is_success or res.json().get("status", "error").lower() != "alive":
+                        return {"status": "error"}
+                elif DataPlane.predictor_protocol == PredictorProtocol.REST_V2.value:
+                    if not res.is_success or not res.json().get("live", False):
+                        return {"status": "error"}
         return {"status": "alive"}
 
     def metadata(self) -> Dict:
@@ -195,9 +221,28 @@ class DataPlane:
         Returns:
             bool: True
         """
+        # If predictor host is present, then it means this is a transformer,
+        # We should also need to check the predictor server's health if predictor health check is enabled.
+        if DataPlane.predictor_health_check and DataPlane.predictor_host:
+            if DataPlane.predictor_protocol == PredictorProtocol.GRPC_V2.value:
+                grpc_client = get_grpc_client(DataPlane.predictor_host, DataPlane.predictor_use_ssl)
+                res = await grpc_client.ServerReady(pb.ServerReadyRequest())
+                if not res.ready:
+                    return False
+            elif (DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value or
+                  DataPlane.predictor_protocol == PredictorProtocol.REST_V2.value):
+                res = await get_http_client().get(get_readiness_endpoint(DataPlane.predictor_host,
+                                                                         DataPlane.predictor_protocol,
+                                                                         DataPlane.predictor_use_ssl))
+                if DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value:
+                    if not res.is_success or res.json().get("status", "error").lower() != "alive":
+                        return False
+                elif DataPlane.predictor_protocol == PredictorProtocol.REST_V2.value:
+                    if not res.is_success or not res.json().get("ready", False):
+                        return False
         return True
 
-    def model_ready(self, model_name: str) -> bool:
+    async def model_ready(self, model_name: str) -> bool:
         """Check if a model is ready.
 
         Args:
@@ -209,6 +254,25 @@ class DataPlane:
         Raises:
             ModelNotFound: exception if model is not found
         """
+
+        # If predictor host is present, then it means this is a transformer,
+        # We should also check the predictor model's health if predictor health check is enabled.
+        if DataPlane.predictor_health_check and DataPlane.predictor_host:
+            if DataPlane.predictor_protocol == PredictorProtocol.GRPC_V2.value:
+                grpc_client = get_grpc_client(DataPlane.predictor_host, DataPlane.predictor_use_ssl)
+                res = await grpc_client.ModelReady(pb.ModelReadyRequest(name=model_name))
+                if not res.ready:
+                    return False
+            elif (DataPlane.predictor_protocol == PredictorProtocol.REST_V1.value or
+                  DataPlane.predictor_protocol == PredictorProtocol.REST_V2.value):
+                res = await get_http_client().get(get_model_ready_endpoint(DataPlane.predictor_host,
+                                                                           DataPlane.predictor_protocol,
+                                                                           DataPlane.predictor_use_ssl,
+                                                                           model_name))
+                # Need to convert the response to str, because v2 endpoint returns a bool value while v1 endpoint
+                # returns a string value.
+                if not res.is_success or str(res.json().get("ready", "False")).lower() == "false":
+                    return False
         if self._model_registry.get_model(model_name) is None:
             raise ModelNotFound(model_name)
 
