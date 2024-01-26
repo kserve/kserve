@@ -36,7 +36,7 @@ const (
 	S3Endpoint             = "S3_ENDPOINT"
 	S3UseHttps             = "S3_USE_HTTPS"
 	S3VerifySSL            = "S3_VERIFY_SSL"
-	S3UseVirtualBucket     = "S3_USER_VIRTUAL_BUCKET"
+	S3UseVirtualBucket     = "S3_USE_VIRTUAL_BUCKET"
 	AWSAnonymousCredential = "awsAnonymousCredential"
 	AWSCABundle            = "AWS_CA_BUNDLE"
 	AWSCABundleConfigMap   = "AWS_CA_BUNDLE_CONFIGMAP"

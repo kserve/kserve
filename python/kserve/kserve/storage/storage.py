@@ -148,7 +148,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         anon = ("true" == os.getenv("awsAnonymousCredential", "false").lower())
         # S3UseVirtualBucket environment variable defined in s3_secret.go
         # use virtual hosted-style URLs if enabled
-        virtual = ("true" == os.getenv("S3_USER_VIRTUAL_BUCKET", "false").lower())
+        virtual = ("true" == os.getenv("S3_USE_VIRTUAL_BUCKET", "false").lower())
 
         if anon:
             c = c.merge(Config(signature_version=UNSIGNED))
