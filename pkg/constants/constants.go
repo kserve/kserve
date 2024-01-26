@@ -132,9 +132,14 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName          = KServeName + "-controller-manager"
-	DefaultMinReplicas           = 1
-	IstioSidecarUIDAnnotationKey = KServeAPIGroupName + "/storage-initializer-uid"
+	ControllerLabelName             = KServeName + "-controller-manager"
+	DefaultIstioSidecarUID          = int64(1337)
+	DefaultMinReplicas              = 1
+	IstioInitContainerName          = "istio-init"
+	IstioInterceptModeRedirect      = "REDIRECT"
+	IstioInterceptionModeAnnotation = "sidecar.istio.io/interceptionMode"
+	IstioSidecarUIDAnnotationKey    = KServeAPIGroupName + "/storage-initializer-uid"
+	IstioSidecarStatusAnnotation    = "sidecar.istio.io/status"
 )
 
 type AutoscalerClassType string

@@ -57,6 +57,7 @@ class KServeClient(object):
         self.core_api = client.CoreV1Api()
         self.app_api = client.AppsV1Api()
         self.api_instance = client.CustomObjectsApi()
+        self.hpa_v2_api = client.AutoscalingV2Api()
 
     def set_credentials(self, storage_type, namespace=None, credentials_file=None,
                         service_account=constants.DEFAULT_SA_NAME, **kwargs):
