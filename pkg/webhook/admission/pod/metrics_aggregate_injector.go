@@ -19,7 +19,6 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 )

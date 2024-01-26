@@ -70,17 +70,6 @@ var (
 			v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
 		},
 	}
-
-	targetNS = &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "my-ns",
-			Annotations: map[string]string{
-				OpenShiftUidRangeAnnotationKey: "1000740000/10000",
-			},
-		},
-	}
-
-	expectedInitContainerUid = ptr.Int64(1000740001)
 )
 
 func TestStorageInitializerInjector(t *testing.T) {
@@ -201,9 +190,6 @@ func TestStorageInitializerInjector(t *testing.T) {
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
 						},
 					},
 					Volumes: []v1.Volume{
@@ -273,9 +259,6 @@ func TestStorageInitializerInjector(t *testing.T) {
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
-							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
 							},
 						},
 					},
@@ -357,9 +340,6 @@ func TestStorageInitializerInjector(t *testing.T) {
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
 						},
 					},
 					Volumes: []v1.Volume{
@@ -383,7 +363,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 			config: storageInitializerConfig,
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(scenario.original, targetNS); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -424,152 +404,12 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 			config: storageInitializerConfig,
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(scenario.original, targetNS); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			if !strings.HasPrefix(err.Error(), scenario.expectedErrorPrefix) {
 				t.Errorf("Test %q unexpected failure [%s], expected: %s", name, err.Error(), scenario.expectedErrorPrefix)
 			}
 		} else {
 			t.Errorf("Test %q should have failed with: %s", name, scenario.expectedErrorPrefix)
-		}
-	}
-}
-
-func TestStorageInitializerInjectorUIDHandling(t *testing.T) {
-	scenarios := map[string]struct {
-		namespace *v1.Namespace
-		original  *v1.Pod
-		expected  *v1.Pod
-	}{
-		"NoAnnotationNoUid": {
-			namespace: &v1.Namespace{},
-			original: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-			},
-			expected: &v1.Pod{
-				Spec: v1.PodSpec{
-					InitContainers: []v1.Container{
-						{
-							Name:                     "storage-initializer",
-							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources:                resourceRequirement,
-							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		"UidFromOpenShiftNamespaceAnnotation": {
-			namespace: targetNS,
-			original: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-			},
-			expected: &v1.Pod{
-				Spec: v1.PodSpec{
-					InitContainers: []v1.Container{
-						{
-							Name:                     "storage-initializer",
-							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources:                resourceRequirement,
-							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-								},
-							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
-						},
-					},
-				},
-			},
-		},
-		"UidFromPodAnnotation": {
-			namespace: targetNS,
-			original: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
-						constants.IstioSidecarUIDAnnotationKey:                     "1337",
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-			},
-			expected: &v1.Pod{
-				Spec: v1.PodSpec{
-					InitContainers: []v1.Container{
-						{
-							Name:                     "storage-initializer",
-							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources:                resourceRequirement,
-							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-								},
-							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: ptr.Int64(1337),
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for name, scenario := range scenarios {
-		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
-				Data: map[string]string{},
-			}),
-			config: storageInitializerConfig,
-			client: c,
-		}
-		if err := injector.InjectStorageInitializer(scenario.original, scenario.namespace); err != nil {
-			t.Errorf("Test %q unexpected result: %s", name, err)
-		}
-		if diff, _ := kmp.SafeDiff(scenario.expected.Spec.InitContainers, scenario.original.Spec.InitContainers); diff != "" {
-			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 	}
 }
@@ -664,7 +504,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 			config: storageInitializerConfig,
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(scenario.original, targetNS); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 
@@ -767,9 +607,6 @@ func TestCredentialInjection(t *testing.T) {
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
-							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
 							},
 							Env: []v1.EnvVar{
 								{
@@ -876,9 +713,6 @@ func TestCredentialInjection(t *testing.T) {
 									MountPath: gcs.GCSCredentialVolumeMountPath,
 								},
 							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
 							Env: []v1.EnvVar{
 								{
 									Name:  gcs.GCSCredentialEnvKey,
@@ -967,9 +801,6 @@ func TestCredentialInjection(t *testing.T) {
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
 							Env: []v1.EnvVar{
 								{
 									Name: credentials.StorageConfigEnvKey,
@@ -1065,9 +896,6 @@ func TestCredentialInjection(t *testing.T) {
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
 							Env: []v1.EnvVar{
 								{
 									Name: credentials.StorageConfigEnvKey,
@@ -1128,7 +956,7 @@ func TestCredentialInjection(t *testing.T) {
 			config:            storageInitializerConfig,
 			client:            c,
 		}
-		if err := injector.InjectStorageInitializer(scenario.original, targetNS); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected failure [%s]", name, err.Error())
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -1192,9 +1020,6 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
 						},
 					},
 					Volumes: []v1.Volume{
@@ -1226,7 +1051,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 			},
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(scenario.original, targetNS); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -1446,7 +1271,6 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							SecurityContext:          &v1.SecurityContext{RunAsUser: expectedInitContainerUid},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1550,7 +1374,6 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							SecurityContext:          &v1.SecurityContext{RunAsUser: expectedInitContainerUid},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1672,7 +1495,6 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							SecurityContext:          &v1.SecurityContext{RunAsUser: expectedInitContainerUid},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1795,7 +1617,6 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							SecurityContext:          &v1.SecurityContext{RunAsUser: expectedInitContainerUid},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1909,7 +1730,6 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							SecurityContext:          &v1.SecurityContext{RunAsUser: expectedInitContainerUid},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2018,7 +1838,6 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							SecurityContext:          &v1.SecurityContext{RunAsUser: expectedInitContainerUid},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2065,7 +1884,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 			config:            scenario.storageConfig,
 			client:            c,
 		}
-		if err := injector.InjectStorageInitializer(scenario.original, targetNS); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected failure [%s]", name, err.Error())
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -2193,7 +2012,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 			},
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(scenario.original, targetNS); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -2295,9 +2114,6 @@ func TestTransformerCollocation(t *testing.T) {
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
-							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
 							},
 						},
 					},
@@ -2467,9 +2283,6 @@ func TestTransformerCollocation(t *testing.T) {
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
 						},
 					},
 					Volumes: []v1.Volume{
@@ -2502,7 +2315,7 @@ func TestTransformerCollocation(t *testing.T) {
 			config: scenario.storageConfig,
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(scenario.original, targetNS); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -2691,9 +2504,6 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
 						},
 					},
 					Volumes: []v1.Volume{
@@ -2754,9 +2564,6 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							SecurityContext: &v1.SecurityContext{
-								RunAsUser: expectedInitContainerUid,
-							},
 						},
 					},
 					Volumes: []v1.Volume{
@@ -2780,7 +2587,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 			client: mockClient,
 		}
 
-		if err = injector.InjectStorageInitializer(scenario.original, targetNS); err != nil {
+		if err = injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
