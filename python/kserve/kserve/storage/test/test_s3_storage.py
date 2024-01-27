@@ -183,6 +183,7 @@ def test_get_S3_config():
     DEFAULT_CONFIG = Config()
     ANON_CONFIG = Config(signature_version=UNSIGNED)
     VIRTUAL_CONFIG = Config(s3={"addressing_style": "virtual"})
+    USE_ACCELERATE_CONFIG = Config(s3={"use_accelerate_endpoint": True})
 
     with mock.patch.dict(os.environ, {}):
         config1 = Storage.get_S3_config()
@@ -213,6 +214,14 @@ def test_get_S3_config():
     with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "True"}):
         config7 = Storage.get_S3_config()
     assert config7.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]
+
+    with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "False"}):
+        config6 = Storage.get_S3_config()
+    assert vars(config6) == vars(DEFAULT_CONFIG)
+
+    with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "True"}):
+        config7 = Storage.get_S3_config()
+    assert config7.s3["use_accelerate_endpoint"] == USE_ACCELERATE_CONFIG.s3["use_accelerate_endpoint"]
 
 
 def test_update_with_storage_spec_s3(monkeypatch):
