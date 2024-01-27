@@ -338,14 +338,24 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
+// Mainly used for kubernetes readiness probe. It responds with "500 shutting down" if server is shutting down,
+// otherwise returns "200 OK".
+func readyHandler(w http.ResponseWriter, req *http.Request) {
+	if isShuttingDown {
+		http.Error(w, "shutting down", http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 var (
 	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
 	compiledHeaderPatterns []*regexp.Regexp
-	timeout                int64
+	isShuttingDown         = false
+	drainSleepDuration     = 30 * time.Second
 )
 
 func main() {
-	flag.Int64Var(&timeout, "termination-grace-period", 300, "wait timeout period for in-flight requests during server shutdown")
 	flag.Parse()
 	logf.SetLogger(zap.New())
 	if headersToPropagateEnvVar, ok := os.LookupEnv(constants.RouterHeadersPropagateEnvVar); ok {
@@ -365,10 +375,13 @@ func main() {
 	}
 
 	server := &http.Server{
-		Addr:    ":8080",
-		Handler: nil,
+		Addr:    ":" + strconv.Itoa(constants.RouterPort),
+		Handler: nil, // default server mux
+		// https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		ReadHeaderTimeout: time.Minute,
 	}
 	http.HandleFunc("/", graphHandler)
+	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
 
 	server := &http.Server{
 		Addr:         ":8080",                        // specify the address and port
@@ -381,7 +394,7 @@ func main() {
 	go func() {
 		err = server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error(err, fmt.Sprintf("Failed to listen on address %v", server.Addr))
+			log.Error(err, fmt.Sprintf("Failed to serve on address %v", server.Addr))
 			os.Exit(1)
 		}
 	}()
@@ -396,23 +409,16 @@ func handleSignals(server *http.Server) {
 
 	sig := <-signalChan
 	log.Info("Received shutdown signal", "signal", sig)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
-	defer cancel()
-
+	// Fail the readiness probe
+	isShuttingDown = true
+	log.Info("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
+	// Sleep to give networking a little bit more time to remove the pod
+	// from its configuration and propagate that to all loadbalancers and nodes.
+	time.Sleep(drainSleepDuration)
 	// Shut down the server gracefully
-	if err := server.Shutdown(ctx); err != nil && errors.Is(err, http.ErrServerClosed) {
+	if err := server.Shutdown(context.Background()); err != nil {
 		log.Error(err, "Failed to shutdown the server gracefully")
-
-		// Shut down the server forcefully if context deadline exceeded.
-		if errors.Is(err, context.DeadlineExceeded) {
-			log.Info("Shutting down the server forcefully ...")
-			if err := server.Close(); err != nil {
-				log.Error(err, "Failed to shutdown the server forcefully")
-				os.Exit(1)
-			}
-			log.Info("Server forcefully shutdown")
-		}
-	} else {
-		log.Info("Server gracefully shutdown")
+		os.Exit(1)
 	}
+	log.Info("Server gracefully shutdown")
 }

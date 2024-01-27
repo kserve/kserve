@@ -53,6 +53,8 @@ var (
 const (
 	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
 	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
+	RouterReadinessEndpoint      = "/readyz"
+	RouterPort                   = 8080
 )
 
 // TrainedModel Constants

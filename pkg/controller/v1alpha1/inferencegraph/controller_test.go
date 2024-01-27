@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmp"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -165,6 +166,23 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceCPU:    resource.MustParse("100m"),
 													v1.ResourceMemory: resource.MustParse("100Mi"),
 												},
+											},
+											ReadinessProbe: &v1.Probe{
+												ProbeHandler: v1.ProbeHandler{
+													HTTPGet: &v1.HTTPGetAction{
+														Path: constants.RouterReadinessEndpoint,
+														Port: intstr.IntOrString{
+															Type:   intstr.Int,
+															IntVal: constants.RouterPort,
+														},
+														Scheme: v1.URISchemeHTTP,
+													},
+												},
+												InitialDelaySeconds: 5,
+												TimeoutSeconds:      1,
+												PeriodSeconds:       10,
+												SuccessThreshold:    1,
+												FailureThreshold:    3,
 											},
 											SecurityContext: &v1.SecurityContext{
 												Privileged:               proto.Bool(false),
@@ -301,6 +319,23 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceCPU:    resource.MustParse("123m"),
 													v1.ResourceMemory: resource.MustParse("123Mi"),
 												},
+											},
+											ReadinessProbe: &v1.Probe{
+												ProbeHandler: v1.ProbeHandler{
+													HTTPGet: &v1.HTTPGetAction{
+														Path: constants.RouterReadinessEndpoint,
+														Port: intstr.IntOrString{
+															Type:   intstr.Int,
+															IntVal: constants.RouterPort,
+														},
+														Scheme: v1.URISchemeHTTP,
+													},
+												},
+												InitialDelaySeconds: 5,
+												TimeoutSeconds:      1,
+												PeriodSeconds:       10,
+												SuccessThreshold:    1,
+												FailureThreshold:    3,
 											},
 											SecurityContext: &v1.SecurityContext{
 												Privileged:               proto.Bool(false),
@@ -460,6 +495,23 @@ var _ = Describe("Inference Graph controller test", func() {
 												Capabilities: &v1.Capabilities{
 													Drop: []v1.Capability{v1.Capability("ALL")},
 												},
+											},
+											ReadinessProbe: &v1.Probe{
+												ProbeHandler: v1.ProbeHandler{
+													HTTPGet: &v1.HTTPGetAction{
+														Path: constants.RouterReadinessEndpoint,
+														Port: intstr.IntOrString{
+															Type:   intstr.Int,
+															IntVal: constants.RouterPort,
+														},
+														Scheme: v1.URISchemeHTTP,
+													},
+												},
+												InitialDelaySeconds: 5,
+												TimeoutSeconds:      1,
+												PeriodSeconds:       10,
+												SuccessThreshold:    1,
+												FailureThreshold:    3,
 											},
 										},
 									},
