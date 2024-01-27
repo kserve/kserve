@@ -15,7 +15,7 @@
 import inspect
 import time
 from enum import Enum
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union, Optional, AsyncIterator, Any
 
 import grpc
 import httpx
@@ -32,6 +32,7 @@ from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
                                                 ModelInferResponse)
 from .protocol.infer_type import InferRequest, InferResponse
+from .protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
 
 PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
 EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
@@ -39,9 +40,10 @@ PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
 EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
 
 
-class ModelType(Enum):
-    EXPLAINER = 1
-    PREDICTOR = 2
+class InferenceVerb(Enum):
+    EXPLAIN = 1
+    PREDICT = 2
+    GENERATE = 3
 
 
 class PredictorProtocol(Enum):
@@ -103,17 +105,17 @@ class Model:
         self.enable_latency_logging = False
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
-                       model_type: ModelType = ModelType.PREDICTOR,
-                       headers: Dict[str, str] = None) -> Dict:
+                       verb: InferenceVerb = InferenceVerb.PREDICT,
+                       headers: Dict[str, str] = None) -> Union[Dict, InferResponse, List[str]]:
         """Method to call predictor or explainer with the given input.
 
         Args:
             body: Request body.
-            model_type: ModelType enum: `ModelType.PREDICTOR` or `ModelType.EXPLAINER`.
+            verb: The inference verb for predict/generate/explain
             headers: Request headers.
 
         Returns:
-            Dict: Response output from preprocess -> predictor/explainer -> postprocess
+            Response output from preprocess -> predict/generate/explain -> postprocess
         """
         request_id = headers.get("x-request-id", "N.A.") if headers else "N.A."
 
@@ -130,13 +132,13 @@ class Model:
                 else self.preprocess(body, headers)
             preprocess_ms = get_latency_ms(start, time.time())
         payload = self.validate(payload)
-        if model_type == ModelType.EXPLAINER:
+        if verb == InferenceVerb.EXPLAIN:
             with EXPLAIN_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
                 response = (await self.explain(payload, headers)) if inspect.iscoroutinefunction(self.explain) \
                     else self.explain(payload, headers)
                 explain_ms = get_latency_ms(start, time.time())
-        elif model_type == ModelType.PREDICTOR:
+        elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
                 response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
@@ -321,6 +323,13 @@ class Model:
             res = await self._http_predict(payload, headers)
             # return an InferResponse if this is REST V2, otherwise just return the dictionary
             return InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
+
+    async def generate(self, payload: GenerateRequest,
+                       headers: Dict[str, str] = None) -> Union[GenerateResponse, AsyncIterator[Any]]:
+        """`generate` handler can be overridden to implement text generation.
+
+        """
+        raise NotImplementedError("generate is not implemented")
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.

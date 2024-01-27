@@ -248,3 +248,166 @@ class InferenceResponse(BaseModel):
                 ]
             }
         }
+
+
+class GenerateRequest(BaseModel):
+    """GenerateRequest Model
+
+        $generate_request =
+        {
+          "text_input" : $string,
+          "parameters" : $string #optional,
+        }
+    """
+    text_input: str
+    parameters: Optional[Parameters] = None
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "text_input": "Tell me about the AI",
+                "parameters":
+                    {
+                        "temperature": 0.8,
+                        "top_p": 0.9,
+                    }
+            }
+        }
+
+
+class Token(BaseModel):
+    """Token Data Model
+
+    """
+    id: int
+    logprob: float
+    special: bool
+    text: str
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "id": 267,
+                "logprob": -2.0723474,
+                "special": False,
+                "text": " a",
+            }
+        }
+
+
+class Details(BaseModel):
+    """Generate response details
+
+    """
+    finish_reason: str
+    logprobs: List[Token]
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "finish_reason": "stop",
+                "logprobs": [{
+                  "id": 267,
+                  "logprob": -2.0723474,
+                  "special": False,
+                  "text": " a",
+                }]
+            }
+        }
+
+
+class StreamingDetails(BaseModel):
+    """Generate response details
+
+    """
+    finish_reason: str
+    logprobs: Token
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "finish_reason": "stop",
+                "logprobs": {
+                  "id": 267,
+                  "logprob": -2.0723474,
+                  "special": False,
+                  "text": " a",
+                }
+            }
+        }
+
+
+class GenerateResponse(BaseModel):
+    """GenerateResponse Model
+
+        $generate_response =
+        {
+          "text_output" : $string,
+          "model_name" : $string,
+          "model_version" : $string #optional,
+          "details": $Details #optional
+        }
+    """
+    text_output: str
+    model_name: str
+    model_version: Optional[str]
+    details: Optional[Details]
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "text_output": "Tell me about the AI",
+                "model_name": "bloom7b1",
+                "details": {
+                    "finish_reason": "stop",
+                    "logprobs": [
+                        {
+                            "id": "267",
+                            "logprob": -2.0723474,
+                            "special": False,
+                            "text": " a",
+                        }
+                    ]
+                }
+            }
+        }
+
+
+class GenerateStreamingResponse(BaseModel):
+    """GenerateStreamingResponse Model
+
+        $generate_response =
+        {
+          "text_output" : $string,
+          "model_name" : $string,
+          "model_version" : $string #optional,
+          "details": $Details #optional
+        }
+    """
+    text_output: str
+    model_name: str
+    model_version: Optional[str]
+    details: Optional[StreamingDetails]
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "text_output": "Tell me about the AI",
+                "model_name": "bloom7b1",
+                "details": {
+                    "finish_reason": "stop",
+                    "logprobs": {
+                        "id": "267",
+                        "logprob": -2.0723474,
+                        "special": False,
+                        "text": " a",
+                    }
+                }
+            }
+        }
