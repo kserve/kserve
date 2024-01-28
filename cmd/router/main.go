@@ -353,7 +353,15 @@ func main() {
 
 	http.HandleFunc("/", graphHandler)
 
-	err = http.ListenAndServe(":8080", nil) // *lint gosec
+	server := &http.Server{
+		Addr:         ":8080",                        // specify the address and port
+		Handler:      http.HandlerFunc(graphHandler), // specify your HTTP handler
+		ReadTimeout:  10 * time.Second,               // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: 10 * time.Second,               // set the maximum duration before timing out writes of the response
+		IdleTimeout:  15 * time.Second,               // set the maximum amount of time to wait for the next request when keep-alives are enabled
+	}
+	err = server.ListenAndServe()
+
 	if err != nil {
 		log.Error(err, "failed to listen on 8080")
 		os.Exit(1)

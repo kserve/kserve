@@ -44,7 +44,7 @@ func (m *HTTPSProvider) DownloadModel(modelDir string, modelName string, storage
 	log.Info("Download model ", "modelName", modelName, "storageUri", storageUri, "modelDir", modelDir)
 	uri, err := url.Parse(storageUri)
 	if err != nil {
-		return fmt.Errorf("unable to parse storage uri: %w", err)
+		return fmt.Errorf("unable to parse storage uri: %v", err)
 	}
 	HTTPSDownloader := &HTTPSDownloader{
 		StorageUri: storageUri,
@@ -132,7 +132,6 @@ func (h *HTTPSDownloader) extractHeaders() (map[string]string, error) {
 	err := json.Unmarshal([]byte(headerJSON), &headers)
 	if err != nil {
 		log.Error(err, "failed to unmarshal headers")
-		return headers, err
 	}
 	return headers, nil
 }

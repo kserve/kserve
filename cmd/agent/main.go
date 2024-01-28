@@ -189,7 +189,15 @@ func main() {
 			errCh <- fmt.Errorf("failed to listen to unix socket: %w", err)
 			return
 		}
-		if err := http.Serve(l, mainServer.Handler); err != nil { // *lint gosec
+		// Create an http.Server instance with timeouts
+		ServerInstance := &http.Server{
+			Handler:      mainServer.Handler, // specify your HTTP handler
+			ReadTimeout:  10 * time.Second,   // set the maximum duration for reading the entire request, including the body
+			WriteTimeout: 10 * time.Second,   // set the maximum duration before timing out writes of the response
+			IdleTimeout:  15 * time.Second,   // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		}
+
+		if err := ServerInstance.Serve(l); err != nil {
 			errCh <- fmt.Errorf("serving failed on unix socket: %w", err)
 		}
 	}()
