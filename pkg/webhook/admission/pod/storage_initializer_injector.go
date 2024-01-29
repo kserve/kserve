@@ -46,7 +46,6 @@ const (
 	OciURIPrefix                            = "oci://"
 	PvcSourceMountName                      = "kserve-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
-	OpenShiftUidRangeAnnotationKey          = "openshift.io/sa.scc.uid-range"
 	CaBundleVolumeName                      = "cabundle-cert"
 	ModelcarContainerName                   = "modelcar"
 	ModelInitModeEnv                        = "MODEL_INIT_MODE"
@@ -188,7 +187,7 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 // for the serving container in a unified way across storage tech by injecting
 // a provisioning INIT container. This is a work around because KNative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
-func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod, targetNs *v1.Namespace) error {
+func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) error {
 	// Only inject if the required annotations are set
 	srcURI, ok := pod.ObjectMeta.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	if !ok {
@@ -482,41 +481,127 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod, targ
 		}
 	}
 
-	/*
-		OpenShift uses istio-cni which causes an issue with init-containers when calling external services
-		like S3 or similar. Setting the `uid` for the `storage-initializer` to the same `uid` as the
-		`uid` of the `istio-proxy` resolves the issue.
+	// Add init container to the spec
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, *initContainer)
 
-		With upstream istio the user has the option to set the uid to 1337 described in https://istio.io/latest/docs/setup/additional-setup/cni/#compatibility-with-application-init-containers
-		using the annotation IstioSidecarUIDAnnotationKey.
+	return nil
+}
 
-		In OpenShift the `istio-proxy` always gets assigned the first `uid` from the namespaces
-		`uid` range + 1 (The range is defined in an annotation on the namespace).
-	*/
-	if value, ok := pod.GetAnnotations()[constants.IstioSidecarUIDAnnotationKey]; ok {
-		if uid, err := strconv.ParseInt(value, 10, 64); err == nil {
-			if initContainer.SecurityContext == nil {
-				initContainer.SecurityContext = &v1.SecurityContext{}
-			}
-			initContainer.SecurityContext.RunAsUser = ptr.Int64(uid)
-		}
-	} else {
-		uidStr := targetNs.Annotations[OpenShiftUidRangeAnnotationKey]
-		if uidStr != "" {
-			uidStrParts := strings.Split(uidStr, "/")
-			if uid, err := strconv.ParseInt(uidStrParts[0], 10, 64); err == nil {
-				// Set the uid to the first uid in the namespaces range + 1
-				uid++
-				if initContainer.SecurityContext == nil {
-					initContainer.SecurityContext = &v1.SecurityContext{}
-				}
-				initContainer.SecurityContext.RunAsUser = ptr.Int64(uid)
-			}
+// SetIstioCniSecurityContext determines if Istio is installed in using the CNI plugin. If so,
+// the UserID of the storage initializer is changed to match the UserID of the Istio sidecar.
+// This is to ensure that the storage initializer can access the network.
+func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *v1.Pod) error {
+	// Find storage initializer container
+	var storageInitializerContainer *v1.Container
+	for idx, c := range pod.Spec.InitContainers {
+		if c.Name == StorageInitializerContainerName {
+			storageInitializerContainer = &pod.Spec.InitContainers[idx]
 		}
 	}
 
-	// Add init container to the spec
-	pod.Spec.InitContainers = append(pod.Spec.InitContainers, *initContainer)
+	// If the storage initializer is not injected, there is no action to do
+	if storageInitializerContainer == nil {
+		return nil
+	}
+
+	// Allow to override the uid for the case where ISTIO CNI with DNS proxy is enabled
+	// See for more: https://istio.io/latest/docs/setup/additional-setup/cni/#compatibility-with-application-init-containers.
+	if value, ok := pod.GetAnnotations()[constants.IstioSidecarUIDAnnotationKey]; ok {
+		if uid, err := strconv.ParseInt(value, 10, 64); err == nil {
+			if storageInitializerContainer.SecurityContext == nil {
+				storageInitializerContainer.SecurityContext = &v1.SecurityContext{}
+			}
+			storageInitializerContainer.SecurityContext.RunAsUser = ptr.Int64(uid)
+		}
+	} else {
+		// When Istio CNI is disabled, the istio-init container would be present.
+		// If it is there, there is no need to touch the security context of the pod.
+		// Reference: https://github.com/istio/istio/blob/d533e52acc54b4721d23b1332aea1f234ecbe3e6/pkg/config/analysis/analyzers/maturity/maturity.go#L134
+		for _, container := range pod.Spec.InitContainers {
+			if container.Name == constants.IstioInitContainerName {
+				return nil
+			}
+		}
+
+		// When Istio CNI is enabled, a sidecar.istio.io/interceptionMode annotation is injected to the pod.
+		// There are three interception modes: REDIRECT, TPROXY and NONE.
+		// It only makes sense to adjust the security context of the storage initializer if REDIRECT mode is
+		// observed, because the Istio sidecar would be injected and traffic would be sent to it, but the
+		// sidecar won't be running at PodInitialization phase.
+		// The TPROXY mode can indicate that Istio Ambient is enabled. The Waypoint proxy would already be running and
+		// captured traffic can go through.
+		// The TPROXY mode can also be set by the user. If this is the case, it is not possible to infer the setup.
+		// Lastly, if interception mode is NONE the traffic is not being captured. This is an advanced mode, and
+		// it is not possible to infer the setup.
+		istioInterceptionMode := pod.Annotations[constants.IstioInterceptionModeAnnotation]
+		if istioInterceptionMode != constants.IstioInterceptModeRedirect {
+			return nil
+		}
+
+		// The storage initializer can only run smoothly when running with the same UID as the Istio sidecar.
+		// First, find the name of the Istio sidecar container. This is found in a status annotation injected
+		// by Istio. If there is no Istio sidecar status annotation, assume that the pod does
+		// not have a sidecar and leave untouched the security context.
+		istioStatus, istioStatusOk := pod.Annotations[constants.IstioSidecarStatusAnnotation]
+		if !istioStatusOk {
+			return nil
+		}
+
+		// Decode the Istio status JSON document
+		var istioStatusDecoded interface{}
+		if err := json.Unmarshal([]byte(istioStatus), &istioStatusDecoded); err != nil {
+			return err
+		}
+
+		// Get the Istio sidecar container name.
+		istioSidecarContainerName := ""
+		istioStatusMap := istioStatusDecoded.(map[string]interface{})
+		if istioContainers, istioContainersOk := istioStatusMap["containers"].([]interface{}); istioContainersOk {
+			if len(istioContainers) > 0 {
+				istioSidecarContainerName = istioContainers[0].(string)
+			}
+		}
+
+		// If there is no Istio sidecar, it is not possible to set any UID.
+		if len(istioSidecarContainerName) == 0 {
+			return nil
+		}
+
+		// Find the Istio sidecar container in the pod.
+		var istioSidecarContainer *v1.Container
+		for idx, container := range pod.Spec.Containers {
+			if container.Name == istioSidecarContainerName {
+				istioSidecarContainer = &pod.Spec.Containers[idx]
+				break
+			}
+		}
+
+		// Set the UserID of the storage initializer to the same as the Istio sidecar
+		if istioSidecarContainer != nil {
+			if storageInitializerContainer.SecurityContext == nil {
+				storageInitializerContainer.SecurityContext = &v1.SecurityContext{}
+			}
+			if istioSidecarContainer.SecurityContext == nil || istioSidecarContainer.SecurityContext.RunAsUser == nil {
+				// If the Istio sidecar does not explicitly have a UID set, use 1337 which is the
+				// UID hardcoded in Istio. This would require privileges to run with AnyUID, which should
+				// be OK because, otherwise, the Istio sidecar also would not work correctly.
+				storageInitializerContainer.SecurityContext.RunAsUser = ptr.Int64(constants.DefaultIstioSidecarUID)
+			} else {
+				// If the Istio sidecar has a UID copy it to the storage initializer because this
+				// would be the UID that allows access the network.
+				sidecarUID := *istioSidecarContainer.SecurityContext.RunAsUser
+				storageInitializerContainer.SecurityContext.RunAsUser = ptr.Int64(sidecarUID)
+
+				// Notice that despite in standard Istio the 1337 UID is hardcoded, there exist
+				// other flavors, like Maistra, that allow using arbitrary UIDs on the sidecar.
+				// The need is the same: the storage-initializer needs to run with the UID of
+				// the sidecar to be able to access the network. This is why copying the UID is
+				// preferred over using the default UID of 1337.
+			}
+
+			log.V(1).Info("Storage initializer UID is set", "pod", pod.Name, "uid", storageInitializerContainer.SecurityContext.RunAsUser)
+		}
+	}
 
 	return nil
 }
