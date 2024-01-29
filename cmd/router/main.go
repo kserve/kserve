@@ -36,7 +36,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	flag "github.com/spf13/pflag"
@@ -91,9 +92,12 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 }
 
 func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
-	r := rand.New(rand.NewSource(time.Now().UnixNano())) // *lint gosec
+	randomNumber, err := rand.Int(rand.Reader, big.NewInt(101))
+	if err != nil {
+		panic(err)
+	}
 	//generate num [0,100)
-	point := r.Intn(99)
+	point := int(randomNumber.Int64())
 	end := 0
 	for _, route := range routes {
 		end += int(*route.Weight)
