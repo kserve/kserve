@@ -41,4 +41,5 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,PyTorch
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,SKLearn
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,XGBoost
+API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,HuggingFace
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,StorageSpec,StorageKey
