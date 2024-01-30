@@ -15647,6 +15647,7 @@ spec:
                             - NoSupportingRuntime
                             - RuntimeNotRecognized
                             - InvalidPredictorSpec
+                            - InvalidExplainerSpec
                           type: string
                         time:
                           format: date-time

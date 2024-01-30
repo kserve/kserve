@@ -192,7 +192,7 @@ const (
 )
 
 // FailureReason enum
-// +kubebuilder:validation:Enum=ModelLoadFailed;RuntimeUnhealthy;RuntimeDisabled;NoSupportingRuntime;RuntimeNotRecognized;InvalidPredictorSpec
+// +kubebuilder:validation:Enum=ModelLoadFailed;RuntimeUnhealthy;RuntimeDisabled;NoSupportingRuntime;RuntimeNotRecognized;InvalidPredictorSpec;InvalidExplainerSpec
 type FailureReason string
 
 // FailureReason enum values
@@ -209,6 +209,8 @@ const (
 	RuntimeNotRecognized FailureReason = "RuntimeNotRecognized"
 	// The current Predictor Spec is invalid or unsupported
 	InvalidPredictorSpec FailureReason = "InvalidPredictorSpec"
+	// The current Explainer Spec is invalid or unsupported
+	InvalidExplainerSpec FailureReason = "InvalidExplainerSpec"
 )
 
 type FailureInfo struct {

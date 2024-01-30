@@ -28,6 +28,10 @@ type ExplainerSpec struct {
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
 	// Spec for ART explainer
 	ART *ARTExplainerSpec `json:"art,omitempty"`
+
+	// Explainer spec for any arbitrary framework.
+	Model *ModelSpec `json:"model,omitempty"`
+
 	// This spec is dual purpose.
 	// 1) Users may choose to provide a full PodSpec for their custom explainer.
 	// The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi).
@@ -82,6 +86,7 @@ func (s *ExplainerSpec) GetImplementations() []ComponentImplementation {
 	implementations := NonNilComponents([]ComponentImplementation{
 		s.Alibi,
 		s.ART,
+		s.Model,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {

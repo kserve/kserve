@@ -4048,7 +4048,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -4063,6 +4062,13 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 				Description: "ExplainerSpec defines the container spec for a model explanation server, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"modelFormat": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ModelFormat being served.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat"),
+						},
+					},
 					"alibi": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for alibi explainer",
@@ -4603,10 +4609,11 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
+				Required: []string{"modelFormat"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.AlibiExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.AlibiExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
