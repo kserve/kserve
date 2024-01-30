@@ -136,6 +136,9 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 	case isvc.Spec.Predictor.ONNX != nil:
 		isvc.assignONNXRuntime()
 
+	case isvc.Spec.Predictor.HuggingFace != nil:
+		isvc.assignHuggingFaceRuntime()
+
 	case isvc.Spec.Predictor.PMML != nil:
 		isvc.assignPMMLRuntime()
 
@@ -217,6 +220,20 @@ func (isvc *InferenceService) assignONNXRuntime() {
 	}
 	// remove onnx spec
 	isvc.Spec.Predictor.ONNX = nil
+}
+
+func (isvc *InferenceService) assignHuggingFaceRuntime() {
+	// assign protocol version 'v2' if not provided for backward compatibility
+	if isvc.Spec.Predictor.HuggingFace.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.HuggingFace.ProtocolVersion = &protocolV2
+	}
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelHuggingFace},
+		PredictorExtensionSpec: isvc.Spec.Predictor.ONNX.PredictorExtensionSpec,
+	}
+	// remove huggingface spec
+	isvc.Spec.Predictor.HuggingFace = nil
 }
 
 func (isvc *InferenceService) assignPMMLRuntime() {

@@ -393,16 +393,17 @@ const (
 
 // supported model type
 const (
-	SupportedModelSKLearn    = "sklearn"
-	SupportedModelTensorflow = "tensorflow"
-	SupportedModelXGBoost    = "xgboost"
-	SupportedModelPyTorch    = "pytorch"
-	SupportedModelONNX       = "onnx"
-	SupportedModelPMML       = "pmml"
-	SupportedModelLightGBM   = "lightgbm"
-	SupportedModelPaddle     = "paddle"
-	SupportedModelTriton     = "triton"
-	SupportedModelMLFlow     = "mlflow"
+	SupportedModelSKLearn     = "sklearn"
+	SupportedModelTensorflow  = "tensorflow"
+	SupportedModelXGBoost     = "xgboost"
+	SupportedModelPyTorch     = "pytorch"
+	SupportedModelONNX        = "onnx"
+	SupportedModelHuggingFace = "huggingface"
+	SupportedModelPMML        = "pmml"
+	SupportedModelLightGBM    = "lightgbm"
+	SupportedModelPaddle      = "paddle"
+	SupportedModelTriton      = "triton"
+	SupportedModelMLFlow      = "mlflow"
 )
 
 type ProtocolVersion int
