@@ -111,13 +111,13 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			!r.IsProtocolVersionSupported(*isvc.Spec.Explainer.Model.ProtocolVersion){
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason: v1beta1.NoSupportingRuntime,
-				Message: "Specified runtime does not support specified framework/version",
+				Message: "Specified runtime does not support specified protocol version",
 			})
 			return ctrl.Result{}, fmt.Errorf("specified runtime %s does not support specified protocol version", *isvc.Spec.Explainer.Model.Runtime)
 			}
 
 			// Verify that the selected runtime supports the specified framework.
-			if !isvc.Spec.Predictor.Model.RuntimeSupportsModel(r) {
+			if !isvc.Spec.Explainer.Model.RuntimeSupportsModel(r) {
 				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 					Reason:  v1beta1.NoSupportingRuntime,
 					Message: "Specified runtime does not support specified framework/version",
@@ -174,7 +174,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.New("failed to find kserve-container in ServingRuntime containers")
 		}
 
-		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[kserveContainerIdx], &isvc.Spec.Predictor.Model.Container)
+		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[kserveContainerIdx], &isvc.Spec.Explainer.Model.Container)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidExplainerSpec,
@@ -183,7 +183,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.Wrapf(err, "failed to get runtime container")
 		}
 
-		mergedPodSpec, err := isvcutils.MergePodSpec(&sRuntime.ServingRuntimePodSpec, &isvc.Spec.Predictor.PodSpec)
+		mergedPodSpec, err := isvcutils.MergePodSpec(&sRuntime.ServingRuntimePodSpec, &isvc.Spec.Explainer.PodSpec)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidExplainerSpec,
