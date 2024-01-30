@@ -230,7 +230,7 @@ func (isvc *InferenceService) assignHuggingFaceRuntime() {
 	}
 	isvc.Spec.Predictor.Model = &ModelSpec{
 		ModelFormat:            ModelFormat{Name: constants.SupportedModelHuggingFace},
-		PredictorExtensionSpec: isvc.Spec.Predictor.ONNX.PredictorExtensionSpec,
+		PredictorExtensionSpec: isvc.Spec.Predictor.HuggingFace.PredictorExtensionSpec,
 	}
 	// remove huggingface spec
 	isvc.Spec.Predictor.HuggingFace = nil
