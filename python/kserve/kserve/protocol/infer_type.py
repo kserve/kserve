@@ -319,6 +319,25 @@ class InferInput:
             return False
         return True
 
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "shape": self.shape,
+            "datatype": self.datatype,
+            "data": self.data,
+            "parameters": self.parameters
+        }
+
+    def __repr__(self) -> str:
+        return (f'"name": {self.name},'
+                f'"shape": {self.shape,}'
+                f'"datatype": {self.datatype},'
+                f'"data": {self.data},'
+                f'"parameters": {self.parameters}')
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
 
 def get_content(datatype: str, data: InferTensorContents):
     if datatype == "BOOL":
@@ -540,6 +559,25 @@ class InferRequest:
             return False
         return True
 
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "model_name": self.model_name,
+            "inputs": self.inputs,
+            "parameters": self.parameters,
+            "from_grpc": self.from_grpc
+        }
+
+    def __repr__(self) -> str:
+        return (f'"id": "{self.id}",'
+                f'"model_name": "{self.model_name}",'
+                f'"inputs": "{self.inputs.__repr__()}",'
+                f'"parameters": "{self.parameters}",'
+                f'"from_grpc": "{self.from_grpc}"')
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
 
 class InferOutput:
     def __init__(
@@ -752,6 +790,25 @@ class InferOutput:
             return False
         return True
 
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "shape": self.shape,
+            "datatype": self.datatype,
+            "data": self.data,
+            "parameters": self.parameters
+        }
+
+    def __repr__(self) -> str:
+        return (f'"name": {self.name},'
+                f'"shape": {self.shape,}'
+                f'"datatype": {self.datatype},'
+                f'"data": {self.data},'
+                f'"parameters": {self.parameters}')
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
 
 class InferResponse:
     id: str
@@ -962,6 +1019,25 @@ class InferResponse:
         if self.outputs != other.outputs:
             return False
         return True
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "model_name": self.model_name,
+            "outputs": self.outputs,
+            "parameters": self.parameters,
+            "from_grpc": self.from_grpc
+        }
+
+    def __repr__(self) -> str:
+        return (f'"id": "{self.id}",'
+                f'"model_name": "{self.model_name}",'
+                f'"outputs": "{self.outputs.__repr__()}",'
+                f'"parameters": "{self.parameters}",'
+                f'"from_grpc": "{self.from_grpc}"')
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
 
 def to_grpc_parameters(
