@@ -21,8 +21,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kserve/kserve/pkg/constants"
 	"strings"
+
+	"github.com/kserve/kserve/pkg/constants"
 
 	"github.com/kserve/kserve/pkg/credentials/https"
 
@@ -130,8 +131,11 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 				return fmt.Errorf("invalid json encountered in key %s of storage secret %s: %w",
 					storageKey, storageSecretName, err)
 			}
-			if stype, ok := storageDataJson["type"]; ok && !utils.Includes(SupportedStorageSpecTypes, stype) {
-				return fmt.Errorf(UnsupportedStorageSpecType, strings.Join(SupportedStorageSpecTypes, ", "), stype)
+			if storageType, ok := storageDataJson["type"]; ok {
+				stype = storageType
+				if !utils.Includes(SupportedStorageSpecTypes, stype) {
+					return fmt.Errorf(UnsupportedStorageSpecType, strings.Join(SupportedStorageSpecTypes, ", "), stype)
+				}
 			}
 			// Get bucket from storage-config if not provided in override params
 			if _, ok := storageDataJson["bucket"]; ok && bucket == "" {

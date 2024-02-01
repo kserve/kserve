@@ -347,7 +347,7 @@ func ValidateStorageURI(storageURI *string, client client.Client) error {
 
 	// Step 2: Does the default storage initializer image support this storageURI?
 	// local path (not some protocol?)
-	if !regexp.MustCompile(`\\w+?://`).MatchString(*storageURI) {
+	if !regexp.MustCompile(`\w+?://`).MatchString(*storageURI) {
 		return nil
 	}
 
