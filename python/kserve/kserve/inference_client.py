@@ -339,9 +339,11 @@ class InferenceRESTClient:
             logger.info("url: %s, protocol_version: %s", url, protocol_version)
             logger.info("response code: %s, content: %s", res.status_code, res.text)
         res.raise_for_status()
-        if protocol_version == PredictorProtocol.REST_V1.value:
+        if (protocol_version == PredictorProtocol.REST_V1 or isinstance(protocol_version, str) and
+                protocol_version.lower() == PredictorProtocol.REST_V1.value.lower()):
             is_live = res.json().get("status").lower() == "alive"
-        elif protocol_version == PredictorProtocol.REST_V2.value:
+        elif (protocol_version == PredictorProtocol.REST_V2 or isinstance(protocol_version, str) and
+                protocol_version.lower() == PredictorProtocol.REST_V2.value.lower()):
             is_live = res.json().get("live")
         else:
             raise UnsupportedProtocol(protocol_version=protocol_version)
@@ -361,14 +363,18 @@ class InferenceRESTClient:
         :raises HTTPStatusError for response codes other than 2xx.
         :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
+        # TODO: Server responds with 503 service unavailable error if model is not ready. How should we handle this
+        #  in inference client ?
         res = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
             logger.info("url: %s, protocol_version: %s", url, protocol_version)
             logger.info("response code: %s, content: %s", res.status_code, res.text)
         res.raise_for_status()
-        if protocol_version == PredictorProtocol.REST_V1.value:
+        if (protocol_version == PredictorProtocol.REST_V1 or isinstance(protocol_version, str) and
+                protocol_version.lower() == PredictorProtocol.REST_V1.value.lower()):
             is_ready = res.json().get("ready").lower() == "true"
-        elif protocol_version == PredictorProtocol.REST_V2.value:
+        elif (protocol_version == PredictorProtocol.REST_V2 or isinstance(protocol_version, str) and
+                protocol_version.lower() == PredictorProtocol.REST_V2.value.lower()):
             is_ready = res.json().get("ready")
         else:
             raise UnsupportedProtocol(protocol_version=protocol_version)

@@ -563,7 +563,7 @@ class InferRequest:
         return {
             "id": self.id,
             "model_name": self.model_name,
-            "inputs": self.inputs,
+            "inputs": [infer_input.to_dict() for infer_input in self.inputs],
             "parameters": self.parameters,
             "from_grpc": self.from_grpc
         }
@@ -1024,7 +1024,7 @@ class InferResponse:
         return {
             "id": self.id,
             "model_name": self.model_name,
-            "outputs": self.outputs,
+            "outputs": [infer_output.to_dict() for infer_output in self.outputs],
             "parameters": self.parameters,
             "from_grpc": self.from_grpc
         }
