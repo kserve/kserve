@@ -26,7 +26,7 @@ from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 import pytest
 
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 from ..common.utils import explain
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
@@ -35,7 +35,8 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 
 @pytest.mark.explainer
-def test_tabular_explainer():
+@pytest.mark.asyncio(scope="session")
+async def test_tabular_explainer():
     service_name = 'isvc-explainer-tabular'
     predictor = V1beta1PredictorSpec(
         sklearn=V1beta1SKLearnSpec(
@@ -79,8 +80,8 @@ def test_tabular_explainer():
             logging.info(pod)
         raise e
 
-    res = predict(service_name, './data/income_input.json')
-    assert (res["predictions"] == [0])
+    res = await predict_isvc(service_name, './data/income_input.json')
+    assert (res.predictions == [0])
     precision = explain(service_name, './data/income_input.json')
     assert (precision > 0.9)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

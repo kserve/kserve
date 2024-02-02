@@ -133,7 +133,7 @@ class InferenceGRPCClient:
                 metadata=metadata,
                 timeout=client_timeout)
             if self._verbose:
-                logger.info(response)
+                logger.info("infer response: %s", response)
             return response
         except grpc.RpcError as rpc_error:
             logger.error("Failed to infer: %s", rpc_error, exc_info=True)
@@ -342,7 +342,7 @@ class InferenceRESTClient:
                 protocol_version.lower() == PredictorProtocol.REST_V1.value.lower()):
             is_live = res.json().get("status").lower() == "alive"
         elif (protocol_version == PredictorProtocol.REST_V2 or isinstance(protocol_version, str) and
-                protocol_version.lower() == PredictorProtocol.REST_V2.value.lower()):
+              protocol_version.lower() == PredictorProtocol.REST_V2.value.lower()):
             is_live = res.json().get("live")
         else:
             raise UnsupportedProtocol(protocol_version=protocol_version)
@@ -373,7 +373,7 @@ class InferenceRESTClient:
                 protocol_version.lower() == PredictorProtocol.REST_V1.value.lower()):
             is_ready = res.json().get("ready").lower() == "true"
         elif (protocol_version == PredictorProtocol.REST_V2 or isinstance(protocol_version, str) and
-                protocol_version.lower() == PredictorProtocol.REST_V2.value.lower()):
+              protocol_version.lower() == PredictorProtocol.REST_V2.value.lower()):
             is_ready = res.json().get("ready")
         else:
             raise UnsupportedProtocol(protocol_version=protocol_version)

@@ -24,12 +24,13 @@ from kserve import (KServeClient, V1beta1InferenceService,
                     V1beta1ModelSpec, V1beta1PredictorSpec, V1beta1XGBoostSpec,
                     constants)
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_xgboost_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_xgboost_kserve():
     service_name = "isvc-xgboost"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -56,14 +57,15 @@ def test_xgboost_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input.json")
-    assert res["predictions"] == [1, 1]
+    res = await predict_isvc(service_name, "./data/iris_input.json")
+    assert res.predictions == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_xgboost_v2_mlserver():
+@pytest.mark.asyncio(scope="session")
+async def test_xgboost_v2_mlserver():
     service_name = "isvc-xgboost-v2-mlserver"
     protocol_version = "v2"
 
@@ -94,16 +96,17 @@ def test_xgboost_v2_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1.0, 1.0]
+    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
+                             protocol_version="v2")
+    assert res.outputs[0].data == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_xgboost_runtime_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_xgboost_runtime_kserve():
     service_name = "isvc-xgboost-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -133,14 +136,15 @@ def test_xgboost_runtime_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input.json")
-    assert res["predictions"] == [1, 1]
+    res = await predict_isvc(service_name, "./data/iris_input.json")
+    assert res.predictions == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_xgboost_v2_runtime_mlserver():
+@pytest.mark.asyncio(scope="session")
+async def test_xgboost_v2_runtime_mlserver():
     service_name = "isvc-xgboost-v2-runtime"
     protocol_version = "v2"
 
@@ -174,16 +178,17 @@ def test_xgboost_v2_runtime_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1.0, 1.0]
+    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
+                             protocol_version="v2")
+    assert res.outputs[0].data == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_xgboost_v2():
+@pytest.mark.asyncio(scope="session")
+async def test_xgboost_v2():
     service_name = "isvc-xgboost-v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -215,16 +220,17 @@ def test_xgboost_v2():
     kserve_client.wait_isvc_ready(
         service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1.0, 1.0]
+    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
+                             protocol_version="v2")
+    assert res.outputs[0].data == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.grpc
 @pytest.mark.predictor
-def test_xgboost_v2_grpc():
+@pytest.mark.asyncio(scope="session")
+async def test_xgboost_v2_grpc():
     service_name = "isvc-xgboost-v2-grpc"
     model_name = "xgboost"
     predictor = V1beta1PredictorSpec(
@@ -263,8 +269,8 @@ def test_xgboost_v2_grpc():
 
     json_file = open("./data/iris_input_v2_grpc.json")
     payload = json.load(json_file)["inputs"]
-    response = predict_grpc(service_name=service_name,
-                            payload=payload, model_name=model_name)
+    response = await predict_grpc(service_name=service_name,
+                                  payload=payload, model_name=model_name)
     prediction = list(response.outputs[0].contents.fp32_contents)
     assert prediction == [1.0, 1.0]
 
