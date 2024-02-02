@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import os
 from kubernetes import client
 
@@ -24,15 +25,16 @@ from kserve import V1beta1LoggerSpec
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 import pytest
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
-import time
+
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 @pytest.mark.raw
-def test_kserve_logger():
+@pytest.mark.asyncio(scope="session")
+async def test_kserve_logger():
     msg_dumper = "message-dumper-raw"
     annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
@@ -103,13 +105,13 @@ def test_kserve_logger():
         for pod in pods.items:
             print(pod)
 
-    res = predict(service_name, "./data/iris_input.json")
-    assert res["predictions"] == [1, 1]
+    res = await predict_isvc(service_name, "./data/iris_input.json")
+    assert res.predictions == [1, 1]
     pods = kserve_client.core_api.list_namespaced_pod(
         KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/inferenceservice={}".format(msg_dumper),
     )
-    time.sleep(5)
+    await asyncio.sleep(5)
     log = ""
     for pod in pods.items:
         log += kserve_client.core_api.read_namespaced_pod_log(

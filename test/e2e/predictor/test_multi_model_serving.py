@@ -29,7 +29,7 @@ from kserve import (
     V1beta1XGBoostSpec,
 )
 
-from ..common.utils import predict, get_cluster_ip
+from ..common.utils import predict_isvc, get_cluster_ip
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
@@ -37,17 +37,18 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
     "protocol_version,storage_uri",
     [
         (
-            "v1",
-            "gs://kfserving-examples/models/sklearn/1.0/model",
+                "v1",
+                "gs://kfserving-examples/models/sklearn/1.0/model",
         ),
         (
-            "v2",
-            "gs://seldon-models/sklearn/mms/lr_model",
+                "v2",
+                "gs://seldon-models/sklearn/mms/lr_model",
         ),
     ],
 )
 @pytest.mark.mms
-def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
+@pytest.mark.asyncio(scope="session")
+async def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -119,7 +120,7 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
         input_json = "./data/iris_input_v2.json"
 
     responses = [
-        predict(
+        await predict_isvc(
             service_name,
             input_json,
             model_name=model_name,
@@ -129,11 +130,11 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     ]
 
     if protocol_version == "v1":
-        assert responses[0]["predictions"] == [1, 1]
-        assert responses[1]["predictions"] == [1, 1]
+        assert responses[0].predictions == [1, 1]
+        assert responses[1].predictions == [1, 1]
     elif protocol_version == "v2":
-        assert responses[0]["outputs"][0]["data"] == [1, 1]
-        assert responses[1]["outputs"][0]["data"] == [1, 1]
+        assert responses[0].outputs[0].data == [1, 1]
+        assert responses[1].outputs[0].data == [1, 1]
 
     # Clean up inference service and trained models
     for model_name in model_names:
@@ -145,17 +146,18 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     "protocol_version,storage_uri",
     [
         (
-            "v1",
-            "gs://kfserving-examples/models/xgboost/1.5/model",
+                "v1",
+                "gs://kfserving-examples/models/xgboost/1.5/model",
         ),
         (
-            "v2",
-            "gs://seldon-models/xgboost/mms/iris",
+                "v2",
+                "gs://seldon-models/xgboost/mms/iris",
         ),
     ],
 )
 @pytest.mark.mms
-def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
+@pytest.mark.asyncio(scope="session")
+async def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -228,7 +230,7 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
         input_json = "./data/iris_input_v2.json"
 
     responses = [
-        predict(
+        await predict_isvc(
             service_name,
             input_json,
             model_name=model_name,
@@ -238,11 +240,11 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
     ]
 
     if protocol_version == "v1":
-        assert responses[0]["predictions"] == [1, 1]
-        assert responses[1]["predictions"] == [1, 1]
+        assert responses[0].predictions == [1, 1]
+        assert responses[1].predictions == [1, 1]
     elif protocol_version == "v2":
-        assert responses[0]["outputs"][0]["data"] == [1.0, 1.0]
-        assert responses[1]["outputs"][0]["data"] == [1.0, 1.0]
+        assert responses[0].outputs[0].data == [1.0, 1.0]
+        assert responses[1].outputs[0].data == [1.0, 1.0]
 
     # Clean up inference service and trained models
     for model_name in model_names:

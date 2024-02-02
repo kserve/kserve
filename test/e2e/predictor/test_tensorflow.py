@@ -25,12 +25,13 @@ from kserve import V1beta1ModelSpec, V1beta1ModelFormat
 from kubernetes.client import V1ResourceRequirements
 import pytest
 
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 @pytest.mark.predictor
-def test_tensorflow_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_tensorflow_kserve():
     service_name = "isvc-tensorflow"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -57,15 +58,16 @@ def test_tensorflow_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/flower_input.json")
-    assert np.argmax(res["predictions"][0].get("scores")) == 0
+    res = await predict_isvc(service_name, "./data/flower_input.json")
+    assert np.argmax(res.predictions[0].get("scores")) == 0
 
     # Delete the InferenceService
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_tensorflow_runtime_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_tensorflow_runtime_kserve():
     service_name = "isvc-tensorflow-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -95,8 +97,8 @@ def test_tensorflow_runtime_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/flower_input.json")
-    assert np.argmax(res["predictions"][0].get("scores")) == 0
+    res = await predict_isvc(service_name, "./data/flower_input.json")
+    assert np.argmax(res.predictions[0].get("scores")) == 0
 
     # Delete the InferenceService
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)

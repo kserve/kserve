@@ -27,7 +27,7 @@ from kserve import (
     V1beta1SKLearnSpec,
 )
 from ..common.utils import KSERVE_TEST_NAMESPACE
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 
 TARGET = "autoscaling.knative.dev/target"
 METRIC = "autoscaling.knative.dev/metric"
@@ -36,7 +36,8 @@ INPUT = "./data/iris_input.json"
 
 
 @pytest.mark.predictor
-def test_sklearn_kserve_concurrency():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_kserve_concurrency():
     service_name = "isvc-sklearn-scale-concurrency"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -71,15 +72,16 @@ def test_sklearn_kserve_concurrency():
 
     isvc_annotations = pods.items[0].metadata.annotations
 
-    res = predict(service_name, INPUT)
-    assert res["predictions"] == [1, 1]
+    res = await predict_isvc(service_name, INPUT)
+    assert res.predictions == [1, 1]
     assert isvc_annotations[METRIC] == "concurrency"
     assert isvc_annotations[TARGET] == "2"
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_sklearn_kserve_rps():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_kserve_rps():
     service_name = "isvc-sklearn-scale-rps"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -117,13 +119,14 @@ def test_sklearn_kserve_rps():
 
     assert annotations[METRIC] == "rps"
     assert annotations[TARGET] == "5"
-    res = predict(service_name, INPUT)
-    assert res["predictions"] == [1, 1]
+    res = await predict_isvc(service_name, INPUT)
+    assert res.predictions == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.skip()
-def test_sklearn_kserve_cpu():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_kserve_cpu():
     service_name = "isvc-sklearn-scale-cpu"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -164,13 +167,14 @@ def test_sklearn_kserve_cpu():
 
     assert isvc_annotations[METRIC] == "cpu"
     assert isvc_annotations[TARGET] == "50"
-    res = predict(service_name, INPUT)
-    assert res["predictions"] == [1, 1]
+    res = await predict_isvc(service_name, INPUT)
+    assert res.predictions == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.raw
-def test_sklearn_scale_raw():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_scale_raw():
     service_name = "isvc-sklearn-scale-raw"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -212,6 +216,6 @@ def test_sklearn_scale_raw():
     )
 
     assert hpa_resp["items"][0]["spec"]["targetCPUUtilizationPercentage"] == 50
-    res = predict(service_name, INPUT)
-    assert res["predictions"] == [1, 1]
+    res = await predict_isvc(service_name, INPUT)
+    assert res.predictions == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

@@ -329,9 +329,9 @@ class InferInput:
         }
 
     def __repr__(self) -> str:
-        return (f'"name": {self.name},'
-                f'"shape": {self.shape,}'
-                f'"datatype": {self.datatype},'
+        return (f'"name": "{self.name}",'
+                f'"shape": {self.shape},'
+                f'"datatype": "{self.datatype}",'
                 f'"data": {self.data},'
                 f'"parameters": {self.parameters}')
 
@@ -571,9 +571,9 @@ class InferRequest:
     def __repr__(self) -> str:
         return (f'"id": "{self.id}",'
                 f'"model_name": "{self.model_name}",'
-                f'"inputs": "{self.inputs.__repr__()}",'
-                f'"parameters": "{self.parameters}",'
-                f'"from_grpc": "{self.from_grpc}"')
+                f'"inputs": {self.inputs.__repr__()},'
+                f'"parameters": {self.parameters},'
+                f'"from_grpc": {self.from_grpc}')
 
     def __str__(self) -> str:
         return self.__repr__()
@@ -800,9 +800,9 @@ class InferOutput:
         }
 
     def __repr__(self) -> str:
-        return (f'"name": {self.name},'
-                f'"shape": {self.shape,}'
-                f'"datatype": {self.datatype},'
+        return (f'"name": "{self.name}",'
+                f'"shape": {self.shape},'
+                f'"datatype": "{self.datatype}",'
                 f'"data": {self.data},'
                 f'"parameters": {self.parameters}')
 
@@ -1032,9 +1032,9 @@ class InferResponse:
     def __repr__(self) -> str:
         return (f'"id": "{self.id}",'
                 f'"model_name": "{self.model_name}",'
-                f'"outputs": "{self.outputs.__repr__()}",'
-                f'"parameters": "{self.parameters}",'
-                f'"from_grpc": "{self.from_grpc}"')
+                f'"outputs": {self.outputs.__repr__()},'
+                f'"parameters": {self.parameters},'
+                f'"from_grpc": {self.from_grpc}')
 
     def __str__(self) -> str:
         return self.__repr__()

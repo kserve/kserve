@@ -25,12 +25,13 @@ from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 from kubernetes.client import V1EnvVar
 import pytest
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 @pytest.mark.transformer
-def test_transformer():
+@pytest.mark.asyncio(scope="session")
+async def test_transformer():
     service_name = "isvc-transformer"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -96,6 +97,6 @@ def test_transformer():
         for pod in pods.items:
             print(pod)
         raise e
-    res = predict(service_name, "./data/transformer.json", model_name="mnist")
-    assert res.get("predictions")[0] == 2
+    res = await predict_isvc(service_name, "./data/transformer.json", model_name="mnist")
+    assert res.predictions[0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

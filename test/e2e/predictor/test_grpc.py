@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
+import asyncio
 import base64
 import json
 import os
@@ -34,7 +34,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
 
 @pytest.mark.grpc
 @pytest.mark.predictor
-def test_custom_model_grpc_logger():
+@pytest.mark.asyncio(scope="session")
+async def test_custom_model_grpc():
     service_name = "custom-grpc-logger"
     model_name = "custom-model"
 
@@ -53,11 +54,11 @@ def test_custom_model_grpc_logger():
         ],
     )
 
-    logger_isvc = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
-        spec=V1beta1InferenceServiceSpec(predictor=logger_predictor),
+    logger_isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
+                                          kind=constants.KSERVE_KIND,
+                                          metadata=client.V1ObjectMeta(
+                                              name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
+                                          spec=V1beta1InferenceServiceSpec(predictor=logger_predictor),
     )
 
     kserve_client = KServeClient(
@@ -113,9 +114,8 @@ def test_custom_model_grpc_logger():
             },
         }
     ]
-    response = predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name
-    )
+    response = await predict_grpc(service_name=service_name,
+                                  payload=payload, model_name=model_name)
     fields = response.outputs[0].contents.ListFields()
     _, field_value = fields[0]
     points = ["%.3f" % (point) for point in list(field_value)]
@@ -125,7 +125,7 @@ def test_custom_model_grpc_logger():
         KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/inferenceservice={}".format(msg_dumper),
     )
-    time.sleep(5)
+    await asyncio.sleep(5)
     log = ""
     for pod in pods.items:
         log += kserve_client.core_api.read_namespaced_pod_log(

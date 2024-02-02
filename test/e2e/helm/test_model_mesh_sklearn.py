@@ -35,7 +35,8 @@ from ..common.utils import predict_modelmesh
 # https://github.com/kserve/modelmesh-serving/issues/295
 # @pytest.mark.helm
 @pytest.mark.skip
-def test_sklearn_modelmesh():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_modelmesh():
     service_name = "isvc-sklearn-modelmesh"
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "ModelMesh"
@@ -72,7 +73,7 @@ def test_sklearn_modelmesh():
     )
 
     pod_name = pods.items[0].metadata.name
-    res = predict_modelmesh(service_name, "./data/mm_sklearn_input.json", pod_name)
-    assert res["outputs"][0]["data"] == [8]
+    res = await predict_modelmesh(service_name, "./data/mm_sklearn_input.json", pod_name)
+    assert res.outputs[0].data == [8]
 
     kserve_client.delete(service_name)

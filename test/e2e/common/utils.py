@@ -1,3 +1,4 @@
+# Copyright 2024 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,23 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
+import logging.config
 import os
-import time
+from concurrent import futures
+from typing import Union, List
 from urllib.parse import urlparse
 
-import grpc
 import portforward
 import requests
-from kubernetes import client
+from kubernetes import client as k8s_client
 
-from kserve import KServeClient
+from kserve import KServeClient, InferResponse
 from kserve import constants
+from kserve.inference_client import InferenceRESTClient, InferenceGRPCClient, RESTConfig
+from kserve.model import PredictorProtocol
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
 
 from . import inference_pb2_grpc
+
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
+from kserve.protocol.rest.v1_datamodels import PredictResponse
 
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
@@ -36,65 +44,63 @@ INFERENCESERVICE_CONTAINER = "kserve-container"
 TRANSFORMER_CONTAINER = "transformer-container"
 STORAGE_URI_ENV = "STORAGE_URI"
 
+rest_client = None
+grpc_client = None
 
-def grpc_stub(service_name, namespace):
+logging.basicConfig(level=logging.INFO)
+LOG_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "kserve": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+    },
+    "loggers": {
+        "kserve": {"handlers": ["kserve"], "level": "INFO", "propagate": True},
+    },
+}
+logging.config.dictConfig(LOG_CONFIG)
+
+
+def grpc_stub(host):
     cluster_ip = get_cluster_ip()
-    method_config = json.dumps(
-        {
-            "methodConfig": [
-                {
-                    "name": [{"service": "org.pytorch.serve.grpc.inference"}],
-                    "retryPolicy": {
-                        "maxAttempts": 5,
-                        "initialBackoff": "0.1s",
-                        "maxBackoff": "10s",
-                        "backoffMultiplier": 2,
-                        "retryableStatusCodes": ["UNAVAILABLE"],
-                    },
-                }
-            ]
-        }
-    )
+    if ":" not in cluster_ip:
+        cluster_ip = cluster_ip + ":80"
+    logging.info("Cluster IP: %s", cluster_ip)
+    logging.info("gRPC target host: %s", host)
     os.environ["GRPC_VERBOSITY"] = "debug"
-    channel = grpc.insecure_channel(
-        cluster_ip,
-        options=(
-            (
-                "grpc.ssl_target_name_override",
-                service_name + "." + namespace + ".example.com",
-            ),
-            ("grpc.service_config", method_config),
-        ),
-    )
-    return inference_pb2_grpc.InferenceAPIsServiceStub(channel)
+    if grpc_client is None:
+        method_config = json.dumps({
+            "methodConfig": [{
+                "name": [{"service": "org.pytorch.serve.grpc.inference"}],
+                "retryPolicy": {
+                    "maxAttempts": 5,
+                    "initialBackoff": "0.1s",
+                    "maxBackoff": "10s",
+                    "backoffMultiplier": 2,
+                    "retryableStatusCodes": ["UNAVAILABLE"],
+                }}
+            ]
+        })
+        return InferenceGRPCClient(cluster_ip, verbose=True, channel_args=[
+            ('grpc.ssl_target_name_override', host),
+            ('grpc.service_config', method_config),
+        ])
+    return grpc_client
 
 
-def predict(
-    service_name,
-    input_json,
-    protocol_version="v1",
-    version=constants.KSERVE_V1BETA1_VERSION,
-    model_name=None,
-):
-    with open(input_json) as json_file:
-        data = json.load(json_file)
-
-        return predict_str(
-            service_name=service_name,
-            input_json=json.dumps(data),
-            protocol_version=protocol_version,
-            version=version,
-            model_name=model_name,
-        )
+def get_rest_client():
+    global rest_client
+    if rest_client is None:
+        rest_client = InferenceRESTClient(config=RESTConfig(timeout=10, verbose=True))
+    return rest_client
 
 
-def predict_str(
-    service_name,
-    input_json,
-    protocol_version="v1",
-    version=constants.KSERVE_V1BETA1_VERSION,
-    model_name=None,
-):
+async def predict_isvc(service_name, input_path, protocol_version="v1",
+                       version=constants.KSERVE_V1BETA1_VERSION, model_name=None, is_batch=False) \
+        -> Union[PredictResponse, InferResponse, List[Union[PredictResponse, InferResponse]]]:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -104,65 +110,59 @@ def predict_str(
         version=version,
     )
     cluster_ip, host, path = get_isvc_endpoint(isvc)
-    headers = {"Host": host, "Content-Type": "application/json"}
-
     if model_name is None:
         model_name = service_name
-
     url = f"http://{cluster_ip}{path}/v1/models/{model_name}:predict"
     if protocol_version == "v2":
         url = f"http://{cluster_ip}{path}/v2/models/{model_name}/infer"
+    return await predict(url, host, input_path, protocol_version, is_batch)
 
+
+async def predict(url, host, input_path, protocol_version="v1", is_batch=False) \
+        -> Union[PredictResponse, InferResponse, List[Union[PredictResponse, InferResponse]]]:
+    with open(input_path) as json_file:
+        data = json.load(json_file)
+    headers = {"Host": host, "Content-Type": "application/json"}
+    if is_batch:
+        with futures.ThreadPoolExecutor(max_workers=4) as executor:
+            loop = asyncio.get_event_loop()
+            future_list = [await loop.run_in_executor(executor, _predict, url, input_data, headers,
+                                                      protocol_version) for input_data in data]
+            result = await asyncio.gather(*future_list)
+    else:
+        result = await _predict(url, data, headers, protocol_version)
+    logging.info("Got response %s", result)
+    return result
+
+
+async def _predict(url, input_data, headers=None, protocol_version="v1"):
+    client = get_rest_client()
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
-    logging.info("Sending request data: %s", input_json)
+    logging.info("Sending request data: %s", input_data)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    time.sleep(10)
-    response = requests.post(url, input_json, headers=headers)
-    logging.info(
-        "Got response code %s, content %s", response.status_code, response.content
-    )
-    if response.status_code == 200:
-        preds = json.loads(response.content.decode("utf-8"))
-        return preds
+    await asyncio.sleep(10)
+    if protocol_version == PredictorProtocol.REST_V1.value:
+        response = await client.predict(url, input_data, headers)
+    elif protocol_version == PredictorProtocol.REST_V2.value:
+        response = await client.infer(url, input_data, headers)
     else:
-        response.raise_for_status()
+        raise RuntimeError("Unsupported protocol version")
+    return response
 
 
-def predict_ig(
-    ig_name,
-    input_json,
-    protocol_version="v1",
-    version=constants.KSERVE_V1ALPHA1_VERSION,
-):
-    with open(input_json) as json_file:
-        data = json.dumps(json.load(json_file))
-
-        kserve_client = KServeClient(
-            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-        )
-        ig = kserve_client.get_inference_graph(
-            ig_name,
-            namespace=KSERVE_TEST_NAMESPACE,
-            version=version,
-        )
-
-        cluster_ip, host, _ = get_isvc_endpoint(ig)
-        headers = {"Host": host}
-        url = f"http://{cluster_ip}"
-
-        logging.info("Sending Header = %s", headers)
-        logging.info("Sending url = %s", url)
-        logging.info("Sending request data: %s", input_json)
-        response = requests.post(url, data, headers=headers)
-        logging.info(
-            "Got response code %s, content %s", response.status_code, response.content
-        )
-        if response.status_code == 200:
-            preds = json.loads(response.content.decode("utf-8"))
-            return preds
-        else:
-            response.raise_for_status()
+async def predict_ig(ig_name, input_json, protocol_version="v1",
+                     version=constants.KSERVE_V1ALPHA1_VERSION) -> Union[PredictResponse, InferResponse]:
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    ig = kserve_client.get_inference_graph(
+        ig_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        version=version,
+    )
+    cluster_ip, host, _ = get_isvc_endpoint(ig)
+    url = f"http://{cluster_ip}"
+    return await predict(url, host, input_json, protocol_version)
 
 
 def explain(service_name, input_json):
@@ -175,7 +175,7 @@ def explain_art(service_name, input_json):
     ]
 
 
-def explain_response(service_name, input_json):
+async def explain_response(service_name, input_json):
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -192,7 +192,7 @@ def explain_response(service_name, input_json):
         logging.info("Sending request data: %s", json.dumps(data))
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-            time.sleep(10)
+            await asyncio.sleep(10)
             response = requests.post(url, json.dumps(data), headers=headers)
             logging.info(
                 "Got response code %s, content %s",
@@ -230,7 +230,7 @@ def explain_response(service_name, input_json):
 def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
     cluster_ip = os.environ.get("KSERVE_INGRESS_HOST_PORT")
     if cluster_ip is None:
-        api_instance = client.CoreV1Api(client.ApiClient())
+        api_instance = k8s_client.CoreV1Api(k8s_client.ApiClient())
         service = api_instance.read_namespaced_service(name, namespace)
         if service.status.load_balancer.ingress is None:
             cluster_ip = service.spec.cluster_ip
@@ -242,13 +242,8 @@ def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
     return cluster_ip
 
 
-def predict_grpc(
-    service_name,
-    payload,
-    parameters=None,
-    version=constants.KSERVE_V1BETA1_VERSION,
-    model_name=None,
-):
+async def predict_grpc(service_name, payload, parameters=None, version=constants.KSERVE_V1BETA1_VERSION,
+                       model_name=None,) -> ModelInferResponse:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -257,36 +252,32 @@ def predict_grpc(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    cluster_ip, host, _ = get_isvc_endpoint(isvc)
-    if ":" not in cluster_ip:
-        cluster_ip = cluster_ip + ":80"
+    _, host, _ = get_isvc_endpoint(isvc)
 
     if model_name is None:
         model_name = service_name
-    logging.info("Cluster IP: %s", cluster_ip)
-    logging.info("gRPC target host: %s", host)
-
-    channel = grpc.insecure_channel(
-        cluster_ip, options=(("grpc.ssl_target_name_override", host),)
-    )
-    stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(channel)
-    return stub.ModelInfer(
-        pb.ModelInferRequest(
-            model_name=model_name, inputs=payload, parameters=parameters
-        )
-    )
+    client = grpc_stub(host)
+    response = await client.infer(pb.ModelInferRequest(model_name=model_name, inputs=payload, parameters=parameters))
+    return response
 
 
-def predict_modelmesh(service_name, input_json, pod_name, model_name=None):
+async def predict_modelmesh(service_name, input_json, pod_name, model_name=None) -> InferResponse:
     with open(input_json) as json_file:
         data = json.load(json_file)
 
-        if model_name is None:
-            model_name = service_name
-        with portforward.forward("default", pod_name, 8008, 8008, waiting=5):
-            url = f"http://localhost:8008/v2/models/{model_name}/infer"
-            response = requests.post(url, json.dumps(data))
-            return json.loads(response.content.decode("utf-8"))
+    if model_name is None:
+        model_name = service_name
+    with portforward.forward("default", pod_name, 8008, 8008, waiting=5):
+        headers = {"Content-Type": "application/json"}
+        url = f"http://localhost:8008/v2/models/{model_name}/infer"
+        logging.info("Sending Header = %s", headers)
+        logging.info("Sending url = %s", url)
+        logging.info("Sending request data: %s", data)
+
+        client = get_rest_client()
+        response = await client.infer(url, data, headers)
+        logging.info("Got response content %s", response)
+        return response
 
 
 def get_isvc_endpoint(isvc):

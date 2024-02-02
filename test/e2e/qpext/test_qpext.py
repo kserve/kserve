@@ -11,9 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+import asyncio
 import os
-import time
+
+import pytest
 import requests
 import portforward
 from kubernetes import client
@@ -28,7 +29,7 @@ from kserve import (
 from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, get_cluster_ip
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 
 
 ENABLE_METRIC_AGG = "serving.kserve.io/enable-metric-aggregation"
@@ -36,7 +37,8 @@ METRICS_AGG_PORT = 9088
 METRICS_PATH = "metrics"
 
 
-def test_qpext_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_qpext_kserve():
     # test the qpext using the sklearn predictor
     service_name = "sklearn-v2-metrics"
     protocol_version = "v2"
@@ -78,17 +80,17 @@ def test_qpext_kserve():
         cluster_ip=get_cluster_ip(),
     )
 
-    res = predict(
+    res = await predict_isvc(
         service_name, "./data/iris_input_v2.json", protocol_version=protocol_version
     )
-    assert res["outputs"][0]["data"] == [1, 1]
+    assert res.outputs[0].data == [1, 1]
 
-    send_metrics_request(kserve_client, service_name)
+    await send_metrics_request(kserve_client, service_name)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-def send_metrics_request(kserve_client, service_name):
-    time.sleep(10)
+async def send_metrics_request(kserve_client, service_name):
+    await asyncio.sleep(10)
     pods = kserve_client.core_api.list_namespaced_pod(
         KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/inferenceservice={}".format(service_name),

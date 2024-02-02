@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import base64
 import json
 import os
@@ -33,13 +34,14 @@ from kserve import (
 import pytest
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 
 api_version = constants.KSERVE_V1BETA1
 
 
 @pytest.mark.raw
-def test_raw_deployment_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_raw_deployment_kserve():
     service_name = "raw-sklearn"
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
@@ -71,13 +73,14 @@ def test_raw_deployment_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input.json")
-    assert res["predictions"] == [1, 1]
+    res = await predict_isvc(service_name, "./data/iris_input.json")
+    assert res.predictions == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.raw
-def test_raw_deployment_runtime_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_raw_deployment_runtime_kserve():
     service_name = "raw-sklearn-runtime"
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
@@ -112,14 +115,15 @@ def test_raw_deployment_runtime_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input.json")
-    assert res["predictions"] == [1, 1]
+    res = await predict_isvc(service_name, "./data/iris_input.json")
+    assert res.predictions == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.grpc
 @pytest.mark.raw
-def test_raw_isvc_with_multiple_container_port():
+@pytest.mark.asyncio(scope="session")
+async def test_isvc_with_multiple_container_port():
     service_name = "raw-multiport-custom-model"
     model_name = "custom-model"
 
@@ -176,9 +180,8 @@ def test_raw_isvc_with_multiple_container_port():
         }
     ]
     expected_output = ["14.976", "14.037", "13.966", "12.252", "12.086"]
-    grpc_response = predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name
-    )
+    grpc_response = await predict_grpc(service_name=service_name,
+                                       payload=payload, model_name=model_name)
     fields = grpc_response.outputs[0].contents.ListFields()
     _, field_value = fields[0]
     grpc_output = ["%.3f" % value for value in list(field_value)]

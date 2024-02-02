@@ -31,12 +31,13 @@ from kserve import (
     constants,
 )
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_lightgbm_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_lightgbm_kserve():
     service_name = "isvc-lightgbm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -64,14 +65,15 @@ def test_lightgbm_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v3.json")
-    assert res["predictions"][0][0] > 0.5
+    res = await predict_isvc(service_name, "./data/iris_input_v3.json")
+    assert numpy.argmax(res.predictions[0]) == 0
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_lightgbm_runtime_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_lightgbm_runtime_kserve():
     service_name = "isvc-lightgbm-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -102,20 +104,21 @@ def test_lightgbm_runtime_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v3.json")
-    assert numpy.argmax(res["predictions"][0]) == 0
+    res = await predict_isvc(service_name, "./data/iris_input_v3.json")
+    assert numpy.argmax(res.predictions[0]) == 0
 
-    res = predict(service_name, "./data/iris_input_v4.json")
-    assert numpy.argmax(res["predictions"][0]) == 0
+    res = await predict_isvc(service_name, "./data/iris_input_v4.json")
+    assert numpy.argmax(res.predictions[0]) == 0
 
-    res = predict(service_name, "./data/iris_input_v5.json")
-    assert numpy.argmax(res["predictions"][0]) == 0
+    res = await predict_isvc(service_name, "./data/iris_input_v5.json")
+    assert numpy.argmax(res.predictions[0]) == 0
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_lightgbm_v2_runtime_mlserver():
+@pytest.mark.asyncio(scope="session")
+async def test_lightgbm_v2_runtime_mlserver():
     service_name = "isvc-lightgbm-v2-runtime"
     protocol_version = "v2"
 
@@ -150,8 +153,9 @@ def test_lightgbm_v2_runtime_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [
+    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
+                             protocol_version="v2")
+    assert res.outputs[0].data == [
         8.796664107010673e-06,
         0.9992300031041593,
         0.0007612002317336916,
@@ -165,7 +169,8 @@ def test_lightgbm_v2_runtime_mlserver():
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_lightgbm_v2_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_lightgbm_v2_kserve():
     service_name = "isvc-lightgbm-v2-kserve"
 
     predictor = V1beta1PredictorSpec(
@@ -198,8 +203,9 @@ def test_lightgbm_v2_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [
+    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
+                             protocol_version="v2")
+    assert res.outputs[0].data == [
         8.796664107010673e-06,
         0.9992300031041593,
         0.0007612002317336916,
@@ -213,7 +219,8 @@ def test_lightgbm_v2_kserve():
 
 @pytest.mark.grpc
 @pytest.mark.predictor
-def test_lightgbm_v2_grpc():
+@pytest.mark.asyncio(scope="session")
+async def test_lightgbm_v2_grpc():
     service_name = "isvc-lightgbm-v2-grpc"
     model_name = "lightgbm"
     predictor = V1beta1PredictorSpec(
@@ -251,7 +258,7 @@ def test_lightgbm_v2_grpc():
     json_file = open("./data/iris_input_v2_grpc.json")
     payload = json.load(json_file)["inputs"]
 
-    response = predict_grpc(
+    response = await predict_grpc(
         service_name=service_name, payload=payload, model_name=model_name
     )
     prediction = list(response.outputs[0].contents.fp64_contents)
