@@ -89,7 +89,7 @@ class ModelServer:
                  workers: int = args.workers,
                  max_threads: int = args.max_threads,
                  max_asyncio_workers: int = args.max_asyncio_workers,
-                 registered_models: ModelRepository = ModelRepository(),
+                 registered_models: Optional[ModelRepository] = None,
                  enable_grpc: bool = args.enable_grpc,
                  enable_docs_url: bool = args.enable_docs_url,
                  enable_latency_logging: bool = args.enable_latency_logging,
@@ -105,7 +105,7 @@ class ModelServer:
             workers: Number of uvicorn workers. Default: ``1``.
             max_threads: Max number of gRPC processing threads. Default: ``4``
             max_asyncio_workers: Max number of AsyncIO threads. Default: ``None``
-            registered_models: Model repository with registered models.
+            registered_models: A optional Model repository with registered models.
             enable_grpc: Whether to turn on grpc server. Default: ``True``
             enable_docs_url: Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
             enable_latency_logging: Whether to log latency metric. Default: ``True``.
@@ -113,7 +113,7 @@ class ModelServer:
             log_config: File path or dict containing log config. Default: ``None``.
             access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``
         """
-        self.registered_models = registered_models
+        self.registered_models = ModelRepository() if registered_models is None else registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
@@ -122,7 +122,7 @@ class ModelServer:
         self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
-        self.dataplane = DataPlane(model_registry=registered_models)
+        self.dataplane = DataPlane(model_registry=self.registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models)
         self._grpc_server = None

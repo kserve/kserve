@@ -246,10 +246,11 @@ class InferenceRESTClient:
         :param config (optional) A RESTConfig object which contains client configurations.
     """
 
-    def __init__(self, config: RESTConfig = RESTConfig()):
-        self._config = config
-        self._client = httpx.AsyncClient(transport=config.transport, http2=config.http2, timeout=config.timeout,
-                                         auth=config.auth, verify=config.verify)
+    def __init__(self, config: RESTConfig = None):
+        self._config = RESTConfig() if config is None else config
+        self._client = httpx.AsyncClient(transport=self._config.transport, http2=self._config.http2,
+                                         timeout=self._config.timeout, auth=self._config.auth,
+                                         verify=self._config.verify)
 
     async def predict(self, url: Union[Url, str], data: Union[PredictRequest, dict],
                       headers: Optional[Mapping[str, str]] = None,
