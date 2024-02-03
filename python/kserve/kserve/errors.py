@@ -88,6 +88,14 @@ class ModelNotReady(RuntimeError):
         return self.error_msg
 
 
+class UnsupportedProcessStartMethod(RuntimeError):
+    def __init__(self, start_method: str):
+        self.error_msg = f"Unsupported multi processing start method '{start_method}'. Only 'fork' is supported."
+
+    def __str__(self):
+        return self.error_msg
+
+
 async def exception_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
     return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)})

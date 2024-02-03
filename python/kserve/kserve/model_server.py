@@ -26,6 +26,7 @@ from ray import serve as rayserve
 from ray.serve.api import Deployment
 from ray.serve.handle import RayServeHandle
 
+from .errors import UnsupportedProcessStartMethod
 from .logging import KSERVE_LOG_CONFIG, logger
 from .model import Model
 from .model_repository import ModelRepository
@@ -208,7 +209,12 @@ class ModelServer:
                 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 serversocket.bind(('0.0.0.0', self.http_port))
                 serversocket.listen(5)
-                multiprocessing.set_start_method('fork')
+                start_method = multiprocessing.get_start_method(allow_none=True)
+                if start_method is None:
+                    logger.info("Setting 'fork' as multiprocessing start method.")
+                    multiprocessing.set_start_method('fork')
+                elif start_method in ['spawn', 'forkserver']:
+                    raise UnsupportedProcessStartMethod(start_method)
                 self._rest_server = UvicornServer(self.http_port, [serversocket],
                                                   self.dataplane, self.model_repository_extension,
                                                   self.enable_docs_url, log_config=self.log_config,
