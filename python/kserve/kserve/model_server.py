@@ -19,14 +19,12 @@ import concurrent.futures
 import multiprocessing
 import signal
 import socket
-from multiprocessing import Process
 from typing import Dict, List, Optional, Union, Callable, Any
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment
 from ray.serve.handle import RayServeHandle
 
-from .errors import UnsupportedProcessStartMethod
 from .logging import KSERVE_LOG_CONFIG, logger
 from .model import Model
 from .model_repository import ModelRepository
@@ -201,26 +199,21 @@ class ModelServer:
                                                   access_log_format=self.access_log_format)
                 await self._rest_server.run()
             else:
-                # Since py38 MacOS/Windows defaults to use spawn for starting multiprocessing.
-                # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
-                # Spawn does not work with FastAPI/uvicorn in multiprocessing mode, use fork for multiprocessing
-                # https://github.com/tiangolo/fastapi/issues/1586
                 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 serversocket.bind(('0.0.0.0', self.http_port))
                 serversocket.listen(5)
-                start_method = multiprocessing.get_start_method(allow_none=True)
-                if start_method is None:
-                    logger.info("Setting 'fork' as multiprocessing start method.")
-                    multiprocessing.set_start_method('fork')
-                elif start_method in ['spawn', 'forkserver']:
-                    raise UnsupportedProcessStartMethod(start_method)
                 self._rest_server = UvicornServer(self.http_port, [serversocket],
                                                   self.dataplane, self.model_repository_extension,
                                                   self.enable_docs_url, log_config=self.log_config,
                                                   access_log_format=self.access_log_format)
+                # Since py38 MacOS/Windows defaults to use spawn for starting multiprocessing.
+                # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
+                # Spawn does not work with FastAPI/uvicorn in multiprocessing mode, use fork for multiprocessing
+                # https://github.com/tiangolo/fastapi/issues/1586
+                context = multiprocessing.get_context('fork')
                 for _ in range(self.workers):
-                    p = Process(target=self._rest_server.run_sync)
+                    p = context.Process(target=self._rest_server.run_sync)
                     p.start()
 
         async def servers_task():
