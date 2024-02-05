@@ -81,14 +81,7 @@ class TestV1beta1HuggingFaceRuntimeSpec(unittest.TestCase):
                 security_context = None, 
                 startup_probe = None, 
                 stdin = True, 
-                stdin_once = True, 
-                storage = kserve.models.v1beta1/storage_spec.v1beta1.StorageSpec(
-                    key = '0', 
-                    parameters = {
-                        'key' : '0'
-                        }, 
-                    path = '0', 
-                    schema_path = '0', ), 
+                stdin_once = True,
                 storage_uri = '0', 
                 termination_message_path = '0', 
                 termination_message_policy = '0', 
