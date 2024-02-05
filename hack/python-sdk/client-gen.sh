@@ -19,7 +19,7 @@
 set -o errexit
 set -o nounset
 
-OPENAPI_GENERATOR_VERSION="4.3.1"
+OPENAPI_GENERATOR_VERSION="7.2.0"
 SWAGGER_JAR_URL="https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/${OPENAPI_GENERATOR_VERSION}/openapi-generator-cli-${OPENAPI_GENERATOR_VERSION}.jar"
 SWAGGER_CODEGEN_JAR="hack/python-sdk/openapi-generator-cli-${OPENAPI_GENERATOR_VERSION}.jar"
 SWAGGER_CODEGEN_CONF="hack/python-sdk/swagger_config.json"
