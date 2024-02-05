@@ -1,0 +1,22 @@
+name: Free up storage space
+
+on:
+  pull_request:
+
+jobs:
+  freeup-storage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Before cleanup
+        run: |
+          df -Th
+
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: free up storage
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: After cleanup
+        run: |
+          sf -Th

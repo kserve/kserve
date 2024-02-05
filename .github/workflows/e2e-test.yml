@@ -5,7 +5,7 @@ on:
     branches: [master, release*]
     paths:
       - "**"
-      - "!.github/**"
+#      - "!.github/**"
       - "!docs/**"
       - "!**.md"
       - ".github/workflows/e2e-test.yml"

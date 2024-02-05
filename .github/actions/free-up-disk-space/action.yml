@@ -1,5 +1,5 @@
 name: 'Free-up disk space action'
-description: 'Removes non-essential tools, libraries and cached files from GitHub action runner node'
+description: 'Removes non-essential tools, libraries and cached files from GitHub action runner node and changes the docker data directory to /mnt/docker'
 
 runs:
   using: "composite"
@@ -8,7 +8,7 @@ runs:
       shell: bash
       run: |
         echo "Disk usage before cleanup:"
-        df -h
+        df -hT
 
         # remove non-essential tools and libraries, see:
         # https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
@@ -23,7 +23,7 @@ runs:
         sudo rm -rf /usr/share/swift
 
         echo "Disk usage after cleanup:"
-        df -h
+        df -hT
 
     - name: Prune docker images
       shell: bash
@@ -31,4 +31,32 @@ runs:
         echo "Pruning docker images"
         docker image prune -a -f
         docker system df
-        df -h
+        df -hT
+
+    - name: Change docker data directory
+      shell: bash
+      run: |
+        DOCKER_CONFIG_PATH=/etc/docker/daemon.json
+        DOCKER_ROOT_DIR=/mnt/docker
+        sudo mkdir -p "$DOCKER_ROOT_DIR"
+        # Check if the file exists and contains JSON data
+        if [ -f "${DOCKER_CONFIG_PATH}" ]; then
+          # Check if the file is empty
+          if [ -s "${DOCKER_CONFIG_PATH}" ]; then
+            echo "Docker config daemon.json is found. Updating config ..."
+            # Append the new configuration to existing JSON data
+            jq --arg docker_root_dir "$DOCKER_ROOT_DIR" '. + {"data-root": $docker_root_dir}' /etc/docker/daemon.json | sudo cat > "${DOCKER_CONFIG_PATH}"
+          else
+            # If the file is empty, just write the new configuration
+            echo "Docker config daemon.json is empty. Updating config ..."
+            echo "{\"data-root\": \"$DOCKER_ROOT_DIR\"}" | sudo tee "${DOCKER_CONFIG_PATH}" > /dev/null
+          fi
+        else
+        # If the file doesn't exist, create it and write the new configuration
+        echo "Docker config daemon.json is not found. Creating config ..."
+        echo "{\"data-root\": \"$DOCKER_ROOT_DIR\"}" | sudo tee "${DOCKER_CONFIG_PATH}" > /dev/null
+        fi
+        echo "Updated docker configuration: $(cat /etc/docker/daemon.json)"
+        echo "Restarting docker ..."
+        sudo systemctl restart docker
+        echo "Docker root dir: $(docker info -f '{{ .DockerRootDir}}')"

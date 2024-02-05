@@ -2,7 +2,7 @@
 
 sleep 10
 echo "::group::Free Space"
-df -T
+df -hT
 echo "::endgroup::"
 
 echo "::group::List Docker Images"
