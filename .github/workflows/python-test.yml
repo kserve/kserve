@@ -228,9 +228,13 @@ jobs:
         id: huggingface-dependencies
         uses: actions/cache@v3
         with:
-          path: python/huggingfaceserver/.venv
+          path: /mnt/python/huggingfaceserver-venv
           key: huggingface-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
         # install huggingface server dependencies if cache does not exist
+      - name: Configure poetry
+        run: |
+          poetry config --local virtualenvs.path /mnt/python/huggingfaceserver-venv
+          poetry config --local virtualenvs.in-project false
       - name: Install huggingface dependencies
         if: steps.cached-huggingface-dependencies.outputs.cache-hit != 'true'
         run: |
@@ -242,7 +246,5 @@ jobs:
           make dev_install
       - name: Test huggingfaceserver
         run: |
-          cd python
-          source huggingfaceserver/.venv/bin/activate
-          pytest --cov=huggingfaceserver ./huggingfaceserver
-
+          cd python/huggingfaceserver
+          poetry run -- pytest --cov=huggingfaceserver
