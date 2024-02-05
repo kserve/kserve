@@ -233,11 +233,15 @@ jobs:
         # install huggingface server dependencies if cache does not exist
       - name: Configure poetry
         run: |
-          poetry config --local virtualenvs.path /mnt/python/huggingfaceserver-venv
-          poetry config --local virtualenvs.in-project false
+          poetry config virtualenvs.path /mnt/python/huggingfaceserver-venv
+          poetry config virtualenvs.in-project false
+          poetry config virtualenvs.prefer-active-python true
       - name: Install huggingface dependencies
         if: steps.cached-huggingface-dependencies.outputs.cache-hit != 'true'
         run: |
+          sudo mkdir -p /mnt/python/huggingfaceserver-venv
+          # change permission so that poetry can install without sudo
+          sudo chown -R $USER /mnt/python/huggingfaceserver-venv
           cd python/huggingfaceserver
           make install_dependencies
       - name: Install huggingface server

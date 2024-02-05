@@ -33,30 +33,20 @@ runs:
         docker system df
         df -hT
 
-    - name: Change docker data directory
+    - name: Move docker data directory
       shell: bash
       run: |
-        DOCKER_CONFIG_PATH=/etc/docker/daemon.json
+        echo "Stopping docker service ..."
+        sudo systemctl stop docker
+        DOCKER_DEFAULT_ROOT_DIR=/var/lib/docker
         DOCKER_ROOT_DIR=/mnt/docker
-        sudo mkdir -p "$DOCKER_ROOT_DIR"
-        # Check if the file exists and contains JSON data
-        if [ -f "${DOCKER_CONFIG_PATH}" ]; then
-          # Check if the file is empty
-          if [ -s "${DOCKER_CONFIG_PATH}" ]; then
-            echo "Docker config daemon.json is found. Updating config ..."
-            # Append the new configuration to existing JSON data
-            jq --arg docker_root_dir "$DOCKER_ROOT_DIR" '. + {"data-root": $docker_root_dir}' /etc/docker/daemon.json | sudo cat > "${DOCKER_CONFIG_PATH}"
-          else
-            # If the file is empty, just write the new configuration
-            echo "Docker config daemon.json is empty. Updating config ..."
-            echo "{\"data-root\": \"$DOCKER_ROOT_DIR\"}" | sudo tee "${DOCKER_CONFIG_PATH}" > /dev/null
-          fi
-        else
-        # If the file doesn't exist, create it and write the new configuration
-        echo "Docker config daemon.json is not found. Creating config ..."
-        echo "{\"data-root\": \"$DOCKER_ROOT_DIR\"}" | sudo tee "${DOCKER_CONFIG_PATH}" > /dev/null
-        fi
-        echo "Updated docker configuration: $(cat /etc/docker/daemon.json)"
-        echo "Restarting docker ..."
-        sudo systemctl restart docker
-        echo "Docker root dir: $(docker info -f '{{ .DockerRootDir}}')"
+        echo "Moving ${DOCKER_DEFAULT_ROOT_DIR} -> ${DOCKER_ROOT_DIR}"
+        sudo mv ${DOCKER_DEFAULT_ROOT_DIR} ${DOCKER_ROOT_DIR}
+        echo "Creating symlink ${DOCKER_DEFAULT_ROOT_DIR} -> ${DOCKER_ROOT_DIR}"
+        sudo ln -s ${DOCKER_ROOT_DIR} ${DOCKER_DEFAULT_ROOT_DIR}
+        echo "$(sudo ls -l ${DOCKER_DEFAULT_ROOT_DIR})"
+        echo "Starting docker service ..."
+        sudo systemctl daemon-reload
+        sudo systemctl start docker
+        echo "Docker service status:"
+        sudo systemctl --no-pager -l -o short status docker
