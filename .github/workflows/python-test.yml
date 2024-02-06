@@ -36,7 +36,12 @@ jobs:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Set up Python ${{ matrix.python-version }}
         id: setup-python
         uses: actions/setup-python@v4
@@ -46,12 +51,19 @@ jobs:
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
+      - name: Configure Poetry cache
+        run: |
+          sudo mkdir -p /mnt/poetry
+          # change permission so that poetry can install without sudo
+          sudo chown -R $USER /mnt/poetry
+          poetry config cache-dir /mnt/poetry
+
       # load poetry cache if cache exists
       - name: Load poetry cache
         id: cached-poetry-dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.cache/pypoetry
+          path: /mnt/poetry
           key: poetry-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
 
       # ----------------------------------------Kserve Unit Tests--------------------------------------------------------
@@ -225,24 +237,37 @@ jobs:
       # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
       # load cached huggingface venv if cache exists
       - name: Load cached huggingface venv
+        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
         id: huggingface-dependencies
         uses: actions/cache@v3
         with:
-          path: python/huggingfaceserver/.venv
+          path: /mnt/python/huggingfaceserver-venv
           key: huggingface-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
         # install huggingface server dependencies if cache does not exist
-      - name: Install huggingface dependencies
-        if: steps.cached-huggingface-dependencies.outputs.cache-hit != 'true'
+      - name: Configure poetry for huggingface server
+        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
         run: |
+          poetry config virtualenvs.path /mnt/python/huggingfaceserver-venv
+          poetry config virtualenvs.in-project false
+      - name: Install huggingface dependencies
+        if: ${{ steps.cached-huggingface-dependencies.outputs.cache-hit != 'true' && !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
+        run: |
+          sudo mkdir -p /mnt/python/huggingfaceserver-venv
+          # change permission so that poetry can install without sudo
+          sudo chown -R $USER /mnt/python/huggingfaceserver-venv
           cd python/huggingfaceserver
           make install_dependencies
       - name: Install huggingface server
+        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
         run: |
           cd python/huggingfaceserver
           make dev_install
       - name: Test huggingfaceserver
+        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
         run: |
-          cd python
-          source huggingfaceserver/.venv/bin/activate
-          pytest --cov=huggingfaceserver ./huggingfaceserver
+          cd python/huggingfaceserver
+          poetry run -- pytest --cov=huggingfaceserver
 
+      - name: Free space after tests
+        run: |
+          df -hT
