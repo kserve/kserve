@@ -19,6 +19,7 @@ from kserve.model import PredictorConfig
 from . import HuggingfaceModel, HuggingfaceModelRepository
 import kserve
 from kserve.errors import ModelMissingError
+from vllm.engine.arg_utils import AsyncEngineArgs
 
 
 def list_of_strings(arg):
@@ -42,18 +43,16 @@ parser.add_argument('--add_special_tokens', type=bool, default=True,
 parser.add_argument('--tensor_input_names', type=list_of_strings, default=None,
                     help='the tensor input names passed to the model')
 parser.add_argument('--task', required=False, help="The ML task name")
+parser.add_argument('--use_vllm', required=False, help="Use vllm as the default runtime", default=False)
 
-try:
-    from vllm.engine.arg_utils import AsyncEngineArgs
-
-    parser = AsyncEngineArgs.add_cli_args(parser)
-    _vllm = True
-except ImportError:
-    _vllm = False
 args, _ = parser.parse_known_args()
+parser = AsyncEngineArgs.add_cli_args(parser)
 
 if __name__ == "__main__":
-    engine_args = AsyncEngineArgs.from_cli_args(args) if _vllm else None
+    if args.use_vllm:
+        if args.model != args.model_id: # vllm sets default model
+            args.model = args.model_id
+        engine_args = AsyncEngineArgs.from_cli_args(args)
     predictor_config = PredictorConfig(args.predictor_host, args.predictor_protocol,
                                        args.predictor_use_ssl,
                                        args.predictor_request_timeout_seconds)
