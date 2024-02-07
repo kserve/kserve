@@ -45,10 +45,11 @@ parser.add_argument('--tensor_input_names', type=list_of_strings, default=None,
 parser.add_argument('--task', required=False, help="The ML task name")
 parser.add_argument('--use_vllm', required=False, help="Use vllm as the default runtime", default=False)
 
-args, _ = parser.parse_known_args()
 parser = AsyncEngineArgs.add_cli_args(parser)
+args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    engine_args = None
     if args.use_vllm:
         if args.model != args.model_id: # vllm sets default model
             args.model = args.model_id

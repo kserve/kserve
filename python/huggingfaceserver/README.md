@@ -55,13 +55,13 @@ spec:
         limits:
           cpu: "1"
           memory: 2Gi
+          nvidia.com/gpu: "1"
         requests:
           cpu: 100m
           memory: 2Gi
-          nvidia.com/gpu: "1"
 ```
 
-1. Serve the huggingface model using triton inference runtime and KServe transformer for the preprocess(tokenization) and postprocess.
+2. Serve the huggingface model using triton inference runtime and KServe transformer for the preprocess(tokenization) and postprocess.
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -79,10 +79,10 @@ spec:
         limits:
           cpu: "1"
           memory: 8Gi
+          nvidia.com/gpu: "1"
         requests:
           cpu: "1"
           memory: 8Gi
-          nvidia.com/gpu: "1"
       runtimeVersion: 23.10-py3
       storageUri: gs://kfserving-examples/models/triton/huggingface/model_repository
   transformer:
@@ -101,4 +101,39 @@ spec:
         requests:
           cpu: 100m
           memory: 2Gi
+```
+3. Serve the huggingface model using vllm runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used a fallsafe.
+vllm supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: huggingface
+spec:
+  predictor:
+    containers:
+    - args:
+      - --model_name=llama2
+      - --model_id=meta-llama/Llama-2-7b-chat-hf
+      - --use_vllm=True
+      image: kserve/huggingfaceserver:latest
+      name: kserve-container
+      resources:
+        limits:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+
+```
+Perform the inference for vllm specific runtime
+
+vllm runtime deployments only support `/generate` endpoint for inference. Schema details - https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml
+```bash
+curl -H "content-type:application/json" -v localhost:8080/v2/models/gpt2/generate -d '{"text_input": "The capital of france is [MASK]." }'
+
+{"text_output":"The capital of france is [MASK].\n\nThe capital of France is actually Paris.","model_name":"llama2","model_version":null,"details":null}
 ```

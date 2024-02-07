@@ -138,6 +138,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             Union[BatchEncoding, InferRequest]:
         instances = get_predict_input(payload)
 
+        if self.vllm_engine is not None:
+            raise InferenceError("Use /generate endpoint for vllm runtime")
+
         # Serialize to tensor
         if self.predictor_host:
             inputs = self.tokenizer(
