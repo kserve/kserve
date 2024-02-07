@@ -72,7 +72,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.mapping = None
         self.vllm_engine = None
         self.use_vllm = kwargs.get('use_vllm', False)
-        if self.use_vllm and self.device == torch.device("cuda"): # vllm needs gpu
+        if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
             if self.infer_vllm_supported_from_model_architecture(self.model_id) is not None:
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(engine_args)
         self.ready = False
@@ -127,7 +127,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 elif self.task == MLTask.text2text_generation.value:
                     self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path)
                 else:
-                    raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")    
+                    raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
                 self.model.eval()
                 self.model.to(self.device)
                 logger.info(f"successfully loaded huggingface model from path {model_id_or_path}")
@@ -179,8 +179,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             if parameters is None:
                 parameters = {}
             sampling_params = SamplingParams(**parameters)
-            results_generator = self.vllm_engine.generate(prompt, sampling_params=sampling_params,
-                                                         request_id=request_id) 
+            results_generator = self.vllm_engine.generate(prompt, sampling_params=sampling_params, request_id=request_id)
             return results_generator
         else:
             input_batch = self.tokenizer(

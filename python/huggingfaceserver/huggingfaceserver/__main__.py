@@ -51,7 +51,7 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     engine_args = None
     if args.use_vllm:
-        if args.model != args.model_id: # vllm sets default model
+        if args.model != args.model_id:   # vllm sets default model
             args.model = args.model_id
         engine_args = AsyncEngineArgs.from_cli_args(args)
     predictor_config = PredictorConfig(args.predictor_host, args.predictor_protocol,
