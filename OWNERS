@@ -1,20 +1,21 @@
 approvers:
-  - anishasthana
   - danielezonca
+  - davidesalerno
+  - dtrifiro
   - heyselbi
   - israel-hdez
   - Jooho
+  - rpancham
   - spolti
+  - terrytangyuan
+  - vaibhavjainwiz
   - VedantMahabaleshwarkar
   - Xaenalt
-  - vaibhavjainwiz
+  - z103cb
 reviewers:
-  - anishasthana
-  - danielezonca
-  - heyselbi
+  - davidesalerno
   - israel-hdez
   - Jooho
   - spolti
+  - terrytangyuan
   - VedantMahabaleshwarkar
-  - Xaenalt
-  - vaibhavjainwiz
