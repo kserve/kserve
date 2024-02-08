@@ -68,7 +68,9 @@ class ImageTransformer(Model):
         predictor_use_ssl: bool,
     ):
         super().__init__(
-            name, PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl)
+            name,
+            PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl),
+            response_headers=True,
         )
         self.ready = True
 

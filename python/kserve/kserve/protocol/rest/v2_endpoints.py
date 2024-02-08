@@ -167,9 +167,15 @@ class V2Endpoints:
         response, response_headers = self.dataplane.encode(
             model_name=model_name,
             response=response,
-            headers=response_headers,
+            headers=request_headers,
             req_attributes={},
         )
+
+        response_headers.update(res_headers)
+        if "content-length" in response_headers:
+            del response_headers["content-length"]
+        if "content-type" in response_headers:
+            del response_headers["content-type"]
 
         if response_headers:
             raw_response.headers.update(response_headers)
