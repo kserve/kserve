@@ -179,7 +179,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             if parameters is None:
                 parameters = {}
             sampling_params = SamplingParams(**parameters)
-            results_generator = self.vllm_engine.generate(prompt, sampling_params=sampling_params, request_id=request_id)
+            results_generator = self.vllm_engine.generate(
+                prompt, sampling_params=sampling_params, request_id=request_id
+            )
             return results_generator
         else:
             input_batch = self.tokenizer(
