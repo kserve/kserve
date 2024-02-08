@@ -96,23 +96,24 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		var err error
 
 		if isvc.Spec.Explainer.Model.Runtime != nil {
+			e.Log.Info("Reconciling Explainer", "ExplainerRuntime", isvc.Spec.Explainer.Model.Runtime)
 			// set runtime defaults
 			isvc.SetRuntimeDefaults()
 			r, err := isvcutils.GetServingRuntime(e.client, *isvc.Spec.Explainer.Model.Runtime, isvc.Namespace)
 			if err != nil {
 				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
-					Reason: v1beta1.RuntimeNotRecognized,
+					Reason:  v1beta1.RuntimeNotRecognized,
 					Message: "Waiting for runtime to become available",
 				})
 				return ctrl.Result{}, err
 			}
 
 			if isvc.Spec.Explainer.Model.ProtocolVersion != nil &&
-			!r.IsProtocolVersionSupported(*isvc.Spec.Explainer.Model.ProtocolVersion){
-			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
-				Reason: v1beta1.NoSupportingRuntime,
-				Message: "Specified runtime does not support specified protocol version",
-			})
+			!r.IsProtocolVersionSupported(*isvc.Spec.Explainer.Model.ProtocolVersion) {
+				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+					Reason:  v1beta1.NoSupportingRuntime,
+					Message: "Specified runtime does not support specified protocol version",
+				})
 			return ctrl.Result{}, fmt.Errorf("specified runtime %s does not support specified protocol version", *isvc.Spec.Explainer.Model.Runtime)
 			}
 
@@ -127,16 +128,17 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 
 			sRuntime = *r
 		} else {
+			e.Log.Info("Reconciling Explainer", "ExplainerRuntime", "Runtime not specified")
 			runtimes, err := isvc.Spec.Explainer.Model.GetSupportingRuntimes(e.client, isvc.Namespace, false)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 			if len(runtimes) == 0 {
 				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
-					Reason: v1beta1.NoSupportingRuntime,
-					Message: "No runtims found to sypport specified framework/version",
+					Reason:  v1beta1.NoSupportingRuntime,
+					Message: "No runtime found to support specified framework/version",
 				})
-				return ctrl.Result{}, fmt.Errorf("no runtume fount to support explainer with model type: %v", isvc.Spec.Explainer.Model.ModelFormat)
+				return ctrl.Result{}, fmt.Errorf("no runtime found to support explainer with model type: %v", isvc.Spec.Explainer.Model.ModelFormat)
 			}
 			// Get first supporting runtime
 			sRuntime = runtimes[0].Spec
@@ -275,7 +277,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		),
 	}
 
-	e.Log.Info("Resolved container", "container", container, "podSpec", podSpec)
+	e.Log.Info("Resolved container", "Container", container.String(), "podSpec", podSpec.String())
 	var rawDeployment bool
 	var podLabelKey string
 	var podLabelValue string
