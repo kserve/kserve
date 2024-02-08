@@ -14,8 +14,8 @@ spec:
   explainer:
     model:
       modelFormat:
-        name: shap-kernal
+        name: shap-kernel
         version:
-      runtime: deeploy-shap-kernal
+      runtime: deeploy-shap-kernel
       protocolVersion: "v2"
       storageUri: "gs://deeploy-examples/sklearn/census/20231128130326/explainer"
