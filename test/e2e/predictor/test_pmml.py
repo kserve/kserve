@@ -15,7 +15,7 @@
 import json
 import os
 
-from kserve import KServeClient
+from kserve import KServeClient, InferOutput
 from kserve import V1beta1InferenceService
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1PMMLSpec
@@ -132,11 +132,11 @@ async def test_pmml_v2_kserve():
     res = await predict_isvc(service_name, './data/pmml-input-v2.json',
                              protocol_version="v2")
     assert res.outputs == [
-        {'name': 'Species', 'shape': [1], 'datatype': 'BYTES', 'data': ['setosa'], 'parameters': None},
-        {'name': 'Probability_setosa', 'shape': [1], 'datatype': 'FP64', 'data': [1.0], 'parameters': None},
-        {'name': 'Probability_versicolor', 'shape': [1], 'datatype': 'FP64', 'data': [0.0], 'parameters': None},
-        {'name': 'Probability_virginica', 'shape': [1], 'datatype': 'FP64', 'data': [0.0], 'parameters': None},
-        {'name': 'Node_Id', 'shape': [1], 'datatype': 'BYTES', 'data': ['2'], 'parameters': None}]
+        InferOutput(name='Species', shape=[1], datatype='BYTES', data=['setosa'], parameters=None),
+        InferOutput(name='Probability_setosa', shape=[1], datatype='FP64', data=[1.0], parameters=None),
+        InferOutput(name='Probability_versicolor', shape=[1], datatype='FP64', data=[0.0], parameters=None),
+        InferOutput(name='Probability_virginica', shape=[1], datatype='FP64', data=[0.0], parameters=None),
+        InferOutput(name='Node_Id', shape=[1], datatype='BYTES', data=['2'], parameters=None)]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
