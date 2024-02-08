@@ -123,6 +123,7 @@ class Model:
         preprocess_ms = 0
         explain_ms = 0
         predict_ms = 0
+        response_headers = {}
         postprocess_ms = 0
         prom_labels = get_labels(self.name)
 
@@ -143,6 +144,10 @@ class Model:
                 start = time.time()
                 response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(payload, headers)
+                if isinstance(response, dict) and 'headers' in response:
+                    res_data = response['data']
+                    response_headers = response['headers']
+                    response = InferResponse.from_rest(self.name, res_data) if is_v2(PredictorProtocol(self.protocol)) else res_data
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
@@ -158,7 +163,7 @@ class Model:
                               f"explain_ms: {explain_ms}, predict_ms: {predict_ms}, "
                               f"postprocess_ms: {postprocess_ms}")
 
-        return response
+        return response, response_headers
 
     @property
     def _http_client(self):
@@ -284,7 +289,7 @@ class Model:
                     error_message = error_message["error"]
             message = message.format(response, error_message=error_message)
             raise HTTPStatusError(message, request=response.request, response=response)
-        return orjson.loads(response.content)
+        return orjson.loads(response.content), response.headers
 
     async def _grpc_predict(self, payload: Union[ModelInferRequest, InferRequest], headers: Dict[str, str] = None) \
             -> ModelInferResponse:
@@ -320,9 +325,15 @@ class Model:
             res = await self._grpc_predict(payload, headers)
             return InferResponse.from_grpc(res)
         else:
-            res = await self._http_predict(payload, headers)
-            # return an InferResponse if this is REST V2, otherwise just return the dictionary
-            return InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
+            res, response_headers = await self._http_predict(payload, headers)
+            response_data = {
+                'headers': response_headers,
+                'data': res
+            }
+            return response_data
+
+            # # return an InferResponse if this is REST V2, otherwise just return the dictionary
+            # return InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
 
     async def generate(self, payload: GenerateRequest,
                        headers: Dict[str, str] = None) -> Union[GenerateResponse, AsyncIterator[Any]]:

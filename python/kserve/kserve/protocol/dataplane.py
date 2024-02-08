@@ -315,14 +315,15 @@ class DataPlane:
         .. _CloudEvent: https://cloudevents.io/
         """
         # call model locally or remote model workers
+        res_headers = headers
         model = self.get_model(model_name)
         if isinstance(model, RayServeSyncHandle):
             response = ray.get(model.remote(request, headers=headers))
         elif isinstance(model, (RayServeHandle, DeploymentHandle)):
             response = await model.remote(request, headers=headers)
         else:
-            response = await model(request, headers=headers)
-        return response, headers
+            response, res_headers = await model(request, headers=headers)
+        return response, res_headers
 
     async def generate(
             self,
