@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import ssl
 from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping
 
@@ -21,13 +22,16 @@ from httpx import AsyncBaseTransport
 from urllib3.util import Url
 
 from .errors import UnsupportedProtocol
-from .logging import logger
+# from .logging import logger
 from .model import PredictorProtocol
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse, ServerReadyResponse, \
     ServerLiveResponse, ModelReadyResponse, ServerReadyRequest, ServerLiveRequest, ModelReadyRequest
 from .protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
 from .protocol.infer_type import InferRequest, InferResponse
 from .protocol.rest.v1_datamodels import PredictRequest, PredictResponse
+
+logger = logging.getLogger("kserve")
+logger.propagate = True
 
 
 class InferenceGRPCClient:

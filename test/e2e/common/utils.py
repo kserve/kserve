@@ -15,6 +15,7 @@
 import asyncio
 import json
 import logging
+import logging.config
 import os
 from concurrent import futures
 from typing import Union, List
@@ -43,6 +44,20 @@ rest_client = None
 grpc_client = None
 
 logging.basicConfig(level=logging.INFO)
+LOG_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "kserve": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+    },
+    "loggers": {
+        "kserve": {"handlers": ["kserve"], "level": "INFO", "propagate": True},
+    },
+}
+logging.config.dictConfig(LOG_CONFIG)
 
 
 def grpc_stub(host):

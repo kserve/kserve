@@ -18,6 +18,8 @@ from typing import Dict, Union
 
 import kserve
 from fastapi import HTTPException
+
+from kserve import InferResponse
 from kserve.model import InferRequest, ModelInferRequest
 
 logger = logging.getLogger(__name__)
@@ -32,7 +34,8 @@ class SampleTemplateNode(kserve.Model):
     def load(self):
         self.ready = True
 
-    def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest], headers) -> Dict:
+    def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest], headers: Dict[str, str] = None) \
+            -> Union[Dict, InferResponse]:
         raise HTTPException(status_code=404, detail="Intentional 404 code")
 
 
