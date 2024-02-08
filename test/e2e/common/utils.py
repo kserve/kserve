@@ -124,6 +124,7 @@ def predict_str(
     )
     if response.status_code == 200:
         preds = json.loads(response.content.decode("utf-8"))
+        preds["headers"] = response.headers
         return preds
     else:
         response.raise_for_status()
