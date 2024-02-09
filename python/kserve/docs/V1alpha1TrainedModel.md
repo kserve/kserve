@@ -1,7 +1,9 @@
 # V1alpha1TrainedModel
 
 TrainedModel is the Schema for the TrainedModel API
+
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **api_version** | **str** | APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources | [optional] 
@@ -10,6 +12,23 @@ Name | Type | Description | Notes
 **spec** | [**V1alpha1TrainedModelSpec**](V1alpha1TrainedModelSpec.md) |  | [optional] 
 **status** | [**V1alpha1TrainedModelStatus**](V1alpha1TrainedModelStatus.md) |  | [optional] 
 
+## Example
+
+```python
+from kserve.models.v1alpha1_trained_model import V1alpha1TrainedModel
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of V1alpha1TrainedModel from a JSON string
+v1alpha1_trained_model_instance = V1alpha1TrainedModel.from_json(json)
+# print the JSON string representation of the object
+print V1alpha1TrainedModel.to_json()
+
+# convert the object into a dict
+v1alpha1_trained_model_dict = v1alpha1_trained_model_instance.to_dict()
+# create an instance of V1alpha1TrainedModel from a dict
+v1alpha1_trained_model_form_dict = v1alpha1_trained_model.from_dict(v1alpha1_trained_model_dict)
+```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
 
