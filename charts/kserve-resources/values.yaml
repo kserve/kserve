@@ -123,3 +123,6 @@ kserve:
     art:
       image: kserve/art-explainer
       defaultVersion: *defaultVersion
+    ovms:
+      image: docker.io/openvino/model_server
+      tag: "2023.1"

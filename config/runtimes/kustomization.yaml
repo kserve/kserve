@@ -11,6 +11,7 @@ resources:
 - kserve-paddleserver.yaml
 - kserve-lgbserver.yaml
 - kserve-torchserve.yaml
+- kserve-ovms.yaml
 
 images:
   # SMS Only Runtimes
@@ -33,6 +34,10 @@ images:
 - name: kserve-tritonserver
   newName: nvcr.io/nvidia/tritonserver
   newTag: 23.05-py3
+
+- name: kserve-ovms
+  newName: docker.io/openvino/model_server
+  newTag: "2023.1"
 
 - name: kserve-pmmlserver
   newName: kserve/pmmlserver
