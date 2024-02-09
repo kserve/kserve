@@ -43,7 +43,7 @@ parser.add_argument('--add_special_tokens', type=bool, default=True,
 parser.add_argument('--tensor_input_names', type=list_of_strings, default=None,
                     help='the tensor input names passed to the model')
 parser.add_argument('--task', required=False, help="The ML task name")
-parser.add_argument('--use_vllm', required=False, help="Use vllm as the default runtime", default=False)
+parser.add_argument('--use_vllm', required=False, help="Use vllm as the default runtime", default=True)
 
 parser = AsyncEngineArgs.add_cli_args(parser)
 args, _ = parser.parse_known_args()
