@@ -46,6 +46,7 @@ from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokeni
     AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
     AutoModelForMaskedLM, BatchEncoding, TensorType
 
+VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     def __init__(self, model_name: str, kwargs,
@@ -144,7 +145,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         instances = get_predict_input(payload)
 
         if self.vllm_engine is not None:
-            raise InferenceError("Use /generate endpoint for vllm runtime")
+            raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
 
         # Serialize to tensor
         if self.predictor_host:
@@ -177,12 +178,10 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
     async def generate(self, generate_request: GenerateRequest, headers: Dict[str, str] = None) \
             -> Union[GenerateResponse, AsyncIterator[Any]]:
-        parameters = generate_request.parameters
+        parameters = generate_request.parameters or {}
         prompt = generate_request.text_input
         request_id = str(uuid.uuid4())
         if self.vllm_engine is not None:
-            if parameters is None:
-                parameters = {}
             sampling_params = SamplingParams(**parameters)
             results_generator = self.vllm_engine.generate(
                 prompt, sampling_params=sampling_params, request_id=request_id
@@ -220,7 +219,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
         if self.vllm_engine is not None:
-            raise InferenceError("Use /generate endpoint for vllm runtime")
+            raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
 
         if self.predictor_host:
             # when predictor_host is provided, serialize the tensor and send to optimized model serving runtime
