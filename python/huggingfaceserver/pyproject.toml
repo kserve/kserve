@@ -14,7 +14,7 @@ python = ">=3.9,<3.12"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
 transformers = "~4.37.0"
 torch = "~2.1.2"
-vllm = "~0.2.7"
+vllm = { version = "^0.2.7", optional = true }
 
 [tool.poetry.extras]
 vllm = [

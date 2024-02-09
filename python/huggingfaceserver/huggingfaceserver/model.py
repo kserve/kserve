@@ -33,9 +33,13 @@ from kserve.utils.utils import get_predict_response, get_predict_input
 from kserve import Model
 import torch
 
-from vllm.sampling_params import SamplingParams
-from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.model_executor.models import ModelRegistry
+try:
+    from vllm.sampling_params import SamplingParams
+    from vllm.engine.async_llm_engine import AsyncLLMEngine
+    from vllm.model_executor.models import ModelRegistry
+    _vllm = True
+except ImportError:
+    _vllm = False
 
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, \
     AutoConfig, \
@@ -71,7 +75,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.model = None
         self.mapping = None
         self.vllm_engine = None
-        self.use_vllm = not kwargs.get('disable_vllm', False)
+        self.use_vllm = not kwargs.get('disable_vllm', False) if _vllm else False
         self.ready = False
 
     @staticmethod
@@ -92,7 +96,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         architecture = model_config.architectures[0]
         model_cls = ModelRegistry.load_model_cls(architecture)
         if model_cls is None:
-           logger.info("vllm unsupported model")
+            logger.info("vllm unsupported model")
         return model_cls
 
     def load(self, engine_args=None) -> bool:
@@ -100,7 +104,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             if self.infer_vllm_supported_from_model_architecture(self.model_id) is not None:
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(engine_args)
                 self.ready = True
-                return self.ready            
+                return self.ready
 
         model_id_or_path = self.model_id
         if self.model_dir:
