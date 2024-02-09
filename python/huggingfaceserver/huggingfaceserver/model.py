@@ -45,7 +45,7 @@ from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokeni
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     def __init__(self, model_name: str, kwargs,
-                 engine_args=None, predictor_config: Optional[PredictorConfig] = None):
+                 predictor_config: Optional[PredictorConfig] = None):
         super().__init__(model_name, predictor_config)
         if kwargs is None:
             kwargs = {}
@@ -62,8 +62,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             assert world_size == tp_degree, f"TP degree ({tp_degree}) doesn't match available GPUs ({world_size})"
         self.model_id = kwargs.get('model_id', None)
         self.model_dir = kwargs.get('model_dir', None)
-        self.do_lower_case = kwargs.get('do_lower_case', True)
-        self.add_special_tokens = kwargs.get('add_special_tokens', True)
+        self.do_lower_case = not kwargs.get('disable_lower_case', False)
+        self.add_special_tokens = not kwargs.get('disable_special_tokens', False)
         self.max_length = kwargs.get('max_length', None)
         self.tensor_input_names = kwargs.get('tensor_input_names', None)
         self.task = kwargs.get('task', None)
@@ -71,10 +71,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.model = None
         self.mapping = None
         self.vllm_engine = None
-        self.use_vllm = kwargs.get('use_vllm', True)
-        if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
-            if self.infer_vllm_supported_from_model_architecture(self.model_id) is not None:
-                self.vllm_engine = AsyncLLMEngine.from_engine_args(engine_args)
+        self.use_vllm = not kwargs.get('disable_vllm', False)
         self.ready = False
 
     @staticmethod
@@ -94,43 +91,47 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         model_config = AutoConfig.from_pretrained(model_config_path)
         architecture = model_config.architectures[0]
         model_cls = ModelRegistry.load_model_cls(architecture)
-        if model_cls is not None:
-            return model_cls
+        if model_cls is None:
+           logger.info("vllm unsupported model")
+        return model_cls
 
-        logger.info("vllm unsupported model")
+    def load(self, engine_args=None) -> bool:
+        if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
+            if self.infer_vllm_supported_from_model_architecture(self.model_id) is not None:
+                self.vllm_engine = AsyncLLMEngine.from_engine_args(engine_args)
+                self.ready = True
+                return self.ready            
 
-    def load(self) -> bool:
-        if self.vllm_engine is None:
-            model_id_or_path = self.model_id
-            if self.model_dir:
-                model_id_or_path = pathlib.Path(Storage.download(self.model_dir))
-                # TODO Read the mapping file, index to object name
-            if not self.task:
-                self.task = self.infer_task_from_model_architecture(model_id_or_path)
-            # load huggingface tokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                model_id_or_path, do_lower_case=self.do_lower_case)
-            logger.info(f"successfully loaded tokenizer for task: {self.task}")
-            # load huggingface model using from_pretrained for inference mode
-            if not self.predictor_host:
-                if self.task == MLTask.sequence_classification.value:
-                    self.model = AutoModelForSequenceClassification.from_pretrained(
-                        model_id_or_path)
-                elif self.task == MLTask.question_answering.value:
-                    self.model = AutoModelForQuestionAnswering.from_pretrained(model_id_or_path)
-                elif self.task == MLTask.token_classification.value:
-                    self.model = AutoModelForTokenClassification.from_pretrained(model_id_or_path)
-                elif self.task == MLTask.fill_mask.value:
-                    self.model = AutoModelForMaskedLM.from_pretrained(model_id_or_path)
-                elif self.task == MLTask.text_generation.value:
-                    self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path)
-                elif self.task == MLTask.text2text_generation.value:
-                    self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path)
-                else:
-                    raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
-                self.model.eval()
-                self.model.to(self.device)
-                logger.info(f"successfully loaded huggingface model from path {model_id_or_path}")
+        model_id_or_path = self.model_id
+        if self.model_dir:
+            model_id_or_path = pathlib.Path(Storage.download(self.model_dir))
+            # TODO Read the mapping file, index to object name
+        if not self.task:
+            self.task = self.infer_task_from_model_architecture(model_id_or_path)
+        # load huggingface tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_id_or_path, do_lower_case=self.do_lower_case)
+        logger.info(f"successfully loaded tokenizer for task: {self.task}")
+        # load huggingface model using from_pretrained for inference mode
+        if not self.predictor_host:
+            if self.task == MLTask.sequence_classification.value:
+                self.model = AutoModelForSequenceClassification.from_pretrained(
+                    model_id_or_path)
+            elif self.task == MLTask.question_answering.value:
+                self.model = AutoModelForQuestionAnswering.from_pretrained(model_id_or_path)
+            elif self.task == MLTask.token_classification.value:
+                self.model = AutoModelForTokenClassification.from_pretrained(model_id_or_path)
+            elif self.task == MLTask.fill_mask.value:
+                self.model = AutoModelForMaskedLM.from_pretrained(model_id_or_path)
+            elif self.task == MLTask.text_generation.value:
+                self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path)
+            elif self.task == MLTask.text2text_generation.value:
+                self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path)
+            else:
+                raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
+            self.model.eval()
+            self.model.to(self.device)
+            logger.info(f"successfully loaded huggingface model from path {model_id_or_path}")
         self.ready = True
         return self.ready
 

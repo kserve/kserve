@@ -36,21 +36,21 @@ parser.add_argument('--tensor_parallel_degree', type=int, default=-1,
                     help='tensor parallel degree')
 parser.add_argument('--max_length', type=int, default=None,
                     help='max sequence length for the tokenizer')
-parser.add_argument('--do_lower_case', type=bool, default=True,
-                    help='do lower case for the tokenizer')
-parser.add_argument('--add_special_tokens', type=bool, default=True,
-                    help='the sequences will be encoded with the special tokens relative to their model')
+parser.add_argument('--disable_lower_case', action='store_true',
+                    help='do not use lower case for the tokenizer')
+parser.add_argument('--disable_special_tokens', action='store_true',
+                    help='the sequences will not be encoded with the special tokens relative to their model')
 parser.add_argument('--tensor_input_names', type=list_of_strings, default=None,
                     help='the tensor input names passed to the model')
 parser.add_argument('--task', required=False, help="The ML task name")
-parser.add_argument('--use_vllm', required=False, help="Use vllm as the default runtime", default=True)
+parser.add_argument('--disable_vllm', action='store_true', help="Do not use vllm as the default runtime")
 
 parser = AsyncEngineArgs.add_cli_args(parser)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     engine_args = None
-    if args.use_vllm:
+    if not args.disable_vllm:
         if args.model != args.model_id:   # vllm sets default model
             args.model = args.model_id
         engine_args = AsyncEngineArgs.from_cli_args(args)
@@ -59,9 +59,9 @@ if __name__ == "__main__":
                                        args.predictor_request_timeout_seconds)
     model = HuggingfaceModel(args.model_name,
                              predictor_config=predictor_config,
-                             kwargs=vars(args), engine_args=engine_args)
+                             kwargs=vars(args))
     try:
-        model.load()
+        model.load(engine_args=engine_args)
     except ModelMissingError:
         logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
                       f"trying loading from model repository.")

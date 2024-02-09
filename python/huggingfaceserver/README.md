@@ -49,6 +49,7 @@ spec:
       - --model_name=bert
       - --model_id=bert-base-uncased
       - --tensor_input_names=input_ids
+      - --disable_vllm
       image: kserve/huggingfaceserver:latest
       name: kserve-container
       resources:
@@ -92,6 +93,7 @@ spec:
       - --model_id=bert-base-uncased
       - --predictor_protocol=v2
       - --tensor_input_names=input_ids
+      - --disable_vllm
       image: kserve/huggingfaceserver:latest
       name: kserve-container
       resources:
@@ -102,7 +104,7 @@ spec:
           cpu: 100m
           memory: 2Gi
 ```
-3. Serve the huggingface model using vllm runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used a fallsafe.
+3. Serve the huggingface model using vllm runtime. vllm is the default runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used as a failsafe.
 vllm supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -115,7 +117,6 @@ spec:
     - args:
       - --model_name=llama2
       - --model_id=meta-llama/Llama-2-7b-chat-hf
-      - --use_vllm=True
       image: kserve/huggingfaceserver:latest
       name: kserve-container
       resources:

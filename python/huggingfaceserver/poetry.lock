@@ -312,17 +312,17 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.34.36"
+version = "1.34.38"
 description = "The AWS SDK for Python"
 optional = false
 python-versions = ">= 3.8"
 files = [
-    {file = "boto3-1.34.36-py3-none-any.whl", hash = "sha256:1e38a4ea4bb8bc66fbb858abb411820709fda5d6c5604c2da0f696653d49c684"},
-    {file = "boto3-1.34.36.tar.gz", hash = "sha256:7ec36deb7ccc9c4943510692303cf93883ef61dc2c79f8bd4d75ee42209559d3"},
+    {file = "boto3-1.34.38-py3-none-any.whl", hash = "sha256:7c70c6ceb2706c7fad6466a5de174fe6d0d6f5f8f1e052bfaad9cbe4e53b64cd"},
+    {file = "boto3-1.34.38.tar.gz", hash = "sha256:e74fbad79bc921a74a9a276ef9f38e1e31153f76690fe9bc5ec790007de36572"},
 ]
 
 [package.dependencies]
-botocore = ">=1.34.36,<1.35.0"
+botocore = ">=1.34.38,<1.35.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.10.0,<0.11.0"
 
@@ -331,13 +331,13 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.34.36"
+version = "1.34.38"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">= 3.8"
 files = [
-    {file = "botocore-1.34.36-py3-none-any.whl", hash = "sha256:3f39ae0165f1a27f621fc91a46fb59f87e819671fad106c230dadcc724892f70"},
-    {file = "botocore-1.34.36.tar.gz", hash = "sha256:89c3dc15b6ffae146029df636d51b9952740051204c444ec765286b081c917bc"},
+    {file = "botocore-1.34.38-py3-none-any.whl", hash = "sha256:773e49f5bf596191e796b2a15096ff381e61778cbe7c982b381bb9f6bfe5fef3"},
+    {file = "botocore-1.34.38.tar.gz", hash = "sha256:da9754a8e1798706427ede9c9c0a55263bd8e57f217c021807b2946eb4a0c2d8"},
 ]
 
 [package.dependencies]
@@ -912,13 +912,13 @@ tqdm = ["tqdm"]
 
 [[package]]
 name = "google-api-core"
-version = "2.16.2"
+version = "2.17.0"
 description = "Google API client core library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google-api-core-2.16.2.tar.gz", hash = "sha256:032d37b45d1d6bdaf68fb11ff621e2593263a239fa9246e2e94325f9c47876d2"},
-    {file = "google_api_core-2.16.2-py3-none-any.whl", hash = "sha256:449ca0e3f14c179b4165b664256066c7861610f70b6ffe54bb01a04e9b466929"},
+    {file = "google-api-core-2.17.0.tar.gz", hash = "sha256:de7ef0450faec7c75e0aea313f29ac870fdc44cfaec9d6499a9a17305980ef66"},
+    {file = "google_api_core-2.17.0-py3-none-any.whl", hash = "sha256:08ed79ed8e93e329de5e3e7452746b734e6bf8438d8d64dd3319d21d3164890c"},
 ]
 
 [package.dependencies]
