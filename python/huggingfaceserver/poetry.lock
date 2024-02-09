@@ -114,7 +114,7 @@ aiohttp = ">=1.1"
 name = "aioprometheus"
 version = "23.12.0"
 description = "A Prometheus Python client library for asyncio-based applications"
-optional = false
+optional = true
 python-versions = ">=3.8.0"
 files = [
     {file = "aioprometheus-23.12.0-py3-none-any.whl", hash = "sha256:b1a77259131153ef820b494e76439b278434eaf2a5e25dc0b8bf3d835f455960"},
@@ -1885,7 +1885,7 @@ test = ["pytest (>=7.2)", "pytest-cov (>=4.0)"]
 name = "ninja"
 version = "1.11.1.1"
 description = "Ninja is a small build system with a focus on speed"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "ninja-1.11.1.1-py2.py3-none-macosx_10_9_universal2.macosx_10_9_x86_64.macosx_11_0_arm64.macosx_11_0_universal2.whl", hash = "sha256:376889c76d87b95b5719fdd61dd7db193aa7fd4432e5d52d2e44e4c497bdbbee"},
@@ -2737,7 +2737,7 @@ files = [
 name = "quantile-python"
 version = "1.1"
 description = "Python Implementation of Graham Cormode and S. Muthukrishnan's Effective Computation of Biased Quantiles over Data Streams in ICDE'05"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "quantile-python-1.1.tar.gz", hash = "sha256:558629e88c497ef3b9b1081349c1ae6a61b53590e317724298ff54c674db7969"},
@@ -3248,7 +3248,7 @@ torch = ["safetensors[numpy]", "torch (>=1.10)"]
 name = "sentencepiece"
 version = "0.1.99"
 description = "SentencePiece python wrapper"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "sentencepiece-0.1.99-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:0eb528e70571b7c02723e5804322469b82fe7ea418c96051d0286c0fa028db73"},
@@ -3833,7 +3833,7 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 name = "vllm"
 version = "0.2.7"
 description = "A high-throughput and memory-efficient inference and serving engine for LLMs"
-optional = false
+optional = true
 python-versions = ">=3.8"
 files = [
     {file = "vllm-0.2.7-cp310-cp310-manylinux1_x86_64.whl", hash = "sha256:e4c355b3cd99aac0f87fc2977531c8be69b76414391f74d025e63b1ab884334a"},
@@ -4056,7 +4056,7 @@ files = [
 name = "xformers"
 version = "0.0.23.post1"
 description = "XFormers: A collection of composable Transformer building blocks."
-optional = false
+optional = true
 python-versions = ">=3.7"
 files = [
     {file = "xformers-0.0.23.post1-cp310-cp310-manylinux2014_x86_64.whl", hash = "sha256:f3491e4b1077314a4535fc78c36b592a13b794eefffaa308db879f7147424a96"},
@@ -4183,4 +4183,4 @@ vllm = ["vllm"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "5e1a1969eb59bf56f1c2dc9fcf7ffe87824cedca9326114a16e05f7c29d387e0"
+content-hash = "d707cb9cfa8bdc420eaa108304bcd1bee96d6771f63db8b4dedda56ffdc13e0f"
