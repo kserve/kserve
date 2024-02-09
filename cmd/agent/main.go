@@ -37,7 +37,6 @@ import (
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	// network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/http/header"
 	proxy "knative.dev/networking/pkg/http/proxy"
 	pkglogging "knative.dev/pkg/logging"
@@ -190,11 +189,12 @@ func main() {
 			return
 		}
 		// Create an http.Server instance with timeouts
+		// https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
 		ServerInstance := &http.Server{
-			Handler:      mainServer.Handler, // specify your HTTP handler
-			ReadTimeout:  10 * time.Second,   // set the maximum duration for reading the entire request, including the body
-			WriteTimeout: 10 * time.Second,   // set the maximum duration before timing out writes of the response
-			IdleTimeout:  15 * time.Second,   // set the maximum amount of time to wait for the next request when keep-alives are enabled
+			Handler:           mainServer.Handler, // specify your HTTP handler
+			ReadHeaderTimeout: time.Minute,        // set the maximum duration for reading the entire request, including the body
+			WriteTimeout:      time.Minute,        // set the maximum duration before timing out writes of the response
+			IdleTimeout:       3 * time.Minute,    // set the maximum amount of time to wait for the next request when keep-alives are enabled
 		}
 
 		if err := ServerInstance.Serve(l); err != nil {

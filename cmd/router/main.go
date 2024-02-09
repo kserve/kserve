@@ -360,9 +360,9 @@ func main() {
 	server := &http.Server{
 		Addr:         ":8080",                        // specify the address and port
 		Handler:      http.HandlerFunc(graphHandler), // specify your HTTP handler
-		ReadTimeout:  10 * time.Second,               // set the maximum duration for reading the entire request, including the body
-		WriteTimeout: 10 * time.Second,               // set the maximum duration before timing out writes of the response
-		IdleTimeout:  15 * time.Second,               // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		ReadTimeout:  time.Minute,                    // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: time.Minute,                    // set the maximum duration before timing out writes of the response
+		IdleTimeout:  3 * time.Minute,                // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 	err = server.ListenAndServe()
 
