@@ -338,40 +338,6 @@ spec:
     version: "1"
 ---
 apiVersion: serving.kserve.io/v1alpha1
-kind: ClusterServingRuntime
-metadata:
-  name: deeploy-shap-kernel
-spec:
-  annotations:
-    prometheus.kserve.io/path: /metrics
-    prometheus.kserve.io/port: "8080"
-  containers:
-  - args:
-    - --model_name={{.Name}}
-    - --predictor_host={{.Name}}-predictor.{{.Namespace}}
-    - --model_dir=/mnt/models
-    - --http_port=8080
-    - --nthread=1
-    - --explainer_sub_type=SHAPKernel
-    image: deeployml/deeploy-shap:v0.1.0
-    name: kserve-container
-    resources:
-      limits:
-        cpu: "1"
-        memory: 2Gi
-      requests:
-        cpu: "1"
-        memory: 2Gi
-  protocolVersions:
-  - v1
-  - v2
-  supportedModelFormats:
-  - autoSelect: true
-    name: shap-kernel
-    priority: 1
-    version: "1"
----
-apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterStorageContainer
 metadata:
   name: default
