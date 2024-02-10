@@ -68,8 +68,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             assert world_size == tp_degree, f"TP degree ({tp_degree}) doesn't match available GPUs ({world_size})"
         self.model_id = kwargs.get('model_id', None)
         self.model_dir = kwargs.get('model_dir', None)
-        self.do_lower_case = not kwargs.get('disable_lower_case', False)
-        self.add_special_tokens = not kwargs.get('disable_special_tokens', False)
+        self.do_lower_case = not kwargs['disable_lower_case']
+        self.add_special_tokens = not kwargs['disable_special_tokens']
         self.max_length = kwargs.get('max_length', None)
         self.tensor_input_names = kwargs.get('tensor_input_names', None)
         self.task = kwargs.get('task', None)
@@ -77,7 +77,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.model = None
         self.mapping = None
         self.vllm_engine = None
-        self.use_vllm = not kwargs.get('disable_vllm', False) if _vllm else False
+        self.use_vllm = not kwargs['disable_vllm'] if _vllm else False
         self.ready = False
 
     @staticmethod
@@ -98,7 +98,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         architecture = model_config.architectures[0]
         model_cls = ModelRegistry.load_model_cls(architecture)
         if model_cls is None:
-            logger.info("vllm unsupported model")
+            logger.info("not a supported model by vLLM")
         return model_cls
 
     def load(self, engine_args=None) -> bool:
