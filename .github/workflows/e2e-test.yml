@@ -250,12 +250,12 @@ jobs:
       - name: Run all E2E tests except graph
         timeout-minutes: 60
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml" "4"
 
       - name: Run E2E tests for graph
         timeout-minutes: 120
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "4"
 
       - name: Check system status
         if: always()
@@ -335,7 +335,7 @@ jobs:
       - name: Run E2E tests with path-based routing
         timeout-minutes: 50
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "fast" "4"
 
       - name: Check system status
         if: always()
@@ -393,7 +393,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 90
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "slow" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "slow" "4"
 
       - name: Check system status
         if: always()
@@ -446,7 +446,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "4"
 
       - name: Check system status
         if: always()
@@ -499,7 +499,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation" "4"
 
       - name: Check system status
         if: always()
@@ -605,7 +605,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "grpc" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "grpc" "4"
 
       - name: Check system status
         if: always()
@@ -692,7 +692,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "4"
 
       - name: Check system status
         if: always()
@@ -761,7 +761,7 @@ jobs:
           --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
           --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
 
-          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "4"
 
           kubectl get pods -n kserve
 
