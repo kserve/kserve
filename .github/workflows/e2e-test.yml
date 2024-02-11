@@ -15,6 +15,7 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DOCKER_IMAGES_PATH: "/mnt/docker-images"
   DOCKER_REPO: "kserve"
+  # artifact prefixes for bulk download
   PREDICTOR_ARTIFACT_PREFIX: "pred"
   EXPLAINER_ARTIFACT_PREFIX: "exp"
   TRANSFORMER_ARTIFACT_PREFIX: "trans"
@@ -43,7 +44,6 @@ env:
   SUCCESS_200_ISVC_IMG: "success-200-isvc"
   ERROR_404_ISVC_IMG: "error-404-isvc"
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -53,6 +53,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
       - name: Build KServe images
         run: |
@@ -117,6 +120,9 @@ jobs:
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
       - name: Build runtime server images
         run: |
@@ -196,6 +202,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
       - name: Build runtime server images
         run: |
           sudo mkdir -p ${DOCKER_IMAGES_PATH}
@@ -228,6 +237,9 @@ jobs:
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
       - name: Build test images needed for graph tests
         run: |
@@ -293,36 +305,15 @@ jobs:
           pattern: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-*
           merge-multiple: true
 
-
-#      - name: Download sklearn server image
-#        uses: ishworkh/container-image-artifact-download@v1.0.0
-#        with:
-#          image: "kserve/sklearnserver:${{ github.sha }}"
-#
-#      - name: Download xgb server image
-#        uses: ishworkh/container-image-artifact-download@v1.0.0
-#        with:
-#          image: "kserve/xgbserver:${{ github.sha }}"
-#
-#      - name: Download lgb server image
-#        uses: ishworkh/container-image-artifact-download@v1.0.0
-#        with:
-#          image: "kserve/lgbserver:${{ github.sha }}"
-#
-#      - name: Download pmml image
-#        uses: ishworkh/container-image-artifact-download@v1.0.0
-#        with:
-#          image: "kserve/pmmlserver:${{ github.sha }}"
-#
-#      - name: Download paddle image
-#        uses: ishworkh/container-image-artifact-download@v1.0.0
-#        with:
-#          image: "kserve/paddleserver:${{ github.sha }}"
-#
-#      - name: Download custom model grpc image
-#        uses: ishworkh/container-image-artifact-download@v1.0.0
-#        with:
-#          image: "kserve/custom-model-grpc:${{ github.sha }}"
+      - name: Load predictor images
+        run: |
+          files=$(find ./tmp -maxdepth 1 -type f)
+          for file in ${files[@]};do
+            echo "Loading image $(basename ${file})"
+            docker image load -i ${file}
+          done
+          rm -rf ./tmp
+          docker image ls
 
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
@@ -366,44 +357,36 @@ jobs:
           uses: actions/download-artifact@v4
           with:
             path: ./tmp
-            pattern: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-*|${{ env.EXPLAINER_ARTIFACT_PREFIX }}-*
+            pattern: +(${{ env.TRANSFORMER_ARTIFACT_PREFIX }}|${{ env.EXPLAINER_ARTIFACT_PREFIX }})-*
             merge-multiple: true
 
         - name: Download sklearn server image
           uses: actions/download-artifact@v4
           with:
-            name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}
+            name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
             path: ./tmp
 
         - name: Download custom model grpc image
-          uses: ishworkh/docker-image-artifact-download@v1
+          uses: actions/download-artifact@v4
           with:
-            image: "kserve/custom-model-grpc:${{ github.sha }}"
-
-#        - name: Download transformer image
-#          uses: ishworkh/container-image-artifact-download@v1.0.0
-#          with:
-#            image: "kserve/image-transformer:${{ github.sha }}"
-#
-#        - name: Download custom transformer grpc image
-#          uses: ishworkh/container-image-artifact-download@v1.0.0
-#          with:
-#            image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
+            name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
+            path: ./tmp
 
         - name: Download xgb server image
-          uses: ishworkh/container-image-artifact-download@v1.0.0
+          uses: actions/download-artifact@v4
           with:
-            image: "kserve/xgbserver:${{ github.sha }}"
+            name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+            path: ./tmp
 
-#        - name: Download alibi image
-#          uses: ishworkh/container-image-artifact-download@v1.0.0
-#          with:
-#            image: "kserve/alibi-explainer:${{ github.sha }}"
-#
-#        - name: Download art explainer image
-#          uses: ishworkh/container-image-artifact-download@v1.0.0
-#          with:
-#              image: "kserve/art-explainer:${{ github.sha }}"
+        - name: Load docker images
+          run: |
+            files=$(find ./tmp -maxdepth 1 -type f)
+            for file in ${files[@]};do
+            echo "Loading image $(basename ${file})"
+            docker image load -i ${file}
+            done
+            rm -rf ./tmp
+            docker image ls
 
         - name: Install Poetry and version plugin
           run: ./test/scripts/gh-actions/setup-poetry.sh
@@ -459,25 +442,34 @@ jobs:
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
 
-      - name: Download sklearn server image
-        uses: ishworkh/container-image-artifact-download@v1.0.0
+      - name: Download graph artifacts
+        uses: actions/download-artifact@v4
         with:
-          image: "kserve/sklearnserver:${{ github.sha }}"
+          path: ./tmp
+          pattern: ${{ env.GRAPH_ARTIFACT_PREFIX }}-*
+          merge-multiple: true
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          path: ./tmp
 
       - name: Download xgb server image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: actions/download-artifact@v4
         with:
-          image: "kserve/xgbserver:${{ github.sha }}"
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          path: ./tmp
 
-      - name: Download success_200_isvc predictor image
-        uses: ishworkh/container-image-artifact-download@v1.0.0
-        with:
-          image: "kserve/success-200-isvc:${{ github.sha }}"
-
-      - name: Download error_404_isvc predictor image
-        uses: ishworkh/container-image-artifact-download@v1.0.0
-        with:
-          image: "kserve/error-404-isvc:${{ github.sha }}"
+      - name: Load docker images
+        run: |
+          files=$(find ./tmp -maxdepth 1 -type f)
+          for file in ${files[@]};do
+          echo "Loading image $(basename ${file})"
+          docker image load -i ${file}
+          done
+          rm -rf ./tmp
+          docker image ls
 
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh

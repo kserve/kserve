@@ -26,12 +26,12 @@ ERROR_404_ISVC_IMG_TAG=${DOCKER_REPO}/${ERROR_404_ISVC_IMG}:${GITHUB_SHA}
 
 pushd python >/dev/null
 echo "Building success_200_isvc image"
-docker buildx build -t "${SUCCESS_200_ISVC_IMG_TAG}" -f success_200_isvc.Dockerfile .
-docker image save -o "${DOCKER_IMAGES_PATH}/${SUCCESS_200_ISVC_IMG}-${GITHUB_SHA}" "${SUCCESS_200_ISVC_IMG_TAG}"
+docker buildx build -t "${SUCCESS_200_ISVC_IMG_TAG}" -f success_200_isvc.Dockerfile \
+  -o type=docker,dest="${DOCKER_IMAGES_PATH}/${SUCCESS_200_ISVC_IMG}-${GITHUB_SHA}",compression-level=0 .
 echo "Done building success_200_isvc image"
 echo "Building error_404_isvc image"
-docker buildx build -t "${ERROR_404_ISVC_IMG_TAG}" -f error_404_isvc.Dockerfile .
-docker image save -o "${DOCKER_IMAGES_PATH}/${ERROR_404_ISVC_IMG}-${GITHUB_SHA}" "${ERROR_404_ISVC_IMG_TAG}"
+docker buildx build -t "${ERROR_404_ISVC_IMG_TAG}" -f error_404_isvc.Dockerfile \
+  -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ERROR_404_ISVC_IMG}-${GITHUB_SHA}",compression-level=0 .
 echo "Done building error_404_isvc image"
 popd
 echo "Done building images"

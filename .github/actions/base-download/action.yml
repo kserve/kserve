@@ -10,28 +10,14 @@ runs:
         path: ./tmp
         pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
         merge-multiple: true
-#
-#    - name: Load base images
-#      run: |
-#        pushd ./tmp >> /dev/null
-#        docker image load -i sflj
 
-#    - name: Download controller image
-#      uses: ishworkh/docker-image-artifact-download@v1
-#      with:
-#        image: "kserve/kserve-controller:${{ github.sha }}"
-#
-#    - name: Download agent image
-#      uses: ishworkh/docker-image-artifact-download@v1
-#      with:
-#        image: "kserve/agent:${{ github.sha }}"
-#
-#    - name: Download storage initializer image
-#      uses: ishworkh/docker-image-artifact-download@v1
-#      with:
-#        image: "kserve/storage-initializer:${{ github.sha }}"
-#
-#    - name: Download router image
-#      uses: ishworkh/docker-image-artifact-download@v1
-#      with:
-#        image: "kserve/router:${{ github.sha }}"
+    - name: Load base images
+      shell: bash
+      run: |
+        files=$(find ./tmp -maxdepth 1 -type f)
+        for file in ${files[@]};do
+          echo "Loading image $(basename ${file})"
+          docker image load -i ${file}
+        done
+        rm -rf ./tmp
+        docker image ls

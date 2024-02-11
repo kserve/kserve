@@ -42,41 +42,41 @@ types=("$1")
 pushd python >/dev/null
   if [[ " ${types[*]} " =~ "predictor" ]]; then
     echo "Building Sklearn image"
-    docker buildx build -t "${SKLEARN_IMG_TAG}" -f sklearn.Dockerfile .
-    docker image save -o "${DOCKER_IMAGES_PATH}/${SKLEARN_IMG}-${GITHUB_SHA}" "${SKLEARN_IMG_TAG}"
+    docker buildx build -t "${SKLEARN_IMG_TAG}" -f sklearn.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${SKLEARN_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Building XGB image"
-    docker buildx build -t "${XGB_IMG_TAG}" -f xgb.Dockerfile .
-    docker image save -o "${DOCKER_IMAGES_PATH}/${XGB_IMG}-${GITHUB_SHA}" "${XGB_IMG_TAG}"
+    docker buildx build -t "${XGB_IMG_TAG}" -f xgb.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${XGB_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Building LGB image"
-    docker buildx build -t "${LGB_IMG_TAG}" -f lgb.Dockerfile .
-    docker image save -o "${DOCKER_IMAGES_PATH}/${LGB_IMG}-${GITHUB_SHA}" "${LGB_IMG_TAG}"
+    docker buildx build -t "${LGB_IMG_TAG}" -f lgb.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LGB_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Building PMML image"
-    docker buildx build -t "${PMML_IMG_TAG}" -f pmml.Dockerfile .
-    docker image save -o "${DOCKER_IMAGES_PATH}/${PMML_IMG}-${GITHUB_SHA}" "${PMML_IMG_TAG}"
+    docker buildx build -t "${PMML_IMG_TAG}" -f pmml.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PMML_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Building Paddle image"
-    docker buildx build -t "${PADDLE_IMG_TAG}" -f paddle.Dockerfile .
-    docker image save -o "${DOCKER_IMAGES_PATH}/${PADDLE_IMG}-${GITHUB_SHA}" "${PADDLE_IMG_TAG}"
+    docker buildx build -t "${PADDLE_IMG_TAG}" -f paddle.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PADDLE_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Building Custom model gRPC image"
-    docker buildx build -t "${CUSTOM_MODEL_GRPC_IMG_TAG}" -f custom_model_grpc.Dockerfile .
-    docker image save -o "${DOCKER_IMAGES_PATH}/${CUSTOM_MODEL_GRPC_IMG}-${GITHUB_SHA}" "${CUSTOM_MODEL_GRPC_IMG_TAG}"
+    docker buildx build -t "${CUSTOM_MODEL_GRPC_IMG_TAG}" -f custom_model_grpc.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_MODEL_GRPC_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Building image transformer gRPC image"
-    docker buildx build -t "${CUSTOM_TRANSFORMER_GRPC_IMG_TAG}" -f custom_transformer_grpc.Dockerfile .
-    docker image save -o "${DOCKER_IMAGES_PATH}/${CUSTOM_TRANSFORMER_GRPC_IMG}-${GITHUB_SHA}" "${CUSTOM_TRANSFORMER_GRPC_IMG_TAG}"
+    docker buildx build -t "${CUSTOM_TRANSFORMER_GRPC_IMG_TAG}" -f custom_transformer_grpc.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_TRANSFORMER_GRPC_IMG}-${GITHUB_SHA}",compression-level=0 .
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then
     echo "Building Alibi image"
-    docker buildx build -t "${ALIBI_IMG_TAG}" -f alibiexplainer.Dockerfile .
-    docker save -o "${DOCKER_IMAGES_PATH}/${ALIBI_IMG}-${GITHUB_SHA}" "${ALIBI_IMG_TAG}"
+    docker buildx build -t "${ALIBI_IMG_TAG}" -f alibiexplainer.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ALIBI_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Building ART explainer image"
-    docker buildx build -t "${ART_IMG_TAG}" -f artexplainer.Dockerfile .
-    docker save -o "${DOCKER_IMAGES_PATH}/${ART_IMG}-${GITHUB_SHA}" "${ART_IMG_TAG}"
+    docker buildx build -t "${ART_IMG_TAG}" -f artexplainer.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ART_IMG}-${GITHUB_SHA}",compression-level=0 .
   fi
 
   if [[ " ${types[*]} " =~ "transformer" ]]; then
     echo "Building Image transformer image"
-    docker buildx build -t "${IMAGE_TRANSFORMER_IMG_TAG}" -f custom_transformer.Dockerfile .
-    docker save -o "${DOCKER_IMAGES_PATH}/${IMAGE_TRANSFORMER_IMG}-${GITHUB_SHA}" "${IMAGE_TRANSFORMER_IMG_TAG}"
+    docker buildx build -t "${IMAGE_TRANSFORMER_IMG_TAG}" -f custom_transformer.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${IMAGE_TRANSFORMER_IMG}-${GITHUB_SHA}",compression-level=0 .
   fi
 
 popd
