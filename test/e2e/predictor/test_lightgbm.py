@@ -197,6 +197,7 @@ def test_lightgbm_v2_kserve():
 
 
 @pytest.mark.grpc
+@pytest.mark.predictor
 def test_lightgbm_v2_grpc():
     service_name = "isvc-lightgbm-v2-grpc"
     model_name = "lightgbm"

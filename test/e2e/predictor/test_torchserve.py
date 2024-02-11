@@ -107,6 +107,7 @@ def test_torchserve_v2_kserve():
 
 
 @pytest.mark.grpc
+@pytest.mark.predictor
 def test_torchserve_grpc_v2():
     service_name = "mnist-grpc"
     model_name = "mnist"

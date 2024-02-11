@@ -33,7 +33,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict
 
 @pytest.mark.helm
 def test_sklearn_kserve():
-    service_name = "isvc-sklearn-kserve"
+    service_name = "isvc-sklearn-helm"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,

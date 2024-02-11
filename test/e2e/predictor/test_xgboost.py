@@ -216,6 +216,7 @@ def test_xgboost_v2():
 
 
 @pytest.mark.grpc
+@pytest.mark.predictor
 def test_xgboost_v2_grpc():
     service_name = "isvc-xgboost-v2-grpc"
     model_name = "xgboost"

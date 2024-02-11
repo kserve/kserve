@@ -31,6 +31,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 
 @pytest.mark.grpc
+@pytest.mark.predictor
 def test_custom_model_grpc():
     service_name = "custom-model-grpc"
     model_name = "custom-model"
@@ -92,6 +93,7 @@ def test_custom_model_grpc():
 
 
 @pytest.mark.grpc
+@pytest.mark.transformer
 def test_predictor_grpc_with_transformer_grpc():
     service_name = "model-grpc-trans-grpc"
     model_name = "custom-model"
@@ -174,6 +176,7 @@ def test_predictor_grpc_with_transformer_grpc():
 
 
 @pytest.mark.grpc
+@pytest.mark.transformer
 def test_predictor_grpc_with_transformer_http():
     service_name = "model-grpc-trans-http"
     model_name = "custom-model"

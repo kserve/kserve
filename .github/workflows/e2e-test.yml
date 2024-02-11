@@ -173,7 +173,6 @@ jobs:
       [
         kserve-image-build,
         predictor-runtime-build,
-        explainer-runtime-build,
         graph-tests-images-build,
       ]
     steps:
@@ -227,10 +226,10 @@ jobs:
         with:
           image: "kserve/paddleserver:${{ github.sha }}"
 
-      - name: Download transformer image
+      - name: Download custom model grpc image
         uses: ishworkh/docker-image-artifact-download@v1
         with:
-          image: "kserve/image-transformer:${{ github.sha }}"
+          image: "kserve/custom-model-grpc:${{ github.sha }}"
 
       - name: Download success_200_isvc predictor image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -255,17 +254,85 @@ jobs:
       - name: Run all E2E tests except graph
         timeout-minutes: 60
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml or slow" "4"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml or slow or predictor" "6"
 
       - name: Run E2E tests for graph
         timeout-minutes: 120
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "4"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "6"
 
       - name: Check system status
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+  test-transformer-explainer-mms:
+      runs-on: ubuntu-latest
+      needs:
+        [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      steps:
+        - uses: actions/checkout@v3
+        - uses: actions/setup-go@v4
+          with:
+            go-version: "1.21"
+        - uses: actions/setup-python@v4
+          with:
+            python-version: "3.9"
+
+        - uses: ./.github/actions/free-up-disk-space
+        - uses: ./.github/actions/minikube-setup
+        - uses: ./.github/actions/kserve-dep-setup
+        - uses: ./.github/actions/base-download
+
+        - name: Download sklearn server image
+          uses: ishworkh/docker-image-artifact-download@v1
+          with:
+            image: "kserve/sklearnserver:${{ github.sha }}"
+
+        - name: Download custom model grpc image
+          uses: ishworkh/docker-image-artifact-download@v1
+          with:
+            image: "kserve/custom-model-grpc:${{ github.sha }}"
+
+        - name: Download transformer image
+          uses: ishworkh/docker-image-artifact-download@v1
+          with:
+            image: "kserve/image-transformer:${{ github.sha }}"
+
+        - name: Download xgb server image
+          uses: ishworkh/docker-image-artifact-download@v1
+          with:
+            image: "kserve/xgbserver:${{ github.sha }}"
+
+        - name: Download alibi image
+          uses: ishworkh/docker-image-artifact-download@v1
+          with:
+            image: "kserve/alibi-explainer:${{ github.sha }}"
+
+        - name: Download art explainer image
+          uses: ishworkh/docker-image-artifact-download@v1
+          with:
+              image: "kserve/art-explainer:${{ github.sha }}"
+
+        - name: Install Poetry and version plugin
+          run: ./test/scripts/gh-actions/setup-poetry.sh
+
+        - name: Install KServe
+          run: |
+            ./test/scripts/gh-actions/setup-kserve.sh
+        
+            kubectl get pods -n kserve
+            kubectl describe pods -n kserve
+
+        - name: Run E2E tests
+#          timeout-minutes: 40
+          run: |
+            ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation or explainer" "6"
+
+        - name: Check system status
+          if: always()
+          run: |
+            ./test/scripts/gh-actions/status-check.sh
 
   test-path-based-routing:
     runs-on: ubuntu-latest
@@ -340,137 +407,7 @@ jobs:
       - name: Run E2E tests with path-based routing
         timeout-minutes: 50
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast" "4"
-
-      - name: Check system status
-        if: always()
-        run: |
-          ./test/scripts/gh-actions/status-check.sh
-
-#  test-slow:
-#    runs-on: ubuntu-latest
-#    needs:
-#      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
-#    steps:
-#      - uses: actions/checkout@v3
-#      - uses: actions/setup-go@v4
-#        with:
-#          go-version: "1.21"
-#      - uses: actions/setup-python@v4
-#        with:
-#          python-version: "3.9"
-#
-#      - uses: ./.github/actions/free-up-disk-space
-#      - uses: ./.github/actions/minikube-setup
-#      - uses: ./.github/actions/kserve-dep-setup
-#      - uses: ./.github/actions/base-download
-#
-#
-#      - name: Check system status
-#        if: always()
-#        run: |
-#          ./test/scripts/gh-actions/status-check.sh
-
-  test-explainer:
-    runs-on: ubuntu-latest
-    needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
-
-      - name: Download sklearn server image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/sklearnserver:${{ github.sha }}"
-
-      - name: Download alibi image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/alibi-explainer:${{ github.sha }}"
-
-      - name: Download art explainer image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/art-explainer:${{ github.sha }}"
-
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
-
-      - name: Install KServe
-        run: |
-          ./test/scripts/gh-actions/setup-kserve.sh
-
-          kubectl get pods -n kserve
-          kubectl describe pods -n kserve
-
-      - name: Run E2E tests
-        timeout-minutes: 40
-        run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "4"
-
-      - name: Check system status
-        if: always()
-        run: |
-          ./test/scripts/gh-actions/status-check.sh
-
-  test-transformer-mms:
-    runs-on: ubuntu-latest
-    needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
-
-      - name: Download sklearn server image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/sklearnserver:${{ github.sha }}"
-
-      - name: Download transformer image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/image-transformer:${{ github.sha }}"
-
-      - name: Download xgb server image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/xgbserver:${{ github.sha }}"
-
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
-
-      - name: Install KServe
-        run: |
-          ./test/scripts/gh-actions/setup-kserve.sh
-
-          kubectl get pods -n kserve
-          kubectl describe pods -n kserve
-
-      - name: Run E2E tests
-        timeout-minutes: 40
-        run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation" "4"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "fast" "6"
 
       - name: Check system status
         if: always()
@@ -515,68 +452,6 @@ jobs:
         timeout-minutes: 30
         run: |
           ./test/scripts/gh-actions/run-qpext-test.sh
-
-      - name: Check system status
-        if: always()
-        run: |
-          ./test/scripts/gh-actions/status-check.sh
-
-  test-grpc:
-    runs-on: ubuntu-latest
-    needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-
-      - uses: ./.github/actions/free-up-disk-space
-      - uses: ./.github/actions/minikube-setup
-      - uses: ./.github/actions/kserve-dep-setup
-      - uses: ./.github/actions/base-download
-
-      - name: Download custom model grpc image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/custom-model-grpc:${{ github.sha }}"
-
-      - name: Download custom transformer image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/image-transformer:${{ github.sha }}"
-
-      - name: Download custom transformer grpc image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
-
-      - name: Download xgb server image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/xgbserver:${{ github.sha }}"
-
-      - name: Download lgb server image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/lgbserver:${{ github.sha }}"
-
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
-
-      - name: Install KServe
-        run: |
-          ./test/scripts/gh-actions/setup-kserve.sh
-          kubectl get pods -n kserve
-          kubectl describe pods -n kserve
-
-      - name: Run E2E tests
-        timeout-minutes: 40
-        run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "grpc" "4"
 
       - name: Check system status
         if: always()
@@ -650,6 +525,11 @@ jobs:
         with:
           image: "kserve/image-transformer:${{ github.sha }}"
 
+      - name: Download custom model grpc image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/custom-model-grpc:${{ github.sha }}"
+
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
@@ -663,7 +543,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "4"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6"
 
       - name: Check system status
         if: always()
@@ -732,7 +612,7 @@ jobs:
           --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
           --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
 
-          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "4"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "6"
 
           kubectl get pods -n kserve
 

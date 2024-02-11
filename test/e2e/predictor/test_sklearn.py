@@ -61,7 +61,7 @@ def test_sklearn_kserve():
 
 @pytest.mark.slow
 def test_sklearn_v2_mlserver():
-    service_name = "isvc-sklearn-v2"
+    service_name = "sklearn-v2-mlserver"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(

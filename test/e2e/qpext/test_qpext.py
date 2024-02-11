@@ -38,7 +38,7 @@ METRICS_PATH = "metrics"
 
 def test_qpext_kserve():
     # test the qpext using the sklearn predictor
-    service_name = "isvc-sklearn-v2"
+    service_name = "sklearn-v2-metrics"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
