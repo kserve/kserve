@@ -70,7 +70,7 @@ def test_triton():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.transformer
 def test_triton_runtime_with_transformer():
     service_name = 'isvc-triton-runtime'
     predictor = V1beta1PredictorSpec(
