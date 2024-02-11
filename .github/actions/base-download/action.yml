@@ -4,23 +4,34 @@ description: 'A wrapper around download docker artifact to download a set of bas
 runs:
   using: "composite"
   steps:
+    - name: Download base artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./tmp
+        pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
+        merge-multiple: true
+#
+#    - name: Load base images
+#      run: |
+#        pushd ./tmp >> /dev/null
+#        docker image load -i sflj
 
-    - name: Download controller image
-      uses: ishworkh/docker-image-artifact-download@v1
-      with:
-        image: "kserve/kserve-controller:${{ github.sha }}"
-    
-    - name: Download agent image
-      uses: ishworkh/docker-image-artifact-download@v1
-      with:
-        image: "kserve/agent:${{ github.sha }}"
-    
-    - name: Download storage initializer image
-      uses: ishworkh/docker-image-artifact-download@v1
-      with:
-        image: "kserve/storage-initializer:${{ github.sha }}"
-
-    - name: Download router image
-      uses: ishworkh/docker-image-artifact-download@v1
-      with:
-        image: "kserve/router:${{ github.sha }}"
+#    - name: Download controller image
+#      uses: ishworkh/docker-image-artifact-download@v1
+#      with:
+#        image: "kserve/kserve-controller:${{ github.sha }}"
+#
+#    - name: Download agent image
+#      uses: ishworkh/docker-image-artifact-download@v1
+#      with:
+#        image: "kserve/agent:${{ github.sha }}"
+#
+#    - name: Download storage initializer image
+#      uses: ishworkh/docker-image-artifact-download@v1
+#      with:
+#        image: "kserve/storage-initializer:${{ github.sha }}"
+#
+#    - name: Download router image
+#      uses: ishworkh/docker-image-artifact-download@v1
+#      with:
+#        image: "kserve/router:${{ github.sha }}"

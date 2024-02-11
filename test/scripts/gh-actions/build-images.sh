@@ -21,25 +21,29 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-echo "Github SHA ${GITHUB_SHA}"
-export CONTROLLER_IMG=kserve/kserve-controller:${GITHUB_SHA}
-STORAGE_INIT_IMG=kserve/storage-initializer:${GITHUB_SHA}
-AGENT_IMG=kserve/agent:${GITHUB_SHA}
-ROUTER_IMG=kserve/router:${GITHUB_SHA}
 
+echo "Github SHA ${GITHUB_SHA}"
+CONTROLLER_IMG_TAG=${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}
+STORAGE_INIT_IMG_TAG=${DOCKER_REPO}/${STORAGE_INIT_IMG}:${GITHUB_SHA}
+AGENT_IMG_TAG=${DOCKER_REPO}/${AGENT_IMG}:${GITHUB_SHA}
+ROUTER_IMG_TAG=${DOCKER_REPO}/${ROUTER_IMG}:${GITHUB_SHA}
 
 echo "Building Kserve controller image"
-docker buildx build . -t ${CONTROLLER_IMG}
+docker buildx build . -t "${CONTROLLER_IMG_TAG}"
+docker image save -o "${DOCKER_IMAGES_PATH}/${CONTROLLER_IMG}-${GITHUB_SHA}" "${CONTROLLER_IMG_TAG}"
 
 echo "Building agent image"
-docker buildx build -f agent.Dockerfile . -t ${AGENT_IMG}
+docker buildx build -f agent.Dockerfile . -t "${AGENT_IMG_TAG}"
+docker image save -o "${DOCKER_IMAGES_PATH}/${AGENT_IMG}-${GITHUB_SHA}" "${AGENT_IMG_TAG}"
 
 echo "Building router image"
-docker buildx build -f router.Dockerfile . -t ${ROUTER_IMG}
+docker buildx build -f router.Dockerfile . -t "${ROUTER_IMG_TAG}"
+docker image save -o "${DOCKER_IMAGES_PATH}/${ROUTER_IMG}-${GITHUB_SHA}" "${ROUTER_IMG_TAG}"
 
 pushd python >/dev/null
   echo "Building storage initializer"
-  docker buildx build -t ${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
+  docker buildx build -t "${STORAGE_INIT_IMG_TAG}" -f storage-initializer.Dockerfile .
+  docker image save -o "${DOCKER_IMAGES_PATH}/${STORAGE_INIT_IMG}-${GITHUB_SHA}" "${STORAGE_INIT_IMG_TAG}"
 popd
 
 echo "Done building images"

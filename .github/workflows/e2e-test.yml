@@ -13,7 +13,36 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  IMAGE_TRANSFORMER_IMG: "kserve/image-transformer:${{ github.sha }}"
+  DOCKER_IMAGES_PATH: "/mnt/docker-images"
+  DOCKER_REPO: "kserve"
+  PREDICTOR_ARTIFACT_PREFIX: "pred"
+  EXPLAINER_ARTIFACT_PREFIX: "exp"
+  TRANSFORMER_ARTIFACT_PREFIX: "trans"
+  GRAPH_ARTIFACT_PREFIX: "graph"
+  BASE_ARTIFACT_PREFIX: "base"
+  # Controller images
+  CONTROLLER_IMG: "kserve-controller"
+  STORAGE_INIT_IMG: "storage-initializer"
+  AGENT_IMG: "agent"
+  ROUTER_IMG: "router"
+  # Predictor runtime server images
+  SKLEARN_IMG: "sklearnserver"
+  XGB_IMG: "xgbserver"
+  LGB_IMG: "lgbserver"
+  PMML_IMG: "pmmlserver"
+  PADDLE_IMG: "paddleserver"
+  CUSTOM_MODEL_GRPC_IMG: "custom-model-grpc"
+  # Explainer images
+  ALIBI_IMG: "alibi-explainer"
+  ART_IMG: "art-explainer"
+  # Transformer images
+  IMAGE_TRANSFORMER_IMG: "image-transformer"
+  IMAGE_TRANSFORMER_IMG_TAG: ${{ env.DOCKER_REPO }}/${{ env.IMAGE_TRANSFORMER_IMG }}:${{ github.sha }}"
+  CUSTOM_TRANSFORMER_GRPC_IMG: "custom-image-transformer-grpc"
+  # Graph images
+  SUCCESS_200_ISVC_IMG: "success-200-isvc"
+  ERROR_404_ISVC_IMG: "error-404-isvc"
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,29 +56,43 @@ jobs:
 
       - name: Build KServe images
         run: |
+          sudo mkdir -p ${DOCKER_IMAGES_PATH}
+          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
           ./test/scripts/gh-actions/build-images.sh
           docker image ls
-          cat ./config/overlays/test/configmap/inferenceservice.yaml
+          sudo ls -lh ${DOCKER_IMAGES_PATH}
 
       - name: Upload controller image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/kserve-controller:${{ github.sha }}"
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.CONTROLLER_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CONTROLLER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload agent image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/agent:${{ github.sha }}"
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.AGENT_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.AGENT_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload storage initializer image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/storage-initializer:${{ github.sha }}"
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload router image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/router:${{ github.sha }}"
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.ROUTER_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ROUTER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
   poetry-check:
     runs-on: ubuntu-latest
@@ -77,49 +120,75 @@ jobs:
 
       - name: Build runtime server images
         run: |
+          sudo mkdir -p ${DOCKER_IMAGES_PATH}
+          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
           ./test/scripts/gh-actions/build-server-runtimes.sh predictor,transformer
           docker image ls
-          cat ./config/overlays/test/configmap/inferenceservice.yaml
+          sudo ls -lh ${DOCKER_IMAGES_PATH}
 
-      - name: Upload sklearn server image
-        uses: ishworkh/docker-image-artifact-upload@v1
+      - name: Upload sklearn artifact
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/sklearnserver:${{ github.sha }}"
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload xgb server image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/xgbserver:${{ github.sha }}"
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.XGB_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload lgb server image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/lgbserver:${{ github.sha }}"
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.LGB_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LGB_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload pmml server image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/pmmlserver:${{ github.sha }}"
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PMML_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PMML_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload paddle image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/paddleserver:${{ github.sha }}"
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PADDLE_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PADDLE_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload image transformer image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/image-transformer:${{ github.sha }}"
+          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload custom model grpc image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/custom-model-grpc:${{ github.sha }}"
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload custom model transformer grpc image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
+          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
   explainer-runtime-build:
     runs-on: ubuntu-latest
@@ -129,19 +198,27 @@ jobs:
 
       - name: Build runtime server images
         run: |
+          sudo mkdir -p ${DOCKER_IMAGES_PATH}
+          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
           ./test/scripts/gh-actions/build-server-runtimes.sh explainer
           docker image ls
-          cat ./config/overlays/test/configmap/inferenceservice.yaml
+          sudo ls -lh ${DOCKER_IMAGES_PATH}
 
       - name: Upload alibi image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/alibi-explainer:${{ github.sha }}"
+          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ALIBI_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ALIBI_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload art explainer image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/art-explainer:${{ github.sha }}"
+          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ART_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ART_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
   graph-tests-images-build:
     runs-on: ubuntu-latest
@@ -154,18 +231,27 @@ jobs:
 
       - name: Build test images needed for graph tests
         run: |
+          sudo mkdir -p ${DOCKER_IMAGES_PATH}
+          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
           ./test/scripts/gh-actions/build-graph-tests-images.sh
           docker image ls
+          sudo ls -lh ${DOCKER_IMAGES_PATH}
 
       - name: Upload success_200_isvc predictor image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/success-200-isvc:${{ github.sha }}"
+          name: ${{ env.GRAPH_ARTIFACT_PREFIX }}-${{ env.SUCCESS_200_ISVC_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.SUCCESS_200_ISVC_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload error_404_isvc predictor image
-        uses: ishworkh/docker-image-artifact-upload@v1
+        uses: actions/upload-artifact@v4
         with:
-          image: "kserve/error-404-isvc:${{ github.sha }}"
+          name: ${{ env.GRAPH_ARTIFACT_PREFIX }}-${{ env.ERROR_404_ISVC_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ERROR_404_ISVC_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
   test-fast:
     runs-on: ubuntu-latest
@@ -200,35 +286,43 @@ jobs:
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
 
-      - name: Download sklearn server image
-        uses: ishworkh/docker-image-artifact-download@v1
+      - name: Download predictor artifacts
+        uses: actions/download-artifact@v4
         with:
-          image: "kserve/sklearnserver:${{ github.sha }}"
+          path: ./tmp
+          pattern: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-*
+          merge-multiple: true
 
-      - name: Download xgb server image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/xgbserver:${{ github.sha }}"
 
-      - name: Download lgb server image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/lgbserver:${{ github.sha }}"
-
-      - name: Download pmml image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/pmmlserver:${{ github.sha }}"
-
-      - name: Download paddle image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/paddleserver:${{ github.sha }}"
-
-      - name: Download custom model grpc image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: "kserve/custom-model-grpc:${{ github.sha }}"
+#      - name: Download sklearn server image
+#        uses: ishworkh/container-image-artifact-download@v1.0.0
+#        with:
+#          image: "kserve/sklearnserver:${{ github.sha }}"
+#
+#      - name: Download xgb server image
+#        uses: ishworkh/container-image-artifact-download@v1.0.0
+#        with:
+#          image: "kserve/xgbserver:${{ github.sha }}"
+#
+#      - name: Download lgb server image
+#        uses: ishworkh/container-image-artifact-download@v1.0.0
+#        with:
+#          image: "kserve/lgbserver:${{ github.sha }}"
+#
+#      - name: Download pmml image
+#        uses: ishworkh/container-image-artifact-download@v1.0.0
+#        with:
+#          image: "kserve/pmmlserver:${{ github.sha }}"
+#
+#      - name: Download paddle image
+#        uses: ishworkh/container-image-artifact-download@v1.0.0
+#        with:
+#          image: "kserve/paddleserver:${{ github.sha }}"
+#
+#      - name: Download custom model grpc image
+#        uses: ishworkh/container-image-artifact-download@v1.0.0
+#        with:
+#          image: "kserve/custom-model-grpc:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
@@ -268,41 +362,48 @@ jobs:
         - uses: ./.github/actions/kserve-dep-setup
         - uses: ./.github/actions/base-download
 
-        - name: Download sklearn server image
-          uses: ishworkh/docker-image-artifact-download@v1
+        - name: Download transformer and explainer artifacts
+          uses: actions/download-artifact@v4
           with:
-            image: "kserve/sklearnserver:${{ github.sha }}"
+            path: ./tmp
+            pattern: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-*|${{ env.EXPLAINER_ARTIFACT_PREFIX }}-*
+            merge-multiple: true
+
+        - name: Download sklearn server image
+          uses: actions/download-artifact@v4
+          with:
+            name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}
+            path: ./tmp
 
         - name: Download custom model grpc image
           uses: ishworkh/docker-image-artifact-download@v1
           with:
             image: "kserve/custom-model-grpc:${{ github.sha }}"
 
-        - name: Download transformer image
-          uses: ishworkh/docker-image-artifact-download@v1
-          with:
-            image: "kserve/image-transformer:${{ github.sha }}"
-
-        - name: Download custom transformer grpc image
-          uses: ishworkh/docker-image-artifact-download@v1
-          with:
-            image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
-
+#        - name: Download transformer image
+#          uses: ishworkh/container-image-artifact-download@v1.0.0
+#          with:
+#            image: "kserve/image-transformer:${{ github.sha }}"
+#
+#        - name: Download custom transformer grpc image
+#          uses: ishworkh/container-image-artifact-download@v1.0.0
+#          with:
+#            image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
 
         - name: Download xgb server image
-          uses: ishworkh/docker-image-artifact-download@v1
+          uses: ishworkh/container-image-artifact-download@v1.0.0
           with:
             image: "kserve/xgbserver:${{ github.sha }}"
 
-        - name: Download alibi image
-          uses: ishworkh/docker-image-artifact-download@v1
-          with:
-            image: "kserve/alibi-explainer:${{ github.sha }}"
-
-        - name: Download art explainer image
-          uses: ishworkh/docker-image-artifact-download@v1
-          with:
-              image: "kserve/art-explainer:${{ github.sha }}"
+#        - name: Download alibi image
+#          uses: ishworkh/container-image-artifact-download@v1.0.0
+#          with:
+#            image: "kserve/alibi-explainer:${{ github.sha }}"
+#
+#        - name: Download art explainer image
+#          uses: ishworkh/container-image-artifact-download@v1.0.0
+#          with:
+#              image: "kserve/art-explainer:${{ github.sha }}"
 
         - name: Install Poetry and version plugin
           run: ./test/scripts/gh-actions/setup-poetry.sh
@@ -359,7 +460,7 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
 
       - name: Download sklearn server image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
 
@@ -369,12 +470,12 @@ jobs:
           image: "kserve/xgbserver:${{ github.sha }}"
 
       - name: Download success_200_isvc predictor image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/success-200-isvc:${{ github.sha }}"
 
       - name: Download error_404_isvc predictor image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/error-404-isvc:${{ github.sha }}"
 
@@ -435,12 +536,12 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
 
       - name: Download sklearn server image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
 
       - name: Download xgb server image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/xgbserver:${{ github.sha }}"
 
@@ -499,7 +600,7 @@ jobs:
           ./test/scripts/gh-actions/build-qpext-image.sh
           docker image ls
       - name: Download sklearn server image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
       - name: Install Poetry and version plugin
@@ -581,12 +682,12 @@ jobs:
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
 
       - name: Download transformer image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/image-transformer:${{ github.sha }}"
 
@@ -636,22 +737,22 @@ jobs:
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/sklearnserver:${{ github.sha }}"
 
       - name: Download xgb server image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/xgbserver:${{ github.sha }}"
 
       - name: Download success_200_isvc predictor image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/success-200-isvc:${{ github.sha }}"
 
       - name: Download error_404_isvc predictor image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v1.0.0
         with:
           image: "kserve/error-404-isvc:${{ github.sha }}"
 

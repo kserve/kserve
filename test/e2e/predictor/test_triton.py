@@ -91,7 +91,7 @@ def test_triton_runtime_with_transformer():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image=os.environ.get("IMAGE_TRANSFORMER_IMG"),
+                      image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
                       name='kserve-container',
                       resources=V1ResourceRequirements(
                           requests={'cpu': '10m', 'memory': '128Mi'},
