@@ -63,10 +63,11 @@ if __name__ == "__main__":
                                        args.predictor_use_ssl,
                                        args.predictor_request_timeout_seconds)
     model = HuggingfaceModel(args.model_name,
+                             engine_args=engine_args,
                              predictor_config=predictor_config,
                              kwargs=vars(args))
     try:
-        model.load(engine_args=engine_args)
+        model.load()
     except ModelMissingError:
         logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
                       f"trying loading from model repository.")

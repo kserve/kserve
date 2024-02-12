@@ -51,7 +51,7 @@ VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
     def __init__(self, model_name: str, kwargs,
-                 predictor_config: Optional[PredictorConfig] = None):
+                 engine_args=None, predictor_config: Optional[PredictorConfig] = None):
         super().__init__(model_name, predictor_config)
         if kwargs is None:
             kwargs = {}
@@ -77,6 +77,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.model = None
         self.mapping = None
         self.vllm_engine = None
+        self.vllm_engine_args = engine_args
         self.use_vllm = not kwargs.get('disable_vllm', False) if _vllm else False
         self.ready = False
 
@@ -101,10 +102,10 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             logger.info("not a supported model by vLLM")
         return model_cls
 
-    def load(self, engine_args=None) -> bool:
+    def load(self) -> bool:
         if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
             if self.infer_vllm_supported_from_model_architecture(self.model_id) is not None:
-                self.vllm_engine = AsyncLLMEngine.from_engine_args(engine_args)
+                self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
                 self.ready = True
                 return self.ready
 
@@ -145,7 +146,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             Union[BatchEncoding, InferRequest]:
         instances = get_predict_input(payload)
 
-        if self.vllm_engine is not None:
+        if self.vllm_engine:
             raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
 
         # Serialize to tensor
@@ -182,7 +183,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         parameters = generate_request.parameters or {}
         prompt = generate_request.text_input
         request_id = str(uuid.uuid4())
-        if self.vllm_engine is not None:
+        if self.vllm_engine:
             sampling_params = SamplingParams(**parameters)
             results_generator = self.vllm_engine.generate(
                 prompt, sampling_params=sampling_params, request_id=request_id
@@ -219,7 +220,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
-        if self.vllm_engine is not None:
+        if self.vllm_engine:
             raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
 
         if self.predictor_host:
