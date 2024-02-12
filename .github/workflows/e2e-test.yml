@@ -276,6 +276,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
@@ -286,17 +289,14 @@ jobs:
         with:
           python-version: "3.9"
 
-      - name: Free-up disk space
-        uses: ./.github/actions/free-up-disk-space
-
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
 
-      - name: Download base images
-        uses: ./.github/actions/base-download
-
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
 
       - name: Download predictor artifacts
         uses: actions/download-artifact@v4
@@ -671,6 +671,8 @@ jobs:
       - uses: ./.github/actions/free-up-disk-space
       - uses: ./.github/actions/minikube-setup
       - uses: ./.github/actions/kserve-dep-setup
+        with:
+          deployment-mode: "raw"
       - uses: ./.github/actions/base-download
 
       - name: Download sklearn server image
@@ -701,7 +703,7 @@ jobs:
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh
+          ./test/scripts/gh-actions/setup-kserve.sh "raw"
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve

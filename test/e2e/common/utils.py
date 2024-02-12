@@ -13,7 +13,6 @@
 import json
 import logging
 import os
-import time
 from urllib.parse import urlparse
 
 import grpc
@@ -81,8 +80,6 @@ def predict_str(service_name, input_json, protocol_version="v1",
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    time.sleep(10)
     cluster_ip, host, path = get_isvc_endpoint(isvc)
     headers = {"Host": host, "Content-Type": "application/json"}
 
@@ -151,8 +148,6 @@ def explain_response(service_name, input_json):
         namespace=KSERVE_TEST_NAMESPACE,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
-    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    time.sleep(10)
     cluster_ip, host, _ = get_isvc_endpoint(isvc)
     url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
     headers = {"Host": host}
