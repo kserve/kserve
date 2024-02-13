@@ -367,11 +367,12 @@ class DataPlane:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         # call model locally or remote model workers
+        res_headers = headers
         model = self.get_model(model_name)
         if isinstance(model, RayServeSyncHandle):
             response = ray.get(model.remote(request, verb=InferenceVerb.EXPLAIN))
         elif isinstance(model, (RayServeHandle, DeploymentHandle)):
             response = await model.remote(request, verb=InferenceVerb.EXPLAIN)
         else:
-            response = await model(request, verb=InferenceVerb.EXPLAIN)
-        return response, headers
+            response, res_headers = await model(request, verb=InferenceVerb.EXPLAIN)
+        return response, res_headers

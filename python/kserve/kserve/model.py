@@ -326,6 +326,11 @@ class Model:
             return InferResponse.from_grpc(res)
         else:
             res, response_headers = await self._http_predict(payload, headers)
+            # Check if 'Content-Length' header exists in the response.headers dictionary
+            if 'Content-Length' in response_headers:
+                # Remove the 'Content-Length' from response header
+                del response_headers['Content-Length']
+
             response_data = {
                 'headers': response_headers,
                 'data': res
