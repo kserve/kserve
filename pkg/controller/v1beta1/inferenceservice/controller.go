@@ -73,7 +73,7 @@ import (
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 
-// InferenceState describes the Readiness of the InferenceService
+// InferenceServiceState describes the Readiness of the InferenceService
 type InferenceServiceState string
 
 // Different InferenceServiceState an InferenceService may have.
@@ -91,8 +91,6 @@ type InferenceServiceReconciler struct {
 }
 
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-
 	// Fetch the InferenceService instance
 	isvc := &v1beta1api.InferenceService{}
 	if err := r.Get(ctx, req.NamespacedName, isvc); err != nil {
@@ -103,7 +101,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
-	//get annotations from isvc
+	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
@@ -168,7 +166,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
 	}
 
-	// Reconcile cabundleConfigMap
+	// Reconcile caBundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Scheme)
 	if err := caBundleConfigMapReconciler.Reconcile(isvc); err != nil {
 		return reconcile.Result{}, err
@@ -188,8 +186,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		result, err := reconciler.Reconcile(isvc)
 		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
-			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
-			r.updateStatus(isvc, deploymentMode)
+			r.Recorder.Event(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+			_ = r.updateStatus(isvc, deploymentMode)
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
 		}
 		if result.Requeue || result.RequeueAfter > 0 {
@@ -208,13 +206,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.RoutesReady)
 		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.LatestDeploymentReady)
 	}
-	//Reconcile ingress
+	// Reconcile ingress
 	ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
 
-	//check raw deployment
+	// check raw deployment
 	if deploymentMode == constants.RawDeployment {
 		reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
 		if err != nil {
@@ -238,7 +236,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if err = r.updateStatus(isvc, deploymentMode); err != nil {
-		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+		r.Recorder.Event(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 
@@ -315,7 +313,6 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 			Owns(&appsv1.Deployment{}).
 			Complete(r)
 	}
-
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.InferenceService) error {
