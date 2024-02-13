@@ -159,7 +159,7 @@ class V2Endpoints:
             del response_headers['content-type']
 
         if response_headers:
-            raw_response.headers.update(res_headers)
+            raw_response.headers.update(response_headers)
 
         res = InferenceResponse.parse_obj(response)
         return res
