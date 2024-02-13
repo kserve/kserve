@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import struct
 from typing import Optional, List, Dict, Union
 
@@ -183,11 +184,11 @@ class InferInput:
             InferenceError if failed to set data for the tensor.
         """
         if not isinstance(input_tensor, (np.ndarray,)):
-            InferenceError("input_tensor must be a numpy array")
+            raise InferenceError("input_tensor must be a numpy array")
 
         dtype = from_np_dtype(input_tensor.dtype)
         if self._datatype != dtype:
-            InferenceError(
+            raise InferenceError(
                 "got unexpected datatype {} from numpy array, expected {}".format(dtype, self._datatype))
         valid_shape = True
         if len(self._shape) != len(input_tensor.shape):
@@ -197,7 +198,7 @@ class InferInput:
                 if self._shape[i] != input_tensor.shape[i]:
                     valid_shape = False
         if not valid_shape:
-            InferenceError(
+            raise InferenceError(
                 "got unexpected numpy array shape [{}], expected [{}]".format(
                     str(input_tensor.shape)[1:-1],
                     str(self._shape)[1:-1]))
@@ -226,7 +227,7 @@ class InferInput:
                                 self._data.append(
                                     str(obj.item(), encoding='utf-8'))
                 except UnicodeDecodeError:
-                    InferenceError(
+                    raise InferenceError(
                         f'Failed to encode "{obj.item()}" using UTF-8. Please use binary_data=True, if'
                         ' you want to pass a byte array.')
             else:
@@ -496,6 +497,10 @@ class InferOutput:
         """
         return self._parameters
 
+    @parameters.setter
+    def parameters(self, params: Union[Dict, MessageMap[str, InferParameter]]):
+        self._parameters = params
+
     def set_shape(self, shape: List[int]):
         """Set the shape of inference output.
 
@@ -534,11 +539,11 @@ class InferOutput:
             InferenceError if failed to set data for the output tensor.
         """
         if not isinstance(output_tensor, (np.ndarray,)):
-            InferenceError("input_tensor must be a numpy array")
+            raise InferenceError("input_tensor must be a numpy array")
 
         dtype = from_np_dtype(output_tensor.dtype)
         if self._datatype != dtype:
-            InferenceError(
+            raise InferenceError(
                 "got unexpected datatype {} from numpy array, expected {}".format(dtype, self._datatype))
         valid_shape = True
         if len(self._shape) != len(output_tensor.shape):
@@ -548,7 +553,7 @@ class InferOutput:
                 if self._shape[i] != output_tensor.shape[i]:
                     valid_shape = False
         if not valid_shape:
-            InferenceError(
+            raise InferenceError(
                 "got unexpected numpy array shape [{}], expected [{}]".format(
                     str(output_tensor.shape)[1:-1],
                     str(self._shape)[1:-1]))
@@ -577,7 +582,7 @@ class InferOutput:
                                 self._data.append(
                                     str(obj.item(), encoding='utf-8'))
                 except UnicodeDecodeError:
-                    InferenceError(
+                    raise InferenceError(
                         f'Failed to encode "{obj.item()}" using UTF-8. Please use binary_data=True, if'
                         ' you want to pass a byte array.')
             else:
