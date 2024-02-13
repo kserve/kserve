@@ -14,6 +14,7 @@
 
 import json
 import os
+import time
 
 import numpy
 import pytest
@@ -102,8 +103,10 @@ def test_lightgbm_runtime_kserve():
 
 
 @pytest.mark.fast
+@pytest.mark.path_based_routing
 def test_lightgbm_v2_runtime_mlserver():
     service_name = "isvc-lightgbm-v2-runtime"
+    protocol_version = "v2"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -113,7 +116,7 @@ def test_lightgbm_v2_runtime_mlserver():
             ),
             runtime="kserve-mlserver",
             storage_uri="gs://kfserving-examples/models/lightgbm/v2/iris",
-            protocol_version="v2",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "1", "memory": "1Gi"},
@@ -135,6 +138,17 @@ def test_lightgbm_v2_runtime_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name, namespace=KSERVE_TEST_NAMESPACE)
+    # TODO: Remove sleep once wait_model_ready supports path based routing. Since path based routing genarates a url
+    # different from the host based routing wait_model_ready will always fail.
+    time.sleep(10)
+    # kserve_client.wait_model_ready(
+    #     service_name,
+    #     model_name=service_name,
+    #     isvc_namespace=KSERVE_TEST_NAMESPACE,
+    #     isvc_version=constants.KSERVE_V1BETA1_VERSION,
+    #     protocol_version=protocol_version,
+    #     cluster_ip=get_cluster_ip(),
+    # )
 
     res = predict(service_name, "./data/iris_input_v2.json",
                   protocol_version="v2")

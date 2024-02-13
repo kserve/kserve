@@ -25,7 +25,7 @@ from kserve import (KServeClient, V1beta1InferenceService,
 
 import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc, get_cluster_ip
 
 
 @pytest.mark.slow
@@ -62,11 +62,13 @@ def test_sklearn_kserve():
 @pytest.mark.slow
 def test_sklearn_v2_mlserver():
     service_name = "sklearn-v2-mlserver"
+    protocol_version = "v2"
+
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
             storage_uri="gs://seldon-models/sklearn/mms/lr_model",
-            protocol_version="v2",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -86,6 +88,14 @@ def test_sklearn_v2_mlserver():
     kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_model_ready(
+        service_name,
+        model_name=service_name,
+        isvc_namespace=KSERVE_TEST_NAMESPACE,
+        isvc_version=constants.KSERVE_V1BETA1_VERSION,
+        protocol_version=protocol_version,
+        cluster_ip=get_cluster_ip(),
+    )
 
     res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
     assert res["outputs"][0]["data"] == [1, 1]
@@ -131,6 +141,7 @@ def test_sklearn_runtime_kserve():
 @pytest.mark.slow
 def test_sklearn_v2_runtime_mlserver():
     service_name = "isvc-sklearn-v2-runtime"
+    protocol_version = "v2"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -140,7 +151,7 @@ def test_sklearn_v2_runtime_mlserver():
             ),
             runtime="kserve-mlserver",
             storage_uri="gs://seldon-models/sklearn/mms/lr_model",
-            protocol_version="v2",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -160,6 +171,14 @@ def test_sklearn_v2_runtime_mlserver():
     kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_model_ready(
+        service_name,
+        model_name=service_name,
+        isvc_namespace=KSERVE_TEST_NAMESPACE,
+        isvc_version=constants.KSERVE_V1BETA1_VERSION,
+        protocol_version=protocol_version,
+        cluster_ip=get_cluster_ip(),
+    )
 
     res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
     assert res["outputs"][0]["data"] == [1, 1]

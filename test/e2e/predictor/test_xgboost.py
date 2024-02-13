@@ -14,6 +14,8 @@
 
 import json
 import os
+import time
+
 import pytest
 from kubernetes import client
 from kubernetes.client import V1ContainerPort, V1EnvVar, V1ResourceRequirements
@@ -60,14 +62,17 @@ def test_xgboost_kserve():
 
 
 @pytest.mark.fast
+@pytest.mark.path_based_routing
 def test_xgboost_v2_mlserver():
     service_name = "isvc-xgboost-v2-mlserver"
+    protocol_version = "v2"
+
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
             storage_uri="gs://kfserving-examples/models/xgboost/iris",
             env=[V1EnvVar(name="MLSERVER_MODEL_PARALLEL_WORKERS", value="0")],
-            protocol_version="v2",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
@@ -89,6 +94,17 @@ def test_xgboost_v2_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name, namespace=KSERVE_TEST_NAMESPACE)
+    # TODO: Remove sleep once wait_model_ready supports path based routing. Since path based routing genarates a url
+    # different from the host based routing wait_model_ready will always fail.
+    time.sleep(10)
+    # kserve_client.wait_model_ready(
+    #     service_name,
+    #     model_name=service_name,
+    #     isvc_namespace=KSERVE_TEST_NAMESPACE,
+    #     isvc_version=constants.KSERVE_V1BETA1_VERSION,
+    #     protocol_version=protocol_version,
+    #     cluster_ip=get_cluster_ip(),
+    # )
 
     res = predict(service_name, "./data/iris_input_v2.json",
                   protocol_version="v2")
@@ -134,8 +150,10 @@ def test_xgboost_runtime_kserve():
 
 
 @pytest.mark.fast
+@pytest.mark.path_based_routing
 def test_xgboost_v2_runtime_mlserver():
     service_name = "isvc-xgboost-v2-runtime"
+    protocol_version = "v2"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -145,7 +163,7 @@ def test_xgboost_v2_runtime_mlserver():
             ),
             runtime="kserve-mlserver",
             storage_uri="gs://kfserving-examples/models/xgboost/iris",
-            protocol_version="v2",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
@@ -167,6 +185,17 @@ def test_xgboost_v2_runtime_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name, namespace=KSERVE_TEST_NAMESPACE)
+    # TODO: Remove sleep once wait_model_ready supports path based routing. Since path based routing genarates a url
+    # different from the host based routing wait_model_ready will always fail.
+    time.sleep(10)
+    # kserve_client.wait_model_ready(
+    #     service_name,
+    #     model_name=service_name,
+    #     isvc_namespace=KSERVE_TEST_NAMESPACE,
+    #     isvc_version=constants.KSERVE_V1BETA1_VERSION,
+    #     protocol_version=protocol_version,
+    #     cluster_ip=get_cluster_ip(),
+    # )
 
     res = predict(service_name, "./data/iris_input_v2.json",
                   protocol_version="v2")
