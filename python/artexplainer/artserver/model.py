@@ -50,7 +50,7 @@ class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
 
         loop = asyncio.get_running_loop()
         resp = loop.run_until_complete(self.predict(scoring_data))
-        prediction = np.array(resp["predictions"])
+        prediction = np.array(resp['data']["predictions"])
         return [1 if x == prediction else 0 for x in range(0, self.nb_classes)]
 
     def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:

@@ -77,10 +77,9 @@ class V1Endpoints:
         response, response_headers = await self.dataplane.infer(model_name=model_name,
                                                                 request=infer_request,
                                                                 headers=headers)
-        response, res_headers = self.dataplane.encode(model_name=model_name,
+        response, response_headers = self.dataplane.encode(model_name=model_name,
                                                            response=response,
-                                                           headers=headers, req_attributes=req_attributes)
-        response_headers.update(res_headers)
+                                                           headers=response_headers, req_attributes=req_attributes)
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)
 
@@ -110,7 +109,7 @@ class V1Endpoints:
                                                                   headers=headers)
         response, response_headers = self.dataplane.encode(model_name=model_name,
                                                            response=response,
-                                                           headers=headers, req_attributes=req_attributes)
+                                                           headers=response_headers, req_attributes=req_attributes)
 
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)

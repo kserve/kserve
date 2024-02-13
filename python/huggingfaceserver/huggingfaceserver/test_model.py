@@ -27,7 +27,7 @@ def test_t5():
     model.load()
 
     request = "translate this to germany"
-    response = asyncio.run(model({"instances": [request, request]}, headers={}))
+    response, _ = asyncio.run(model({"instances": [request, request]}, headers={}))
     assert response == {"predictions": ['Das ist für Deutschland', 'Das ist für Deutschland']}
 
 
@@ -35,8 +35,9 @@ def test_bert():
     model = HuggingfaceModel("bert-base-uncased", {"model_id": "bert-base-uncased", "do_lower_case": True})
     model.load()
 
-    response = asyncio.run(model({"instances": ["The capital of France is [MASK].",
-                                                "The capital of [MASK] is paris."]}, headers={}))
+    response, _ = asyncio.run(
+        model({"instances": ["The capital of France is [MASK].",
+                             "The capital of [MASK] is paris."]}, headers={}))
     assert response == {"predictions": ["paris", "france"]}
 
 
@@ -51,7 +52,7 @@ def test_bert_predictor_host(httpx_mock: HTTPXMock):
         predictor_host="localhost:8081", predictor_protocol="v2"))
     model.load()
 
-    response = asyncio.run(model({"instances": ["The capital of France is [MASK]."]}, headers={}))
+    response, _ = asyncio.run(model({"instances": ["The capital of France is [MASK]."]}, headers={}))
     assert response == {"predictions": ["[PAD]"]}
 
 
@@ -62,7 +63,7 @@ def test_bert_sequence_classification():
     model.load()
 
     request = "Hello, my dog is cute."
-    response = asyncio.run(model({"instances": [request, request]}, headers={}))
+    response, _ = asyncio.run(model({"instances": [request, request]}, headers={}))
     assert response == {"predictions": [1, 1]}
 
 
@@ -73,7 +74,7 @@ def test_bert_token_classification():
     model.load()
 
     request = "HuggingFace is a company based in Paris and New York"
-    response = asyncio.run(model({"instances": [request, request]}, headers={}))
+    response, _ = asyncio.run(model({"instances": [request, request]}, headers={}))
     assert response == {"predictions": [[[0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
                                         [[0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]]}
 

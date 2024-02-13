@@ -15,7 +15,7 @@
 import inspect
 import time
 from enum import Enum
-from typing import Dict, List, Union, Optional, AsyncIterator, Any
+from typing import Dict, List, Union, Optional, AsyncIterator, Any, Tuple, Coroutine
 
 import grpc
 import httpx
@@ -106,7 +106,7 @@ class Model:
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        verb: InferenceVerb = InferenceVerb.PREDICT,
-                       headers: Dict[str, str] = None) -> Union[Dict, InferResponse, List[str]]:
+                       headers: Dict[str, str] = None) -> Tuple[Union[Dict, InferResponse, List[str]], Dict]:
         """Method to call predictor or explainer with the given input.
 
         Args:
@@ -255,7 +255,7 @@ class Model:
         """
         return result
 
-    async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
+    async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Tuple:
         protocol = "https" if self.use_ssl else "http"
         predict_url = PREDICTOR_URL_FORMAT.format(protocol, self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
@@ -326,19 +326,11 @@ class Model:
             return InferResponse.from_grpc(res)
         else:
             res, response_headers = await self._http_predict(payload, headers)
-            # Check if 'Content-Length' header exists in the response.headers dictionary
-            if 'Content-Length' in response_headers:
-                # Remove the 'Content-Length' from response header
-                del response_headers['Content-Length']
-
             response_data = {
                 'headers': response_headers,
                 'data': res
             }
             return response_data
-
-            # # return an InferResponse if this is REST V2, otherwise just return the dictionary
-            # return InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
 
     async def generate(self, payload: GenerateRequest,
                        headers: Dict[str, str] = None) -> Union[GenerateResponse, AsyncIterator[Any]]:
