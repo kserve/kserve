@@ -34,9 +34,7 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 @pytest.mark.raw
 def test_kserve_logger():
     msg_dumper = 'message-dumper-raw'
-
-    annotations = dict()
-    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
+    annotations = {'serving.kserve.io/deploymentMode': 'RawDeployment'}
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -49,8 +47,7 @@ def test_kserve_logger():
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(
-                                        name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE,
-                                        annotations=annotations),
+                                       name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor))
 
     kserve_client.create(isvc)
@@ -61,7 +58,7 @@ def test_kserve_logger():
         min_replicas=1,
         logger=V1beta1LoggerSpec(
             mode="all",
-            url="http://"+msg_dumper+"-predictor."+KSERVE_TEST_NAMESPACE+".svc.cluster.local"
+            url="http://" + msg_dumper + "-predictor" + "." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local"
         ),
         sklearn=V1beta1SKLearnSpec(
             storage_uri='gs://kfserving-examples/models/sklearn/1.0/model',
