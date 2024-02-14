@@ -90,7 +90,7 @@ class InferInput:
 
         self._name = name
         self._shape = shape
-        self._datatype = datatype
+        self._datatype = datatype.upper()
         self._parameters = parameters
         self._data = data
         self._raw_data = None
@@ -149,7 +149,7 @@ class InferInput:
         self._shape = shape
 
     def as_string(self) -> List[List[str]]:
-        if self.datatype == "BYTES":
+        if self.datatype.upper() == "BYTES":
             return [s.decode("utf-8") for li in self._data for s in li]
         else:
             raise InvalidInput(f"invalid datatype {self.datatype} in the input")
@@ -447,7 +447,7 @@ class InferOutput:
 
         self._name = name
         self._shape = shape
-        self._datatype = datatype
+        self._datatype = datatype.upper()
         self._parameters = parameters
         self._data = data
         self._raw_data = None
