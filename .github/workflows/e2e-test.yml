@@ -323,7 +323,7 @@ jobs:
       - name: Run all E2E tests except graph
         timeout-minutes: 60
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast or pmml or slow or predictor" "6"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "predictor" "6"
 
       - name: Check system status
         if: always()
@@ -557,7 +557,7 @@ jobs:
       - name: Run E2E tests with path-based routing
         timeout-minutes: 50
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "fast" "6"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "path_based_routing" "6"
 
       - name: Check system status
         if: always()

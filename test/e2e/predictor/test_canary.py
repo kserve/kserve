@@ -31,7 +31,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_canary_rollout():
     service_name = 'isvc-canary'
     default_endpoint_spec = V1beta1InferenceServiceSpec(
@@ -79,7 +80,8 @@ def test_canary_rollout():
     kserve_client.delete(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_canary_rollout_runtime():
     service_name = 'isvc-canary-runtime'
     default_endpoint_spec = V1beta1InferenceServiceSpec(

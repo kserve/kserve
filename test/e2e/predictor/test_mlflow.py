@@ -30,7 +30,7 @@ from ..common.utils import predict, get_cluster_ip
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_mlflow_v2_runtime_kserve():
     service_name = "isvc-mlflow-v2-runtime"
     protocol_version = "v2"

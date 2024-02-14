@@ -32,7 +32,7 @@ from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_torchserve_kserve():
     service_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -69,7 +69,7 @@ def test_torchserve_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_torchserve_v2_kserve():
     service_name = "mnist-v2"
     predictor = V1beta1PredictorSpec(
@@ -160,7 +160,7 @@ def test_torchserve_grpc_v2():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_torchserve_runtime_kserve():
     service_name = "mnist-runtime"
     predictor = V1beta1PredictorSpec(

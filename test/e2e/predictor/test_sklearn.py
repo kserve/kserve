@@ -28,7 +28,7 @@ import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc, get_cluster_ip
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_sklearn_kserve():
     service_name = "isvc-sklearn"
     predictor = V1beta1PredictorSpec(
@@ -59,7 +59,7 @@ def test_sklearn_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_sklearn_v2_mlserver():
     service_name = "sklearn-v2-mlserver"
     protocol_version = "v2"
@@ -103,7 +103,7 @@ def test_sklearn_v2_mlserver():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 @pytest.mark.kourier
 def test_sklearn_runtime_kserve():
     service_name = "isvc-sklearn-runtime"
@@ -138,7 +138,7 @@ def test_sklearn_runtime_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_sklearn_v2_runtime_mlserver():
     service_name = "isvc-sklearn-v2-runtime"
     protocol_version = "v2"
@@ -186,7 +186,7 @@ def test_sklearn_v2_runtime_mlserver():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_sklearn_v2():
     service_name = "isvc-sklearn-v2"
 
@@ -224,7 +224,7 @@ def test_sklearn_v2():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_sklearn_v2_grpc():
     service_name = "isvc-sklearn-v2-grpc"
     model_name = "sklearn"
@@ -273,7 +273,7 @@ def test_sklearn_v2_grpc():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.preidctor
 def test_sklearn_v2_mixed():
     service_name = "isvc-sklearn-v2-mixed"
     predictor = V1beta1PredictorSpec(
@@ -309,7 +309,7 @@ def test_sklearn_v2_mixed():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_sklearn_v2_mixed_grpc():
     service_name = "isvc-sklearn-v2-mixed-grpc"
     model_name = "sklearn"

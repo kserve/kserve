@@ -30,7 +30,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_triton():
     service_name = 'isvc-triton'
     predictor = V1beta1PredictorSpec(

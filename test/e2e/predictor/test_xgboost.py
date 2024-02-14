@@ -28,7 +28,8 @@ from kserve import (KServeClient, V1beta1InferenceService,
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_xgboost_kserve():
     service_name = "isvc-xgboost"
     predictor = V1beta1PredictorSpec(
@@ -61,7 +62,7 @@ def test_xgboost_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
 @pytest.mark.path_based_routing
 def test_xgboost_v2_mlserver():
     service_name = "isvc-xgboost-v2-mlserver"
@@ -113,7 +114,8 @@ def test_xgboost_v2_mlserver():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_xgboost_runtime_kserve():
     service_name = "isvc-xgboost-runtime"
     predictor = V1beta1PredictorSpec(
@@ -149,7 +151,7 @@ def test_xgboost_runtime_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
 @pytest.mark.path_based_routing
 def test_xgboost_v2_runtime_mlserver():
     service_name = "isvc-xgboost-v2-runtime"
@@ -204,7 +206,8 @@ def test_xgboost_v2_runtime_mlserver():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_xgboost_v2():
     service_name = "isvc-xgboost-v2"
     predictor = V1beta1PredictorSpec(
