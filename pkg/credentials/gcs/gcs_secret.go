@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	GCSCredentialFileName        = "gcloud-application-credentials.json" // nolint gosec
-	GCSCredentialVolumeName      = "user-gcp-sa"                         // nolint gosec
-	GCSCredentialVolumeMountPath = "/var/secrets/"                       // nolint gosec
-	GCSCredentialEnvKey          = "GOOGLE_APPLICATION_CREDENTIALS"      // nolint gosec
+	GCSCredentialFileName        = "gcloud-application-credentials.json" // #nosec G101
+	GCSCredentialVolumeName      = "user-gcp-sa"                         // #nosec G101
+	GCSCredentialVolumeMountPath = "/var/secrets/"                       // #nosec G101
+	GCSCredentialEnvKey          = "GOOGLE_APPLICATION_CREDENTIALS"      // #nosec G101
 )
 
 type GCSConfig struct {

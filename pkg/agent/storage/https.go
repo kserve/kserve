@@ -163,7 +163,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 
 	// Read all the files from zip archive
 	for _, zipFile := range zipReader.File {
-		fileFullPath := filepath.Join(dest, zipFile.Name) // nolint gosec
+		fileFullPath := filepath.Join(dest, zipFile.Name) // #nosecG305
 		if !strings.HasPrefix(fileFullPath, filepath.Clean(dest)+string(os.PathSeparator)) {
 			return fmt.Errorf("%s: illegal file path", fileFullPath)
 		}
@@ -186,7 +186,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("unable to open file: %w", err)
 		}
 
-		_, err = io.Copy(file, rc) // nolint gosec
+		_, err = io.Copy(file, rc) // #nosec G110
 		closeErr := file.Close()
 		if closeErr != nil {
 			return closeErr
@@ -225,7 +225,7 @@ func extractTarFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("unable to access next tar file: %w", err)
 		}
 
-		fileFullPath := filepath.Join(dest, header.Name) // nolint gosec
+		fileFullPath := filepath.Join(dest, header.Name) // #nosec G305
 		if header.Typeflag == tar.TypeDir {
 			err = os.MkdirAll(fileFullPath, 0755)
 			if err != nil {
@@ -239,7 +239,9 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		if err != nil {
 			return err
 		}
-		if _, err := io.Copy(newFile, tr); err != nil { // nolint gosec
+
+		// #nosec G110
+		if _, err := io.Copy(newFile, tr); err != nil {
 			return fmt.Errorf("unable to copy contents to %s: %w", header.Name, err)
 		}
 	}

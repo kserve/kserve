@@ -32,7 +32,7 @@ const (
 	AzureSubscriptionId = "AZURE_SUBSCRIPTION_ID"
 	AzureTenantId       = "AZURE_TENANT_ID"
 	AzureClientId       = "AZURE_CLIENT_ID"
-	AzureClientSecret   = "AZURE_CLIENT_SECRET" // nolint gosec
+	AzureClientSecret   = "AZURE_CLIENT_SECRET" // #nosec G101
 )
 
 var (
