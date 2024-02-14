@@ -13,6 +13,7 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  IMAGE_TRANSFORMER_IMG: "kserve/image-transformer:${{ github.sha }}"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
