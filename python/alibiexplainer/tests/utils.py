@@ -29,4 +29,4 @@ class Predictor:  # pylint:disable=too-few-public-methods
             else:
                 instances.append(req_data)
         resp = self.clf.predict({"instances": instances})
-        return np.array(resp["predictions"])
+        return np.array(resp['data']["predictions"])
