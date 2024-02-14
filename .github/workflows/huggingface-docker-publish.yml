@@ -23,7 +23,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
 
       - name: Run tests
         run: |
@@ -45,7 +49,11 @@ jobs:
     if: github.event_name == 'push'
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
 
       - name: Build image
         run: |
