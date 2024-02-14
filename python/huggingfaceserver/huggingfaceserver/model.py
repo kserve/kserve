@@ -29,7 +29,7 @@ from kserve.errors import InferenceError
 from kserve.storage import Storage
 
 from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
-from kserve.utils.utils import get_predict_response, get_predict_input
+from kserve.utils.utils import get_predict_response, get_predict_input, from_np_dtype
 from kserve import Model
 import torch
 
@@ -162,7 +162,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             infer_inputs = []
             for key, input_tensor in inputs.items():
                 if (not self.tensor_input_names) or (key in self.tensor_input_names):
-                    infer_input = InferInput(name=key, datatype=input_tensor.dtype,
+                    infer_input = InferInput(name=key, datatype=from_np_dtype(input_tensor.dtype),
                                              shape=list(input_tensor.shape), data=input_tensor)
                     infer_inputs.append(infer_input)
             infer_request = InferRequest(infer_inputs=infer_inputs, model_name=self.name)

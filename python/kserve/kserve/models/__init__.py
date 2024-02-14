@@ -66,6 +66,7 @@ from kserve.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExten
 from kserve.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
 from kserve.models.v1beta1_explainers_config import V1beta1ExplainersConfig
 from kserve.models.v1beta1_failure_info import V1beta1FailureInfo
+from kserve.models.v1beta1_hugging_face_runtime_spec import V1beta1HuggingFaceRuntimeSpec
 from kserve.models.v1beta1_inference_service import V1beta1InferenceService
 from kserve.models.v1beta1_inference_service_list import V1beta1InferenceServiceList
 from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceServiceSpec

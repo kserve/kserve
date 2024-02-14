@@ -14,7 +14,7 @@
 from typing import Optional, List, Union, Dict
 
 import orjson
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictBool, StrictInt, StrictFloat
 
 # TODO: in the future, this file can be auto generated
 # https://pydantic-docs.helpmanual.io/datamodel_code_generator/
@@ -22,7 +22,7 @@ from pydantic import BaseModel
 # Reference: https://github.com/kserve/kserve/blob/master/docs/predict-api/v2/rest_predict_v2.yaml
 
 
-InferParameter = Union[int, float, bool, str]
+InferParameter = Union[StrictFloat, StrictInt, StrictBool, str]
 Parameters = Dict[str, InferParameter]
 
 
