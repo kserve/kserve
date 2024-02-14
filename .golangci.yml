@@ -26,5 +26,3 @@ linters:
     - unconvert
     - unparam
     - gofmt
-  disable:
-    - errcheck

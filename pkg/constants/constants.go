@@ -127,7 +127,7 @@ const (
 // StorageSpec Constants
 var (
 	DefaultStorageSpecSecret     = "storage-config"
-	DefaultStorageSpecSecretPath = "/mnt/storage-secret"
+	DefaultStorageSpecSecretPath = "/mnt/storage-secret" // nolint gosec
 )
 
 // Controller Constants

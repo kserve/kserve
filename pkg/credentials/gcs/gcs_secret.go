@@ -17,14 +17,14 @@ limitations under the License.
 package gcs
 
 import (
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
-	GCSCredentialFileName        = "gcloud-application-credentials.json"
-	GCSCredentialVolumeName      = "user-gcp-sa"
-	GCSCredentialVolumeMountPath = "/var/secrets/"
-	GCSCredentialEnvKey          = "GOOGLE_APPLICATION_CREDENTIALS"
+	GCSCredentialFileName        = "gcloud-application-credentials.json" // nolint gosec
+	GCSCredentialVolumeName      = "user-gcp-sa"                         // nolint gosec
+	GCSCredentialVolumeMountPath = "/var/secrets/"                       // nolint gosec
+	GCSCredentialEnvKey          = "GOOGLE_APPLICATION_CREDENTIALS"      // nolint gosec
 )
 
 type GCSConfig struct {

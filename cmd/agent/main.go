@@ -209,7 +209,9 @@ func main() {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up agent, shutting down.", zap.Error(err))
 		// This extra flush is needed because defers are not handled via os.Exit calls.
-		logger.Sync()
+		if err := logger.Sync(); err != nil {
+			logger.Errorw("Error syncing logger: %v", err)
+		}
 		os.Stdout.Sync()
 		os.Stderr.Sync()
 		os.Exit(1)
