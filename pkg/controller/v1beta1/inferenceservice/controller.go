@@ -216,14 +216,12 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	//check raw deployment
 	if deploymentMode == constants.RawDeployment {
-		if !ingressConfig.DisableIngressCreation {
-			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile raw ingress")
-			}
-			if err := reconciler.Reconcile(isvc); err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile raw ingress")
-			}
+		reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+		}
+		if err := reconciler.Reconcile(isvc); err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 		}
 	} else {
 		reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
