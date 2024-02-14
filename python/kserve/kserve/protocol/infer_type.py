@@ -149,7 +149,7 @@ class InferInput:
         self._shape = shape
 
     def as_string(self) -> List[List[str]]:
-        if self.datatype.upper() == "BYTES":
+        if self.datatype == "BYTES":
             return [s.decode("utf-8") for li in self._data for s in li]
         else:
             raise InvalidInput(f"invalid datatype {self.datatype} in the input")
