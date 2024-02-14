@@ -67,6 +67,8 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0-rc1
 | kserve.servingruntime.alibi.image | string | `"kserve/alibi-explainer"` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.12.0-rc1"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
+| kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
+| kserve.servingruntime.huggingfaceserver.tag | string | `"v0.12.0-rc1"` |  |
 | kserve.servingruntime.lgbserver.image | string | `"kserve/lgbserver"` |  |
 | kserve.servingruntime.lgbserver.tag | string | `"v0.12.0-rc1"` |  |
 | kserve.servingruntime.mlserver.image | string | `"docker.io/seldonio/mlserver"` |  |
