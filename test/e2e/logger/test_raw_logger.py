@@ -49,7 +49,8 @@ def test_kserve_logger():
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                    kind=constants.KSERVE_KIND,
                                    metadata=client.V1ObjectMeta(
-                                        name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
+                                        name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE,
+                                        annotations=annotations),
                                    spec=V1beta1InferenceServiceSpec(predictor=predictor))
 
     kserve_client.create(isvc)
@@ -60,7 +61,7 @@ def test_kserve_logger():
         min_replicas=1,
         logger=V1beta1LoggerSpec(
             mode="all",
-            url="http://"+msg_dumper+"."+KSERVE_TEST_NAMESPACE+".svc.cluster.local"
+            url="http://"+msg_dumper+"-predictor."+KSERVE_TEST_NAMESPACE+".svc.cluster.local"
         ),
         sklearn=V1beta1SKLearnSpec(
             storage_uri='gs://kfserving-examples/models/sklearn/1.0/model',
