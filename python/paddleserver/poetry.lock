@@ -1878,34 +1878,36 @@ files = [
 
 [[package]]
 name = "paddlepaddle"
-version = "2.5.2"
+version = "2.6.0"
 description = "Parallel Distributed Deep Learning"
 optional = false
 python-versions = "*"
 files = [
-    {file = "paddlepaddle-2.5.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:3612d85777cee7837b96af1ad1f5974329aeb7d1d8dc085ed9feb850f7bde91d"},
-    {file = "paddlepaddle-2.5.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:2d5679aa47d13d9731eee6f787bd4aa8db59859d05f85f8d67c17d8d0bf792e2"},
-    {file = "paddlepaddle-2.5.2-cp310-cp310-manylinux1_x86_64.whl", hash = "sha256:16535c40d3b2ebb15e22c894fea7aab5d0a586bd81b749cd735e481c17428033"},
-    {file = "paddlepaddle-2.5.2-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:0262746d4512d95fd473618c35b084a0676121fb4f882981b11404c6bdde9ce5"},
-    {file = "paddlepaddle-2.5.2-cp310-cp310-win_amd64.whl", hash = "sha256:e5828226f8a5b86625e915a1775a17bdd4dc7d833f70bf4c2ebd94dd9ee8562c"},
-    {file = "paddlepaddle-2.5.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:47f63af071919c084701d5f19530052a9eb37e744e5ab5fc75257955acd458f2"},
-    {file = "paddlepaddle-2.5.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:a34ea1061b3ecc7f46d4ed04c9d84c300812ff0de4f6b61422429a42dcb8b54b"},
-    {file = "paddlepaddle-2.5.2-cp311-cp311-manylinux1_x86_64.whl", hash = "sha256:7fd871825794ed224ad78063b2e6cbfc943c3aa4d9f9053e37ffff811f5919a5"},
-    {file = "paddlepaddle-2.5.2-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:d35957c55f0be4581d32487bc83cc788ce9b05b80692b27098d8c162426b9a3d"},
-    {file = "paddlepaddle-2.5.2-cp311-cp311-win_amd64.whl", hash = "sha256:b9b86345df6348d94118951ca1964087b02b0d6b74ec0c5053452967008a3fc2"},
-    {file = "paddlepaddle-2.5.2-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:d09b6cd8b915ae53c80cfbcab092f3fd07d9020f3764b440b87c01a8dd0292e4"},
-    {file = "paddlepaddle-2.5.2-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:79d46c9984589b95390c34011632c96318c6a4d5fd2fc4324f1b035f9f503c77"},
-    {file = "paddlepaddle-2.5.2-cp37-cp37m-win_amd64.whl", hash = "sha256:977a55da422528905eb0ada6df88b3bdbf494d709821e666f5e4708ec7a76189"},
-    {file = "paddlepaddle-2.5.2-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:29e6159ba550eca08ca1c5411ae8b759b31d45c1e0670db26380227d36991a33"},
-    {file = "paddlepaddle-2.5.2-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:a51789bb17eb7e6bb5bad661e464550a229c9dd9eb8ac3e4dd0a14a150367344"},
-    {file = "paddlepaddle-2.5.2-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:9a30075f131354d64afc3b21b91a72f410e744c25bc53799937d03e954b07437"},
-    {file = "paddlepaddle-2.5.2-cp38-cp38-manylinux2014_aarch64.whl", hash = "sha256:4d6809d67129afe8fa196f58a291939c02a33045713e8ad6a3866b799dd8ea77"},
-    {file = "paddlepaddle-2.5.2-cp38-cp38-win_amd64.whl", hash = "sha256:979ed208a7bccecfc7d5aa6cf2308206de9d495edd5d33d09d2ed50678c6c35d"},
-    {file = "paddlepaddle-2.5.2-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:4fbca05a598a85389f38191dd878d4a5fa95f9b816953aec9714cc76b48f72d6"},
-    {file = "paddlepaddle-2.5.2-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:b6b126de4f8bc2e20cfe53ec13560b0d8ffc9e3672a1468e2aa414f62cb797e9"},
-    {file = "paddlepaddle-2.5.2-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:c66bb09ac455d3e4e8e02304aa334a85d2599576120afd7e48ea647b15ee4f4c"},
-    {file = "paddlepaddle-2.5.2-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:5da04e92d05f3ed614632f15cf47c4897b498b5b668456a0315e1969ce34352f"},
-    {file = "paddlepaddle-2.5.2-cp39-cp39-win_amd64.whl", hash = "sha256:ce91cec9f19d96a5ba20888bc017dbb05246b602343aa8b734c65ee5facb4320"},
+    {file = "paddlepaddle-2.6.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:15f2b20e27393493d8915b8535f59e58b314e9c7cfff66e6ebba1e3637cad233"},
+    {file = "paddlepaddle-2.6.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:99edd6e62cc975dd3ab5361c9f35913823a6d4cdcca29ad3f51565e31f09ec33"},
+    {file = "paddlepaddle-2.6.0-cp310-cp310-manylinux1_x86_64.whl", hash = "sha256:894f326fac67ad0e88809f1d1edc394d5d0a6eafb37536906c140e212b73f851"},
+    {file = "paddlepaddle-2.6.0-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:ce73d7ab0aad80cfb07e21037100dbf01c285477b0cc94231c5ca1402199bc51"},
+    {file = "paddlepaddle-2.6.0-cp310-cp310-win_amd64.whl", hash = "sha256:73abc8031cc6672f0a9a1a86449aeb81bbe08529bc50c1452aa0d58934878f63"},
+    {file = "paddlepaddle-2.6.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:4edd072aca91a0c867a3071265b280ab3165c8014f28cbcac526558e5e94929f"},
+    {file = "paddlepaddle-2.6.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:3d5349e12e02cd28907324e756dbc07f5ea25d308505a1dbb94bc039ed674b94"},
+    {file = "paddlepaddle-2.6.0-cp311-cp311-manylinux1_x86_64.whl", hash = "sha256:b64f8b727c6d577350fa1e7a1c7ec96c69aaad634e2bc5566c8e1698e8f6c39c"},
+    {file = "paddlepaddle-2.6.0-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:00c229e677003b00d31bf4bdaf49e09a3d78657f402c77f4aaf00ec9a40978e0"},
+    {file = "paddlepaddle-2.6.0-cp311-cp311-win_amd64.whl", hash = "sha256:d81225de4197ace3be6b9261fa49ab2fbb41e80d5c8b1449b690e8372556de75"},
+    {file = "paddlepaddle-2.6.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:36ff17e646060172acbf622208d2590403ac20a18d57df481571ab1c3046d6e3"},
+    {file = "paddlepaddle-2.6.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:925e55a221628191dda1cf9ddf72804acbb0ddce6825105d4098419060119055"},
+    {file = "paddlepaddle-2.6.0-cp312-cp312-manylinux1_x86_64.whl", hash = "sha256:b25b4d575a73874d5f1739678d5632b208a3db92ca6fec63b6051b18065f241a"},
+    {file = "paddlepaddle-2.6.0-cp312-cp312-manylinux2014_aarch64.whl", hash = "sha256:a5f3eed53b8d3171ff313d1c55d6fb7358872aa078205fd0fd04af7e930750fc"},
+    {file = "paddlepaddle-2.6.0-cp312-cp312-win_amd64.whl", hash = "sha256:ef3a27a42c4e97d8155f4c44ae6e83e732f1540e551dea24df54817c59138924"},
+    {file = "paddlepaddle-2.6.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:07aa07adb86cae4f3db126d18c4c3d9c89aeead14db78d5d17b5372cdb9a01a6"},
+    {file = "paddlepaddle-2.6.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:19cc79c9d36b2b9863eb11f136777a46b26811b340470312c6d0ad5ef410a68e"},
+    {file = "paddlepaddle-2.6.0-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:a0996ded7037d14bc93c7e0e4bef48fecad133274d035e4d9341c39bb4c21ddf"},
+    {file = "paddlepaddle-2.6.0-cp38-cp38-manylinux2014_aarch64.whl", hash = "sha256:c51160638835eac866501da1ae0a7cdf8cb7c55506a7e8c138da8998f1cc5984"},
+    {file = "paddlepaddle-2.6.0-cp38-cp38-win_amd64.whl", hash = "sha256:97336018b5cd9b8d47b830265259b6e94ede08fb76fdf583763a3a75f6a5d274"},
+    {file = "paddlepaddle-2.6.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:401f588269f240f5ad6d9cbb9cfa94d1d198cb9be5b6f22715ea34af6e1a833a"},
+    {file = "paddlepaddle-2.6.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:59e12bc414fe110b6f901c6987930b46d5708110a794bdd36a4d7ef744f8c3e6"},
+    {file = "paddlepaddle-2.6.0-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:b23c3b1de952b436d4dfcfb37c8cdce05ec6bf88e30bc2c6c909e50eb2c6364f"},
+    {file = "paddlepaddle-2.6.0-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:50b920bd728070f831c55b7594e32ded3d968e69a8d9e0dd2e6d41dfc470b873"},
+    {file = "paddlepaddle-2.6.0-cp39-cp39-win_amd64.whl", hash = "sha256:f0718b55e17f52615e541404c518c49b46d50e078cdc97638c60be23fc0cec7d"},
 ]
 
 [package.dependencies]
@@ -3311,4 +3313,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "607ec619aef78dfffd9a7c252bec3fe951754250535ef0f4650eec821247d5e7"
+content-hash = "d977495a82cb7584cffa163a22ee12c602b0689da64e75ef7b8249df1954b9cc"
