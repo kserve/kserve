@@ -49,7 +49,6 @@ spec:
       - --model_name=bert
       - --model_id=bert-base-uncased
       - --tensor_input_names=input_ids
-      - --disable_vllm
       image: kserve/huggingfaceserver:latest
       name: kserve-container
       resources:
@@ -93,7 +92,6 @@ spec:
       - --model_id=bert-base-uncased
       - --predictor_protocol=v2
       - --tensor_input_names=input_ids
-      - --disable_vllm
       image: kserve/huggingfaceserver:latest
       name: kserve-container
       resources:
@@ -105,6 +103,7 @@ spec:
           memory: 2Gi
 ```
 3. Serve the huggingface model using vllm runtime. vllm is the default runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used as a failsafe.
+
 vllm supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -130,6 +129,34 @@ spec:
           nvidia.com/gpu: "1"
 
 ```
+
+If vllm needs to be disabled include the flag `--disable_vllm` in the container args. In this case the KServe python runtime will be used.
+
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: huggingface
+spec:
+  predictor:
+    containers:
+    - args:
+      - --model_name=llama2
+      - --model_id=meta-llama/Llama-2-7b-chat-hf
+      - --disable_vllm
+      image: kserve/huggingfaceserver:latest
+      name: kserve-container
+      resources:
+        limits:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+```
+
 Perform the inference for vllm specific runtime
 
 vllm runtime deployments only support `/generate` endpoint for inference. Schema details - https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml
