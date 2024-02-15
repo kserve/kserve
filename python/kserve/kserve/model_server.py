@@ -20,7 +20,7 @@ import multiprocessing
 import signal
 import socket
 from multiprocessing import Process
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Callable, Any
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment
@@ -140,6 +140,7 @@ class ModelServer:
             self.log_config = None
 
         self.access_log_format = access_log_format
+        self._custom_exception_handler = None
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         """ Start the model server with a set of registered models.
@@ -187,6 +188,10 @@ class ModelServer:
                 loop.add_signal_handler(
                     sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
                 )
+            if self._custom_exception_handler is None:
+                loop.set_exception_handler(self.default_exception_handler)
+            else:
+                loop.set_exception_handler(self._custom_exception_handler)
             if self.workers == 1:
                 self._rest_server = UvicornServer(self.http_port, [],
                                                   self.dataplane, self.model_repository_extension,
@@ -230,6 +235,31 @@ class ModelServer:
         if self._grpc_server:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
+
+    def register_exception_handler(self, handler: Callable[[asyncio.events.AbstractEventLoop, Dict[str, Any]], None]):
+        """
+        Add a custom handler as the event loop exception handler.
+
+        If a handler is not provided, the default exception handler will be set.
+
+        handler should be a callable object, it should have a signature matching '(loop, context)', where 'loop'
+        will be a reference to the active event loop, 'context' will be a dict object (see `call_exception_handler()`
+        documentation for details about context).
+        """
+        self._custom_exception_handler = handler
+
+    def default_exception_handler(self, loop: asyncio.events.AbstractEventLoop, context: Dict[str, Any]):
+        """
+        Default exception handler for event loop.
+
+        This is called when an exception occurs and no exception handler is set.
+        By default, this will shut down the server gracefully.
+
+        This can be called by a custom exception handler that wants to defer to the default handler behavior.
+        """
+        # gracefully shutdown the server
+        loop.run_until_complete(self.stop())
+        loop.default_exception_handler(context)
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)

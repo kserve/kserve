@@ -422,6 +422,8 @@ class KServeClient(object):
             time.sleep(polling_interval)
             # Check model health API
             url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}"
+            if protocol_version.lower() == "v2":
+                url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}/ready"
             response = requests.get(url, headers=headers).status_code
             if response == 200:
                 return

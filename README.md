@@ -3,7 +3,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/opendatahub-io/kserve)](https://goreportcard.com/report/github.com/opendatahub-io/kserve)
 [![Releases](https://img.shields.io/github/release-pre/opendatahub-io/kserve.svg?sort=semver)](https://github.com/opendatahub-io/kserve/releases)
 [![LICENSE](https://img.shields.io/github/license/opendatahub-io/kserve.svg)](https://github.com/opendatahub-io/kserve/blob/master/LICENSE)
-[![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://kubeflow.slack.com/archives/CH6E58LNP)
+[![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://github.com/kserve/community/blob/main/README.md#questions-and-issues)
 
 KServe provides a Kubernetes [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) for serving machine learning (ML) models on arbitrary frameworks. It aims to solve production model serving use cases by providing performant, high abstraction interfaces for common ML frameworks like Tensorflow, XGBoost, ScikitLearn, PyTorch, and ONNX.
 

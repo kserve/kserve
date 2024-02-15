@@ -132,6 +132,7 @@ data:
               "s3Region": "",
               "s3VerifySSL": "",
               "s3UseVirtualBucket": "",
+              "s3UseAccelerate": "",
               "s3UseAnonymousCredential": "",
               "s3CABundle": ""
           }
@@ -186,6 +187,9 @@ data:
               
               # s3UseVirtualBucket configures whether it is a virtual bucket or not.
               "s3UseVirtualBucket": "",
+
+              # s3UseAccelerate configures whether to use transfer acceleration.
+              "s3UseAccelerate": "",
                
               # s3UseAnonymousCredential configures whether to use anonymous credentials to download the model or not.
               "s3UseAnonymousCredential": "",
@@ -489,6 +493,7 @@ data:
            "s3Region": "",
            "s3VerifySSL": "",
            "s3UseVirtualBucket": "",
+           "s3UseAccelerate": "",
            "s3UseAnonymousCredential": "",
            "s3CABundle": ""
        }
