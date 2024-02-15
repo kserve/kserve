@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set +e
+
 echo "Installing pre-commit"
 pip install pre-commit==3.6.1
 
