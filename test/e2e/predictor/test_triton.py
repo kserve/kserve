@@ -72,6 +72,7 @@ def test_triton():
 
 
 @pytest.mark.transformer
+@pytest.mark.path_based_routing
 def test_triton_runtime_with_transformer():
     service_name = 'isvc-triton-runtime'
     predictor = V1beta1PredictorSpec(
