@@ -103,7 +103,6 @@ spec:
           memory: 2Gi
 ```
 3. Serve the huggingface model using vllm runtime. vllm is the default runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used as a failsafe.
-
 vllm supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -159,7 +158,8 @@ spec:
 
 Perform the inference for vllm specific runtime
 
-vllm runtime deployments only support `/generate` endpoint for inference. Schema details - https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml
+vllm runtime deployments only support `/generate` endpoint for inference. Kserve python runtime supports all protocols
+Text generate Schema details - https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml
 ```bash
 curl -H "content-type:application/json" -v localhost:8080/v2/models/gpt2/generate -d '{"text_input": "The capital of france is [MASK]." }'
 
