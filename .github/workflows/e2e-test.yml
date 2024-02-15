@@ -717,7 +717,7 @@ jobs:
         uses: ./.github/actions/minikube-setup
 
       - name: KServe dependency setup
-        uses: ./.github/actions/kserve-dep-setup\
+        uses: ./.github/actions/kserve-dep-setup
         with:
           deployment-mode: "raw"
 
@@ -791,7 +791,7 @@ jobs:
         uses: ./.github/actions/minikube-setup
 
       - name: KServe dependency setup
-        uses: ./.github/actions/kserve-dep-setup\
+        uses: ./.github/actions/kserve-dep-setup
         with:
           network-layer: "kourier"
 

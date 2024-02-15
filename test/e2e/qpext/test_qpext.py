@@ -26,7 +26,7 @@ from kserve import (
     V1beta1SKLearnSpec,
 )
 from kubernetes.client import V1ResourceRequirements
-from ..common.utils import KSERVE_TEST_NAMESPACE
+from ..common.utils import KSERVE_TEST_NAMESPACE, get_cluster_ip
 from ..common.utils import predict
 
 logging.basicConfig(level=logging.INFO)
@@ -39,11 +39,12 @@ METRICS_PATH = "metrics"
 def test_qpext_kserve():
     # test the qpext using the sklearn predictor
     service_name = "sklearn-v2-metrics"
+    protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
             storage_uri="gs://seldon-models/sklearn/mms/lr_model",
-            protocol_version="v2",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -65,8 +66,16 @@ def test_qpext_kserve():
     kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_model_ready(
+        service_name,
+        model_name=service_name,
+        isvc_namespace=KSERVE_TEST_NAMESPACE,
+        isvc_version=constants.KSERVE_V1BETA1_VERSION,
+        protocol_version=protocol_version,
+        cluster_ip=get_cluster_ip(),
+    )
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version=protocol_version)
     assert res["outputs"][0]["data"] == [1, 1]
 
     send_metrics_request(kserve_client, service_name)
