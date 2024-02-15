@@ -106,6 +106,17 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		})
 	}
 
+	useAccelerate, ok := annotations[InferenceServiceS3UseAccelerateAnnotation]
+	if !ok {
+		useAccelerate = s3Config.S3UseAccelerate
+	}
+	if useAccelerate != "" {
+		envs = append(envs, v1.EnvVar{
+			Name:  S3UseAccelerate,
+			Value: useAccelerate,
+		})
+	}
+
 	customCABundle, ok := annotations[InferenceServiceS3CABundleAnnotation]
 	if !ok {
 		customCABundle = s3Config.S3CABundle

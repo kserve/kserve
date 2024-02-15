@@ -14,7 +14,7 @@
 from typing import Optional, List, Union, Dict
 
 import orjson
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictBool, StrictInt, StrictFloat
 
 # TODO: in the future, this file can be auto generated
 # https://pydantic-docs.helpmanual.io/datamodel_code_generator/
@@ -22,7 +22,7 @@ from pydantic import BaseModel
 # Reference: https://github.com/kserve/kserve/blob/master/docs/predict-api/v2/rest_predict_v2.yaml
 
 
-InferParameter = Union[int, float, bool, str]
+InferParameter = Union[StrictFloat, StrictInt, StrictBool, str]
 Parameters = Dict[str, InferParameter]
 
 
@@ -246,5 +246,168 @@ class InferenceResponse(BaseModel):
                         "data": [1.0, 1.1, 2.0, 2.1, 3.0, 3.1]
                     }
                 ]
+            }
+        }
+
+
+class GenerateRequest(BaseModel):
+    """GenerateRequest Model
+
+        $generate_request =
+        {
+          "text_input" : $string,
+          "parameters" : $string #optional,
+        }
+    """
+    text_input: str
+    parameters: Optional[Parameters] = None
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "text_input": "Tell me about the AI",
+                "parameters":
+                    {
+                        "temperature": 0.8,
+                        "top_p": 0.9,
+                    }
+            }
+        }
+
+
+class Token(BaseModel):
+    """Token Data Model
+
+    """
+    id: int
+    logprob: float
+    special: bool
+    text: str
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "id": 267,
+                "logprob": -2.0723474,
+                "special": False,
+                "text": " a",
+            }
+        }
+
+
+class Details(BaseModel):
+    """Generate response details
+
+    """
+    finish_reason: str
+    logprobs: List[Token]
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "finish_reason": "stop",
+                "logprobs": [{
+                  "id": 267,
+                  "logprob": -2.0723474,
+                  "special": False,
+                  "text": " a",
+                }]
+            }
+        }
+
+
+class StreamingDetails(BaseModel):
+    """Generate response details
+
+    """
+    finish_reason: str
+    logprobs: Token
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "finish_reason": "stop",
+                "logprobs": {
+                  "id": 267,
+                  "logprob": -2.0723474,
+                  "special": False,
+                  "text": " a",
+                }
+            }
+        }
+
+
+class GenerateResponse(BaseModel):
+    """GenerateResponse Model
+
+        $generate_response =
+        {
+          "text_output" : $string,
+          "model_name" : $string,
+          "model_version" : $string #optional,
+          "details": $Details #optional
+        }
+    """
+    text_output: str
+    model_name: str
+    model_version: Optional[str]
+    details: Optional[Details]
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "text_output": "Tell me about the AI",
+                "model_name": "bloom7b1",
+                "details": {
+                    "finish_reason": "stop",
+                    "logprobs": [
+                        {
+                            "id": "267",
+                            "logprob": -2.0723474,
+                            "special": False,
+                            "text": " a",
+                        }
+                    ]
+                }
+            }
+        }
+
+
+class GenerateStreamingResponse(BaseModel):
+    """GenerateStreamingResponse Model
+
+        $generate_response =
+        {
+          "text_output" : $string,
+          "model_name" : $string,
+          "model_version" : $string #optional,
+          "details": $Details #optional
+        }
+    """
+    text_output: str
+    model_name: str
+    model_version: Optional[str]
+    details: Optional[StreamingDetails]
+
+    class Config:
+        json_loads = orjson.loads
+        schema_extra = {
+            "example": {
+                "text_output": "Tell me about the AI",
+                "model_name": "bloom7b1",
+                "details": {
+                    "finish_reason": "stop",
+                    "logprobs": {
+                        "id": "267",
+                        "logprob": -2.0723474,
+                        "special": False,
+                        "text": " a",
+                    }
+                }
             }
         }

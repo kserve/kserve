@@ -5,7 +5,7 @@ go 1.21
 require (
 	cloud.google.com/go/storage v1.35.1
 	github.com/aws/aws-sdk-go v1.48.0
-	github.com/cloudevents/sdk-go v1.2.0
+	github.com/cloudevents/sdk-go/v2 v2.14.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/getkin/kin-openapi v0.120.0
 	github.com/go-logr/logr v1.3.0
@@ -52,7 +52,6 @@ require (
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.14.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v5.7.0+incompatible // indirect

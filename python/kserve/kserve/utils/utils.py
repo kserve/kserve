@@ -15,6 +15,7 @@
 import os
 import sys
 import uuid
+
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import InferParameter
 from typing import Dict, Union, List
 
@@ -26,6 +27,7 @@ from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+from ..errors import InvalidInput
 
 
 def is_running_in_k8s():
@@ -146,13 +148,14 @@ def get_predict_input(payload: Union[Dict, InferRequest], columns: List = None) 
         if isinstance(instances[0], Dict) or (
                 isinstance(instances[0], List) and len(instances[0]) != 0 and isinstance(instances[0][0], Dict)):
             dfs = []
-            for input in instances:
-                dfs.append(pd.DataFrame(input, columns=columns))
+            for instance in instances:
+                dfs.append(pd.DataFrame(instance, columns=columns))
             inputs = pd.concat(dfs, axis=0)
             return inputs
         else:
+            if isinstance(instances[0], str):
+                return instances
             return np.array(instances)
-
     elif isinstance(payload, InferRequest):
         content_type = ''
         parameters = payload.parameters
@@ -171,7 +174,7 @@ def get_predict_input(payload: Union[Dict, InferRequest], columns: List = None) 
             return input.as_numpy()
 
 
-def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.ndarray, pd.DataFrame],
+def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.ndarray, List, pd.DataFrame],
                          model_name: str) -> Union[Dict, InferResponse]:
     if isinstance(payload, Dict):
         infer_outputs = result
@@ -206,6 +209,8 @@ def get_predict_response(payload: Union[Dict, InferRequest], result: Union[np.nd
             infer_outputs=infer_outputs,
             response_id=payload.id if payload.id else generate_uuid()
         )
+    else:
+        raise InvalidInput(f"unsupported payload type {type(payload)}")
 
 
 def strtobool(val: str) -> bool:
