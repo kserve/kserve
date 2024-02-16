@@ -31,15 +31,27 @@ kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager --t
 echo "::endgroup::"
 
 echo "::group::Predictor Pod logs"
-kubectl logs -l 'component in (predictor)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+for pod in $(kubectl get pods -l 'component in (predictor)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
+    echo "=====================================  Logs for Predictor Pod: $pod  ========================================="
+    kubectl logs "$pod" -c kserve-container -n kserve-ci-e2e-test --tail 500
+    echo "================================================================================================================"
+done
 echo "::endgroup::"
 
 echo "::group::Transformer Pod logs"
-kubectl logs -l 'component in (transformer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+for pod in $(kubectl get pods -l 'component in (transformer)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
+    echo "=====================================  Logs for Transformer Pod: $pod  ======================================="
+    kubectl logs "$pod" -c kserve-container -n kserve-ci-e2e-test --tail 500
+    echo "================================================================================================================"
+done
 echo "::endgroup::"
 
 echo "::group::Explainer Pod logs"
-kubectl logs -l 'component in (explainer)' -c kserve-container -n kserve-ci-e2e-test --tail 500
+for pod in $(kubectl get pods -l 'component in (explainer)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
+    echo "=====================================  Logs for Explainer Pod: $pod  ========================================="
+    kubectl logs "$pod" -c kserve-container -n kserve-ci-e2e-test --tail 500
+    echo "================================================================================================================"
+done
 echo "::endgroup::"
 
 shopt -s nocasematch
