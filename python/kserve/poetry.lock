@@ -2501,31 +2501,31 @@ files = [
 
 [[package]]
 name = "ray"
-version = "2.9.0"
+version = "2.9.2"
 description = "Ray provides a simple, universal API for building distributed applications."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "ray-2.9.0-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:eca277062646ef4ce87ffe249a0a816dba0b80c5720708c9973dcb6c17527fa1"},
-    {file = "ray-2.9.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:15e075f647b52ec210538985b4cb2665f64fb76acab77f66f1893653964db64e"},
-    {file = "ray-2.9.0-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:ef8ba4d6126d8aacfc611b967a23e3e9571edf010756277991e8de9af56bd0ee"},
-    {file = "ray-2.9.0-cp310-cp310-manylinux2014_x86_64.whl", hash = "sha256:bb79596c449c4ba027bc9839299617d8c876b1a5b61f16a1e401aa901ad45183"},
-    {file = "ray-2.9.0-cp310-cp310-win_amd64.whl", hash = "sha256:724ff0103919fb98181010cfbcd0d52a1b78b0dc84cbfd6e7ea0094b74e90a26"},
-    {file = "ray-2.9.0-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:47d9d949e362112213bc53631b08183d1fe254d66d58131377cee913e5891597"},
-    {file = "ray-2.9.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:b2211c39bae3f415e32fe9fe23f67acfea4cff80fc37fb794a5767497ac8f2b7"},
-    {file = "ray-2.9.0-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:1751d9672208b7142b9dbc6de9766ffc92e1a7fe522ca45bcc88bbf88ca5d202"},
-    {file = "ray-2.9.0-cp311-cp311-manylinux2014_x86_64.whl", hash = "sha256:13c555fe730fce355726e8dae7a7d6cedbe470a7e125748008ebfc44b0c5827d"},
-    {file = "ray-2.9.0-cp311-cp311-win_amd64.whl", hash = "sha256:1dcf0b476f97bd552531279bb8a1c0b677001433e522cc0f33ffe29c920ed693"},
-    {file = "ray-2.9.0-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:585aa849afb1cadc0933dc5d251bb8fffe87b7b87b312ca66065b058e2fc2821"},
-    {file = "ray-2.9.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:b4108832754156cbf296402c5e44ad23758ac190ef923ff91036dbddde6a2d3d"},
-    {file = "ray-2.9.0-cp38-cp38-manylinux2014_aarch64.whl", hash = "sha256:06f34afc29fd392361435aa5425630d3851824e923263607cb0a5404083a23f9"},
-    {file = "ray-2.9.0-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:d6f2335a1d7724143e2732e7c4761ee9b572ec924445515808b0951f362a4dbf"},
-    {file = "ray-2.9.0-cp38-cp38-win_amd64.whl", hash = "sha256:93372482171c69e5543aae4cb739bcbe671d5c7d498c0ce761c23813e0f35b84"},
-    {file = "ray-2.9.0-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:013984b5d76b3ce63ab4616a5e57b4545524003d8b3df27df90007545cc6e364"},
-    {file = "ray-2.9.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:f245d0a45a32e67e1279bffc02b33ebe73fedd679c00f6b1623681275aa3f488"},
-    {file = "ray-2.9.0-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:e54cef078e75718a56fe65d4b5be14e7193fc0743c6dba3e6d78ad1284e13556"},
-    {file = "ray-2.9.0-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:dabba731106e3a5f0093d2eeae21c822db1f01768e7806eb4f39f06db94eec12"},
-    {file = "ray-2.9.0-cp39-cp39-win_amd64.whl", hash = "sha256:8de5efb388d503bb35d92f1570b8456cf3f2d01e856a9003814164356d2d75e7"},
+    {file = "ray-2.9.2-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:f879522e7d9b809d3aa28fb627ab87344b31cf79e1829b9b67f0581305e2bb84"},
+    {file = "ray-2.9.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:ccbcf7f57bf10c52b3ebcec6e8d9114491ef12a20255e70ba0d5f12a81e9391c"},
+    {file = "ray-2.9.2-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:a3059e1d4287db33811e7604b4ecc1aa79dc2d745b49e5ec3415060da61cb749"},
+    {file = "ray-2.9.2-cp310-cp310-manylinux2014_x86_64.whl", hash = "sha256:11a0fd3f75ca07f727b1e83c3b2c74e75dc1fe0aba99a416a865f83e7ff23620"},
+    {file = "ray-2.9.2-cp310-cp310-win_amd64.whl", hash = "sha256:1e5c4733314bab19d89b373836899e76b2ab839d45f59966b431c89076feaab7"},
+    {file = "ray-2.9.2-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:1a734c1c586e666f5024b46405c3df52b634977c9565bca16a01d6fefc457578"},
+    {file = "ray-2.9.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:47975fcb4b6e6cadd35da4b78f3e643f5ab6e99a688d79980ca2f0dca345d034"},
+    {file = "ray-2.9.2-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:7d7ed76fa40abe81eefb158d505f046de0614d994fc8027f5b05889824503257"},
+    {file = "ray-2.9.2-cp311-cp311-manylinux2014_x86_64.whl", hash = "sha256:83fd7961d39da5ae68731be430891a21a13d0257bc25ab6adf13712297e309fa"},
+    {file = "ray-2.9.2-cp311-cp311-win_amd64.whl", hash = "sha256:5929ac8221ba3b6446cd0885a0ade50cfaaecacba771dfeed57ead8b5c6fdd14"},
+    {file = "ray-2.9.2-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:61b5a742f1f249e92893433720423f729018d40ee26a015b6a12b443d0e2e3eb"},
+    {file = "ray-2.9.2-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:51552b1142944e13ba1da0c44395a627701c563fbe3f6c490001e6e4fd0ee011"},
+    {file = "ray-2.9.2-cp38-cp38-manylinux2014_aarch64.whl", hash = "sha256:8b715b0ad9aa027836ecb7dc33b3a2dfc91c5d9d22a0ddf72c0844df5d641fca"},
+    {file = "ray-2.9.2-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:e1a35e2a3de4e3875bd1e76770fb89149adc773193a5e79488db4047ef14ffd0"},
+    {file = "ray-2.9.2-cp38-cp38-win_amd64.whl", hash = "sha256:8d97f674c675370550ec4347e7e8dee0f99e38dd8f220ff8acb8ca15c208d73a"},
+    {file = "ray-2.9.2-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:efa2c60ab11f41e4d43a227cd6bf491f9f2f8ed820c482c7d8d86a2412b6fd05"},
+    {file = "ray-2.9.2-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:5ebd71ef2e4d76752a1ff048e9d4c22811c7e990e8d4e3b30974b3e4099411b6"},
+    {file = "ray-2.9.2-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:d84064ab3aa2868991a98dc6a54cc2221abcaf9406eb95fa2ec0f66006585f92"},
+    {file = "ray-2.9.2-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:bc95efd035dcdc2f2b549ce3e13c5abf2043f3136b8a5980d77f4f098a9a6796"},
+    {file = "ray-2.9.2-cp39-cp39-win_amd64.whl", hash = "sha256:aea2ad4dbad2d6bd21ba17f7a2fcf762f53d8bcbc30b9d6916245e447a971e48"},
 ]
 
 [package.dependencies]
@@ -2535,7 +2535,7 @@ aiorwlock = {version = "*", optional = true, markers = "extra == \"serve\""}
 aiosignal = "*"
 click = ">=7.0"
 colorful = {version = "*", optional = true, markers = "extra == \"serve\""}
-fastapi = {version = "*", optional = true, markers = "extra == \"serve\""}
+fastapi = {version = "<=0.108.0", optional = true, markers = "extra == \"serve\""}
 filelock = "*"
 frozenlist = "*"
 gpustat = {version = ">=1.0.0", optional = true, markers = "extra == \"serve\""}
@@ -2556,20 +2556,20 @@ requests = "*"
 smart-open = {version = "*", optional = true, markers = "extra == \"serve\""}
 starlette = {version = "*", optional = true, markers = "extra == \"serve\""}
 uvicorn = {version = "*", extras = ["standard"], optional = true, markers = "extra == \"serve\""}
-virtualenv = {version = ">=20.0.24,<20.21.1", optional = true, markers = "extra == \"serve\""}
+virtualenv = {version = ">=20.0.24,<20.21.1 || >20.21.1", optional = true, markers = "extra == \"serve\""}
 watchfiles = {version = "*", optional = true, markers = "extra == \"serve\""}
 
 [package.extras]
-air = ["aiohttp (>=3.7)", "aiohttp-cors", "aiorwlock", "colorful", "fastapi", "fsspec", "gpustat (>=1.0.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "numpy (>=1.20)", "opencensus", "pandas", "pandas (>=1.3)", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pyarrow (>=6.0.1)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "requests", "smart-open", "starlette", "tensorboardX (>=1.9)", "uvicorn[standard]", "virtualenv (>=20.0.24,<20.21.1)", "watchfiles"]
-all = ["aiohttp (>=3.7)", "aiohttp-cors", "aiorwlock", "colorful", "dm-tree", "fastapi", "fsspec", "gpustat (>=1.0.0)", "grpcio (!=1.56.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "gymnasium (==0.28.1)", "lz4", "numpy (>=1.20)", "opencensus", "opentelemetry-api", "opentelemetry-exporter-otlp", "opentelemetry-sdk", "pandas", "pandas (>=1.3)", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pyarrow (>=6.0.1)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "pyyaml", "ray-cpp (==2.9.0)", "requests", "rich", "scikit-image", "scipy", "smart-open", "starlette", "tensorboardX (>=1.9)", "typer", "uvicorn[standard]", "virtualenv (>=20.0.24,<20.21.1)", "watchfiles"]
+air = ["aiohttp (>=3.7)", "aiohttp-cors", "aiorwlock", "colorful", "fastapi (<=0.108.0)", "fsspec", "gpustat (>=1.0.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "numpy (>=1.20)", "opencensus", "pandas", "pandas (>=1.3)", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pyarrow (>=6.0.1)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "requests", "smart-open", "starlette", "tensorboardX (>=1.9)", "uvicorn[standard]", "virtualenv (>=20.0.24,!=20.21.1)", "watchfiles"]
+all = ["aiohttp (>=3.7)", "aiohttp-cors", "aiorwlock", "colorful", "dm-tree", "fastapi (<=0.108.0)", "fsspec", "gpustat (>=1.0.0)", "grpcio (!=1.56.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "gymnasium (==0.28.1)", "lz4", "numpy (>=1.20)", "opencensus", "opentelemetry-api", "opentelemetry-exporter-otlp", "opentelemetry-sdk", "pandas", "pandas (>=1.3)", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pyarrow (>=6.0.1)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "pyyaml", "ray-cpp (==2.9.2)", "requests", "rich", "scikit-image", "scipy", "smart-open", "starlette", "tensorboardX (>=1.9)", "typer", "uvicorn[standard]", "virtualenv (>=20.0.24,!=20.21.1)", "watchfiles"]
 client = ["grpcio (!=1.56.0)"]
-cpp = ["ray-cpp (==2.9.0)"]
+cpp = ["ray-cpp (==2.9.2)"]
 data = ["fsspec", "numpy (>=1.20)", "pandas (>=1.3)", "pyarrow (>=6.0.1)"]
-default = ["aiohttp (>=3.7)", "aiohttp-cors", "colorful", "gpustat (>=1.0.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "opencensus", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "requests", "smart-open", "virtualenv (>=20.0.24,<20.21.1)"]
+default = ["aiohttp (>=3.7)", "aiohttp-cors", "colorful", "gpustat (>=1.0.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "opencensus", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "requests", "smart-open", "virtualenv (>=20.0.24,!=20.21.1)"]
 observability = ["opentelemetry-api", "opentelemetry-exporter-otlp", "opentelemetry-sdk"]
 rllib = ["dm-tree", "fsspec", "gymnasium (==0.28.1)", "lz4", "pandas", "pyarrow (>=6.0.1)", "pyyaml", "requests", "rich", "scikit-image", "scipy", "tensorboardX (>=1.9)", "typer"]
-serve = ["aiohttp (>=3.7)", "aiohttp-cors", "aiorwlock", "colorful", "fastapi", "gpustat (>=1.0.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "opencensus", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "requests", "smart-open", "starlette", "uvicorn[standard]", "virtualenv (>=20.0.24,<20.21.1)", "watchfiles"]
-serve-grpc = ["aiohttp (>=3.7)", "aiohttp-cors", "aiorwlock", "colorful", "fastapi", "gpustat (>=1.0.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "opencensus", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "requests", "smart-open", "starlette", "uvicorn[standard]", "virtualenv (>=20.0.24,<20.21.1)", "watchfiles"]
+serve = ["aiohttp (>=3.7)", "aiohttp-cors", "aiorwlock", "colorful", "fastapi (<=0.108.0)", "gpustat (>=1.0.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "opencensus", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "requests", "smart-open", "starlette", "uvicorn[standard]", "virtualenv (>=20.0.24,!=20.21.1)", "watchfiles"]
+serve-grpc = ["aiohttp (>=3.7)", "aiohttp-cors", "aiorwlock", "colorful", "fastapi (<=0.108.0)", "gpustat (>=1.0.0)", "grpcio (>=1.32.0)", "grpcio (>=1.42.0)", "opencensus", "prometheus-client (>=0.7.1)", "py-spy (>=0.2.0)", "pydantic (<2.0.dev0 || >=2.5.dev0,<3)", "requests", "smart-open", "starlette", "uvicorn[standard]", "virtualenv (>=20.0.24,!=20.21.1)", "watchfiles"]
 train = ["fsspec", "pandas", "pyarrow (>=6.0.1)", "requests", "tensorboardX (>=1.9)"]
 tune = ["fsspec", "pandas", "pyarrow (>=6.0.1)", "requests", "tensorboardX (>=1.9)"]
 
@@ -3321,4 +3321,4 @@ storage = ["azure-identity", "azure-storage-blob", "azure-storage-file-share", "
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "57f2522d4aa14809989e8ee4a04b864b5371a5a0c6559d27bc745483f4c6d2c7"
+content-hash = "a32c589bb3e1db03ad5da918008ae48c0f8d055b1c3e182b990ea924872a579b"
