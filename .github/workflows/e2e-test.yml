@@ -326,7 +326,7 @@ jobs:
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
 
-      - name: Run all E2E tests except graph
+      - name: Run predictor E2E tests
         timeout-minutes: 40
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "predictor" "6"
@@ -845,8 +845,6 @@ jobs:
           --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
 
           ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "6"
-
-          kubectl get pods -n kserve
 
       - name: Check system status
         if: always()

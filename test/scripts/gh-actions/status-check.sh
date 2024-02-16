@@ -54,6 +54,14 @@ for pod in $(kubectl get pods -l 'component in (explainer)' -o jsonpath='{.items
 done
 echo "::endgroup::"
 
+echo "::group::InferenceGraph Pod logs"
+for pod in $(kubectl get pods -l 'serving.kserve.io/inferencegraph=model-chainer' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
+    echo "=====================================  Logs for Graph Pod: $pod  ========================================="
+    kubectl logs "$pod" -c user-container -n kserve-ci-e2e-test --tail 500
+    echo "================================================================================================================"
+done
+echo "::endgroup::"
+
 shopt -s nocasematch
 if [[ $# -eq 1 && "$1" == "kourier" ]]; then
   echo "::group::Kourier Gateway Pod logs"
