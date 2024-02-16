@@ -273,7 +273,7 @@ def test_sklearn_v2_grpc():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.preidctor
+@pytest.mark.predictor
 def test_sklearn_v2_mixed():
     service_name = "isvc-sklearn-v2-mixed"
     predictor = V1beta1PredictorSpec(
