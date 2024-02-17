@@ -158,8 +158,7 @@ spec:
 
 Perform the inference for vllm specific runtime
 
-vllm runtime deployments only support `/generate` endpoint for inference. Kserve python runtime supports all protocols
-Text generate Schema details - https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml
+vllm runtime deployments only support `/generate` endpoint for inference. Please refer to [text generation API schema](https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml) for more details.
 ```bash
 curl -H "content-type:application/json" -v localhost:8080/v2/models/gpt2/generate -d '{"text_input": "The capital of france is [MASK]." }'
 
