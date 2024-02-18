@@ -2886,6 +2886,9 @@
     "v1beta1.IngressConfig": {
       "type": "object",
       "properties": {
+        "disableIngressCreation": {
+          "type": "boolean"
+        },
         "disableIstioVirtualHost": {
           "type": "boolean"
         },

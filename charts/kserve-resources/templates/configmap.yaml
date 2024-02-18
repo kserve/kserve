@@ -200,7 +200,8 @@ data:
            "ingressClassName" : "istio",
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
            "urlScheme": "http",
-           "disableIstioVirtualHost": false
+           "disableIstioVirtualHost": false,
+           "disableIngressCreation": false
        }
      ingress: |-
        {
@@ -252,7 +253,10 @@ data:
            # By setting this field to true, user can use other networking layers supported by knative.
            # For more info https://github.com/kserve/kserve/pull/2380, https://kserve.github.io/website/master/admin/serverless/kourier_networking/.
            # NOTE: This configuration is only applicable to serverless deployment.
-           "disableIstioVirtualHost": false
+           "disableIstioVirtualHost": false,
+
+           # disableIngressCreation controls whether to disable ingress creation for raw deployment mode.
+           "disableIngressCreation": false,
 
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
@@ -510,7 +514,8 @@ data:
         "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}",
         "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
         "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
-        "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }}
+        "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
+        "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }}
     }
   logger: |-
     {
