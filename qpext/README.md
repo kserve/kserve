@@ -59,7 +59,7 @@ spec:
   predictor:
     sklearn:
       protocolVersion: v2
-      storageUri: "gs://seldon-models/sklearn/iris"
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
 ```
 
 To view the runtime specific defaults for the `kserve-container` prometheus port and path, view the spec annotations in `kserve/config/runtimes`.
@@ -79,7 +79,7 @@ spec:
   predictor:
     sklearn:
       protocolVersion: v2
-      storageUri: "gs://seldon-models/sklearn/iris"
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
 ```
 The default port for sklearn runtime is `8080`, and the default path is `/metrics`. 
 By setting the annotations in the InferenceService YAML, the default runtime configurations are overridden.
