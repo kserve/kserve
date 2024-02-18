@@ -201,7 +201,7 @@ data:
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
            "urlScheme": "http",
            "disableIstioVirtualHost": false,
-           "disableIngressCreation": false,
+           "disableIngressCreation": false
        }
      ingress: |-
        {
@@ -514,8 +514,8 @@ data:
         "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}",
         "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
         "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
-        "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }}
-        "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }},
+        "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
+        "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }}
     }
   logger: |-
     {
