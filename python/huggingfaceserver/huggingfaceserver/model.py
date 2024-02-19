@@ -150,7 +150,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.NUMPY,
-                return_token_type_ids=self.retu,
+                return_token_type_ids=self.return_token_type_ids,
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
