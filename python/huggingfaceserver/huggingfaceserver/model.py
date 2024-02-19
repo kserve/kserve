@@ -61,6 +61,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         )
         self.model_id = kwargs.get('model_id', None)
         self.model_dir = kwargs.get('model_dir', None)
+        if not self.model_id and not self.model_dir:
+            self.model_dir = "/mnt/models"
         self.do_lower_case = not kwargs.get('disable_lower_case', False)
         self.add_special_tokens = not kwargs.get('disable_special_tokens', False)
         self.max_length = kwargs.get('max_length', None)

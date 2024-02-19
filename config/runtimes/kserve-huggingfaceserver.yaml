@@ -17,6 +17,8 @@ spec:
   containers:
     - name: kserve-container
       image: huggingfaceserver:replace
+      args:
+        - --model_name={{.Name}}
       resources:
         requests:
           cpu: "1"
