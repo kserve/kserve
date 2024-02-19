@@ -133,6 +133,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.NUMPY,
+                padding=True,
+                truncation=True,
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
@@ -150,6 +152,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.PYTORCH,
+                padding=True,
+                truncation=True,
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
@@ -170,7 +174,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 prompt,
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
-                return_tensors="pt",
+                return_tensors=TensorType.PYTORCH,
             )
             input_batch = input_batch.to(self.device)
             if headers.get("streaming", "false") == "true":
