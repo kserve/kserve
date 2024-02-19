@@ -29,21 +29,24 @@ from kserve.errors import InferenceError
 from kserve.storage import Storage
 
 from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
-from kserve.utils.utils import get_predict_response, get_predict_input
+from kserve.utils.utils import get_predict_response, get_predict_input, from_np_dtype
 from kserve import Model
 import torch
 
 try:
     from vllm.sampling_params import SamplingParams
-    from vllm.vllm_async_engine import AsyncLLMEngine
-
+    from vllm.engine.async_llm_engine import AsyncLLMEngine
+    from vllm.model_executor.models import ModelRegistry
     _vllm = True
 except ImportError:
     _vllm = False
+
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, \
     AutoConfig, \
     AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
     AutoModelForMaskedLM, BatchEncoding, TensorType
+
+VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
 
 class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
@@ -53,27 +56,25 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if kwargs is None:
             kwargs = {}
         self.kwargs = {}
-        tp_degree = kwargs.get('tensor_parallel_degree', -1)
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
-        if "device_map" in kwargs:
-            self.kwargs["device_map"] = kwargs['device_map']
-        elif tp_degree > 0:
-            self.kwargs["device_map"] = "auto"
-            world_size = torch.cuda.device_count()
-            assert world_size == tp_degree, f"TP degree ({tp_degree}) doesn't match available GPUs ({world_size})"
         self.model_id = kwargs.get('model_id', None)
         self.model_dir = kwargs.get('model_dir', None)
-        self.do_lower_case = kwargs.get('do_lower_case', True)
-        self.add_special_tokens = kwargs.get('add_special_tokens', True)
+        if not self.model_id and not self.model_dir:
+            self.model_dir = "/mnt/models"
+        self.do_lower_case = not kwargs.get('disable_lower_case', False)
+        self.add_special_tokens = not kwargs.get('disable_special_tokens', False)
         self.max_length = kwargs.get('max_length', None)
         self.tensor_input_names = kwargs.get('tensor_input_names', None)
+        self.return_token_type_ids = kwargs.get('return_token_type_ids', None)
         self.task = kwargs.get('task', None)
         self.tokenizer = None
         self.model = None
         self.mapping = None
-        self.engine = AsyncLLMEngine.from_engine_args(engine_args) if _vllm else None
+        self.vllm_engine = None
+        self.vllm_engine_args = engine_args
+        self.use_vllm = not kwargs.get('disable_vllm', False) if _vllm else False
         self.ready = False
 
     @staticmethod
@@ -88,7 +89,22 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if task is None:
             raise ValueError(f"Task couldn't be inferred from {architecture}. Please manually set `task` option.")
 
+    @staticmethod
+    def infer_vllm_supported_from_model_architecture(model_config_path: str):
+        model_config = AutoConfig.from_pretrained(model_config_path)
+        architecture = model_config.architectures[0]
+        model_cls = ModelRegistry.load_model_cls(architecture)
+        if model_cls is None:
+            logger.info("not a supported model by vLLM")
+        return model_cls
+
     def load(self) -> bool:
+        if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
+            if self.infer_vllm_supported_from_model_architecture(self.model_id) is not None:
+                self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
+                self.ready = True
+                return self.ready
+
         model_id_or_path = self.model_id
         if self.model_dir:
             model_id_or_path = pathlib.Path(Storage.download(self.model_dir))
@@ -126,6 +142,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             Union[BatchEncoding, InferRequest]:
         instances = get_predict_input(payload)
 
+        if self.vllm_engine:
+            raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
+
         # Serialize to tensor
         if self.predictor_host:
             inputs = self.tokenizer(
@@ -133,6 +152,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.NUMPY,
+                return_token_type_ids=self.return_token_type_ids,
                 padding=True,
                 truncation=True,
             )
@@ -141,7 +161,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             infer_inputs = []
             for key, input_tensor in inputs.items():
                 if (not self.tensor_input_names) or (key in self.tensor_input_names):
-                    infer_input = InferInput(name=key, datatype=input_tensor.dtype,
+                    infer_input = InferInput(name=key, datatype=from_np_dtype(input_tensor.dtype),
                                              shape=list(input_tensor.shape), data=input_tensor)
                     infer_inputs.append(infer_input)
             infer_request = InferRequest(infer_inputs=infer_inputs, model_name=self.name)
@@ -152,6 +172,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.PYTORCH,
+                return_token_type_ids=self.return_token_type_ids,
                 padding=True,
                 truncation=True,
             )
@@ -161,13 +182,14 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
     async def generate(self, generate_request: GenerateRequest, headers: Dict[str, str] = None) \
             -> Union[GenerateResponse, AsyncIterator[Any]]:
-        parameters = generate_request.parameters
+        parameters = generate_request.parameters or {}
         prompt = generate_request.text_input
         request_id = str(uuid.uuid4())
-        if _vllm:
+        if self.vllm_engine:
             sampling_params = SamplingParams(**parameters)
-            results_generator = self.engine.generate(prompt, sampling_params=sampling_params,
-                                                     request_id=request_id)
+            results_generator = self.vllm_engine.generate(
+                prompt, sampling_params=sampling_params, request_id=request_id
+            )
             return results_generator
         else:
             input_batch = self.tokenizer(
@@ -200,6 +222,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
+        if self.vllm_engine:
+            raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
+
         if self.predictor_host:
             # when predictor_host is provided, serialize the tensor and send to optimized model serving runtime
             # like NVIDIA triton inference server

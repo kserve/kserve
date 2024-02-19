@@ -20,6 +20,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmp"
+	"strconv"
 
 	"testing"
 )
@@ -45,7 +46,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name: "queue-proxy",
+							Name:  "queue-proxy",
+							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
 						},
 					},
 				},
@@ -67,7 +69,11 @@ func TestInjectMetricsAggregator(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
 								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
-								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)},
+							},
+							Ports: []v1.ContainerPort{
+								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: int32(constants.QueueProxyAggregatePrometheusMetricsPort), Protocol: "TCP"},
 							},
 						},
 					},
@@ -85,7 +91,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name: "queue-proxy",
+							Name:  "queue-proxy",
+							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
 						},
 					},
 				},
@@ -103,7 +110,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name: "queue-proxy",
+							Name:  "queue-proxy",
+							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
 						},
 					},
 				},
@@ -123,7 +131,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name: "queue-proxy",
+							Name:  "queue-proxy",
+							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
 						},
 					},
 				},
@@ -141,7 +150,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name: "queue-proxy",
+							Name:  "queue-proxy",
+							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
 						},
 					},
 				},
@@ -162,7 +172,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name: "queue-proxy",
+							Name:  "queue-proxy",
+							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
 						},
 					},
 				},
@@ -174,7 +185,7 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					Annotations: map[string]string{
 						constants.EnableMetricAggregation:     "true",
 						constants.SetPrometheusAnnotation:     "true",
-						constants.PrometheusPortAnnotationKey: constants.QueueProxyAggregatePrometheusMetricsPort,
+						constants.PrometheusPortAnnotationKey: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort),
 						constants.PrometheusPathAnnotationKey: constants.DefaultPrometheusPath,
 					},
 				},
@@ -187,7 +198,11 @@ func TestInjectMetricsAggregator(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
 								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
-								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)},
+							},
+							Ports: []v1.ContainerPort{
+								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: int32(constants.QueueProxyAggregatePrometheusMetricsPort), Protocol: "TCP"},
 							},
 						},
 					},
@@ -209,7 +224,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name: "queue-proxy",
+							Name:  "queue-proxy",
+							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
 						},
 					},
 				},
@@ -230,7 +246,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name: "queue-proxy",
+							Name:  "queue-proxy",
+							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
 						},
 					},
 				},
@@ -251,7 +268,8 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name: "queue-proxy",
+							Name:  "queue-proxy",
+							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
 						},
 					},
 				},
@@ -274,7 +292,11 @@ func TestInjectMetricsAggregator(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
 								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
-								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)},
+							},
+							Ports: []v1.ContainerPort{
+								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: int32(constants.QueueProxyAggregatePrometheusMetricsPort), Protocol: "TCP"},
 							},
 						},
 					},

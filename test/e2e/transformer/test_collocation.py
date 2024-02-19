@@ -59,7 +59,7 @@ def test_transformer_collocation():
             ),
             V1Container(
                 name=TRANSFORMER_CONTAINER,
-                image='kserve/image-transformer:' + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("IMAGE_TRANSFORMER_IMG"),
                 args=[f"--model_name={model_name}", "--http_port=8080", "--grpc_port=8081",
                       "--predictor_host=localhost:8085"],
                 ports=[
@@ -124,7 +124,7 @@ def test_raw_transformer_collocation():
             ),
             V1Container(
                 name=TRANSFORMER_CONTAINER,
-                image='kserve/image-transformer:' + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("IMAGE_TRANSFORMER_IMG"),
                 args=[f"--model_name={model_name}", "--http_port=8080", "--grpc_port=8081",
                       "--predictor_host=localhost:8085"],
                 ports=[

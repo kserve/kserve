@@ -13,12 +13,12 @@ spec:
       priority: 1
   protocolVersions:
     - v2
+    - v1
   containers:
     - name: kserve-container
       image: huggingfaceserver:replace
       args:
-        - --model_id={{.Name}}
-        - --model_dir=/mnt/models
+        - --model_name={{.Name}}
       resources:
         requests:
           cpu: "1"

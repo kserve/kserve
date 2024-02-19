@@ -18,7 +18,6 @@ import os
 import re
 from typing import Dict
 from unittest import mock
-from unittest.mock import patch
 
 import avro.io
 import avro.schema
@@ -82,6 +81,10 @@ class DummyModel(Model):
         if isinstance(request, InferRequest):
             inputs = get_predict_input(request)
             infer_response = get_predict_response(request, inputs, self.name)
+            if request.parameters:
+                infer_response.parameters = request.parameters
+            if request.inputs[0].parameters:
+                infer_response.outputs[0].parameters = request.inputs[0].parameters
             return infer_response
         else:
             return {"predictions": request["instances"]}
@@ -303,44 +306,46 @@ class TestV2Endpoints:
         assert resp.headers['content-type'] == "application/json"
 
     def test_infer_parameters_v2(self, http_server_client):
-        req = InferRequest(model_name="TestModel", request_id="123",
+        model_name = "TestModel"
+        req = InferRequest(model_name=model_name, request_id="123",
                            parameters={
                                "test-str": "dummy",
                                "test-bool": True,
-                               "test-int": 100
+                               "test-int": 100,
+                               "test-float": 1.3,
                            },
                            infer_inputs=[
                                InferInput(name="input-0", datatype="INT32", shape=[1, 2], data=[1, 2],
                                           parameters={
                                               "test-str": "dummy",
                                               "test-bool": True,
-                                              "test-int": 100
+                                              "test-int": 100,
+                                              "test-float": 1.3,
                                           })])
 
         input_data = json.dumps(req.to_rest()).encode('utf-8')
-        with patch.object(DummyModel, 'predict', new_callable=mock.Mock) as mock_predict:
-            mock_predict.return_value = InferResponse(model_name="TestModel", response_id="123",
-                                                      parameters={
-                                                          "test-str": "dummy",
-                                                          "test-bool": True,
-                                                          "test-int": 100
-                                                      },
-                                                      infer_outputs=[
-                                                          InferOutput(name="input-0",
-                                                                      datatype="INT32",
-                                                                      shape=[1, 2], data=[1, 2],
-                                                                      parameters={
-                                                                          "test-str": "dummy",
-                                                                          "test-bool": True,
-                                                                          "test-int": 100
-                                                                      })])
-            resp = http_server_client.post('/v2/models/TestModel/infer', content=input_data)
-            mock_predict.assert_called_with(req, mock.ANY)
-
-        result = json.loads(resp.content)
+        expected_res = InferResponse(model_name=model_name, response_id="123",
+                                     parameters={
+                                         "test-str": "dummy",
+                                         "test-bool": True,
+                                         "test-int": 100,
+                                         "test-float": 1.3,
+                                     },
+                                     infer_outputs=[
+                                         InferOutput(name="output-0",
+                                                     datatype="INT32",
+                                                     shape=[1, 2], data=[1, 2],
+                                                     parameters={
+                                                         "test-str": "dummy",
+                                                         "test-bool": True,
+                                                         "test-int": 100,
+                                                         "test-float": 1.3,
+                                                     })])
+        resp = http_server_client.post('/v2/models/TestModel/infer', content=input_data)
         assert resp.status_code == 200
-        assert result["outputs"][0]["data"] == [1, 2]
         assert resp.headers['content-type'] == "application/json"
+        result = InferResponse.from_rest(model_name=model_name, response=json.loads(resp.content))
+        assert result == expected_res
 
 
 class TestRayServer:

@@ -75,6 +75,7 @@ type IngressConfig struct {
 	UrlScheme               string  `json:"urlScheme,omitempty"`
 	DisableIstioVirtualHost bool    `json:"disableIstioVirtualHost,omitempty"`
 	PathTemplate            string  `json:"pathTemplate,omitempty"`
+	DisableIngressCreation  bool    `json:"disableIngressCreation,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

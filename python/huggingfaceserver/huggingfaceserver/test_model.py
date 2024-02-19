@@ -32,7 +32,7 @@ def test_t5():
 
 
 def test_bert():
-    model = HuggingfaceModel("bert-base-uncased", {"model_id": "bert-base-uncased", "do_lower_case": True})
+    model = HuggingfaceModel("bert-base-uncased", {"model_id": "bert-base-uncased", "disable_lower_case": False})
     model.load()
 
     response = asyncio.run(model({"instances": ["The capital of France is [MASK].",
@@ -47,7 +47,7 @@ def test_bert_predictor_host(httpx_mock: HTTPXMock):
 
     model = HuggingfaceModel("bert", {"model_id": "bert-base-uncased",
                                       "tensor_input_names": "input_ids",
-                                      "do_lower_case": True}, predictor_config=PredictorConfig(
+                                      "disable_lower_case": False}, predictor_config=PredictorConfig(
         predictor_host="localhost:8081", predictor_protocol="v2"))
     model.load()
 
@@ -69,7 +69,7 @@ def test_bert_sequence_classification():
 def test_bert_token_classification():
     model = HuggingfaceModel("bert-large-cased-finetuned-conll03-english",
                              {"model_id": "dbmdz/bert-large-cased-finetuned-conll03-english",
-                              "add_special_tokens": False})
+                              "disable_special_tokens": True})
     model.load()
 
     request = "HuggingFace is a company based in Paris and New York"
@@ -81,7 +81,7 @@ def test_bert_token_classification():
 def test_bloom():
     model = HuggingfaceModel("bloom-560m",
                              {"model_id": "bigscience/bloom-560m",
-                              "add_special_tokens": False})
+                              "disable_special_tokens": True})
     model.load()
 
     request = "Hello, my dog is cute"

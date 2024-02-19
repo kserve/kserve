@@ -271,7 +271,7 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	if r.ingressConfig.IngressDomain == constants.ClusterLocalDomain {
 		isInternal = true
 	}
-	if !isInternal {
+	if !isInternal && !r.ingressConfig.DisableIngressCreation {
 		ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.client)
 		if ingress == nil {
 			return nil

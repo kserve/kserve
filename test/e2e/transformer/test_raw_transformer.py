@@ -47,8 +47,7 @@ def test_transformer():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-            image='kserve/image-transformer:'
-                  + os.environ.get("GITHUB_SHA"),
+            image=os.environ.get("IMAGE_TRANSFORMER_IMG"),
             name='kserve-container',
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
