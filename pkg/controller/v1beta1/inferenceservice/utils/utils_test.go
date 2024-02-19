@@ -99,6 +99,20 @@ func TestIsMMSPredictor(t *testing.T) {
 			},
 			expected: false,
 		},
+		"HuggingFaceModel": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hg-model",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						HuggingFace: &HuggingFaceRuntimeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{RuntimeVersion: proto.String("latest")}},
+					},
+				},
+			},
+			expected: false,
+		},
 		"CustomSpec": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
