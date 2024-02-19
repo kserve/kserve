@@ -41,16 +41,16 @@ curl -H "content-type:application/json" -v localhost:8080/v1/models/bert:predict
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: huggingface
+  name: huggingface-bert
 spec:
   predictor:
-    containers:
-    - args:
+    model:
+      modelFormat:
+        name: huggingface
+      args:
       - --model_name=bert
       - --model_id=bert-base-uncased
       - --tensor_input_names=input_ids
-      image: kserve/huggingfaceserver:latest
-      name: kserve-container
       resources:
         limits:
           cpu: "1"
@@ -108,15 +108,15 @@ vllm supported models - https://docs.vllm.ai/en/latest/models/supported_models.h
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: huggingface
+  name: huggingface-llama2
 spec:
   predictor:
-    containers:
-    - args:
+    model:
+      modelFormat:
+        name: huggingface
+      args:
       - --model_name=llama2
       - --model_id=meta-llama/Llama-2-7b-chat-hf
-      image: kserve/huggingfaceserver:latest
-      name: kserve-container
       resources:
         limits:
           cpu: "6"
@@ -135,16 +135,16 @@ If vllm needs to be disabled include the flag `--disable_vllm` in the container 
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: huggingface
+  name: huggingface-llama2
 spec:
   predictor:
-    containers:
-    - args:
+    model:
+      modelFormat:
+        name: huggingface
+      args:
       - --model_name=llama2
       - --model_id=meta-llama/Llama-2-7b-chat-hf
       - --disable_vllm
-      image: kserve/huggingfaceserver:latest
-      name: kserve-container
       resources:
         limits:
           cpu: "6"

@@ -31,8 +31,6 @@ parser.add_argument('--model_dir', required=False, default=None,
                     help='A URI pointer to the model binary')
 parser.add_argument('--model_id', required=False,
                     help='Huggingface model id')
-parser.add_argument('--tensor_parallel_degree', type=int, default=-1,
-                    help='tensor parallel degree')
 parser.add_argument('--max_length', type=int, default=None,
                     help='max sequence length for the tokenizer')
 parser.add_argument('--disable_lower_case', action='store_true',
@@ -43,6 +41,7 @@ parser.add_argument('--tensor_input_names', type=list_of_strings, default=None,
                     help='the tensor input names passed to the model')
 parser.add_argument('--task', required=False, help="The ML task name")
 parser.add_argument('--disable_vllm', action='store_true', help="Do not use vllm as the default runtime")
+parser.add_argument('--return_token_type_ids', action="store_true", help="Return token type ids")
 
 try:
     from vllm.engine.arg_utils import AsyncEngineArgs
