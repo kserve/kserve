@@ -56,22 +56,16 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if kwargs is None:
             kwargs = {}
         self.kwargs = {}
-        tp_degree = kwargs.get('tensor_parallel_degree', -1)
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
-        if "device_map" in kwargs:
-            self.kwargs["device_map"] = kwargs['device_map']
-        elif tp_degree > 0:
-            self.kwargs["device_map"] = "auto"
-            world_size = torch.cuda.device_count()
-            assert world_size == tp_degree, f"TP degree ({tp_degree}) doesn't match available GPUs ({world_size})"
         self.model_id = kwargs.get('model_id', None)
         self.model_dir = kwargs.get('model_dir', None)
         self.do_lower_case = not kwargs.get('disable_lower_case', False)
         self.add_special_tokens = not kwargs.get('disable_special_tokens', False)
         self.max_length = kwargs.get('max_length', None)
         self.tensor_input_names = kwargs.get('tensor_input_names', None)
+        self.return_token_type_ids = kwargs.get('return_token_type_ids', None)
         self.task = kwargs.get('task', None)
         self.tokenizer = None
         self.model = None
@@ -156,6 +150,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.NUMPY,
+                return_token_type_ids=self.retu,
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
@@ -173,6 +168,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.PYTORCH,
+                return_token_type_ids=self.return_token_type_ids,
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
