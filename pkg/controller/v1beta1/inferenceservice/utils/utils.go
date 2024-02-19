@@ -67,7 +67,7 @@ func IsMMSPredictor(predictor *v1beta1api.PredictorSpec) bool {
 		impl := predictor.GetImplementation()
 		res := impl.GetStorageUri() == nil && impl.GetStorageSpec() == nil
 		// HuggingFace supports model ID without storage initializer, but it should not be a multi-model server.
-		if predictor.HuggingFace != nil {
+		if predictor.HuggingFace != nil || (predictor.Model != nil && predictor.Model.ModelFormat.Name == "huggingface") {
 			return false
 		}
 		return res
