@@ -99,16 +99,15 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         return model_cls
 
     def load(self) -> bool:
-        if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
-            if self.infer_vllm_supported_from_model_architecture(self.model_id) is not None:
-                self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
-                self.ready = True
-                return self.ready
-
         model_id_or_path = self.model_id
         if self.model_dir:
             model_id_or_path = pathlib.Path(Storage.download(self.model_dir))
             # TODO Read the mapping file, index to object name
+        if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
+            if self.infer_vllm_supported_from_model_architecture(model_id_or_path):
+                self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
+                return True
+
         if not self.task:
             self.task = self.infer_task_from_model_architecture(model_id_or_path)
         # load huggingface tokenizer
@@ -154,7 +153,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 return_tensors=TensorType.NUMPY,
                 return_token_type_ids=self.return_token_type_ids,
                 padding=True,
-                truncation=True,
+                truncation=True
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
@@ -174,7 +173,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 return_tensors=TensorType.PYTORCH,
                 return_token_type_ids=self.return_token_type_ids,
                 padding=True,
-                truncation=True,
+                truncation=True
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
