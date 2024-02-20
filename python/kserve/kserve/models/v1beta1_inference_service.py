@@ -150,8 +150,6 @@ class V1beta1InferenceService(object):
         :param metadata: The metadata of this V1beta1InferenceService.  # noqa: E501
         :type: V1ObjectMeta
         """
-        if metadata is not None:
-            metadata.annotations = {"serving.knative.openshift.io/enablePassthrough": "true"}
 
         self._metadata = metadata
 

@@ -32,6 +32,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 @pytest.mark.raw
+@pytest.mark.skip("The torchserve container fails in OpenShift with permission denied errors")
 def test_transformer():
     service_name = 'raw-transformer'
     predictor = V1beta1PredictorSpec(
