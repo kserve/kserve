@@ -153,7 +153,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 return_tensors=TensorType.NUMPY,
                 return_token_type_ids=self.return_token_type_ids,
                 padding=True,
-                truncation=True,
+                truncation=True
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
@@ -173,7 +173,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 return_tensors=TensorType.PYTORCH,
                 return_token_type_ids=self.return_token_type_ids,
                 padding=True,
-                truncation=True,
+                truncation=True
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
