@@ -46,7 +46,7 @@ class AIFModel(kserve.Model):
 
         loop = asyncio.get_running_loop()
         resp = loop.run_until_complete(self.predict(scoring_data))
-        return np.array(resp['data']["predictions"])
+        return np.array(resp["predictions"])
 
     def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         inputs = payload["instances"]

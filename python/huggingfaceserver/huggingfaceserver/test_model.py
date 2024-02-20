@@ -100,7 +100,7 @@ def test_input_padding():
     # unless we set padding=True in the tokenizer
     request_one = "Hello, my dog is cute."
     request_two = "Hello there, my dog is cute."
-    response = asyncio.run(model({"instances": [request_one, request_two]}, headers={}))
+    response, _ = asyncio.run(model({"instances": [request_one, request_two]}, headers={}))
     assert response == {"predictions": [1, 1]}
 
 
@@ -114,7 +114,7 @@ def test_input_truncation():
     # this request exceeds that, so it will throw an error
     # unless we set truncation=True in the tokenizer
     request = "good " * 600
-    response = asyncio.run(model({"instances": [request]}, headers={}))
+    response, _ = asyncio.run(model({"instances": [request]}, headers={}))
     assert response == {"predictions": [1]}
 
 
