@@ -60,7 +60,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
-        self.device_map = None
+        self.device_map = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_id = kwargs.get('model_id', None)
         self.model_dir = kwargs.get('model_dir', None)
         if not self.model_id and not self.model_dir:
@@ -139,7 +139,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                     raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
 
             if self.model._no_split_modules:  # not all model architcture support model split
-                self.device_map = "auto"
+                self.device_map = "auto" 
 
             if self.task == MLTask.sequence_classification.value:
                 self.model = AutoModelForSequenceClassification.from_pretrained(
@@ -153,13 +153,11 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             elif self.task == MLTask.fill_mask.value:
                 self.model = AutoModelForMaskedLM.from_pretrained(model_id_or_path, device_map=self.device_map)
             elif self.task == MLTask.text_generation.value:
-                self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path, device_map=self.device_map)
+                self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path, device_map="cuda")
             elif self.task == MLTask.text2text_generation.value:
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path, device_map=self.device_map)
 
             self.model.eval()
-            if not self.device_map:
-                self.model.to(self.device)
             logger.info(f"successfully loaded huggingface model from path {model_id_or_path}")
         self.ready = True
         return self.ready
