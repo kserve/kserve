@@ -113,20 +113,21 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
         if not self.task:
             self.task = self.infer_task_from_model_architecture(model_config)
+
+        with init_empty_weights():
+            self.model = AutoModel.from_config(model_config)
+
+        if self.model._no_split_modules:  # not all model architcture support model split
+            self.device_map = "auto"
         # load huggingface tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(
-            model_id_or_path, do_lower_case=self.do_lower_case, device_map="auto")
+            model_id_or_path, do_lower_case=self.do_lower_case, device_map=self.device_map)
         if not self.tokenizer.pad_token:
             self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
         logger.info(f"successfully loaded tokenizer for task: {self.task}")
 
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
-            with init_empty_weights():
-                self.model = AutoModel.from_config(model_config)
-
-            if self.model._no_split_modules:  # not all model architcture support model split
-                self.device_map = "auto"
             if self.task == MLTask.sequence_classification.value:
                 self.model = AutoModelForSequenceClassification.from_pretrained(
                     model_id_or_path, device_map=self.device_map)
