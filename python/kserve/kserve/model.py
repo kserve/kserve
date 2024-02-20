@@ -142,12 +142,12 @@ class Model:
         elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
-                response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
+                res = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(payload, headers)
-                if isinstance(response, dict) and 'headers' in response:
-                    res_data = response['data']
-                    response_headers = response['headers']
-                    response = InferResponse.from_rest(self.name, res_data) if is_v2(PredictorProtocol(self.protocol)) else res_data
+                if isinstance(res, dict) and 'headers' in res:
+                    response_headers = res['headers']
+                    res.pop('headers')
+                    response = InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
@@ -255,7 +255,7 @@ class Model:
         """
         return result
 
-    async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Tuple:
+    async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
         protocol = "https" if self.use_ssl else "http"
         predict_url = PREDICTOR_URL_FORMAT.format(protocol, self.predictor_host, self.name)
         if self.protocol == PredictorProtocol.REST_V2.value:
@@ -289,8 +289,10 @@ class Model:
                     error_message = error_message["error"]
             message = message.format(response, error_message=error_message)
             raise HTTPStatusError(message, request=response.request, response=response)
-        return orjson.loads(response.content), response.headers
-
+        response_dict: dict = orjson.loads(response.content)
+        response_dict['headers'] = response.headers
+        return response_dict
+    
     async def _grpc_predict(self, payload: Union[ModelInferRequest, InferRequest], headers: Dict[str, str] = None) \
             -> ModelInferResponse:
         if isinstance(payload, InferRequest):
@@ -325,12 +327,8 @@ class Model:
             res = await self._grpc_predict(payload, headers)
             return InferResponse.from_grpc(res)
         else:
-            res, response_headers = await self._http_predict(payload, headers)
-            response_data = {
-                'headers': response_headers,
-                'data': res
-            }
-            return response_data
+            response = await self._http_predict(payload, headers)
+            return response
 
     async def generate(self, payload: GenerateRequest,
                        headers: Dict[str, str] = None) -> Union[GenerateResponse, AsyncIterator[Any]]:
