@@ -117,7 +117,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_id_or_path, do_lower_case=self.do_lower_case, device_map="auto")
         if not self.tokenizer.pad_token:
-            self.tokenizer.pad_token = self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+            self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
         logger.info(f"successfully loaded tokenizer for task: {self.task}")
 
         # load huggingface model using from_pretrained for inference mode
