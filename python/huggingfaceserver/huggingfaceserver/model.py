@@ -106,7 +106,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
             if self.infer_vllm_supported_from_model_architecture(model_id_or_path):
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
-                return True
+                self.ready = True
+                return self.ready
 
         if not self.task:
             self.task = self.infer_task_from_model_architecture(model_id_or_path)
