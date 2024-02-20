@@ -43,7 +43,7 @@ except ImportError:
     _vllm = False
 
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer, \
-    AutoConfig, \
+    AutoConfig, AutoModel, \
     AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
     AutoModelForMaskedLM, BatchEncoding, TensorType
 
@@ -123,20 +123,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
             with init_empty_weights():
-                if self.task == MLTask.sequence_classification.value:
-                    self.model = AutoModelForSequenceClassification.from_config(model_config)
-                elif self.task == MLTask.question_answering.value:
-                    self.model = AutoModelForQuestionAnswering.from_config(model_config)
-                elif self.task == MLTask.token_classification.value:
-                    self.model = AutoModelForTokenClassification.from_config(model_config)
-                elif self.task == MLTask.fill_mask.value:
-                    self.model = AutoModelForMaskedLM.from_config(model_config)
-                elif self.task == MLTask.text_generation.value:
-                    self.model = AutoModelForCausalLM.from_config(model_config)
-                elif self.task == MLTask.text2text_generation.value:
-                    self.model = AutoModelForSeq2SeqLM.from_config(model_config)
-                else:
-                    raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
+                self.model = AutoModel.from_config(model_config)
 
             if self.model._no_split_modules:  # not all model architcture support model split
                 self.device_map = "auto"
@@ -155,7 +142,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path, device_map=self.device_map)
             elif self.task == MLTask.text2text_generation.value:
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path, device_map=self.device_map)
-
+            else:
+                raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
             self.model.eval()
             logger.info(f"successfully loaded huggingface model from path {model_id_or_path}")
         self.ready = True
