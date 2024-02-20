@@ -28,13 +28,12 @@ fi
 CODEGEN_PKG="$GOPATH/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
 
 # To avoid permission denied error
-chmod +x "${CODEGEN_PKG}/generate-groups.sh"
-chmod +x "${CODEGEN_PKG}/generate-internal-groups.sh"
+chmod +x "${CODEGEN_PKG}/kube_codegen.sh"
 
 # We can not generate client-go for v1alpha1 and v1beta1 and add them to the same directory.
 # So, we add each to a separate directory.
 # Generating files for v1alpha1
-"${CODEGEN_PKG}/generate-groups.sh" \
+"${CODEGEN_PKG}/kube_codegen.sh" \
     "deepcopy,client,informer,lister" \
     "github.com/kserve/kserve/pkg/clientv1alpha1" \
     "github.com/kserve/kserve/pkg/apis" \
@@ -42,7 +41,7 @@ chmod +x "${CODEGEN_PKG}/generate-internal-groups.sh"
     --go-header-file "${KUBE_ROOT}/hack/boilerplate.go.txt"
 
 # Generating files for v1beta1
-"${CODEGEN_PKG}/generate-groups.sh" \
+"${CODEGEN_PKG}/kube_codegen.sh" \
     "deepcopy,client,informer,lister" \
     "github.com/kserve/kserve/pkg/client" \
     "github.com/kserve/kserve/pkg/apis" \
