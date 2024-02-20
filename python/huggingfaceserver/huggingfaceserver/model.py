@@ -139,8 +139,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                     raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
 
             if self.model._no_split_modules:  # not all model architcture support model split
-                self.device_map = "auto" 
-
+                self.device_map = "auto"
             if self.task == MLTask.sequence_classification.value:
                 self.model = AutoModelForSequenceClassification.from_pretrained(
                     model_id_or_path, device_map=self.device_map)
