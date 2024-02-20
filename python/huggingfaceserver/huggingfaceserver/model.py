@@ -153,7 +153,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             elif self.task == MLTask.fill_mask.value:
                 self.model = AutoModelForMaskedLM.from_pretrained(model_id_or_path, device_map=self.device_map)
             elif self.task == MLTask.text_generation.value:
-                self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path, device_map="cuda")
+                self.model = AutoModelForCausalLM.from_pretrained(model_id_or_path, device_map=self.device_map)
             elif self.task == MLTask.text2text_generation.value:
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path, device_map=self.device_map)
 
@@ -192,7 +192,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             return infer_request
         else:
             inputs = self.tokenizer(
-                instances,
+                instances.tolist(),
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.PYTORCH,
@@ -274,6 +274,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             data = torch.Tensor(outputs.outputs[0].data)
             outputs = data.view(shape)
             input_ids = torch.Tensor(input_ids)
+            logger.info(f"SHAPEEE {shape}")
         inferences = []
         if self.task == MLTask.sequence_classification.value:
             num_rows, num_cols = outputs.shape
