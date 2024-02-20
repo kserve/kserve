@@ -114,10 +114,13 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if not self.task:
             self.task = self.infer_task_from_model_architecture(model_config)
 
+        # device_map = "auto" enables model parallelism but all model architcture dont support it.
+        # For pre-check we initialize the model class without weights to check the `_no_split_modules`
+        # device_map = "auto" for models that support else set to either cuda/cpu
         with init_empty_weights():
             self.model = AutoModel.from_config(model_config)
 
-        if self.model._no_split_modules:  # not all model architcture support model split
+        if self.model._no_split_modules:
             self.device_map = "auto"
         # load huggingface tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(
