@@ -39,8 +39,9 @@ from google.auth import exceptions
 from google.cloud import storage
 
 MODEL_MOUNT_DIRS = "/mnt/models"
-
-_GCS_PREFIX = "gs://"
+#Google Cloud Prefix
+_GCS_PREFIX = "gs://" 
+#Others
 _S3_PREFIX = "s3://"
 _HDFS_PREFIX = "hdfs://"
 _WEBHDFS_PREFIX = "webhdfs://"
@@ -77,8 +78,11 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         elif not os.path.exists(out_dir):
             os.mkdir(out_dir)
 
+#GCS PREFIX
         if uri.startswith(_GCS_PREFIX):
             Storage._download_gcs(uri, out_dir)
+
+
         elif uri.startswith(_S3_PREFIX):
             Storage._download_s3(uri, out_dir)
         elif uri.startswith(_HDFS_PREFIX) or uri.startswith(_WEBHDFS_PREFIX):
@@ -95,10 +99,13 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # Don't need to download models if this InferenceService is running in the multi-model
             # serving mode. The model agent will download models.
             return out_dir
+        
+## TEST
         else:
             raise Exception("Cannot recognize storage type for " + uri +
                             "\n'%s', '%s', '%s', and '%s' are the current available storage type." %
                             (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX))
+
 
         logging.info("Successfully copied %s to %s", uri, out_dir)
         return out_dir
@@ -256,41 +263,51 @@ class Storage(object):  # pylint: disable=too-few-public-methods
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
         try:
-            storage_client = storage.Client()
+        # Try to create a storage client with default credentials
+        storage_client = storage.Client()
         except exceptions.DefaultCredentialsError:
-            storage_client = storage.Client.create_anonymous_client()
-        bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
-        bucket_name = bucket_args[0]
-        bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
-        bucket = storage_client.bucket(bucket_name)
-        prefix = bucket_path
-        if not prefix.endswith("/"):
-            prefix = prefix + "/"
-        blobs = bucket.list_blobs(prefix=prefix)
-        file_count = 0
-        for blob in blobs:
-            # Replace any prefix from the object key with temp_dir
-            subdir_object_key = blob.name.replace(bucket_path, "", 1).lstrip("/")
+        # If default credentials fail, create an anonymous client
+        storage_client = storage.Client.create_anonymous_client()
 
-            # Create necessary subdirectory to store the object locally
-            if "/" in subdir_object_key:
-                local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
-                if not os.path.isdir(local_object_dir):
-                    os.makedirs(local_object_dir, exist_ok=True)
-            if subdir_object_key.strip() != "" and not subdir_object_key.endswith("/"):
-                dest_path = os.path.join(temp_dir, subdir_object_key)
-                logging.info("Downloading: %s", dest_path)
-                blob.download_to_filename(dest_path)
+    # Extract bucket name and path from the GCS URI
+    bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
+    bucket_name = bucket_args[0]
+    bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
+
+    # Get the GCS bucket and list blobs with the specified prefix
+    bucket = storage_client.bucket(bucket_name)
+    prefix = bucket_path if bucket_path.endswith("/") else bucket_path + "/"
+    blobs = bucket.list_blobs(prefix=prefix)
+
+    # Initialize file count
+    file_count = 0
+
+    for blob in blobs:
+        # Replace the bucket path from the object key with temp_dir
+        subdir_object_key = blob.name.replace(bucket_path, "", 1).lstrip("/")
+
+        # Create necessary subdirectory to store the object locally
+        if "/" in subdir_object_key:
+            local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
+            os.makedirs(local_object_dir, exist_ok=True)
+
+        # Download the object if it's a file (not a directory)
+        if subdir_object_key.strip() != "" and not subdir_object_key.endswith("/"):
+            dest_path = os.path.join(temp_dir, subdir_object_key)
+            logging.info("Downloading: %s", dest_path)
+            blob.download_to_filename(dest_path)
             file_count += 1
-        if file_count == 0:
-            raise RuntimeError(
-                "Failed to fetch model. No model found in %s." % uri)
 
-        # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
-        if file_count == 1:
-            mimetype, _ = mimetypes.guess_type(blob.name)
-            if mimetype in ["application/x-tar", "application/zip"]:
-                Storage._unpack_archive_file(dest_path, mimetype, temp_dir)
+    # Check if any files were downloaded
+    if file_count == 0:
+        raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
+
+    # Unpack compressed file, supports .tgz, tar.gz, and zip file formats.
+    if file_count == 1:
+        mimetype, _ = mimetypes.guess_type(blob.name)
+        if mimetype in ["application/x-tar", "application/zip"]:
+            Storage._unpack_archive_file(dest_path, mimetype, temp_dir)
+
 
     @staticmethod
     def _load_hdfs_configuration() -> Dict:
