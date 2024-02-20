@@ -192,7 +192,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             return infer_request
         else:
             inputs = self.tokenizer(
-                instances.tolist(),
+                instances,
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.PYTORCH,
@@ -274,7 +274,6 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             data = torch.Tensor(outputs.outputs[0].data)
             outputs = data.view(shape)
             input_ids = torch.Tensor(input_ids)
-            logger.info(f"SHAPEEE {shape}")
         inferences = []
         if self.task == MLTask.sequence_classification.value:
             num_rows, num_cols = outputs.shape
