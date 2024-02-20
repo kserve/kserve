@@ -142,12 +142,12 @@ class Model:
         elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
-                res = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
+                response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(payload, headers)
-                if isinstance(res, dict) and 'headers' in res:
-                    response_headers = res['headers']
-                    res.pop('headers')
-                    response = InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
+                if isinstance(response, dict) and 'headers' in response:
+                    response_headers = response['headers']
+                    response.pop('headers')
+                    response = InferResponse.from_rest(self.name, response) if is_v2(PredictorProtocol(self.protocol)) else response
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
