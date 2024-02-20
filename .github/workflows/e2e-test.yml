@@ -38,7 +38,7 @@ env:
   ART_IMG: "art-explainer"
   # Transformer images
   IMAGE_TRANSFORMER_IMG: "image-transformer"
-  IMAGE_TRANSFORMER_IMG_TAG: ${{ env.DOCKER_REPO }}/${{ env.IMAGE_TRANSFORMER_IMG }}:${{ github.sha }}"
+  IMAGE_TRANSFORMER_IMG_TAG: "kserve/image-transformer:${{ github.sha }}"
   CUSTOM_TRANSFORMER_GRPC_IMG: "custom-image-transformer-grpc"
   # Graph images
   SUCCESS_200_ISVC_IMG: "success-200-isvc"
