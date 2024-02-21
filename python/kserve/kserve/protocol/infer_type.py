@@ -660,9 +660,9 @@ class InferResponse:
                                      data=get_content(output.datatype, output.contents),
                                      parameters=output.parameters)
                          for output in response.outputs]
-        return cls(model_name=response.model_name, response_id=response.id, parameters=response.parameters,
-                   infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents, from_grpc=True,
-                   model_version=response.model_version)
+        return cls(model_name=response.model_name, model_version=response.model_version, response_id=response.id,
+                   parameters=response.parameters, infer_outputs=infer_outputs,
+                   raw_outputs=response.raw_output_contents, from_grpc=True)
 
     @classmethod
     def from_rest(cls, model_name: str, response: Dict) -> 'InferResponse':
