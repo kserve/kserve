@@ -35,7 +35,7 @@ exclude = ["kserve/storage/test"]
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
 uvicorn = { version = "^0.19.0", extras = ["standard"] }
-fastapi = "^0.95.0"
+fastapi = "^0.108.0"
 cloudevents = "^1.6.2"
 six = "^1.16.0"
 kubernetes = ">=23.3.0"
@@ -64,6 +64,7 @@ boto3 = { version = "^1.21.0", optional = true }
 
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true, python = ">3.8.0,<3.11" }
+pydantic = "<3"
 
 [tool.poetry.extras]
 storage = [
