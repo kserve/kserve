@@ -109,7 +109,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
                 self.ready = True
-                return True
+                return self.ready
 
         if not self.task:
             self.task = self.infer_task_from_model_architecture(model_id_or_path)
