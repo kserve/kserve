@@ -621,12 +621,13 @@ class InferOutput:
 class InferResponse:
     id: str
     model_name: str
+    model_version: Optional[str]
     parameters: Optional[Dict]
     outputs: List[InferOutput]
     from_grpc: bool
 
     def __init__(self, response_id: str, model_name: str, infer_outputs: List[InferOutput],
-                 raw_outputs=None, from_grpc: Optional[bool] = False,
+                 model_version: Optional[str] = None, raw_outputs=None, from_grpc: Optional[bool] = False,
                  parameters: Optional[Union[Dict, MessageMap[str, InferParameter]]] = None):
         """The InferResponse Data Model
 
@@ -634,6 +635,7 @@ class InferResponse:
             response_id: The id of the inference response.
             model_name: The name of the model.
             infer_outputs: The inference outputs of the inference response.
+            model_version: The version of the model.
             raw_outputs: The raw binary data of the inference outputs.
             from_grpc: Indicate if the InferResponse is constructed from a gRPC response.
             parameters: The additional inference parameters.
@@ -641,6 +643,7 @@ class InferResponse:
 
         self.id = response_id
         self.model_name = model_name
+        self.model_version = model_version
         self.outputs = infer_outputs
         self.parameters = parameters
         self.from_grpc = from_grpc
@@ -658,7 +661,8 @@ class InferResponse:
                                      parameters=output.parameters)
                          for output in response.outputs]
         return cls(model_name=response.model_name, response_id=response.id, parameters=response.parameters,
-                   infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents, from_grpc=True)
+                   infer_outputs=infer_outputs, raw_outputs=response.raw_output_contents, from_grpc=True,
+                   model_version=response.model_version)
 
     @classmethod
     def from_rest(cls, model_name: str, response: Dict) -> 'InferResponse':
@@ -672,6 +676,7 @@ class InferResponse:
                                      parameters=output.get('parameters', None))
                          for output in response['outputs']]
         return cls(model_name=model_name,
+                   model_version=response.get('model_version', None),
                    response_id=response.get('id', None),
                    parameters=response.get('parameters', None),
                    infer_outputs=infer_outputs)
@@ -702,6 +707,7 @@ class InferResponse:
         res = {
             'id': self.id,
             'model_name': self.model_name,
+            'model_version': self.model_version,
             'outputs': infer_outputs
         }
         if self.parameters:
@@ -742,14 +748,16 @@ class InferResponse:
                     raise InvalidInput("to_grpc: invalid output datatype")
             infer_outputs.append(infer_output_dict)
 
-        return ModelInferResponse(id=self.id, model_name=self.model_name, outputs=infer_outputs,
-                                  raw_output_contents=raw_output_contents,
+        return ModelInferResponse(id=self.id, model_name=self.model_name, model_version=self.model_version,
+                                  outputs=infer_outputs, raw_output_contents=raw_output_contents,
                                   parameters=to_grpc_parameters(self.parameters) if self.parameters else None)
 
     def __eq__(self, other):
         if not isinstance(other, InferResponse):
             return False
         if self.model_name != other.model_name:
+            return False
+        if self.model_version != other.model_version:
             return False
         if self.id != other.id:
             return False
