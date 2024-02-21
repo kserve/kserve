@@ -894,7 +894,7 @@ pandas = ">=1.3.5"
 prometheus-client = "^0.13.1"
 protobuf = "^3.19.0"
 psutil = "^5.9.0"
-pydantic = "<3"
+pydantic = ">1.0,<3"
 python-dateutil = "^2.8.0"
 ray = {version = "^2.9.2", extras = ["serve"]}
 six = "^1.16.0"
