@@ -25,6 +25,7 @@ import pytest
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from fastapi.testclient import TestClient
+from fastapi.responses import StreamingResponse
 from ray import serve
 
 from kserve import Model, ModelServer, ModelRepository
@@ -66,6 +67,47 @@ def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool =
 
     event = CloudEvent(attributes, data)
     return event
+
+async def fake_data_streamer():
+    for i in range(10):
+      yield "some streamed data"
+      await asyncio.sleep(0.5) # sleep 1/2 second
+
+
+class DummyStreamModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    async def predict(self, request, headers=None):
+            return StreamingResponse(fake_data_streamer())
+
+
+class TestStreamPredict:
+  @pytest.fixture(scope="class")
+  def app(self):  # pylint: disable=no-self-use
+    model = DummyStreamModel("TestModel")
+    model.load()
+    server = ModelServer()
+    server.register_model(model)
+    rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+    return rest_server.create_application()
+
+  @pytest.fixture(scope='class')
+  def http_server_client(self, app):
+    return TestClient(app)
+
+  def test_predict_stream(self, http_server_client):
+     resp = http_server_client.post('/v1/models/TestModel:predict', content=b'{"instances":[[1,2]]}')
+     assert resp.status_code == 200
+     response_content = resp.content.decode("utf-8")
+     for i in range(10):
+       assert f"data chunk {i}" in response_content, f"Missing expected stream content: data chunk {i}"
+     assert response_content.count("data chunk") == 10, "Unexpected number of data chunks in response"
 
 
 class DummyModel(Model):
@@ -182,6 +224,7 @@ class DummyModelRepository(ModelRepository):
                 raise Exception(f"Could not load model {name}.")
             else:
                 return False
+
 
 
 @pytest.mark.asyncio
