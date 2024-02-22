@@ -21,6 +21,10 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
 )
 
 /* NOTE TO AUTHORS:
@@ -28,6 +32,8 @@ import (
  * Only you can prevent ... the proliferation of useless "utility" classes.
  * Please add functional style container operations sparingly and intentionally.
  */
+
+var gvResourcesCache map[string]*metav1.APIResourceList
 
 func Filter(origin map[string]string, predicate func(string) bool) map[string]string {
 	result := make(map[string]string)
@@ -168,4 +174,63 @@ func AppendPortIfNotExists(slice []v1.ContainerPort, elems ...v1.ContainerPort) 
 		}
 	}
 	return slice
+}
+
+// IsCrdAvailable checks if a given CRD is present in the cluster by verifying the
+// existence of its API.
+func IsCrdAvailable(config *rest.Config, groupVersion, kind string) (bool, error) {
+	gvResources, err := GetAvailableResourcesForApi(config, groupVersion)
+	if err != nil {
+		return false, err
+	}
+
+	found := false
+	if gvResources != nil {
+		for _, crd := range gvResources.APIResources {
+			if crd.Kind == kind {
+				found = true
+				break
+			}
+		}
+	}
+
+	return found, nil
+}
+
+// GetAvailableResourcesForApi returns the list of discovered resources that belong
+// to the API specified in groupVersion. The first query to a specifig groupVersion will
+// query the cluster API server to discover the available resources and the discovered
+// resources will be cached and returned to subsequent invocations to prevent additional
+// queries to the API server.
+func GetAvailableResourcesForApi(config *rest.Config, groupVersion string) (*metav1.APIResourceList, error) {
+	var gvResources *metav1.APIResourceList
+	var ok bool
+
+	if gvResources, ok = gvResourcesCache[groupVersion]; !ok {
+		discoveryClient, newClientErr := discovery.NewDiscoveryClientForConfig(config)
+		if newClientErr != nil {
+			return nil, newClientErr
+		}
+
+		var getGvResourcesErr error
+		gvResources, getGvResourcesErr = discoveryClient.ServerResourcesForGroupVersion(groupVersion)
+		if getGvResourcesErr != nil && !apierr.IsNotFound(getGvResourcesErr) {
+			return nil, getGvResourcesErr
+		}
+
+		SetAvailableResourcesForApi(groupVersion, gvResources)
+	}
+
+	return gvResources, nil
+}
+
+// SetAvailableResourcesForApi stores the value fo resources argument in the global cache
+// of discovered API resources. This function should never be called directly. It is exported
+// for usage in tests.
+func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResourceList) {
+	if gvResourcesCache == nil {
+		gvResourcesCache = make(map[string]*metav1.APIResourceList)
+	}
+
+	gvResourcesCache[groupVersion] = resources
 }
