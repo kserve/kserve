@@ -116,6 +116,7 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.PMML,
 		s.LightGBM,
 		s.Paddle,
+		s.HuggingFace,
 		s.Model,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified

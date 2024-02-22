@@ -32,7 +32,7 @@ def test_t5():
 
 
 def test_bert():
-    model = HuggingfaceModel("bert-base-uncased", {"model_id": "bert-base-uncased", "do_lower_case": True})
+    model = HuggingfaceModel("bert-base-uncased", {"model_id": "bert-base-uncased", "disable_lower_case": False})
     model.load()
 
     response = asyncio.run(model({"instances": ["The capital of France is [MASK].",
@@ -47,7 +47,7 @@ def test_bert_predictor_host(httpx_mock: HTTPXMock):
 
     model = HuggingfaceModel("bert", {"model_id": "bert-base-uncased",
                                       "tensor_input_names": "input_ids",
-                                      "do_lower_case": True}, predictor_config=PredictorConfig(
+                                      "disable_lower_case": False}, predictor_config=PredictorConfig(
         predictor_host="localhost:8081", predictor_protocol="v2"))
     model.load()
 
@@ -69,7 +69,7 @@ def test_bert_sequence_classification():
 def test_bert_token_classification():
     model = HuggingfaceModel("bert-large-cased-finetuned-conll03-english",
                              {"model_id": "dbmdz/bert-large-cased-finetuned-conll03-english",
-                              "add_special_tokens": False})
+                              "disable_special_tokens": True})
     model.load()
 
     request = "HuggingFace is a company based in Paris and New York"
@@ -81,12 +81,40 @@ def test_bert_token_classification():
 def test_bloom():
     model = HuggingfaceModel("bloom-560m",
                              {"model_id": "bigscience/bloom-560m",
-                              "add_special_tokens": False})
+                              "disable_special_tokens": True})
     model.load()
 
     request = "Hello, my dog is cute"
     response = asyncio.run(model.generate(generate_request=GenerateRequest(text_input=request), headers={}))
     assert response.text_output == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog"
+
+
+def test_input_padding():
+    model = HuggingfaceModel("bert-base-uncased-yelp-polarity",
+                             {"model_id": "textattack/bert-base-uncased-yelp-polarity",
+                              "task": MLTask.sequence_classification.value})
+    model.load()
+
+    # inputs with different lengths will throw an error
+    # unless we set padding=True in the tokenizer
+    request_one = "Hello, my dog is cute."
+    request_two = "Hello there, my dog is cute."
+    response = asyncio.run(model({"instances": [request_one, request_two]}, headers={}))
+    assert response == {"predictions": [1, 1]}
+
+
+def test_input_truncation():
+    model = HuggingfaceModel("bert-base-uncased-yelp-polarity",
+                             {"model_id": "textattack/bert-base-uncased-yelp-polarity",
+                              "task": MLTask.sequence_classification.value})
+    model.load()
+
+    # bert-base-uncased has a max length of 512 (tokenizer.model_max_length).
+    # this request exceeds that, so it will throw an error
+    # unless we set truncation=True in the tokenizer
+    request = "good " * 600
+    response = asyncio.run(model({"instances": [request]}, headers={}))
+    assert response == {"predictions": [1]}
 
 
 if __name__ == '__main__':

@@ -117,7 +117,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 ("AWS_ACCESS_KEY_ID", "access_key_id"),
                 ("AWS_SECRET_ACCESS_KEY", "secret_access_key"),
                 ("AWS_DEFAULT_REGION", "region"),
-                ("AWS_CA_BUNDLE", "certificate"),
+                ("AWS_CA_BUNDLE", "ca_bundle"),
                 ("S3_VERIFY_SSL", "verify_ssl"),
                 ("awsAnonymousCredential", "anonymous"),
             ):
