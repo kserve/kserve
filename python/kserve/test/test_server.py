@@ -106,6 +106,7 @@ class TestStreamPredict:
         resp = http_server_client.post('/v1/models/TestModel:predict', content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
         response_content = resp.content
+        print(response_content)
         for i in range(10):
             assert f"data chunk {i}" in response_content, f"Missing expected stream content: data chunk {i}"
         assert response_content.count("data chunk") == 10, "Unexpected number of data chunks in response"
