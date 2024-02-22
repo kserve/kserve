@@ -727,7 +727,6 @@ func TestMergeRuntimeContainers(t *testing.T) {
 			},
 			containerOverride: &v1.Container{
 				Args: []string{
-					"--test=dummy",
 					"--new-arg=baz",
 				},
 				Env: []v1.EnvVar{
@@ -745,6 +744,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				Name:  "kserve-container",
 				Image: "default-image",
 				Args: []string{
+					"--foo=bar",
 					"--test=dummy",
 					"--new-arg=baz",
 				},
@@ -762,6 +762,72 @@ func TestMergeRuntimeContainers(t *testing.T) {
 						v1.ResourceCPU:    resource.MustParse("1"),
 						v1.ResourceMemory: resource.MustParse("2Gi"),
 					},
+				},
+			},
+		},
+		"OverlappingContainerArgs": {
+			containerBase: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+			},
+			containerOverride: &v1.Container{
+				Args: []string{
+					"--foo=bar",
+					"--new=v1",
+				},
+			},
+			expected: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--new=v1",
+				},
+			},
+		},
+		"EmptyOverrideContainerArgs": {
+			containerBase: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+			},
+			containerOverride: &v1.Container{
+				Args: []string{},
+			},
+			expected: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+			},
+		},
+		"EmptyBaseContainerArgs": {
+			containerBase: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args:  []string{},
+			},
+			containerOverride: &v1.Container{
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+			},
+			expected: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
 				},
 			},
 		},

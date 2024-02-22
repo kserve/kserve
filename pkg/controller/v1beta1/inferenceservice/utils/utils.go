@@ -211,7 +211,30 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 	if mergedContainer.Name == "" {
 		mergedContainer.Name = runtimeContainerName
 	}
+
+	// Only concatenate args when there's no overlap. See discussions in https://github.com/kserve/kserve/pull/3444
+	if len(findIntersection(runtimeContainer.Args, predictorContainer.Args)) == 0 {
+		mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), predictorContainer.Args...)
+	}
+
 	return &mergedContainer, nil
+}
+
+func findIntersection(arr1, arr2 []string) []string {
+	intersection := make([]string, 0)
+
+	// Traverse each element in arr1
+	for _, num1 := range arr1 {
+		// Check if num1 exists in arr2
+		for _, num2 := range arr2 {
+			if num1 == num2 {
+				intersection = append(intersection, num1)
+				break
+			}
+		}
+	}
+
+	return intersection
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
