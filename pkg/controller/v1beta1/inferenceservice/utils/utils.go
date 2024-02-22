@@ -211,10 +211,6 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 	if mergedContainer.Name == "" {
 		mergedContainer.Name = runtimeContainerName
 	}
-
-	// Strategic merge patch will replace args but more useful behaviour here is to concatenate
-	mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), predictorContainer.Args...)
-
 	return &mergedContainer, nil
 }
 
