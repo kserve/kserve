@@ -19,6 +19,7 @@ package components
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/constants"
@@ -45,6 +46,7 @@ var _ Component = &Explainer{}
 // Explainer reconciles resources for this component.
 type Explainer struct {
 	client                 client.Client
+	clientset              kubernetes.Interface
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder //nolint: unused
@@ -52,10 +54,11 @@ type Explainer struct {
 	Log                    logr.Logger
 }
 
-func NewExplainer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig,
-	deploymentMode constants.DeploymentModeType) Component {
+func NewExplainer(client client.Client, clientest kubernetes.Interface, scheme *runtime.Scheme,
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType) Component {
 	return &Explainer{
 		client:                 client,
+		clientset:              clientest,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
@@ -137,8 +140,8 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 
 	// Here we allow switch between knative and vanilla deployment
 	if e.deploymentMode == constants.RawDeployment {
-		r, err := raw.NewRawKubeReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
-			&podSpec)
+		r, err := raw.NewRawKubeReconciler(e.client, e.clientset, e.scheme, objectMeta,
+			&isvc.Spec.Explainer.ComponentExtensionSpec, &podSpec)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 		}
