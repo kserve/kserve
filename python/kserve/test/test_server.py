@@ -103,7 +103,7 @@ class TestStreamPredict:
         return TestClient(app)
 
     def test_predict_stream(self, http_server_client):
-        resp = http_server_client.post('/v1/models/TestModel:predict', content=None)
+        resp = http_server_client.post('/v1/models/TestModel:predict', content=b'')
         assert resp.status_code == 200
         response_content = resp.content
         for i in range(10):
