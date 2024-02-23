@@ -69,6 +69,7 @@ def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool =
     event = CloudEvent(attributes, data)
     return event
 
+
 async def fake_data_streamer():
     for i in range(10):
         resp_str = 'some streamed data'
@@ -111,6 +112,7 @@ class TestStreamPredict:
         for i in range(10):
             assert "some streamed data" in response_content
         assert response_content.count("some streamed data") == 10, "Unexpected number of streamed responses"
+
 
 class DummyModel(Model):
     def __init__(self, name):
