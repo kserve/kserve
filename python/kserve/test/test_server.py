@@ -50,6 +50,7 @@ test_avsc_schema = '''
         }
         '''
 
+fake_stream_data = 'some streamed data'
 
 def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool = False,
                       contenttype: str = "application/json"):
@@ -72,8 +73,7 @@ def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool =
 
 async def fake_data_streamer():
     for i in range(10):
-        resp_str = 'some streamed data'
-        yield resp_str.encode()
+        yield fake_stream_data.encode()
         await asyncio.sleep(0.5)  # sleep 1/2 second
 
 
@@ -109,8 +109,8 @@ class TestStreamPredict:
         assert resp.status_code == 200
         response_content = resp.content.decode()
         for i in range(10):
-            assert "some streamed data" in response_content
-        assert response_content.count("some streamed data") == 10, "Unexpected number of streamed responses"
+            assert fake_stream_data in response_content
+        assert response_content.count(fake_stream_data) == 10, "Unexpected number of streamed responses"
 
 
 class DummyModel(Model):
