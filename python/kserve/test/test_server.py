@@ -71,7 +71,9 @@ def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool =
 
 async def fake_data_streamer():
     for i in range(10):
-        yield "some streamed data"
+        resp_str = 'some streamed data'
+        # yield resp_str.encode()
+        yield json.dumps({'msg': resp_str})
         await asyncio.sleep(0.5)  # sleep 1/2 second
 
 
@@ -85,7 +87,7 @@ class DummyStreamModel(Model):
         self.ready = True
 
     async def predict(self, request, headers=None):
-        return StreamingResponse(fake_data_streamer())
+        return StreamingResponse(fake_data_streamer(), media_type='text/event-stream')
 
 
 class TestStreamPredict:
@@ -105,6 +107,8 @@ class TestStreamPredict:
     def test_predict_stream(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict', content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
+        print("after assert 200")
+        print(resp.json)
         response_content = resp.content
         print(response_content)
         for i in range(10):
