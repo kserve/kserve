@@ -74,7 +74,6 @@ async def fake_data_streamer():
     for i in range(10):
         resp_str = 'some streamed data'
         yield resp_str.encode()
-        # yield json.dumps({'msg': resp_str})
         await asyncio.sleep(0.5)  # sleep 1/2 second
 
 
