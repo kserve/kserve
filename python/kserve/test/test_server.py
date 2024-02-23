@@ -107,10 +107,7 @@ class TestStreamPredict:
     def test_predict_stream(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict', content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 200
-        print("after assert 200")
-        print(resp.json)
         response_content = resp.content.decode()
-        print(response_content)
         for i in range(10):
             assert "some streamed data" in response_content
         assert response_content.count("some streamed data") == 10, "Unexpected number of streamed responses"
