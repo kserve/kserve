@@ -14,7 +14,6 @@
 
 import json
 import os
-import time
 
 import pytest
 from kubernetes import client
@@ -93,19 +92,7 @@ def test_xgboost_v2_mlserver():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
-    # TODO: Remove sleep once wait_model_ready supports path based routing. Since path based routing genarates a url
-    # different from the host based routing wait_model_ready will always fail.
-    time.sleep(10)
-    # kserve_client.wait_model_ready(
-    #     service_name,
-    #     model_name=service_name,
-    #     isvc_namespace=KSERVE_TEST_NAMESPACE,
-    #     isvc_version=constants.KSERVE_V1BETA1_VERSION,
-    #     protocol_version=protocol_version,
-    #     cluster_ip=get_cluster_ip(),
-    # )
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/iris_input_v2.json",
                   protocol_version="v2")
@@ -185,19 +172,7 @@ def test_xgboost_v2_runtime_mlserver():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
-    # TODO: Remove sleep once wait_model_ready supports path based routing. Since path based routing genarates a url
-    # different from the host based routing wait_model_ready will always fail.
-    time.sleep(10)
-    # kserve_client.wait_model_ready(
-    #     service_name,
-    #     model_name=service_name,
-    #     isvc_namespace=KSERVE_TEST_NAMESPACE,
-    #     isvc_version=constants.KSERVE_V1BETA1_VERSION,
-    #     protocol_version=protocol_version,
-    #     cluster_ip=get_cluster_ip(),
-    # )
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/iris_input_v2.json",
                   protocol_version="v2")
