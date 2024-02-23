@@ -52,6 +52,7 @@ test_avsc_schema = '''
 
 fake_stream_data = 'some streamed data'
 
+
 def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool = False,
                       contenttype: str = "application/json"):
     # This data defines a binary cloudevent
