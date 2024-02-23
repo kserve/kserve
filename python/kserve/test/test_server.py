@@ -112,8 +112,8 @@ class TestStreamPredict:
         response_content = resp.content.decode()
         print(response_content)
         for i in range(10):
-            assert f"some streamed data" in response_content, f"Missing expected stream content: data chunk {i}"
-        assert response_content.count("some streamed data") == 10, "Unexpected number of data chunks in response"
+            assert "some streamed data" in response_content
+        assert response_content.count("some streamed data") == 10, "Unexpected number of streamed responses"
 
 
 class DummyModel(Model):
