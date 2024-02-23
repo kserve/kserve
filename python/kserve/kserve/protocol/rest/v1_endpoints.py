@@ -80,7 +80,7 @@ class V1Endpoints:
                                                            response=response,
                                                            headers=headers, req_attributes=req_attributes)
 
-        if not isinstance(response, dict):
+        if isinstance(response, bytes) or isinstance(response, str):
             return Response(content=response, headers=response_headers)
         return response
 

@@ -72,8 +72,8 @@ def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool =
 async def fake_data_streamer():
     for i in range(10):
         resp_str = 'some streamed data'
-        # yield resp_str.encode()
-        yield json.dumps({'msg': resp_str})
+        yield resp_str.encode()
+        # yield json.dumps({'msg': resp_str})
         await asyncio.sleep(0.5)  # sleep 1/2 second
 
 
@@ -109,11 +109,11 @@ class TestStreamPredict:
         assert resp.status_code == 200
         print("after assert 200")
         print(resp.json)
-        response_content = resp.content
+        response_content = resp.content.decode()
         print(response_content)
         for i in range(10):
-            assert f"data chunk {i}" in response_content, f"Missing expected stream content: data chunk {i}"
-        assert response_content.count("data chunk") == 10, "Unexpected number of data chunks in response"
+            assert f"some streamed data" in response_content, f"Missing expected stream content: data chunk {i}"
+        assert response_content.count("some streamed data") == 10, "Unexpected number of data chunks in response"
 
 
 class DummyModel(Model):
