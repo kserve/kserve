@@ -18,27 +18,29 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
 
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"math/rand"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 	flag "github.com/spf13/pflag"
 )
 
@@ -327,9 +329,21 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
+// Mainly used for kubernetes readiness probe. It responds with "500 shutting down" if server is shutting down,
+// otherwise returns "200 OK".
+func readyHandler(w http.ResponseWriter, req *http.Request) {
+	if isShuttingDown {
+		http.Error(w, "shutting down", http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 var (
 	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
 	compiledHeaderPatterns []*regexp.Regexp
+	isShuttingDown         = false
+	drainSleepDuration     = 30 * time.Second
 )
 
 func main() {
@@ -351,11 +365,43 @@ func main() {
 		os.Exit(1)
 	}
 
+	server := &http.Server{
+		Addr:    ":" + strconv.Itoa(constants.RouterPort),
+		Handler: nil, // default server mux
+		// https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		ReadHeaderTimeout: time.Minute,
+	}
 	http.HandleFunc("/", graphHandler)
+	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
 
-	err = http.ListenAndServe(":8080", nil)
-	if err != nil {
-		log.Error(err, "failed to listen on 8080")
+	go func() {
+		err = server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error(err, fmt.Sprintf("Failed to serve on address %v", server.Addr))
+			os.Exit(1)
+		}
+	}()
+
+	// Blocks until SIGTERM or SIGINT is received
+	handleSignals(server)
+}
+
+func handleSignals(server *http.Server) {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	sig := <-signalChan
+	log.Info("Received shutdown signal", "signal", sig)
+	// Fail the readiness probe
+	isShuttingDown = true
+	log.Info("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
+	// Sleep to give networking a little bit more time to remove the pod
+	// from its configuration and propagate that to all loadbalancers and nodes.
+	time.Sleep(drainSleepDuration)
+	// Shut down the server gracefully
+	if err := server.Shutdown(context.Background()); err != nil {
+		log.Error(err, "Failed to shutdown the server gracefully")
 		os.Exit(1)
 	}
+	log.Info("Server gracefully shutdown")
 }
