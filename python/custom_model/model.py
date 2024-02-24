@@ -84,6 +84,7 @@ class AlexNetModel(Model):
         return input_tensor.unsqueeze(0)
 
     def predict(self, input_tensor: torch.Tensor, headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
+        example_response_headers = {"my-header": "test_header"}
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
@@ -92,9 +93,12 @@ class AlexNetModel(Model):
         infer_output = InferOutput(name="output-0", shape=list(values.shape), datatype="FP32", data=result)
         infer_response = InferResponse(model_name=self.name, infer_outputs=[infer_output], response_id=response_id)
         if "request-type" in headers and headers["request-type"] == "v1":
-            return {"predictions": result}
+            response = {"predictions": result}
         else:
-            return infer_response
+            response = infer_response.to_rest()
+
+        response["headers"] = example_response_headers
+        return response
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])

@@ -121,6 +121,16 @@ jobs:
         with:
           image: "kserve/custom-image-transformer-grpc:${{ github.sha }}"
 
+      - name: Upload custom model http image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/custom-model-http:${{ github.sha }}"
+
+      - name: Upload custom model transformer http image
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: "kserve/custom-image-transformer-http:${{ github.sha }}"
+
   explainer-runtime-build:
     runs-on: ubuntu-latest
     needs: [poetry-check]
@@ -379,6 +389,16 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "kserve/paddleserver:${{ github.sha }}"
+
+      - name: Download custom model http image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/custom-model-http:${{ github.sha }}"
+
+      - name: Download custom transformer http image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: "kserve/custom-image-transformer-http:${{ github.sha }}"
 
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh

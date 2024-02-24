@@ -100,6 +100,7 @@ def predict_str(service_name, input_json, protocol_version="v1",
     logging.info("Got response code %s, content %s", response.status_code, response.content)
     if response.status_code == 200:
         preds = json.loads(response.content.decode("utf-8"))
+        preds["headers"] = response.headers
         return preds
     else:
         response.raise_for_status()
