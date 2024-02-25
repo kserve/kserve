@@ -22,11 +22,11 @@ from unittest import mock
 
 import avro.io
 import avro.schema
+import httpx
 import pytest
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from fastapi.testclient import TestClient
-from fastapi.responses import StreamingResponse
 from ray import serve
 
 from kserve import Model, ModelServer, ModelRepository
@@ -88,7 +88,7 @@ class DummyStreamModel(Model):
         self.ready = True
 
     async def predict(self, request, headers=None):
-        return StreamingResponse(fake_data_streamer(), media_type='text/event-stream')
+        return fake_data_streamer()
 
 
 class TestStreamPredict:
@@ -106,12 +106,15 @@ class TestStreamPredict:
         return TestClient(app)
 
     def test_predict_stream(self, http_server_client):
-        resp = http_server_client.post('/v1/models/TestModel:predict', content=b'{"instances":[[1,2]]}')
-        assert resp.status_code == 200
-        response_content = resp.content.decode()
-        for i in range(10):
-            assert fake_stream_data in response_content
-        assert response_content.count(fake_stream_data) == 10, "Unexpected number of streamed responses"
+        with http_server_client.stream('POST', '/v1/models/TestModel:predict',
+                                       content=b'{"instances":[[1,2]]}') as response:
+            response: httpx.Response
+            all_data = []
+            for value in response.iter_bytes():
+                data = value.decode()
+                assert fake_stream_data in data
+                all_data.append(data)
+        assert all([fake_stream_data in data for data in all_data]), "Unexpected number of streamed responses"
 
 
 class DummyModel(Model):
