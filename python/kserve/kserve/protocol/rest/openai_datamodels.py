@@ -95,3 +95,15 @@ class ChatCompletionResponseStreamChoice(BaseModel):
     delta: DeltaMessage
     finish_reason: Optional[Literal["stop", "length"]] = None
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class DeltaMessage(BaseModel):
+    role: Optional[str] = None
+    content: Optional[str] = None
+
+class UsageInfo(BaseModel):
+    prompt_tokens: int = 0
+    total_tokens: int = 0
+    completion_tokens: Optional[int] = 0

@@ -1,21 +1,18 @@
-# import json
+import time
+import codecs
 from typing import AsyncGenerator, AsyncIterator, Optional, Union
 from fastapi.requests import Request
 from fastapi.responses import Response
 from starlette.responses import StreamingResponse
+from vllm.utils import random_uuid
 
-from ..infer_type import InferInput, InferRequest
 from .openai_datamodels import (
     ChatCompletionRequest, ChatCompletionResponse,
     ChatCompletionStreamResponse, ChatCompletionResponseChoice,
-    ChatCompletionResponseStreamChoice, ErrorResponse)
-from .v2_datamodels import (
-    InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
-    ModelMetadataResponse, InferenceResponse, ModelReadyResponse, ListModelsResponse, GenerateRequest, GenerateResponse
-)
+    ChatCompletionResponseStreamChoice, ErrorResponse,
+    ChatMessage, DeltaMessage, UsageInfo)
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
-from ...errors import ModelNotReady
 
 
 class OpenAIEndpoints:
@@ -30,7 +27,7 @@ class OpenAIEndpoints:
         self, request: ChatCompletionRequest, raw_request: Request
     ) -> Union[ErrorResponse, AsyncGenerator[str, None],
                ChatCompletionResponse]:
-        """Mimics vLLM's Completion API, which mimics OpenAI's ChatCompletion API.
+        """This API mimics vLLM's Completion API, which mimics OpenAI's ChatCompletion API.
         See https://platform.openai.com/docs/api-reference/chat/create
         for the API specification.
 
@@ -47,15 +44,16 @@ class OpenAIEndpoints:
             return self.create_error_response(
                 "logit_bias is not currently supported")
 
-        try:
-            prompt = self.tokenizer.apply_chat_template(
-                conversation=request.messages,
-                tokenize=False,
-                add_generation_prompt=request.add_generation_prompt)
-        except Exception as e:
-            logger.error(
-                f"Error in applying chat template from request: {str(e)}")
-            return self.create_error_response(str(e))
+        # TODO: figure out where to pass tokenizer
+        # try:
+        prompt = self.tokenizer.apply_chat_template(
+            conversation=request.messages,
+            tokenize=False,
+            add_generation_prompt=request.add_generation_prompt)
+        # except Exception as e:
+        #     logger.error(
+        #         f"Error in applying chat template from request: {str(e)}")
+        #     return self.create_error_response(str(e))
 
         request_id = f"cmpl-{random_uuid()}"
         try:
@@ -195,10 +193,11 @@ class OpenAIEndpoints:
         final_res: RequestOutput = None
 
         async for res in result_generator:
-            if await raw_request.is_disconnected():
-                # Abort the request if the client disconnects.
-                await self.engine.abort(request_id)
-                return self.create_error_response("Client disconnected")
+            # TODO: figure out use case with raw_request
+            # if await raw_request.is_disconnected():
+            #     # Abort the request if the client disconnects.
+            #     await self.engine.abort(request_id)
+            #     return self.create_error_response("Client disconnected")
             final_res = res
         assert final_res is not None
 
@@ -253,26 +252,26 @@ class OpenAIEndpoints:
                 self.tokenizer.chat_template = codecs.decode(
                     chat_template, "unicode_escape")
 
-            logger.info(
-                f"Using supplied chat template:\n{self.tokenizer.chat_template}"
-            )
-        elif self.tokenizer.chat_template is not None:
-            logger.info(
-                f"Using default chat template:\n{self.tokenizer.chat_template}"
-            )
-        else:
-            logger.warning(
-                "No chat template provided. Chat API will not work.")
+        #     logger.info(
+        #         f"Using supplied chat template:\n{self.tokenizer.chat_template}"
+        #     )
+        # elif self.tokenizer.chat_template is not None:
+        #     logger.info(
+        #         f"Using default chat template:\n{self.tokenizer.chat_template}"
+        #     )
+        # else:
+        #     logger.warning(
+        #         "No chat template provided. Chat API will not work.")
 
     async def generate(self, request: ChatCompletionRequest, raw_request: Request):
         generator = await self._create_generator(
             request, raw_request)
         if isinstance(generator, ErrorResponse):
-            return JSONResponse(content=generator.model_dump(),
-                                status_code=generator.code)
+            return Response(content=generator.model_dump(),
+                            status_code=generator.code)
         if request.stream:
             return StreamingResponse(content=generator,
-                                    media_type="text/event-stream")
+                                     media_type="text/event-stream")
         else:
-            return JSONResponse(content=generator.model_dump())
+            return Response(content=generator.model_dump())
 
