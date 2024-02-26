@@ -46,7 +46,7 @@ import (
 // Constants
 var (
 	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://"}
-	log                           = logf.Log.WithName("CredentialBuilder")
+	log                           = logf.Log.WithName("InferenceServiceUtils")
 )
 
 const (
