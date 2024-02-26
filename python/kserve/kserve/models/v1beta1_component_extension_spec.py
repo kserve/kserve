@@ -54,9 +54,17 @@ class V1beta1ComponentExtensionSpec(object):
         'labels': 'dict(str, str)',
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
+        'min_ready_seconds': 'int',
         'min_replicas': 'int',
+        'paused': 'bool',
+        'progress_deadline_seconds': 'int',
+        'replicas': 'int',
+        'revision_history_limit': 'int',
         'scale_metric': 'str',
         'scale_target': 'int',
+        'selector': 'V1LabelSelector',
+        'strategy': 'K8sIoApiAppsV1DeploymentStrategy',
+        'template': 'V1PodTemplateSpec',
         'timeout': 'int'
     }
 
@@ -68,13 +76,21 @@ class V1beta1ComponentExtensionSpec(object):
         'labels': 'labels',
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
+        'min_ready_seconds': 'minReadySeconds',
         'min_replicas': 'minReplicas',
+        'paused': 'paused',
+        'progress_deadline_seconds': 'progressDeadlineSeconds',
+        'replicas': 'replicas',
+        'revision_history_limit': 'revisionHistoryLimit',
         'scale_metric': 'scaleMetric',
         'scale_target': 'scaleTarget',
+        'selector': 'selector',
+        'strategy': 'strategy',
+        'template': 'template',
         'timeout': 'timeout'
     }
 
-    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, labels=None, logger=None, max_replicas=None, min_ready_seconds=None, min_replicas=None, paused=None, progress_deadline_seconds=None, replicas=None, revision_history_limit=None, scale_metric=None, scale_target=None, selector=None, strategy=None, template=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -87,9 +103,17 @@ class V1beta1ComponentExtensionSpec(object):
         self._labels = None
         self._logger = None
         self._max_replicas = None
+        self._min_ready_seconds = None
         self._min_replicas = None
+        self._paused = None
+        self._progress_deadline_seconds = None
+        self._replicas = None
+        self._revision_history_limit = None
         self._scale_metric = None
         self._scale_target = None
+        self._selector = None
+        self._strategy = None
+        self._template = None
         self._timeout = None
         self.discriminator = None
 
@@ -107,12 +131,26 @@ class V1beta1ComponentExtensionSpec(object):
             self.logger = logger
         if max_replicas is not None:
             self.max_replicas = max_replicas
+        if min_ready_seconds is not None:
+            self.min_ready_seconds = min_ready_seconds
         if min_replicas is not None:
             self.min_replicas = min_replicas
+        if paused is not None:
+            self.paused = paused
+        if progress_deadline_seconds is not None:
+            self.progress_deadline_seconds = progress_deadline_seconds
+        if replicas is not None:
+            self.replicas = replicas
+        if revision_history_limit is not None:
+            self.revision_history_limit = revision_history_limit
         if scale_metric is not None:
             self.scale_metric = scale_metric
         if scale_target is not None:
             self.scale_target = scale_target
+        self.selector = selector
+        if strategy is not None:
+            self.strategy = strategy
+        self.template = template
         if timeout is not None:
             self.timeout = timeout
 
@@ -274,6 +312,29 @@ class V1beta1ComponentExtensionSpec(object):
         self._max_replicas = max_replicas
 
     @property
+    def min_ready_seconds(self):
+        """Gets the min_ready_seconds of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)  # noqa: E501
+
+        :return: The min_ready_seconds of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._min_ready_seconds
+
+    @min_ready_seconds.setter
+    def min_ready_seconds(self, min_ready_seconds):
+        """Sets the min_ready_seconds of this V1beta1ComponentExtensionSpec.
+
+        Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)  # noqa: E501
+
+        :param min_ready_seconds: The min_ready_seconds of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._min_ready_seconds = min_ready_seconds
+
+    @property
     def min_replicas(self):
         """Gets the min_replicas of this V1beta1ComponentExtensionSpec.  # noqa: E501
 
@@ -295,6 +356,98 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._min_replicas = min_replicas
+
+    @property
+    def paused(self):
+        """Gets the paused of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        Indicates that the deployment is paused.  # noqa: E501
+
+        :return: The paused of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._paused
+
+    @paused.setter
+    def paused(self, paused):
+        """Sets the paused of this V1beta1ComponentExtensionSpec.
+
+        Indicates that the deployment is paused.  # noqa: E501
+
+        :param paused: The paused of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._paused = paused
+
+    @property
+    def progress_deadline_seconds(self):
+        """Gets the progress_deadline_seconds of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.  # noqa: E501
+
+        :return: The progress_deadline_seconds of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._progress_deadline_seconds
+
+    @progress_deadline_seconds.setter
+    def progress_deadline_seconds(self, progress_deadline_seconds):
+        """Sets the progress_deadline_seconds of this V1beta1ComponentExtensionSpec.
+
+        The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.  # noqa: E501
+
+        :param progress_deadline_seconds: The progress_deadline_seconds of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._progress_deadline_seconds = progress_deadline_seconds
+
+    @property
+    def replicas(self):
+        """Gets the replicas of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.  # noqa: E501
+
+        :return: The replicas of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._replicas
+
+    @replicas.setter
+    def replicas(self, replicas):
+        """Sets the replicas of this V1beta1ComponentExtensionSpec.
+
+        Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.  # noqa: E501
+
+        :param replicas: The replicas of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._replicas = replicas
+
+    @property
+    def revision_history_limit(self):
+        """Gets the revision_history_limit of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.  # noqa: E501
+
+        :return: The revision_history_limit of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._revision_history_limit
+
+    @revision_history_limit.setter
+    def revision_history_limit(self, revision_history_limit):
+        """Sets the revision_history_limit of this V1beta1ComponentExtensionSpec.
+
+        The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.  # noqa: E501
+
+        :param revision_history_limit: The revision_history_limit of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._revision_history_limit = revision_history_limit
 
     @property
     def scale_metric(self):
@@ -341,6 +494,73 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._scale_target = scale_target
+
+    @property
+    def selector(self):
+        """Gets the selector of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The selector of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: V1LabelSelector
+        """
+        return self._selector
+
+    @selector.setter
+    def selector(self, selector):
+        """Sets the selector of this V1beta1ComponentExtensionSpec.
+
+
+        :param selector: The selector of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: V1LabelSelector
+        """
+        if self.local_vars_configuration.client_side_validation and selector is None:  # noqa: E501
+            raise ValueError("Invalid value for `selector`, must not be `None`")  # noqa: E501
+
+        self._selector = selector
+
+    @property
+    def strategy(self):
+        """Gets the strategy of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The strategy of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: K8sIoApiAppsV1DeploymentStrategy
+        """
+        return self._strategy
+
+    @strategy.setter
+    def strategy(self, strategy):
+        """Sets the strategy of this V1beta1ComponentExtensionSpec.
+
+
+        :param strategy: The strategy of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: K8sIoApiAppsV1DeploymentStrategy
+        """
+
+        self._strategy = strategy
+
+    @property
+    def template(self):
+        """Gets the template of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The template of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: V1PodTemplateSpec
+        """
+        return self._template
+
+    @template.setter
+    def template(self, template):
+        """Sets the template of this V1beta1ComponentExtensionSpec.
+
+
+        :param template: The template of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: V1PodTemplateSpec
+        """
+        if self.local_vars_configuration.client_side_validation and template is None:  # noqa: E501
+            raise ValueError("Invalid value for `template`, must not be `None`")  # noqa: E501
+
+        self._template = template
 
     @property
     def timeout(self):

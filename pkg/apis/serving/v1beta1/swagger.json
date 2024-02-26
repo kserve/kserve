@@ -1163,6 +1163,10 @@
     "v1beta1.ComponentExtensionSpec": {
       "description": "ComponentExtensionSpec defines the deployment configuration for a given InferenceService component",
       "type": "object",
+      "required": [
+        "selector",
+        "template"
+      ],
       "properties": {
         "annotations": {
           "description": "Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations",
@@ -1203,8 +1207,32 @@
           "type": "integer",
           "format": "int32"
         },
+        "minReadySeconds": {
+          "description": "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
+          "type": "integer",
+          "format": "int32"
+        },
         "minReplicas": {
           "description": "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "paused": {
+          "description": "Indicates that the deployment is paused.",
+          "type": "boolean"
+        },
+        "progressDeadlineSeconds": {
+          "description": "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "replicas": {
+          "description": "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "revisionHistoryLimit": {
+          "description": "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.",
           "type": "integer",
           "format": "int32"
         },
@@ -1216,6 +1244,21 @@
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "selector": {
+          "description": "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels.",
+          "$ref": "#/definitions/v1.LabelSelector"
+        },
+        "strategy": {
+          "description": "The deployment strategy to use to replace existing pods with new ones.",
+          "default": {},
+          "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy",
+          "x-kubernetes-patch-strategy": "retainKeys"
+        },
+        "template": {
+          "description": "Template describes the pods that will be created. The only allowed template.spec.restartPolicy value is \"Always\".",
+          "default": {},
+          "$ref": "#/definitions/v1.PodTemplateSpec"
         },
         "timeout": {
           "description": "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
@@ -2223,6 +2266,10 @@
     "v1beta1.ExplainerSpec": {
       "description": "ExplainerSpec defines the container spec for a model explanation server, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
       "type": "object",
+      "required": [
+        "selector",
+        "template"
+      ],
       "properties": {
         "activeDeadlineSeconds": {
           "description": "Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer.",
@@ -2366,6 +2413,11 @@
           "type": "integer",
           "format": "int32"
         },
+        "minReadySeconds": {
+          "description": "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
+          "type": "integer",
+          "format": "int32"
+        },
         "minReplicas": {
           "description": "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
           "type": "integer",
@@ -2395,6 +2447,10 @@
             "$ref": "#/definitions/resource.Quantity"
           }
         },
+        "paused": {
+          "description": "Indicates that the deployment is paused.",
+          "type": "boolean"
+        },
         "preemptionPolicy": {
           "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset. This field is beta-level, gated by the NonPreemptingPriority feature-gate.",
           "type": "string"
@@ -2408,6 +2464,11 @@
           "description": "If specified, indicates the pod's priority. \"system-node-critical\" and \"system-cluster-critical\" are two special keywords which indicate the highest priorities with the former being the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.",
           "type": "string"
         },
+        "progressDeadlineSeconds": {
+          "description": "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.",
+          "type": "integer",
+          "format": "int32"
+        },
         "readinessGates": {
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
@@ -2415,6 +2476,11 @@
             "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           }
+        },
+        "replicas": {
+          "description": "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+          "type": "integer",
+          "format": "int32"
         },
         "resourceClaims": {
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
@@ -2433,6 +2499,11 @@
         "restartPolicy": {
           "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
           "type": "string"
+        },
+        "revisionHistoryLimit": {
+          "description": "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.",
+          "type": "integer",
+          "format": "int32"
         },
         "runtimeClassName": {
           "description": "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class This is a beta feature as of Kubernetes v1.14.",
@@ -2469,6 +2540,10 @@
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
         },
+        "selector": {
+          "description": "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels.",
+          "$ref": "#/definitions/v1.LabelSelector"
+        },
         "serviceAccount": {
           "description": "DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
           "type": "string"
@@ -2485,9 +2560,20 @@
           "description": "Share a single process namespace between all of the containers in a pod. When this is set containers will be able to view and signal processes from other containers in the same pod, and the first process in each container will not be assigned PID 1. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false.",
           "type": "boolean"
         },
+        "strategy": {
+          "description": "The deployment strategy to use to replace existing pods with new ones.",
+          "default": {},
+          "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy",
+          "x-kubernetes-patch-strategy": "retainKeys"
+        },
         "subdomain": {
           "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
+        },
+        "template": {
+          "description": "Template describes the pods that will be created. The only allowed template.spec.restartPolicy value is \"Always\".",
+          "default": {},
+          "$ref": "#/definitions/v1.PodTemplateSpec"
         },
         "terminationGracePeriodSeconds": {
           "description": "Optional duration in seconds the pod needs to terminate gracefully. May be decreased in delete request. Value must be non-negative integer. The value zero indicates stop immediately via the kill signal (no opportunity to shut down). If this value is nil, the default grace period will be used instead. The grace period is the duration in seconds after the processes running in the pod are sent a termination signal and the time when the processes are forcibly halted with a kill signal. Set this value longer than the expected cleanup time for your process. Defaults to 30 seconds.",
@@ -4266,6 +4352,10 @@
     "v1beta1.PredictorSpec": {
       "description": "PredictorSpec defines the configuration for a predictor, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
       "type": "object",
+      "required": [
+        "selector",
+        "template"
+      ],
       "properties": {
         "activeDeadlineSeconds": {
           "description": "Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer.",
@@ -4409,6 +4499,11 @@
           "type": "integer",
           "format": "int32"
         },
+        "minReadySeconds": {
+          "description": "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
+          "type": "integer",
+          "format": "int32"
+        },
         "minReplicas": {
           "description": "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
           "type": "integer",
@@ -4450,6 +4545,10 @@
           "description": "Spec for Paddle model server (https://github.com/PaddlePaddle/Serving)",
           "$ref": "#/definitions/v1beta1.PaddleServerSpec"
         },
+        "paused": {
+          "description": "Indicates that the deployment is paused.",
+          "type": "boolean"
+        },
         "pmml": {
           "description": "Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)",
           "$ref": "#/definitions/v1beta1.PMMLSpec"
@@ -4467,6 +4566,11 @@
           "description": "If specified, indicates the pod's priority. \"system-node-critical\" and \"system-cluster-critical\" are two special keywords which indicate the highest priorities with the former being the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.",
           "type": "string"
         },
+        "progressDeadlineSeconds": {
+          "description": "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.",
+          "type": "integer",
+          "format": "int32"
+        },
         "pytorch": {
           "description": "Spec for TorchServe (https://pytorch.org/serve)",
           "$ref": "#/definitions/v1beta1.TorchServeSpec"
@@ -4478,6 +4582,11 @@
             "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           }
+        },
+        "replicas": {
+          "description": "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+          "type": "integer",
+          "format": "int32"
         },
         "resourceClaims": {
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
@@ -4496,6 +4605,11 @@
         "restartPolicy": {
           "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
           "type": "string"
+        },
+        "revisionHistoryLimit": {
+          "description": "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.",
+          "type": "integer",
+          "format": "int32"
         },
         "runtimeClassName": {
           "description": "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class This is a beta feature as of Kubernetes v1.14.",
@@ -4532,6 +4646,10 @@
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
         },
+        "selector": {
+          "description": "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels.",
+          "$ref": "#/definitions/v1.LabelSelector"
+        },
         "serviceAccount": {
           "description": "DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
           "type": "string"
@@ -4552,9 +4670,20 @@
           "description": "Spec for SKLearn model server",
           "$ref": "#/definitions/v1beta1.SKLearnSpec"
         },
+        "strategy": {
+          "description": "The deployment strategy to use to replace existing pods with new ones.",
+          "default": {},
+          "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy",
+          "x-kubernetes-patch-strategy": "retainKeys"
+        },
         "subdomain": {
           "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
+        },
+        "template": {
+          "description": "Template describes the pods that will be created. The only allowed template.spec.restartPolicy value is \"Always\".",
+          "default": {},
+          "$ref": "#/definitions/v1.PodTemplateSpec"
         },
         "tensorflow": {
           "description": "Spec for TFServing (https://github.com/tensorflow/serving)",
@@ -5139,6 +5268,10 @@
     "v1beta1.TransformerSpec": {
       "description": "TransformerSpec defines transformer service for pre/post processing",
       "type": "object",
+      "required": [
+        "selector",
+        "template"
+      ],
       "properties": {
         "activeDeadlineSeconds": {
           "description": "Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer.",
@@ -5274,6 +5407,11 @@
           "type": "integer",
           "format": "int32"
         },
+        "minReadySeconds": {
+          "description": "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
+          "type": "integer",
+          "format": "int32"
+        },
         "minReplicas": {
           "description": "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
           "type": "integer",
@@ -5303,6 +5441,10 @@
             "$ref": "#/definitions/resource.Quantity"
           }
         },
+        "paused": {
+          "description": "Indicates that the deployment is paused.",
+          "type": "boolean"
+        },
         "preemptionPolicy": {
           "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset. This field is beta-level, gated by the NonPreemptingPriority feature-gate.",
           "type": "string"
@@ -5316,6 +5458,11 @@
           "description": "If specified, indicates the pod's priority. \"system-node-critical\" and \"system-cluster-critical\" are two special keywords which indicate the highest priorities with the former being the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.",
           "type": "string"
         },
+        "progressDeadlineSeconds": {
+          "description": "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.",
+          "type": "integer",
+          "format": "int32"
+        },
         "readinessGates": {
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
@@ -5323,6 +5470,11 @@
             "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           }
+        },
+        "replicas": {
+          "description": "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+          "type": "integer",
+          "format": "int32"
         },
         "resourceClaims": {
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
@@ -5341,6 +5493,11 @@
         "restartPolicy": {
           "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
           "type": "string"
+        },
+        "revisionHistoryLimit": {
+          "description": "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.",
+          "type": "integer",
+          "format": "int32"
         },
         "runtimeClassName": {
           "description": "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class This is a beta feature as of Kubernetes v1.14.",
@@ -5377,6 +5534,10 @@
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
         },
+        "selector": {
+          "description": "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels.",
+          "$ref": "#/definitions/v1.LabelSelector"
+        },
         "serviceAccount": {
           "description": "DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
           "type": "string"
@@ -5393,9 +5554,20 @@
           "description": "Share a single process namespace between all of the containers in a pod. When this is set containers will be able to view and signal processes from other containers in the same pod, and the first process in each container will not be assigned PID 1. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false.",
           "type": "boolean"
         },
+        "strategy": {
+          "description": "The deployment strategy to use to replace existing pods with new ones.",
+          "default": {},
+          "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy",
+          "x-kubernetes-patch-strategy": "retainKeys"
+        },
         "subdomain": {
           "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
+        },
+        "template": {
+          "description": "Template describes the pods that will be created. The only allowed template.spec.restartPolicy value is \"Always\".",
+          "default": {},
+          "$ref": "#/definitions/v1.PodTemplateSpec"
         },
         "terminationGracePeriodSeconds": {
           "description": "Optional duration in seconds the pod needs to terminate gracefully. May be decreased in delete request. Value must be non-negative integer. The value zero indicates stop immediately via the kill signal (no opportunity to shut down). If this value is nil, the default grace period will be used instead. The grace period is the duration in seconds after the processes running in the pod are sent a termination signal and the time when the processes are forcibly halted with a kill signal. Set this value longer than the expected cleanup time for your process. Defaults to 30 seconds.",
