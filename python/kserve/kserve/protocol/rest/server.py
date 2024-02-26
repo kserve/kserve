@@ -51,8 +51,10 @@ from .v2_datamodels import (
     ServerLiveResponse,
     ServerMetadataResponse,
     ServerReadyResponse,
+    ListModelsResponse,
 )
 from .v2_endpoints import V2Endpoints
+from .openai_model import OpenAIModel
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -86,6 +88,9 @@ class RESTServer:
         """
         v1_endpoints = V1Endpoints(self.dataplane, self.model_repository_extension)
         v2_endpoints = V2Endpoints(self.dataplane, self.model_repository_extension)
+        openai_endpoints = OpenAIEndpoints(
+            self.dataplane, self.model_repository_extension
+        )
 
         app = FastAPI(
             title="KServe ModelServer",

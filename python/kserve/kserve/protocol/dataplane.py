@@ -23,6 +23,7 @@ from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import DeploymentHandle
 
 from .rest.v2_datamodels import GenerateRequest, GenerateResponse
+from .rest.openai_datamodels import ChatCompletionRequest, ChatCompletionResponse
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import InferenceVerb
@@ -351,7 +352,7 @@ class DataPlane:
 
         Args:
             model_name (str): Model name.
-            request (bytes|GenerateRequest): Generate Request body data.
+            request (bytes|GenerateRequest|ChatCompletionRequest): Generate Request / ChatCompletion Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
