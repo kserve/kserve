@@ -64,19 +64,20 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
 	deployment := &appsv1.Deployment{ObjectMeta: componentMeta}
 	defaultMatchLabels := map[string]string{"app": constants.GetRawServiceLabel(componentMeta.Name)}
+	setDefaultPodSpec(podSpec)
 	if componentExt.RawDeploymentSpec.Template.ObjectMeta.Name != "" {
 		deployment.Spec = componentExt.RawDeploymentSpec
-		// We want to make sure to attach the same label selector in deployment.Spec
-		// as well as podMetadata so that users don't have to construct and specify them again.
-		if deployment.Spec.Selector != nil {
-			for k, v := range deployment.Spec.Selector.MatchLabels {
+		if selector := componentExt.RawDeploymentSpec.Selector; selector != nil {
+			for k, v := range selector.MatchLabels {
 				defaultMatchLabels[k] = v
 			}
 		}
 		deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: defaultMatchLabels}
 		deployment.Spec.Template.ObjectMeta = podMetadata
+		if deployment.Spec.Template.Spec.Containers == nil {
+			deployment.Spec.Template.Spec = *podSpec
+		}
 	} else {
-		setDefaultPodSpec(podSpec)
 		deployment.Spec = appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{MatchLabels: defaultMatchLabels},
 			Template: corev1.PodTemplateSpec{
@@ -84,8 +85,8 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 				Spec:       *podSpec,
 			},
 		}
-		setDefaultDeploymentSpec(&deployment.Spec)
 	}
+	setDefaultDeploymentSpec(&deployment.Spec)
 	return deployment
 }
 
