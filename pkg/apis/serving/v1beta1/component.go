@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	appsv1 "k8s.io/api/apps/v1"
 	"reflect"
 	"strings"
 
@@ -106,6 +107,9 @@ type ComponentExtensionSpec struct {
 	// More info: http://kubernetes.io/docs/user-guide/annotations
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// RawDeploymentSpec customizes the deployment configuration for the predictor when using RawDeployment mode.
+	RawDeploymentSpec appsv1.DeploymentSpec `json:",inline"`
 }
 
 // ScaleMetric enum
