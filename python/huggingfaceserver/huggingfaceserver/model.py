@@ -116,7 +116,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
         # device_map = "auto" enables model parallelism but all model architcture dont support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
-        # device_map = "auto" for models that support else set to either cuda/cpu
+        # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
             self.model = AutoModel.from_config(model_config)
 
