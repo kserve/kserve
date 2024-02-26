@@ -33,6 +33,8 @@ PMML_IMG=kserve/pmmlserver:${GITHUB_SHA}
 PADDLE_IMG=kserve/paddleserver:${GITHUB_SHA}
 CUSTOM_MODEL_GRPC=kserve/custom-model-grpc:${GITHUB_SHA}
 CUSTOM_TRANSFORMER_GRPC=kserve/custom-image-transformer-grpc:${GITHUB_SHA}
+CUSTOM_MODEL_HTTP_IMG=kserve/custom-model-http:${GITHUB_SHA}
+CUSTOM_TRANSFORMER_HTTP_IMG=kserve/custom-image-transformer-http:${GITHUB_SHA}
 # Explainer images
 ALIBI_IMG=kserve/alibi-explainer:${GITHUB_SHA}
 ART_IMG=kserve/art-explainer:${GITHUB_SHA}
@@ -56,6 +58,11 @@ pushd python >/dev/null
     docker buildx build -t ${CUSTOM_MODEL_GRPC} -f custom_model_grpc.Dockerfile .
     echo "Building image transformer gRPC image"
     docker buildx build -t ${CUSTOM_TRANSFORMER_GRPC} -f custom_transformer_grpc.Dockerfile .
+    echo "Building Custom model Http image"
+    docker buildx build -t ${CUSTOM_MODEL_HTTP_IMG} -f custom_model.Dockerfile .
+    echo "Building image transformer Http image"
+    docker buildx build -t ${CUSTOM_TRANSFORMER_HTTP_IMG} -f custom_transformer.Dockerfile .
+    
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then

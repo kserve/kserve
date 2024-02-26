@@ -15,7 +15,7 @@
 import inspect
 import time
 from enum import Enum
-from typing import Dict, List, Union, Optional, AsyncIterator, Any
+from typing import Dict, List, Union, Optional, AsyncIterator, Any, Tuple, Coroutine
 
 import grpc
 import httpx
@@ -106,7 +106,7 @@ class Model:
 
     async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
                        verb: InferenceVerb = InferenceVerb.PREDICT,
-                       headers: Dict[str, str] = None) -> Union[Dict, InferResponse, List[str]]:
+                       headers: Dict[str, str] = None) -> Tuple[Union[Dict, InferResponse, List[str]], Dict]:
         """Method to call predictor or explainer with the given input.
 
         Args:
@@ -123,6 +123,7 @@ class Model:
         preprocess_ms = 0
         explain_ms = 0
         predict_ms = 0
+        response_headers = {}
         postprocess_ms = 0
         prom_labels = get_labels(self.name)
 
@@ -143,6 +144,10 @@ class Model:
                 start = time.time()
                 response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(payload, headers)
+                if isinstance(response, dict) and 'headers' in response:
+                    response_headers = response['headers']
+                    response.pop('headers')
+                    response = InferResponse.from_rest(self.name, response) if is_v2(PredictorProtocol(self.protocol)) else response
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
@@ -158,7 +163,7 @@ class Model:
                               f"explain_ms: {explain_ms}, predict_ms: {predict_ms}, "
                               f"postprocess_ms: {postprocess_ms}")
 
-        return response
+        return response, response_headers
 
     @property
     def _http_client(self):
@@ -284,8 +289,10 @@ class Model:
                     error_message = error_message["error"]
             message = message.format(response, error_message=error_message)
             raise HTTPStatusError(message, request=response.request, response=response)
-        return orjson.loads(response.content)
-
+        response_dict: dict = orjson.loads(response.content)
+        response_dict['headers'] = response.headers
+        return response_dict
+    
     async def _grpc_predict(self, payload: Union[ModelInferRequest, InferRequest], headers: Dict[str, str] = None) \
             -> ModelInferResponse:
         if isinstance(payload, InferRequest):
@@ -320,9 +327,8 @@ class Model:
             res = await self._grpc_predict(payload, headers)
             return InferResponse.from_grpc(res)
         else:
-            res = await self._http_predict(payload, headers)
-            # return an InferResponse if this is REST V2, otherwise just return the dictionary
-            return InferResponse.from_rest(self.name, res) if is_v2(PredictorProtocol(self.protocol)) else res
+            response = await self._http_predict(payload, headers)
+            return response
 
     async def generate(self, payload: GenerateRequest,
                        headers: Dict[str, str] = None) -> Union[GenerateResponse, AsyncIterator[Any]]:
