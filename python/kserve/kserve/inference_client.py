@@ -129,7 +129,7 @@ class InferenceGRPCClient:
         :return: Inference output as ModelInferResponse.
         :raises RPCError for non-OK-status response.
         """
-        metadata = headers.items() if headers is not None else tuple()
+        metadata = headers if headers is not None else tuple()
 
         if isinstance(infer_request, InferRequest):
             infer_request = infer_request.to_grpc()

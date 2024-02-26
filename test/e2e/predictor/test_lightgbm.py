@@ -206,7 +206,7 @@ async def test_lightgbm_v2_kserve():
 
 
 @pytest.mark.grpc
-@pytest.mark.predictor=
+@pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_lightgbm_v2_grpc():
     service_name = "isvc-lightgbm-v2-grpc"

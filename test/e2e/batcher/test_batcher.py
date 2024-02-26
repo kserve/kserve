@@ -28,10 +28,6 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-input_file = open('./data/iris_batch_input.json')
-json_array = json.load(input_file)
-
-
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_batcher():

@@ -96,7 +96,7 @@ def get_rest_client():
 
 async def predict_isvc(service_name, input_path, protocol_version="v1",
                        version=constants.KSERVE_V1BETA1_VERSION, model_name=None, is_batch=False) \
-        -> Union[PredictResponse, InferResponse, List[Union[PredictResponse, InferResponse]]]:
+        -> Union[PredictResponse, InferResponse, dict, List[Union[PredictResponse, InferResponse]]]:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
@@ -114,7 +114,7 @@ async def predict_isvc(service_name, input_path, protocol_version="v1",
 
 
 async def predict(url, host, input_path, protocol_version="v1", is_batch=False) \
-        -> Union[PredictResponse, InferResponse, List[Union[PredictResponse, InferResponse]]]:
+        -> Union[PredictResponse, InferResponse, dict, List[Union[PredictResponse, InferResponse]]]:
     with open(input_path) as json_file:
         data = json.load(json_file)
     headers = {"Host": host, "Content-Type": "application/json"}
@@ -130,7 +130,7 @@ async def predict(url, host, input_path, protocol_version="v1", is_batch=False) 
     return result
 
 
-async def _predict(url, input_data, headers=None, protocol_version="v1"):
+async def _predict(url, input_data, headers=None, protocol_version="v1") -> Union[PredictResponse, InferResponse, dict]:
     client = get_rest_client()
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
@@ -147,7 +147,7 @@ async def _predict(url, input_data, headers=None, protocol_version="v1"):
 
 
 async def predict_ig(ig_name, input_json, protocol_version="v1",
-                     version=constants.KSERVE_V1ALPHA1_VERSION) -> Union[PredictResponse, InferResponse]:
+                     version=constants.KSERVE_V1ALPHA1_VERSION) -> Union[PredictResponse, InferResponse, dict]:
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     ig = kserve_client.get_inference_graph(
