@@ -40,11 +40,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Constants
 var (
 	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://"}
+	log                           = logf.Log.WithName("CredentialBuilder")
 )
 
 const (
@@ -181,7 +183,8 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.D
 }
 
 // MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
-// to override runtime container settings from the predictor spec.
+// to override runtime container settings from the predictor spec. When there's no overlap from args of both runtime
+// container and predictor container, we concatenate the args from both containers.
 func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
 	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
 	// since the Name field does not have the 'omitempty' struct tag.
@@ -215,6 +218,9 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 	// Only concatenate args when there's no overlap. See discussions in https://github.com/kserve/kserve/pull/3444
 	if len(findIntersection(runtimeContainer.Args, predictorContainer.Args)) == 0 {
 		mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), predictorContainer.Args...)
+		log.Info("Concatenated args from runtime and predictor containers since there's no overlap")
+	} else {
+		log.Info("Predictor container args will override the runtime container args since an overlap is found")
 	}
 
 	return &mergedContainer, nil
