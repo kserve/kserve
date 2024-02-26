@@ -549,7 +549,6 @@ async def test_ig_scenario5():
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_error_picker_input.json"
         ),
     )
-    # TODO:
     assert response.predictions == [{"message": "SUCCESS"}]
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
@@ -677,7 +676,6 @@ async def test_ig_scenario7():
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_success_picker_input.json"
         ),
     )
-    # TODO: How to handle inference graph response
     assert response == {
         "rootStep1": {"message": "SUCCESS"},
         "rootStep2": {"detail": "Intentional 404 code"},
