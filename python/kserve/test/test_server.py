@@ -148,10 +148,16 @@ class DummyModel(Model):
                 infer_response.outputs[0].parameters = request.inputs[0].parameters
             return infer_response
         else:
-            return {"predictions": request["instances"]}
+            if "inputs" in request:
+                return {"predictions": request["inputs"]}
+            else:
+                return {"predictions": request["instances"]}
 
     async def explain(self, request, headers=None):
-        return {"predictions": request["instances"]}
+        if "inputs" in request:
+            return {"predictions": request["inputs"]}
+        else:
+            return {"predictions": request["instances"]}
 
 
 @serve.deployment

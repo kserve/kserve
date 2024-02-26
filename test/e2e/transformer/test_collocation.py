@@ -115,7 +115,7 @@ async def test_transformer_collocation():
             print(pod)
         raise e
     res = await predict_isvc(service_name, "./data/transformer.json", model_name=model_name)
-    assert res.predictions[0] == 2
+    assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -204,5 +204,5 @@ async def test_raw_transformer_collocation():
             print(pod)
         raise e
     res = await predict_isvc(service_name, "./data/transformer.json", model_name=model_name)
-    assert res.predictions[0] == 2
+    assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

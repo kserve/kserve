@@ -94,8 +94,8 @@ async def test_tabular_explainer():
         raise e
 
     res = await predict_isvc(service_name, "./data/mnist_input_bw_flat.json")
-    assert res.predictions == [3]
+    assert res["predictions"] == [3]
 
-    adv_prediction = explain_art(service_name, "./data/mnist_input_bw.json")
+    adv_prediction = await explain_art(service_name, "./data/mnist_input_bw.json")
     assert adv_prediction != 3
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

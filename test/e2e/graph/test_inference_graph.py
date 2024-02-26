@@ -114,7 +114,7 @@ async def test_inference_graph():
         graph_name,
         os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     )
-    assert res.predictions == [1, 1]
+    assert res["predictions"] == [1, 1]
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(sklearn_name, KSERVE_TEST_NAMESPACE)
@@ -322,7 +322,7 @@ async def test_ig_scenario2():
         graph_name,
         os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "custom_predictor_input.json"),
     )
-    assert response.predictions == [{"message": "SUCCESS"}]
+    assert response == {'predictions': [{'message': 'SUCCESS'}]}
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
@@ -470,7 +470,7 @@ async def test_ig_scenario4():
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_success_picker_input.json"
         ),
     )
-    assert response.predictions == [{"message": "SUCCESS"}]
+    assert response == {'predictions': [{'message': 'SUCCESS'}]}
 
     # Case 3
     with pytest.raises(HTTPStatusError) as exc_info:
@@ -547,8 +547,7 @@ async def test_ig_scenario5():
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_error_picker_input.json"
         ),
     )
-    # TODO:
-    assert response.predictions == [{"message": "SUCCESS"}]
+    assert response == {'predictions': [{'message': 'SUCCESS'}]}
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
@@ -675,9 +674,8 @@ async def test_ig_scenario7():
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_success_picker_input.json"
         ),
     )
-    # TODO: How to handle inference graph response
     assert response == {
-        "rootStep1": {"message": "SUCCESS"},
+        "rootStep1": {'predictions': [{'message': 'SUCCESS'}]},
         "rootStep2": {"detail": "Intentional 404 code"},
     }
 
@@ -803,7 +801,7 @@ async def test_ig_scenario9():
         graph_name,
         os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     )
-    assert response.predictions == [{"message": "SUCCESS"}]
+    assert response == {'predictions': [{'message': 'SUCCESS'}]}
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
@@ -1015,7 +1013,7 @@ async def test_inference_graph_raw_mode():
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     # )
-    # assert res.predictions == [1, 1]
+    # assert res["predictions"] == [1, 1]
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(sklearn_name, KSERVE_TEST_NAMESPACE)
@@ -1173,7 +1171,7 @@ async def test_inference_graph_raw_mode_with_hpa():
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     # )
-    # assert res.predictions == [1, 1]
+    # assert res["predictions"] == [1, 1]
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(sklearn_name, KSERVE_TEST_NAMESPACE)

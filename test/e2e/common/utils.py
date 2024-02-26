@@ -18,12 +18,12 @@ import logging
 import logging.config
 import os
 from concurrent import futures
-from typing import Union, List
+from typing import Union, List, Dict
 from urllib.parse import urlparse
 
 import portforward
-import requests
 from kubernetes import client as k8s_client
+from orjson import orjson
 
 from kserve import KServeClient, InferResponse
 from kserve import constants
@@ -35,7 +35,6 @@ from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
 from . import inference_pb2_grpc
 
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-from kserve.protocol.rest.v1_datamodels import PredictResponse
 
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
@@ -100,7 +99,7 @@ def get_rest_client():
 
 async def predict_isvc(service_name, input_path, protocol_version="v1",
                        version=constants.KSERVE_V1BETA1_VERSION, model_name=None, is_batch=False) \
-        -> Union[PredictResponse, InferResponse, List[Union[PredictResponse, InferResponse]]]:
+        -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -119,7 +118,7 @@ async def predict_isvc(service_name, input_path, protocol_version="v1",
 
 
 async def predict(url, host, input_path, protocol_version="v1", is_batch=False) \
-        -> Union[PredictResponse, InferResponse, List[Union[PredictResponse, InferResponse]]]:
+        -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     with open(input_path) as json_file:
         data = json.load(json_file)
     headers = {"Host": host, "Content-Type": "application/json"}
@@ -135,13 +134,13 @@ async def predict(url, host, input_path, protocol_version="v1", is_batch=False) 
     return result
 
 
-async def _predict(url, input_data, headers=None, protocol_version="v1"):
+async def _predict(url, input_data, headers=None, protocol_version="v1") -> Union[InferResponse, Dict]:
     client = get_rest_client()
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_data)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    await asyncio.sleep(10)
+    await asyncio.sleep(3)
     if protocol_version == PredictorProtocol.REST_V1.value:
         response = await client.predict(url, input_data, headers)
     elif protocol_version == PredictorProtocol.REST_V2.value:
@@ -151,8 +150,8 @@ async def _predict(url, input_data, headers=None, protocol_version="v1"):
     return response
 
 
-async def predict_ig(ig_name, input_json, protocol_version="v1",
-                     version=constants.KSERVE_V1ALPHA1_VERSION) -> Union[PredictResponse, InferResponse]:
+async def predict_ig(ig_name, input_path, protocol_version="v1",
+                     version=constants.KSERVE_V1ALPHA1_VERSION) -> Union[InferResponse, Dict]:
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     ig = kserve_client.get_inference_graph(
@@ -162,20 +161,22 @@ async def predict_ig(ig_name, input_json, protocol_version="v1",
     )
     cluster_ip, host, _ = get_isvc_endpoint(ig)
     url = f"http://{cluster_ip}"
-    return await predict(url, host, input_json, protocol_version)
+    return await predict(url, host, input_path, protocol_version)
 
 
-def explain(service_name, input_json):
-    return explain_response(service_name, input_json)["data"]["precision"]
+async def explain(service_name, input_path):
+    res = await explain_response(service_name, input_path)
+    return res["data"]["precision"]
 
 
-def explain_art(service_name, input_json):
-    return explain_response(service_name, input_json)["explanations"][
+async def explain_art(service_name, input_path):
+    res = await explain_response(service_name, input_path)
+    return res["explanations"][
         "adversarial_prediction"
     ]
 
 
-async def explain_response(service_name, input_json):
+async def explain_response(service_name, input_path) -> Dict:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -187,23 +188,15 @@ async def explain_response(service_name, input_json):
     cluster_ip, host, _ = get_isvc_endpoint(isvc)
     url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
     headers = {"Host": host}
-    with open(input_json) as json_file:
+    with open(input_path) as json_file:
         data = json.load(json_file)
-        logging.info("Sending request data: %s", json.dumps(data))
+        logging.info("Sending request data: %s", data)
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-            await asyncio.sleep(10)
-            response = requests.post(url, json.dumps(data), headers=headers)
-            logging.info(
-                "Got response code %s, content %s",
-                response.status_code,
-                response.content,
-            )
-            if response.status_code == 200:
-                json_response = json.loads(response.content.decode("utf-8"))
-            else:
-                response.raise_for_status()
-        except (RuntimeError, json.decoder.JSONDecodeError) as e:
+            await asyncio.sleep(3)
+            client = get_rest_client()
+            response = await client.explain(url, data, headers=headers)
+        except (RuntimeError, orjson.JSONDecodeError) as e:
             logging.info("Explain error -------")
             pods = kfs_client.core_api.list_namespaced_pod(
                 KSERVE_TEST_NAMESPACE,
@@ -224,7 +217,7 @@ async def explain_response(service_name, input_json):
                 )
                 logging.info(api_response)
             raise e
-        return json_response
+        return response
 
 
 def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):

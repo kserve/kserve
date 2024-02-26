@@ -66,7 +66,7 @@ async def test_lightgbm_kserve():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(service_name, "./data/iris_input_v3.json")
-    assert numpy.argmax(res.predictions[0]) == 0
+    assert numpy.argmax(res["predictions"][0]) == 0
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -105,13 +105,13 @@ async def test_lightgbm_runtime_kserve():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(service_name, "./data/iris_input_v3.json")
-    assert numpy.argmax(res.predictions[0]) == 0
+    assert numpy.argmax(res["predictions"][0]) == 0
 
     res = await predict_isvc(service_name, "./data/iris_input_v4.json")
-    assert numpy.argmax(res.predictions[0]) == 0
+    assert numpy.argmax(res["predictions"][0]) == 0
 
     res = await predict_isvc(service_name, "./data/iris_input_v5.json")
-    assert numpy.argmax(res.predictions[0]) == 0
+    assert numpy.argmax(res["predictions"][0]) == 0
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 

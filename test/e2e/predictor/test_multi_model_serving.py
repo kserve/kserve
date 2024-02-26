@@ -130,8 +130,8 @@ async def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     ]
 
     if protocol_version == "v1":
-        assert responses[0].predictions == [1, 1]
-        assert responses[1].predictions == [1, 1]
+        assert responses[0]["predictions"] == [1, 1]
+        assert responses[1]["predictions"] == [1, 1]
     elif protocol_version == "v2":
         assert responses[0].outputs[0].data == [1, 1]
         assert responses[1].outputs[0].data == [1, 1]
@@ -240,8 +240,8 @@ async def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
     ]
 
     if protocol_version == "v1":
-        assert responses[0].predictions == [1, 1]
-        assert responses[1].predictions == [1, 1]
+        assert responses[0]["predictions"] == [1, 1]
+        assert responses[1]["predictions"] == [1, 1]
     elif protocol_version == "v2":
         assert responses[0].outputs[0].data == [1.0, 1.0]
         assert responses[1].outputs[0].data == [1.0, 1.0]

@@ -59,13 +59,13 @@ async def test_pmml_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = await predict_isvc(service_name, "./data/pmml_input.json")
-    assert res.predictions == [
+    assert res["predictions"] == [
         {
             "Species": "setosa",
-                                 "Probability_setosa": 1.0,
-                                 "Probability_versicolor": 0.0,
-                                 "Probability_virginica": 0.0,
-                                 "Node_Id": "2",
+                                    "Probability_setosa": 1.0,
+                                    "Probability_versicolor": 0.0,
+                                    "Probability_virginica": 0.0,
+                                    "Node_Id": "2",
         }
     ]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -103,13 +103,13 @@ async def test_pmml_runtime_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = await predict_isvc(service_name, "./data/pmml_input.json")
-    assert res.predictions == [
+    assert res["predictions"] == [
         {
             "Species": "setosa",
-                                 "Probability_setosa": 1.0,
-                                 "Probability_versicolor": 0.0,
-                                 "Probability_virginica": 0.0,
-                                 "Node_Id": "2",
+                                    "Probability_setosa": 1.0,
+                                    "Probability_versicolor": 0.0,
+                                    "Probability_virginica": 0.0,
+                                    "Node_Id": "2",
         }
     ]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

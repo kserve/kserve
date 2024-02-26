@@ -156,5 +156,5 @@ async def test_triton_runtime_with_transformer():
             print(deployment)
         raise e
     res = await predict_isvc(service_name, "./data/image.json", model_name="cifar10")
-    assert np.argmax(res.predictions[0]) == 5
+    assert np.argmax(res["predictions"][0]) == 5
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

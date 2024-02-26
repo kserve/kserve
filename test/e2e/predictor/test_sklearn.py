@@ -64,7 +64,7 @@ async def test_sklearn_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = await predict_isvc(service_name, "./data/iris_input.json")
-    assert res.predictions == [1, 1]
+    assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -140,7 +140,7 @@ async def test_sklearn_runtime_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = await predict_isvc(service_name, "./data/iris_input.json")
-    assert res.predictions == [1, 1]
+    assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 

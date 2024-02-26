@@ -14,21 +14,20 @@
 
 import logging
 import ssl
-from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping
+from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping, Dict
 
 import grpc
 import httpx
-from httpx import AsyncBaseTransport
+from httpx import AsyncBaseTransport, HTTPStatusError
+from orjson import orjson
 from urllib3.util import Url
 
 from .errors import UnsupportedProtocol
-from .logging import logger
-from .model import PredictorProtocol
+from .constants.constants import PredictorProtocol
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse, ServerReadyResponse, \
     ServerLiveResponse, ModelReadyResponse, ServerReadyRequest, ServerLiveRequest, ModelReadyRequest
 from .protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
 from .protocol.infer_type import InferRequest, InferResponse
-from .protocol.rest.v1_datamodels import PredictRequest, PredictResponse
 
 
 class InferenceGRPCClient:
@@ -60,6 +59,10 @@ class InferenceGRPCClient:
                  creds: grpc.ChannelCredentials = None,
                  channel_args: List[Tuple[str, Any]] = None):
 
+        # requires appending the port to the predictor host for gRPC to work
+        if ":" not in url:
+            port = 443 if use_ssl else 80
+            url = f"{url}:{port}"
         # Explicitly check "is not None" here to support passing an empty
         # list to specify setting no channel arguments.
         if channel_args is not None:
@@ -121,7 +124,7 @@ class InferenceGRPCClient:
         :return: Inference output as ModelInferResponse.
         :raises RPCError for non-OK-status response.
         """
-        metadata = headers.items() if headers is not None else tuple()
+        metadata = headers if headers is not None else tuple()
 
         if isinstance(infer_request, InferRequest):
             infer_request = infer_request.to_grpc()
@@ -218,7 +221,7 @@ class RESTConfig:
                 Either a path to an SSL certificate file, or two-tuple of (certificate file, key file), or
                 a three-tuple of (certificate file, key file, password).
     :param verify (optional) SSL certificates (a.k.a CA bundle) used to verify the identity of requested hosts.
-                  Either True (default CA bundle), a path to an SSL certificate file, an ssl.SSLContext, or False
+                  Either True (default CA bundle), a path to an SSL certificate file, a ssl.SSLContext, or False
                   (which will disable verification).
     :param auth (optional) An authentication class to use when sending inference requests. Refer httpx
     :param verbose (optional) A boolean to enable verbose logging. Defaults to False.
@@ -253,33 +256,41 @@ class InferenceRESTClient:
                                          timeout=self._config.timeout, auth=self._config.auth,
                                          verify=self._config.verify)
 
-    async def predict(self, url: Union[Url, str], data: Union[PredictRequest, dict],
-                      headers: Optional[Mapping[str, str]] = None,
-                      timeout: Union[float, None, tuple, httpx.Timeout] = None) -> PredictResponse:
+    async def predict(self, url: Union[Url, str], data: Dict, headers: Optional[Mapping[str, str]] = None,
+                      timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
         """
         Run asynchronous inference using the supplied data. This method follows the V1 protocol specification.
         :param url: Inference url
-        :param data: Input data as PredictRequest object.
+        :param data: Input data as python dict.
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
                         override the timeout in the RESTConfig. By default, client waits for the response.
-        :return: Inference result as PredictResponse object.
+        :return: Inference result as python dict.
         :raises HTTPStatusError for response codes other than 2xx.
         """
-        if isinstance(data, PredictRequest):
-            data = data.dict()
         if self._config.verbose:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
-        res = await self._client.post(url, json=data, headers=headers, timeout=timeout)
+        data = orjson.dumps(data)
+        response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("response code: %s, content: %s", res.status_code, res.text)
-        res.raise_for_status()
-        return PredictResponse.parse_obj(res.json())
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
+        if not response.is_success:
+            message = (
+                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
+            )
+            error_message = ""
+            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
+                error_message = response.json()
+                if "error" in error_message:
+                    error_message = error_message["error"]
+            message = message.format(response, error_message=error_message)
+            raise HTTPStatusError(message, request=response.request, response=response)
+        return orjson.loads(response.content)
 
     async def infer(self, url: Union[Url, str], data: Union[InferRequest, dict],
                     headers: Optional[Mapping[str, str]] = None,
-                    timeout: Union[float, None, tuple, httpx.Timeout] = None) -> InferResponse:
+                    timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Union[InferResponse, Dict]:
         """
         Run asynchronous inference using the supplied data. This method follows the open inference protocol(V2).
         For more info on open inference protocol visit https://github.com/kserve/open-inference-protocol.
@@ -288,20 +299,69 @@ class InferenceRESTClient:
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
                         override the timeout in the RESTConfig. By default, client waits for the response.
-        :return: Inference result as InferResponse object.
+        :return: Inference result as InferResponse object or python dict.
         :raises HTTPStatusError for response codes other than 2xx.
         """
-        if isinstance(data, InferRequest):
-            data = data.to_dict()
         if self._config.verbose:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
-        res = await self._client.post(url, json=data, headers=headers, timeout=timeout)
+        if isinstance(data, InferRequest):
+            data = orjson.dumps(data.to_rest())
+        else:
+            data = orjson.dumps(data)
+        response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("response code: %s, content: %s", res.status_code, res.text)
-        res.raise_for_status()
-        output = res.json()
-        return InferResponse.from_rest(output.get("model_name"), response=output)
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
+        if not response.is_success:
+            message = (
+                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
+            )
+            error_message = ""
+            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
+                error_message = response.json()
+                if "error" in error_message:
+                    error_message = error_message["error"]
+            message = message.format(response, error_message=error_message)
+            raise HTTPStatusError(message, request=response.request, response=response)
+        output = orjson.loads(response.content)
+        # Try converting the output to InferResponse. If failed it might be an inference graph result,
+        # so return it as dict.
+        try:
+            return InferResponse.from_rest(output.get("model_name"), response=output)
+        except KeyError:
+            return output
+
+    async def explain(self, url: Union[Url, str], data: Dict, headers: Optional[Mapping[str, str]] = None,
+                      timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
+        """
+        Run asynchronous explain using the supplied data.
+        :param url: Explain url of the inference server.
+        :param data: Input data as python dict.
+        :param headers: (optional) HTTP headers to include when sending request.
+        :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
+                                override the timeout in the RESTConfig. By default, client waits for the response.
+        :return: Explain result as python dict.
+        :raises HTTPStatusError for response codes other than 2xx.
+        """
+        if self._config.verbose:
+            logger.info("url: %s", url)
+            logger.info("request data: %s", data)
+        data = orjson.dumps(data)
+        response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
+        if self._config.verbose:
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
+        if not response.is_success:
+            message = (
+                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
+            )
+            error_message = ""
+            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
+                error_message = response.json()
+                if "error" in error_message:
+                    error_message = error_message["error"]
+            message = message.format(response, error_message=error_message)
+            raise HTTPStatusError(message, request=response.request, response=response)
+        return orjson.loads(response.content)
 
     async def is_server_ready(self, url: Union[Url, str], headers: Optional[Mapping[str, str]] = None,
                               timeout: Union[float, None, tuple, httpx.Timeout] = None) -> bool:
