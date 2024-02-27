@@ -20,13 +20,13 @@ jobs:
     name: Lint
     steps:
       - name: Check out source repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up Python environment ${{ matrix.python-version }}
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: flake8 Lint
-        uses: py-actions/flake8@v1
+        uses: py-actions/flake8@v2
         with:
           max-line-length: "120"
           exclude: "docs/samples/v1beta1/onnx/assets/*.py,python/kserve/kserve/*.py,python/kserve/test/test_v1*.py,python/kserve/kserve/__init__.py,python/kserve/test/__init__.py,python/kserve/test/test_knative*.py,python/kserve/kserve/protocol/grpc/grpc_predict_v2*.py"
@@ -37,14 +37,14 @@ jobs:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
     steps:
       - name: Checkout source
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
       - name: Set up Python ${{ matrix.python-version }}
         id: setup-python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -61,7 +61,7 @@ jobs:
       # load poetry cache if cache exists
       - name: Load poetry cache
         id: cached-poetry-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /mnt/poetry
           key: poetry-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
@@ -70,7 +70,7 @@ jobs:
       # load cached kserve venv if cache exists
       - name: Load cached kserve venv
         id: cached-kserve-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: python/kserve/.venv
           key: kserve-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock') }}
@@ -94,7 +94,7 @@ jobs:
       # load cached sklearn venv if cache exists
       - name: Load cached sklearn venv
         id: cached-sklearn-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: python/sklearnserver/.venv
           key: sklearn-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/sklearnserver/poetry.lock') }}
@@ -118,7 +118,7 @@ jobs:
       # load cached xgb venv if cache exists
       - name: Load cached xgb venv
         id: cached-xgb-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: python/xgbserver/.venv
           key: xgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/xgbserver/poetry.lock') }}
@@ -142,7 +142,7 @@ jobs:
       # load cached pmml venv if cache exists
       - name: Load cached pmml venv
         id: cached-pmml-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: python/pmmlserver/.venv
           key: pmml-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/pmmlserver/poetry.lock') }}
@@ -166,7 +166,7 @@ jobs:
       # load cached lgb venv if cache exists
       - name: Load cached lgb venv
         id: cached-lgb-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: python/lgbserver/.venv
           key: lgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/lgbserver/poetry.lock') }}
@@ -190,7 +190,7 @@ jobs:
       # load cached paddle venv if cache exists
       - name: Load cached paddle venv
         id: cached-paddle-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: python/paddleserver/.venv
           key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/paddleserver/poetry.lock') }}
@@ -215,7 +215,7 @@ jobs:
       # load cached alibi venv if cache exists
       - name: Load cached alibi venv
         id: cached-alibi-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: python/alibiexplainer/.venv
           key: alibi-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/alibiexplainer/poetry.lock') }}
@@ -239,7 +239,7 @@ jobs:
       - name: Load cached huggingface venv
         if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
         id: huggingface-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /mnt/python/huggingfaceserver-venv
           key: huggingface-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}

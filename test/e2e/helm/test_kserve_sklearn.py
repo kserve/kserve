@@ -33,7 +33,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict
 
 @pytest.mark.helm
 def test_sklearn_kserve():
-    service_name = "isvc-sklearn-kserve"
+    service_name = "isvc-sklearn-helm"
+    protocol_version = "v2"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -43,7 +44,7 @@ def test_sklearn_kserve():
             ),
             runtime="kserve-mlserver",
             storage_uri="gs://seldon-models/sklearn/mms/lr_model",
-            protocol_version="v2",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
