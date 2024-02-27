@@ -504,7 +504,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualHPA.Spec).To(gomega.Equal(expectedHPA.Spec))
 		})
-		It("Should have ingress/service/deployment/hpa created", func() {
+		It("Should have ingress/service/deployment/hpa created with RawDeploymentSpec", func() {
 			By("By creating a new InferenceService with RawDeploymentSpec in PredictorSpec")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -829,7 +829,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: netv1.IngressSpec{
 					Rules: []netv1.IngressRule{
 						{
-							Host: "raw-foo-default.example.com",
+							Host: "raw-foo-customized-default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -838,7 +838,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: "raw-foo-predictor",
+													Name: "raw-foo-customized-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -850,7 +850,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: "raw-foo-predictor-default.example.com",
+							Host: "raw-foo-customized-predictor-default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -859,7 +859,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: "raw-foo-predictor",
+													Name: "raw-foo-customized-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -894,7 +894,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   "raw-foo-default.example.com",
+					Host:   "raw-foo-customized-default.example.com",
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -907,7 +907,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "",
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   "raw-foo-predictor-default.example.com",
+							Host:   "raw-foo-customized-predictor-default.example.com",
 						},
 					},
 				},
