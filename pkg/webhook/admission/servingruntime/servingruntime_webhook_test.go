@@ -1442,7 +1442,7 @@ func TestValidateModelFormatPrioritySame(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
-			err := validateModelFormatPrioritySame(&scenario.newServingRuntime.Spec, scenario.newServingRuntime.Name)
+			err := validateModelFormatPrioritySame(&scenario.newServingRuntime.Spec)
 			g.Expect(err).To(scenario.expected)
 		})
 	}

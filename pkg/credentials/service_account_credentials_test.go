@@ -18,8 +18,9 @@ package credentials
 
 import (
 	"context"
-	"github.com/onsi/gomega/types"
 	"testing"
+
+	"github.com/onsi/gomega/types"
 
 	"github.com/kserve/kserve/pkg/credentials/azure"
 	"github.com/kserve/kserve/pkg/credentials/gcs"

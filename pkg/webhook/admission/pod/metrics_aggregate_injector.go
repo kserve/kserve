@@ -35,13 +35,13 @@ type MetricsAggregator struct {
 	EnablePrometheusScraping string `json:"enablePrometheusScraping"`
 }
 
-func newMetricsAggregator(configMap *v1.ConfigMap) (*MetricsAggregator, error) {
+func newMetricsAggregator(configMap *v1.ConfigMap) (*MetricsAggregator, error) { //nolint:unparam
 	ma := &MetricsAggregator{}
 
 	if maConfigVal, ok := configMap.Data[MetricsAggregatorConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(maConfigVal), &ma)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall %v json string due to %v ", MetricsAggregatorConfigMapKeyName, err))
+			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", MetricsAggregatorConfigMapKeyName, err))
 		}
 	}
 

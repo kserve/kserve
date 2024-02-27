@@ -54,7 +54,7 @@ func getBatcherConfigs(configMap *v1.ConfigMap) (*BatcherConfig, error) {
 	if batcherConfigValue, ok := configMap.Data[BatcherConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(batcherConfigValue), &batcherConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall batcher json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall batcher json string due to %w ", err))
 		}
 	}
 
