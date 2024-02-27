@@ -354,8 +354,8 @@ class GenerateResponse(BaseModel):
     """
     text_output: str
     model_name: str
-    model_version: Optional[str]
-    details: Optional[Details]
+    model_version: Optional[str] = None
+    details: Optional[Details] = None
 
     class Config:
         json_loads = orjson.loads

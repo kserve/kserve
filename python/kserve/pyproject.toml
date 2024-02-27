@@ -34,8 +34,8 @@ exclude = ["kserve/storage/test"]
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
-uvicorn = { version = "^0.19.0", extras = ["standard"] }
-fastapi = "^0.95.0"
+uvicorn = { version = "^0.21.1", extras = ["standard"] }
+fastapi = "^0.108.0"
 cloudevents = "^1.6.2"
 six = "^1.16.0"
 kubernetes = ">=23.3.0"
