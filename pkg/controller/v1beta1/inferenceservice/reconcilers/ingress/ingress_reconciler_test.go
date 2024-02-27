@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -31,6 +32,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"net/url"
 	"testing"
 )
@@ -642,6 +644,354 @@ func TestCreateVirtualService(t *testing.T) {
 				},
 			},
 		}, {
+			name: "predictor with path template and tag based routing enabled",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:          constants.KnativeIngressGateway,
+				IngressServiceName:      "someIngressServiceName",
+				LocalGateway:            constants.KnativeLocalGateway,
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+				UrlScheme:               "http",
+				IngressDomain:           "my-domain.com",
+				PathTemplate:            "/serving/{{ .Namespace }}/{{ .Name }}",
+				DisableIstioVirtualHost: false,
+			},
+			useDefault: false,
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+			},
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+							},
+						},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(90),
+							},
+							{
+								Tag:            constants.PrevRevisionTag,
+								LatestRevision: proto.Bool(false),
+								Percent:        proto.Int64(10),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: map[string]string{
+					constants.EnableTagRoutingAnnotationKey: "true",
+				}, Labels: labels},
+				Spec: istiov1beta1.VirtualService{
+					Hosts:    []string{serviceInternalHostName, serviceHostName, "my-domain.com"},
+					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Prefix{
+											Prefix: fmt.Sprintf("/serving/%s/%s/", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Exact{
+											Exact: fmt.Sprintf("/serving/%s/%s", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Rewrite: &istiov1beta1.HTTPRewrite{
+								Uri: "/",
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								createHTTPRouteDestination("knative-local-gateway.istio-system.svc.cluster.local"),
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{
+									Set: map[string]string{
+										"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)),
+									},
+								},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Prefix{
+											Prefix: fmt.Sprintf("/serving/%s/%s/", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Exact{
+											Exact: fmt.Sprintf("/serving/%s/%s", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Rewrite: &istiov1beta1.HTTPRewrite{
+								Uri: "/",
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								createHTTPRouteDestination("knative-local-gateway.istio-system.svc.cluster.local"),
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{
+									Set: map[string]string{
+										"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)),
+									},
+								},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Prefix{
+											Prefix: fmt.Sprintf("/serving/%s/%s/", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Exact{
+											Exact: fmt.Sprintf("/serving/%s/%s", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Rewrite: &istiov1beta1.HTTPRewrite{
+								Uri: "/",
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								createHTTPRouteDestination("knative-local-gateway.istio-system.svc.cluster.local"),
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{
+									Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, {
 			name: "found predictor status with default suffix",
 			ingressConfig: &v1beta1.IngressConfig{
 				IngressGateway:          constants.KnativeIngressGateway,
@@ -969,6 +1319,1346 @@ func TestCreateVirtualService(t *testing.T) {
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "predictor with tag based routing enabled",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:          constants.KnativeIngressGateway,
+				IngressServiceName:      "someIngressServiceName",
+				LocalGateway:            constants.KnativeLocalGateway,
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+			},
+			useDefault: false,
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+			},
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+							},
+						},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(90),
+							},
+							{
+								Tag:            constants.PrevRevisionTag,
+								LatestRevision: proto.Bool(false),
+								Percent:        proto.Int64(10),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: labels,
+				},
+				Spec: istiov1beta1.VirtualService{
+					Hosts:    []string{serviceInternalHostName, serviceHostName},
+					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: predictorRouteMatch,
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "predictor with tag based routing enabled and cluster local visibility",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:          constants.KnativeIngressGateway,
+				IngressServiceName:      "someIngressServiceName",
+				LocalGateway:            constants.KnativeLocalGateway,
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+			},
+			useDefault: false,
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: map[string]string{
+						constants.VisibilityLabel: constants.ClusterLocalVisibility,
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+			},
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+							},
+						},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(90),
+							},
+							{
+								Tag:            constants.PrevRevisionTag,
+								LatestRevision: proto.Bool(false),
+								Percent:        proto.Int64(10),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: map[string]string{
+						constants.VisibilityLabel: constants.ClusterLocalVisibility,
+					},
+				},
+				Spec: istiov1beta1.VirtualService{
+					Hosts:    []string{serviceInternalHostName},
+					Gateways: []string{constants.KnativeLocalGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "predictor with single revision and tag based routing enabled",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:          constants.KnativeIngressGateway,
+				IngressServiceName:      "someIngressServiceName",
+				LocalGateway:            constants.KnativeLocalGateway,
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+			},
+			useDefault: false,
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+			},
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+							},
+						},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(90),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: labels,
+				},
+				Spec: istiov1beta1.VirtualService{
+					Hosts:    []string{serviceInternalHostName, serviceHostName},
+					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: predictorRouteMatch,
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "transformer with tag based routing enabled",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:          constants.KnativeIngressGateway,
+				IngressServiceName:      "someIngressServiceName",
+				LocalGateway:            constants.KnativeLocalGateway,
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+			},
+			useDefault: false,
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor:   v1beta1.PredictorSpec{},
+					Transformer: &v1beta1.TransformerSpec{},
+				},
+			},
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+						{
+							Type:   v1beta1.TransformerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.TransformerComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   transformerHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+							},
+						},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(90),
+							},
+							{
+								Tag:            constants.PrevRevisionTag,
+								LatestRevision: proto.Bool(false),
+								Percent:        proto.Int64(10),
+							},
+						},
+					},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: map[string]string{
+					constants.EnableTagRoutingAnnotationKey: "true",
+				}, Labels: labels},
+				Spec: istiov1beta1.VirtualService{
+					Hosts:    []string{serviceInternalHostName, serviceHostName},
+					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: predictorRouteMatch,
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+								}},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "transformer with tag based routing enabled and cluster local visibility",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:          constants.KnativeIngressGateway,
+				IngressServiceName:      "someIngressServiceName",
+				LocalGateway:            constants.KnativeLocalGateway,
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+			},
+			useDefault: false,
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: map[string]string{
+						constants.VisibilityLabel: constants.ClusterLocalVisibility,
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor:   v1beta1.PredictorSpec{},
+					Transformer: &v1beta1.TransformerSpec{},
+				},
+			},
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+						{
+							Type:   v1beta1.TransformerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.TransformerComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   transformerHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+							},
+						},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(90),
+							},
+							{
+								Tag:            constants.PrevRevisionTag,
+								LatestRevision: proto.Bool(false),
+								Percent:        proto.Int64(10),
+							},
+						},
+					},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: map[string]string{
+					constants.EnableTagRoutingAnnotationKey: "true",
+				}, Labels: map[string]string{
+					constants.VisibilityLabel: constants.ClusterLocalVisibility,
+				}},
+				Spec: istiov1beta1.VirtualService{
+					Hosts:    []string{serviceInternalHostName},
+					Gateways: []string{constants.KnativeLocalGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+								}},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "explainer with tag based routing enabled",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:          constants.KnativeIngressGateway,
+				IngressServiceName:      "someIngressServiceName",
+				LocalGateway:            constants.KnativeLocalGateway,
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+			},
+			useDefault: false,
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: labels,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+					Explainer: &v1beta1.ExplainerSpec{},
+				},
+			},
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+						{
+							Type:   v1beta1.ExplainerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.ExplainerComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   explainerHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace),
+							},
+						},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(90),
+							},
+							{
+								Tag:            constants.PrevRevisionTag,
+								LatestRevision: proto.Bool(false),
+								Percent:        proto.Int64(10),
+							},
+						},
+					},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(serviceName, namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: map[string]string{
+					constants.EnableTagRoutingAnnotationKey: "true",
+				}, Labels: labels},
+				Spec: istiov1beta1.VirtualService{
+					Hosts:    []string{serviceInternalHostName, serviceHostName},
+					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace)},
+								},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: predictorRouteMatch,
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "explainer with tag based routing enabled and cluster local visibility",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:          constants.KnativeIngressGateway,
+				IngressServiceName:      "someIngressServiceName",
+				LocalGateway:            constants.KnativeLocalGateway,
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+			},
+			useDefault: false,
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						constants.EnableTagRoutingAnnotationKey: "true",
+					},
+					Labels: map[string]string{
+						constants.VisibilityLabel: constants.ClusterLocalVisibility,
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+					Explainer: &v1beta1.ExplainerSpec{},
+				},
+			},
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+						{
+							Type:   v1beta1.ExplainerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.ExplainerComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   explainerHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace),
+							},
+						},
+						Traffic: []knservingv1.TrafficTarget{
+							{
+								Tag:            constants.LatestRevisionTag,
+								LatestRevision: proto.Bool(true),
+								Percent:        proto.Int64(90),
+							},
+							{
+								Tag:            constants.PrevRevisionTag,
+								LatestRevision: proto.Bool(false),
+								Percent:        proto.Int64(10),
+							},
+						},
+					},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(serviceName, namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: map[string]string{
+					constants.EnableTagRoutingAnnotationKey: "true",
+				}, Labels: map[string]string{
+					constants.VisibilityLabel: constants.ClusterLocalVisibility,
+				}},
+				Spec: istiov1beta1.VirtualService{
+					Hosts:    []string{serviceInternalHostName},
+					Gateways: []string{constants.KnativeLocalGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.PrevRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.PrevRevisionTag, network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace)},
+								},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Headers: map[string]*istiov1beta1.StringMatch{
+										constants.TagBasedRoutingHeaderKey: {
+											MatchType: &istiov1beta1.StringMatch_Exact{
+												Exact: constants.LatestRevisionTag,
+											},
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": fmt.Sprintf("%s-%s", constants.LatestRevisionTag, network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace))}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace))}},
+									Gateways: []string{constants.KnativeLocalGateway}},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)},
+								},
 							},
 						},
 					},

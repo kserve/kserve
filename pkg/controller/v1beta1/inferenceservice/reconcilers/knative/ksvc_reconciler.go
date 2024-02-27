@@ -121,9 +121,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			LatestRevision: proto.Bool(true),
 			Percent:        proto.Int64(*componentExtension.CanaryTrafficPercent),
 		}
-		if value, ok := annotations[constants.EnableRoutingTagAnnotationKey]; ok && value == "true" {
-			latestTarget.Tag = "latest"
-		}
+		latestTarget.Tag = constants.LatestRevisionTag
 		trafficTargets = append(trafficTargets, latestTarget)
 
 		if *componentExtension.CanaryTrafficPercent < 100 {
@@ -132,7 +130,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 				RevisionName:   lastRolledoutRevision,
 				LatestRevision: proto.Bool(false),
 				Percent:        proto.Int64(remainingTraffic),
-				Tag:            "prev",
+				Tag:            constants.PrevRevisionTag,
 			}
 			trafficTargets = append(trafficTargets, canaryTarget)
 		}
@@ -142,9 +140,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			LatestRevision: proto.Bool(true),
 			Percent:        proto.Int64(100),
 		}
-		if value, ok := annotations[constants.EnableRoutingTagAnnotationKey]; ok && value == "true" {
-			latestTarget.Tag = "latest"
-		}
+		latestTarget.Tag = constants.LatestRevisionTag
 		trafficTargets = append(trafficTargets, latestTarget)
 	}
 	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
