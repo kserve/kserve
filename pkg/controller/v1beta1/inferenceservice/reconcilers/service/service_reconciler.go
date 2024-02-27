@@ -157,8 +157,7 @@ func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.C
 }
 
 func semanticServiceEquals(desired, existing *corev1.Service) bool {
-	return equality.Semantic.DeepEqual(desired.Spec.Ports, existing.Spec.Ports) &&
-		equality.Semantic.DeepEqual(desired.Spec.Selector, existing.Spec.Selector)
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
 }
 
 // Reconcile ...
