@@ -73,9 +73,9 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 			}
 		}
 		deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: defaultMatchLabels}
-		deployment.Spec.Template.ObjectMeta = podMetadata
-		if deployment.Spec.Template.Spec.Containers == nil {
-			deployment.Spec.Template.Spec = *podSpec
+		deployment.Spec.Template = corev1.PodTemplateSpec{
+			ObjectMeta: podMetadata,
+			Spec:       *podSpec,
 		}
 	} else {
 		deployment.Spec = appsv1.DeploymentSpec{
