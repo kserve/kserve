@@ -551,7 +551,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
-			serviceName := "raw-foo"
+			serviceName := "raw-foo-customized"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
 			var storageUri = "s3://test/mnist/export"
