@@ -555,6 +555,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
 			var storageUri = "s3://test/mnist/export"
+			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			var replicas int32 = 1
+			var revisionHistory int32 = 10
+			var progressDeadlineSeconds int32 = 600
+			var gracePeriod int64 = 30
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -573,10 +579,75 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MinReplicas: v1beta1.GetIntReference(1),
 							MaxReplicas: 3,
 							RawDeploymentSpec: &appsv1.DeploymentSpec{Template: v1.PodTemplateSpec{
-								// Intentionally added a field that's not set by setDefaultDeploymentSpec
-								Spec: v1.PodSpec{EnableServiceLinks: utils.Bool(true)},
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      predictorDeploymentKey.Name,
+									Namespace: "default",
+									Labels: map[string]string{
+										"app":                                 "isvc." + predictorDeploymentKey.Name,
+										constants.KServiceComponentLabel:      constants.Predictor.String(),
+										constants.InferenceServicePodLabelKey: serviceName,
+									},
+									Annotations: map[string]string{
+										constants.StorageInitializerSourceUriInternalAnnotationKey: storageUri,
+										"serving.kserve.io/deploymentMode":                         "RawDeployment",
+										"serving.kserve.io/autoscalerClass":                        "hpa",
+										"serving.kserve.io/metrics":                                "cpu",
+										"serving.kserve.io/targetUtilizationPercentage":            "75",
+									},
+								},
+								Spec: v1.PodSpec{
+									// Intentionally added a field that's not set by setDefaultDeploymentSpec
+									EnableServiceLinks: utils.Bool(true),
+									Containers: []v1.Container{
+										{
+											Image:   "tensorflow/serving:1.14.0",
+											Name:    constants.InferenceServiceContainerName,
+											Command: []string{v1beta1.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1beta1.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+												"--rest_api_timeout_in_ms=60000",
+											},
+											Resources: defaultResource,
+											ReadinessProbe: &v1.Probe{
+												ProbeHandler: v1.ProbeHandler{
+													TCPSocket: &v1.TCPSocketAction{
+														Port: intstr.IntOrString{
+															IntVal: 8080,
+														},
+													},
+												},
+												InitialDelaySeconds: 0,
+												TimeoutSeconds:      1,
+												PeriodSeconds:       10,
+												SuccessThreshold:    1,
+												FailureThreshold:    3,
+											},
+											TerminationMessagePath:   "/dev/termination-log",
+											TerminationMessagePolicy: "File",
+											ImagePullPolicy:          "IfNotPresent",
+										},
+									},
+									SchedulerName:                 "default-scheduler",
+									RestartPolicy:                 "Always",
+									TerminationGracePeriodSeconds: &gracePeriod,
+									DNSPolicy:                     "ClusterFirst",
+									SecurityContext: &v1.PodSecurityContext{
+										SELinuxOptions:      nil,
+										WindowsOptions:      nil,
+										RunAsUser:           nil,
+										RunAsGroup:          nil,
+										RunAsNonRoot:        nil,
+										SupplementalGroups:  nil,
+										FSGroup:             nil,
+										Sysctls:             nil,
+										FSGroupChangePolicy: nil,
+										SeccompProfile:      nil,
+									},
+								},
+							},
 							}},
-						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
@@ -604,14 +675,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
-			var replicas int32 = 1
-			var revisionHistory int32 = 10
-			var progressDeadlineSeconds int32 = 600
-			var gracePeriod int64 = 30
+
 			expectedDeployment := &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      predictorDeploymentKey.Name,
