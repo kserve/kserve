@@ -25,6 +25,7 @@ data:
         "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
         "urlScheme": "https",
         "disableIstioVirtualHost": false
+        "disableIngressCreation": true
     }
   logger: |-
     {
