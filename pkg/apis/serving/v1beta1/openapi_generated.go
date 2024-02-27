@@ -2263,72 +2263,17 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							},
 						},
 					},
-					"replicas": {
+					"rawDeploymentSpec": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"selector": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels.",
-							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-						},
-					},
-					"template": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Template describes the pods that will be created. The only allowed template.spec.restartPolicy value is \"Always\".",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.PodTemplateSpec"),
-						},
-					},
-					"strategy": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-strategy": "retainKeys",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "The deployment strategy to use to replace existing pods with new ones.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
-						},
-					},
-					"minReadySeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"revisionHistoryLimit": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"paused": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Indicates that the deployment is paused.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"progressDeadlineSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.",
-							Type:        []string{"integer"},
-							Format:      "int32",
+							Description: "RawDeploymentSpec customizes the deployment configuration for the predictor when using RawDeployment mode.",
+							Ref:         ref("k8s.io/api/apps/v1.DeploymentSpec"),
 						},
 					},
 				},
-				Required: []string{"selector", "template"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.PodTemplateSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentSpec"},
 	}
 }
 
@@ -4664,72 +4609,17 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							},
 						},
 					},
-					"replicas": {
+					"rawDeploymentSpec": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"selector": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels.",
-							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-						},
-					},
-					"template": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Template describes the pods that will be created. The only allowed template.spec.restartPolicy value is \"Always\".",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.PodTemplateSpec"),
-						},
-					},
-					"strategy": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-strategy": "retainKeys",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "The deployment strategy to use to replace existing pods with new ones.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
-						},
-					},
-					"minReadySeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"revisionHistoryLimit": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"paused": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Indicates that the deployment is paused.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"progressDeadlineSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.",
-							Type:        []string{"integer"},
-							Format:      "int32",
+							Description: "RawDeploymentSpec customizes the deployment configuration for the predictor when using RawDeployment mode.",
+							Ref:         ref("k8s.io/api/apps/v1.DeploymentSpec"),
 						},
 					},
 				},
-				Required: []string{"selector", "template"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.AlibiExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.PodTemplateSpec", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.AlibiExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -8447,72 +8337,17 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							},
 						},
 					},
-					"replicas": {
+					"rawDeploymentSpec": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"selector": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels.",
-							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-						},
-					},
-					"template": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Template describes the pods that will be created. The only allowed template.spec.restartPolicy value is \"Always\".",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.PodTemplateSpec"),
-						},
-					},
-					"strategy": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-strategy": "retainKeys",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "The deployment strategy to use to replace existing pods with new ones.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
-						},
-					},
-					"minReadySeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"revisionHistoryLimit": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"paused": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Indicates that the deployment is paused.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"progressDeadlineSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.",
-							Type:        []string{"integer"},
-							Format:      "int32",
+							Description: "RawDeploymentSpec customizes the deployment configuration for the predictor when using RawDeployment mode.",
+							Ref:         ref("k8s.io/api/apps/v1.DeploymentSpec"),
 						},
 					},
 				},
-				Required: []string{"selector", "template"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.PodTemplateSpec", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -9996,72 +9831,17 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							},
 						},
 					},
-					"replicas": {
+					"rawDeploymentSpec": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"selector": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels.",
-							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-						},
-					},
-					"template": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Template describes the pods that will be created. The only allowed template.spec.restartPolicy value is \"Always\".",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.PodTemplateSpec"),
-						},
-					},
-					"strategy": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-strategy": "retainKeys",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "The deployment strategy to use to replace existing pods with new ones.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
-						},
-					},
-					"minReadySeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"revisionHistoryLimit": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"paused": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Indicates that the deployment is paused.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"progressDeadlineSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.",
-							Type:        []string{"integer"},
-							Format:      "int32",
+							Description: "RawDeploymentSpec customizes the deployment configuration for the predictor when using RawDeployment mode.",
+							Ref:         ref("k8s.io/api/apps/v1.DeploymentSpec"),
 						},
 					},
 				},
-				Required: []string{"selector", "template"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.PodTemplateSpec", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

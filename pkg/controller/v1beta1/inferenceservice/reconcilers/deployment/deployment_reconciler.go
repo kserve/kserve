@@ -65,17 +65,17 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 	deployment := &appsv1.Deployment{ObjectMeta: componentMeta}
 	defaultMatchLabels := map[string]string{"app": constants.GetRawServiceLabel(componentMeta.Name)}
 	setDefaultPodSpec(podSpec)
-	if componentExt.RawDeploymentSpec.Template.ObjectMeta.Name != "" {
-		deployment.Spec = componentExt.RawDeploymentSpec
+	if componentExt.RawDeploymentSpec != nil {
+		deployment.Spec = *componentExt.RawDeploymentSpec
 		if selector := componentExt.RawDeploymentSpec.Selector; selector != nil {
 			for k, v := range selector.MatchLabels {
 				defaultMatchLabels[k] = v
 			}
 		}
 		deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: defaultMatchLabels}
-		deployment.Spec.Template = corev1.PodTemplateSpec{
-			ObjectMeta: podMetadata,
-			Spec:       *podSpec,
+		deployment.Spec.Template.ObjectMeta = podMetadata
+		if deployment.Spec.Template.Spec.Containers == nil {
+			deployment.Spec.Template.Spec = *podSpec
 		}
 	} else {
 		deployment.Spec = appsv1.DeploymentSpec{

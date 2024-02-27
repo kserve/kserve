@@ -109,7 +109,8 @@ type ComponentExtensionSpec struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// RawDeploymentSpec customizes the deployment configuration for the predictor when using RawDeployment mode.
-	RawDeploymentSpec appsv1.DeploymentSpec `json:",inline"`
+	// +optional
+	RawDeploymentSpec *appsv1.DeploymentSpec `json:"rawDeploymentSpec,omitempty"`
 }
 
 // ScaleMetric enum

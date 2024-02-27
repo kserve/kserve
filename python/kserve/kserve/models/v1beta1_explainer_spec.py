@@ -72,36 +72,29 @@ class V1beta1ExplainerSpec(object):
         'labels': 'dict(str, str)',
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
-        'min_ready_seconds': 'int',
         'min_replicas': 'int',
         'node_name': 'str',
         'node_selector': 'dict(str, str)',
         'os': 'V1PodOS',
         'overhead': 'dict(str, ResourceQuantity)',
-        'paused': 'bool',
         'preemption_policy': 'str',
         'priority': 'int',
         'priority_class_name': 'str',
-        'progress_deadline_seconds': 'int',
+        'raw_deployment_spec': 'K8sIoApiAppsV1DeploymentSpec',
         'readiness_gates': 'list[V1PodReadinessGate]',
-        'replicas': 'int',
         'resource_claims': 'list[V1PodResourceClaim]',
         'restart_policy': 'str',
-        'revision_history_limit': 'int',
         'runtime_class_name': 'str',
         'scale_metric': 'str',
         'scale_target': 'int',
         'scheduler_name': 'str',
         'scheduling_gates': 'list[V1PodSchedulingGate]',
         'security_context': 'V1PodSecurityContext',
-        'selector': 'V1LabelSelector',
         'service_account': 'str',
         'service_account_name': 'str',
         'set_hostname_as_fqdn': 'bool',
         'share_process_namespace': 'bool',
-        'strategy': 'K8sIoApiAppsV1DeploymentStrategy',
         'subdomain': 'str',
-        'template': 'V1PodTemplateSpec',
         'termination_grace_period_seconds': 'int',
         'timeout': 'int',
         'tolerations': 'list[V1Toleration]',
@@ -135,36 +128,29 @@ class V1beta1ExplainerSpec(object):
         'labels': 'labels',
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
-        'min_ready_seconds': 'minReadySeconds',
         'min_replicas': 'minReplicas',
         'node_name': 'nodeName',
         'node_selector': 'nodeSelector',
         'os': 'os',
         'overhead': 'overhead',
-        'paused': 'paused',
         'preemption_policy': 'preemptionPolicy',
         'priority': 'priority',
         'priority_class_name': 'priorityClassName',
-        'progress_deadline_seconds': 'progressDeadlineSeconds',
+        'raw_deployment_spec': 'rawDeploymentSpec',
         'readiness_gates': 'readinessGates',
-        'replicas': 'replicas',
         'resource_claims': 'resourceClaims',
         'restart_policy': 'restartPolicy',
-        'revision_history_limit': 'revisionHistoryLimit',
         'runtime_class_name': 'runtimeClassName',
         'scale_metric': 'scaleMetric',
         'scale_target': 'scaleTarget',
         'scheduler_name': 'schedulerName',
         'scheduling_gates': 'schedulingGates',
         'security_context': 'securityContext',
-        'selector': 'selector',
         'service_account': 'serviceAccount',
         'service_account_name': 'serviceAccountName',
         'set_hostname_as_fqdn': 'setHostnameAsFQDN',
         'share_process_namespace': 'shareProcessNamespace',
-        'strategy': 'strategy',
         'subdomain': 'subdomain',
-        'template': 'template',
         'termination_grace_period_seconds': 'terminationGracePeriodSeconds',
         'timeout': 'timeout',
         'tolerations': 'tolerations',
@@ -172,7 +158,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, alibi=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_ready_seconds=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, paused=None, preemption_policy=None, priority=None, priority_class_name=None, progress_deadline_seconds=None, readiness_gates=None, replicas=None, resource_claims=None, restart_policy=None, revision_history_limit=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, selector=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, strategy=None, subdomain=None, template=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, alibi=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, raw_deployment_spec=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -203,36 +189,29 @@ class V1beta1ExplainerSpec(object):
         self._labels = None
         self._logger = None
         self._max_replicas = None
-        self._min_ready_seconds = None
         self._min_replicas = None
         self._node_name = None
         self._node_selector = None
         self._os = None
         self._overhead = None
-        self._paused = None
         self._preemption_policy = None
         self._priority = None
         self._priority_class_name = None
-        self._progress_deadline_seconds = None
+        self._raw_deployment_spec = None
         self._readiness_gates = None
-        self._replicas = None
         self._resource_claims = None
         self._restart_policy = None
-        self._revision_history_limit = None
         self._runtime_class_name = None
         self._scale_metric = None
         self._scale_target = None
         self._scheduler_name = None
         self._scheduling_gates = None
         self._security_context = None
-        self._selector = None
         self._service_account = None
         self._service_account_name = None
         self._set_hostname_as_fqdn = None
         self._share_process_namespace = None
-        self._strategy = None
         self._subdomain = None
-        self._template = None
         self._termination_grace_period_seconds = None
         self._timeout = None
         self._tolerations = None
@@ -290,8 +269,6 @@ class V1beta1ExplainerSpec(object):
             self.logger = logger
         if max_replicas is not None:
             self.max_replicas = max_replicas
-        if min_ready_seconds is not None:
-            self.min_ready_seconds = min_ready_seconds
         if min_replicas is not None:
             self.min_replicas = min_replicas
         if node_name is not None:
@@ -302,26 +279,20 @@ class V1beta1ExplainerSpec(object):
             self.os = os
         if overhead is not None:
             self.overhead = overhead
-        if paused is not None:
-            self.paused = paused
         if preemption_policy is not None:
             self.preemption_policy = preemption_policy
         if priority is not None:
             self.priority = priority
         if priority_class_name is not None:
             self.priority_class_name = priority_class_name
-        if progress_deadline_seconds is not None:
-            self.progress_deadline_seconds = progress_deadline_seconds
+        if raw_deployment_spec is not None:
+            self.raw_deployment_spec = raw_deployment_spec
         if readiness_gates is not None:
             self.readiness_gates = readiness_gates
-        if replicas is not None:
-            self.replicas = replicas
         if resource_claims is not None:
             self.resource_claims = resource_claims
         if restart_policy is not None:
             self.restart_policy = restart_policy
-        if revision_history_limit is not None:
-            self.revision_history_limit = revision_history_limit
         if runtime_class_name is not None:
             self.runtime_class_name = runtime_class_name
         if scale_metric is not None:
@@ -334,7 +305,6 @@ class V1beta1ExplainerSpec(object):
             self.scheduling_gates = scheduling_gates
         if security_context is not None:
             self.security_context = security_context
-        self.selector = selector
         if service_account is not None:
             self.service_account = service_account
         if service_account_name is not None:
@@ -343,11 +313,8 @@ class V1beta1ExplainerSpec(object):
             self.set_hostname_as_fqdn = set_hostname_as_fqdn
         if share_process_namespace is not None:
             self.share_process_namespace = share_process_namespace
-        if strategy is not None:
-            self.strategy = strategy
         if subdomain is not None:
             self.subdomain = subdomain
-        self.template = template
         if termination_grace_period_seconds is not None:
             self.termination_grace_period_seconds = termination_grace_period_seconds
         if timeout is not None:
@@ -923,29 +890,6 @@ class V1beta1ExplainerSpec(object):
         self._max_replicas = max_replicas
 
     @property
-    def min_ready_seconds(self):
-        """Gets the min_ready_seconds of this V1beta1ExplainerSpec.  # noqa: E501
-
-        Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)  # noqa: E501
-
-        :return: The min_ready_seconds of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._min_ready_seconds
-
-    @min_ready_seconds.setter
-    def min_ready_seconds(self, min_ready_seconds):
-        """Sets the min_ready_seconds of this V1beta1ExplainerSpec.
-
-        Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)  # noqa: E501
-
-        :param min_ready_seconds: The min_ready_seconds of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._min_ready_seconds = min_ready_seconds
-
-    @property
     def min_replicas(self):
         """Gets the min_replicas of this V1beta1ExplainerSpec.  # noqa: E501
 
@@ -1059,29 +1003,6 @@ class V1beta1ExplainerSpec(object):
         self._overhead = overhead
 
     @property
-    def paused(self):
-        """Gets the paused of this V1beta1ExplainerSpec.  # noqa: E501
-
-        Indicates that the deployment is paused.  # noqa: E501
-
-        :return: The paused of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: bool
-        """
-        return self._paused
-
-    @paused.setter
-    def paused(self, paused):
-        """Sets the paused of this V1beta1ExplainerSpec.
-
-        Indicates that the deployment is paused.  # noqa: E501
-
-        :param paused: The paused of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: bool
-        """
-
-        self._paused = paused
-
-    @property
     def preemption_policy(self):
         """Gets the preemption_policy of this V1beta1ExplainerSpec.  # noqa: E501
 
@@ -1151,27 +1072,25 @@ class V1beta1ExplainerSpec(object):
         self._priority_class_name = priority_class_name
 
     @property
-    def progress_deadline_seconds(self):
-        """Gets the progress_deadline_seconds of this V1beta1ExplainerSpec.  # noqa: E501
+    def raw_deployment_spec(self):
+        """Gets the raw_deployment_spec of this V1beta1ExplainerSpec.  # noqa: E501
 
-        The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.  # noqa: E501
 
-        :return: The progress_deadline_seconds of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: int
+        :return: The raw_deployment_spec of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: K8sIoApiAppsV1DeploymentSpec
         """
-        return self._progress_deadline_seconds
+        return self._raw_deployment_spec
 
-    @progress_deadline_seconds.setter
-    def progress_deadline_seconds(self, progress_deadline_seconds):
-        """Sets the progress_deadline_seconds of this V1beta1ExplainerSpec.
+    @raw_deployment_spec.setter
+    def raw_deployment_spec(self, raw_deployment_spec):
+        """Sets the raw_deployment_spec of this V1beta1ExplainerSpec.
 
-        The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.  # noqa: E501
 
-        :param progress_deadline_seconds: The progress_deadline_seconds of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: int
+        :param raw_deployment_spec: The raw_deployment_spec of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: K8sIoApiAppsV1DeploymentSpec
         """
 
-        self._progress_deadline_seconds = progress_deadline_seconds
+        self._raw_deployment_spec = raw_deployment_spec
 
     @property
     def readiness_gates(self):
@@ -1195,29 +1114,6 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._readiness_gates = readiness_gates
-
-    @property
-    def replicas(self):
-        """Gets the replicas of this V1beta1ExplainerSpec.  # noqa: E501
-
-        Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.  # noqa: E501
-
-        :return: The replicas of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._replicas
-
-    @replicas.setter
-    def replicas(self, replicas):
-        """Sets the replicas of this V1beta1ExplainerSpec.
-
-        Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.  # noqa: E501
-
-        :param replicas: The replicas of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._replicas = replicas
 
     @property
     def resource_claims(self):
@@ -1264,29 +1160,6 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._restart_policy = restart_policy
-
-    @property
-    def revision_history_limit(self):
-        """Gets the revision_history_limit of this V1beta1ExplainerSpec.  # noqa: E501
-
-        The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.  # noqa: E501
-
-        :return: The revision_history_limit of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._revision_history_limit
-
-    @revision_history_limit.setter
-    def revision_history_limit(self, revision_history_limit):
-        """Sets the revision_history_limit of this V1beta1ExplainerSpec.
-
-        The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.  # noqa: E501
-
-        :param revision_history_limit: The revision_history_limit of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._revision_history_limit = revision_history_limit
 
     @property
     def runtime_class_name(self):
@@ -1425,29 +1298,6 @@ class V1beta1ExplainerSpec(object):
         self._security_context = security_context
 
     @property
-    def selector(self):
-        """Gets the selector of this V1beta1ExplainerSpec.  # noqa: E501
-
-
-        :return: The selector of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: V1LabelSelector
-        """
-        return self._selector
-
-    @selector.setter
-    def selector(self, selector):
-        """Sets the selector of this V1beta1ExplainerSpec.
-
-
-        :param selector: The selector of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: V1LabelSelector
-        """
-        if self.local_vars_configuration.client_side_validation and selector is None:  # noqa: E501
-            raise ValueError("Invalid value for `selector`, must not be `None`")  # noqa: E501
-
-        self._selector = selector
-
-    @property
     def service_account(self):
         """Gets the service_account of this V1beta1ExplainerSpec.  # noqa: E501
 
@@ -1540,27 +1390,6 @@ class V1beta1ExplainerSpec(object):
         self._share_process_namespace = share_process_namespace
 
     @property
-    def strategy(self):
-        """Gets the strategy of this V1beta1ExplainerSpec.  # noqa: E501
-
-
-        :return: The strategy of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: K8sIoApiAppsV1DeploymentStrategy
-        """
-        return self._strategy
-
-    @strategy.setter
-    def strategy(self, strategy):
-        """Sets the strategy of this V1beta1ExplainerSpec.
-
-
-        :param strategy: The strategy of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: K8sIoApiAppsV1DeploymentStrategy
-        """
-
-        self._strategy = strategy
-
-    @property
     def subdomain(self):
         """Gets the subdomain of this V1beta1ExplainerSpec.  # noqa: E501
 
@@ -1582,29 +1411,6 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._subdomain = subdomain
-
-    @property
-    def template(self):
-        """Gets the template of this V1beta1ExplainerSpec.  # noqa: E501
-
-
-        :return: The template of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: V1PodTemplateSpec
-        """
-        return self._template
-
-    @template.setter
-    def template(self, template):
-        """Sets the template of this V1beta1ExplainerSpec.
-
-
-        :param template: The template of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: V1PodTemplateSpec
-        """
-        if self.local_vars_configuration.client_side_validation and template is None:  # noqa: E501
-            raise ValueError("Invalid value for `template`, must not be `None`")  # noqa: E501
-
-        self._template = template
 
     @property
     def termination_grace_period_seconds(self):
