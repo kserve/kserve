@@ -55,10 +55,11 @@ func GenerateDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1bet
 		return "", fmt.Errorf("error rendering the domain template: %w", err)
 	}
 
-	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
-	if urlErrs != nil {
-		return "", fmt.Errorf("invalid domain name %q: %w", buf.String(), urlErrs.ToAggregate())
+	if !ingressConfig.DisableIngressCreation {
+		urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
+		if urlErrs != nil {
+			return "", fmt.Errorf("invalid domain name %q: %w", buf.String(), urlErrs.ToAggregate())
+		}
 	}
-
 	return buf.String(), nil
 }

@@ -120,6 +120,31 @@ func TestGenerateDomainName(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "long domain name with validation",
+			args: args{
+				name: "super-super-super-super-super-super-super-super-super-super-long-model-name",
+				obj:  obj,
+				ingressConfig: &v1beta1.IngressConfig{
+					IngressDomain:  v1beta1.DefaultIngressDomain,
+					DomainTemplate: "{{ .Name }}.{{ .IngressDomain }}",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "long domain name without validation",
+			args: args{
+				name: "super-super-super-super-super-super-super-super-super-super-long-model-name",
+				obj:  obj,
+				ingressConfig: &v1beta1.IngressConfig{
+					IngressDomain:          v1beta1.DefaultIngressDomain,
+					DomainTemplate:         "{{ .Name }}.{{ .IngressDomain }}",
+					DisableIngressCreation: true,
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
