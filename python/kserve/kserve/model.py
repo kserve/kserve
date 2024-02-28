@@ -29,7 +29,6 @@ from .metrics import (EXPLAIN_HIST_TIME, POST_HIST_TIME, PRE_HIST_TIME,
 
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 from .protocol.infer_type import InferRequest, InferResponse
-from .protocol.rest.v1_datamodels import PredictResponse
 from .protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
 
 
@@ -231,7 +230,7 @@ class Model:
         return result
 
     async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) \
-            -> Union[Dict, PredictResponse, InferResponse]:
+            -> Union[Dict, InferResponse]:
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
         predict_headers = {'Content-Type': 'application/json'}
@@ -296,9 +295,7 @@ class Model:
             res = await self._grpc_predict(payload, headers)
             return InferResponse.from_grpc(res)
         else:
-            res = await self._http_predict(payload, headers)
-            # return an InferResponse if this is REST V2, otherwise just return the dictionary
-            return res if is_v2(PredictorProtocol(self.protocol)) else res.dict()
+            return await self._http_predict(payload, headers)
 
     async def generate(self, payload: GenerateRequest,
                        headers: Dict[str, str] = None) -> Union[GenerateResponse, AsyncIterator[Any]]:

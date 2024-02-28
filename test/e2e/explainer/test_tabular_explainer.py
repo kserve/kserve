@@ -81,7 +81,7 @@ async def test_tabular_explainer():
         raise e
 
     res = await predict_isvc(service_name, './data/income_input.json')
-    assert (res.predictions == [0])
-    precision = explain(service_name, './data/income_input.json')
+    assert (res["predictions"] == [0])
+    precision = await explain(service_name, './data/income_input.json')
     assert (precision > 0.9)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

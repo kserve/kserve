@@ -20,7 +20,6 @@ import grpc
 import httpx
 from httpx import AsyncBaseTransport, HTTPStatusError
 from orjson import orjson
-from pydantic import ValidationError
 from urllib3.util import Url
 
 from .errors import UnsupportedProtocol
@@ -29,7 +28,6 @@ from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResp
     ServerLiveResponse, ModelReadyResponse, ServerReadyRequest, ServerLiveRequest, ModelReadyRequest
 from .protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
 from .protocol.infer_type import InferRequest, InferResponse
-from .protocol.rest.v1_datamodels import PredictRequest, PredictResponse
 
 logger = logging.getLogger("kserve")
 logger.propagate = True
@@ -261,26 +259,22 @@ class InferenceRESTClient:
                                          timeout=self._config.timeout, auth=self._config.auth,
                                          verify=self._config.verify)
 
-    async def predict(self, url: Union[Url, str], data: Union[PredictRequest, dict],
-                      headers: Optional[Mapping[str, str]] = None,
-                      timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Union[PredictResponse, Dict]:
+    async def predict(self, url: Union[Url, str], data: Dict, headers: Optional[Mapping[str, str]] = None,
+                      timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
         """
         Run asynchronous inference using the supplied data. This method follows the V1 protocol specification.
         :param url: Inference url
-        :param data: Input data as PredictRequest object or python dict.
+        :param data: Input data as python dict.
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
                         override the timeout in the RESTConfig. By default, client waits for the response.
-        :return: Inference result as PredictResponse object or python dict.
+        :return: Inference result as python dict.
         :raises HTTPStatusError for response codes other than 2xx.
         """
         if self._config.verbose:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
-        if isinstance(data, PredictRequest):
-            data = orjson.dumps(data.dict())
-        else:
-            data = orjson.dumps(data)
+        data = orjson.dumps(data)
         response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
         if self._config.verbose:
             logger.info("response code: %s, content: %s", response.status_code, response.text)
@@ -295,13 +289,7 @@ class InferenceRESTClient:
                     error_message = error_message["error"]
             message = message.format(response, error_message=error_message)
             raise HTTPStatusError(message, request=response.request, response=response)
-        output = orjson.loads(response.content)
-        # Try converting the output to PredictResponse. If failed it might be an inference graph result,
-        # so return it as dict.
-        try:
-            return PredictResponse.parse_obj(output)
-        except ValidationError:
-            return output
+        return orjson.loads(response.content)
 
     async def infer(self, url: Union[Url, str], data: Union[InferRequest, dict],
                     headers: Optional[Mapping[str, str]] = None,
@@ -346,13 +334,12 @@ class InferenceRESTClient:
         except KeyError:
             return output
 
-    async def explain(self, url: Union[Url, str], data: Union[PredictRequest, dict],
-                      headers: Optional[Mapping[str, str]] = None,
+    async def explain(self, url: Union[Url, str], data: Dict, headers: Optional[Mapping[str, str]] = None,
                       timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
         """
         Run asynchronous explain using the supplied data.
         :param url: Explain url of the inference server.
-        :param data: Input data as PredictRequest object or python dict.
+        :param data: Input data as python dict.
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
                                 override the timeout in the RESTConfig. By default, client waits for the response.
@@ -362,10 +349,7 @@ class InferenceRESTClient:
         if self._config.verbose:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
-        if isinstance(data, PredictRequest):
-            data = orjson.dumps(data.dict())
-        else:
-            data = orjson.dumps(data)
+        data = orjson.dumps(data)
         response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
         if self._config.verbose:
             logger.info("response code: %s, content: %s", response.status_code, response.text)

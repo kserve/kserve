@@ -22,7 +22,6 @@ from kserve.errors import UnsupportedProtocol
 from kserve.inference_client import RESTConfig
 from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
-from kserve.protocol.rest.v1_datamodels import PredictRequest
 from test.test_server import DummyModel
 
 logging.basicConfig(level=logging.INFO)
@@ -114,22 +113,12 @@ class TestInferenceRESTClient:
         input_data = {"instances": [1, 2]}
         res = await rest_client.predict("http://test-server/v1/models/TestModel:predict", data=input_data,
                                         headers={"Host": "test-server.com"}, timeout=2)
-        assert res.predictions == [1, 2]
-
-        input_data = PredictRequest.parse_obj(input_data)
-        res = await rest_client.predict("http://test-server/v1/models/TestModel:predict", data=input_data,
-                                        headers={"Host": "test-server.com"}, timeout=2)
-        assert res.predictions == [1, 2]
+        assert res["predictions"] == [1, 2]
 
         input_data = {"inputs": [1, 2]}
         res = await rest_client.predict("http://test-server/v1/models/TestModel:predict", data=input_data,
                                         headers={"Host": "test-server.com"}, timeout=2)
-        assert res.predictions == [1, 2]
-
-        input_data = PredictRequest.parse_obj(input_data)
-        res = await rest_client.predict("http://test-server/v1/models/TestModel:predict", data=input_data,
-                                        headers={"Host": "test-server.com"}, timeout=2)
-        assert res.predictions == [1, 2]
+        assert res["predictions"] == [1, 2]
 
     async def test_infer(self, rest_client):
         request_id = "2ja0ls9j1309"
@@ -172,17 +161,7 @@ class TestInferenceRESTClient:
                                         headers={"Host": "test-server.com"}, timeout=2)
         assert res == {"predictions": [1, 2]}
 
-        input_data = PredictRequest.parse_obj(input_data)
-        res = await rest_client.predict("http://test-server/v1/models/TestModel:explain", data=input_data,
-                                        headers={"Host": "test-server.com"}, timeout=2)
-        assert res == {"predictions": [1, 2]}
-
         input_data = {"inputs": [1, 2]}
-        res = await rest_client.predict("http://test-server/v1/models/TestModel:explain", data=input_data,
-                                        headers={"Host": "test-server.com"}, timeout=2)
-        assert res == {"predictions": [1, 2]}
-
-        input_data = PredictRequest.parse_obj(input_data)
         res = await rest_client.predict("http://test-server/v1/models/TestModel:explain", data=input_data,
                                         headers={"Host": "test-server.com"}, timeout=2)
         assert res == {"predictions": [1, 2]}

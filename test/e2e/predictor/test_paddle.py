@@ -68,7 +68,7 @@ async def test_paddle():
         raise e
 
     res = await predict_isvc(service_name, './data/jay.json')
-    assert np.argmax(res.predictions[0]) == 17
+    assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -113,7 +113,7 @@ async def test_paddle_runtime():
         raise e
 
     res = await predict_isvc(service_name, './data/jay.json')
-    assert np.argmax(res.predictions[0]) == 17
+    assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 

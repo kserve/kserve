@@ -116,7 +116,7 @@ async def test_inference_graph():
         graph_name,
         os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     )
-    assert res.predictions == [1, 1]
+    assert res["predictions"] == [1, 1]
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(sklearn_name, KSERVE_TEST_NAMESPACE)
@@ -991,7 +991,7 @@ async def test_inference_graph_raw_mode():
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     # )
-    # assert res.predictions == [1, 1]
+    # assert res["predictions"] == [1, 1]
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(sklearn_name, KSERVE_TEST_NAMESPACE)
@@ -1125,7 +1125,7 @@ async def test_inference_graph_raw_mode_with_hpa():
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     # )
-    # assert res.predictions == [1, 1]
+    # assert res["predictions"] == [1, 1]
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(sklearn_name, KSERVE_TEST_NAMESPACE)

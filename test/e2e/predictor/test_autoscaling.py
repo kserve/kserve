@@ -70,7 +70,7 @@ async def test_sklearn_kserve_concurrency():
     isvc_annotations = pods.items[0].metadata.annotations
 
     res = await predict_isvc(service_name, INPUT)
-    assert res.predictions == [1, 1]
+    assert res["predictions"] == [1, 1]
     assert (isvc_annotations[METRIC] == 'concurrency')
     assert (isvc_annotations[TARGET] == '2')
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -114,7 +114,7 @@ async def test_sklearn_kserve_rps():
     assert (annotations[METRIC] == 'rps')
     assert (annotations[TARGET] == '5')
     res = await predict_isvc(service_name, INPUT)
-    assert res.predictions == [1, 1]
+    assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -160,7 +160,7 @@ async def test_sklearn_kserve_cpu():
     assert (isvc_annotations[METRIC] == 'cpu')
     assert (isvc_annotations[TARGET] == '50')
     res = await predict_isvc(service_name, INPUT)
-    assert res.predictions == [1, 1]
+    assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -206,5 +206,5 @@ async def test_sklearn_scale_raw():
 
     assert (hpa_resp['items'][0]['spec']['targetCPUUtilizationPercentage'] == 50)
     res = await predict_isvc(service_name, INPUT)
-    assert res.predictions == [1, 1]
+    assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
