@@ -226,7 +226,7 @@ class InferenceRequest(BaseModel):
     }
     """
 
-    id: Optional[str]
+    id: Optional[str] = None
     parameters: Optional[Parameters] = None
     inputs: List[RequestInput]
     outputs: Optional[List[RequestOutput]] = None
@@ -447,8 +447,8 @@ class GenerateResponse(BaseModel):
 
     text_output: str
     model_name: str
-    model_version: Optional[str]
-    details: Optional[Details]
+    model_version: Optional[str] = None
+    details: Optional[Details] = None
 
     if is_pydantic_2:
         model_config = ConfigDict(
@@ -492,8 +492,8 @@ class GenerateStreamingResponse(BaseModel):
 
     text_output: str
     model_name: str
-    model_version: Optional[str]
-    details: Optional[StreamingDetails]
+    model_version: Optional[str] = None
+    details: Optional[StreamingDetails] = None
 
     if is_pydantic_2:
         model_config = ConfigDict(
