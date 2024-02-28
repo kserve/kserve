@@ -33,6 +33,7 @@ from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
 
 from kserve.protocol.infer_type import InferRequest, InferInput, InferResponse, InferOutput
+from kserve.protocol.rest.v2_datamodels import is_pydantic_2
 from kserve.utils.utils import get_predict_input, get_predict_response
 
 test_avsc_schema = '''
@@ -381,7 +382,14 @@ class TestRayServer:
     def test_health_handler(self, http_server_client):
         resp = http_server_client.get('/v1/models/TestModel')
         assert resp.status_code == 200
-        assert resp.content == b'{"name":"TestModel","ready":true}'
+        # for some reason the RayServer responds with the stringified python bool
+        # when run on pydantic < 2 and the bool when run on pydantic >= 2
+        # eg {"name":"TestModel","ready":"True"} vs {"name":"TestModel","ready":true}
+        if is_pydantic_2:
+            expected_content = b'{"name":"TestModel","ready":true}'
+        else:
+            expected_content = b'{"name":"TestModel","ready":"True"}'
+        assert resp.content == expected_content
 
     def test_predict(self, http_server_client):
         resp = http_server_client.post('/v1/models/TestModel:predict',
