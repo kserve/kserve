@@ -1,5 +1,6 @@
 
 # Binaries for programs and plugins
+.tekton
 *.exe
 *.exe~
 *.dll
