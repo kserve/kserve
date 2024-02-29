@@ -20,7 +20,7 @@ import multiprocessing
 import signal
 import socket
 from multiprocessing import Process
-from typing import Dict, List, Optional, Union, Callable, Any
+from typing import Dict, List, Optional, Union, Callable, Any, IO
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment
@@ -62,6 +62,15 @@ parser.add_argument("--log_config_file", default=None, type=str,
                     help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
 parser.add_argument("--access_log_format", default=None, type=str,
                     help="The asgi access logging format.")
+parser.add_argument("--secure_grpc_server", default=False, type=bool,
+                    choices=[True, False],
+                    help="Enable gRPC server authentication using SSL for the model server.")
+parser.add_argument("--ssl_server_key", default=None, type=str,
+                    help="File path for SSL server key used for gRPC server authentication.")
+parser.add_argument("--ssl_server_cert", default=None, type=str,
+                    help="File path for SSL server key used for gRPC server authentication.")
+parser.add_argument("--ssl_ca_cert", default=None, type=str,
+                    help="File path for SSL server key used for gRPC server authentication.")
 
 # Model arguments: The arguments are passed to the kserve.Model object
 parser.add_argument("--model_name", default="model", type=str,
@@ -96,7 +105,12 @@ class ModelServer:
                  configure_logging: bool = args.configure_logging,
                  log_config: Optional[Union[Dict, str]] = args.log_config_file,
                  access_log_format: str = args.access_log_format,
+                 secure_grpc_server: bool = args.secure_grpc_server,
+                 server_key: str = args.ssl_server_key,
+                 server_cert: str = args.ssl_server_cert,
+                 ca_cert: str = args.ssl_ca_cert
                  ):
+        self.registered_models = registered_models
         """KServe ModelServer Constructor
 
         Args:
@@ -112,8 +126,11 @@ class ModelServer:
             configure_logging: Whether to configure KServe and Uvicorn logging. Default: ``True``.
             log_config: File path or dict containing log config. Default: ``None``.
             access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``
+            secure_grpc_server: Whether to enable secure grpc server. Default: ``False``.
+            ssl_server_key: File path to server key for secure grpc SSL server credentials.  Default: ``None``.
+            ssl_server_cert: File path to server cert for secure grpc SSL server credentials.  Default: ``None``.
+            ssl_ca_cert: File path to CA cert for secure grpc SSL server credentials.  Default: ``None``.
         """
-        self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
@@ -127,9 +144,28 @@ class ModelServer:
             model_registry=self.registered_models)
         self._grpc_server = None
         self._rest_server = None
+        self.secure_grpc_server = secure_grpc_server
+        self.grpc_ssl_key = server_key
+        self.grpc_ssl_cert = server_cert
+        self.grpc_ssl_ca_cert = ca_cert
         if self.enable_grpc:
-            self._grpc_server = GRPCServer(grpc_port, self.dataplane,
-                                           self.model_repository_extension)
+            if self.secure_grpc_server:
+                server_credentials = []
+                with open(self.grpc_ssl_key, 'rb') as key_file:
+                    server_credentials.append(key_file)
+                with open(self.grpc_ssl_cert, 'rb') as ssl_cert_file:
+                    server_credentials.append(ssl_cert_file)
+                with open(self.grpc_ssl_ca_cert, 'rb') as ssl_ca_cert_file:
+                    server_credentials.append(ssl_ca_cert_file)
+
+                self._grpc_server = GRPCServer(grpc_port, self.dataplane,
+                                                self.model_repository_extension,
+                                                secure_server=self.secure_grpc_server,
+                                                grpc_secure_server_credentials=server_credentials
+                                                )
+            else:
+                self._grpc_server = GRPCServer(grpc_port, self.dataplane,
+                                                self.model_repository_extension)
 
         # Logs can be passed as a path to a file or a dictConfig.
         # We rely on Uvicorn to configure the loggers for us.

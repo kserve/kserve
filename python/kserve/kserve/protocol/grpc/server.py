@@ -15,8 +15,9 @@
 import asyncio
 import multiprocessing
 from concurrent import futures
+from typing import List, IO
 
-from grpc import aio
+from grpc import aio, ssl_server_credentials as grpc_ssl_server_credentials
 
 from kserve.logging import logger
 from kserve.protocol.dataplane import DataPlane
@@ -34,12 +35,16 @@ class GRPCServer:
         self,
         port: int,
         data_plane: DataPlane,
-        model_repository_extension: ModelRepositoryExtension
+        model_repository_extension: ModelRepositoryExtension,
+        secure_server: bool = False,
+        grpc_secure_server_credentials: List[IO] = None
     ):
         self._port = port
         self._data_plane = data_plane
         self._model_repository_extension = model_repository_extension
         self._server = None
+        self._secure_server = secure_server
+        self._grpc_secure_server_credentials = grpc_secure_server_credentials
 
     async def start(self, max_workers):
         inference_servicer = InferenceServicer(
@@ -58,7 +63,17 @@ class GRPCServer:
             inference_servicer, self._server)
 
         listen_addr = f'[::]:{self._port}'
-        self._server.add_insecure_port(listen_addr)
+
+        if self._secure_server:
+            server_credentials = grpc_ssl_server_credentials(
+                [(self._grpc_secure_server_credentials[0], self._grpc_secure_server_credentials[1])],
+                root_certificates=self._grpc_secure_server_credentials[2],
+                require_client_auth=True
+            )
+            self._server.add_secure_port(listen_addr, server_credentials)
+        else:
+            self._server.add_insecure_port(listen_addr)
+
         logger.info("Starting gRPC server on %s", listen_addr)
         await self._server.start()
         await self._server.wait_for_termination()
