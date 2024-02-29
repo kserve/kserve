@@ -63,7 +63,7 @@ spec:
 ```
 
 To view the runtime specific defaults for the `kserve-container` prometheus port and path, view the spec annotations in `kserve/config/runtimes`.
-These values can be overriden in the InferenceService YAML annotations.
+These values can be overridden in the InferenceService YAML annotations.
 
 ```yaml
 apiVersion: "serving.kserve.io/v1beta1"
