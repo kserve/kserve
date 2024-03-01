@@ -184,6 +184,7 @@ generate: controller-gen
 	hack/update-codegen.sh
 	hack/update-openapigen.sh
 	hack/python-sdk/client-gen.sh
+	hack/update-helm-docs.sh
 
 bump-version:
 	# TBA
