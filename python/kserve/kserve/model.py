@@ -20,7 +20,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 from cloudevents.http import CloudEvent
 
-from .constants.constants import PredictorProtocol, PREDICTOR_URL_FORMAT, PREDICTOR_V2_URL_FORMAT, EXPLAINER_URL_FORMAT
+from .constants.constants import PredictorProtocol, PREDICTOR_BASE_URL_FORMAT, EXPLAINER_BASE_URL_FORMAT
 from .errors import InvalidInput
 from .inference_client import RESTConfig, InferenceRESTClient, InferenceGRPCClient
 
@@ -66,10 +66,6 @@ class InferenceVerb(Enum):
     EXPLAIN = 1
     PREDICT = 2
     GENERATE = 3
-
-
-def is_v2(protocol: PredictorProtocol) -> bool:
-    return protocol != PredictorProtocol.REST_V1
 
 
 def get_latency_ms(start: float, end: float) -> float:
@@ -209,7 +205,7 @@ class Model(BaseKServeModel):
     @property
     def _http_client(self) -> InferenceRESTClient:
         if self._http_client_instance is None:
-            config = RESTConfig()
+            config = RESTConfig(protocol=self.protocol)
             self._http_client_instance = InferenceRESTClient(config=config)
         return self._http_client_instance
 
@@ -310,24 +306,14 @@ class Model(BaseKServeModel):
                 predict_headers["x-b3-traceid"] = headers["x-b3-traceid"]
 
         protocol = "https" if self.use_ssl else "http"
-        if self.protocol == PredictorProtocol.REST_V1.value:
-            predict_url = PREDICTOR_URL_FORMAT.format(protocol, self.predictor_host, self.name)
-            response = await self._http_client.predict(
-                predict_url,
+        predict_base_url = PREDICTOR_BASE_URL_FORMAT.format(protocol, self.predictor_host)
+        response = await self._http_client.infer(
+                predict_base_url,
+                self.name,
                 data=payload,
                 timeout=self.timeout,
                 headers=predict_headers,
-            )
-        elif self.protocol == PredictorProtocol.REST_V2.value:
-            predict_url = PREDICTOR_V2_URL_FORMAT.format(protocol, self.predictor_host, self.name)
-            response = await self._http_client.infer(
-                predict_url,
-                data=payload,
-                timeout=self.timeout,
-                headers=predict_headers,
-            )
-        else:
-            raise RuntimeError("Unsupported protocol")
+        )
         return response
 
     async def _grpc_predict(
@@ -402,11 +388,12 @@ class Model(BaseKServeModel):
 
         protocol = "https" if self.use_ssl else "http"
         # Currently explainer only supports the kserve v1 endpoints
-        explain_url = EXPLAINER_URL_FORMAT.format(
-            protocol, self.explainer_host, self.name
+        explain_base_url = EXPLAINER_BASE_URL_FORMAT.format(
+            protocol, self.explainer_host
         )
         response = await self._http_client.explain(
-            url=explain_url, timeout=self.timeout, data=payload,
+            explain_base_url,
+            self.name, timeout=self.timeout, data=payload,
             headers=explain_headers
         )
         return response

@@ -20,7 +20,6 @@ import grpc
 import httpx
 from httpx import AsyncBaseTransport, HTTPStatusError
 from orjson import orjson
-from urllib3.util import Url
 
 from .errors import UnsupportedProtocol
 from .constants.constants import PredictorProtocol
@@ -28,6 +27,7 @@ from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResp
     ServerLiveResponse, ModelReadyResponse, ServerReadyRequest, ServerLiveRequest, ModelReadyRequest
 from .protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
 from .protocol.infer_type import InferRequest, InferResponse
+from .utils.utils import is_v2, is_v1
 
 
 class InferenceGRPCClient:
@@ -212,8 +212,9 @@ class RESTConfig:
     Configuration for REST inference client.
 
     :param transport (optional) An asynchronous transport class to use for sending requests over the network.
+    :param protocol (optional) Inference server protocol as string or PredictorProtocol object. Defaults to V1 protocol.
     :param retries (optional) An integer value indicating the number of retries in case of ConnectError or
-                   ConnectTimeout.
+                   ConnectTimeout. Defaults to 3.
     :param timeout (optional) The maximum end-to-end time, in seconds, the request is allowed to take. By default,
                    client waits for the response.
     :param http2 (optional) A boolean indicating if HTTP/2 support should be enabled. Defaults to False.
@@ -227,10 +228,11 @@ class RESTConfig:
     :param verbose (optional) A boolean to enable verbose logging. Defaults to False.
     """
 
-    def __init__(self, transport: AsyncBaseTransport = None, retries: int = 3, http2: bool = False,
-                 timeout: Union[float, None, tuple, httpx.Timeout] = None, cert=None,
-                 verify: Union[str, bool, ssl.SSLContext] = True, auth=None, verbose: bool = False):
+    def __init__(self, transport: AsyncBaseTransport = None, protocol: Union[str, PredictorProtocol] = "v1",
+                 retries: int = 3, http2: bool = False, timeout: Union[float, None, tuple, httpx.Timeout] = None,
+                 cert=None, verify: Union[str, bool, ssl.SSLContext] = True, auth=None, verbose: bool = False):
         self.transport = transport
+        self.protocol = protocol
         self.retries = retries
         self.http2 = http2
         self.timeout = timeout
@@ -256,45 +258,61 @@ class InferenceRESTClient:
                                          timeout=self._config.timeout, auth=self._config.auth,
                                          verify=self._config.verify)
 
-    async def predict(self, url: Union[Url, str], data: Dict, headers: Optional[Mapping[str, str]] = None,
-                      timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
+    def _construct_url(self, base_url: Union[str, httpx.URL], relative_url: str) -> httpx.URL:
         """
-        Run asynchronous inference using the supplied data. This method follows the V1 protocol specification.
-        :param url: Inference url
-        :param data: Input data as python dict.
-        :param headers: (optional) HTTP headers to include when sending request.
-        :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
-                        override the timeout in the RESTConfig. By default, client waits for the response.
-        :return: Inference result as python dict.
-        :raises HTTPStatusError for response codes other than 2xx.
+        Merge a relative url argument together with any 'base_url' to create the URL used for the outgoing request.
+        :param base_url: The base url as str or httpx.URL object to use when constructing request url.
+        :param relative_url: The relative url to use for merging with base url as string.
+        :return: a httpx.URL object
+        :raises InvalidURL if the base url is not valid.
         """
-        if self._config.verbose:
-            logger.info("url: %s", url)
-            logger.info("request data: %s", data)
-        data = orjson.dumps(data)
-        response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
-        if self._config.verbose:
-            logger.info("response code: %s, content: %s", response.status_code, response.text)
-        if not response.is_success:
-            message = (
-                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-            )
-            error_message = ""
-            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
-                error_message = response.json()
-                if "error" in error_message:
-                    error_message = error_message["error"]
-            message = message.format(response, error_message=error_message)
-            raise HTTPStatusError(message, request=response.request, response=response)
-        return orjson.loads(response.content)
+        if isinstance(base_url, str):
+            base_url = httpx.URL(base_url)
+        if base_url.is_relative_url:
+            raise httpx.InvalidURL("Base url should not be a relative url")
+        if not base_url.raw_path.endswith(b"/"):
+            base_url.join("/")
+        return base_url.join(relative_url.lstrip("/"))
 
-    async def infer(self, url: Union[Url, str], data: Union[InferRequest, dict],
+    # async def predict(self, url: Union[Url, str], data: Dict, headers: Optional[Mapping[str, str]] = None,
+    #                   timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
+    #     """
+    #     Run asynchronous inference using the supplied data. This method follows the V1 protocol specification.
+    #     :param url: Inference url
+    #     :param data: Input data as python dict.
+    #     :param headers: (optional) HTTP headers to include when sending request.
+    #     :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
+    #                     override the timeout in the RESTConfig. By default, client waits for the response.
+    #     :return: Inference result as python dict.
+    #     :raises HTTPStatusError for response codes other than 2xx.
+    #     """
+    #     if self._config.verbose:
+    #         logger.info("url: %s", url)
+    #         logger.info("request data: %s", data)
+    #     data = orjson.dumps(data)
+    #     response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
+    #     if self._config.verbose:
+    #         logger.info("response code: %s, content: %s", response.status_code, response.text)
+    #     if not response.is_success:
+    #         message = (
+    #             "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
+    #         )
+    #         error_message = ""
+    #         if "content-type" in response.headers and response.headers["content-type"] == "application/json":
+    #             error_message = response.json()
+    #             if "error" in error_message:
+    #                 error_message = error_message["error"]
+    #         message = message.format(response, error_message=error_message)
+    #         raise HTTPStatusError(message, request=response.request, response=response)
+    #     return orjson.loads(response.content)
+
+    async def infer(self, base_url: Union[httpx.URL, str], model_name: str, data: Union[InferRequest, dict],
                     headers: Optional[Mapping[str, str]] = None,
                     timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Union[InferResponse, Dict]:
         """
-        Run asynchronous inference using the supplied data. This method follows the open inference protocol(V2).
-        For more info on open inference protocol visit https://github.com/kserve/open-inference-protocol.
-        :param url: Inference url of the inference server.
+        Run asynchronous inference using the supplied data.
+        :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
+        :param model_name: Name of the model as string.
         :param data: Input data as InferRequest object.
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
@@ -302,6 +320,12 @@ class InferenceRESTClient:
         :return: Inference result as InferResponse object or python dict.
         :raises HTTPStatusError for response codes other than 2xx.
         """
+        if is_v1(self._config.protocol):
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:predict")
+        elif is_v2(self._config.protocol):
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}/infer")
+        else:
+            raise UnsupportedProtocol(self._config.protocol)
         if self._config.verbose:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
@@ -324,18 +348,20 @@ class InferenceRESTClient:
             message = message.format(response, error_message=error_message)
             raise HTTPStatusError(message, request=response.request, response=response)
         output = orjson.loads(response.content)
-        # Try converting the output to InferResponse. If failed it might be an inference graph result,
+        # Try converting the output to InferResponse. If failed it might be an inference graph result or v1 result,
         # so return it as dict.
         try:
             return InferResponse.from_rest(output.get("model_name"), response=output)
         except KeyError:
             return output
 
-    async def explain(self, url: Union[Url, str], data: Dict, headers: Optional[Mapping[str, str]] = None,
+    async def explain(self, base_url: Union[httpx.URL, str], model_name: str,
+                      data: Dict, headers: Optional[Mapping[str, str]] = None,
                       timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
         """
-        Run asynchronous explain using the supplied data.
-        :param url: Explain url of the inference server.
+        Run asynchronous explanation using the supplied data.
+        :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
+        :param model_name: Name of the model as string.
         :param data: Input data as python dict.
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
@@ -343,6 +369,10 @@ class InferenceRESTClient:
         :return: Explain result as python dict.
         :raises HTTPStatusError for response codes other than 2xx.
         """
+        if is_v1(self._config.protocol):
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:explain")
+        else:
+            raise UnsupportedProtocol(self._config.protocol)
         if self._config.verbose:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
@@ -363,31 +393,33 @@ class InferenceRESTClient:
             raise HTTPStatusError(message, request=response.request, response=response)
         return orjson.loads(response.content)
 
-    async def is_server_ready(self, url: Union[Url, str], headers: Optional[Mapping[str, str]] = None,
+    async def is_server_ready(self, base_url: Union[httpx.URL, str], headers: Optional[Mapping[str, str]] = None,
                               timeout: Union[float, None, tuple, httpx.Timeout] = None) -> bool:
         """
         Get readiness of the inference server.
-        :param url: Readiness url of the inference server.
+        :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
                         override the timeout in the RESTConfig. By default, client waits for the response.
         :return: True if server is ready, False if server is not ready.
         :raises HTTPStatusError for response codes other than 2xx.
         """
+        if not is_v2(self._config.protocol):
+            raise UnsupportedProtocol(protocol_version=self._config.protocol)
+        url = self._construct_url(base_url, f"{self._config.protocol}/health/ready")
+        if self._config.verbose:
+            logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
         res = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("url: %s", url)
             logger.info("response code: %s, content: %s", res.status_code, res.text)
         res.raise_for_status()
         return res.json().get("ready")
 
-    async def is_server_live(self, url: Union[Url, str], protocol_version: Union[str, PredictorProtocol],
-                             headers: Optional[Mapping[str, str]] = None,
+    async def is_server_live(self, base_url: Union[str, httpx.URL], headers: Optional[Mapping[str, str]] = None,
                              timeout: Union[float, None, tuple, httpx.Timeout] = None) -> bool:
         """
         Get liveness of the inference server.
-        :param url: Readiness url of the inference server.
-        :param protocol_version: Inference server protocol version as string or PredictorProtocol object.
+        :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
                         override the timeout in the RESTConfig. By default, client waits for the response.
@@ -395,28 +427,30 @@ class InferenceRESTClient:
         :raises HTTPStatusError for response codes other than 2xx.
         :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
+        url = self._construct_url(base_url, "")
+        if is_v2(self._config.protocol):
+            url = self._construct_url(base_url, f"{self._config.protocol}/health/live")
+        if self._config.verbose:
+            logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
         res = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("url: %s, protocol_version: %s", url, protocol_version)
             logger.info("response code: %s, content: %s", res.status_code, res.text)
         res.raise_for_status()
-        if (protocol_version == PredictorProtocol.REST_V1 or isinstance(protocol_version, str) and
-                protocol_version.lower() == PredictorProtocol.REST_V1.value.lower()):
+        if is_v1(self._config.protocol):
             is_live = res.json().get("status").lower() == "alive"
-        elif (protocol_version == PredictorProtocol.REST_V2 or isinstance(protocol_version, str) and
-              protocol_version.lower() == PredictorProtocol.REST_V2.value.lower()):
+        elif is_v2(self._config.protocol):
             is_live = res.json().get("live")
         else:
-            raise UnsupportedProtocol(protocol_version=protocol_version)
+            raise UnsupportedProtocol(protocol_version=self._config.protocol)
         return is_live
 
-    async def is_model_ready(self, url: Union[Url, str], protocol_version: Union[str, PredictorProtocol],
+    async def is_model_ready(self, base_url: Union[httpx.URL, str], model_name: str,
                              headers: Optional[Mapping[str, str]] = None,
                              timeout: Union[float, None, tuple, httpx.Timeout] = None) -> bool:
         """
         Get readiness of the specified model.
-        :param url: Readiness url of the inference model.
-        :param protocol_version: Inference server protocol version as string or PredictorProtocol object.
+        :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
+        :param model_name: Name of the model as string.
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
                         override the timeout in the RESTConfig. By default, client waits for the response.
@@ -424,21 +458,27 @@ class InferenceRESTClient:
         :raises HTTPStatusError for response codes other than 2xx.
         :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
-        # TODO: Server responds with 503 service unavailable error if model is not ready. How should we handle this
-        #  in inference client ?
+        if is_v1(self._config.protocol):
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}")
+        elif is_v2(self._config.protocol):
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}/ready")
+        else:
+            raise UnsupportedProtocol(protocol_version=self._config.protocol)
+        if self._config.verbose:
+            logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
         res = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("url: %s, protocol_version: %s", url, protocol_version)
             logger.info("response code: %s, content: %s", res.status_code, res.text)
+
+        # Model Server responds with 503 service unavailable error if model is not ready
+        if res.status_code == httpx.codes.SERVICE_UNAVAILABLE:
+            return False
+        # Raise for other status codes
         res.raise_for_status()
-        if (protocol_version == PredictorProtocol.REST_V1 or isinstance(protocol_version, str) and
-                protocol_version.lower() == PredictorProtocol.REST_V1.value.lower()):
+        if is_v1(self._config.protocol):
             is_ready = res.json().get("ready").lower() == "true"
-        elif (protocol_version == PredictorProtocol.REST_V2 or isinstance(protocol_version, str) and
-              protocol_version.lower() == PredictorProtocol.REST_V2.value.lower()):
-            is_ready = res.json().get("ready")
         else:
-            raise UnsupportedProtocol(protocol_version=protocol_version)
+            is_ready = res.json().get("ready")
         return is_ready
 
     async def close(self):

@@ -73,10 +73,8 @@ OBSERVED_GENERATION = "observedGeneration"
 # K8S metadata key constants
 GENERATION = "generation"
 
-PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
-EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
-PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
-EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
+PREDICTOR_BASE_URL_FORMAT = "{0}://{1}"
+EXPLAINER_BASE_URL_FORMAT = "{0}://{1}"
 
 
 class PredictorProtocol(Enum):

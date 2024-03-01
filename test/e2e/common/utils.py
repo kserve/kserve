@@ -43,7 +43,8 @@ INFERENCESERVICE_CONTAINER = "kserve-container"
 TRANSFORMER_CONTAINER = "transformer-container"
 STORAGE_URI_ENV = "STORAGE_URI"
 
-rest_client = None
+rest_client_v1 = None
+rest_client_v2 = None
 grpc_client = None
 
 logging.basicConfig(level=logging.INFO)
@@ -90,11 +91,17 @@ def grpc_stub(host):
     return grpc_client
 
 
-def get_rest_client():
-    global rest_client
-    if rest_client is None:
-        rest_client = InferenceRESTClient(config=RESTConfig(timeout=10, verbose=True))
-    return rest_client
+def get_rest_client(protocol):
+    global rest_client_v1
+    global rest_client_v2
+    if protocol == PredictorProtocol.REST_V1.value:
+        if rest_client_v1 is None:
+            rest_client_v1 = InferenceRESTClient(config=RESTConfig(timeout=10, verbose=True, protocol=protocol))
+        return rest_client_v1
+    else:
+        if rest_client_v2 is None:
+            rest_client_v2 = InferenceRESTClient(config=RESTConfig(timeout=10, verbose=True, protocol=protocol))
+        return rest_client_v2
 
 
 async def predict_isvc(service_name, input_path, protocol_version="v1",
@@ -111,10 +118,8 @@ async def predict_isvc(service_name, input_path, protocol_version="v1",
     cluster_ip, host, path = get_isvc_endpoint(isvc)
     if model_name is None:
         model_name = service_name
-    url = f"http://{cluster_ip}{path}/v1/models/{model_name}:predict"
-    if protocol_version == "v2":
-        url = f"http://{cluster_ip}{path}/v2/models/{model_name}/infer"
-    return await predict(url, host, input_path, protocol_version, is_batch)
+    base_url = f"http://{cluster_ip}{path}"
+    return await predict(base_url, host, input_path, protocol_version, is_batch)
 
 
 async def predict(url, host, input_path, protocol_version="v1", is_batch=False) \
@@ -135,18 +140,13 @@ async def predict(url, host, input_path, protocol_version="v1", is_batch=False) 
 
 
 async def _predict(url, input_data, headers=None, protocol_version="v1") -> Union[InferResponse, Dict]:
-    client = get_rest_client()
+    client = get_rest_client(protocol=protocol_version)
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_data)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     await asyncio.sleep(3)
-    if protocol_version == PredictorProtocol.REST_V1.value:
-        response = await client.predict(url, input_data, headers)
-    elif protocol_version == PredictorProtocol.REST_V2.value:
-        response = await client.infer(url, input_data, headers)
-    else:
-        raise RuntimeError("Unsupported protocol version")
+    response = await client.infer(url, input_data, headers)
     return response
 
 
