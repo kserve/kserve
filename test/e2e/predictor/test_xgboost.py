@@ -17,7 +17,7 @@ import os
 
 import pytest
 from kubernetes import client
-from kubernetes.client import V1ContainerPort, V1EnvVar, V1ResourceRequirements
+from kubernetes.client import V1ContainerPort, V1ResourceRequirements
 
 from kserve import (KServeClient, V1beta1InferenceService,
                     V1beta1InferenceServiceSpec, V1beta1ModelFormat,
