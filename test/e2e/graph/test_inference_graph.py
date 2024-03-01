@@ -864,7 +864,7 @@ def test_ig_scenario10():
     kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.graph
 def test_inference_graph_raw_mode():
     logging.info("Starting test test_inference_graph_raw_mode")
     sklearn_name = "isvc-sklearn-graph-raw"
@@ -988,7 +988,7 @@ def test_inference_graph_raw_mode():
     kserve_client.delete(xgb_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.graph
 def test_inference_graph_raw_mode_with_hpa():
     logging.info("Starting test test_inference_graph_raw_mode_with_hpa")
     sklearn_name = "isvc-sklearn-graph-raw-hpa"

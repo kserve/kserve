@@ -43,7 +43,7 @@ def test_sklearn_kserve():
                 name="sklearn",
             ),
             runtime="kserve-mlserver",
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
             protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
