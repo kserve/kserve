@@ -68,8 +68,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		}
 		configs = map[string]string{
 			"explainers": `{
-				"alibi": {
-					"image": "kserve/alibi-explainer",
+				"art": {
+					"image": "kserve/art-explainer",
 					"defaultImageVersion": "latest"
 				}
 			}`,
@@ -777,8 +777,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								"key2": "val2FromExplainer",
 							},
 						},
-						Alibi: &v1beta1.AlibiExplainerSpec{
-							Type: v1beta1.AlibiAnchorsTabularExplainer,
+						ART: &v1beta1.ARTExplainerSpec{
+							Type: v1beta1.ARTSquareAttackExplainer,
 							ExplainerExtensionSpec: v1beta1.ExplainerExtensionSpec{
 								StorageURI:     "s3://test/mnist/explainer",
 								RuntimeVersion: proto.String("0.4.0"),
@@ -854,7 +854,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Containers: []v1.Container{
 										{
 											Name:  constants.InferenceServiceContainerName,
-											Image: "kserve/alibi-explainer:0.4.0",
+											Image: "kserve/art-explainer:0.4.0",
 											Args: []string{
 												"--model_name",
 												serviceName,

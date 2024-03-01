@@ -63,17 +63,12 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0
 | kserve.modelmeshVersion | string | `"v0.11.2"` |  |
 | kserve.router.image | string | `"kserve/router"` |  |
 | kserve.router.tag | string | `"v0.12.0"` |  |
-| kserve.servingruntime.alibi.defaultVersion | string | `"v0.12.0"` |  |
-| kserve.servingruntime.alibi.image | string | `"kserve/alibi-explainer"` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.12.0"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
 | kserve.servingruntime.huggingfaceserver.tag | string | `"v0.12.0"` |  |
 | kserve.servingruntime.lgbserver.image | string | `"kserve/lgbserver"` |  |
 | kserve.servingruntime.lgbserver.tag | string | `"v0.12.0"` |  |
-| kserve.servingruntime.mlserver.image | string | `"docker.io/seldonio/mlserver"` |  |
-| kserve.servingruntime.mlserver.modelClassPlaceholder | string | `"{{.Labels.modelClass}}"` |  |
-| kserve.servingruntime.mlserver.tag | string | `"1.3.2"` |  |
 | kserve.servingruntime.modelNamePlaceholder | string | `"{{.Name}}"` |  |
 | kserve.servingruntime.paddleserver.image | string | `"kserve/paddleserver"` |  |
 | kserve.servingruntime.paddleserver.tag | string | `"v0.12.0"` |  |

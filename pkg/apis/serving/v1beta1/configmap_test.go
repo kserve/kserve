@@ -44,11 +44,7 @@ func createFakeClient() client.WithWatch {
 		Immutable: nil,
 		Data:      map[string]string{},
 		BinaryData: map[string][]byte{
-			ExplainerConfigKeyName: []byte(`{                                                                                                                                                                                                               │
-				     "alibi": {                                                                                                                                                                                                  │
-				        "image" : "kserve/alibi-explainer",                                                                                                                                                                     │
-				         "defaultImageVersion": "latest"                                                                                                                                                                         │
-				     },                                                                                                                                                                                                          │
+			ExplainerConfigKeyName: []byte(`{                                                                                                                                                                                               │
 				     "art": {                                                                                                                                                                                                    │
 				         "image" : "kserve/art-explainer",                                                                                                                                                                       │
 				         "defaultImageVersion": "latest"                                                                                                                                                                         │

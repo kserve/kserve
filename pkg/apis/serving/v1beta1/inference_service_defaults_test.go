@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -41,8 +40,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"Serverless": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -78,7 +77,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -93,8 +92,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"When annotations is nil in raw deployment": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -130,7 +129,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -145,8 +144,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"ONNX": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -182,7 +181,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -197,8 +196,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"PMML": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -234,7 +233,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -249,8 +248,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"Paddle": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -286,7 +285,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -312,8 +311,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		g.Expect(scenario.isvc.ObjectMeta.Annotations).To(scenario.matcher["Annotations"])
 		g.Expect(scenario.isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
-		g.Expect(*scenario.isvc.Spec.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("v0.4.0"))
-		g.Expect(scenario.isvc.Spec.Explainer.Alibi.Resources).To(gomega.Equal(resources))
+		g.Expect(*scenario.isvc.Spec.Explainer.ART.RuntimeVersion).To(gomega.Equal("v0.4.0"))
+		g.Expect(scenario.isvc.Spec.Explainer.ART.Resources).To(gomega.Equal(resources))
 	}
 }
 
@@ -321,8 +320,8 @@ func TestCustomPredictorDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{
 		Explainers: ExplainersConfig{
-			AlibiExplainer: ExplainerConfig{
-				ContainerImage:      "alibi",
+			ARTExplainer: ExplainerConfig{
+				ContainerImage:      "art",
 				DefaultImageVersion: "v0.4.0",
 			},
 		},
@@ -440,26 +439,6 @@ func TestRuntimeDefaults(t *testing.T) {
 			runtime: constants.TritonServer,
 			matcher: gomega.Equal(constants.ProtocolV2),
 		},
-		"MlServer": {
-			config: &InferenceServicesConfig{},
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: "default",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						XGBoost: &XGBoostSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://testbucket/testmodel"),
-							},
-						},
-					},
-				},
-			},
-			runtime: constants.MLServer,
-			matcher: gomega.Equal(constants.ProtocolV2),
-		},
 	}
 	for name, scenario := range scenarios {
 		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
@@ -473,9 +452,6 @@ func TestRuntimeDefaults(t *testing.T) {
 
 		case "Triton":
 			g.Expect(scenario.isvc.Spec.Predictor.Triton).To(gomega.BeNil())
-
-		case "MlServer":
-			g.Expect(scenario.isvc.Spec.Predictor.XGBoost).To(gomega.BeNil())
 		}
 		g.Expect(*scenario.isvc.Spec.Predictor.Model.ProtocolVersion).To(scenario.matcher)
 	}
@@ -603,149 +579,5 @@ func TestSetTritonDefaults(t *testing.T) {
 		g.Expect(*scenario.isvc.Spec.Predictor.Model.ProtocolVersion).To(gomega.Equal(constants.ProtocolV2))
 		g.Expect(scenario.isvc.Spec.Predictor.Triton).To(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.Model.Args).To(scenario.matcher)
-	}
-}
-
-func TestMlServerDefaults(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
-	}
-	scenarios := map[string]struct {
-		config  *InferenceServicesConfig
-		isvc    InferenceService
-		matcher map[string]types.GomegaMatcher
-	}{
-		"Storage URI is nil": {
-			config: &InferenceServicesConfig{},
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: "default",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						SKLearn: &SKLearnSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{},
-						},
-					},
-				},
-			},
-			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElement(v1.EnvVar{
-					Name:  constants.MLServerLoadModelsStartupEnv,
-					Value: strconv.FormatBool(false),
-				}),
-				"protocolVersion": gomega.Equal(constants.ProtocolV2),
-				"labels":          gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassSKLearn),
-			},
-		},
-		"XGBoost model": {
-			config: &InferenceServicesConfig{},
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: "default",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						XGBoost: &XGBoostSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://testbucket/testmodel"),
-							},
-						},
-					},
-				},
-			},
-			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElements(
-					v1.EnvVar{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "foo",
-					},
-					v1.EnvVar{
-						Name:  constants.MLServerModelURIEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					}),
-				"protocolVersion": gomega.Equal(constants.ProtocolV2),
-				"labels":          gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassXGBoost),
-			},
-		},
-		"LightGBM model": {
-			config: &InferenceServicesConfig{},
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: "default",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						LightGBM: &LightGBMSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://testbucket/testmodel"),
-							},
-						},
-					},
-				},
-			},
-			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElements(
-					v1.EnvVar{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "foo",
-					},
-					v1.EnvVar{
-						Name:  constants.MLServerModelURIEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					}),
-				"protocolVersion": gomega.Equal(constants.ProtocolV2),
-				"labels":          gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassLightGBM),
-			},
-		},
-		"LightGBM model with labels": {
-			config: &InferenceServicesConfig{},
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: "default",
-					Labels: map[string]string{
-						"Purpose": "Testing",
-					},
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						LightGBM: &LightGBMSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://testbucket/testmodel"),
-							},
-						},
-					},
-				},
-			},
-			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElements(
-					v1.EnvVar{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "foo",
-					},
-					v1.EnvVar{
-						Name:  constants.MLServerModelURIEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					}),
-				"protocolVersion": gomega.Equal(constants.ProtocolV2),
-				"labels":          gomega.HaveKeyWithValue("Purpose", "Testing"),
-			},
-		},
-	}
-	runtime := constants.MLServer
-	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
-		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
-		scenario.isvc.SetMlServerDefaults()
-		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
-		g.Expect(scenario.isvc.Spec.Predictor.Model.Env).To(scenario.matcher["env"])
-		g.Expect(*scenario.isvc.Spec.Predictor.Model.ProtocolVersion).To(scenario.matcher["protocolVersion"])
-		g.Expect(scenario.isvc.ObjectMeta.Labels).To(scenario.matcher["labels"])
 	}
 }
