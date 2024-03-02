@@ -139,6 +139,21 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                     f.write(value)
                     f.flush()
 
+        if storage_secret_json.get("type", "") == "gs":
+            temp_dir = tempfile.mkdtemp()
+            credential_dir = temp_dir+ "/" + "google_application_credentials.json"
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credential_dir
+            if storage_secret_json.get("base64_service_account", "") != "":
+                try:
+                    with open(credential_dir, "w") as f:
+                        base64_service_account = storage_secret_json.get("base64_service_account", "") 
+                        service_account= base64.b64decode(base64_service_account).decode('utf-8')
+                        f.write(service_account)
+                        f.flush()
+                except binascii.Error:
+                    raise RuntimeError("Error: Invalid base64 encoding.")
+                except UnicodeDecodeError:
+                    raise RuntimeError("Error: Cannot decode string.")
     @staticmethod
     def get_S3_config():
         # default s3 config
