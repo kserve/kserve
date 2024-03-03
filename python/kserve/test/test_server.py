@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import io
 import json
 import os
@@ -21,6 +22,7 @@ from unittest import mock
 
 import avro.io
 import avro.schema
+import httpx
 import pytest
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
@@ -48,6 +50,8 @@ test_avsc_schema = '''
         }
         '''
 
+fake_stream_data = 'some streamed data'
+
 
 def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool = False,
                       contenttype: str = "application/json"):
@@ -66,6 +70,51 @@ def dummy_cloud_event(data, set_contenttype: bool = False, add_extension: bool =
 
     event = CloudEvent(attributes, data)
     return event
+
+
+async def fake_data_streamer():
+    for i in range(10):
+        yield fake_stream_data.encode()
+        await asyncio.sleep(0.5)  # sleep 1/2 second
+
+
+class DummyStreamModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    async def predict(self, request, headers=None):
+        return fake_data_streamer()
+
+
+class TestStreamPredict:
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        model = DummyStreamModel("TestModel")
+        model.load()
+        server = ModelServer()
+        server.register_model(model)
+        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+        return rest_server.create_application()
+
+    @pytest.fixture(scope='class')
+    def http_server_client(self, app):
+        return TestClient(app)
+
+    def test_predict_stream(self, http_server_client):
+        with http_server_client.stream('POST', '/v1/models/TestModel:predict',
+                                       content=b'{"instances":[[1,2]]}') as response:
+            response: httpx.Response
+            all_data = []
+            for value in response.iter_bytes():
+                data = value.decode()
+                assert fake_stream_data in data
+                all_data.append(data)
+        assert all([fake_stream_data in data for data in all_data]), "Unexpected number of streamed responses"
 
 
 class DummyModel(Model):
