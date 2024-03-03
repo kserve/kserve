@@ -90,6 +90,36 @@ jobs:
           source kserve/.venv/bin/activate
           pytest --cov=kserve ./kserve
 
+      # ----------------------------------------Kserve Pydantic V1 Unit Tests--------------------------------------------
+      - name: Setup kserve pydantic v1 directory
+        run: |
+          mkdir -p python/kserve-pydantic-v1
+          cp -r python/kserve/* python/kserve-pydantic-v1
+          cd python/kserve-pydantic-v1
+          # update the lock file without installing dependencies
+          poetry update "pydantic<2.0" --lock
+      - name: Load cached kserve pydantic v1 venv
+        id: cached-kserve-pydantic-v1-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/kserve-pydantic-v1/.venv
+          key: kserve-pydantic-v1-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-pydantic-v1/poetry.lock') }}
+      # install kserve pydantic v1 dependencies if cache does not exist
+      - name: Install kserve pydantic v1 dependencies
+        if: steps.cached-kserve-pydantic-v1-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/kserve-pydantic-v1
+          make install_dependencies
+      - name: Install kserve pydantic v1
+        run: |
+          cd python/kserve-pydantic-v1
+          make dev_install
+      - name: Test kserve pydantic v1
+        run: |
+          cd python
+          source kserve-pydantic-v1/.venv/bin/activate
+          pytest --cov=kserve ./kserve-pydantic-v1
+
       # ----------------------------------------Sklearn Server Unit Tests------------------------------------------------
       # load cached sklearn venv if cache exists
       - name: Load cached sklearn venv
