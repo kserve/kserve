@@ -147,7 +147,7 @@ func AppendEnvVarIfNotExists(slice []v1.EnvVar, elems ...v1.EnvVar) []v1.EnvVar 
 				break
 			}
 		}
-		if isElemExists == false {
+		if !isElemExists {
 			slice = append(slice, elem)
 		}
 	}

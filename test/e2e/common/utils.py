@@ -81,8 +81,6 @@ def predict_str(service_name, input_json, protocol_version="v1",
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    time.sleep(10)
     cluster_ip, host, path = get_isvc_endpoint(isvc)
     headers = {"Host": host, "Content-Type": "application/json"}
 
@@ -96,6 +94,8 @@ def predict_str(service_name, input_json, protocol_version="v1",
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_json)
+    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
+    time.sleep(10)
     response = requests.post(url, input_json, headers=headers)
     logging.info("Got response code %s, content %s", response.status_code, response.content)
     if response.status_code == 200:
@@ -151,8 +151,6 @@ def explain_response(service_name, input_json):
         namespace=KSERVE_TEST_NAMESPACE,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
-    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    time.sleep(10)
     cluster_ip, host, _ = get_isvc_endpoint(isvc)
     url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
     headers = {"Host": host}
@@ -160,6 +158,8 @@ def explain_response(service_name, input_json):
         data = json.load(json_file)
         logging.info("Sending request data: %s", json.dumps(data))
         try:
+            # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
+            time.sleep(10)
             response = requests.post(url, json.dumps(data), headers=headers)
             logging.info(
                 "Got response code %s, content %s",

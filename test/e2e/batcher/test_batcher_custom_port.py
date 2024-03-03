@@ -36,7 +36,7 @@ input_file = open('./data/iris_batch_input.json')
 json_array = json.load(input_file)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_batcher_custom_port():
     service_name = 'isvc-sklearn-batcher-custom'
 

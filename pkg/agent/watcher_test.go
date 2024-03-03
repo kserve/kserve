@@ -403,7 +403,7 @@ var _ = Describe("Watcher", func() {
 				}
 				modelName := "model1"
 				modelStorageURI := "gs://testBucket/testModel2"
-				expectedErr := fmt.Errorf("unable to download object/s because: %v", gstorage.ErrObjectNotExist)
+				expectedErr := fmt.Errorf("unable to download object/s because: %w", gstorage.ErrObjectNotExist)
 				actualErr := cl.DownloadModel(modelDir, modelName, modelStorageURI)
 				Expect(actualErr).To(Equal(expectedErr))
 			})

@@ -11,13 +11,13 @@ jobs:
   verify-codegen:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21
-
-      - name: Checkout source code
-        uses: actions/checkout@v3
 
       - name: Install dependencies
         run: |
@@ -51,11 +51,11 @@ jobs:
           # Reset these files to avoid false triggers due to those changes.
           git checkout -- python/kserve/test/__init__.py python/kserve/kserve/api_client.py
           
-          if [ -z "$(git status --porcelain ./pkg ./python ./config)" ]; then
+          if [ -z "$(git status --porcelain ./pkg ./python ./config ./charts)" ]; then
               echo "${{ github.repository }} up to date."
           else
-              echo "Found diffs in: $(git diff-index --name-only HEAD -- ./pkg ./python)"
-              for x in $(git diff-index --name-only HEAD -- ./pkg ./python); do
+              echo "Found diffs in: $(git diff-index --name-only HEAD -- ./pkg ./python ./charts)"
+              for x in $(git diff-index --name-only HEAD -- ./pkg ./python ./charts); do
                   echo "::error file=$x::Please run make generate.%0A$(git diff $x | urlencode)"
               done
               echo "${{ github.repository }} is out of date. Please run make generate"

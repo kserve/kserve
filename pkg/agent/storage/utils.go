@@ -91,7 +91,7 @@ func RemoveDir(dir string) error {
 	}
 	// Remove empty dir
 	if err := os.Remove(dir); err != nil {
-		return fmt.Errorf("dir is unable to be deleted: %v", err)
+		return fmt.Errorf("dir is unable to be deleted: %w", err)
 	}
 	return nil
 }

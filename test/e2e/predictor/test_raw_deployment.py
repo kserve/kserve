@@ -112,7 +112,8 @@ def test_raw_deployment_runtime_kserve():
 
 
 @pytest.mark.grpc
-def test_isvc_with_multiple_container_port():
+@pytest.mark.raw
+def test_raw_isvc_with_multiple_container_port():
     service_name = "raw-multiport-custom-model"
     model_name = "custom-model"
 

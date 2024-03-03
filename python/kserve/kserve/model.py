@@ -300,7 +300,7 @@ class Model:
         return async_result
 
     async def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest],
-                      headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
+                      headers: Dict[str, str] = None) -> Union[Dict, InferResponse, AsyncIterator[Any]]:
         """ The `predict` handler can be overridden for performing the inference.
             By default, the predict handler makes call to predictor for the inference step.
 

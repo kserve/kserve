@@ -28,7 +28,8 @@ from kserve import (KServeClient, V1beta1InferenceService,
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_lightgbm_kserve():
     service_name = "isvc-lightgbm"
     predictor = V1beta1PredictorSpec(
@@ -60,7 +61,8 @@ def test_lightgbm_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_lightgbm_runtime_kserve():
     service_name = "isvc-lightgbm-runtime"
     predictor = V1beta1PredictorSpec(
@@ -101,9 +103,11 @@ def test_lightgbm_runtime_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_lightgbm_v2_runtime_mlserver():
     service_name = "isvc-lightgbm-v2-runtime"
+    protocol_version = "v2"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -113,7 +117,7 @@ def test_lightgbm_v2_runtime_mlserver():
             ),
             runtime="kserve-mlserver",
             storage_uri="gs://kfserving-examples/models/lightgbm/v2/iris",
-            protocol_version="v2",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "1", "memory": "1Gi"},
@@ -149,7 +153,8 @@ def test_lightgbm_v2_runtime_mlserver():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_lightgbm_v2_kserve():
     service_name = "isvc-lightgbm-v2-kserve"
 
@@ -197,6 +202,7 @@ def test_lightgbm_v2_kserve():
 
 
 @pytest.mark.grpc
+@pytest.mark.predictor
 def test_lightgbm_v2_grpc():
     service_name = "isvc-lightgbm-v2-grpc"
     model_name = "lightgbm"
