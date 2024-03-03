@@ -25,20 +25,17 @@ from kserve import (
     V1beta1ModelFormat,
     V1beta1ModelSpec,
     V1beta1PredictorSpec,
-    V1beta1StorageSpec,
     constants
 )
-from ..common.utils import predict_modelmesh
+
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict
 
 
-# TODO: Enable e2e test post ingress implementation in model mesh serving
-# https://github.com/kserve/modelmesh-serving/issues/295
-# @pytest.mark.helm
-@pytest.mark.skip
-def test_sklearn_modelmesh():
-    service_name = "isvc-sklearn-modelmesh"
-    annotations = dict()
-    annotations["serving.kserve.io/deploymentMode"] = "ModelMesh"
+@pytest.mark.helm
+def test_sklearn_kserve():
+    service_name = "isvc-sklearn-helm"
+    protocol_version = "v2"
+
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -46,14 +43,12 @@ def test_sklearn_modelmesh():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
+            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
             ),
-            storage=V1beta1StorageSpec(
-                key="localMinIO",
-                path="sklearn/mnist-svm.joblib"
-            )
         ),
     )
 
@@ -61,8 +56,7 @@ def test_sklearn_modelmesh():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name,
-            annotations=annotations
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -70,11 +64,11 @@ def test_sklearn_modelmesh():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name)
-    pods = kserve_client.core_api.list_namespaced_pod("default", label_selector="name=modelmesh-serving-mlserver-1.x")
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    pod_name = pods.items[0].metadata.name
-    res = predict_modelmesh(service_name, "./data/mm_sklearn_input.json", pod_name)
-    assert res["outputs"][0]["data"] == [8]
+    res = predict(service_name, "./data/iris_input_v2.json",
+                  protocol_version="v2")
+    assert res["outputs"][0]["data"] == [1, 1]
 
-    kserve_client.delete(service_name)
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
