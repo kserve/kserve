@@ -78,7 +78,6 @@ spec:
     global:
       proxy:
         autoInject: disabled
-      useMCP: false
 
   meshConfig:
     accessLogFile: /dev/stdout
@@ -99,9 +98,6 @@ spec:
             memory: 200Mi
         podAnnotations:
           cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
-        env:
-        - name: PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING
-          value: "false"
 EOF
 
 bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
