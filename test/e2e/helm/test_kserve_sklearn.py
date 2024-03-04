@@ -28,7 +28,7 @@ from kserve import (
     constants
 )
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict
+from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 @pytest.mark.helm
