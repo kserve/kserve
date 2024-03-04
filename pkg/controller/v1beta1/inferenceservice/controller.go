@@ -95,7 +95,7 @@ type InferenceServiceReconciler struct {
 
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
-
+	result := ctrl.Result{}
 	// Fetch the InferenceService instance
 	isvc := &v1beta1api.InferenceService{}
 	if err := r.Get(ctx, req.NamespacedName, isvc); err != nil {
@@ -188,18 +188,18 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
 	for _, reconciler := range reconcilers {
-		result, err := reconciler.Reconcile(isvc)
+		res, err := reconciler.Reconcile(isvc)
 		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
 			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 			if err := r.updateStatus(isvc, deploymentMode); err != nil {
 				r.Log.Error(err, "Error updating status")
-				return result, err
+				return res, err
 			}
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
 		}
-		if result.Requeue || result.RequeueAfter > 0 {
-			return result, nil
+		if res.Requeue || res.RequeueAfter > 0 {
+			return res, nil
 		}
 	}
 	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
@@ -232,8 +232,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	} else {
 		reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
 		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
-		if err := reconciler.Reconcile(isvc); err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+		if res, err := reconciler.Reconcile(isvc); err != nil {
+			return res, errors.Wrapf(err, "fails to reconcile ingress")
+		} else if res.Requeue || res.RequeueAfter > 0 {
+			result = res
 		}
 	}
 
@@ -248,7 +250,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return result, nil
 }
 
 func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.InferenceService, deploymentMode constants.DeploymentModeType) error {
