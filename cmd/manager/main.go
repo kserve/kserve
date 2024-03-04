@@ -23,15 +23,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	graphcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/inferencegraph"
-	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
-	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
-	"github.com/kserve/kserve/pkg/webhook/admission/pod"
-	"github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
 	istio_networking "istio.io/api/networking/v1beta1"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -48,6 +39,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	graphcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/inferencegraph"
+	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
+	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
+	"github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
 )
 
 var (
@@ -110,6 +111,8 @@ func main() {
 		setupLog.Error(err, "unable to set up client config")
 		os.Exit(1)
 	}
+
+	// Setup clientset to directly talk to the api server
 	clientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		setupLog.Error(err, "unable to create clientSet")

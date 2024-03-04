@@ -28,7 +28,6 @@ package trainedmodel
 import (
 	"context"
 	"fmt"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
@@ -36,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"

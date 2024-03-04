@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -103,7 +104,7 @@ func (c *CaBundleConfigMapReconciler) getCabundleConfigMapForUserNS(caBundleName
 			newCaBundleConfigMap = getDesiredCaBundleConfigMapForUserNS(constants.DefaultGlobalCaBundleConfigMapName, isvcNamespace, configData)
 		}
 	} else {
-		return nil, fmt.Errorf("can't read cabundle configmap %s: %w", constants.DefaultCaBundleFileName, err)
+		return nil, errors.Wrapf(err, "failed to get configmap %s from the cluster", caBundleNameInConfig)
 	}
 
 	return newCaBundleConfigMap, nil
