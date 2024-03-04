@@ -1,19 +1,87 @@
 import time
 import codecs
+from typing import Iterable, Dict, Any, Union, AsyncIterator
+from openai.types.chat import (
+    ChatCompletion, CompletionCreateParams as ChatCompletionCreateParams,
+    ChatCompletionMessageParam, ChatCompletionChunk)
+from openai.types import Completion, CompletionCreateParams
+from abc import ABC, abstractmethod
 from typing import AsyncGenerator, AsyncIterator, Optional, Union
 from fastapi.requests import Request
 from fastapi.responses import Response
 from starlette.responses import StreamingResponse
 from vllm.utils import random_uuid
+from kserve.utils.utils import generate_uuid
 
 from .openai_datamodels import (
     ChatCompletionRequest, ChatCompletionResponse,
     ChatCompletionStreamResponse, ChatCompletionResponseChoice,
     ChatCompletionResponseStreamChoice, ErrorResponse,
     ChatMessage, DeltaMessage, UsageInfo)
+from v2_datamodels import GenerateRequest, GenerateResponse, Parameters
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
 
+
+class BaseOpenAIModel():
+    @abstractmethod
+    async def create_completion(self, params: CompletionCreateParams) -> Completion:
+        pass
+
+    @abstractmethod
+    async def create_chat_completion(self, params: ChatCompletionCreateParams) -> ChatCompletion:
+        pass
+
+class OpenAIModel(BaseOpenAIModel):
+    @abstractmethod
+    async def apply_chat_template(self, messages: Iterable[ChatCompletionMessageParam]) -> str:
+        pass
+
+    @abstractmethod
+    async def generate(self, payload: GenerateRequest,
+                       headers: Dict[str, str] = None) -> Union[GenerateResponse, AsyncIterator[Any]]:
+        pass
+
+    async def create_completion(self, params: CompletionCreateParams) -> Completion:
+        # TODO: create a prompt and form a GenerateRequest
+         self.apply_chat_template()
+
+        # generate_request = translate_request(params)
+        # self.generate(generate_request)
+
+    async def create_chat_completion(self, params: ChatCompletionCreateParams) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+        prompt = self.apply_chat_template(params.messages)
+        sampling_params = to_sampling_params(params)
+        response = self.generate(GenerateRequest(text_input=prompt, parameters=sampling_params))
+        if not params.stream:
+            ChatCompletion(
+                id=generate_uuid(),
+            )
+
+
+def to_sampling_params(params: Union[ChatCompletionCreateParams, CompletionCreateParams]) -> Parameters:
+    return dict(
+        n=params.n,
+        presence_penalty=params.presence_penalty,
+        frequency_penalty=params.frequency_penalty,
+        repetition_penalty=params.repetition_penalty,
+        temperature=params.temperature,
+        top_p=params.top_p,
+        min_p=params.min_p,
+        seed=params.seed,
+        stop=params.stop,
+        stop_token_ids=params.stop_token_ids,
+        max_tokens=params.max_tokens,
+        best_of=params.best_of,
+        top_k=params.top_k,
+        ignore_eos=params.ignore_eos,
+        use_beam_search=params.use_beam_search,
+        early_stopping=params.early_stopping,
+        skip_special_tokens=params.skip_special_tokens,
+        spaces_between_special_tokens=params.spaces_between_special_tokens,
+        include_stop_str_in_output=params.include_stop_str_in_output,
+        length_penalty=params.length_penalty,
+    )
 
 class OpenAIEndpoints:
     """
@@ -193,11 +261,10 @@ class OpenAIEndpoints:
         final_res: RequestOutput = None
 
         async for res in result_generator:
-            # TODO: figure out use case with raw_request
-            # if await raw_request.is_disconnected():
-            #     # Abort the request if the client disconnects.
-            #     await self.engine.abort(request_id)
-            #     return self.create_error_response("Client disconnected")
+            if await raw_request.is_disconnected():
+                # Abort the request if the client disconnects.
+                await self.engine.abort(request_id)
+                return self.create_error_response("Client disconnected")
             final_res = res
         assert final_res is not None
 
