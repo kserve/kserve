@@ -151,12 +151,12 @@ class ModelServer:
         if self.enable_grpc:
             if self.secure_grpc_server:
                 server_credentials = []
-                with open(self.grpc_ssl_key, 'rb') as key_file:
-                    server_credentials.append(key_file)
-                with open(self.grpc_ssl_cert, 'rb') as ssl_cert_file:
-                    server_credentials.append(ssl_cert_file)
-                with open(self.grpc_ssl_ca_cert, 'rb') as ssl_ca_cert_file:
-                    server_credentials.append(ssl_ca_cert_file)
+                ssl_key_file = open(self.grpc_ssl_key, 'rb').read()
+                server_credentials.append(ssl_key_file)
+                ssl_cert_file = open(self.grpc_ssl_cert, 'rb').read()
+                server_credentials.append(ssl_cert_file)
+                ssl_ca_cert_file = open(self.grpc_ssl_ca_cert, 'rb').read()
+                server_credentials.append(ssl_ca_cert_file)
 
                 self._grpc_server = GRPCServer(grpc_port, self.dataplane,
                                                 self.model_repository_extension,
