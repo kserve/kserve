@@ -55,7 +55,20 @@ import (
 var (
 	log = logf.Log.WithName("IngressReconciler")
 	// probeTimeout defines the maximum amount of time a request will wait
-	probeTimeout = 1 * time.Second
+	probeTimeout                   = 1 * time.Second
+	Transport    http.RoundTripper = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		TLSClientConfig: &tls.Config{
+			// #nosec G402
+			// We only want to know that the Ingress is configured, not that the configuration is valid.
+			// Therefore, we can safely ignore any TLS certificate validation.
+			InsecureSkipVerify: true,
+		},
+		TLSHandshakeTimeout:   2 * time.Second,
+		DisableKeepAlives:     true,
+		IdleConnTimeout:       1 * time.Second,
+		ResponseHeaderTimeout: 1 * time.Second,
+	}
 )
 
 type IngressReconciler struct {
@@ -464,17 +477,9 @@ func probeIngress(url string) (bool, error) {
 	isReady := false
 	// Probes Queue-Proxy or Activator
 	target := url + knnethttp.HealthCheckPath
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{
-		// #nosec G402
-		// We only want to know that the Ingress is configured, not that the configuration is valid.
-		// Therefore, we can safely ignore any TLS certificate validation.
-		InsecureSkipVerify: true,
-	}
-	transport.DisableKeepAlives = true
 	ctx, cancel := context.WithTimeout(context.TODO(), probeTimeout)
 	defer cancel()
-	req, err := http.NewRequest(http.MethodGet, target, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return isReady, errors.Wrapf(err, "failed to probe ingress %s", target)
 	}
@@ -484,19 +489,17 @@ func probeIngress(url string) (bool, error) {
 	req.Header.Add(knheader.HashKey, knheader.HashValueOverride)
 	// IngressReadinessUserAgent is the user-agent header value set in probe requests for Ingress status.
 	req.Header.Add(knheader.UserAgentKey, knheader.IngressReadinessUserAgent)
-	req = req.WithContext(ctx)
-	resp, err := transport.RoundTrip(req)
+	resp, err := Transport.RoundTrip(req)
 	if err != nil {
 		return isReady, errors.Wrapf(err, "failed to probe ingress %s", target)
 	}
-	log.Info("ingress probe result", "statuscode", resp.StatusCode)
 	if resp.StatusCode == http.StatusOK {
 		isReady = true
 	}
 	return isReady, nil
 }
 
-func (ir *IngressReconciler) isIngressReady(isvc *v1beta1.InferenceService) bool {
+func isIngressReady(isvc *v1beta1.InferenceService) bool {
 	return isvc.Generation == isvc.Status.ObservedGeneration && isvc.Status.GetCondition(v1beta1.IngressReady).IsTrue()
 }
 
@@ -576,7 +579,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Res
 				Scheme: scheme,
 			},
 		}
-		if ir.isIngressReady(isvc) {
+		if isIngressReady(isvc) {
 			// When the ingress has already been marked Ready for this generation,
 			// then it must have been successfully probed. This exception necessary for the case
 			// of global resyncs.

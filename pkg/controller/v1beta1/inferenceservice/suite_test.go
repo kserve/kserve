@@ -18,6 +18,7 @@ package inferenceservice
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,6 +40,7 @@ import (
 	kfservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
@@ -58,6 +60,16 @@ func TestV1beta1APIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "v1beta1 Controller Suite")
+}
+
+// mockTransport is a mock HTTP transport used for ingress probing.
+type mockTransport struct{}
+
+func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Simulate a successful response with status OK (200).
+	return &http.Response{
+		StatusCode: http.StatusOK,
+	}, nil
 }
 
 var _ = BeforeSuite(func() {
@@ -127,6 +139,8 @@ var _ = BeforeSuite(func() {
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
+	// Mock transport for ingress probe
+	ingress.Transport = &mockTransport{}
 })
 
 var _ = AfterSuite(func() {
