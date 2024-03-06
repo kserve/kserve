@@ -583,9 +583,6 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Res
 			// When the ingress has already been marked Ready for this generation,
 			// then it must have been successfully probed. This exception necessary for the case
 			// of global resyncs.
-			// As this is an optimization, we don't worry about the ObservedGeneration
-			// skew we might see when the resource is actually in flux, we simply care
-			// about the steady state.
 		} else {
 			if isReady, err := probeIngress(isvc.Status.Address.URL.String()); err != nil {
 				return ctrl.Result{}, err

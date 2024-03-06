@@ -31,7 +31,7 @@ from kserve import (
 
 import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc, get_cluster_ip
 
 
 @pytest.mark.predictor
@@ -98,8 +98,10 @@ def test_sklearn_v2_mlserver():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_model_ready(service_name, model_name=service_name, isvc_namespace=KSERVE_TEST_NAMESPACE,
+                                   cluster_ip=get_cluster_ip(), protocol_version=protocol_version)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version=protocol_version)
     assert res["outputs"][0]["data"] == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -177,8 +179,10 @@ def test_sklearn_v2_runtime_mlserver():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_model_ready(service_name, model_name=service_name, isvc_namespace=KSERVE_TEST_NAMESPACE,
+                                   cluster_ip=get_cluster_ip(), protocol_version=protocol_version)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version=protocol_version)
     assert res["outputs"][0]["data"] == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
