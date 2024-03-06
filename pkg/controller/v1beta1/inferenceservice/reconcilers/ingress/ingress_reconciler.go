@@ -481,7 +481,7 @@ func probeIngress(url string) (bool, error) {
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
-		return isReady, errors.Wrapf(err, "failed to probe ingress %s", target)
+		return isReady, errors.Wrapf(err, "failed to create ingress probe request %s", target)
 	}
 	// ProbeKey is the name of a header that can be added to requests to probe the ingress.
 	// Requests with this header will not be passed to the user container or included in request metrics.
@@ -495,6 +495,8 @@ func probeIngress(url string) (bool, error) {
 	}
 	if resp.StatusCode == http.StatusOK {
 		isReady = true
+	} else {
+		log.V(1).Error(fmt.Errorf("failed to probe ingress"), "Failed to probe ingress", "url", target)
 	}
 	return isReady, nil
 }
