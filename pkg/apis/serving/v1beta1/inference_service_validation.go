@@ -19,8 +19,9 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strconv"
+
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"regexp"
 
@@ -35,7 +36,7 @@ import (
 // regular expressions for validation of isvc name
 const (
 	IsvcNameFmt                         string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-	StorageUriPresentInTransformerError        = "storage uri should not be specified in transformer container"
+	StorageUriPresentInTransformerError string = "storage uri should not be specified in transformer container"
 )
 
 var (

@@ -29,7 +29,7 @@ from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_tensorflow_kserve():
     service_name = 'isvc-tensorflow'
     predictor = V1beta1PredictorSpec(

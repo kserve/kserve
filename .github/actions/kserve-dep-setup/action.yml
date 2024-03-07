@@ -5,6 +5,10 @@ inputs:
     description: 'Network layer to install'
     required: true
     default: 'istio'
+  deployment-mode:
+    description:  'Kserve deployment mode. Supported values are serverless and raw'
+    required: false
+    default: 'serverless'
 runs:
   using: "composite"
   steps:
@@ -15,7 +19,7 @@ runs:
 
         if [[ "${{ inputs.network-layer }}" == "istio" ]]; then
             echo "Selected network layer ${{ inputs.network-layer }}"
-            ./test/scripts/gh-actions/setup-deps.sh
+            ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }}
         
             kubectl get pods -n istio-system
             kubectl describe svc -n istio-system istio-ingressgateway

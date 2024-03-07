@@ -18,7 +18,6 @@ package servingruntime
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -76,7 +75,7 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 	}
 
 	for i := range ExistingRuntimes.Items {
-		if err := validateModelFormatPrioritySame(&servingRuntime.Spec, servingRuntime.Name); err != nil {
+		if err := validateModelFormatPrioritySame(&servingRuntime.Spec); err != nil {
 			return admission.Denied(fmt.Sprintf(ProrityIsNotSameServingRuntimeError, err.Error(), servingRuntime.Name))
 		}
 
@@ -125,7 +124,7 @@ func areSupportedModelFormatsEqual(m1 v1alpha1.SupportedModelFormat, m2 v1alpha1
 	return false
 }
 
-func validateModelFormatPrioritySame(newSpec *v1alpha1.ServingRuntimeSpec, newRuntimeName string) error {
+func validateModelFormatPrioritySame(newSpec *v1alpha1.ServingRuntimeSpec) error {
 	nameToPriority := make(map[string]*int32)
 
 	// Validate when same model format has same priority under same runtime.
@@ -135,7 +134,7 @@ func validateModelFormatPrioritySame(newSpec *v1alpha1.ServingRuntimeSpec, newRu
 		if newModelFormat.IsAutoSelectEnabled() {
 			if existingPriority, ok := nameToPriority[newModelFormat.Name]; ok {
 				if existingPriority != nil && newModelFormat.Priority != nil && (*existingPriority != *newModelFormat.Priority) {
-					return errors.New(fmt.Sprintf(ProrityIsNotSameError, newModelFormat.Name))
+					return fmt.Errorf(ProrityIsNotSameError, newModelFormat.Name)
 				}
 			} else {
 				nameToPriority[newModelFormat.Name] = newModelFormat.Priority
@@ -164,7 +163,7 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 				// Only validate priority if autoselect is ture
 				if existingModelFormat.IsAutoSelectEnabled() && newModelFormat.IsAutoSelectEnabled() && areSupportedModelFormatsEqual(existingModelFormat, newModelFormat) {
 					if existingModelFormat.Priority != nil && newModelFormat.Priority != nil && *existingModelFormat.Priority == *newModelFormat.Priority {
-						return errors.New(fmt.Sprintf(InvalidPriorityError, newModelFormat.Name))
+						return fmt.Errorf(InvalidPriorityError, newModelFormat.Name)
 					}
 				}
 			}

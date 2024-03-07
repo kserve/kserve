@@ -20,9 +20,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - uses: azure/setup-helm@v3
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
 
       - name: Login to GHCR
         if: github.event_name != 'pull_request'

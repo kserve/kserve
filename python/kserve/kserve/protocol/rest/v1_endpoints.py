@@ -11,9 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, Union, Dict, List
+from typing import Optional, Union, Dict, List, AsyncIterator
 
 from fastapi import Request, Response
+from starlette.responses import StreamingResponse
 
 from kserve.errors import ModelNotReady
 from ..dataplane import DataPlane
@@ -80,8 +81,10 @@ class V1Endpoints:
                                                            response=response,
                                                            headers=headers, req_attributes=req_attributes)
 
-        if not isinstance(response, dict):
+        if isinstance(response, bytes) or isinstance(response, str):
             return Response(content=response, headers=response_headers)
+        if isinstance(response, AsyncIterator):
+            return StreamingResponse(content=response)
         return response
 
     async def explain(self, model_name: str, request: Request) -> Union[Response, Dict]:
