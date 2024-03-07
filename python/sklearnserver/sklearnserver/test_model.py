@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from kserve.protocol.infer_type import InferInput, InferRequest
 from sklearn import svm
 from sklearn import datasets
 from sklearnserver import SKLearnModel
@@ -28,6 +29,27 @@ PICKLE_FILES = [[os.path.join(_MODEL_DIR, "pkl", "model"), "model.pkl"],
                 [os.path.join(_MODEL_DIR, "pickle", "model"), "model.pickle"]]
 MULTI_DIR = os.path.join(_MODEL_DIR, "multi", "model")
 MIXEDTYPE_DIR = os.path.join(_MODEL_DIR, "mixedtype", "model")
+
+
+def create_v2_request(request, model_name=None):
+    infer_inputs = []
+    parameters = {}
+    if len(request) > 0 and isinstance(request[0], dict):
+        parameters["content_type"] = "pd"
+        dataframe = request[0]
+        for key, val in dataframe.items():
+            infer_input = InferInput(
+                name=key,
+                shape=[len(val)],
+                datatype="INT32" if len(val) > 0 and isinstance(
+                    val[0], int) else "BYTES",
+                data=val)
+
+            infer_inputs.append(infer_input)
+
+    infer_request = InferRequest(
+        model_name=model_name, infer_inputs=infer_inputs, parameters=parameters)
+    return infer_request
 
 
 def _train_sample_model():
@@ -59,6 +81,14 @@ def test_model_joblib():
     response = model.predict({"instances": request})
     assert response["predictions"] == [0]
 
+    # test v2 infer call
+    infer_input = InferInput(
+        name="input-0", shape=[1, 4], datatype="FP32", data=request)
+    infer_request = InferRequest(
+        model_name="model", infer_inputs=[infer_input])
+    infer_response = model.predict(infer_request)
+    assert infer_response.to_rest()["outputs"][0]["data"] == [0]
+
 
 def test_mixedtype_model_joblib():
     model = SKLearnModel("model", MIXEDTYPE_DIR)
@@ -68,6 +98,11 @@ def test_mixedtype_model_joblib():
                 'SaleType': ['WD'], 'GarageArea': [548]}]
     response = model.predict({"instances": request})
     assert response["predictions"] == [12.202832815138274]
+
+    # test v2 infer call for mixed type input
+    infer_request = create_v2_request(request=request, model_name="model")
+    infer_response = model.predict(infer_request)
+    assert infer_response.to_rest()["outputs"][0]["data"] == [12.202832815138274]
 
 
 def test_model_pickle():

@@ -34,7 +34,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 pytest.skip("ODH does not support torchserve at the moment", allow_module_level=True)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_torchserve_kserve():
     service_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -71,7 +71,7 @@ def test_torchserve_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_torchserve_v2_kserve():
     service_name = "mnist-v2"
     predictor = V1beta1PredictorSpec(
@@ -109,6 +109,7 @@ def test_torchserve_v2_kserve():
 
 
 @pytest.mark.grpc
+@pytest.mark.predictor
 def test_torchserve_grpc_v2():
     service_name = "mnist-grpc"
     model_name = "mnist"
@@ -161,7 +162,7 @@ def test_torchserve_grpc_v2():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_torchserve_runtime_kserve():
     service_name = "mnist-runtime"
     predictor = V1beta1PredictorSpec(

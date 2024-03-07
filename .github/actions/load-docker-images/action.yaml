@@ -1,0 +1,21 @@
+name: 'Load docker images'
+description: 'Loads docker images from the tar files in specified director and deletes the directory'
+
+inputs:
+  directory:
+    description: 'Path to the directory which contains the tar files'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Load docker images
+      shell: bash
+      run: |
+        files=$(find ${{ inputs.directory }} -maxdepth 1 -type f)
+        for file in ${files[@]};do
+          echo "Loading image $(basename ${file})"
+          docker image load -i ${file}
+        done
+        rm -rf ${{ inputs.directory }}
+        docker image ls

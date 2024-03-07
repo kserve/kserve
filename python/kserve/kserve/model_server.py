@@ -48,8 +48,8 @@ parser.add_argument("--workers", default=1, type=int,
                     help="The number of uvicorn workers for multi-processing.")
 parser.add_argument("--max_threads", default=4, type=int,
                     help="The max number of gRPC processing threads.")
-parser.add_argument('--max_asyncio_workers', default=None, type=int,
-                    help='The max number of asyncio workers to spawn.')
+parser.add_argument("--max_asyncio_workers", default=None, type=int,
+                    help="The max number of asyncio workers to spawn.")
 parser.add_argument("--enable_grpc", default=True, type=lambda x: utils.strtobool(x),
                     help="Enable gRPC for the model server.")
 parser.add_argument("--enable_docs_url", default=False, type=lambda x: utils.strtobool(x),
@@ -227,6 +227,9 @@ class ModelServer:
 
     async def stop(self, sig: Optional[int] = None):
         """ Stop the instances of REST and gRPC model servers.
+
+        Args:
+            sig: The signal to stop the server. Default: ``None``.
         """
         logger.info("Stopping the model server")
         if self._rest_server:
@@ -237,8 +240,7 @@ class ModelServer:
             await self._grpc_server.stop(sig)
 
     def register_exception_handler(self, handler: Callable[[asyncio.events.AbstractEventLoop, Dict[str, Any]], None]):
-        """
-        Add a custom handler as the event loop exception handler.
+        """Add a custom handler as the event loop exception handler.
 
         If a handler is not provided, the default exception handler will be set.
 
@@ -249,8 +251,7 @@ class ModelServer:
         self._custom_exception_handler = handler
 
     def default_exception_handler(self, loop: asyncio.events.AbstractEventLoop, context: Dict[str, Any]):
-        """
-        Default exception handler for event loop.
+        """Default exception handler for event loop.
 
         This is called when an exception occurs and no exception handler is set.
         By default, this will shut down the server gracefully.
@@ -262,10 +263,21 @@ class ModelServer:
         loop.default_exception_handler(context)
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
+        """Register a model handle to the model server.
+
+        Args:
+            name: The name of the model handle.
+            model_handle: The model handle object.
+        """
         self.registered_models.update_handle(name, model_handle)
         logger.info("Registering model handle: %s", name)
 
     def register_model(self, model: Model):
+        """Register a model to the model server.
+
+        Args:
+            model: The model object.
+        """
         if not model.name:
             raise Exception(
                 "Failed to register model, model.name must be provided.")

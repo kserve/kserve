@@ -1,4 +1,3 @@
-HAS_LINT := $(shell command -v golint;)
 
 # Base Image URL
 BASE_IMG ?= python:3.9-slim-bullseye
@@ -176,11 +175,7 @@ fmt:
 vet:
 	go vet ./pkg/... ./cmd/...
 
-lint:
-ifndef HAS_LINT
-	go get -u golang.org/x/lint/golint
-	echo "installing golint"
-endif
+go-lint:
 	hack/verify-golint.sh
 
 # Generate code
@@ -189,6 +184,7 @@ generate: controller-gen
 	hack/update-codegen.sh
 	hack/update-openapigen.sh
 	hack/python-sdk/client-gen.sh
+	hack/update-helm-docs.sh
 
 bump-version:
 	# TBA
