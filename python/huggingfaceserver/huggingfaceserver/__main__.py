@@ -42,6 +42,8 @@ parser.add_argument('--tensor_input_names', type=list_of_strings, default=None,
 parser.add_argument('--task', required=False, help="The ML task name")
 parser.add_argument('--disable_vllm', action='store_true', help="Do not use vllm as the default runtime")
 parser.add_argument('--return_token_type_ids', action="store_true", help="Return token type ids")
+parser.add_argument('--enable_lora', action="store_true", help="Use if you're deploying LoRA models")
+parser.add_argument('--lora_modules', required=False, help="Use if you're deploying LoRA models")
 
 try:
     from vllm.engine.arg_utils import AsyncEngineArgs
@@ -57,6 +59,7 @@ if __name__ == "__main__":
     engine_args = None
     if _vllm and not args.disable_vllm:
         args.model = args.model_dir or args.model_id
+        args.max_loras = len(args.lora_modules.split(',')) if args.enable_lora and args.lora_modules else 1
         engine_args = AsyncEngineArgs.from_cli_args(args)
     predictor_config = PredictorConfig(args.predictor_host, args.predictor_protocol,
                                        args.predictor_use_ssl,
