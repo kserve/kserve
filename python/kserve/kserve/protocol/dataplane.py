@@ -21,8 +21,10 @@ import ray
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
+from fastapi import Request 
 
 from .rest.v2_datamodels import GenerateRequest, GenerateResponse
+from .rest.openai import CompletionRequest, CompletionResponse
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import InferenceVerb
@@ -346,6 +348,31 @@ class DataPlane:
         """
         model = self.get_model(model_name)
         response = await model.generate(request, headers=headers)
+        return response, headers
+
+    async def completion(
+            self,
+            model_name: str,
+            request: Union[Dict, CompletionRequest],
+            raw_request: Request,
+            headers: Optional[Dict[str, str]] = None
+    ) -> Tuple[Union[CompletionResponse, AsyncIterator[Any]], Dict[str, str]]:
+        """Completion the text with the provided text prompt.
+
+        Args:
+            model_name (str): Model name.
+            request (bytes|CompletionRequest): Completion Request body data.
+            headers: (Optional[Dict[str, str]]): Request headers.
+
+        Returns:
+            response: The generated output or output stream.
+            response_headers: Headers to construct the HTTP response.
+
+        Raises:
+            InvalidInput: An error when the body bytes can't be decoded as JSON.
+        """
+        model = self.get_model(model_name)
+        response = await model.completion(request, raw_request, headers=headers)
         return response, headers
 
     async def explain(self, model_name: str,

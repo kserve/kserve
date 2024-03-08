@@ -19,7 +19,9 @@ from torch import Tensor
 
 from kserve.model import PredictorConfig
 from kserve.protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse, Token, Details
+from kserve.protocol.rest.openai import CompletionRequest, CompletionResponse, CompletionStreamResponse
 from .async_generate_stream import AsyncGenerateStream
+from .completion import OpenAIServingCompletion
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
 import pathlib
@@ -32,6 +34,8 @@ from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
 from kserve.utils.utils import get_predict_response, get_predict_input, from_np_dtype
 from kserve import Model
 import torch
+from fastapi import Request
+
 
 try:
     from vllm.sampling_params import SamplingParams
@@ -75,6 +79,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.vllm_engine = None
         self.vllm_engine_args = engine_args
         self.use_vllm = not kwargs.get('disable_vllm', False) if _vllm else False
+        self.openai_serving_completion = None
         self.ready = False
 
     @staticmethod
@@ -107,6 +112,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             if self.infer_vllm_supported_from_model_architecture(model_id_or_path):
                 self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
+                self.openai_serving_completion = OpenAIServingCompletion(self.vllm_engine, self.vllm_engine_args.model)
                 self.ready = True
                 return self.ready
 
@@ -220,6 +226,45 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                                  for output_id in output_ids[0]]
                 generate_details = Details(finish_reason="length", logprobs=token_outputs)
                 return GenerateResponse(text_output=outputs[0], model_name=self.name, details=generate_details)
+
+    async def completion(self, completion_request: Union[Dict, CompletionRequest], raw_request: [Request], headers: Dict[str, str] = None) \
+            -> Union[CompletionResponse, CompletionStreamResponse, AsyncIterator[Any]]:
+        prompt = completion_request.prompt
+
+        if self.vllm_engine:
+            return await self.openai_serving_completion.create_completion(completion_request, raw_request)
+
+        else:
+            raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
+
+        # else:
+        #     input_batch = self.tokenizer(
+        #         prompt,
+        #         max_length=self.max_length,
+        #         add_special_tokens=self.add_special_tokens,
+        #         return_tensors=TensorType.PYTORCH,
+        #     )
+        #     input_batch = input_batch.to(self.device)
+        #     if headers.get("streaming", "false") == "true":
+        #         streamer = AsyncGenerateStream(self.tokenizer)
+        #         generation_kwargs = dict(**input_batch, streamer=streamer)
+        #         if parameters:
+        #             generation_kwargs = dict(**input_batch, **parameters, streamer=streamer)
+        #         # TODO change to use thread pool executor
+        #         thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
+        #         thread.start()
+        #         return streamer
+        #     else:
+        #         if parameters:
+        #             output_ids = self.model.generate(**input_batch, **parameters)
+        #         else:
+        #             output_ids = self.model.generate(**input_batch)
+        #         outputs = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+        #         token_outputs = [Token(id=output_id, special=False, logprob=0,  # TODO set logprob
+        #                                text=self.tokenizer.decode(output_id, skip_special_tokens=True))
+        #                          for output_id in output_ids[0]]
+        #         generate_details = Details(finish_reason="length", logprobs=token_outputs)
+        #         return GenerateResponse(text_output=outputs[0], model_name=self.name, details=generate_details)
 
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
