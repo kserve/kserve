@@ -240,6 +240,48 @@ def request_output_to_completion_response(
         usage=usage,
     )
 
+def to_sampling_params(request: CompletionRequest):
+    echo_without_generation = request.echo and request.max_tokens == 0
+
+    logits_processors = None
+    if request.logit_bias:
+
+        def logit_bias_logits_processor(
+                token_ids: List[int],
+                logits: torch.Tensor) -> torch.Tensor:
+            for token_id, bias in request.logit_bias.items():
+                # Clamp the bias between -100 and 100 per OpenAI API spec
+                bias = min(100, max(-100, bias))
+                logits[int(token_id)] += bias
+            return logits
+
+        logits_processors = [logit_bias_logits_processor]
+
+    return SamplingParams(
+        n=request.n,
+        best_of=request.best_of,
+        presence_penalty=request.presence_penalty,
+        frequency_penalty=request.frequency_penalty,
+        repetition_penalty=request.repetition_penalty,
+        temperature=request.temperature,
+        top_p=request.top_p,
+        top_k=request.top_k,
+        min_p=request.min_p,
+        seed=request.seed,
+        stop=request.stop,
+        stop_token_ids=request.stop_token_ids,
+        ignore_eos=request.ignore_eos,
+        max_tokens=request.max_tokens if not echo_without_generation else 1,
+        logprobs=request.logprobs,
+        use_beam_search=request.use_beam_search,
+        early_stopping=request.early_stopping,
+        prompt_logprobs=request.logprobs if request.echo else None,
+        skip_special_tokens=request.skip_special_tokens,
+        spaces_between_special_tokens=(request.spaces_between_special_tokens),
+        include_stop_str_in_output=request.include_stop_str_in_output,
+        length_penalty=request.length_penalty,
+        logits_processors=logits_processors,
+    )
 
 class OpenAIServingCompletion(OpenAIServing):
 
@@ -276,7 +318,7 @@ class OpenAIServingCompletion(OpenAIServing):
         # Schedule the request and get the result generator.
         generators = []
         try:
-            sampling_params = request.to_sampling_params()
+            sampling_params = to_sampling_params(request)
             guided_decode_logit_processor = (
                 await get_guided_decoding_logits_processor(
                     request, self.engine.get_tokenizer()))
