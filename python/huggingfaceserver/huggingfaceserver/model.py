@@ -235,36 +235,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             return await self.openai_serving_completion.create_completion(completion_request, raw_request)
 
         else:
-            raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
-
-        # else:
-        #     input_batch = self.tokenizer(
-        #         prompt,
-        #         max_length=self.max_length,
-        #         add_special_tokens=self.add_special_tokens,
-        #         return_tensors=TensorType.PYTORCH,
-        #     )
-        #     input_batch = input_batch.to(self.device)
-        #     if headers.get("streaming", "false") == "true":
-        #         streamer = AsyncGenerateStream(self.tokenizer)
-        #         generation_kwargs = dict(**input_batch, streamer=streamer)
-        #         if parameters:
-        #             generation_kwargs = dict(**input_batch, **parameters, streamer=streamer)
-        #         # TODO change to use thread pool executor
-        #         thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
-        #         thread.start()
-        #         return streamer
-        #     else:
-        #         if parameters:
-        #             output_ids = self.model.generate(**input_batch, **parameters)
-        #         else:
-        #             output_ids = self.model.generate(**input_batch)
-        #         outputs = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
-        #         token_outputs = [Token(id=output_id, special=False, logprob=0,  # TODO set logprob
-        #                                text=self.tokenizer.decode(output_id, skip_special_tokens=True))
-        #                          for output_id in output_ids[0]]
-        #         generate_details = Details(finish_reason="length", logprobs=token_outputs)
-        #         return GenerateResponse(text_output=outputs[0], model_name=self.name, details=generate_details)
+            # TODO - fallback flow
+            raise NotImplementedError("completion is not implemented")
 
     async def predict(self, input_batch: Union[BatchEncoding, InferRequest], context: Dict[str, Any] = None) \
             -> Union[Tensor, InferResponse]:
