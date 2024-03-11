@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  custom-model:
+    container_name: custom-model
+    image: kserve/custom-model-grpc
+    entrypoint: >
+      python /custom_model/model_grpc.py --grpc_port 8082 --http_port 8181
+  custom-transformer:
+    container_name: custom-transformer
+    image: kserve/custom-transformer-grpc
+    ports:
+      - "8081"
+    entrypoint: >
+      python /custom_transformer/model_grpc.py --model_name custom-model --protocol grpc-v2 --predictor_host custom-model:8082 --grpc_port 8081 --http_port 8181
