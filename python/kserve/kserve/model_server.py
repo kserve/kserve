@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 import sys
 import argparse
 import asyncio
@@ -106,9 +106,9 @@ class ModelServer:
                  log_config: Optional[Union[Dict, str]] = args.log_config_file,
                  access_log_format: str = args.access_log_format,
                  secure_grpc_server: bool = args.secure_grpc_server,
-                 server_key: str = args.ssl_server_key,
-                 server_cert: str = args.ssl_server_cert,
-                 ca_cert: str = args.ssl_ca_cert
+                 server_key: Union[str, bytes] = args.ssl_server_key,
+                 server_cert: Union[str, bytes] = args.ssl_server_cert,
+                 ca_cert: Union[str, bytes] = args.ssl_ca_cert
                  ):
         self.registered_models = registered_models
         """KServe ModelServer Constructor
@@ -151,12 +151,30 @@ class ModelServer:
         if self.enable_grpc:
             if self.secure_grpc_server:
                 server_credentials = []
-                ssl_key_file = open(self.grpc_ssl_key, 'rb').read()
-                server_credentials.append(ssl_key_file)
-                ssl_cert_file = open(self.grpc_ssl_cert, 'rb').read()
-                server_credentials.append(ssl_cert_file)
-                ssl_ca_cert_file = open(self.grpc_ssl_ca_cert, 'rb').read()
-                server_credentials.append(ssl_ca_cert_file)
+                if type(self.grpc_ssl_key) == str:
+                    ssl_key_file = open(self.grpc_ssl_key, 'rb').read()
+                    server_credentials.append(ssl_key_file)
+                elif type(self.grpc_ssl_key) == bytes:
+                    server_credentials.append(self.grpc_ssl_key)
+                else:
+                    raise Exception(
+                        "SSL key must be of type string (file path to cert) or bytes (raw cert).")
+                if type(self.grpc_ssl_cert) == str:
+                    ssl_cert_file = open(self.grpc_ssl_cert, 'rb').read()
+                    server_credentials.append(ssl_cert_file)
+                elif type(self.grpc_ssl_cert) == bytes:
+                    server_credentials.append(self.grpc_ssl_cert)
+                else:
+                    raise Exception(
+                        "SSL cert must be of type string (file path to cert) or bytes (raw cert).")
+                if type(self.grpc_ssl_ca_cert) == str:
+                    ssl_ca_cert_file = open(self.grpc_ssl_ca_cert, 'rb').read()
+                    server_credentials.append(ssl_ca_cert_file)
+                elif type(self.grpc_ssl_ca_cert) == bytes:
+                    server_credentials.append(self.grpc_ssl_ca_cert)
+                else:
+                    raise Exception(
+                        "SSL CA cert must be of type string (file path to cert) or bytes (raw cert).")
 
                 self._grpc_server = GRPCServer(grpc_port, self.dataplane,
                                                 self.model_repository_extension,
