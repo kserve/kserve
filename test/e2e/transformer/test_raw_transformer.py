@@ -31,7 +31,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 logging.basicConfig(level=logging.INFO)
 
 
-@pytest.mark.transformer
+@pytest.mark.raw
 def test_transformer():
     service_name = 'raw-transformer'
     predictor = V1beta1PredictorSpec(
@@ -47,8 +47,7 @@ def test_transformer():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-            image='kserve/image-transformer:'
-                  + os.environ.get("GITHUB_SHA"),
+            image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
             name='kserve-container',
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
@@ -73,7 +72,7 @@ def test_transformer():
     except RuntimeError as e:
         print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
                                                                       KSERVE_TEST_NAMESPACE,
-                                                                      "services", service_name + "-predictor-default"))
+                                                                      "services", service_name + "-predictor"))
         raise e
 
     res = predict(service_name, "./data/transformer.json", model_name="mnist")

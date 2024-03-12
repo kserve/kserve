@@ -31,7 +31,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 logging.basicConfig(level=logging.INFO)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_paddle():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -72,7 +72,7 @@ def test_paddle():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_paddle_runtime():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -116,7 +116,7 @@ def test_paddle_runtime():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_paddle_v2_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -161,7 +161,7 @@ def test_paddle_v2_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_paddle_v2_grpc():
     service_name = "isvc-paddle-v2-grpc"
     model_name = "paddle"

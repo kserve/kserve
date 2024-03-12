@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/golang/protobuf/proto"
 	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
 	"github.com/kserve/kserve/tools/tf2openapi/generator"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 // Known error messages
@@ -39,7 +39,10 @@ func main() {
 	}
 
 	rootCmd.Flags().StringVarP(&modelBasePath, "model_base_path", "m", "", "Absolute path of SavedModel file")
-	rootCmd.MarkFlagRequired("model_base_path")
+	if err := rootCmd.MarkFlagRequired("model_base_path"); err != nil {
+		log.Fatalln(err.Error())
+	}
+
 	rootCmd.Flags().StringVarP(&modelName, "name", "n", "model", "Name of model")
 	rootCmd.Flags().StringVarP(&modelVersion, "version", "v", "1", "Model version")
 	rootCmd.Flags().StringVarP(&outFile, "output_file", "o", "", "Absolute path of file to write OpenAPI spec to")
@@ -91,7 +94,8 @@ func viewAPI(cmd *cobra.Command, args []string) {
 	}
 }
 
-/**
+/*
+*
 Raises errors when model is missing fields that would pose an issue for Schema generation
 */
 func unmarshalSavedModelPb(modelPb []byte) *pb.SavedModel {

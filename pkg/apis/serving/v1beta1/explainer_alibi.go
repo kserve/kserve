@@ -21,9 +21,9 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -84,8 +84,8 @@ func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions
 	args = append(args, string(s.Type))
 
 	// Order explainer config map keys
-	var keys []string
-	for k, _ := range s.Config {
+	keys := make([]string, 0, len(s.Config))
+	for k := range s.Config {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)

@@ -71,7 +71,7 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 	if agentConfigValue, ok := configMap.Data[constants.AgentConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &agentConfig)
 		if err != nil {
-			panic(fmt.Errorf("unable to unmarshall agent json string due to %v", err))
+			panic(fmt.Errorf("unable to unmarshall agent json string due to %w", err))
 		}
 	}
 
@@ -97,7 +97,7 @@ func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
 	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall logger json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall logger json string due to %w ", err))
 		}
 	}
 
@@ -175,7 +175,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			logMode = string(v1beta1.LogAll)
 		}
 
-		inferenceServiceName, _ := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
+		inferenceServiceName := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
 		namespace := pod.ObjectMeta.Namespace
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
 		component := pod.ObjectMeta.Labels[constants.KServiceComponentLabel]
@@ -346,7 +346,7 @@ func mountModelConfig(pod *v1.Pod) error {
 
 func mountVolumeToContainer(containerName string, pod *v1.Pod, additionalVolume v1.Volume, mountPath string) {
 	pod.Spec.Volumes = appendVolume(pod.Spec.Volumes, additionalVolume)
-	var mountedContainers []v1.Container
+	mountedContainers := make([]v1.Container, 0, len(pod.Spec.Containers))
 	for _, container := range pod.Spec.Containers {
 		if container.Name == containerName {
 			if container.VolumeMounts == nil {

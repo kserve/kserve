@@ -33,7 +33,6 @@ from kserve.utils.utils import generate_uuid
 class AlexNetModel(Model):
     def __init__(self, name: str):
         super().__init__(name)
-        self.name = name
         self.model = None
         self.ready = False
         self.load()
@@ -99,9 +98,6 @@ class AlexNetModel(Model):
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])
-parser.add_argument(
-    "--model_name", help="The name that the model is served under.", default="custom-model"
-)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":

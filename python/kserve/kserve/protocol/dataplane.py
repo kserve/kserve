@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from importlib import metadata
-from typing import Dict, Union, Tuple, Optional
+from typing import Dict, Union, Tuple, Optional, Any, AsyncIterator
 
 import cloudevents.exceptions as ce
 import orjson
@@ -22,9 +22,10 @@ from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
 
+from .rest.v2_datamodels import GenerateRequest, GenerateResponse
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
-from ..model import ModelType
+from ..model import InferenceVerb
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
@@ -323,6 +324,30 @@ class DataPlane:
             response = await model(request, headers=headers)
         return response, headers
 
+    async def generate(
+            self,
+            model_name: str,
+            request: Union[Dict, GenerateRequest],
+            headers: Optional[Dict[str, str]] = None
+    ) -> Tuple[Union[GenerateResponse, AsyncIterator[Any]], Dict[str, str]]:
+        """Generate the text with the provided text prompt.
+
+        Args:
+            model_name (str): Model name.
+            request (bytes|GenerateRequest): Generate Request body data.
+            headers: (Optional[Dict[str, str]]): Request headers.
+
+        Returns:
+            response: The generated output or output stream.
+            response_headers: Headers to construct the HTTP response.
+
+        Raises:
+            InvalidInput: An error when the body bytes can't be decoded as JSON.
+        """
+        model = self.get_model(model_name)
+        response = await model.generate(request, headers=headers)
+        return response, headers
+
     async def explain(self, model_name: str,
                       request: Union[bytes, Dict, InferRequest],
                       headers: Optional[Dict[str, str]] = None
@@ -343,9 +368,9 @@ class DataPlane:
         # call model locally or remote model workers
         model = self.get_model(model_name)
         if isinstance(model, RayServeSyncHandle):
-            response = ray.get(model.remote(request, model_type=ModelType.EXPLAINER))
+            response = ray.get(model.remote(request, verb=InferenceVerb.EXPLAIN))
         elif isinstance(model, (RayServeHandle, DeploymentHandle)):
-            response = await model.remote(request, model_type=ModelType.EXPLAINER)
+            response = await model.remote(request, verb=InferenceVerb.EXPLAIN)
         else:
-            response = await model(request, model_type=ModelType.EXPLAINER)
+            response = await model(request, verb=InferenceVerb.EXPLAIN)
         return response, headers

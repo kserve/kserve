@@ -61,7 +61,7 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
 		utilizationInt, _ := strconv.Atoi(value)
-		utilization = int32(utilizationInt)
+		utilization = int32(utilizationInt) // #nosec G109
 	} else {
 		utilization = constants.DefaultCPUUtilization
 	}

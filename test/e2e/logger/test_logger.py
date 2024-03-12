@@ -31,7 +31,8 @@ import time
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_kserve_logger():
     msg_dumper = 'message-dumper'
     predictor = V1beta1PredictorSpec(
@@ -56,7 +57,7 @@ def test_kserve_logger():
         min_replicas=1,
         logger=V1beta1LoggerSpec(
             mode="all",
-            url="http://message-dumper."+KSERVE_TEST_NAMESPACE+".svc.cluster.local"
+            url=f"http://{msg_dumper}."+KSERVE_TEST_NAMESPACE+".svc.cluster.local"
         ),
         sklearn=V1beta1SKLearnSpec(
             storage_uri='gs://kfserving-examples/models/sklearn/1.0/model',

@@ -21,8 +21,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kserve/kserve/pkg/constants"
 	"strings"
+
+	"github.com/kserve/kserve/pkg/constants"
 
 	"github.com/kserve/kserve/pkg/credentials/https"
 
@@ -74,7 +75,7 @@ func NewCredentialBuilder(client client.Client, config *v1.ConfigMap) *Credentia
 	if credential, ok := config.Data[CredentialConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(credential), &credentialConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall json string due to %w ", err))
 		}
 	}
 
@@ -87,7 +88,7 @@ func NewCredentialBuilder(client client.Client, config *v1.ConfigMap) *Credentia
 func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
 	overrideParams map[string]string, container *v1.Container) error {
 
-	stype, ok := overrideParams["type"]
+	stype := overrideParams["type"]
 	bucket := overrideParams["bucket"]
 
 	storageSecretName := constants.DefaultStorageSpecSecret
@@ -130,11 +131,14 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 				return fmt.Errorf("invalid json encountered in key %s of storage secret %s: %w",
 					storageKey, storageSecretName, err)
 			}
-			if stype, ok = storageDataJson["type"]; ok && !utils.Includes(SupportedStorageSpecTypes, stype) {
-				return fmt.Errorf(UnsupportedStorageSpecType, strings.Join(SupportedStorageSpecTypes, ", "), stype)
+			if storageType, ok := storageDataJson["type"]; ok {
+				stype = storageType
+				if !utils.Includes(SupportedStorageSpecTypes, stype) {
+					return fmt.Errorf(UnsupportedStorageSpecType, strings.Join(SupportedStorageSpecTypes, ", "), stype)
+				}
 			}
 			// Get bucket from storage-config if not provided in override params
-			if _, ok = storageDataJson["bucket"]; ok && bucket == "" {
+			if _, ok := storageDataJson["bucket"]; ok && bucket == "" {
 				bucket = storageDataJson["bucket"]
 			}
 			if cabundle_configmap, ok := storageDataJson["cabundle_configmap"]; ok {

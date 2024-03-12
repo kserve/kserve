@@ -34,6 +34,7 @@ webhooks:
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.pod-mutator
     sideEffects: None
+    reinvocationPolicy: IfNeeded
     admissionReviewVersions: ["v1beta1"]
     namespaceSelector:
       matchExpressions:

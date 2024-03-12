@@ -1,0 +1,63 @@
+name: Automated Release
+on:
+  workflow_dispatch:
+    inputs:
+      releaseBranch:
+        description: 'The existing branch name to release from, e.g. release-0.12'
+        required: true
+      releaseTag:
+        description: 'The release tag, e.g. v0.12.0-rc1'
+        required: true
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.releaseBranch }}
+
+      - name: Install dependencies
+        run: |
+          go mod download
+
+      - name: Prepare Release
+        shell: bash
+        run: |
+          GOPATH=$(go env GOPATH)
+          KSERVE_PATH=$GOPATH/src/github.com/kserve/kserve
+          echo "KSERVE_PATH=$KSERVE_PATH" >> "$GITHUB_ENV"
+          mkdir -p $KSERVE_PATH
+          cp -a . $KSERVE_PATH
+          cd $KSERVE_PATH
+          export RELEASE_BRANCH=${{ inputs.releaseBranch }}
+          export RELEASE_TAG=${{ inputs.releaseTag }}
+          
+          # Bump Versions
+          make bump-version
+          ./hack/generate-install.sh $RELEASE_TAG
+          ./hack/python-release.sh
+          
+          # Update Release Branch and Push Tag
+          git diff
+          git config --global user.email "terrytangyuan@gmail.com"
+          git config --global user.name "terrytangyuan"
+          git add -A
+          git commit -m "Prepare release" || exit 0
+          git push
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: ${{ contains(inputs.releaseTag, 'rc') }}
+          target_commitish: ${{ inputs.releaseBranch }}
+          tag_name: ${{ inputs.releaseTag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

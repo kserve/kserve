@@ -56,19 +56,17 @@ func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map
 	return true
 }
 
-func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) bool {
+func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) {
 	if logger != nil {
 		annotations[constants.LoggerInternalAnnotationKey] = "true"
 		if logger.URL != nil {
 			annotations[constants.LoggerSinkUrlInternalAnnotationKey] = *logger.URL
 		}
 		annotations[constants.LoggerModeInternalAnnotationKey] = string(logger.Mode)
-		return true
 	}
-	return false
 }
 
-func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]string) bool {
+func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]string) {
 	if batcher != nil {
 		annotations[constants.BatcherInternalAnnotationKey] = "true"
 
@@ -80,13 +78,7 @@ func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]stri
 			s := strconv.Itoa(*batcher.MaxLatency)
 			annotations[constants.BatcherMaxLatencyInternalAnnotationKey] = s
 		}
-		if batcher.Timeout != nil {
-			s := strconv.Itoa(*batcher.Timeout)
-			annotations[constants.BatcherTimeoutInternalAnnotationKey] = s
-		}
-		return true
 	}
-	return false
 }
 
 func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]string) bool {

@@ -11,6 +11,7 @@ resources:
 - kserve-paddleserver.yaml
 - kserve-lgbserver.yaml
 - kserve-torchserve.yaml
+- kserve-huggingfaceserver.yaml
 
 images:
   # SMS Only Runtimes
@@ -49,3 +50,7 @@ images:
 - name: kserve-torchserve
   newName: pytorch/torchserve-kfs
   newTag: 0.9.0
+
+- name: huggingfaceserver
+  newName: kserve/huggingfaceserver
+  newTag: latest

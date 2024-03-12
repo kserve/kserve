@@ -16,13 +16,20 @@
 
 # The script will install KServe dependencies in the GH Actions environment.
 # (Istio, Knative, cert-manager, kustomize, yq)
+# Usage: setup-kserve.sh $DEPLOYMENT_MODE
 
 set -o errexit
 set -o nounset
 set -o pipefail
+DEPLOYMENT_MODE="${1:-'serverless'}"
 
 make deploy-ci
-
+shopt -s nocasematch
+if [[ $DEPLOYMENT_MODE == "raw" ]];then
+  echo "Patching default deployment mode to raw deployment"
+  kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
+fi
+shopt -u nocasematch
 echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A

@@ -92,7 +92,7 @@ var (
 	PrometheusPortAnnotationKey                 = "prometheus.io/port"
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
 	DefaultPrometheusPath                       = "/metrics"
-	QueueProxyAggregatePrometheusMetricsPort    = "9088"
+	QueueProxyAggregatePrometheusMetricsPort    = 9088
 	DefaultPodPrometheusPort                    = "9091"
 )
 
@@ -109,7 +109,6 @@ var (
 	BatcherInternalAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/batcher"
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
-	BatcherTimeoutInternalAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/batcher-timeout"
 	AgentShouldInjectAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/agent"
 	AgentModelConfigVolumeNameAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/configVolumeName"
 	AgentModelConfigMountPathAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/configMountPath"
@@ -128,14 +127,19 @@ const (
 // StorageSpec Constants
 var (
 	DefaultStorageSpecSecret     = "storage-config"
-	DefaultStorageSpecSecretPath = "/mnt/storage-secret"
+	DefaultStorageSpecSecretPath = "/mnt/storage-secret" // #nosec G101
 )
 
 // Controller Constants
 var (
-	ControllerLabelName          = KServeName + "-controller-manager"
-	DefaultMinReplicas           = 1
-	IstioSidecarUIDAnnotationKey = KServeAPIGroupName + "/storage-initializer-uid"
+	ControllerLabelName             = KServeName + "-controller-manager"
+	DefaultIstioSidecarUID          = int64(1337)
+	DefaultMinReplicas              = 1
+	IstioInitContainerName          = "istio-init"
+	IstioInterceptModeRedirect      = "REDIRECT"
+	IstioInterceptionModeAnnotation = "sidecar.istio.io/interceptionMode"
+	IstioSidecarUIDAnnotationKey    = KServeAPIGroupName + "/storage-initializer-uid"
+	IstioSidecarStatusAnnotation    = "sidecar.istio.io/status"
 )
 
 type AutoscalerClassType string
@@ -258,6 +262,7 @@ const (
 	InferenceServiceDefaultAgentPortStr = "9081"
 	InferenceServiceDefaultAgentPort    = 9081
 	CommonDefaultHttpPort               = 80
+	AggregateMetricsPortName            = "aggr-metric"
 )
 
 // Labels to put on kservice
@@ -289,14 +294,12 @@ const (
 	ArgumentWorkers        = "--workers"
 )
 
-// InferenceService container name
+// InferenceService container names
 const (
 	InferenceServiceContainerName   = "kserve-container"
 	StorageInitializerContainerName = "storage-initializer"
-)
 
-// Transformer container name in collocation
-const (
+	// TransformerContainerName transformer container name in collocation
 	TransformerContainerName = "transformer-container"
 )
 
@@ -391,16 +394,17 @@ const (
 
 // supported model type
 const (
-	SupportedModelSKLearn    = "sklearn"
-	SupportedModelTensorflow = "tensorflow"
-	SupportedModelXGBoost    = "xgboost"
-	SupportedModelPyTorch    = "pytorch"
-	SupportedModelONNX       = "onnx"
-	SupportedModelPMML       = "pmml"
-	SupportedModelLightGBM   = "lightgbm"
-	SupportedModelPaddle     = "paddle"
-	SupportedModelTriton     = "triton"
-	SupportedModelMLFlow     = "mlflow"
+	SupportedModelSKLearn     = "sklearn"
+	SupportedModelTensorflow  = "tensorflow"
+	SupportedModelXGBoost     = "xgboost"
+	SupportedModelPyTorch     = "pytorch"
+	SupportedModelONNX        = "onnx"
+	SupportedModelHuggingFace = "huggingface"
+	SupportedModelPMML        = "pmml"
+	SupportedModelLightGBM    = "lightgbm"
+	SupportedModelPaddle      = "paddle"
+	SupportedModelTriton      = "triton"
+	SupportedModelMLFlow      = "mlflow"
 )
 
 type ProtocolVersion int
@@ -448,6 +452,7 @@ func getEnvOrDefault(key string, fallback string) string {
 	return fallback
 }
 
+// nolint: unused
 func isEnvVarMatched(envVar, matchtedValue string) bool {
 	return getEnvOrDefault(envVar, "") == matchtedValue
 }
@@ -527,11 +532,11 @@ func ExplainPath(name string) string {
 }
 
 func PredictPrefix() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+(:predict)?")
+	return "^/v1/models/[\\w-]+(:predict)?"
 }
 
 func ExplainPrefix() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+:explain$")
+	return "^/v1/models/[\\w-]+:explain$"
 }
 
 func VirtualServiceHostname(name string, predictorHostName string) string {

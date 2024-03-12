@@ -117,7 +117,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 ("AWS_ACCESS_KEY_ID", "access_key_id"),
                 ("AWS_SECRET_ACCESS_KEY", "secret_access_key"),
                 ("AWS_DEFAULT_REGION", "region"),
-                ("AWS_CA_BUNDLE", "certificate"),
+                ("AWS_CA_BUNDLE", "ca_bundle"),
                 ("S3_VERIFY_SSL", "verify_ssl"),
                 ("awsAnonymousCredential", "anonymous"),
             ):
@@ -149,11 +149,16 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         # S3UseVirtualBucket environment variable defined in s3_secret.go
         # use virtual hosted-style URLs if enabled
         virtual = ("true" == os.getenv("S3_USER_VIRTUAL_BUCKET", "false").lower())
+        # S3UseAccelerate environment variable defined in s3_secret.go
+        # use transfer acceleration if enabled
+        accelerate = ("true" == os.getenv("S3_USE_ACCELERATE", "false").lower())
 
         if anon:
             c = c.merge(Config(signature_version=UNSIGNED))
         if virtual:
             c = c.merge(Config(s3={"addressing_style": "virtual"}))
+        if accelerate:
+            c = c.merge(Config(s3={"use_accelerate_endpoint": accelerate}))
 
         return c
 
@@ -224,13 +229,12 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             # Objects: churn, churn-pickle, churn-pickle-logs
             bucket_path_last_part = bucket_path.split("/")[-1]
             object_last_path = obj.key.split("/")[-1]
-            bucket_path_parent_part = bucket_path.rsplit("/", 1)[0]
 
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
                 exact_obj_found = True
-            elif object_last_path.startswith(bucket_path_last_part):
-                target_key = obj.key.replace(bucket_path_parent_part, "", 1).lstrip("/")
+            elif bucket_path_last_part and object_last_path.startswith(bucket_path_last_part):
+                target_key = object_last_path
             else:
                 target_key = obj.key.replace(bucket_path, "").lstrip("/")
 
@@ -434,7 +438,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                     blobs += container_client.list_blobs(name_starts_with=item.name,
                                                          include=['snapshots'])
         for blob in blobs:
-            dest_path = os.path.join(out_dir, blob.name.replace(prefix, "", 1).lstrip("/"))
+            file_name = blob.name.replace(prefix, "", 1).lstrip("/")
+            if not file_name:
+                file_name = os.path.basename(prefix)
+            dest_path = os.path.join(out_dir, file_name)
             Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
             logging.info("Downloading: %s to %s", blob.name, dest_path)
             downloader = container_client.download_blob(blob.name)

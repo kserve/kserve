@@ -67,6 +67,8 @@ spec:
                 properties:
                   CACerts:
                     type: string
+                  audience:
+                    type: string
                   name:
                     type: string
                   url:

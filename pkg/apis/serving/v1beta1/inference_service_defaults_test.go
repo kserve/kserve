@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"

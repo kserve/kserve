@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	netv1 "k8s.io/api/networking/v1"
 

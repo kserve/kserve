@@ -71,7 +71,7 @@ def test_tabular_explainer():
     except RuntimeError as e:
         logging.info(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
                                                                              KSERVE_TEST_NAMESPACE, "services",
-                                                                             service_name + "-predictor-default"))
+                                                                             service_name + "-predictor"))
         pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
                                                           label_selector='serving.kserve.io/inferenceservice={}'.format(
                                                               service_name))

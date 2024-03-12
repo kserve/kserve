@@ -215,7 +215,7 @@ func sortSupportedRuntimeByPriority(runtimes []v1alpha1.SupportedRuntime, modelF
 }
 
 func GetProtocolVersionPriority(protocols []constants.InferenceServiceProtocol) int {
-	if protocols == nil || len(protocols) == 0 {
+	if len(protocols) == 0 {
 		return int(constants.Unknown)
 	}
 	protocolVersions := []int{}

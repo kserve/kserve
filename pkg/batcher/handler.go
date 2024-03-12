@@ -154,7 +154,8 @@ func (handler *BatchHandler) batchPredict() {
 }
 
 func (handler *BatchHandler) batch() {
-	handler.log.Infof("Starting batch loop maxLatency:%d, maxBatchSize:%d", handler.MaxLatency, handler.MaxBatchSize)
+	handler.log.Infof("Starting batch loop maxLatency:%d, maxBatchSize:%d",
+		handler.MaxLatency, handler.MaxBatchSize)
 	for {
 		select {
 		case req := <-handler.channelIn:

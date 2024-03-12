@@ -33,6 +33,9 @@ logging.basicConfig(level=logging.INFO)
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 MODEL_CLASS_NAME = "modelClass"
+INFERENCESERVICE_CONTAINER = "kserve-container"
+TRANSFORMER_CONTAINER = "transformer-container"
+STORAGE_URI_ENV = "STORAGE_URI"
 
 
 def grpc_stub(service_name, namespace):
@@ -78,11 +81,7 @@ def predict_str(service_name, input_json, protocol_version="v1",
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    time.sleep(10)
-    cluster_ip = get_cluster_ip()
-    host = urlparse(isvc["status"]["url"]).netloc
-    path = urlparse(isvc["status"]["url"]).path
+    cluster_ip, host, path = get_isvc_endpoint(isvc)
     headers = {"Host": host, "Content-Type": "application/json"}
 
     if model_name is None:
@@ -95,6 +94,8 @@ def predict_str(service_name, input_json, protocol_version="v1",
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_json)
+    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
+    time.sleep(10)
     response = requests.post(url, input_json, headers=headers)
     logging.info("Got response code %s, content %s", response.status_code, response.content)
     if response.status_code == 200:
@@ -117,8 +118,7 @@ def predict_ig(ig_name, input_json, protocol_version="v1",
             version=version,
         )
 
-        cluster_ip = get_cluster_ip()
-        host = urlparse(ig["status"]["url"]).netloc
+        cluster_ip, host, _ = get_isvc_endpoint(ig)
         headers = {"Host": host}
         url = f"http://{cluster_ip}"
 
@@ -151,16 +151,15 @@ def explain_response(service_name, input_json):
         namespace=KSERVE_TEST_NAMESPACE,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
-    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    time.sleep(10)
-    cluster_ip = get_cluster_ip()
-    host = urlparse(isvc["status"]["url"]).netloc
+    cluster_ip, host, _ = get_isvc_endpoint(isvc)
     url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
     headers = {"Host": host}
     with open(input_json) as json_file:
         data = json.load(json_file)
         logging.info("Sending request data: %s", json.dumps(data))
         try:
+            # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
+            time.sleep(10)
             response = requests.post(url, json.dumps(data), headers=headers)
             logging.info(
                 "Got response code %s, content %s",
@@ -209,7 +208,6 @@ def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
 
 
 def predict_grpc(service_name, payload, parameters=None, version=constants.KSERVE_V1BETA1_VERSION, model_name=None):
-    cluster_ip = get_cluster_ip()
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
@@ -217,7 +215,7 @@ def predict_grpc(service_name, payload, parameters=None, version=constants.KSERV
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    host = urlparse(isvc["status"]["url"]).netloc
+    cluster_ip, host, _ = get_isvc_endpoint(isvc)
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
 
@@ -243,3 +241,13 @@ def predict_modelmesh(service_name, input_json, pod_name, model_name=None):
             url = f"http://localhost:8008/v2/models/{model_name}/infer"
             response = requests.post(url, json.dumps(data))
             return json.loads(response.content.decode("utf-8"))
+
+
+def get_isvc_endpoint(isvc):
+    host = urlparse(isvc["status"]["url"]).netloc
+    path = urlparse(isvc["status"]["url"]).path
+    if os.environ.get("CI_USE_ISVC_HOST") == "1":
+        cluster_ip = host
+    else:
+        cluster_ip = get_cluster_ip()
+    return cluster_ip, host, path

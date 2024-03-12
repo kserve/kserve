@@ -50,7 +50,7 @@ type Predictor struct {
 	client                 client.Client
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
-	credentialBuilder      *credentials.CredentialBuilder
+	credentialBuilder      *credentials.CredentialBuilder //nolint: unused
 	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
@@ -249,7 +249,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %v", err)
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}
 	}
 

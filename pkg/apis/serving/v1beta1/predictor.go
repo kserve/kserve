@@ -44,6 +44,8 @@ type PredictorSpec struct {
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXRuntimeSpec `json:"onnx,omitempty"`
+	// Spec for HuggingFace runtime (https://github.com/huggingface)
+	HuggingFace *HuggingFaceRuntimeSpec `json:"huggingface,omitempty"`
 	// Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)
 	PMML *PMMLSpec `json:"pmml,omitempty"`
 	// Spec for LightGBM model server
@@ -114,6 +116,7 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.PMML,
 		s.LightGBM,
 		s.Paddle,
+		s.HuggingFace,
 		s.Model,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified

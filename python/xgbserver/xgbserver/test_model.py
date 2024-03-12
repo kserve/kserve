@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from kserve.protocol.infer_type import InferInput, InferRequest
 import xgboost as xgb
 import os
 from sklearn.datasets import load_iris
@@ -41,3 +42,10 @@ def test_model():
     request = [X[0].tolist()]
     response = model.predict({"instances": request})
     assert response["predictions"] == [0]
+
+    # test v2 infer call
+    infer_input = InferInput(name="input-0", shape=[1, 4], datatype="FP32",
+                             data=request)
+    infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
+    infer_response = model.predict(infer_request)
+    assert infer_response.to_rest()["outputs"][0]["data"] == [0]

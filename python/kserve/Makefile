@@ -1,7 +1,7 @@
 .PHONY: test
 
 dev_install:
-	poetry install --with test,dev --extras "storage"
+	poetry install --with test --extras "storage"
 
 install_dependencies:
 	poetry install --with=test --no-interaction --no-root --extras "storage"

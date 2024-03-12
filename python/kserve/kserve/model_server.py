@@ -20,7 +20,7 @@ import multiprocessing
 import signal
 import socket
 from multiprocessing import Process
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Callable, Any
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment
@@ -39,51 +39,52 @@ from kserve.errors import NoModelReady
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
 
-parser = argparse.ArgumentParser(add_help=False)
+parser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+# Model Server Arguments: The arguments are passed to the kserve.ModelServer object
 parser.add_argument("--http_port", default=DEFAULT_HTTP_PORT, type=int,
                     help="The HTTP Port listened to by the model server.")
 parser.add_argument("--grpc_port", default=DEFAULT_GRPC_PORT, type=int,
                     help="The GRPC Port listened to by the model server.")
 parser.add_argument("--workers", default=1, type=int,
-                    help="The number of workers for multi-processing.")
+                    help="The number of uvicorn workers for multi-processing.")
 parser.add_argument("--max_threads", default=4, type=int,
-                    help="The number of max processing threads in each worker.")
-parser.add_argument('--max_asyncio_workers', default=None, type=int,
-                    help='Max number of asyncio workers to spawn')
+                    help="The max number of gRPC processing threads.")
+parser.add_argument("--max_asyncio_workers", default=None, type=int,
+                    help="The max number of asyncio workers to spawn.")
 parser.add_argument("--enable_grpc", default=True, type=lambda x: utils.strtobool(x),
-                    help="Enable gRPC for the model server")
+                    help="Enable gRPC for the model server.")
 parser.add_argument("--enable_docs_url", default=False, type=lambda x: utils.strtobool(x),
                     help="Enable docs url '/docs' to display Swagger UI.")
 parser.add_argument("--enable_latency_logging", default=True, type=lambda x: utils.strtobool(x),
-                    help="Output a log per request with latency metrics.")
+                    help="Enable a log line per request with preprocess/predict/postprocess latency metrics.")
 parser.add_argument("--configure_logging", default=True, type=lambda x: utils.strtobool(x),
-                    help="Whether to configure KServe and Uvicorn logging")
+                    help="Enable to configure KServe and Uvicorn logging.")
 parser.add_argument("--log_config_file", default=None, type=str,
                     help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
 parser.add_argument("--access_log_format", default=None, type=str,
-                    help="Format to set for the access log (provided by asgi-logger).")
+                    help="The asgi access logging format.")
 
+# Model arguments: The arguments are passed to the kserve.Model object
+parser.add_argument("--model_name", default="model", type=str,
+                    help="The name of the model used on the endpoint path.")
+parser.add_argument("--predictor_host", default=None, type=str,
+                    help="The host name used for calling to the predictor from transformer.")
+# For backwards compatibility.
+parser.add_argument("--protocol", default="v1", type=str,
+                    choices=["v1", "v2", "grpc-v2"],
+                    help="The inference protocol used for calling to the predictor from transformer. "
+                         "Deprecated and replaced by --predictor_protocol")
+parser.add_argument("--predictor_protocol", default="v1", type=str,
+                    choices=["v1", "v2", "grpc-v2"],
+                    help="The inference protocol used for calling to the predictor from transformer.")
+parser.add_argument("--predictor_use_ssl", default=False, type=lambda x: utils.strtobool(x),
+                    help="Use ssl for the http connection to the predictor.")
+parser.add_argument("--predictor_request_timeout_seconds", default=600, type=int,
+                    help="The timeout seconds for the request sent to the predictor.")
 args, _ = parser.parse_known_args()
 
 
 class ModelServer:
-    """KServe ModelServer
-
-    Args:
-        http_port (int): HTTP port. Default: ``8080``.
-        grpc_port (int): GRPC port. Default: ``8081``.
-        workers (int): Number of workers for uvicorn. Default: ``1``.
-        max_threads (int): Max number of processing threads. Default: ``4``
-        max_asyncio_workers (int): Max number of AsyncIO threads. Default: ``None``
-        registered_models (ModelRepository): Model repository with registered models.
-        enable_grpc (bool): Whether to turn on grpc server. Default: ``True``
-        enable_docs_url (bool): Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
-        enable_latency_logging (bool): Whether to log latency metric. Default: ``True``.
-        configure_logging (bool): Whether to configure KServe and Uvicorn logging. Default: ``True``.
-        log_config (dict or str): File path or dict containing log config. Default: ``None``.
-        access_log_format (string): Format to set for the access log (provided by asgi-logger). Default: ``None``
-    """
-
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers,
@@ -95,7 +96,24 @@ class ModelServer:
                  enable_latency_logging: bool = args.enable_latency_logging,
                  configure_logging: bool = args.configure_logging,
                  log_config: Optional[Union[Dict, str]] = args.log_config_file,
-                 access_log_format: str = args.access_log_format):
+                 access_log_format: str = args.access_log_format,
+                 ):
+        """KServe ModelServer Constructor
+
+        Args:
+            http_port: HTTP port. Default: ``8080``.
+            grpc_port: GRPC port. Default: ``8081``.
+            workers: Number of uvicorn workers. Default: ``1``.
+            max_threads: Max number of gRPC processing threads. Default: ``4``
+            max_asyncio_workers: Max number of AsyncIO threads. Default: ``None``
+            registered_models: Model repository with registered models.
+            enable_grpc: Whether to turn on grpc server. Default: ``True``
+            enable_docs_url: Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
+            enable_latency_logging: Whether to log latency metric. Default: ``True``.
+            configure_logging: Whether to configure KServe and Uvicorn logging. Default: ``True``.
+            log_config: File path or dict containing log config. Default: ``None``.
+            access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``
+        """
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -123,8 +141,14 @@ class ModelServer:
             self.log_config = None
 
         self.access_log_format = access_log_format
+        self._custom_exception_handler = None
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
+        """ Start the model server with a set of registered models.
+
+        Args:
+            models: a list of models to register to the model server.
+        """
         if isinstance(models, list):
             at_least_one_model_ready = False
             for model in models:
@@ -172,6 +196,10 @@ class ModelServer:
                 loop.add_signal_handler(
                     sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
                 )
+            if self._custom_exception_handler is None:
+                loop.set_exception_handler(self.default_exception_handler)
+            else:
+                loop.set_exception_handler(self._custom_exception_handler)
             if self.workers == 1:
                 self._rest_server = UvicornServer(self.http_port, [],
                                                   self.dataplane, self.model_repository_extension,
@@ -206,6 +234,11 @@ class ModelServer:
         asyncio.run(servers_task())
 
     async def stop(self, sig: Optional[int] = None):
+        """ Stop the instances of REST and gRPC model servers.
+
+        Args:
+            sig: The signal to stop the server. Default: ``None``.
+        """
         logger.info("Stopping the model server")
         if self._rest_server:
             logger.info("Stopping the rest server")
@@ -214,11 +247,45 @@ class ModelServer:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
 
+    def register_exception_handler(self, handler: Callable[[asyncio.events.AbstractEventLoop, Dict[str, Any]], None]):
+        """Add a custom handler as the event loop exception handler.
+
+        If a handler is not provided, the default exception handler will be set.
+
+        handler should be a callable object, it should have a signature matching '(loop, context)', where 'loop'
+        will be a reference to the active event loop, 'context' will be a dict object (see `call_exception_handler()`
+        documentation for details about context).
+        """
+        self._custom_exception_handler = handler
+
+    def default_exception_handler(self, loop: asyncio.events.AbstractEventLoop, context: Dict[str, Any]):
+        """Default exception handler for event loop.
+
+        This is called when an exception occurs and no exception handler is set.
+        By default, this will shut down the server gracefully.
+
+        This can be called by a custom exception handler that wants to defer to the default handler behavior.
+        """
+        # gracefully shutdown the server
+        loop.run_until_complete(self.stop())
+        loop.default_exception_handler(context)
+
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
+        """Register a model handle to the model server.
+
+        Args:
+            name: The name of the model handle.
+            model_handle: The model handle object.
+        """
         self.registered_models.update_handle(name, model_handle)
         logger.info("Registering model handle: %s", name)
 
     def register_model(self, model: Model):
+        """Register a model to the model server.
+
+        Args:
+            model: The model object.
+        """
         if not model.name:
             raise Exception(
                 "Failed to register model, model.name must be provided.")

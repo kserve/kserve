@@ -20,15 +20,12 @@ from xgbserver import XGBoostModel, XGBoostModelRepository
 import kserve
 from kserve.errors import ModelMissingError
 
-DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])  # pylint:disable=c-extension-no-member
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
-parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
-                    help='The name that the model is served under.')
 parser.add_argument('--nthread', default=DEFAULT_NTHREAD,
                     help='Number of threads to use by XGBoost.')
 args, _ = parser.parse_known_args()

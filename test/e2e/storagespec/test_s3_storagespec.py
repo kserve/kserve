@@ -29,7 +29,8 @@ from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_sklearn_s3_storagespec_kserve():
     service_name = "isvc-sklearn-s3"
     predictor = V1beta1PredictorSpec(

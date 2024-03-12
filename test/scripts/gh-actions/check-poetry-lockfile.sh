@@ -29,16 +29,17 @@ packages=()
 # Read the output of find into an array
 while IFS= read -r -d '' folder; do
     packages+=("$folder")
-done < <(find . -maxdepth 1 -type d -print0)
+done < <(find . -type f -name "pyproject.toml" -print0)
 
-for folder in "${packages[@]}"
+for file in "${packages[@]}"
 do
+    folder=$(dirname "${file}")
     echo "moving into folder ${folder}"
-    if [[ ! -f "${folder}/pyproject.toml" ]]; then
+    if [[ ${folder} == *'plugin'* ]]; then
         echo -e "${YELLOW}skipping folder ${folder}${NC}"
         continue
     fi
     pushd "${folder}" >> /dev/null
-        poetry lock --check
+        poetry check --lock
     popd >> /dev/null
 done

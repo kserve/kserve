@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import os
+from kserve.protocol.infer_type import InferInput, InferRequest
+from kserve.utils.numpy_codec import from_np_dtype
 import numpy as np
 import cv2
 from paddleserver import PaddleModel
@@ -45,9 +47,22 @@ def test_model():
 
     def test_img(filename: str, expected: int):
         img = cv2.imread(os.path.join(model_dir, filename))
-        request = {"instances": face_detect_preprocess(img)}
+        input_data = face_detect_preprocess(img)
+        request = {"instances": input_data}
         response = server.predict(request)
         faces = response["predictions"]
         assert sum(face[1] > 0.5 for face in faces) == expected
+
+        # test v2 infer call
+        infer_input = InferInput(
+            name="input-0",
+            shape=list(input_data.shape),
+            datatype=from_np_dtype(input_data.dtype),
+            data=input_data,
+        )
+        infer_request = InferRequest(
+            model_name="model", infer_inputs=[infer_input])
+        response = server.predict(infer_request)
+        assert response.to_rest()["outputs"][0]["data"][0] == 1.0
 
     test_img("test_mask_detection.jpg", 3)

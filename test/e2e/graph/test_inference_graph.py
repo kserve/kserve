@@ -862,3 +862,260 @@ def test_ig_scenario10():
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.graph
+def test_inference_graph_raw_mode():
+    logging.info("Starting test test_inference_graph_raw_mode")
+    sklearn_name = "isvc-sklearn-graph-raw"
+    xgb_name = "isvc-xgboost-graph-raw"
+    graph_name = "model-chainer-raw"
+
+    annotations = dict()
+    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
+
+    sklearn_predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+    sklearn_isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=sklearn_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations,
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor),
+    )
+
+    xgb_predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        xgboost=V1beta1XGBoostSpec(
+            storage_uri="gs://kfserving-examples/models/xgboost/1.5/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+    xgb_isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations,),
+        spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
+    )
+
+    nodes = {
+        "root": V1alpha1InferenceRouter(
+            router_type="Sequence",
+            steps=[
+                V1alpha1InferenceStep(
+                    service_name=sklearn_name,
+                ),
+                V1alpha1InferenceStep(
+                    service_name=xgb_name,
+                    data="$request",
+                ),
+            ],
+        )
+    }
+    graph_spec = V1alpha1InferenceGraphSpec(
+        nodes=nodes,
+    )
+    ig = V1alpha1InferenceGraph(
+        api_version=constants.KSERVE_V1ALPHA1,
+        kind=constants.KSERVE_KIND_INFERENCEGRAPH,
+        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations),
+        spec=graph_spec,
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(sklearn_isvc)
+    kserve_client.create(xgb_isvc)
+    kserve_client.create_inference_graph(ig)
+
+    kserve_client.wait_isvc_ready(sklearn_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(xgb_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    # Below checks are raw deployment specific.  They ensure raw k8s resources created instead of knative resources
+    dep = kserve_client.app_api.read_namespaced_deployment(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+    if not dep:
+        raise RuntimeError("Deployment doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+
+    svc = kserve_client.core_api.read_namespaced_service(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+    if not svc:
+        raise RuntimeError("Service doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+
+    try:
+        knativeroute = kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
+                                                                               KSERVE_TEST_NAMESPACE,
+                                                                               "routes", graph_name)
+        if knativeroute:
+            raise RuntimeError("Knative route resource shouldn't exist for InferenceGraph {}".format(graph_name) +
+                               "in raw deployment mode")
+    except client.rest.ApiException:
+        logging.info("Expected error in finding knative route in raw deployment mode")
+
+    try:
+        knativesvc = kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
+                                                                             KSERVE_TEST_NAMESPACE,
+                                                                             "services", graph_name)
+        if knativesvc:
+            raise RuntimeError("Knative resources shouldn't exist for InferenceGraph {} ".format(graph_name) +
+                               "in raw deployment mode")
+    except client.rest.ApiException:
+        logging.info("Expected error in finding knative service in raw deployment mode")
+
+    # TODO Fix this when we enable ALB creation for IG raw deployment mode. This is required for traffic ingress
+    # for this predict api call to work
+    #
+    # res = predict_ig(
+    #     graph_name,
+    #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
+    # )
+    # assert res["predictions"] == [1, 1]
+
+    kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(sklearn_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(xgb_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.graph
+def test_inference_graph_raw_mode_with_hpa():
+    logging.info("Starting test test_inference_graph_raw_mode_with_hpa")
+    sklearn_name = "isvc-sklearn-graph-raw-hpa"
+    xgb_name = "isvc-xgboost-graph-raw-hpa"
+    graph_name = "model-chainer-raw-hpa"
+
+    annotations = dict()
+    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
+    # annotations["serving.kserve.io/max-scale"] = '5'
+    # annotations["serving.kserve.io/metric"] = 'rps'
+    # annotations["serving.kserve.io/min-scale"] = '2'
+    # annotations["serving.kserve.io/target"] = '30'
+
+    sklearn_predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+    sklearn_isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=sklearn_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations,
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor),
+    )
+
+    xgb_predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        xgboost=V1beta1XGBoostSpec(
+            storage_uri="gs://kfserving-examples/models/xgboost/1.5/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+    xgb_isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations,),
+        spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
+    )
+
+    nodes = {
+        "root": V1alpha1InferenceRouter(
+            router_type="Sequence",
+            steps=[
+                V1alpha1InferenceStep(
+                    service_name=sklearn_name,
+                ),
+                V1alpha1InferenceStep(
+                    service_name=xgb_name,
+                    data="$request",
+                ),
+            ],
+        )
+    }
+    graph_spec = V1alpha1InferenceGraphSpec(
+        nodes=nodes,
+    )
+    ig = V1alpha1InferenceGraph(
+        api_version=constants.KSERVE_V1ALPHA1,
+        kind=constants.KSERVE_KIND_INFERENCEGRAPH,
+        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations),
+        spec=graph_spec,
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(sklearn_isvc)
+    kserve_client.create(xgb_isvc)
+    kserve_client.create_inference_graph(ig)
+
+    kserve_client.wait_isvc_ready(sklearn_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(xgb_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    # Below checks are raw deployment specific.  They ensure raw k8s resources created instead of knative resources
+    dep = kserve_client.app_api.read_namespaced_deployment(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+    if not dep:
+        raise RuntimeError("Deployment doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+
+    svc = kserve_client.core_api.read_namespaced_service(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+    if not svc:
+        raise RuntimeError("Service doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+
+    # hpa = kserve_client.hpa_v2_api.read_namespaced_horizontal_pod_autoscaler(graph_name,
+    #                                                                          namespace=KSERVE_TEST_NAMESPACE)
+    # if not hpa:
+    #     raise RuntimeError("HPA doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+
+    try:
+        knativeroute = kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
+                                                                               KSERVE_TEST_NAMESPACE,
+                                                                               "routes", graph_name)
+        if knativeroute:
+            raise RuntimeError("Knative route resource shouldn't exist for InferenceGraph {} ".format(graph_name) +
+                               "in raw deployment mode")
+    except client.rest.ApiException:
+        logging.info("Expected error in finding knative route in raw deployment mode")
+
+    try:
+        knativesvc = kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
+                                                                             KSERVE_TEST_NAMESPACE,
+                                                                             "services", graph_name)
+        if knativesvc:
+            raise RuntimeError("Knative resources shouldn't exist for InferenceGraph {} ".format(graph_name) +
+                               "in raw deployment mode")
+    except client.rest.ApiException:
+        logging.info("Expected error in finding knative route in raw deployment mode")
+
+    # TODO Fix this when we enable ALB creation for IG raw deployment mode. This is required for traffic ingress
+    # for this predict api call to work
+    #
+    # res = predict_ig(
+    #     graph_name,
+    #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
+    # )
+    # assert res["predictions"] == [1, 1]
+
+    kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(sklearn_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(xgb_name, KSERVE_TEST_NAMESPACE)

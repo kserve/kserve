@@ -403,6 +403,10 @@ spec:
                         type: array
                     type: object
                 type: object
+              maxReplicas:
+                type: integer
+              minReplicas:
+                type: integer
               nodes:
                 additionalProperties:
                   properties:
@@ -473,6 +477,15 @@ spec:
                       x-kubernetes-int-or-string: true
                     type: object
                 type: object
+              scaleMetric:
+                enum:
+                - cpu
+                - memory
+                - concurrency
+                - rps
+                type: string
+              scaleTarget:
+                type: integer
               timeout:
                 format: int64
                 type: integer

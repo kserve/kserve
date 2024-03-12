@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestGetOptions(t *testing.T) {
@@ -40,30 +41,60 @@ func TestGetOptions(t *testing.T) {
 				metricsAddr:          defaults.metricsAddr,
 				webhookPort:          8000,
 				enableLeaderElection: defaults.enableLeaderElection,
+				probeAddr:            defaults.probeAddr,
+				zapOpts:              defaults.zapOpts,
 			}},
 		{"withMetricsAddr", []string{"-metrics-addr=:9090"},
 			Options{
 				metricsAddr:          ":9090",
 				webhookPort:          defaults.webhookPort,
 				enableLeaderElection: defaults.enableLeaderElection,
+				probeAddr:            defaults.probeAddr,
+				zapOpts:              defaults.zapOpts,
 			}},
 		{"withEnableLeaderElection", []string{"-leader-elect=true"},
 			Options{
 				metricsAddr:          defaults.metricsAddr,
 				webhookPort:          defaults.webhookPort,
 				enableLeaderElection: true,
+				probeAddr:            defaults.probeAddr,
+				zapOpts:              defaults.zapOpts,
+			}},
+		{"withHealthProbeAddr", []string{"-health-probe-addr=:8090"},
+			Options{
+				metricsAddr:          defaults.metricsAddr,
+				webhookPort:          defaults.webhookPort,
+				enableLeaderElection: defaults.enableLeaderElection,
+				probeAddr:            ":8090",
+				zapOpts:              defaults.zapOpts,
+			}},
+		{"withZapFlags", []string{"-zap-devel"},
+			Options{
+				metricsAddr:          defaults.metricsAddr,
+				webhookPort:          defaults.webhookPort,
+				enableLeaderElection: defaults.enableLeaderElection,
+				probeAddr:            defaults.probeAddr,
+				zapOpts: zap.Options{
+					Development: true,
+				},
 			}},
 		{"withSeveral", []string{"-webhook-port=8000", "-leader-elect=true"},
 			Options{
 				metricsAddr:          defaults.metricsAddr,
 				webhookPort:          8000,
 				enableLeaderElection: true,
+				probeAddr:            defaults.probeAddr,
+				zapOpts:              defaults.zapOpts,
 			}},
-		{"withAll", []string{"-metrics-addr=:9090", "-webhook-port=8000", "-leader-elect=true"},
+		{"withAll", []string{"-metrics-addr=:9090", "-webhook-port=8000", "-leader-elect=true", "-health-probe-addr=:8080", "-zap-devel"},
 			Options{
 				metricsAddr:          ":9090",
 				webhookPort:          8000,
 				enableLeaderElection: true,
+				probeAddr:            ":8080",
+				zapOpts: zap.Options{
+					Development: true,
+				},
 			}},
 	}
 

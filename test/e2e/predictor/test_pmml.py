@@ -30,7 +30,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
 from ..common.utils import predict
 
 
-@pytest.mark.pmml
+@pytest.mark.predictor
 def test_pmml_kserve():
     service_name = 'isvc-pmml'
     predictor = V1beta1PredictorSpec(
@@ -62,7 +62,7 @@ def test_pmml_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.pmml
+@pytest.mark.predictor
 def test_pmml_runtime_kserve():
     service_name = 'isvc-pmml-runtime'
     predictor = V1beta1PredictorSpec(
@@ -97,7 +97,7 @@ def test_pmml_runtime_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.pmml
+@pytest.mark.predictor
 def test_pmml_v2_kserve():
     service_name = 'isvc-pmml-v2-kserve'
     predictor = V1beta1PredictorSpec(
@@ -138,7 +138,7 @@ def test_pmml_v2_kserve():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.pmml
+@pytest.mark.predictor
 def test_pmml_v2_grpc():
     service_name = "isvc-pmml-v2-grpc"
     model_name = "pmml"

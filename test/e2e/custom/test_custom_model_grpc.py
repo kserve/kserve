@@ -31,6 +31,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
 
 @pytest.mark.grpc
+@pytest.mark.predictor
 def test_custom_model_grpc():
     service_name = "custom-model-grpc"
     model_name = "custom-model"
@@ -49,7 +50,8 @@ def test_custom_model_grpc():
                         container_port=8081,
                         name="h2c",
                         protocol="TCP"
-                    )]
+                    )],
+                args=["--model_name", model_name]
             )
         ]
     )
@@ -91,6 +93,7 @@ def test_custom_model_grpc():
 
 
 @pytest.mark.grpc
+@pytest.mark.transformer
 def test_predictor_grpc_with_transformer_grpc():
     service_name = "model-grpc-trans-grpc"
     model_name = "custom-model"
@@ -109,7 +112,8 @@ def test_predictor_grpc_with_transformer_grpc():
                         container_port=8081,
                         name="h2c",
                         protocol="TCP"
-                    )]
+                    )],
+                args=["--model_name", model_name]
             )
         ]
     )
@@ -129,7 +133,7 @@ def test_predictor_grpc_with_transformer_grpc():
                         name="h2c",
                         protocol="TCP"
                     )],
-                args=["--model_name", model_name, "--protocol", "grpc-v2"]
+                args=["--model_name", model_name, "--predictor_protocol", "grpc-v2"]
             )
         ]
     )
@@ -172,6 +176,7 @@ def test_predictor_grpc_with_transformer_grpc():
 
 
 @pytest.mark.grpc
+@pytest.mark.transformer
 def test_predictor_grpc_with_transformer_http():
     service_name = "model-grpc-trans-http"
     model_name = "custom-model"
@@ -190,7 +195,8 @@ def test_predictor_grpc_with_transformer_http():
                         container_port=8081,
                         name="h2c",
                         protocol="TCP"
-                    )]
+                    )],
+                args=["--model_name", model_name]
             )
         ]
     )
@@ -199,12 +205,11 @@ def test_predictor_grpc_with_transformer_http():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/image-transformer:"
-                      + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"}),
-                args=["--model_name", model_name, "--protocol", "grpc-v2"]
+                args=["--model_name", model_name, "--predictor_protocol", "grpc-v2"]
             )
         ]
     )

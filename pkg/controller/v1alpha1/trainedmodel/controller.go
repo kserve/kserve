@@ -85,7 +85,10 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Parent InferenceService does not exists, deleting TrainedModel", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
-			r.Delete(context.TODO(), tm)
+			if err := r.Delete(context.TODO(), tm); err != nil {
+				log.Error(err, "Error deleting resource")
+				return reconcile.Result{}, err
+			}
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err

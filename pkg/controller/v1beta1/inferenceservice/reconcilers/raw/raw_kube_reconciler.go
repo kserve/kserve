@@ -78,7 +78,7 @@ func createRawURL(client client.Client, metadata metav1.ObjectMeta) (*knapis.URL
 	url.Scheme = "http"
 	url.Host, err = ingress.GenerateDomainName(metadata.Name, metadata, ingressConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed creating host name: %v", err)
+		return nil, fmt.Errorf("failed creating host name: %w", err)
 	}
 
 	return url, nil

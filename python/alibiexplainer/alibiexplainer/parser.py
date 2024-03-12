@@ -146,14 +146,6 @@ def addCommonParserArgs(parser):
 def parse_args(sys_args):
     parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
     parser.add_argument(
-        "--model_name",
-        default=DEFAULT_EXPLAINER_NAME,
-        help="The name of model explainer.",
-    )
-    parser.add_argument(
-        "--predictor_host", help="The host for the predictor", required=True
-    )
-    parser.add_argument(
         "--storage_uri",
         help="The URI of a pretrained explainer",
         default=os.environ.get(ENV_STORAGE_URI),

@@ -51,6 +51,7 @@ func TestBuildS3EnvVars(t *testing.T) {
 				InferenceServiceS3SecretSSLAnnotation:         "0",
 				InferenceServiceS3SecretHttpsAnnotation:       "0",
 				InferenceServiceS3UseVirtualBucketAnnotation:  "true",
+				InferenceServiceS3UseAccelerateAnnotation:     "true",
 				InferenceServiceS3UseAnonymousCredential:      "true",
 				InferenceServiceS3CABundleAnnotation:          "value",
 				InferenceServiceS3CABundleConfigMapAnnotation: "value",
@@ -82,6 +83,10 @@ func TestBuildS3EnvVars(t *testing.T) {
 				},
 				{
 					Name:  S3UseVirtualBucket,
+					Value: "true",
+				},
+				{
+					Name:  S3UseAccelerate,
 					Value: "true",
 				},
 				{

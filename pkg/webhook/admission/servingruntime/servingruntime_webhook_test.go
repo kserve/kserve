@@ -18,10 +18,10 @@ package servingruntime
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
@@ -1442,7 +1442,7 @@ func TestValidateModelFormatPrioritySame(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
-			err := validateModelFormatPrioritySame(&scenario.newServingRuntime.Spec, scenario.newServingRuntime.Name)
+			err := validateModelFormatPrioritySame(&scenario.newServingRuntime.Spec)
 			g.Expect(err).To(scenario.expected)
 		})
 	}

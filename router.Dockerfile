@@ -8,8 +8,8 @@ COPY go.sum  go.sum
 
 RUN go mod download
 
-COPY pkg/    pkg/
 COPY cmd/    cmd/
+COPY pkg/    pkg/
 
 # Build
 RUN CGO_ENABLED=0  go build -a -o router ./cmd/router

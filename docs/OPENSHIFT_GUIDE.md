@@ -51,7 +51,7 @@ oc rollout restart deployment kserve-controller-manager -n kserve
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 
 # Install KServe built-in servingruntimes and storagecontainers
-oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resouces.yaml"
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resources.yaml"
 ```
 
 ## Installation with Service Mesh

@@ -88,7 +88,7 @@ func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
 	}
 	data, err := decode(configMap.Data[constants.ModelConfigFileName])
 	if err != nil {
-		return fmt.Errorf("while updating %s err %v", configMap.Name, err)
+		return fmt.Errorf("while updating %s err %w", configMap.Name, err)
 	}
 
 	//add/update models
@@ -107,7 +107,7 @@ func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
 
 	to, err := encode(data)
 	if err != nil {
-		return fmt.Errorf("while updating %s err %v", configMap.Name, err)
+		return fmt.Errorf("while updating %s err %w", configMap.Name, err)
 	}
 	configMap.Data[constants.ModelConfigFileName] = to
 	return nil

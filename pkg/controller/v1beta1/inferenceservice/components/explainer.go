@@ -47,7 +47,7 @@ type Explainer struct {
 	client                 client.Client
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
-	credentialBuilder      *credentials.CredentialBuilder
+	credentialBuilder      *credentials.CredentialBuilder //nolint: unused
 	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
@@ -76,7 +76,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 		err := isvcutils.ValidateStorageURI(sourceURI, e.client)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %v", err)
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}
 	}
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
