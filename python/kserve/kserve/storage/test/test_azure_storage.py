@@ -106,6 +106,25 @@ def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
 
 @mock.patch(STORAGE_MODULE + '.os.makedirs')
+@mock.patch(STORAGE_MODULE + '.BlobServiceClient')
+def test_blob_file_direct(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
+
+    # given
+    blob_path = 'https://accountname.blob.core.windows.net/container/somefile.text'
+    paths = ['somefile.text']
+    mock_blob, mock_container = create_mock_blob(mock_storage, paths)
+
+    # when
+    Storage._download_azure_blob(blob_path, "dest_path")
+
+    # then
+    arg_list = get_call_args(mock_container.download_blob.call_args_list)
+    assert arg_list == [('somefile.text',)]
+    mock_storage.assert_called_with('https://accountname.blob.core.windows.net',
+                                    credential=None)
+
+
+@mock.patch(STORAGE_MODULE + '.os.makedirs')
 @mock.patch(STORAGE_MODULE + '.Storage._get_azure_storage_token')
 @mock.patch(STORAGE_MODULE + '.BlobServiceClient')
 def test_secure_blob(mock_storage, mock_get_token, mock_makedirs):  # pylint: disable=unused-argument
