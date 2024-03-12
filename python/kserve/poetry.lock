@@ -2097,36 +2097,32 @@ tests = ["pytest (>=5.4.1)", "pytest-cov (>=2.8.1)", "pytest-mypy (>=0.8.0)", "p
 
 [[package]]
 name = "portforward"
-version = "0.4.5"
-description = "Kubernetes Port-Forward Go-Edition For Python"
+version = "0.6.1"
+description = "Easy Kubernetes Port-Forward For Python"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 files = [
-    {file = "portforward-0.4.5-cp310-cp310-macosx_10_14_x86_64.whl", hash = "sha256:0ab9e2c155de1738d898a05dd46cdcfdaefd0f2bc9c09b527855dfe225f0b698"},
-    {file = "portforward-0.4.5-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:5588ade92061c71fb667a3ee3b9ad2ffdcd7076ebdb8f91d330f1f54e48a1fc2"},
-    {file = "portforward-0.4.5-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ebbf8f4108e522b2469bd3734cab45ced9400dc41037ceb842394bcc36580b05"},
-    {file = "portforward-0.4.5-cp310-cp310-win_amd64.whl", hash = "sha256:d15084b138eaa159845f8e6953756676923213068e2a016d92650e3f77f44f63"},
-    {file = "portforward-0.4.5-cp311-cp311-macosx_10_14_x86_64.whl", hash = "sha256:7e548c97fc224cc20630c82fc57730edf9eb83cb167ca349edf548e0abc04f09"},
-    {file = "portforward-0.4.5-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:3f55a6a04b5d764c7b35b0160660d465480985656f31290a09b8bd1b82dd1095"},
-    {file = "portforward-0.4.5-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:dbb41002bce9bba240922ea76786bdb3c0a4aa4d44f4f1b204c5325c6437c273"},
-    {file = "portforward-0.4.5-cp311-cp311-win_amd64.whl", hash = "sha256:1b12fe25062c94e75f6b389c689c8842ddf85283bdee45877bb3b8ad043d7a6c"},
-    {file = "portforward-0.4.5-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:018879fec59ca60d389cdaebd2421bf8357bfdba9a218926a4a9974a25c13c9f"},
-    {file = "portforward-0.4.5-cp36-cp36m-macosx_13_0_arm64.whl", hash = "sha256:19ce3146ea223f6725552f59655e73ed84ed282371ebe2ad664ed7a00b34cf97"},
-    {file = "portforward-0.4.5-cp36-cp36m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d854d21f5de42ecc2d6a57469f2a8b2041f219e0a133e2f05345e758c4d90bee"},
-    {file = "portforward-0.4.5-cp36-cp36m-win_amd64.whl", hash = "sha256:fc2019777ee83df3bbad22cfca7ab0239405da532486ec713d8d8c01176bd103"},
-    {file = "portforward-0.4.5-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:6224e640106609e2943b1f32715a853e964867cf2f503f42e29dcb7a44b5c925"},
-    {file = "portforward-0.4.5-cp37-cp37m-macosx_13_0_arm64.whl", hash = "sha256:64c2744e95cac8e073965fc02ce7884357569eba6a8993c2e1df3c5b91644d19"},
-    {file = "portforward-0.4.5-cp37-cp37m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a70e06deaee9f7b9b2d19d130fc26bf318468325e5ee02629d5dbd6fa483c240"},
-    {file = "portforward-0.4.5-cp37-cp37m-win_amd64.whl", hash = "sha256:980bb9aa797953a65c4d4fa52d183b14fa9d1b722a933266f28f8b66030385b5"},
-    {file = "portforward-0.4.5-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:f856a1d9a75062bbf59a9c30340a337fdbe4372090160e9ecb3366cf76ba6735"},
-    {file = "portforward-0.4.5-cp38-cp38-macosx_13_0_arm64.whl", hash = "sha256:307969f41cfb8f154e5898c12025b8d43154713f1d5a0e84df874df907e0315f"},
-    {file = "portforward-0.4.5-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:81071b563f0398c017330c255e3766e12603b8ac7ab3a990f03a6092e38dd9cd"},
-    {file = "portforward-0.4.5-cp38-cp38-win_amd64.whl", hash = "sha256:64c65707e7e76adad8fa7a8be29852a3ecb6e39acf157a09b33375d57d10f103"},
-    {file = "portforward-0.4.5-cp39-cp39-macosx_10_14_x86_64.whl", hash = "sha256:e8422a914a745201e3737c33366b0b71fed9ab5b2ca5658fd2d62e2018b28ce6"},
-    {file = "portforward-0.4.5-cp39-cp39-macosx_13_0_arm64.whl", hash = "sha256:dbb52bdf6d2c8f5f430ede9abc5fc322f48455a284ab093f9a0d48e46e0f815c"},
-    {file = "portforward-0.4.5-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bcdee23d9e1ea582c0d1b4b4bbaa6b4e72de5382e9cbd02cb888946ed0c0ef2e"},
-    {file = "portforward-0.4.5-cp39-cp39-win_amd64.whl", hash = "sha256:cf0446d19b9268e19ef3311001ecd703af2512d8d449fbc3cf7e7c49e5cb21f4"},
-    {file = "portforward-0.4.5.tar.gz", hash = "sha256:0af1c501f2e74b2ac1c8997624bae1f55b938e51656c9516c7605201812927f9"},
+    {file = "portforward-0.6.1-cp310-cp310-macosx_10_7_x86_64.whl", hash = "sha256:ab8d6118cce191c65ae38872fe8eec877d5e57a11806528ab0c2445a952bf687"},
+    {file = "portforward-0.6.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:e86a9c53daf7814b1df5ab5708b9b54dbffb2ed606647366025d803d4b7ec517"},
+    {file = "portforward-0.6.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bf7179cd2d00ece29f1718751a9aec5e003f0a5001a755532be45a2e67b786a6"},
+    {file = "portforward-0.6.1-cp310-none-win_amd64.whl", hash = "sha256:d8bb4a32ec1f0fcaf35e06b28ad06d676d00706c355c7c491031adc537c12d3c"},
+    {file = "portforward-0.6.1-cp311-cp311-macosx_10_7_x86_64.whl", hash = "sha256:9d19f686584d19c612b4d165f1b462bb5545bb4179f90b0ed7cb5cd709bd3abe"},
+    {file = "portforward-0.6.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:06e81e16917c8d22d86d222ebf80354f7a12bafc17abaf4f871fc6b37bc39e1f"},
+    {file = "portforward-0.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fd966d5868ca14f37624a13eec12b370145c51690130405ce1b23c5e3f89f2db"},
+    {file = "portforward-0.6.1-cp311-none-win_amd64.whl", hash = "sha256:4821e70077b989d7a8476dacdb3433c67dae1a5ff7f402fe3d88603b9b5ffb9c"},
+    {file = "portforward-0.6.1-cp37-cp37m-macosx_10_7_x86_64.whl", hash = "sha256:54109eb5d879ae93e1c517e265f7d44e1edd1c4de4e0dc78ed4cf89abc5d2def"},
+    {file = "portforward-0.6.1-cp37-cp37m-macosx_11_0_arm64.whl", hash = "sha256:fbf8c41d8a9b76bef2298b7b84a67d6ddea284e8aac416d675dea2aa32227008"},
+    {file = "portforward-0.6.1-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:104e6a16020785af7ac49ce22fa5aa188fbb1c851b5c4ca7fd6ed8af077aff50"},
+    {file = "portforward-0.6.1-cp37-none-win_amd64.whl", hash = "sha256:9cdd1f47b9db9a3d88580b54e19f1da739f960188609a40a988b4b68101551d7"},
+    {file = "portforward-0.6.1-cp38-cp38-macosx_10_7_x86_64.whl", hash = "sha256:5f7a2b22a1d8088c82140e8bbdaa44651aef11e7cd613e416c7443d6ed6c1533"},
+    {file = "portforward-0.6.1-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:49a44fe67fb957af4e9c38dfa9c1b20b020f08088699bd0ce37eef9f3bd50c66"},
+    {file = "portforward-0.6.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:65de7d770874851a1b5797cf44caeb6e2e60ae8c62e0b59974dd0e2d1566364b"},
+    {file = "portforward-0.6.1-cp38-none-win_amd64.whl", hash = "sha256:8a13e4ff56502f9114f3a4a1b35f304a59480e4d8db0b5bacb728dd1936e4f3b"},
+    {file = "portforward-0.6.1-cp39-cp39-macosx_10_7_x86_64.whl", hash = "sha256:bf610bc3388d8f35abfe7690fd235fa96d9cdffcb48d2685710b638c85042808"},
+    {file = "portforward-0.6.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:d49826820bf382d9af4fb026fc270632c0bbf6f8a04f7a047947244692c91984"},
+    {file = "portforward-0.6.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c951818c0da31f0725c7a16fdba37dbd20070fa4213da697c64379c1b1cbdfea"},
+    {file = "portforward-0.6.1-cp39-none-win_amd64.whl", hash = "sha256:907a37a0a9b0c532914610e6f60485031fec6cec364f4330e1051bc9c92d9369"},
+    {file = "portforward-0.6.1.tar.gz", hash = "sha256:e07fd98f4b5730fcea27e7a13d069d55a3a2afd18e2f680589f485ee4da4c575"},
 ]
 
 [[package]]
@@ -2549,6 +2545,7 @@ files = [
     {file = "PyYAML-6.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:855fb52b0dc35af121542a76b9a84f8d1cd886ea97c84703eaa6d88e37a2ad28"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:40df9b996c2b73138957fe23a16a4f0ba614f4c0efce1e9406a184b6d07fa3a9"},
+    {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a08c6f0fe150303c1c6b71ebcd7213c2858041a7e01975da3a99aed1e7a378ef"},
     {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6c22bec3fbe2524cde73d7ada88f6566758a8f7227bfbf93a408a9d86bcc12a0"},
     {file = "PyYAML-6.0.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8d4e9c88387b0f5c7d5f281e55304de64cf7f9c0021a3525bd3b1c542da3b0e4"},
     {file = "PyYAML-6.0.1-cp312-cp312-win32.whl", hash = "sha256:d483d2cdf104e7c9fa60c544d92981f12ad66a457afae824d146093b8c294c54"},
@@ -3488,4 +3485,4 @@ storage = ["azure-identity", "azure-storage-blob", "azure-storage-file-share", "
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "6ad0905941eac2513bbf31cf4efc1b1637925a0daa9a2bfb86164bbf4adc99f3"
+content-hash = "48e33a0f08a8cd3c1fe86cac3d22f8c8034602806acd8dc9c4e548c37c6ce553"

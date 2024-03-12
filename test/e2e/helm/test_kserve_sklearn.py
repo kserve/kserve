@@ -28,7 +28,7 @@ from kserve import (
     constants
 )
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict, get_cluster_ip
 
 
 @pytest.mark.helm
@@ -66,6 +66,8 @@ def test_sklearn_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_model_ready(service_name, model_name=service_name, isvc_namespace=KSERVE_TEST_NAMESPACE,
+                                   cluster_ip=get_cluster_ip(), protocol_version=protocol_version)
 
     res = predict(service_name, "./data/iris_input_v2.json",
                   protocol_version="v2")

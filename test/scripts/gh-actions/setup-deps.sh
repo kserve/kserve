@@ -27,9 +27,13 @@ DEPLOYMENT_MODE="${1:-'serverless'}"
 ISTIO_VERSION="1.19.4"
 CERT_MANAGER_VERSION="v1.5.0"
 YQ_VERSION="v4.28.1"
+JQ_VERSION="1.7.1"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+
+echo "Installing jq ..."
+wget https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-linux-amd64 -O /usr/local/bin/jq && chmod +x /usr/local/bin/jq
 
 echo "Installing Istio ..."
 mkdir istio_tmp

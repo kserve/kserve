@@ -18,9 +18,12 @@ package ingress
 
 import (
 	"fmt"
+	"k8s.io/client-go/kubernetes/scheme"
+	"net/url"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	gomegaTypes "github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -31,8 +34,9 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
-	"net/url"
-	"testing"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestCreateVirtualService(t *testing.T) {
@@ -1693,6 +1697,604 @@ func TestGetHostPrefix(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			host := getHostPrefix(tc.isvc, tc.disableVirtualHost, tc.useDefault)
 			g.Expect(host).Should(tc.matcher)
+		})
+	}
+}
+
+func TestProbeIngress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		url         string
+		expected    bool
+		expectedErr gomega.OmegaMatcher
+	}{
+		"Probe successful": {
+			url:         "http://ready-isvc.default.svc.cluster.local",
+			expected:    true,
+			expectedErr: gomega.BeNil(),
+		},
+		"Probe failed": {
+			url:         "http://" + probeNotReadyHostPrefix + ".default.svc.cluster.local",
+			expected:    false,
+			expectedErr: gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, err := probeIngress(scenario.url)
+			g.Expect(res).To(gomega.Equal(scenario.expected))
+			g.Expect(err).To(scenario.expectedErr)
+		})
+	}
+
+}
+
+func TestIsIngressReady(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	serviceName := "my-model"
+	namespace := "test"
+	isvcAnnotations := map[string]string{"test": "test", "kubectl.kubernetes.io/last-applied-configuration": "test"}
+	labels := map[string]string{"test": "test"}
+	predictorUrl, _ := url.Parse("http://my-model-predictor-default.example.com")
+	scenarios := map[string]struct {
+		isvc     *v1beta1.InferenceService
+		expected bool
+	}{
+		"isvc with ingress ready while generation is same": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(1),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+							URL: (*apis.URL)(predictorUrl),
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		"isvc with ingress not ready while generation is same": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(1),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionFalse,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+							URL: (*apis.URL)(predictorUrl),
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		"isvc with different observed generation": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(2),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+							URL: (*apis.URL)(predictorUrl),
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		"isvc with ingress condition not found": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(1),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+							URL: (*apis.URL)(predictorUrl),
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := isIngressReady(scenario.isvc)
+			g.Expect(scenario.expected).To(gomega.Equal(res))
+		})
+	}
+}
+
+func TestIngressReconcile(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressGateway:          constants.KnativeIngressGateway,
+		IngressServiceName:      "someIngressServiceName",
+		LocalGateway:            constants.KnativeLocalGateway,
+		LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+		DisableIstioVirtualHost: false,
+	}
+	readyServiceName := "ready-isvc"
+	notReadyServiceName := probeNotReadyHostPrefix
+	namespace := "test"
+	isvcAnnotations := map[string]string{"test": "test", "kubectl.kubernetes.io/last-applied-configuration": "test"}
+	labels := map[string]string{"test": "test"}
+	readyPredictorUrl, err := url.Parse("http://ready-isvc-predictor.example.com")
+	if err != nil {
+		t.Fatalf("Unable to parse url")
+	}
+	notReadyPredictorUrl, err := url.Parse("http://" + probeNotReadyHostPrefix + "-predictor.example.com")
+	if err != nil {
+		t.Fatalf("Unable to parse url")
+	}
+	ir := NewIngressReconciler(fakeClient, scheme.Scheme, ingressConfig)
+
+	scenarios := map[string]struct {
+		isvc                   *v1beta1.InferenceService
+		expectedRes            ctrl.Result
+		expectedReadyCondition bool
+		expectedErrMatcher     gomega.OmegaMatcher
+	}{
+		"Ready Isvc status with ingress condition marked true and same generation Should not be probed again": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        readyServiceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(1),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							URL: (*apis.URL)(readyPredictorUrl),
+						},
+					},
+				},
+			},
+			expectedRes:            ctrl.Result{},
+			expectedReadyCondition: true,
+			expectedErrMatcher:     gomega.BeNil(),
+		}, "Ready Isvc status with ingress condition marked false and same generation should be marked ready": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        readyServiceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(1),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							URL: (*apis.URL)(readyPredictorUrl),
+						},
+					},
+				},
+			},
+			expectedRes:            ctrl.Result{},
+			expectedReadyCondition: true,
+			expectedErrMatcher:     gomega.BeNil(),
+		}, "Ready Isvc status with ingress condition missing and same generation should be marked ready": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        readyServiceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(1),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							URL: (*apis.URL)(readyPredictorUrl),
+						},
+					},
+				},
+			},
+			expectedRes:            ctrl.Result{},
+			expectedReadyCondition: true,
+			expectedErrMatcher:     gomega.BeNil(),
+		}, "Not Ready Isvc status with ingress condition marked false and same generation should be marked false and requeued": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        notReadyServiceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(1),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionFalse,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							URL: (*apis.URL)(notReadyPredictorUrl),
+						},
+					},
+				},
+			},
+			expectedRes:            ctrl.Result{Requeue: true},
+			expectedReadyCondition: false,
+			expectedErrMatcher:     gomega.BeNil(),
+		}, "Not Ready Isvc status with ingress condition misssing and same generation should be marked false and requeued": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        notReadyServiceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(1),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							URL: (*apis.URL)(notReadyPredictorUrl),
+						},
+					},
+				},
+			},
+			expectedRes:            ctrl.Result{Requeue: true},
+			expectedReadyCondition: false,
+			expectedErrMatcher:     gomega.BeNil(),
+		}, "Ready Isvc status with ingress condition marked true and different generation Should be Probed": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        readyServiceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(2),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							URL: (*apis.URL)(readyPredictorUrl),
+						},
+					},
+				},
+			},
+			expectedRes:            ctrl.Result{},
+			expectedReadyCondition: true,
+			expectedErrMatcher:     gomega.BeNil(),
+		}, "Ready Isvc status with ingress condition marked false and different generation Should be Probed and marked true": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        readyServiceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(2),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionFalse,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							URL: (*apis.URL)(readyPredictorUrl),
+						},
+					},
+				},
+			},
+			expectedRes:            ctrl.Result{},
+			expectedReadyCondition: true,
+			expectedErrMatcher:     gomega.BeNil(),
+		}, "Not Ready Isvc status with ingress condition marked false and different generation should be marked false and requeued": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        notReadyServiceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(2),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionFalse,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							URL: (*apis.URL)(notReadyPredictorUrl),
+						},
+					},
+				},
+			},
+			expectedRes:            ctrl.Result{Requeue: true},
+			expectedReadyCondition: false,
+			expectedErrMatcher:     gomega.BeNil(),
+		}, "Not Ready Isvc status with ingress condition marked true and different generation should be marked false and requeued": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        notReadyServiceName,
+					Namespace:   namespace,
+					Annotations: isvcAnnotations,
+					Labels:      labels,
+					Generation:  int64(2),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: int64(1),
+						Conditions: duckv1.Conditions{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.IngressReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Address: nil,
+					URL:     nil,
+					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
+							URL: (*apis.URL)(notReadyPredictorUrl),
+						},
+					},
+				},
+			},
+			expectedRes:            ctrl.Result{Requeue: true},
+			expectedReadyCondition: false,
+			expectedErrMatcher:     gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, err := ir.Reconcile(scenario.isvc)
+			g.Expect(res).To(gomega.Equal(scenario.expectedRes))
+			g.Expect(err).To(scenario.expectedErrMatcher)
+			g.Expect(scenario.isvc.Status.GetCondition(v1beta1.IngressReady).IsTrue()).To(gomega.Equal(scenario.expectedReadyCondition))
 		})
 	}
 }

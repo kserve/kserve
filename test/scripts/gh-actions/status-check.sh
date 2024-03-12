@@ -31,7 +31,9 @@ kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager --t
 echo "::endgroup::"
 
 echo "::group::Predictor Pod logs"
-for pod in $(kubectl get pods -l 'component in (predictor)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
+# Get only pods that are not being deleted.
+predictor_pods=$(kubectl get pods -l 'component in (predictor)' -o json -n kserve-ci-e2e-test | jq -r '.items[] | select(.metadata.deletionTimestamp == null) | .metadata.name')
+for pod in $predictor_pods; do
     echo "=====================================  Logs for Predictor Pod: $pod  ========================================="
     kubectl logs "$pod" -c kserve-container -n kserve-ci-e2e-test --tail 500
     echo "================================================================================================================"
@@ -39,7 +41,9 @@ done
 echo "::endgroup::"
 
 echo "::group::Transformer Pod logs"
-for pod in $(kubectl get pods -l 'component in (transformer)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
+# Get only pods that are not being deleted.
+transformer_pods=$(kubectl get pods -l 'component in (transformer)' -o json -n kserve-ci-e2e-test | jq -r '.items[] | select(.metadata.deletionTimestamp == null) | .metadata.name')
+for pod in $transformer_pods; do
     echo "=====================================  Logs for Transformer Pod: $pod  ======================================="
     kubectl logs "$pod" -c kserve-container -n kserve-ci-e2e-test --tail 500
     echo "================================================================================================================"
@@ -47,7 +51,9 @@ done
 echo "::endgroup::"
 
 echo "::group::Explainer Pod logs"
-for pod in $(kubectl get pods -l 'component in (explainer)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
+# Get only pods that are not being deleted.
+explainer_pods=$(kubectl get pods -l 'component in (explainer)' -o json -n kserve-ci-e2e-test | jq -r '.items[] | select(.metadata.deletionTimestamp == null) | .metadata.name')
+for pod in $explainer_pods; do
     echo "=====================================  Logs for Explainer Pod: $pod  ========================================="
     kubectl logs "$pod" -c kserve-container -n kserve-ci-e2e-test --tail 500
     echo "================================================================================================================"
@@ -55,7 +61,9 @@ done
 echo "::endgroup::"
 
 echo "::group::InferenceGraph Pod logs"
-for pod in $(kubectl get pods -l 'serving.kserve.io/inferencegraph=model-chainer' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
+# Get only pods that are not being deleted.
+graph_pods=$(kubectl get pods -l 'serving.kserve.io/inferencegraph=model-chainer' -o json -n kserve-ci-e2e-test | jq -r '.items[] | select(.metadata.deletionTimestamp == null) | .metadata.name')
+for pod in $graph_pods; do
     echo "=====================================  Logs for Graph Pod: $pod  ========================================="
     kubectl logs "$pod" -c user-container -n kserve-ci-e2e-test --tail 500
     echo "================================================================================================================"

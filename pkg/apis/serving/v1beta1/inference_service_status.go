@@ -19,13 +19,14 @@ package v1beta1
 import (
 	"reflect"
 
-	"github.com/kserve/kserve/pkg/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // InferenceServiceStatus defines the observed state of InferenceService

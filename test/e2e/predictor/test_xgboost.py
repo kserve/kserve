@@ -14,6 +14,7 @@
 
 import json
 import os
+import time
 
 import pytest
 from kubernetes import client
@@ -93,9 +94,13 @@ def test_xgboost_v2_mlserver():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    # wait for model ready. Currently, wait_model_ready does not support path based routing
+    time.sleep(5)
+    # kserve_client.wait_model_ready(service_name, model_name=service_name, isvc_namespace=KSERVE_TEST_NAMESPACE,
+    #                                cluster_ip=get_cluster_ip(), protocol_version=protocol_version)
 
     res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
+                  protocol_version=protocol_version)
     assert res["outputs"][0]["data"] == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -173,9 +178,13 @@ def test_xgboost_v2_runtime_mlserver():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    # wait for model ready. Currently, wait_model_ready does not support path based routing
+    time.sleep(5)
+    # kserve_client.wait_model_ready(service_name, model_name=service_name, isvc_namespace=KSERVE_TEST_NAMESPACE,
+    #                                cluster_ip=get_cluster_ip(), protocol_version=protocol_version)
 
     res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
+                  protocol_version=protocol_version)
     assert res["outputs"][0]["data"] == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
