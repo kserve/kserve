@@ -1,39 +1,27 @@
 import time
 from abc import ABC, abstractmethod
-from typing import Iterable, Callable, Union, AsyncIterator, cast
-from pydantic import BaseModel
-from openai.types.chat import (
-    ChatCompletion,
-    CompletionCreateParams as ChatCompletionCreateParams,
-    ChatCompletionMessageParam,
-    ChatCompletionChunk,
-    ChatCompletionMessage as BaseChatCompletionMessage,
-)
-from openai.types.chat.chat_completion import (
-    Choice,
-    ChoiceLogprobs,
-)
-from openai.types.chat.chat_completion_chunk import (
-    Choice as ChunkChoice,
-    ChoiceDelta,
-    ChoiceLogprobs as ChunkChoiceLogprobs,
-)
+from typing import AsyncIterator, Callable, Iterable, Union, cast
+
+from openai.types import Completion, CompletionChoice, CompletionCreateParams
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
+from openai.types.chat import \
+    ChatCompletionMessage as BaseChatCompletionMessage
+from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat import \
+    CompletionCreateParams as ChatCompletionCreateParams
+from openai.types.chat.chat_completion import Choice, ChoiceLogprobs
+from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
+from openai.types.chat.chat_completion_chunk import ChoiceDelta
+from openai.types.chat.chat_completion_chunk import \
+    ChoiceLogprobs as ChunkChoiceLogprobs
 from openai.types.chat.chat_completion_token_logprob import (
-    TopLogprob,
-    ChatCompletionTokenLogprob,
-)
-from openai.types.chat.completion_create_params import (
-    ResponseFormat,
-)
-from openai.types import Completion, CompletionCreateParams, CompletionChoice
+    ChatCompletionTokenLogprob, TopLogprob)
 from openai.types.completion_choice import Logprobs
 from openai.types.completion_create_params import (
-    CompletionCreateParamsNonStreaming,
-    CompletionCreateParamsStreaming,
-)
+    CompletionCreateParamsNonStreaming, CompletionCreateParamsStreaming)
+from pydantic import BaseModel
 
-from ...errors import InvalidInput
-from ...utils.utils import generate_uuid
+from ....errors import InvalidInput
 
 
 class ChatPrompt(BaseModel):
@@ -98,9 +86,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
     """
 
     @abstractmethod
-    def apply_chat_template(
-        self, messages: Iterable[ChatCompletionMessageParam]
-    ) -> ChatPrompt:
+    def apply_chat_template(self, messages: Iterable[ChatCompletionMessageParam]) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
         """
@@ -170,9 +156,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
         return clp
 
     @classmethod
-    def to_chat_completion_choice(
-        cls, completion_choice: CompletionChoice, role: str
-    ) -> Choice:
+    def to_chat_completion_choice(cls, completion_choice: CompletionChoice, role: str) -> Choice:
         # translate Token -> ChatCompletionTokenLogprob
         choice_logprobs = cls.to_choice_logprobs(completion_choice.logprobs)
         return Choice(
@@ -197,12 +181,8 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
     @classmethod
-    def completion_to_chat_completion(
-        cls, completion: Completion, role: str
-    ) -> ChatCompletion:
-        completion_choice = (
-            completion.choices[0] if len(completion.choices) > 0 else None
-        )
+    def completion_to_chat_completion(cls, completion: Completion, role: str) -> ChatCompletion:
+        completion_choice = completion.choices[0] if len(completion.choices) > 0 else None
         choices = (
             [cls.to_chat_completion_choice(completion_choice, role)]
             if completion_choice is not None
@@ -222,9 +202,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
     def completion_to_chat_completion_chunk(
         cls, completion: Completion, role: str
     ) -> ChatCompletionChunk:
-        completion_choice = (
-            completion.choices[0] if len(completion.choices) > 0 else None
-        )
+        completion_choice = completion.choices[0] if len(completion.choices) > 0 else None
         choices = (
             [cls.to_chat_completion_chunk_choice(completion_choice, role)]
             if completion_choice is not None
@@ -251,12 +229,8 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
         if not params.get("stream", False):
-            completion = cast(
-                Completion, await self.create_completion(completion_params)
-            )
-            return self.completion_to_chat_completion(
-                completion, chat_prompt.response_role
-            )
+            completion = cast(Completion, await self.create_completion(completion_params))
+            return self.completion_to_chat_completion(completion, chat_prompt.response_role)
         else:
             completion_iterator = cast(
                 AsyncIterator[Completion],
@@ -268,6 +242,4 @@ class OpenAIChatAdapterModel(OpenAIModel):
                     completion, chat_prompt.response_role
                 )
 
-            return AsyncChunkIterator(
-                completion_iterator=completion_iterator, mapper=mapper
-            )
+            return AsyncChunkIterator(completion_iterator=completion_iterator, mapper=mapper)
