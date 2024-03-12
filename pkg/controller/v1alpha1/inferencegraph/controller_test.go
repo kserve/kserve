@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -577,4 +578,75 @@ var _ = Describe("Inference Graph controller test", func() {
 		})
 	})
 
+	Context("When creating an InferenceGraph in Serverless mode", func() {
+		It("Should fail if Knative Serving is not installed", func() {
+			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
+			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
+			Expect(getServingResourcesErr).To(BeNil())
+			defer utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), servingResources)
+			utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), nil)
+
+			By("By creating a new InferenceGraph")
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			graphName := "singlenode1"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			ctx := context.Background()
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.exmaple.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer k8sClient.Delete(ctx, ig)
+
+			Eventually(func() bool {
+				events := &v1.EventList{}
+				err := k8sClient.List(ctx, events, client.InNamespace(serviceKey.Namespace))
+				if err != nil {
+					return false
+				}
+				if events == nil {
+					return false
+				}
+
+				for _, event := range events.Items {
+					if event.InvolvedObject.Kind == "InferenceGraph" &&
+						event.InvolvedObject.Name == serviceKey.Name &&
+						event.Reason == "ServerlessModeRejected" {
+						return true
+					}
+				}
+
+				return false
+			}, timeout, interval).Should(BeTrue())
+		})
+	})
 })

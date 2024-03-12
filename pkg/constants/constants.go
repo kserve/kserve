@@ -432,6 +432,12 @@ const (
 	StateReasonCrashLoopBackOff = "CrashLoopBackOff"
 )
 
+// CRD Kinds
+const (
+	IstioVirtualServiceKind = "VirtualService"
+	KnativeServiceKind      = "Service"
+)
+
 // GetRawServiceLabel generate native service label
 func GetRawServiceLabel(service string) string {
 	return "isvc." + service

@@ -40,6 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -85,9 +86,10 @@ const (
 // InferenceServiceReconciler reconciles a InferenceService object
 type InferenceServiceReconciler struct {
 	client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	ClientConfig *rest.Config
+	Log          logr.Logger
+	Scheme       *runtime.Scheme
+	Recorder     record.EventRecorder
 }
 
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -162,6 +164,21 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
+	// Abort early if the resolved deployment mode is Serverless, but Knative Services are not available
+	if deploymentMode == constants.Serverless {
+		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+		if err != nil {
+			return reconcile.Result{}, checkKsvcErr
+		}
+
+		if !ksvcAvailable {
+			r.Recorder.Event(isvc, v1.EventTypeWarning, "ServerlessModeRejected",
+				"It is not possible to use Serverless deployment mode when Knative Services are not available")
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative Serving is not available", isvc.Name))
+		}
+	}
+
+	// Setup reconcilers
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
 	if err != nil {
@@ -299,26 +316,35 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1api.InferenceServiceStatus, deplo
 }
 
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig, ingressConfig *v1beta1api.IngressConfig) error {
-	if deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
-		return ctrl.NewControllerManagedBy(mgr).
-			For(&v1beta1api.InferenceService{}).
-			Owns(&appsv1.Deployment{}).
-			Complete(r)
-	} else if !ingressConfig.DisableIstioVirtualHost {
-		return ctrl.NewControllerManagedBy(mgr).
-			For(&v1beta1api.InferenceService{}).
-			Owns(&knservingv1.Service{}).
-			Owns(&istioclientv1beta1.VirtualService{}).
-			Owns(&appsv1.Deployment{}).
-			Complete(r)
-	} else {
-		return ctrl.NewControllerManagedBy(mgr).
-			For(&v1beta1api.InferenceService{}).
-			Owns(&knservingv1.Service{}).
-			Owns(&appsv1.Deployment{}).
-			Complete(r)
+	r.ClientConfig = mgr.GetConfig()
+
+	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+	if err != nil {
+		return err
 	}
 
+	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
+	if err != nil {
+		return err
+	}
+
+	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
+		For(&v1beta1api.InferenceService{}).
+		Owns(&appsv1.Deployment{})
+
+	if ksvcFound {
+		ctrlBuilder = ctrlBuilder.Owns(&knservingv1.Service{})
+	} else {
+		r.Log.Info("The InferenceService controller won't watch serving.knative.dev/v1/Service resources because the CRD is not available.")
+	}
+
+	if vsFound && !ingressConfig.DisableIstioVirtualHost {
+		ctrlBuilder = ctrlBuilder.Owns(&istioclientv1beta1.VirtualService{})
+	} else {
+		r.Log.Info("The InferenceService controller won't watch networking.istio.io/v1beta1/VirtualService resources because the CRD is not available.")
+	}
+
+	return ctrlBuilder.Complete(r)
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.InferenceService) error {
