@@ -52,7 +52,7 @@ func TestMutator_Handle(t *testing.T) {
 	if err := c.Create(context.TODO(), &kserveNamespace); err != nil {
 		t.Errorf("failed to create namespace: %v", err)
 	}
-	mutator := Mutator{Client: c, Decoder: admission.NewDecoder(c.Scheme())}
+	mutator := Mutator{Client: c, Clientset: clientset, Decoder: admission.NewDecoder(c.Scheme())}
 
 	cases := map[string]struct {
 		configMap v1.ConfigMap
