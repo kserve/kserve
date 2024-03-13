@@ -18,6 +18,7 @@ import numpy as np
 from paddle import inference
 from kserve import Model
 from kserve.errors import InferenceError
+from kserve.model_repository import MODEL_MOUNT_DIRS
 from kserve.storage import Storage
 from typing import Dict, Union
 
@@ -47,7 +48,14 @@ class PaddleModel(Model):
                 raise Exception("More than one {} model file".format(ext))
             return os.path.join(model_path, file_list[0])
 
-        model_path = Storage.download(self.model_dir)
+        if os.path.exists(self.model_dir):
+            model_path = Storage.download(self.model_dir)
+        else:
+            # Handles scenarios where the provided path is not a local path (E.g. gs://kserve-examples/model)
+            # which means the model is not downloaded by the storage-initializer. Download and store the model in
+            # default model directory.
+            model_path = Storage.download(self.model_dir, out_dir=MODEL_MOUNT_DIRS)
+            self.model_dir = MODEL_MOUNT_DIRS
         config = inference.Config(get_model_files(
             '.pdmodel'), get_model_files('.pdiparams'))
         # TODO: add GPU support

@@ -14,6 +14,7 @@
 
 import argparse
 import logging
+import os
 
 from lgbserver.lightgbm_model_repository import LightGBMModelRepository
 from lgbserver.model import LightGBMModel
@@ -39,7 +40,12 @@ if __name__ == "__main__":
     except ModelMissingError:
         logging.error(f"fail to load model {args.model_name} from dir {args.model_dir},"
                       f"trying to load from model repository.")
-    model_repository = LightGBMModelRepository(args.model_dir, args.nthread)
     # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
-    kfserver = kserve.ModelServer(workers=1, registered_models=model_repository)  # pylint:disable=c-extension-no-member
-    kfserver.start([model] if model.ready else [])
+    if os.path.exists(args.model_dir):
+        # Uses provided model mount directory
+        kserve.ModelServer(registered_models=LightGBMModelRepository(args.model_dir, args.nthread)).start(
+            [model] if model.ready else [])
+    else:
+        # Uses default model mount directory
+        kserve.ModelServer(registered_models=LightGBMModelRepository(nthread=args.nthread)).start(
+            [model] if model.ready else [])

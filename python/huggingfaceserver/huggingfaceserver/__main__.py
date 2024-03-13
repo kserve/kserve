@@ -14,6 +14,7 @@
 
 import argparse
 import logging
+import os.path
 
 from kserve.model import PredictorConfig
 from . import HuggingfaceModel, HuggingfaceModelRepository
@@ -67,9 +68,14 @@ if __name__ == "__main__":
                              kwargs=vars(args))
     try:
         model.load()
-        kserve.ModelServer().start([model] if model.ready else [])
     except ModelMissingError:
         logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
                       f"trying loading from model repository.")
+    if os.path.exists(args.model_dir):
+        # Uses provided model mount directory
         kserve.ModelServer(registered_models=HuggingfaceModelRepository(args.model_dir)).start(
+            [model] if model.ready else [])
+    else:
+        # Uses default model mount directory
+        kserve.ModelServer(registered_models=HuggingfaceModelRepository()).start(
             [model] if model.ready else [])

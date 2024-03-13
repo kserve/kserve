@@ -279,7 +279,6 @@ class ModelServer:
             model: The model object.
         """
         if not model.name:
-            raise Exception(
-                "Failed to register model, model.name must be provided.")
+            raise Exception("Failed to register model, model.name must be provided.")
         self.registered_models.update(model)
         logger.info("Registering model: %s", model.name)

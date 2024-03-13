@@ -17,11 +17,12 @@ import os
 from typing import Dict, Union
 
 import xgboost as xgb
-from kserve.errors import InferenceError, ModelMissingError
-from kserve.protocol.infer_type import InferRequest, InferResponse
-from kserve.utils.utils import get_predict_input, get_predict_response
 from xgboost import XGBModel
 
+from kserve.errors import InferenceError, ModelMissingError
+from kserve.model_repository import MODEL_MOUNT_DIRS
+from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_input, get_predict_response
 from kserve import Model
 from kserve.storage import Storage
 
@@ -40,7 +41,14 @@ class XGBoostModel(Model):
             self.ready = True
 
     def load(self) -> bool:
-        model_path = Storage.download(self.model_dir)
+        if os.path.exists(self.model_dir):
+            model_path = Storage.download(self.model_dir)
+        else:
+            # Handles scenarios where the provided path is not a local path (E.g. gs://kserve-examples/model)
+            # which means the model is not downloaded by the storage-initializer. Download and store the model in
+            # default model directory.
+            model_path = Storage.download(self.model_dir, out_dir=MODEL_MOUNT_DIRS)
+            self.model_dir = MODEL_MOUNT_DIRS
         model_files = []
         for file in os.listdir(model_path):
             file_path = os.path.join(model_path, file)
