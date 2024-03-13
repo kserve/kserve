@@ -343,7 +343,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: netv1.IngressSpec{
 					Rules: []netv1.IngressRule{
 						{
-							Host: "raw-foo-default.example.com",
+							Host: "raw-foo.default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -364,7 +364,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: "raw-foo-predictor-default.example.com",
+							Host: "raw-foo-predictor.default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -408,7 +408,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   "raw-foo-default.example.com",
+					Host:   "raw-foo.default.example.com",
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -421,7 +421,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "",
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   "raw-foo-predictor-default.example.com",
+							Host:   "raw-foo-predictor.default.example.com",
 						},
 					},
 				},
@@ -1122,7 +1122,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: netv1.IngressSpec{
 					Rules: []netv1.IngressRule{
 						{
-							Host: fmt.Sprintf("%s-default.example.com", serviceName),
+							Host: fmt.Sprintf("%s.default.example.com", serviceName),
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -1143,7 +1143,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: fmt.Sprintf("%s-predictor-default.example.com", serviceName),
+							Host: fmt.Sprintf("%s-predictor.default.example.com", serviceName),
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -1187,7 +1187,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   fmt.Sprintf("%s-default.example.com", serviceName),
+					Host:   fmt.Sprintf("%s.default.example.com", serviceName),
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -1200,7 +1200,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "",
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   fmt.Sprintf("%s-predictor-default.example.com", serviceName),
+							Host:   fmt.Sprintf("%s-predictor.default.example.com", serviceName),
 						},
 					},
 				},
