@@ -1,0 +1,21 @@
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: "TrainedModel"
+metadata:
+  name: "xgboost-iris"
+spec:
+  inferenceService: "xgboost-mms"
+  model:
+    framework: "xgboost"
+    storageUri: "gs://kfserving-examples/models/xgboost/iris"
+    memory: "1Gi"  
+---
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: "TrainedModel"
+metadata:
+  name: "xgboost-model2"
+spec:
+  inferenceService: "xgboost-mms"
+  model:
+    framework: "xgboost"
+    storageUri: "gs://kfserving-examples/models/xgboost/1.5/model"
+    memory: "1Gi"
