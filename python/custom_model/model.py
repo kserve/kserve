@@ -26,6 +26,9 @@ from kserve import Model, ModelServer, model_server, InferRequest, InferOutput, 
 from kserve.errors import InvalidInput
 from kserve.utils.utils import generate_uuid
 
+# To use context of fastAPI
+from starlette_context.middleware import RawContextMiddleware
+from starlette_context import context
 
 # This custom predictor example implements the custom model following KServe REST v1/v2 protocol,
 # the input can be raw image base64 encoded bytes or image tensor which is pre-processed by transformer
@@ -103,4 +106,7 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = AlexNetModel(args.model_name)
     model.load()
+    model_server.initialize()
+    fastapi_app = model_server.get_app()
+    fastapi_app.add_middleware(RawContextMiddleware)
     ModelServer().start([model])
