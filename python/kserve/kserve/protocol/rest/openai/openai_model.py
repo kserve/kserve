@@ -79,8 +79,8 @@ class AsyncChunkIterator:
 
 class OpenAIChatAdapterModel(OpenAIModel):
     """
-    A helper on top the OpenAI model that automatically maps chat completion requests (v1/chat/completions)
-    to completion requests (v1/completions).
+    A helper on top the OpenAI model that automatically maps chat completion requests (/v1/chat/completions)
+    to completion requests (/v1/completions).
 
     Users should extend this model and implement the abstract methods in order to expose these endpoints.
     """
@@ -150,10 +150,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
                 )
             )
 
-        clp = ChoiceLogprobs(content=chat_completion_logprobs)
-        print("HERERER")
-        print(clp)
-        return clp
+        return ChoiceLogprobs(content=chat_completion_logprobs)
 
     @classmethod
     def to_chat_completion_choice(cls, completion_choice: CompletionChoice, role: str) -> Choice:
@@ -223,7 +220,9 @@ class OpenAIChatAdapterModel(OpenAIModel):
         if params.get("n", 1) != 1:
             raise InvalidInput("n != 1 is not supported")
 
+        # Convert the messages into a prompt
         chat_prompt = self.apply_chat_template(params["messages"])
+        # Translate the chat completion request to a completion request
         completion_params = self.chat_completion_params_to_completion_params(
             params, chat_prompt.prompt
         )

@@ -204,6 +204,8 @@ class RESTServer:
             },
         )
         # Register OpenAI endpoints if any of the models in the registry implement the OpenAI inferface
+        # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
+        # REST server.
         maybe_register_openai_endpoints(app, self.dataplane.model_registry)
         return app
 

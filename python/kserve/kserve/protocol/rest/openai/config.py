@@ -8,6 +8,7 @@ from ....model_repository import ModelRepository
 
 
 def openai_is_available() -> bool:
+    """Check if the openai package is available"""
     try:
         find_spec("openai")
         return True
@@ -16,6 +17,7 @@ def openai_is_available() -> bool:
 
 
 def get_open_ai_models(repository: ModelRepository) -> List[Model]:
+    """Retrieve all models in the repository that implement the OpenAI interface"""
     from .openai_model import OpenAIModel
 
     return [model for _, model in repository.get_models().items() if isinstance(model, OpenAIModel)]
@@ -37,4 +39,5 @@ def maybe_register_openai_endpoints(app: FastAPI, model_registry: ModelRepositor
     for model in open_ai_models:
         openai_model_registry.update(model)
 
+    # Add the OpenAI completion and chat completion endpoints.
     register_openai_endpoints(app, OpenAIDataPlane(openai_model_registry))
