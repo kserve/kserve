@@ -9,5 +9,5 @@ find config/crd/full -name 'serving.kserve.io*.yaml' | while read -r file; do
   minimal="config/crd/minimal/$(basename "$file")"
   echo "Creating ${minimal}"
   cp "$file" "$minimal"
-  go run ./hack removecrdvalidation "$minimal"
+  go run ./cmd/crd-gen removecrdvalidation "$minimal"
 done

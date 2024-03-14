@@ -7,6 +7,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+type obj = map[string]interface{}
+
 func removeCRDValidation(filename string) {
 	data, err := os.ReadFile(filepath.Clean(filename))
 	if err != nil {
@@ -33,5 +35,14 @@ func removeCRDValidation(filename string) {
 	err = os.WriteFile(filename, data, 0o600)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func main() {
+	switch os.Args[1] {
+	case "removecrdvalidation":
+		removeCRDValidation(os.Args[2])
+	default:
+		panic(os.Args[1])
 	}
 }
