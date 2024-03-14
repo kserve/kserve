@@ -19,6 +19,7 @@ package knative
 import (
 	"context"
 	"fmt"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -137,7 +138,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			trafficTargets = append(trafficTargets, canaryTarget)
 		}
 	} else {
-		//blue green rollout
+		// blue green rollout
 		latestTarget := knservingv1.TrafficTarget{
 			LatestRevision: proto.Bool(true),
 			Percent:        proto.Int64(100),

@@ -33,7 +33,7 @@ const (
 	InferenceServiceAttr = "inferenceservicename"
 	NamespaceAttr        = "namespace"
 	ComponentAttr        = "component"
-	//endpoint would be either default or canary
+	// endpoint would be either default or canary
 	EndpointAttr = "endpoint"
 
 	LoggerWorkerQueueSize = 100

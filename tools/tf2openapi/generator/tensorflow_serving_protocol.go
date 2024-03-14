@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+
 	"google.golang.org/protobuf/proto"
 
 	"github.com/getkin/kin-openapi/openapi3"

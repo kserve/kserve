@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/gofrs/uuid/v5"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"time"
+
+	"github.com/gofrs/uuid/v5"
+	"go.uber.org/zap"
 )
 
 const (

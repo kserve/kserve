@@ -91,11 +91,11 @@ func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
 		return fmt.Errorf("while updating %s err %w", configMap.Name, err)
 	}
 
-	//add/update models
+	// add/update models
 	for name, spec := range config.updated {
 		data[name] = spec
 	}
-	//delete models
+	// delete models
 	for _, name := range config.deleted {
 		if _, ok := data[name]; ok {
 			delete(data, name)

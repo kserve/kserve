@@ -70,7 +70,6 @@ func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentPredictorHost) {
 		args = append(args, constants.ArgumentPredictorHost,
 			fmt.Sprintf("%s.%s", predictorHost[0], metadata.Namespace))
-
 	}
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentWorkers) {
 		if extensions.ContainerConcurrency != nil {

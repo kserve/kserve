@@ -2,8 +2,9 @@ package types
 
 import (
 	"fmt"
-	"github.com/getkin/kin-openapi/openapi3"
 	"strings"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 type TFDType int
