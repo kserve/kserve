@@ -28,28 +28,40 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type ARTExplainerType string
+// AlibiExplainerType is the explanation method
+type AlibiExplainerType string
 
+// AlibiExplainerType Enum
 const (
-	ARTSquareAttackExplainer ARTExplainerType = "SquareAttack"
+	AlibiAnchorsTabularExplainer  AlibiExplainerType = "AnchorTabular"
+	AlibiAnchorsImageExplainer    AlibiExplainerType = "AnchorImages"
+	AlibiAnchorsTextExplainer     AlibiExplainerType = "AnchorText"
+	AlibiCounterfactualsExplainer AlibiExplainerType = "Counterfactuals"
+	AlibiContrastiveExplainer     AlibiExplainerType = "Contrastive"
 )
 
-// ARTExplainerType defines the arguments for configuring an ART Explanation Server
-type ARTExplainerSpec struct {
-	// The type of ART explainer
-	Type ARTExplainerType `json:"type"`
+// AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server
+type AlibiExplainerSpec struct {
+	// The type of Alibi explainer <br />
+	// Valid values are: <br />
+	// - "AnchorTabular"; <br />
+	// - "AnchorImages"; <br />
+	// - "AnchorText"; <br />
+	// - "Counterfactuals"; <br />
+	// - "Contrastive"; <br />
+	Type AlibiExplainerType `json:"type"`
 	// Contains fields shared across all explainers
 	ExplainerExtensionSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &ARTExplainerSpec{}
+var _ ComponentImplementation = &AlibiExplainerSpec{}
 
-func (s *ARTExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
+func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
 	return &s.Resources
 }
 
-func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
 	predictorHost ...string) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
@@ -68,7 +80,7 @@ func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
 	}
 
-	args = append(args, "--adversary_type", string(s.Type))
+	args = append(args, string(s.Type))
 
 	// Order explainer config map keys
 	keys := make([]string, 0, len(s.Config))
@@ -80,28 +92,26 @@ func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 		args = append(args, "--"+k)
 		args = append(args, s.Config[k])
 	}
-	args = append(args, s.Args...)
-
 	if s.Container.Image == "" {
-		s.Container.Image = config.Explainers.ARTExplainer.ContainerImage + ":" + *s.RuntimeVersion
+		s.Image = config.Explainers.AlibiExplainer.ContainerImage + ":" + *s.RuntimeVersion
 	}
-	s.Container.Name = constants.InferenceServiceContainerName
-	s.Container.Args = append(args, s.Container.Args...)
+	s.Name = constants.InferenceServiceContainerName
+	s.Args = append(args, s.Args...)
 	return &s.Container
 }
 
-func (s *ARTExplainerSpec) Default(config *InferenceServicesConfig) {
+func (s *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
 	s.Name = constants.InferenceServiceContainerName
 	if s.RuntimeVersion == nil {
-		s.RuntimeVersion = proto.String(config.Explainers.ARTExplainer.DefaultImageVersion)
+		s.RuntimeVersion = proto.String(config.Explainers.AlibiExplainer.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *ARTExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
+func (s *AlibiExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
 
-func (s *ARTExplainerSpec) IsMMS(config *InferenceServicesConfig) bool {
+func (s *AlibiExplainerSpec) IsMMS(config *InferenceServicesConfig) bool {
 	return false
 }

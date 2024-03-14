@@ -123,7 +123,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 
 // checkHPAExist checks if the hpa exists?
 func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResultType, *autoscalingv2.HorizontalPodAutoscaler, error) {
-	//get hpa
+	// get hpa
 	existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Namespace: r.HPA.ObjectMeta.Namespace,
@@ -136,7 +136,7 @@ func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResu
 		return constants.CheckResultUnknown, nil, err
 	}
 
-	//existed, check equivalent
+	// existed, check equivalent
 	if semanticHPAEquals(r.HPA, existingHPA) {
 		return constants.CheckResultExisted, existingHPA, nil
 	}
@@ -149,7 +149,7 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 
 // Reconcile ...
 func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
-	//reconcile Service
+	// reconcile Service
 	checkResult, existingHPA, err := r.checkHPAExist(r.client)
 	log.Info("service reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
@@ -163,7 +163,7 @@ func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, err
 		} else {
 			return r.HPA, nil
 		}
-	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
+	} else if checkResult == constants.CheckResultUpdate { // CheckResultUpdate
 		err = r.client.Update(context.TODO(), r.HPA)
 		if err != nil {
 			return nil, err

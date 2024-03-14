@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -118,7 +119,7 @@ func generateRule(ingressHost string, componentName string, path string, port in
 
 func generateMetadata(isvc *v1beta1.InferenceService,
 	componentType constants.InferenceServiceComponent, name string) metav1.ObjectMeta {
-	//get annotations from isvc
+	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
@@ -233,7 +234,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		}
 		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
 	}
-	//add predictor rule
+	// add predictor rule
 	predictorHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Predictor), false, predictorName)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating predictor ingress host: %w", err)
@@ -279,7 +280,7 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		if err != nil {
 			return err
 		}
-		//reconcile ingress
+		// reconcile ingress
 		existingIngress := &netv1.Ingress{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{
 			Namespace: isvc.Namespace,

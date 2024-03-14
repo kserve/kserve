@@ -101,7 +101,6 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	}
 
 	return validateScalingKPACompExtension(compExtSpec)
-
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -167,7 +166,6 @@ func validateHPAMetrics(metric ScaleMetric) error {
 		}
 	}
 	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
-
 }
 
 // Validate of autoscaler targetUtilizationPercentage
@@ -177,10 +175,8 @@ func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error
 		t, err := strconv.Atoi(value)
 		if err != nil {
 			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
-		} else {
-			if t < 1 || t > 100 {
-				return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
-			}
+		} else if t < 1 || t > 100 {
+			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
 		}
 	}
 
@@ -208,7 +204,6 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 		if metric == MetricMemory && target < 1 {
 			return fmt.Errorf("The target memory should be greater than 1 MiB")
 		}
-
 	}
 
 	return nil
@@ -221,7 +216,6 @@ func validateKPAMetrics(metric ScaleMetric) error {
 		}
 	}
 	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
-
 }
 
 func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error {
@@ -242,7 +236,6 @@ func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 		if metric == MetricRPS && target < 1 {
 			return fmt.Errorf("the target for rps should be greater than 1")
 		}
-
 	}
 
 	return nil

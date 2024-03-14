@@ -25,8 +25,8 @@ type Protocol string
 const (
 	S3  Protocol = "s3://"
 	GCS Protocol = "gs://"
-	//PVC   Protocol = "pvc://"
-	//File  Protocol = "file://"
+	// PVC   Protocol = "pvc://"
+	// File  Protocol = "file://"
 	HTTPS Protocol = "https://"
 	HTTP  Protocol = "http://"
 )

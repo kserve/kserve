@@ -83,7 +83,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 
 // checkDeploymentExist checks if the deployment exists?
 func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client) (constants.CheckResultType, *appsv1.Deployment, error) {
-	//get deployment
+	// get deployment
 	existingDeployment := &appsv1.Deployment{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Namespace: r.Deployment.ObjectMeta.Namespace,
@@ -95,8 +95,8 @@ func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client) (cons
 		}
 		return constants.CheckResultUnknown, nil, err
 	}
-	//existed, check equivalence
-	//for HPA scaling, we should ignore Replicas of Deployment
+	// existed, check equivalence
+	// for HPA scaling, we should ignore Replicas of Deployment
 	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
@@ -200,7 +200,7 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 
 // Reconcile ...
 func (r *DeploymentReconciler) Reconcile() (*appsv1.Deployment, error) {
-	//reconcile Deployment
+	// reconcile Deployment
 	checkResult, deployment, err := r.checkDeploymentExist(r.client)
 	if err != nil {
 		return nil, err

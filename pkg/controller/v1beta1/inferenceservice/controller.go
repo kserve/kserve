@@ -106,7 +106,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
-	//get annotations from isvc
+	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
@@ -214,13 +214,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.RoutesReady)
 		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.LatestDeploymentReady)
 	}
-	//Reconcile ingress
+	// Reconcile ingress
 	ingressConfig, err := v1beta1api.NewIngressConfig(r.Clientset)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
 
-	//check raw deployment
+	// check raw deployment
 	if deploymentMode == constants.RawDeployment {
 		reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
 		if err != nil {
@@ -321,7 +321,6 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 			Owns(&appsv1.Deployment{}).
 			Complete(r)
 	}
-
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.InferenceService) error {
