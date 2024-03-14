@@ -13,9 +13,10 @@ issues:
 
 
 output:
-  print-issued-lines: false
+  format: "github-actions,line-number"
+  print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: false
+  uniq-by-line: true
   path-prefix: ""
   sort-results: true
 
@@ -44,7 +45,7 @@ linters:
     - whitespace
 
     # - prealloc
-    # - gofmt
+    - gofmt
 
 linters-settings:
   goimports:
