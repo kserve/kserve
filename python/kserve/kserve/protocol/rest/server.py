@@ -87,9 +87,6 @@ class RESTServer:
         """
         v1_endpoints = V1Endpoints(self.dataplane, self.model_repository_extension)
         v2_endpoints = V2Endpoints(self.dataplane, self.model_repository_extension)
-        openai_endpoints = OpenAIEndpoints(
-            self.dataplane, self.model_repository_extension
-        )
 
         app = FastAPI(
             title="KServe ModelServer",
