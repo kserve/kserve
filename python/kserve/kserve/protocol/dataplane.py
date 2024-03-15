@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import time
 from importlib import metadata
-from typing import Dict, Union, Tuple, Optional, Any, AsyncIterator
+from typing import Any, AsyncIterator, Dict, Optional, Tuple, Union
 
 import cloudevents.exceptions as ce
 import orjson
@@ -22,17 +24,13 @@ from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import DeploymentHandle
 
-from .rest.v2_datamodels import GenerateRequest, GenerateResponse
-from .rest.openai_datamodels import ChatCompletionRequest, ChatCompletionResponse
-from ..model import Model
+from ..constants import constants
 from ..errors import InvalidInput, ModelNotFound
-from ..model import InferenceVerb
+from ..model import InferenceVerb, Model
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
-from ..constants import constants
-import time
-import logging
+from .rest.v2_datamodels import GenerateRequest, GenerateResponse
 
 JSON_HEADERS = [
     "application/json",
@@ -345,17 +343,14 @@ class DataPlane:
     async def generate(
         self,
         model_name: str,
-        request: Union[Dict, GenerateRequest, ChatCompletionRequest],
+        request: Union[Dict, GenerateRequest],
         headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[
-        Union[GenerateResponse, ChatCompletionResponse, AsyncIterator[Any]],
-        Dict[str, str],
-    ]:
+    ) -> Tuple[Union[GenerateResponse, AsyncIterator[Any]], Dict[str, str]]:
         """Generate the text with the provided text prompt.
 
         Args:
             model_name (str): Model name.
-            request (bytes|GenerateRequest|ChatCompletionRequest): Generate Request / ChatCompletion Request body data.
+            request (bytes|GenerateRequest): Generate Request / ChatCompletion Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
