@@ -116,7 +116,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if not self.task:
             self.task = self.infer_task_from_model_architecture(model_config)
 
-        # device_map = "auto" enables model parallelism but all model architcture dont support it.
+        # device_map = "auto" enables model parallelism but all model architecture don't support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
@@ -130,13 +130,12 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             # https://github.com/huggingface/transformers/issues/18388#issuecomment-1204369688
             # https://github.com/Vision-CAIR/MiniGPT-4/issues/129
             # https://github.com/huggingface/transformers/blob/1248f0925234f97da9eee98da2aa22f7b8dbeda1/src/transformers/generation/utils.py#L1376-L1388
+            logger.info("Decoder-only model detected. Setting padding side left.")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 model_id_or_path, do_lower_case=self.do_lower_case, device_map=self.device_map, padding_side="left")
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(
                 model_id_or_path, do_lower_case=self.do_lower_case, device_map=self.device_map)
-        if not self.tokenizer.pad_token:
-            self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
         logger.info(f"successfully loaded tokenizer for task: {self.task}")
 
         # load huggingface model using from_pretrained for inference mode
@@ -158,6 +157,16 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path, device_map=self.device_map)
             else:
                 raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
+
+            if not self.tokenizer.pad_token:
+                pad_token_str = '[PAD]'
+                logger.warning(f"Tokenizer does not have a padding token defined. "
+                               f"Adding fall back pad token `{pad_token_str}`")
+                # Add fallback pad token [PAD]
+                self.tokenizer.add_special_tokens({'pad_token': pad_token_str})
+                # When adding new tokens to the vocabulary, we should make sure to also resize the token embedding
+                # matrix of the model so that its embedding matrix matches the tokenizer.
+                self.model.resize_token_embeddings(len(self.tokenizer))
             self.model.eval()
             logger.info(f"successfully loaded huggingface model from path {model_id_or_path}")
         self.ready = True
@@ -224,20 +233,18 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 return_tensors=TensorType.PYTORCH,
             )
             input_batch = input_batch.to(self.device)
+            generation_kwargs = dict(**input_batch, pad_token_id=self.tokenizer.pad_token_id)
+            if parameters:
+                generation_kwargs.update(parameters)
             if headers.get("streaming", "false") == "true":
                 streamer = AsyncGenerateStream(self.tokenizer)
-                generation_kwargs = dict(**input_batch, streamer=streamer)
-                if parameters:
-                    generation_kwargs = dict(**input_batch, **parameters, streamer=streamer)
+                generation_kwargs.update(streamer=streamer)
                 # TODO change to use thread pool executor
                 thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
                 thread.start()
                 return streamer
             else:
-                if parameters:
-                    output_ids = self.model.generate(**input_batch, **parameters)
-                else:
-                    output_ids = self.model.generate(**input_batch)
+                output_ids = self.model.generate(**generation_kwargs)
                 outputs = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
                 token_outputs = [Token(id=output_id, special=False, logprob=0,  # TODO set logprob
                                        text=self.tokenizer.decode(output_id, skip_special_tokens=True))
@@ -259,7 +266,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             try:
                 with torch.no_grad():
                     if self.task == MLTask.text2text_generation.value or self.task == MLTask.text_generation:
-                        outputs = self.model.generate(**input_batch)
+                        outputs = self.model.generate(**input_batch, pad_token_id=self.tokenizer.pad_token_id)
                     else:
                         outputs = self.model(**input_batch).logits
                     return outputs

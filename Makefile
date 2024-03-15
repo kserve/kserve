@@ -16,6 +16,7 @@ CUSTOM_MODEL_IMG ?= custom-model
 CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
 CUSTOM_TRANSFORMER_IMG ?= image-transformer
 CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
+HUGGINGFACE_SERVER_IMG ?= huggingfaceserver
 ALIBI_IMG ?= alibi-explainer
 AIF_IMG ?= aiffairness
 ART_IMG ?= art-explainer
@@ -112,6 +113,9 @@ deploy-dev-paddle: docker-push-paddle
 deploy-dev-alibi: docker-push-alibi
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
 	kubectl apply -k config/overlays/dev-image-config
+
+deploy-dev-huggingface: docker-push-huggingface
+	./hack/serving_runtime_image_patch.sh "kserve-huggingfaceserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}"
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
@@ -313,6 +317,12 @@ docker-build-error-node-404:
 
 docker-push-error-node-404: docker-build-error-node-404
 	docker push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}
+
+docker-build-huggingface:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG} -f huggingface_server.Dockerfile .
+
+docker-push-huggingface: docker-build-huggingface
+	docker push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}
 
 test-qpext:
 	cd qpext && go test -v ./... -cover

@@ -117,5 +117,22 @@ def test_input_truncation():
     assert response == {"predictions": [1]}
 
 
+def test_input_padding_with_pad_token_not_specified():
+    model = HuggingfaceModel("openai-gpt",
+                             {"model_id": "openai-community/openai-gpt",
+                              "task": MLTask.text_generation.value})
+    model.load()
+
+    # inputs with different lengths will throw an error
+    # unless padding token is configured.
+    # openai-gpt model does not specify the pad token, so the fallback pad token should be added.
+    assert model.tokenizer.pad_token == "[PAD]"
+    assert model.tokenizer.pad_token_id is not None
+    request_one = "1, 2, 3, 4"
+    request_two = "A, B, C, D, E, F, G"
+    response = asyncio.run(model({"instances": [request_one, request_two]}, headers={}))
+    assert response == {'predictions': ['1, 2, 3, 4, 5, 6, 7,', 'a, b, c, d, e, f, g, and d, and the rest']}
+
+
 if __name__ == '__main__':
     unittest.main()
