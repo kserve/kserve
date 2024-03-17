@@ -22,6 +22,7 @@ import httpx
 import orjson
 from cloudevents.http import CloudEvent
 from httpx import HTTPStatusError
+from fastapi import Request
 
 from .errors import InvalidInput
 
@@ -33,6 +34,7 @@ from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
                                                 ModelInferResponse)
 from .protocol.infer_type import InferRequest, InferResponse
 from .protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
+from .protocol.rest.openai import CompletionRequest, CompletionResponse
 
 PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
 EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
@@ -330,6 +332,14 @@ class Model:
 
         """
         raise NotImplementedError("generate is not implemented")
+
+    async def completion(self, payload: CompletionRequest, request: Request,
+                       headers: Dict[str, str] = None) -> Union[CompletionResponse, AsyncIterator[Any]]:
+        """`completion` handler can be overridden to implement text generation.
+
+        """
+        raise NotImplementedError("completion is not implemented")
+        
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.

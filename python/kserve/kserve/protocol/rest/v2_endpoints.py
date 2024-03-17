@@ -15,7 +15,7 @@ import json
 from typing import Optional, Dict, AsyncGenerator
 
 from fastapi.requests import Request
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from starlette.responses import StreamingResponse
 
 from ..infer_type import InferInput, InferRequest
@@ -23,6 +23,7 @@ from .v2_datamodels import (
     InferenceRequest, ServerMetadataResponse, ServerLiveResponse, ServerReadyResponse,
     ModelMetadataResponse, InferenceResponse, ModelReadyResponse, ListModelsResponse, GenerateRequest, GenerateResponse
 )
+from .openai import CompletionRequest, ErrorResponse
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
 from ...errors import ModelNotReady
@@ -260,6 +261,48 @@ class V2Endpoints:
                 yield (json.dumps(ret.json()) + "\0").encode("utf-8")
 
         return StreamingResponse(stream_results())
+
+    async def completions(
+        self,
+        raw_request: Request,
+        raw_response: Response,
+        model_name: str,
+        request_body: CompletionRequest,
+    )-> Response:
+        """Completions handler.
+
+        Args:
+            raw_request (Request): fastapi request object,
+            raw_response (Response): fastapi response object,
+            model_name (str): Model name.
+            request_body (CompletionRequest): Completions request body.
+
+        Returns:
+            Response: Completions response object.
+        """
+
+        model_ready = self.dataplane.model_ready(model_name)
+
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
+        request_headers = dict(raw_request.headers)
+        generator, response_headers = await self.dataplane.completion(model_name=model_name,
+                                                                  request=request_body,
+                                                                  raw_request=raw_request,
+                                                                  headers=request_headers)
+
+
+
+        if isinstance(generator, ErrorResponse):
+            return JSONResponse(content=generator.model_dump(),
+                                status_code=generator.code)
+        if request_body.stream:
+            return StreamingResponse(content=generator,
+                                    media_type="text/event-stream")
+        else:
+            return JSONResponse(content=generator.model_dump())
+
 
     async def load(self, model_name: str) -> Dict:
         """Model load handler.
