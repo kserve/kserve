@@ -30,7 +30,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_triton():
     service_name = 'isvc-triton'
     predictor = V1beta1PredictorSpec(
@@ -70,7 +71,8 @@ def test_triton():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.fast
+@pytest.mark.transformer
+@pytest.mark.path_based_routing
 def test_triton_runtime_with_transformer():
     service_name = 'isvc-triton-runtime'
     predictor = V1beta1PredictorSpec(
@@ -91,7 +93,7 @@ def test_triton_runtime_with_transformer():
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
         containers=[V1Container(
-                      image=os.environ.get("IMAGE_TRANSFORMER_IMG"),
+                      image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
                       name='kserve-container',
                       resources=V1ResourceRequirements(
                           requests={'cpu': '10m', 'memory': '128Mi'},

@@ -84,8 +84,8 @@ func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions
 	args = append(args, string(s.Type))
 
 	// Order explainer config map keys
-	var keys []string
-	for k, _ := range s.Config {
+	keys := make([]string, 0, len(s.Config))
+	for k := range s.Config {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)

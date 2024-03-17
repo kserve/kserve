@@ -443,7 +443,9 @@ func (ss *InferenceServiceStatus) SetCondition(conditionType apis.ConditionType,
 
 func (ss *InferenceServiceStatus) ClearCondition(conditionType apis.ConditionType) {
 	if conditionSet.Manage(ss).GetCondition(conditionType) != nil {
-		conditionSet.Manage(ss).ClearCondition(conditionType)
+		if err := conditionSet.Manage(ss).ClearCondition(conditionType); err != nil {
+			return
+		}
 	}
 }
 

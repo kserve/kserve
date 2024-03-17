@@ -89,5 +89,33 @@ def test_bloom():
     assert response.text_output == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog"
 
 
+def test_input_padding():
+    model = HuggingfaceModel("bert-base-uncased-yelp-polarity",
+                             {"model_id": "textattack/bert-base-uncased-yelp-polarity",
+                              "task": MLTask.sequence_classification.value})
+    model.load()
+
+    # inputs with different lengths will throw an error
+    # unless we set padding=True in the tokenizer
+    request_one = "Hello, my dog is cute."
+    request_two = "Hello there, my dog is cute."
+    response = asyncio.run(model({"instances": [request_one, request_two]}, headers={}))
+    assert response == {"predictions": [1, 1]}
+
+
+def test_input_truncation():
+    model = HuggingfaceModel("bert-base-uncased-yelp-polarity",
+                             {"model_id": "textattack/bert-base-uncased-yelp-polarity",
+                              "task": MLTask.sequence_classification.value})
+    model.load()
+
+    # bert-base-uncased has a max length of 512 (tokenizer.model_max_length).
+    # this request exceeds that, so it will throw an error
+    # unless we set truncation=True in the tokenizer
+    request = "good " * 600
+    response = asyncio.run(model({"instances": [request]}, headers={}))
+    assert response == {"predictions": [1]}
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -22,6 +22,7 @@ set -o nounset
 set -o pipefail
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
+DEPLOYMENT_MODE="${1:-'serverless'}"
 
 ISTIO_VERSION="1.19.4"
 CERT_MANAGER_VERSION="v1.5.0"
@@ -56,18 +57,20 @@ spec:
   controller: istio.io/ingress-controller
 EOF
 
-source  ./test/scripts/gh-actions/install-knative-operator.sh
+shopt -s nocasematch
+if [[ $DEPLOYMENT_MODE != "raw" ]];then
+  source  ./test/scripts/gh-actions/install-knative-operator.sh
 
-echo "Installing Knative serving ..."
-kubectl apply -f ./test/overlays/knative/knative-serving-istio.yaml
-# sleep to avoid running kubectl wait before pods are created
-sleep 15
-
-echo "Waiting for Knative to be ready ..."
-kubectl wait --for=condition=Ready pods --all --timeout=400s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
-
-# echo "Add knative hpa..."
-# kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
+  echo "Installing Knative serving ..."
+  kubectl apply -f ./test/overlays/knative/knative-serving-istio.yaml
+  # sleep to avoid running kubectl wait before pods are created
+  sleep 15
+  echo "Waiting for Knative to be ready ..."
+  kubectl wait --for=condition=Ready pods --all --timeout=400s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
+  # echo "Add knative hpa..."
+  # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
+fi
+shopt -u nocasematch
 
 echo "Installing cert-manager ..."
 kubectl create namespace cert-manager

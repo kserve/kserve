@@ -251,7 +251,7 @@ def test_update_with_storage_spec_s3(monkeypatch):
         "region": "us-east-2",
         "secret_access_key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "type": "s3",
-        "certificate": "/path/to/ca.bundle",
+        "ca_bundle": "/path/to/cabundle.crt",
         "verify_ssl": "false",
         "anonymous": "True",
     }
@@ -263,7 +263,7 @@ def test_update_with_storage_spec_s3(monkeypatch):
     assert os.getenv("AWS_ACCESS_KEY_ID") == storage_config["access_key_id"]
     assert os.getenv("AWS_SECRET_ACCESS_KEY") == storage_config["secret_access_key"]
     assert os.getenv("AWS_DEFAULT_REGION") == storage_config["region"]
-    assert os.getenv("AWS_CA_BUNDLE") == storage_config["certificate"]
+    assert os.getenv("AWS_CA_BUNDLE") == storage_config["ca_bundle"]
     assert os.getenv("S3_VERIFY_SSL") == storage_config["verify_ssl"]
     assert os.getenv("awsAnonymousCredential") == storage_config["anonymous"]
 

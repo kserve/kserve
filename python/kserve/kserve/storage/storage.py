@@ -117,7 +117,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 ("AWS_ACCESS_KEY_ID", "access_key_id"),
                 ("AWS_SECRET_ACCESS_KEY", "secret_access_key"),
                 ("AWS_DEFAULT_REGION", "region"),
-                ("AWS_CA_BUNDLE", "certificate"),
+                ("AWS_CA_BUNDLE", "ca_bundle"),
                 ("S3_VERIFY_SSL", "verify_ssl"),
                 ("awsAnonymousCredential", "anonymous"),
             ):
@@ -438,7 +438,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                     blobs += container_client.list_blobs(name_starts_with=item.name,
                                                          include=['snapshots'])
         for blob in blobs:
-            dest_path = os.path.join(out_dir, blob.name.replace(prefix, "", 1).lstrip("/"))
+            file_name = blob.name.replace(prefix, "", 1).lstrip("/")
+            if not file_name:
+                file_name = os.path.basename(prefix)
+            dest_path = os.path.join(out_dir, file_name)
             Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
             logging.info("Downloading: %s to %s", blob.name, dest_path)
             downloader = container_client.download_blob(blob.name)

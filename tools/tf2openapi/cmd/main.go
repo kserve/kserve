@@ -39,7 +39,10 @@ func main() {
 	}
 
 	rootCmd.Flags().StringVarP(&modelBasePath, "model_base_path", "m", "", "Absolute path of SavedModel file")
-	rootCmd.MarkFlagRequired("model_base_path")
+	if err := rootCmd.MarkFlagRequired("model_base_path"); err != nil {
+		log.Fatalln(err.Error())
+	}
+
 	rootCmd.Flags().StringVarP(&modelName, "name", "n", "model", "Name of model")
 	rootCmd.Flags().StringVarP(&modelVersion, "version", "v", "1", "Model version")
 	rootCmd.Flags().StringVarP(&outFile, "output_file", "o", "", "Absolute path of file to write OpenAPI spec to")

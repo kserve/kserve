@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Security scan on docker image
         uses: snyk/actions/docker@master
@@ -45,7 +45,7 @@ jobs:
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
 
@@ -64,7 +64,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Security scan on docker image
         uses: snyk/actions/docker@master
@@ -81,7 +81,7 @@ jobs:
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
 
@@ -98,7 +98,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Security scan on docker image
         uses: snyk/actions/docker@master

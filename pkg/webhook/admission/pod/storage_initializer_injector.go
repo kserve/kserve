@@ -79,7 +79,7 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall %v json string due to %v ", StorageInitializerConfigMapKeyName, err))
+			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", StorageInitializerConfigMapKeyName, err))
 		}
 	}
 	//Ensure that we set proper values for CPU/Memory Limit/Request
@@ -247,7 +247,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 		// check if using direct volume mount to mount the pvc
 		// if yes, mount the pvc to model local mount path and return
-		if mi.config.EnableDirectPvcVolumeMount == true {
+		if mi.config.EnableDirectPvcVolumeMount {
 
 			// add a corresponding pvc volume mount to the userContainer
 			// pvc will be mount to /mnt/models rather than /mnt/pvc

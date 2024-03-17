@@ -139,7 +139,7 @@ class TestInferRequest:
 
     class TestInferResponse:
         def test_to_rest(self):
-            infer_res = InferResponse(model_name="TestModel", response_id="123",
+            infer_res = InferResponse(model_name="TestModel", response_id="123", model_version="v1",
                                       parameters={
                                           "test-str": InferParameter(string_param="dummy"),
                                           "test-bool": InferParameter(bool_param=True),
@@ -156,6 +156,7 @@ class TestInferRequest:
             expected = {
                 "id": "123",
                 "model_name": "TestModel",
+                "model_version": "v1",
                 "outputs": [
                     {
                         "name": "output-0",
@@ -179,7 +180,7 @@ class TestInferRequest:
             assert res == expected
 
         def test_to_grpc(self):
-            infer_res = InferResponse(model_name="TestModel", response_id="123",
+            infer_res = InferResponse(model_name="TestModel", response_id="123", model_version="v1",
                                       parameters={
                                           "test-str": "dummy",
                                           "test-bool": True,
@@ -193,7 +194,7 @@ class TestInferRequest:
                                                           "test-int": 100
                                                       })]
                                       )
-            expected = ModelInferResponse(model_name="TestModel", id="123",
+            expected = ModelInferResponse(model_name="TestModel", id="123", model_version="v1",
                                           parameters={
                                               "test-str": InferParameter(string_param="dummy"),
                                               "test-bool": InferParameter(bool_param=True),
@@ -218,7 +219,7 @@ class TestInferRequest:
             assert res == expected
 
         def test_from_grpc(self):
-            infer_res = ModelInferResponse(model_name="TestModel", id="123",
+            infer_res = ModelInferResponse(model_name="TestModel", id="123", model_version="v1",
                                            parameters={
                                                "test-str": InferParameter(string_param="dummy"),
                                                "test-bool": InferParameter(bool_param=True),
@@ -239,7 +240,7 @@ class TestInferRequest:
                                                    },
                                                }]
                                            )
-            expected = InferResponse(model_name="TestModel", response_id="123",
+            expected = InferResponse(model_name="TestModel", response_id="123", model_version="v1",
                                      parameters={
                                          "test-str": InferParameter(string_param="dummy"),
                                          "test-bool": InferParameter(bool_param=True),

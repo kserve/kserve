@@ -33,11 +33,12 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
 
 
 @pytest.mark.grpc
-def test_custom_model_grpc():
+@pytest.mark.predictor
+def test_custom_model_grpc_logger():
     service_name = "custom-grpc-logger"
     model_name = "custom-model"
 
-    msg_dumper = 'message-dumper'
+    msg_dumper = 'message-dumper-grpc'
     logger_predictor = V1beta1PredictorSpec(
         min_replicas=1,
         containers=[V1Container(name="kserve-container",
@@ -60,7 +61,7 @@ def test_custom_model_grpc():
     predictor = V1beta1PredictorSpec(
         logger=V1beta1LoggerSpec(
             mode="all",
-            url="http://message-dumper." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local"
+            url=f"http://{msg_dumper}." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local"
         ),
         containers=[
             V1Container(
