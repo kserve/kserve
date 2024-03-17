@@ -20,7 +20,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KNATIVE_OPERATOR_PLUGIN_VERSION="knative-v1.13.1"
+KNATIVE_OPERATOR_PLUGIN_VERSION="knative-v1.13.0"
 KNATIVE_OPERATOR_VERSION="1.13.1"
 KNATIVE_CLI_VERSION="knative-v1.13.0"
 
