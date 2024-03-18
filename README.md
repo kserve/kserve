@@ -13,7 +13,7 @@ It encapsulates the complexity of autoscaling, networking, health checking, and 
 
 For more details, visit the [KServe website](https://kserve.github.io/website/).
 
-![KServe](/docs/diagrams/kserve.png)
+![KServe](/docs/diagrams/kserve_new.png)
 
 _Since 0.7 [KFServing is rebranded to KServe](https://blog.kubeflow.org/release/official/2021/09/27/kfserving-transition.html).
 
