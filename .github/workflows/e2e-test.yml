@@ -730,6 +730,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
           path: ./tmp
 
+      - name: Download xgb server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          path: ./tmp
+
       - name: Download custom model grpc image
         uses: actions/download-artifact@v4
         with:
