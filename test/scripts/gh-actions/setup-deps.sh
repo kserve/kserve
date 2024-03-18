@@ -24,7 +24,7 @@ set -o pipefail
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 DEPLOYMENT_MODE="${1:-'serverless'}"
 
-ISTIO_VERSION="1.19.4"
+ISTIO_VERSION="1.20.4"
 CERT_MANAGER_VERSION="v1.5.0"
 YQ_VERSION="v4.28.1"
 
