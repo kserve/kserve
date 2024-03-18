@@ -30,7 +30,7 @@ while getopts ":hsr" option; do
    esac
 done
 
-export ISTIO_VERSION=1.19.4
+export ISTIO_VERSION=1.18.7
 export ISTIO_DIR=istio-${ISTIO_VERSION}
 export KNATIVE_SERVING_VERSION=knative-v1.13.1
 export KNATIVE_ISTIO_VERSION=knative-v1.13.1
