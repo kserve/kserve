@@ -37,4 +37,4 @@ if __name__ == "__main__":
                       f"trying loading from model repository.")
 
     kserve.ModelServer(registered_models=SKLearnModelRepository(args.model_dir)).start(
-        [model] if model.ready else [])
+        [model])

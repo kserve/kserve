@@ -30,7 +30,7 @@ from fastapi.testclient import TestClient
 from ray import serve
 
 from kserve import Model, ModelServer, ModelRepository
-from kserve.errors import InvalidInput
+from kserve.errors import InvalidInput, NoModelReady
 from kserve.model import PredictorProtocol
 from kserve.protocol.rest.server import RESTServer
 
@@ -232,6 +232,13 @@ class DummyModelRepository(ModelRepository):
                 raise Exception(f"Could not load model {name}.")
             else:
                 return False
+
+
+class DummyNeverReadyModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
 
 
 @pytest.mark.asyncio
@@ -741,3 +748,12 @@ class TestTFHttpServerModelNotReady:
         resp = http_server_client.post('/v1/models/TestModel:explain',
                                        content=b'{"instances":[[1,2]]}')
         assert resp.status_code == 503
+
+
+class TestWithUnhealthModel:
+    def test_with_not_ready_model(self):
+        model = DummyNeverReadyModel("Dummy")
+        server = ModelServer()
+        with pytest.raises(NoModelReady) as exc_info:
+            server.start([model])
+        assert exc_info.type == NoModelReady
