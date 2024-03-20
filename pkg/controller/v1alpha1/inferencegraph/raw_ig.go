@@ -18,21 +18,24 @@ package inferencegraph
 
 import (
 	"encoding/json"
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
+	"strings"
+
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/apis"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"strings"
+
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 )
 
 var logger = logf.Log.WithName("InferenceGraphRawDeployer")
@@ -124,14 +127,15 @@ Handles bulk of raw deployment logic for Inference graph controller
 4. Set controller referneces
 5. Finally reconcile
 */
-func handleInferenceGraphRawDeployment(cl client.Client, scheme *runtime.Scheme, graph *v1alpha1api.InferenceGraph, routerConfig *RouterConfig) (*appsv1.Deployment, *knapis.URL, error) {
+func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
+	graph *v1alpha1api.InferenceGraph, routerConfig *RouterConfig) (*appsv1.Deployment, *knapis.URL, error) {
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	//create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(cl, scheme, objectMeta, &componentExtSpec, desiredSvc)
+	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, objectMeta, &componentExtSpec, desiredSvc)
 
 	if err != nil {
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")

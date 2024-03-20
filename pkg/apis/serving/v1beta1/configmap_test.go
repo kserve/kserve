@@ -25,6 +25,7 @@ import (
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -78,27 +79,30 @@ func createFakeClient() client.WithWatch {
 
 func TestNewInferenceServiceConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	fakeClient := createFakeClient()
-
-	isvcConfig, err := NewInferenceServicesConfig(fakeClient)
+	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+	})
+	isvcConfig, err := NewInferenceServicesConfig(clientset)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(isvcConfig).ShouldNot(gomega.BeNil())
 }
 
 func TestNewIngressConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	fakeClient := createFakeClient()
-
-	ingressCfg, err := NewIngressConfig(fakeClient)
+	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+	})
+	ingressCfg, err := NewIngressConfig(clientset)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
 }
 
 func TestNewDeployConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	fakeClient := createFakeClient()
-
-	deployConfig, err := NewDeployConfig(fakeClient)
+	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+	})
+	deployConfig, err := NewDeployConfig(clientset)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(deployConfig).ShouldNot(gomega.BeNil())
 }

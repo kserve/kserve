@@ -21,22 +21,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
 	"github.com/kserve/kserve/pkg/credentials/s3"
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
-	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -357,7 +355,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
@@ -398,7 +396,7 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
@@ -498,7 +496,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
@@ -946,7 +944,7 @@ func TestCredentialInjection(t *testing.T) {
 		},
 	}
 
-	builder := credentials.NewCredentialBuilder(c, configMap)
+	builder := credentials.NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
@@ -1037,7 +1035,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
@@ -1874,7 +1872,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 		},
 	}
 
-	builder := credentials.NewCredentialBuilder(c, configMap)
+	builder := credentials.NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
@@ -2004,7 +2002,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
@@ -2309,7 +2307,7 @@ func TestTransformerCollocation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: scenario.storageConfig,
@@ -2344,7 +2342,7 @@ func TestGetStorageContainerSpec(t *testing.T) {
 	}
 	s3AzureSpec := v1alpha1.ClusterStorageContainer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "s3Azure",
+			Name: "s3-azure",
 		},
 		Spec: v1alpha1.StorageContainerSpec{
 			Container: v1.Container{
@@ -2358,16 +2356,21 @@ func TestGetStorageContainerSpec(t *testing.T) {
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
 		},
 	}
-	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
-		Items: []v1alpha1.ClusterStorageContainer{customSpec, s3AzureSpec},
-	}
 
-	s := runtime.NewScheme()
-	err := v1alpha1.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
+	if err := c.Create(context.TODO(), &s3AzureSpec); err != nil {
+		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
-	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
+	if err := c.Create(context.TODO(), &customSpec); err != nil {
+		t.Fatalf("unable to create cluster storage container: %v", err)
+	}
+	defer func() {
+		if err := c.Delete(context.TODO(), &s3AzureSpec); err != nil {
+			t.Errorf("unable to delete cluster storage container: %v", err)
+		}
+		if err := c.Delete(context.TODO(), &customSpec); err != nil {
+			t.Errorf("unable to delete cluster storage container: %v", err)
+		}
+	}()
 	scenarios := map[string]struct {
 		storageUri   string
 		expectedSpec *v1.Container
@@ -2387,8 +2390,9 @@ func TestGetStorageContainerSpec(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		var container *v1.Container
+		var err error
 
-		if container, err = GetContainerSpecForStorageUri(scenario.storageUri, mockClient); err != nil {
+		if container, err = GetContainerSpecForStorageUri(scenario.storageUri, c); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
@@ -2414,7 +2418,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 	}
 	s3AzureSpec := v1alpha1.ClusterStorageContainer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "s3Azure",
+			Name: "s3-azure",
 		},
 		Spec: v1alpha1.StorageContainerSpec{
 			Container: v1.Container{
@@ -2431,16 +2435,21 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
 		},
 	}
-	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
-		Items: []v1alpha1.ClusterStorageContainer{customSpec, s3AzureSpec},
+	if err := c.Create(context.TODO(), &s3AzureSpec); err != nil {
+		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
+	if err := c.Create(context.TODO(), &customSpec); err != nil {
+		t.Fatalf("unable to create cluster storage container: %v", err)
+	}
+	defer func() {
+		if err := c.Delete(context.TODO(), &s3AzureSpec); err != nil {
+			t.Errorf("unable to delete cluster storage container: %v", err)
+		}
+		if err := c.Delete(context.TODO(), &customSpec); err != nil {
+			t.Errorf("unable to delete cluster storage container: %v", err)
+		}
+	}()
 
-	s := runtime.NewScheme()
-	err := v1alpha1.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
-	}
-	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
 	scenarios := map[string]struct {
 		original *v1.Pod
 		expected *v1.Pod
@@ -2580,14 +2589,14 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(mockClient, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
-			client: mockClient,
+			client: c,
 		}
 
-		if err = injector.InjectStorageInitializer(scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -3629,7 +3638,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
