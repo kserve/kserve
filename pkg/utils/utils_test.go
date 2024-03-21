@@ -520,6 +520,7 @@ func TestIsPrefixSupported(t *testing.T) {
 		"GCS://",
 		"HTTP://",
 		"HTTPS://",
+		"OCI://",
 	}
 	scenarios := map[string]struct {
 		input    string
