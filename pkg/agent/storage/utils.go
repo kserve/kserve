@@ -179,6 +179,11 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 		providers[HTTP] = &HTTPSProvider{
 			Client: httpsClient,
 		}
+	case OCI:
+		httpsClient := &http.Client{}
+		providers[OCI] = &OCIProvider{
+			Client: httpsClient,
+		}
 	}
 
 	return providers[protocol], nil
