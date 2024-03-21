@@ -198,12 +198,15 @@ class ModelServer:
 
     async def stop(self, sig: Optional[int] = None):
         logger.info("Stopping the model server")
-        if self._rest_server:
+        if hasattr(self, '_rest_server') and self._rest_server:
             logger.info("Stopping the rest server")
             await self._rest_server.stop()
         if self._grpc_server:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
+        
+        
+
 
     def register_model_handle(self, name: str, model_handle: RayServeHandle):
         self.registered_models.update_handle(name, model_handle)
