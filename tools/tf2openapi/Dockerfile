@@ -9,7 +9,7 @@ COPY go.mod  go.mod
 COPY go.sum  go.sum
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o tf2openapi ./tools/tf2openapi/cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -a -o tf2openapi ./tools/tf2openapi/cmd
 
 # Copy tf2openapi into a thin image
 FROM gcr.io/distroless/static:nonroot
