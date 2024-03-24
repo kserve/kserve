@@ -1429,7 +1429,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 					Name:      "storage-secret",
 					Namespace: namespace,
 				},
-				StringData: map[string]string{"minio": "{\n     \"type\": \"gs\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+				StringData: map[string]string{"minio": "{\n     \"type\": \"gss\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
 			},
 			storageKey:        "minio",
 			storageSecretName: "storage-secret",

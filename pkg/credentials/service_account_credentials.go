@@ -51,8 +51,8 @@ const (
 )
 
 var (
-	SupportedStorageSpecTypes = []string{"s3", "hdfs", "webhdfs"}
-	StorageBucketTypes        = []string{"s3"}
+	SupportedStorageSpecTypes = []string{"s3", "hdfs", "webhdfs", "gs"}
+	StorageBucketTypes        = []string{"s3", "gs"}
 )
 
 type CredentialConfig struct {
