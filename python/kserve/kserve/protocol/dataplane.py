@@ -23,6 +23,7 @@ from cloudevents.sdk.converters.util import has_binary_headers
 from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
 
 from .rest.v2_datamodels import GenerateRequest, GenerateResponse
+from .rest.openai_datamodels import ChatCompletionRequest, ChatCompletionResponse
 from ..model import Model
 from ..errors import InvalidInput, ModelNotFound
 from ..model import InferenceVerb
@@ -327,14 +328,14 @@ class DataPlane:
     async def generate(
             self,
             model_name: str,
-            request: Union[Dict, GenerateRequest],
+            request: Union[Dict, GenerateRequest, ChatCompletionRequest],
             headers: Optional[Dict[str, str]] = None
-    ) -> Tuple[Union[GenerateResponse, AsyncIterator[Any]], Dict[str, str]]:
+    ) -> Tuple[Union[GenerateResponse, ChatCompletionResponse, AsyncIterator[Any]], Dict[str, str]]:
         """Generate the text with the provided text prompt.
 
         Args:
             model_name (str): Model name.
-            request (bytes|GenerateRequest): Generate Request body data.
+            request (bytes|GenerateRequest|ChatCompletionRequest): Generate Request / ChatCompletion Request body data.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:

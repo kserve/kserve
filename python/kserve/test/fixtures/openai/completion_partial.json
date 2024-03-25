@@ -1,0 +1,30 @@
+{
+  "id": "c0d5dd7e-9bff-4a68-8cd2-b743612385ac",
+  "object": "text_completion",
+  "created": 1709996697,
+  "choices": [
+    {
+      "text": " intelligence",
+      "index": 0,
+      "logprobs": {
+        "tokens": [
+          " intelligence"
+        ],
+        "token_logprobs": [
+          -0.00023035755
+        ],
+        "top_logprobs": [
+          {
+            " intelligence": -0.00023035755
+          }
+        ],
+        "text_offset": [
+          37
+        ]
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "model": "gpt-3.5-turbo",
+  "system_fingerprint": "fp_4f0b692a78"
+}
