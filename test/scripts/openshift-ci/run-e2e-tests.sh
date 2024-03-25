@@ -63,10 +63,12 @@ pushd $PROJECT_ROOT/python/kserve >/dev/null
 popd
 
 # Install KServe stack
-echo "Installing OSSM"
-$MY_PATH/deploy.ossm.sh
-echo "Installing Serverless"
-$MY_PATH/deploy.serverless.sh
+if [ "$1" != "raw" ]; then
+  echo "Installing OSSM"
+  $MY_PATH/deploy.ossm.sh
+  echo "Installing Serverless"
+  $MY_PATH/deploy.serverless.sh
+fi
 
 echo "Installing KServe with Minio"
 kustomize build $PROJECT_ROOT/config/overlays/test | \
@@ -75,10 +77,21 @@ kustomize build $PROJECT_ROOT/config/overlays/test | \
   sed "s|kserve/router:latest|${KSERVE_ROUTER_IMAGE}|" | \
   sed "s|kserve/kserve-controller:latest|${KSERVE_CONTROLLER_IMAGE}|" | \
   oc apply -f -
+
+# Patch the inferenceservice-config ConfigMap, when running RawDeployment tests
+ if [ "$1" == "raw" ]; then
+  export OPENSHIFT_INGRESS_DOMAIN=$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')
+  oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-raw.yaml | envsubst)
+  oc delete pod -n kserve -l control-plane=kserve-controller-manager
+ fi
+
+# Wait until KServe starts
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 
-echo "Installing odh-model-controller"
-oc apply -k $PROJECT_ROOT/test/scripts/openshift-ci
+if [ "$1" != "raw" ]; then
+  echo "Installing odh-model-controller"
+  oc apply -k $PROJECT_ROOT/test/scripts/openshift-ci
+fi
 
 echo "Add testing models to minio storage ..." # Reference: config/overlays/test/minio/minio-init-job.yaml
 curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o /tmp/sklearn-model.joblib
@@ -96,7 +109,10 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kserve-ci-e2e-test
----
+EOF
+
+if [ "$1" != "raw" ]; then
+  cat <<EOF | oc apply -f -
 apiVersion: maistra.io/v1
 kind: ServiceMeshMember
 metadata:
@@ -107,6 +123,7 @@ spec:
     namespace: istio-system
     name: basic
 EOF
+fi
 
 oc apply -f $PROJECT_ROOT/config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
 
@@ -115,9 +132,17 @@ kustomize build $PROJECT_ROOT/config/overlays/test/clusterresources | \
   sed "s|kserve/sklearnserver:latest|${SKLEARN_IMAGE}|" | \
   oc apply -n kserve-ci-e2e-test -f -
 
-#
+# Add the enablePassthrough annotation to the ServingRuntimes, to let Knative to
+# generate passthrough routes. If RawDeployment test are being run, this annotation would have
+# no effect, because of missing Knative
+oc annotate servingruntimes -n kserve-ci-e2e-test --all serving.knative.openshift.io/enablePassthrough=true
+
 echo "Run E2E tests: $1"
 pushd $PROJECT_ROOT >/dev/null
+  # Note: The following images are set by openshift-ci. Uncomment if you are running on your own machine.
+  # export CUSTOM_MODEL_GRPC_IMG_TAG=kserve/custom-model-grpc:latest
+  # export IMAGE_TRANSFORMER_IMG_TAG=kserve/image-transformer:latest
+
   export GITHUB_SHA=$(git rev-parse HEAD)
   export CI_USE_ISVC_HOST="1"
   ./test/scripts/gh-actions/run-e2e-tests.sh "$1"
