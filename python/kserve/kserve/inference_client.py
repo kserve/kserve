@@ -12,23 +12,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import ssl
 from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping, Dict
 
 import grpc
 import httpx
-from httpx import AsyncBaseTransport, HTTPStatusError
 from orjson import orjson
 
-from .errors import UnsupportedProtocol
 from .constants.constants import PredictorProtocol
-from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse, ServerReadyResponse, \
+from .errors import UnsupportedProtocol, InvalidInput
+from .logging import trace_logger as logger
+from .protocol.grpc.grpc_predict_v2_pb2 import ServerReadyResponse, \
     ServerLiveResponse, ModelReadyResponse, ServerReadyRequest, ServerLiveRequest, ModelReadyRequest
 from .protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
 from .protocol.infer_type import InferRequest, InferResponse
 from .utils.utils import is_v2, is_v1
 
+
+class _UseClientDefault:
+    """
+    For `timeout=...` parameter we need to be able to indicate the default "unset" state, in a way that is distinctly
+    different to using `None`.
+
+    The default "unset" state indicates that whatever default is set on the
+    client should be used. This is different to setting `None`, which
+    explicitly disables the parameter, possibly overriding a client default.
+
+    For example we use `timeout=USE_CLIENT_DEFAULT` in the `infer()` signature.
+    Omitting the `timeout` parameter will send a request using whatever default
+    timeout has been configured on the client. Including `timeout=None` will
+    ensure no timeout is used.
+
+    Note that user code shouldn't need to use the `USE_CLIENT_DEFAULT` constant,
+    but it is used internally when a parameter is not included.
+    """
+
+
+USE_CLIENT_DEFAULT = _UseClientDefault()
 
 class InferenceGRPCClient:
     """
@@ -47,6 +67,8 @@ class InferenceGRPCClient:
     :param creds: (optional) A ChannelCredentials instance for secure channel communication.
     :param channel_args: (optional) An list of key-value pairs (channel_arguments in gRPC Core runtime) to configure
                          the channel.
+    :param timeout (optional) The maximum end-to-end time, in seconds, the request is allowed to take. By default,
+                   client timeout is 60 seconds. To disable timeout explicitly set it to 'None'.
     """
 
     def __init__(self,
@@ -57,7 +79,8 @@ class InferenceGRPCClient:
                  private_key: str = None,
                  certificate_chain: str = None,
                  creds: grpc.ChannelCredentials = None,
-                 channel_args: List[Tuple[str, Any]] = None):
+                 channel_args: List[Tuple[str, Any]] = None,
+                 timeout: Optional[float] = 60):
 
         # requires appending the port to the predictor host for gRPC to work
         if ":" not in url:
@@ -96,6 +119,7 @@ class InferenceGRPCClient:
         self._client_stub = GRPCInferenceServiceStub(
             self._channel)
         self._verbose = verbose
+        self._timeout = timeout
 
     async def __aenter__(self):
         return self
@@ -110,16 +134,14 @@ class InferenceGRPCClient:
         """
         await self._channel.close()
 
-    async def infer(self,
-                    infer_request: Union[InferRequest, ModelInferRequest],
-                    client_timeout: Optional[float] = None,
-                    headers: Union[grpc.aio.Metadata, Sequence[Tuple[str, str]], None] = None) \
-            -> ModelInferResponse:
+    async def infer(self, infer_request: InferRequest, timeout: Optional[float, _UseClientDefault] = USE_CLIENT_DEFAULT,
+                    headers: Union[grpc.aio.Metadata, Sequence[Tuple[str, str]], None] = None) -> InferResponse:
         """
         Run asynchronous inference using the supplied inputs.
         :param infer_request: Inference input data as InferRequest or ModelInferRequest object.
-        :param client_timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take.
-                               The default value is None which means client will wait for the response from the server.
+        :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take.
+                        The default value is 60 seconds. To disable timeout explicitly set it to 'None'.
+                        This will override the client's timeout.
         :param headers: (optional) Additional headers to be transmitted with the request.
         :return: Inference output as ModelInferResponse.
         :raises RPCError for non-OK-status response.
@@ -128,6 +150,8 @@ class InferenceGRPCClient:
 
         if isinstance(infer_request, InferRequest):
             infer_request = infer_request.to_grpc()
+        else:
+            raise InvalidInput("Invalid input format")
         if self._verbose:
             logger.info("metadata: {}\n infer_request: {}".format(metadata, infer_request))
 
@@ -135,7 +159,8 @@ class InferenceGRPCClient:
             response = await self._client_stub.ModelInfer(
                 request=infer_request,
                 metadata=metadata,
-                timeout=client_timeout)
+                timeout=self._timeout if isinstance(_UseClientDefault, timeout) else timeout)
+            response = InferResponse.from_grpc(response)
             if self._verbose:
                 logger.info("infer response: %s", response)
             return response
@@ -143,19 +168,22 @@ class InferenceGRPCClient:
             logger.error("Failed to infer: %s", rpc_error, exc_info=True)
             raise rpc_error
 
-    async def is_server_ready(self, client_timeout: Optional[float] = None,
+    async def is_server_ready(self, timeout: Optional[float, _UseClientDefault] = USE_CLIENT_DEFAULT,
                               headers: Union[grpc.aio.Metadata, Sequence[Tuple[str, str]], None] = None) -> bool:
         """
         Get readiness of the inference server.
-        :param client_timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take.
-                               The default value is None which means client will wait for the response from the server.
+        :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take.
+                        The default value is 60 seconds. To disable timeout explicitly set it to 'None'.
+                        This will override the client's timeout.
         :param headers: (optional) Additional headers to be transmitted with the request.
         :return: True if server is ready, False if server is not ready.
         :raises RPCError for non-OK-status response.
         """
         try:
             response: ServerReadyResponse = await self._client_stub.ServerReady(ServerReadyRequest(),
-                                                                                timeout=client_timeout,
+                                                                                timeout=self._timeout if isinstance(
+                                                                                    _UseClientDefault,
+                                                                                    timeout) else timeout,
                                                                                 metadata=headers)
             if self._verbose:
                 logger.info("Server ready response: %s", response)
@@ -164,20 +192,24 @@ class InferenceGRPCClient:
             logger.error("Failed to get server readiness: %s", rpc_error, exc_info=True)
             raise rpc_error
 
-    async def is_server_live(self, client_timeout: Optional[float] = None,
+    async def is_server_live(self, timeout: Optional[float, _UseClientDefault] = USE_CLIENT_DEFAULT,
                              headers: Union[grpc.aio.Metadata, Sequence[Tuple[str, str]], None] = None) \
             -> bool:
         """
         Get liveness of the inference server.
-        :param client_timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take.
-                               The default value is None which means client will wait for the response from the server.
+        :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take.
+                        The default value is 60 seconds. To disable timeout explicitly set it to 'None'.
+                        This will override the client's timeout.
         :param headers: (optional) Additional headers to be transmitted with the request.
         :return: True if server is live, False if server is not live.
         :raises RPCError for non-OK-status response.
         """
         try:
             response: ServerLiveResponse = await self._client_stub.ServerLive(ServerLiveRequest(),
-                                                                              timeout=client_timeout, metadata=headers)
+                                                                              timeout=self._timeout if isinstance(
+                                                                                  _UseClientDefault,
+                                                                                  timeout) else timeout,
+                                                                              metadata=headers)
             if self._verbose:
                 logger.info("Server live response: %s", response)
             return response.live
@@ -185,20 +217,24 @@ class InferenceGRPCClient:
             logger.error("Failed to get server liveness: %s", rpc_error, exc_info=True)
             raise rpc_error
 
-    async def is_model_ready(self, model_name: str, client_timeout: Optional[float] = None,
+    async def is_model_ready(self, model_name: str, timeout: Optional[float, _UseClientDefault] = USE_CLIENT_DEFAULT,
                              headers: Union[grpc.aio.Metadata, Sequence[Tuple[str, str]], None] = None) -> bool:
         """
         Get readiness of the specified model.
         :param model_name:  The name of the model to check for readiness.
-        :param client_timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take.
-                               The default value is None which means client will wait for the response from the server.
+        :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take.
+                        The default value is 60 seconds. To disable timeout explicitly set it to 'None'.
+                        This will override the client's timeout.
         :param headers: (optional) Additional headers to be transmitted with the request.
         :return: True if model is ready, False if model is not ready.
         :raises RPCError for non-OK-status response or specified model not found.
         """
         try:
             response: ModelReadyResponse = await self._client_stub.ModelReady(ModelReadyRequest(name=model_name),
-                                                                              timeout=client_timeout, metadata=headers)
+                                                                              timeout=self._timeout if isinstance(
+                                                                                  _UseClientDefault,
+                                                                                  timeout) else timeout,
+                                                                              metadata=headers)
             if self._verbose:
                 logger.info("Model %s ready response: %s", model_name, response)
             return response.ready
@@ -216,7 +252,7 @@ class RESTConfig:
     :param retries (optional) An integer value indicating the number of retries in case of ConnectError or
                    ConnectTimeout. Defaults to 3.
     :param timeout (optional) The maximum end-to-end time, in seconds, the request is allowed to take. By default,
-                   client waits for the response.
+                   client timeout is 60 seconds. To disable timeout explicitly set it to None.
     :param http2 (optional) A boolean indicating if HTTP/2 support should be enabled. Defaults to False.
     :param cert (optional) An SSL certificate used by the requested host to authenticate the client.
                 Either a path to an SSL certificate file, or two-tuple of (certificate file, key file), or
@@ -228,8 +264,8 @@ class RESTConfig:
     :param verbose (optional) A boolean to enable verbose logging. Defaults to False.
     """
 
-    def __init__(self, transport: AsyncBaseTransport = None, protocol: Union[str, PredictorProtocol] = "v1",
-                 retries: int = 3, http2: bool = False, timeout: Union[float, None, tuple, httpx.Timeout] = None,
+    def __init__(self, transport: httpx.AsyncBaseTransport = None, protocol: Union[str, PredictorProtocol] = "v1",
+                 retries: int = 3, http2: bool = False, timeout: Union[float, None, tuple, httpx.Timeout] = 60,
                  cert=None, verify: Union[str, bool, ssl.SSLContext] = True, auth=None, verbose: bool = False):
         self.transport = transport
         self.protocol = protocol
@@ -274,49 +310,35 @@ class InferenceRESTClient:
             base_url.join("/")
         return base_url.join(relative_url.lstrip("/"))
 
-    # async def predict(self, url: Union[Url, str], data: Dict, headers: Optional[Mapping[str, str]] = None,
-    #                   timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
-    #     """
-    #     Run asynchronous inference using the supplied data. This method follows the V1 protocol specification.
-    #     :param url: Inference url
-    #     :param data: Input data as python dict.
-    #     :param headers: (optional) HTTP headers to include when sending request.
-    #     :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
-    #                     override the timeout in the RESTConfig. By default, client waits for the response.
-    #     :return: Inference result as python dict.
-    #     :raises HTTPStatusError for response codes other than 2xx.
-    #     """
-    #     if self._config.verbose:
-    #         logger.info("url: %s", url)
-    #         logger.info("request data: %s", data)
-    #     data = orjson.dumps(data)
-    #     response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
-    #     if self._config.verbose:
-    #         logger.info("response code: %s, content: %s", response.status_code, response.text)
-    #     if not response.is_success:
-    #         message = (
-    #             "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-    #         )
-    #         error_message = ""
-    #         if "content-type" in response.headers and response.headers["content-type"] == "application/json":
-    #             error_message = response.json()
-    #             if "error" in error_message:
-    #                 error_message = error_message["error"]
-    #         message = message.format(response, error_message=error_message)
-    #         raise HTTPStatusError(message, request=response.request, response=response)
-    #     return orjson.loads(response.content)
+    def _consturct_http_status_error(self, response: httpx.Response) -> httpx.HTTPStatusError:
+        message = (
+            "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
+        )
+        error_message = ""
+        if "content-type" in response.headers and response.headers["content-type"] == "application/json":
+            error_message = response.json()
+            if "error" in error_message:
+                error_message = error_message["error"]
+        message = message.format(response, error_message=error_message)
+        return httpx.HTTPStatusError(message, request=response.request, response=response)
 
     async def infer(self, base_url: Union[httpx.URL, str], model_name: str, data: Union[InferRequest, dict],
-                    headers: Optional[Mapping[str, str]] = None,
-                    timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Union[InferResponse, Dict]:
+                    headers: Optional[Mapping[str, str]] = None, is_graph_endpoint: bool = False,
+                    timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT) \
+            -> Union[InferResponse, Dict]:
         """
         Run asynchronous inference using the supplied data.
         :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
         :param model_name: Name of the model as string.
         :param data: Input data as InferRequest object.
         :param headers: (optional) HTTP headers to include when sending request.
+        :param is_graph_endpoint: (optional) If set to True the base_url will be considered as an inference graph
+                                  endpoint and will be used as it is for making the request regardless of the
+                                  protocol specified in the RESTConfig. The result will be returned as dict object.
+                                  Defaults to False.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
-                        override the timeout in the RESTConfig. By default, client waits for the response.
+                        override the timeout in the RESTConfig. The default value is 60 seconds.
+                        To disable timeout explicitly set it to 'None'.
         :return: Inference result as InferResponse object or python dict.
         :raises HTTPStatusError for response codes other than 2xx.
         """
@@ -324,6 +346,8 @@ class InferenceRESTClient:
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:predict")
         elif is_v2(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}/infer")
+        elif is_graph_endpoint:
+            url = base_url
         else:
             raise UnsupportedProtocol(self._config.protocol)
         if self._config.verbose:
@@ -337,27 +361,20 @@ class InferenceRESTClient:
         if self._config.verbose:
             logger.info("response code: %s, content: %s", response.status_code, response.text)
         if not response.is_success:
-            message = (
-                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-            )
-            error_message = ""
-            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
-                error_message = response.json()
-                if "error" in error_message:
-                    error_message = error_message["error"]
-            message = message.format(response, error_message=error_message)
-            raise HTTPStatusError(message, request=response.request, response=response)
+            raise self._consturct_http_status_error(response)
         output = orjson.loads(response.content)
-        # Try converting the output to InferResponse. If failed it might be an inference graph result or v1 result,
-        # so return it as dict.
-        try:
+        # if inference graph result, return it as dict
+        if is_graph_endpoint:
+            return output
+        elif is_v2(self._config.protocol):
             return InferResponse.from_rest(output.get("model_name"), response=output)
-        except KeyError:
+        # Should be v1 protocol result return it as dict
+        else:
             return output
 
     async def explain(self, base_url: Union[httpx.URL, str], model_name: str,
                       data: Dict, headers: Optional[Mapping[str, str]] = None,
-                      timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
+                      timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT) -> Dict:
         """
         Run asynchronous explanation using the supplied data.
         :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
@@ -365,7 +382,8 @@ class InferenceRESTClient:
         :param data: Input data as python dict.
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
-                                override the timeout in the RESTConfig. By default, client waits for the response.
+                        override the timeout in the RESTConfig. The default value is 60 seconds.
+                        To disable timeout explicitly set it to 'None'.
         :return: Explain result as python dict.
         :raises HTTPStatusError for response codes other than 2xx.
         """
@@ -381,79 +399,79 @@ class InferenceRESTClient:
         if self._config.verbose:
             logger.info("response code: %s, content: %s", response.status_code, response.text)
         if not response.is_success:
-            message = (
-                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-            )
-            error_message = ""
-            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
-                error_message = response.json()
-                if "error" in error_message:
-                    error_message = error_message["error"]
-            message = message.format(response, error_message=error_message)
-            raise HTTPStatusError(message, request=response.request, response=response)
+            raise self._consturct_http_status_error(response)
         return orjson.loads(response.content)
 
     async def is_server_ready(self, base_url: Union[httpx.URL, str], headers: Optional[Mapping[str, str]] = None,
-                              timeout: Union[float, None, tuple, httpx.Timeout] = None) -> bool:
+                              timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT) -> bool:
         """
         Get readiness of the inference server.
         :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
-                        override the timeout in the RESTConfig. By default, client waits for the response.
+                        override the timeout in the RESTConfig. The default value is 60 seconds.
+                        To disable timeout explicitly set it to 'None'.
         :return: True if server is ready, False if server is not ready.
         :raises HTTPStatusError for response codes other than 2xx.
         """
-        if not is_v2(self._config.protocol):
+        if is_v2(self._config.protocol):
+            url = self._construct_url(base_url, f"{self._config.protocol}/health/ready")
+        else:
             raise UnsupportedProtocol(protocol_version=self._config.protocol)
-        url = self._construct_url(base_url, f"{self._config.protocol}/health/ready")
         if self._config.verbose:
             logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
-        res = await self._client.get(url, headers=headers, timeout=timeout)
+        response = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("response code: %s, content: %s", res.status_code, res.text)
-        res.raise_for_status()
-        return res.json().get("ready")
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
+        if not response.is_success:
+            raise self._consturct_http_status_error(response)
+        return response.json().get("ready")
 
     async def is_server_live(self, base_url: Union[str, httpx.URL], headers: Optional[Mapping[str, str]] = None,
-                             timeout: Union[float, None, tuple, httpx.Timeout] = None) -> bool:
+                             timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT) -> bool:
         """
         Get liveness of the inference server.
         :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
-                        override the timeout in the RESTConfig. By default, client waits for the response.
+                        override the timeout in the RESTConfig. The default value is 60 seconds.
+                        To disable timeout explicitly set it to 'None'.
         :return: True if server is ready, False if server is not ready.
         :raises HTTPStatusError for response codes other than 2xx.
         :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
-        url = self._construct_url(base_url, "")
-        if is_v2(self._config.protocol):
+        if is_v1(self._config.protocol):
+            url = self._construct_url(base_url, "")
+        elif is_v2(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/health/live")
+        else:
+            raise UnsupportedProtocol(protocol_version=self._config.protocol)
         if self._config.verbose:
             logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
-        res = await self._client.get(url, headers=headers, timeout=timeout)
+        response = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("response code: %s, content: %s", res.status_code, res.text)
-        res.raise_for_status()
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
+        if not response.is_success:
+            raise self._consturct_http_status_error(response)
         if is_v1(self._config.protocol):
-            is_live = res.json().get("status").lower() == "alive"
+            is_live = response.json().get("status").lower() == "alive"
         elif is_v2(self._config.protocol):
-            is_live = res.json().get("live")
+            is_live = response.json().get("live")
         else:
             raise UnsupportedProtocol(protocol_version=self._config.protocol)
         return is_live
 
     async def is_model_ready(self, base_url: Union[httpx.URL, str], model_name: str,
                              headers: Optional[Mapping[str, str]] = None,
-                             timeout: Union[float, None, tuple, httpx.Timeout] = None) -> bool:
+                             timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT) -> bool:
         """
         Get readiness of the specified model.
         :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
         :param model_name: Name of the model as string.
         :param headers: (optional) HTTP headers to include when sending request.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
-                        override the timeout in the RESTConfig. By default, client waits for the response.
+                        override the timeout in the RESTConfig. The default value is 60 seconds.
+                        To disable timeout explicitly set it to 'None'.
         :return: True if server is ready, False if server is not ready.
         :raises HTTPStatusError for response codes other than 2xx.
         :raises UnsupportedProtocol if the specified protocol version is not supported.
@@ -466,19 +484,20 @@ class InferenceRESTClient:
             raise UnsupportedProtocol(protocol_version=self._config.protocol)
         if self._config.verbose:
             logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
-        res = await self._client.get(url, headers=headers, timeout=timeout)
+        response = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("response code: %s, content: %s", res.status_code, res.text)
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
 
         # Model Server responds with 503 service unavailable error if model is not ready
-        if res.status_code == httpx.codes.SERVICE_UNAVAILABLE:
+        if response.status_code == httpx.codes.SERVICE_UNAVAILABLE:
             return False
         # Raise for other status codes
-        res.raise_for_status()
+        if not response.is_success:
+            raise self._consturct_http_status_error(response)
         if is_v1(self._config.protocol):
-            is_ready = res.json().get("ready").lower() == "true"
+            is_ready = response.json().get("ready").lower() == "true"
         else:
-            is_ready = res.json().get("ready")
+            is_ready = response.json().get("ready")
         return is_ready
 
     async def close(self):

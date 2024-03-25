@@ -83,17 +83,6 @@ class TestInferenceRESTClient:
             assert await rest_client.is_model_ready("http://test-server", "NotReadyModel",
                                                     headers={"Host": "test-server.com"}, timeout=1.3) is False
 
-    # async def test_predict(self, rest_client):
-    #     input_data = {"instances": [1, 2]}
-    #     res = await rest_client.predict("http://test-server/v1/models/TestModel:predict", data=input_data,
-    #                                     headers={"Host": "test-server.com"}, timeout=2)
-    #     assert res["predictions"] == [1, 2]
-    #
-    #     input_data = {"inputs": [1, 2]}
-    #     res = await rest_client.predict("http://test-server/v1/models/TestModel:predict", data=input_data,
-    #                                     headers={"Host": "test-server.com"}, timeout=2)
-    #     assert res["predictions"] == [1, 2]
-
     @pytest.mark.parametrize("rest_client, protocol", [("v1", "v1"), ("v2", "v2"), ("v3", "v3")],
                              indirect=["rest_client"])
     async def test_infer(self, rest_client, protocol):

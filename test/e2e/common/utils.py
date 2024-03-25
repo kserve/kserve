@@ -48,20 +48,6 @@ rest_client_v2 = None
 grpc_client = None
 
 logging.basicConfig(level=logging.INFO)
-LOG_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "kserve": {
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stderr",
-        },
-    },
-    "loggers": {
-        "kserve": {"handlers": ["kserve"], "level": "INFO", "propagate": True},
-    },
-}
-logging.config.dictConfig(LOG_CONFIG)
 
 
 def grpc_stub(host):
@@ -122,7 +108,7 @@ async def predict_isvc(service_name, input_path, protocol_version="v1",
     return await predict(base_url, host, input_path, protocol_version, is_batch)
 
 
-async def predict(url, host, input_path, protocol_version="v1", is_batch=False) \
+async def predict(url, host, input_path, protocol_version="v1", is_batch=False, is_graph=False) \
         -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     with open(input_path) as json_file:
         data = json.load(json_file)
@@ -134,19 +120,19 @@ async def predict(url, host, input_path, protocol_version="v1", is_batch=False) 
                                                       protocol_version) for input_data in data]
             result = await asyncio.gather(*future_list)
     else:
-        result = await _predict(url, data, headers, protocol_version)
+        result = await _predict(url, data, headers, protocol_version, is_graph=is_graph)
     logging.info("Got response %s", result)
     return result
 
 
-async def _predict(url, input_data, headers=None, protocol_version="v1") -> Union[InferResponse, Dict]:
+async def _predict(url, input_data, headers=None, protocol_version="v1", is_graph=False) -> Union[InferResponse, Dict]:
     client = get_rest_client(protocol=protocol_version)
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_data)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     await asyncio.sleep(3)
-    response = await client.infer(url, input_data, headers)
+    response = await client.infer(url, input_data, headers, is_graph_endpoint=is_graph)
     return response
 
 
@@ -161,7 +147,7 @@ async def predict_ig(ig_name, input_path, protocol_version="v1",
     )
     cluster_ip, host, _ = get_isvc_endpoint(ig)
     url = f"http://{cluster_ip}"
-    return await predict(url, host, input_path, protocol_version)
+    return await predict(url, host, input_path, protocol_version, is_graph=True)
 
 
 async def explain(service_name, input_path):
