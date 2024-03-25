@@ -765,6 +765,72 @@ func TestMergeRuntimeContainers(t *testing.T) {
 				},
 			},
 		},
+		"OverlappingContainerArgs": {
+			containerBase: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+			},
+			containerOverride: &v1.Container{
+				Args: []string{
+					"--foo=bar",
+					"--new=v1",
+				},
+			},
+			expected: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--new=v1",
+				},
+			},
+		},
+		"EmptyOverrideContainerArgs": {
+			containerBase: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+			},
+			containerOverride: &v1.Container{
+				Args: []string{},
+			},
+			expected: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+			},
+		},
+		"EmptyBaseContainerArgs": {
+			containerBase: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args:  []string{},
+			},
+			containerOverride: &v1.Container{
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+			},
+			expected: &v1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+				},
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {
