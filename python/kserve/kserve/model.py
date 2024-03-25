@@ -127,31 +127,31 @@ class Model:
         prom_labels = get_labels(self.name)
 
         with PRE_HIST_TIME.labels(**prom_labels).time():
-            start = time.time()
+            start = time.monotonic()
             payload = await self.preprocess(body, headers) if inspect.iscoroutinefunction(self.preprocess) \
                 else self.preprocess(body, headers)
-            preprocess_ms = get_latency_ms(start, time.time())
+            preprocess_ms = get_latency_ms(start, time.monotonic())
         payload = self.validate(payload)
         if verb == InferenceVerb.EXPLAIN:
             with EXPLAIN_HIST_TIME.labels(**prom_labels).time():
-                start = time.time()
+                start = time.monotonic()
                 response = (await self.explain(payload, headers)) if inspect.iscoroutinefunction(self.explain) \
                     else self.explain(payload, headers)
-                explain_ms = get_latency_ms(start, time.time())
+                explain_ms = get_latency_ms(start, time.monotonic())
         elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
-                start = time.time()
+                start = time.monotonic()
                 response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
                     else self.predict(payload, headers)
-                predict_ms = get_latency_ms(start, time.time())
+                predict_ms = get_latency_ms(start, time.monotonic())
         else:
             raise NotImplementedError
 
         with POST_HIST_TIME.labels(**prom_labels).time():
-            start = time.time()
+            start = time.monotonic()
             response = await self.postprocess(response, headers) if inspect.iscoroutinefunction(self.postprocess) \
                 else self.postprocess(response, headers)
-            postprocess_ms = get_latency_ms(start, time.time())
+            postprocess_ms = get_latency_ms(start, time.monotonic())
 
         if self.enable_latency_logging is True:
             trace_logger.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, "

@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
 import uuid
-from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
 
 from torch import Tensor
 
+from kserve.metrics import get_llm_stats_header
 from kserve.model import PredictorConfig
 from kserve.protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse, Token, Details
 from .async_generate_stream import AsyncGenerateStream
@@ -38,6 +40,7 @@ try:
     from vllm.sampling_params import SamplingParams
     from vllm.engine.async_llm_engine import AsyncLLMEngine
     from vllm.model_executor.models import ModelRegistry
+
     _vllm = True
 except ImportError:
     _vllm = False
@@ -78,6 +81,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.vllm_engine_args = engine_args
         self.use_vllm = not kwargs.get('disable_vllm', False) if _vllm else False
         self.ready = False
+        self.thread_pool = ThreadPoolExecutor(max_workers=1)
 
     @staticmethod
     def infer_task_from_model_architecture(model_config: str):
@@ -104,7 +108,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if self.model_dir:
             model_id_or_path = pathlib.Path(Storage.download(self.model_dir))
             # TODO Read the mapping file, index to object name
-        if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
+        if self.use_vllm and self.device == torch.device("cuda"):  # vllm needs gpu
             if self.infer_vllm_supported_from_model_architecture(model_id_or_path):
                 self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
@@ -116,7 +120,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if not self.task:
             self.task = self.infer_task_from_model_architecture(model_config)
 
-        # device_map = "auto" enables model parallelism but all model architcture dont support it.
+        # device_map = "auto" enables model parallelism but all model architecture don't support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
@@ -164,6 +168,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
         # Serialize to tensor
         if self.predictor_host:
+            start_time = time.monotonic()
             inputs = self.tokenizer(
                 instances,
                 max_length=self.max_length,
@@ -173,6 +178,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 padding=True,
                 truncation=True
             )
+            stats = get_llm_stats_header(context)
+            stats.prompt_token_time_taken = time.monotonic() - start_time
+            stats.num_prompt_tokens = [len(input_ids) for input_ids in inputs["input_ids"]]
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
             infer_inputs = []
@@ -184,6 +192,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             infer_request = InferRequest(infer_inputs=infer_inputs, model_name=self.name)
             return infer_request
         else:
+            start_time = time.monotonic()
             inputs = self.tokenizer(
                 instances,
                 max_length=self.max_length,
@@ -195,6 +204,11 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
+            stats = get_llm_stats_header(context)
+            print("input id", inputs["input_ids"])
+            print(inputs)
+            stats.num_prompt_tokens = [len(input_ids) for input_ids in inputs["input_ids"]]
+            stats.prompt_token_time_taken = time.monotonic() - start_time
             return inputs
 
     async def generate(self, generate_request: GenerateRequest, headers: Dict[str, str] = None) \
@@ -209,27 +223,32 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             )
             return results_generator
         else:
+            start_time = time.monotonic()
             input_batch = self.tokenizer(
                 prompt,
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
                 return_tensors=TensorType.PYTORCH,
             )
+            stats = get_llm_stats_header(headers)
+            stats.num_prompt_tokens = [len(input_ids) for input_ids in input_batch["input_ids"]]
+            stats.prompt_token_time_taken = time.monotonic() - start_time
             input_batch = input_batch.to(self.device)
             if headers.get("streaming", "false") == "true":
                 streamer = AsyncGenerateStream(self.tokenizer)
                 generation_kwargs = dict(**input_batch, streamer=streamer)
                 if parameters:
                     generation_kwargs = dict(**input_batch, **parameters, streamer=streamer)
-                # TODO change to use thread pool executor
-                thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
-                thread.start()
+                self.thread_pool.submit(self.model.generate, **generation_kwargs)
                 return streamer
             else:
+                start_time = time.monotonic()
                 if parameters:
                     output_ids = self.model.generate(**input_batch, **parameters)
                 else:
                     output_ids = self.model.generate(**input_batch)
+                stats.generation_token_time_taken = time.monotonic() - start_time
+                stats.num_generated_tokens = [len(output_id) for output_id in output_ids]
                 outputs = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
                 token_outputs = [Token(id=output_id, special=False, logprob=0,  # TODO set logprob
                                        text=self.tokenizer.decode(output_id, skip_special_tokens=True))
@@ -242,10 +261,12 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if self.vllm_engine:
             raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
 
+        start_time = time.monotonic()
+        stats = get_llm_stats_header(context)
         if self.predictor_host:
             # when predictor_host is provided, serialize the tensor and send to optimized model serving runtime
             # like NVIDIA triton inference server
-            return await super().predict(input_batch, context)
+            result = await super().predict(input_batch, context)
         else:
             input_batch = input_batch.to(self.device)
             try:
@@ -254,9 +275,12 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                         outputs = self.model.generate(**input_batch)
                     else:
                         outputs = self.model(**input_batch).logits
-                    return outputs
+                    stats.num_generation_tokens = [len(output) for output in outputs]
+                    result = outputs
             except Exception as e:
                 raise InferenceError(str(e))
+        stats.generation_token_time_taken = time.monotonic() - start_time
+        return result
 
     def postprocess(self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any] = None) \
             -> Union[Dict, InferResponse]:
