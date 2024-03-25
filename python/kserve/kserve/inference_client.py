@@ -18,7 +18,6 @@ from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping, Dict
 
 import grpc
 import httpx
-from httpx import AsyncBaseTransport, HTTPStatusError
 from orjson import orjson
 
 from .errors import UnsupportedProtocol
@@ -231,7 +230,7 @@ class RESTConfig:
     :param verbose (optional) A boolean to enable verbose logging. Defaults to False.
     """
 
-    def __init__(self, transport: AsyncBaseTransport = None, protocol: Union[str, PredictorProtocol] = "v1",
+    def __init__(self, transport: httpx.AsyncBaseTransport = None, protocol: Union[str, PredictorProtocol] = "v1",
                  retries: int = 3, http2: bool = False, timeout: Union[float, None, tuple, httpx.Timeout] = None,
                  cert=None, verify: Union[str, bool, ssl.SSLContext] = True, auth=None, verbose: bool = False):
         self.transport = transport
@@ -277,40 +276,20 @@ class InferenceRESTClient:
             base_url.join("/")
         return base_url.join(relative_url.lstrip("/"))
 
-    # async def predict(self, url: Union[Url, str], data: Dict, headers: Optional[Mapping[str, str]] = None,
-    #                   timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Dict:
-    #     """
-    #     Run asynchronous inference using the supplied data. This method follows the V1 protocol specification.
-    #     :param url: Inference url
-    #     :param data: Input data as python dict.
-    #     :param headers: (optional) HTTP headers to include when sending request.
-    #     :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
-    #                     override the timeout in the RESTConfig. By default, client waits for the response.
-    #     :return: Inference result as python dict.
-    #     :raises HTTPStatusError for response codes other than 2xx.
-    #     """
-    #     if self._config.verbose:
-    #         logger.info("url: %s", url)
-    #         logger.info("request data: %s", data)
-    #     data = orjson.dumps(data)
-    #     response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
-    #     if self._config.verbose:
-    #         logger.info("response code: %s, content: %s", response.status_code, response.text)
-    #     if not response.is_success:
-    #         message = (
-    #             "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-    #         )
-    #         error_message = ""
-    #         if "content-type" in response.headers and response.headers["content-type"] == "application/json":
-    #             error_message = response.json()
-    #             if "error" in error_message:
-    #                 error_message = error_message["error"]
-    #         message = message.format(response, error_message=error_message)
-    #         raise HTTPStatusError(message, request=response.request, response=response)
-    #     return orjson.loads(response.content)
+    def _consturct_http_status_error(self, response: httpx.Response) -> httpx.HTTPStatusError:
+        message = (
+            "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
+        )
+        error_message = ""
+        if "content-type" in response.headers and response.headers["content-type"] == "application/json":
+            error_message = response.json()
+            if "error" in error_message:
+                error_message = error_message["error"]
+        message = message.format(response, error_message=error_message)
+        return httpx.HTTPStatusError(message, request=response.request, response=response)
 
     async def infer(self, base_url: Union[httpx.URL, str], model_name: str, data: Union[InferRequest, dict],
-                    headers: Optional[Mapping[str, str]] = None,
+                    headers: Optional[Mapping[str, str]] = None, is_graph_endpoint: bool = False,
                     timeout: Union[float, None, tuple, httpx.Timeout] = None) -> Union[InferResponse, Dict]:
         """
         Run asynchronous inference using the supplied data.
@@ -318,6 +297,10 @@ class InferenceRESTClient:
         :param model_name: Name of the model as string.
         :param data: Input data as InferRequest object.
         :param headers: (optional) HTTP headers to include when sending request.
+        :param is_graph_endpoint: (optional) If set to True the base_url will be considered as an inference graph
+                                  endpoint and will be used as it is for making the request regardless of the
+                                  protocol specified in the RESTConfig. The result will be returned as dict object.
+                                  Defaults to False.
         :param timeout: (optional) The maximum end-to-end time, in seconds, the request is allowed to take. This will
                         override the timeout in the RESTConfig. By default, client waits for the response.
         :return: Inference result as InferResponse object or python dict.
@@ -327,6 +310,8 @@ class InferenceRESTClient:
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:predict")
         elif is_v2(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}/infer")
+        elif is_graph_endpoint:
+            url = base_url
         else:
             raise UnsupportedProtocol(self._config.protocol)
         if self._config.verbose:
@@ -340,22 +325,15 @@ class InferenceRESTClient:
         if self._config.verbose:
             logger.info("response code: %s, content: %s", response.status_code, response.text)
         if not response.is_success:
-            message = (
-                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-            )
-            error_message = ""
-            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
-                error_message = response.json()
-                if "error" in error_message:
-                    error_message = error_message["error"]
-            message = message.format(response, error_message=error_message)
-            raise HTTPStatusError(message, request=response.request, response=response)
+            raise self._consturct_http_status_error(response)
         output = orjson.loads(response.content)
-        # Try converting the output to InferResponse. If failed it might be an inference graph result or v1 result,
-        # so return it as dict.
-        try:
+        # if inference graph result, return it as dict
+        if is_graph_endpoint:
+            return output
+        elif is_v2(self._config.protocol):
             return InferResponse.from_rest(output.get("model_name"), response=output)
-        except KeyError:
+        # Should be v1 protocol result return it as dict
+        else:
             return output
 
     async def explain(self, base_url: Union[httpx.URL, str], model_name: str,
@@ -384,16 +362,7 @@ class InferenceRESTClient:
         if self._config.verbose:
             logger.info("response code: %s, content: %s", response.status_code, response.text)
         if not response.is_success:
-            message = (
-                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-            )
-            error_message = ""
-            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
-                error_message = response.json()
-                if "error" in error_message:
-                    error_message = error_message["error"]
-            message = message.format(response, error_message=error_message)
-            raise HTTPStatusError(message, request=response.request, response=response)
+            raise self._consturct_http_status_error(response)
         return orjson.loads(response.content)
 
     async def is_server_ready(self, base_url: Union[httpx.URL, str], headers: Optional[Mapping[str, str]] = None,
@@ -407,16 +376,18 @@ class InferenceRESTClient:
         :return: True if server is ready, False if server is not ready.
         :raises HTTPStatusError for response codes other than 2xx.
         """
-        if not is_v2(self._config.protocol):
+        if is_v2(self._config.protocol):
+            url = self._construct_url(base_url, f"{self._config.protocol}/health/ready")
+        else:
             raise UnsupportedProtocol(protocol_version=self._config.protocol)
-        url = self._construct_url(base_url, f"{self._config.protocol}/health/ready")
         if self._config.verbose:
             logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
-        res = await self._client.get(url, headers=headers, timeout=timeout)
+        response = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("response code: %s, content: %s", res.status_code, res.text)
-        res.raise_for_status()
-        return res.json().get("ready")
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
+        if not response.is_success:
+            raise self._consturct_http_status_error(response)
+        return response.json().get("ready")
 
     async def is_server_live(self, base_url: Union[str, httpx.URL], headers: Optional[Mapping[str, str]] = None,
                              timeout: Union[float, None, tuple, httpx.Timeout] = None) -> bool:
@@ -430,19 +401,23 @@ class InferenceRESTClient:
         :raises HTTPStatusError for response codes other than 2xx.
         :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
-        url = self._construct_url(base_url, "")
-        if is_v2(self._config.protocol):
+        if is_v1(self._config.protocol):
+            url = self._construct_url(base_url, "")
+        elif is_v2(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/health/live")
+        else:
+            raise UnsupportedProtocol(protocol_version=self._config.protocol)
         if self._config.verbose:
             logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
-        res = await self._client.get(url, headers=headers, timeout=timeout)
+        response = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("response code: %s, content: %s", res.status_code, res.text)
-        res.raise_for_status()
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
+        if not response.is_success:
+            raise self._consturct_http_status_error(response)
         if is_v1(self._config.protocol):
-            is_live = res.json().get("status").lower() == "alive"
+            is_live = response.json().get("status").lower() == "alive"
         elif is_v2(self._config.protocol):
-            is_live = res.json().get("live")
+            is_live = response.json().get("live")
         else:
             raise UnsupportedProtocol(protocol_version=self._config.protocol)
         return is_live
@@ -469,19 +444,20 @@ class InferenceRESTClient:
             raise UnsupportedProtocol(protocol_version=self._config.protocol)
         if self._config.verbose:
             logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
-        res = await self._client.get(url, headers=headers, timeout=timeout)
+        response = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info("response code: %s, content: %s", res.status_code, res.text)
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
 
         # Model Server responds with 503 service unavailable error if model is not ready
-        if res.status_code == httpx.codes.SERVICE_UNAVAILABLE:
+        if response.status_code == httpx.codes.SERVICE_UNAVAILABLE:
             return False
         # Raise for other status codes
-        res.raise_for_status()
+        if not response.is_success:
+            raise self._consturct_http_status_error(response)
         if is_v1(self._config.protocol):
-            is_ready = res.json().get("ready").lower() == "true"
+            is_ready = response.json().get("ready").lower() == "true"
         else:
-            is_ready = res.json().get("ready")
+            is_ready = response.json().get("ready")
         return is_ready
 
     async def close(self):
