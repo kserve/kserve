@@ -62,20 +62,28 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 	podSpec *corev1.PodSpec) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
+	deployment := &appsv1.Deployment{ObjectMeta: componentMeta}
+	defaultMatchLabels := map[string]string{"app": constants.GetRawServiceLabel(componentMeta.Name)}
 	setDefaultPodSpec(podSpec)
-	deployment := &appsv1.Deployment{
-		ObjectMeta: componentMeta,
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": constants.GetRawServiceLabel(componentMeta.Name),
-				},
-			},
+	if componentExt.RawDeploymentSpec != nil {
+		deployment.Spec = *componentExt.RawDeploymentSpec
+		if selector := componentExt.RawDeploymentSpec.Selector; selector != nil {
+			for k, v := range selector.MatchLabels {
+				defaultMatchLabels[k] = v
+			}
+		}
+		deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: defaultMatchLabels}
+		deployment.Spec.Template.ObjectMeta = podMetadata
+		setDefaultPodSpec(&deployment.Spec.Template.Spec)
+	} else {
+		setDefaultPodSpec(podSpec)
+		deployment.Spec = appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{MatchLabels: defaultMatchLabels},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podMetadata,
 				Spec:       *podSpec,
 			},
-		},
+		}
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 	return deployment

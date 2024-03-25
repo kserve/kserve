@@ -55,6 +55,7 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
+        'raw_deployment_spec': 'K8sIoApiAppsV1DeploymentSpec',
         'scale_metric': 'str',
         'scale_target': 'int',
         'timeout': 'int'
@@ -69,12 +70,13 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
+        'raw_deployment_spec': 'rawDeploymentSpec',
         'scale_metric': 'scaleMetric',
         'scale_target': 'scaleTarget',
         'timeout': 'timeout'
     }
 
-    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, labels=None, logger=None, max_replicas=None, min_replicas=None, raw_deployment_spec=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -88,6 +90,7 @@ class V1beta1ComponentExtensionSpec(object):
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
+        self._raw_deployment_spec = None
         self._scale_metric = None
         self._scale_target = None
         self._timeout = None
@@ -109,6 +112,8 @@ class V1beta1ComponentExtensionSpec(object):
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
+        if raw_deployment_spec is not None:
+            self.raw_deployment_spec = raw_deployment_spec
         if scale_metric is not None:
             self.scale_metric = scale_metric
         if scale_target is not None:
@@ -295,6 +300,27 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._min_replicas = min_replicas
+
+    @property
+    def raw_deployment_spec(self):
+        """Gets the raw_deployment_spec of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The raw_deployment_spec of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: K8sIoApiAppsV1DeploymentSpec
+        """
+        return self._raw_deployment_spec
+
+    @raw_deployment_spec.setter
+    def raw_deployment_spec(self, raw_deployment_spec):
+        """Sets the raw_deployment_spec of this V1beta1ComponentExtensionSpec.
+
+
+        :param raw_deployment_spec: The raw_deployment_spec of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: K8sIoApiAppsV1DeploymentSpec
+        """
+
+        self._raw_deployment_spec = raw_deployment_spec
 
     @property
     def scale_metric(self):

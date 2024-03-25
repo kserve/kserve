@@ -85,6 +85,7 @@ class V1beta1PredictorSpec(object):
         'priority': 'int',
         'priority_class_name': 'str',
         'pytorch': 'V1beta1TorchServeSpec',
+        'raw_deployment_spec': 'K8sIoApiAppsV1DeploymentSpec',
         'readiness_gates': 'list[V1PodReadinessGate]',
         'resource_claims': 'list[V1PodResourceClaim]',
         'restart_policy': 'str',
@@ -149,6 +150,7 @@ class V1beta1PredictorSpec(object):
         'priority': 'priority',
         'priority_class_name': 'priorityClassName',
         'pytorch': 'pytorch',
+        'raw_deployment_spec': 'rawDeploymentSpec',
         'readiness_gates': 'readinessGates',
         'resource_claims': 'resourceClaims',
         'restart_policy': 'restartPolicy',
@@ -174,7 +176,7 @@ class V1beta1PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, huggingface=None, image_pull_secrets=None, init_containers=None, labels=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, onnx=None, os=None, overhead=None, paddle=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, huggingface=None, image_pull_secrets=None, init_containers=None, labels=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, onnx=None, os=None, overhead=None, paddle=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, raw_deployment_spec=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -218,6 +220,7 @@ class V1beta1PredictorSpec(object):
         self._priority = None
         self._priority_class_name = None
         self._pytorch = None
+        self._raw_deployment_spec = None
         self._readiness_gates = None
         self._resource_claims = None
         self._restart_policy = None
@@ -319,6 +322,8 @@ class V1beta1PredictorSpec(object):
             self.priority_class_name = priority_class_name
         if pytorch is not None:
             self.pytorch = pytorch
+        if raw_deployment_spec is not None:
+            self.raw_deployment_spec = raw_deployment_spec
         if readiness_gates is not None:
             self.readiness_gates = readiness_gates
         if resource_claims is not None:
@@ -1215,6 +1220,27 @@ class V1beta1PredictorSpec(object):
         """
 
         self._pytorch = pytorch
+
+    @property
+    def raw_deployment_spec(self):
+        """Gets the raw_deployment_spec of this V1beta1PredictorSpec.  # noqa: E501
+
+
+        :return: The raw_deployment_spec of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: K8sIoApiAppsV1DeploymentSpec
+        """
+        return self._raw_deployment_spec
+
+    @raw_deployment_spec.setter
+    def raw_deployment_spec(self, raw_deployment_spec):
+        """Sets the raw_deployment_spec of this V1beta1PredictorSpec.
+
+
+        :param raw_deployment_spec: The raw_deployment_spec of this V1beta1PredictorSpec.  # noqa: E501
+        :type: K8sIoApiAppsV1DeploymentSpec
+        """
+
+        self._raw_deployment_spec = raw_deployment_spec
 
     @property
     def readiness_gates(self):
