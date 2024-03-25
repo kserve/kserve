@@ -44,20 +44,6 @@ rest_client_v2 = None
 grpc_client = None
 
 logging.basicConfig(level=logging.INFO)
-LOG_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "kserve": {
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stderr",
-        },
-    },
-    "loggers": {
-        "kserve": {"handlers": ["kserve"], "level": "INFO", "propagate": True},
-    },
-}
-logging.config.dictConfig(LOG_CONFIG)
 
 
 def grpc_stub(host):

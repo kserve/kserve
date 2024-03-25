@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import ssl
 from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping, Dict
 
@@ -27,9 +26,7 @@ from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResp
 from .protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
 from .protocol.infer_type import InferRequest, InferResponse
 from .utils.utils import is_v2, is_v1
-
-logger = logging.getLogger("kserve")
-logger.propagate = True
+from .logging import trace_logger as logger
 
 
 class InferenceGRPCClient:
