@@ -25,7 +25,7 @@ from xgboost import XGBModel
 from kserve import Model
 from kserve.storage import Storage
 
-BOOSTER_FILE_EXTENSION = ".bst"
+BOOSTER_FILE_EXTENSIONS = (".bst", ".json", ".ubj")
 
 
 class XGBoostModel(Model):
@@ -44,7 +44,7 @@ class XGBoostModel(Model):
         model_files = []
         for file in os.listdir(model_path):
             file_path = os.path.join(model_path, file)
-            if os.path.isfile(file_path) and file.endswith(BOOSTER_FILE_EXTENSION):
+            if os.path.isfile(file_path) and file.endswith(BOOSTER_FILE_EXTENSIONS):
                 model_files.append(file_path)
         if len(model_files) == 0:
             raise ModelMissingError(model_path)
