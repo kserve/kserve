@@ -75,10 +75,30 @@ kubectl kustomize config/clusterresources | sed s/:latest/:$TAG/ > $RUNTIMES_INS
 # Update ingressGateway in inferenceservice configmap as 'kubeflow/kubeflow-gateway'
 yq -i 'select(.metadata.name == "inferenceservice-config").data.ingress |= (fromjson | .ingressGateway = "kubeflow/kubeflow-gateway" | tojson)' $KUBEFLOW_INSTALL_PATH
 
+# Create a temp directory for final CRD
+mkdir -p config/crd_helm
+delimeter_lines=$(cat -n ${INSTALL_PATH} |grep '\-\-\-'|cut -f1)
+start_line=1
+for end_line in $delimeter_lines
+do
+  sed -n "${start_line},$((end_line-1))p" "${INSTALL_PATH}" > "temp_output_file.yaml"
+  start_line=$(( end_line+1 ))
+  kind=$(yq '.kind' "temp_output_file.yaml")
+  plural_name=$(yq  '.spec.names.plural' "temp_output_file.yaml")
+  if [[ $kind == 'CustomResourceDefinition' ]]
+  then
+     group=$(yq '.spec.group' "temp_output_file.yaml")     
+     mv temp_output_file.yaml "config/crd_helm/${group}_${plural_name}.yaml"
+  fi
+done
+
 # Copy CRD files to charts crds directory
-cp config/crd/serving.kserve.io_clusterservingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
-cp config/crd/serving.kserve.io_inferenceservices.yaml charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
-cp config/crd/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
-cp config/crd/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
-cp config/crd/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
-cp config/crd/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/serving.kserve.io_clusterstoragecontainers.yaml
+cp config/crd_helm/serving.kserve.io_inferenceservices.yaml charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
+cp config/crd_helm/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
+cp config/crd_helm/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
+cp config/crd_helm/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
+cp config/crd_helm/serving.kserve.io_clusterservingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
+cp config/crd_helm/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/serving.kserve.io_clusterstoragecontainers.yaml
+
+# Clean temp directory
+rm -rf config/crd_helm ./temp_output_file.yaml 
