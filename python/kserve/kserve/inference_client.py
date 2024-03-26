@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import ssl
 from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping, Dict
 
@@ -53,6 +54,23 @@ USE_CLIENT_DEFAULT = _UseClientDefault()
 class InferenceGRPCClient:
     """
     Asynchronous GRPC inference client. This feature is currently in alpha and may be subject to change.
+    Note: This client uses a default retry config. To override, explicitly provide the 'method_config' in channel
+    options or to disable retry set the channel option ("grpc.enable_retries", 0).
+    {
+        "methodConfig": [
+            {
+                # Apply retry to all methods
+                "name": [{}],
+                "retryPolicy": {
+                    "maxAttempts": 3,
+                    "initialBackoff": "0.1s",
+                    "maxBackoff": "1s",
+                    "backoffMultiplier": 2,
+                    "retryableStatusCodes": ["UNAVAILABLE"],
+                },
+            }
+        ]
+    }
     :param url: Inference server url as a string.
     :param verbose: (optional) A boolean to enable verbose logging. Defaults to False.
     :param use_ssl: (optional) A boolean value indicating whether to use an SSL-enabled channel (True) or not (False).
@@ -86,15 +104,44 @@ class InferenceGRPCClient:
         if ":" not in url:
             port = 443 if use_ssl else 80
             url = f"{url}:{port}"
+        # Default retry config
+        service_config_json = json.dumps(
+            {
+                "methodConfig": [
+                    {
+                        # Apply retry to all methods
+                        "name": [{}],
+                        "retryPolicy": {
+                            "maxAttempts": 3,
+                            "initialBackoff": "0.1s",
+                            "maxBackoff": "1s",
+                            "backoffMultiplier": 2,
+                            "retryableStatusCodes": ["UNAVAILABLE"],
+                        },
+                    }
+                ]
+            }
+        )
         # Explicitly check "is not None" here to support passing an empty
         # list to specify setting no channel arguments.
         if channel_args is not None:
             channel_opt = channel_args
+            if ("grpc.enable_retries", 0) not in channel_opt:
+                is_exist = False
+                for key, _ in channel_opt:
+                    if key == "grpc.service_config":
+                        is_exist = True
+                        break
+                if not is_exist:
+                    channel_opt.append(("grpc.enable_retries", 1))
+                    channel_opt.append(("grpc.service_config", service_config_json))
         else:
             # To specify custom channel_opt, see the channel_args parameter.
             channel_opt = [
                 ("grpc.max_send_message_length", -1),
                 ("grpc.max_receive_message_length", -1),
+                ("grpc.enable_retries", 1),
+                ("grpc.service_config", service_config_json)
             ]
 
         if creds:
@@ -134,7 +181,8 @@ class InferenceGRPCClient:
         """
         await self._channel.close()
 
-    async def infer(self, infer_request: InferRequest, timeout: Optional[float, _UseClientDefault] = USE_CLIENT_DEFAULT,
+    async def infer(self, infer_request: InferRequest,
+                    timeout: Union[Optional[float], _UseClientDefault] = USE_CLIENT_DEFAULT,
                     headers: Union[grpc.aio.Metadata, Sequence[Tuple[str, str]], None] = None) -> InferResponse:
         """
         Run asynchronous inference using the supplied inputs.
@@ -168,7 +216,7 @@ class InferenceGRPCClient:
             logger.error("Failed to infer: %s", rpc_error, exc_info=True)
             raise rpc_error
 
-    async def is_server_ready(self, timeout: Optional[float, _UseClientDefault] = USE_CLIENT_DEFAULT,
+    async def is_server_ready(self, timeout: Union[Optional[float], _UseClientDefault] = USE_CLIENT_DEFAULT,
                               headers: Union[grpc.aio.Metadata, Sequence[Tuple[str, str]], None] = None) -> bool:
         """
         Get readiness of the inference server.
@@ -192,7 +240,7 @@ class InferenceGRPCClient:
             logger.error("Failed to get server readiness: %s", rpc_error, exc_info=True)
             raise rpc_error
 
-    async def is_server_live(self, timeout: Optional[float, _UseClientDefault] = USE_CLIENT_DEFAULT,
+    async def is_server_live(self, timeout: Union[Optional[float], _UseClientDefault] = USE_CLIENT_DEFAULT,
                              headers: Union[grpc.aio.Metadata, Sequence[Tuple[str, str]], None] = None) \
             -> bool:
         """
@@ -217,7 +265,8 @@ class InferenceGRPCClient:
             logger.error("Failed to get server liveness: %s", rpc_error, exc_info=True)
             raise rpc_error
 
-    async def is_model_ready(self, model_name: str, timeout: Optional[float, _UseClientDefault] = USE_CLIENT_DEFAULT,
+    async def is_model_ready(self, model_name: str,
+                             timeout: Union[Optional[float], _UseClientDefault] = USE_CLIENT_DEFAULT,
                              headers: Union[grpc.aio.Metadata, Sequence[Tuple[str, str]], None] = None) -> bool:
         """
         Get readiness of the specified model.
@@ -322,15 +371,17 @@ class InferenceRESTClient:
         message = message.format(response, error_message=error_message)
         return httpx.HTTPStatusError(message, request=response.request, response=response)
 
-    async def infer(self, base_url: Union[httpx.URL, str], model_name: str, data: Union[InferRequest, dict],
-                    headers: Optional[Mapping[str, str]] = None, is_graph_endpoint: bool = False,
+    async def infer(self, base_url: Union[httpx.URL, str], data: Union[InferRequest, dict],
+                    model_name: Optional[str] = None, headers: Optional[Mapping[str, str]] = None,
+                    is_graph_endpoint: bool = False,
                     timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT) \
             -> Union[InferResponse, Dict]:
         """
         Run asynchronous inference using the supplied data.
         :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
-        :param model_name: Name of the model as string.
         :param data: Input data as InferRequest object.
+        :param model_name: (optional) Name of the model as string. If is_graph_endpoint is true this can be omitted.
+               If is_graph_endpoint is False and model_name is None, this will raise ValueError.
         :param headers: (optional) HTTP headers to include when sending request.
         :param is_graph_endpoint: (optional) If set to True the base_url will be considered as an inference graph
                                   endpoint and will be used as it is for making the request regardless of the
@@ -341,13 +392,16 @@ class InferenceRESTClient:
                         To disable timeout explicitly set it to 'None'.
         :return: Inference result as InferResponse object or python dict.
         :raises HTTPStatusError for response codes other than 2xx.
+        :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
-        if is_v1(self._config.protocol):
+        if is_graph_endpoint:
+            url = base_url
+        elif model_name is None:
+            raise ValueError("model_name should not be 'None'")
+        elif is_v1(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:predict")
         elif is_v2(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}/infer")
-        elif is_graph_endpoint:
-            url = base_url
         else:
             raise UnsupportedProtocol(self._config.protocol)
         if self._config.verbose:
@@ -363,18 +417,19 @@ class InferenceRESTClient:
         if not response.is_success:
             raise self._consturct_http_status_error(response)
         output = orjson.loads(response.content)
-        # if inference graph result, return it as dict
+        # If inference graph result, return it as dict
         if is_graph_endpoint:
             return output
         elif is_v2(self._config.protocol):
             return InferResponse.from_rest(output.get("model_name"), response=output)
-        # Should be v1 protocol result return it as dict
+        # Should be v1 protocol result, return it as dict
         else:
             return output
 
     async def explain(self, base_url: Union[httpx.URL, str], model_name: str,
                       data: Dict, headers: Optional[Mapping[str, str]] = None,
-                      timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT) -> Dict:
+                      timeout: Union[
+                          float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT) -> Dict:
         """
         Run asynchronous explanation using the supplied data.
         :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
@@ -386,6 +441,7 @@ class InferenceRESTClient:
                         To disable timeout explicitly set it to 'None'.
         :return: Explain result as python dict.
         :raises HTTPStatusError for response codes other than 2xx.
+        :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
         if is_v1(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:explain")
@@ -413,6 +469,7 @@ class InferenceRESTClient:
                         To disable timeout explicitly set it to 'None'.
         :return: True if server is ready, False if server is not ready.
         :raises HTTPStatusError for response codes other than 2xx.
+        :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
         if is_v2(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/health/ready")
@@ -494,11 +551,7 @@ class InferenceRESTClient:
         # Raise for other status codes
         if not response.is_success:
             raise self._consturct_http_status_error(response)
-        if is_v1(self._config.protocol):
-            is_ready = response.json().get("ready").lower() == "true"
-        else:
-            is_ready = response.json().get("ready")
-        return is_ready
+        return response.json().get("ready")
 
     async def close(self):
         """

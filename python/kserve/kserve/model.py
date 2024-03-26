@@ -27,7 +27,7 @@ from .inference_client import RESTConfig, InferenceRESTClient, InferenceGRPCClie
 from .logging import logger,trace_logger
 from .metrics import (EXPLAIN_HIST_TIME, POST_HIST_TIME, PRE_HIST_TIME,
                       PREDICT_HIST_TIME, get_labels)
-from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest
 from .protocol.infer_type import InferRequest, InferResponse
 
 
@@ -205,7 +205,7 @@ class Model(BaseKServeModel):
     @property
     def _http_client(self) -> InferenceRESTClient:
         if self._http_client_instance is None:
-            config = RESTConfig(protocol=self.protocol)
+            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3)
             self._http_client_instance = InferenceRESTClient(config=config)
         return self._http_client_instance
 
@@ -213,7 +213,8 @@ class Model(BaseKServeModel):
     def _grpc_client(self) -> InferenceGRPCClient:
         if self._grpc_client_stub is None:
             self._grpc_client_stub = InferenceGRPCClient(url=self.predictor_host, use_ssl=self.use_ssl
-            )
+            ,
+                                                         timeout=self.timeout)
         return self._grpc_client_stub
 
     def validate(self, payload):
@@ -311,7 +312,6 @@ class Model(BaseKServeModel):
                 predict_base_url,
                 self.name,
                 data=payload,
-                timeout=self.timeout,
                 headers=predict_headers,
         )
         return response
@@ -320,12 +320,11 @@ class Model(BaseKServeModel):
         self,
         payload: Union[ModelInferRequest, InferRequest],
         headers: Dict[str, str] = None,
-    ) -> ModelInferResponse:
-        if isinstance(payload, InferRequest):
-            payload = payload.to_grpc()
+    ) -> InferResponse:
+        if isinstance(payload, ModelInferRequest):
+            payload = InferRequest.from_grpc(payload)
         async_result = await self._grpc_client.infer(
             infer_request=payload,
-            timeout=self.timeout,
             headers=(
                 ("request_type", "grpc_v2"),
                      ("response_type", "grpc_v2"),
@@ -355,8 +354,7 @@ class Model(BaseKServeModel):
         if not self.predictor_host:
             raise NotImplementedError("Could not find predictor_host.")
         if self.protocol == PredictorProtocol.GRPC_V2.value:
-            res = await self._grpc_predict(payload, headers)
-            return InferResponse.from_grpc(res)
+            return await self._grpc_predict(payload, headers)
         else:
             return await self._http_predict(payload, headers)
 
@@ -393,7 +391,8 @@ class Model(BaseKServeModel):
         )
         response = await self._http_client.explain(
             explain_base_url,
-            self.name, timeout=self.timeout, data=payload,
+            self.name,
+            data=payload,
             headers=explain_headers
         )
         return response

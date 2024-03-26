@@ -108,7 +108,7 @@ async def predict_isvc(service_name, input_path, protocol_version="v1",
     return await predict(base_url, host, input_path, protocol_version, is_batch)
 
 
-async def predict(url, host, input_path, protocol_version="v1", is_batch=False, is_graph=False) \
+async def predict(url, host, input_path, model_name=None, protocol_version="v1", is_batch=False, is_graph=False) \
         -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     with open(input_path) as json_file:
         data = json.load(json_file)
@@ -116,23 +116,24 @@ async def predict(url, host, input_path, protocol_version="v1", is_batch=False, 
     if is_batch:
         with futures.ThreadPoolExecutor(max_workers=4) as executor:
             loop = asyncio.get_event_loop()
-            future_list = [await loop.run_in_executor(executor, _predict, url, input_data, headers,
-                                                      protocol_version) for input_data in data]
+            future_list = [await loop.run_in_executor(executor, _predict, url, input_data, model_name, headers,
+                                                      protocol_version, is_graph) for input_data in data]
             result = await asyncio.gather(*future_list)
     else:
-        result = await _predict(url, data, headers, protocol_version, is_graph=is_graph)
+        result = await _predict(url, data, model_name, headers, protocol_version, is_graph)
     logging.info("Got response %s", result)
     return result
 
 
-async def _predict(url, input_data, headers=None, protocol_version="v1", is_graph=False) -> Union[InferResponse, Dict]:
+async def _predict(url, input_data, model_name, headers=None, protocol_version="v1", is_graph=False) \
+        -> Union[InferResponse, Dict]:
     client = get_rest_client(protocol=protocol_version)
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_data)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     await asyncio.sleep(3)
-    response = await client.infer(url, input_data, headers, is_graph_endpoint=is_graph)
+    response = await client.infer(url, input_data, model_name, headers, is_graph)
     return response
 
 
@@ -147,7 +148,7 @@ async def predict_ig(ig_name, input_path, protocol_version="v1",
     )
     cluster_ip, host, _ = get_isvc_endpoint(ig)
     url = f"http://{cluster_ip}"
-    return await predict(url, host, input_path, protocol_version, is_graph=True)
+    return await predict(url, host, input_path, protocol_version=protocol_version, is_graph=True)
 
 
 async def explain(service_name, input_path):
