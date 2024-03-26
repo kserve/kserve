@@ -253,7 +253,7 @@ class Model:
             payload = payload.to_grpc()
         async_result = await self._grpc_client.infer(
             infer_request=payload,
-            client_timeout=self.timeout,
+            timeout=self.timeout,
             headers=(('request_type', 'grpc_v2'),
                      ('response_type', 'grpc_v2'),
                      ('x-request-id', headers.get('x-request-id', '')))
