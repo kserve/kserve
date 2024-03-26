@@ -146,15 +146,15 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 		}
-		//set Deployment Controller
+		// set Deployment Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, e.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for explainer")
 		}
-		//set Service Controller
+		// set Service Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, e.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for explainer")
 		}
-		//set autoscaler Controller
+		// set autoscaler Controller
 		if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, e.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set autoscaler owner references for explainer")
 		}

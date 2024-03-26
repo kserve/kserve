@@ -44,7 +44,6 @@ func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 	}
 
 	setResourceRequirementDefaults(&x.Resources)
-
 }
 
 // nolint: unused

@@ -82,7 +82,7 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", StorageInitializerConfigMapKeyName, err))
 		}
 	}
-	//Ensure that we set proper values for CPU/Memory Limit/Request
+	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{storageInitializerConfig.MemoryRequest,
 		storageInitializerConfig.MemoryLimit,
 		storageInitializerConfig.CpuRequest,
@@ -243,7 +243,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		// check if using direct volume mount to mount the pvc
 		// if yes, mount the pvc to model local mount path and return
 		if mi.config.EnableDirectPvcVolumeMount {
-
 			// add a corresponding pvc volume mount to the userContainer
 			// pvc will be mount to /mnt/models rather than /mnt/pvc
 			// pvcPath will be injected via SubPath, pvcPath must be a root or Dir

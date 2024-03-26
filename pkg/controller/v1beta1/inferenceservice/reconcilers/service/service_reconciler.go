@@ -136,7 +136,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 
 // checkServiceExist checks if the service exists?
 func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.CheckResultType, *corev1.Service, error) {
-	//get service
+	// get service
 	existingService := &corev1.Service{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Namespace: r.Service.Namespace,
@@ -149,7 +149,7 @@ func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.C
 		return constants.CheckResultUnknown, nil, err
 	}
 
-	//existed, check equivalent
+	// existed, check equivalent
 	if semanticServiceEquals(r.Service, existingService) {
 		return constants.CheckResultExisted, existingService, nil
 	}
@@ -163,7 +163,7 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 
 // Reconcile ...
 func (r *ServiceReconciler) Reconcile() (*corev1.Service, error) {
-	//reconcile Service
+	// reconcile Service
 	checkResult, existingService, err := r.checkServiceExist(r.client)
 	log.Info("service reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
@@ -177,7 +177,7 @@ func (r *ServiceReconciler) Reconcile() (*corev1.Service, error) {
 		} else {
 			return r.Service, nil
 		}
-	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
+	} else if checkResult == constants.CheckResultUpdate { // CheckResultUpdate
 		err = r.client.Update(context.TODO(), r.Service)
 		if err != nil {
 			return nil, err

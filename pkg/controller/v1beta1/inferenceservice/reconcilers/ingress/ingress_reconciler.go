@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -68,7 +69,7 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	if isvc.Status.Components == nil {
 		return ""
 	}
-	//Derive the ingress service host from underlying service url
+	// Derive the ingress service host from underlying service url
 	if isvc.Spec.Transformer != nil {
 		if transformerStatus, ok := isvc.Status.Components[v1beta1.TransformerComponent]; !ok {
 			return ""
@@ -101,7 +102,6 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 }
 
 func getServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
-
 	url := getHostBasedServiceUrl(isvc, config)
 	if url == "" {
 		return ""
@@ -111,7 +111,6 @@ func getServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 	} else {
 		return getPathBasedServiceUrl(isvc, config)
 	}
-
 }
 
 func getPathBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
@@ -134,7 +133,7 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 	if isvc.Status.Components == nil {
 		return ""
 	}
-	//Derive the ingress url from underlying service url
+	// Derive the ingress url from underlying service url
 	if isvc.Spec.Transformer != nil {
 		if transformerStatus, ok := isvc.Status.Components[v1beta1.TransformerComponent]; !ok {
 			return ""
@@ -310,7 +309,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	}
 	isInternal := false
 	serviceHost := getServiceHost(isvc)
-	//if service is labelled with cluster local or knative domain is configured as internal
+	// if service is labelled with cluster local or knative domain is configured as internal
 	if val, ok := isvc.Labels[constants.VisibilityLabel]; ok && val == constants.ClusterLocalVisibility {
 		isInternal = true
 	}
@@ -476,7 +475,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			return nil
 		}
 
-		//Create external service which points to local gateway
+		// Create external service which points to local gateway
 		if err := ir.reconcileExternalService(isvc, ir.ingressConfig); err != nil {
 			return errors.Wrapf(err, "fails to reconcile external name service")
 		}
@@ -549,13 +548,11 @@ func getHostPrefix(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool,
 	if disableIstioVirtualHost {
 		if useDefault {
 			if isvc.Spec.Transformer != nil {
-
 				return constants.DefaultTransformerServiceName(isvc.Name)
 			}
 			return constants.DefaultPredictorServiceName(isvc.Name)
 		} else {
 			if isvc.Spec.Transformer != nil {
-
 				return constants.TransformerServiceName(isvc.Name)
 			}
 			return constants.PredictorServiceName(isvc.Name)
