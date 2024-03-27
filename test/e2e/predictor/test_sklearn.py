@@ -67,7 +67,7 @@ def test_sklearn_v2_mlserver():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
@@ -142,7 +142,7 @@ def test_sklearn_v2_runtime_mlserver():
                 name="sklearn",
             ),
             runtime="kserve-mlserver",
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
@@ -181,7 +181,7 @@ def test_sklearn_v2():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -219,7 +219,7 @@ def test_sklearn_v2_grpc():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
