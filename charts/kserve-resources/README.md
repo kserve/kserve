@@ -63,8 +63,6 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0
 | kserve.modelmeshVersion | string | `"v0.11.2"` |  |
 | kserve.router.image | string | `"kserve/router"` |  |
 | kserve.router.tag | string | `"v0.12.0"` |  |
-| kserve.servingruntime.alibi.defaultVersion | string | `"v0.12.0"` |  |
-| kserve.servingruntime.alibi.image | string | `"kserve/alibi-explainer"` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.12.0"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |

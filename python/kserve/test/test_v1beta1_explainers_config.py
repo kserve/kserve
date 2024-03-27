@@ -50,7 +50,7 @@ class TestV1beta1ExplainersConfig(unittest.TestCase):
         # model = kserve.models.v1beta1_explainers_config.V1beta1ExplainersConfig()  # noqa: E501
         if include_optional :
             return V1beta1ExplainersConfig(
-                alibi = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
+                art = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
                     default_image_version = '0', 
                     image = '0', )
             )

@@ -6,10 +6,6 @@ metadata:
 data:
   explainers: |-
     {
-        "alibi": {
-            "image" : "kserve/alibi-explainer",
-            "defaultImageVersion": "latest"
-        },
         "art": {
             "image" : "kserve/art-explainer",
             "defaultImageVersion": "latest"

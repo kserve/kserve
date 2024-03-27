@@ -41,8 +41,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"Serverless": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -78,7 +78,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -93,8 +93,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"When annotations is nil in raw deployment": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -130,7 +130,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -145,8 +145,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"ONNX": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -182,7 +182,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -197,8 +197,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"PMML": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -234,7 +234,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -249,8 +249,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		"Paddle": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
-					AlibiExplainer: ExplainerConfig{
-						ContainerImage:      "alibi",
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
@@ -286,7 +286,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
+						ART: &ARTExplainerSpec{
 							ExplainerExtensionSpec: ExplainerExtensionSpec{
 								StorageURI: "gs://testbucket/testmodel",
 							},
@@ -312,8 +312,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		g.Expect(scenario.isvc.ObjectMeta.Annotations).To(scenario.matcher["Annotations"])
 		g.Expect(scenario.isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
-		g.Expect(*scenario.isvc.Spec.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("v0.4.0"))
-		g.Expect(scenario.isvc.Spec.Explainer.Alibi.Resources).To(gomega.Equal(resources))
+		g.Expect(*scenario.isvc.Spec.Explainer.ART.RuntimeVersion).To(gomega.Equal("v0.4.0"))
+		g.Expect(scenario.isvc.Spec.Explainer.ART.Resources).To(gomega.Equal(resources))
 	}
 }
 
@@ -321,8 +321,8 @@ func TestCustomPredictorDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{
 		Explainers: ExplainersConfig{
-			AlibiExplainer: ExplainerConfig{
-				ContainerImage:      "alibi",
+			ARTExplainer: ExplainerConfig{
+				ContainerImage:      "art",
 				DefaultImageVersion: "v0.4.0",
 			},
 		},
