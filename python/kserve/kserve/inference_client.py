@@ -208,7 +208,7 @@ class InferenceGRPCClient:
             response = await self._client_stub.ModelInfer(
                 request=infer_request,
                 metadata=metadata,
-                timeout=self._timeout if isinstance(_UseClientDefault, timeout) else timeout)
+                timeout=self._timeout if isinstance(timeout, _UseClientDefault) else timeout)
             response = InferResponse.from_grpc(response)
             if self._verbose:
                 logger.info("infer response: %s", response)
@@ -231,8 +231,8 @@ class InferenceGRPCClient:
         try:
             response: ServerReadyResponse = await self._client_stub.ServerReady(ServerReadyRequest(),
                                                                                 timeout=self._timeout if isinstance(
-                                                                                    _UseClientDefault,
-                                                                                    timeout) else timeout,
+                                                                                    timeout, _UseClientDefault)
+                                                                                else timeout,
                                                                                 metadata=headers)
             if self._verbose:
                 logger.info("Server ready response: %s", response)
@@ -256,8 +256,8 @@ class InferenceGRPCClient:
         try:
             response: ServerLiveResponse = await self._client_stub.ServerLive(ServerLiveRequest(),
                                                                               timeout=self._timeout if isinstance(
-                                                                                  _UseClientDefault,
-                                                                                  timeout) else timeout,
+                                                                                  timeout, _UseClientDefault)
+                                                                              else timeout,
                                                                               metadata=headers)
             if self._verbose:
                 logger.info("Server live response: %s", response)
@@ -282,8 +282,8 @@ class InferenceGRPCClient:
         try:
             response: ModelReadyResponse = await self._client_stub.ModelReady(ModelReadyRequest(name=model_name),
                                                                               timeout=self._timeout if isinstance(
-                                                                                  _UseClientDefault,
-                                                                                  timeout) else timeout,
+                                                                                  timeout, _UseClientDefault)
+                                                                              else timeout,
                                                                               metadata=headers)
             if self._verbose:
                 logger.info("Model %s ready response: %s", model_name, response)
