@@ -26,13 +26,14 @@ from kserve import (KServeClient, V1beta1InferenceService,
                     V1beta1ModelSpec, V1beta1PaddleServerSpec,
                     V1beta1PredictorSpec, constants)
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 logging.basicConfig(level=logging.INFO)
 
 
 @pytest.mark.predictor
-def test_paddle():
+@pytest.mark.asyncio(scope="session")
+async def test_paddle():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         paddle=V1beta1PaddleServerSpec(
@@ -66,14 +67,15 @@ def test_paddle():
             logging.info(pod)
         raise e
 
-    res = predict(service_name, './data/jay.json')
+    res = await predict_isvc(service_name, './data/jay.json')
     assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_paddle_runtime():
+@pytest.mark.asyncio(scope="session")
+async def test_paddle_runtime():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -110,14 +112,15 @@ def test_paddle_runtime():
             logging.info(pod)
         raise e
 
-    res = predict(service_name, './data/jay.json')
+    res = await predict_isvc(service_name, './data/jay.json')
     assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_paddle_v2_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_paddle_v2_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -155,14 +158,15 @@ def test_paddle_v2_kserve():
             logging.info(pod)
         raise e
 
-    res = predict(service_name, './data/jay-v2.json', protocol_version="v2")
-    assert np.argmax(res["outputs"][0]["data"]) == 17
+    res = await predict_isvc(service_name, './data/jay-v2.json', protocol_version="v2")
+    assert np.argmax(res.outputs[0].data) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_paddle_v2_grpc():
+@pytest.mark.asyncio(scope="session")
+async def test_paddle_v2_grpc():
     service_name = "isvc-paddle-v2-grpc"
     model_name = "paddle"
     predictor = V1beta1PredictorSpec(
@@ -207,9 +211,9 @@ def test_paddle_v2_grpc():
 
     json_file = open("./data/jay-v2-grpc.json")
     payload = json.load(json_file)["inputs"]
-    response = predict_grpc(service_name=service_name,
-                            payload=payload, model_name=model_name)
-    prediction = list(response.outputs[0].contents.fp32_contents)
+    response = await predict_grpc(service_name=service_name,
+                                  payload=payload, model_name=model_name)
+    prediction = response.outputs[0].data
     assert np.argmax(prediction) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

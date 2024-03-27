@@ -387,11 +387,11 @@ streaming_details_schema_extra = {
     "example": {
         "finish_reason": "stop",
         "logprobs": {
-            "id": 267,
-            "logprob": -2.0723474,
-            "special": False,
-            "text": " a",
-        },
+                    "id": 267,
+                    "logprob": -2.0723474,
+                    "special": False,
+                    "text": " a",
+                },
     }
 }
 

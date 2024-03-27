@@ -78,8 +78,7 @@ KSERVE_LOG_CONFIG = {
     },
     "loggers": {
         "kserve": {"handlers": ["kserve"], "level": KSERVE_LOGLEVEL, "propagate": False},
-        "kserve.trace": {"handlers": ["kserve_trace"],
-                         "level": KSERVE_LOGLEVEL, "propagate": False},
+        "kserve.trace": {"handlers": ["kserve_trace"], "level": KSERVE_LOGLEVEL, "propagate": False},
         "uvicorn": {"handlers": ["uvicorn"], "level": "INFO", "propagate": False},
         "uvicorn.error": {"level": "INFO"},
         "uvicorn.access": {

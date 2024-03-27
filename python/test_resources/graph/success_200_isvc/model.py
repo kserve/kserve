@@ -17,6 +17,7 @@ import logging
 from typing import Dict, Union
 
 import kserve
+from kserve import InferResponse
 from kserve.model import InferRequest, ModelInferRequest
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,9 @@ class SampleTemplateNode(kserve.Model):
     def load(self):
         self.ready = True
 
-    def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest], headers) -> Dict:
-        return {"message": "SUCCESS"}
+    def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest], headers: Dict[str, str] = None)\
+            -> Union[Dict, InferResponse]:
+        return {"predictions": [{"message": "SUCCESS"}]}
 
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
