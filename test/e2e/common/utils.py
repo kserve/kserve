@@ -14,7 +14,6 @@
 
 import asyncio
 import json
-import logging
 import logging.config
 import os
 from concurrent import futures
@@ -30,6 +29,7 @@ from kserve import constants
 from kserve.inference_client import InferenceRESTClient, InferenceGRPCClient, RESTConfig
 from kserve.model import PredictorProtocol
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
+from kserve.logging import trace_logger as logger, KSERVE_LOG_CONFIG
 
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
@@ -42,32 +42,19 @@ rest_client_v1 = None
 rest_client_v2 = None
 grpc_client = None
 
-logging.basicConfig(level=logging.INFO)
+logging.config.dictConfig(KSERVE_LOG_CONFIG)
 
 
 def grpc_stub(host):
     cluster_ip = get_cluster_ip()
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
-    logging.info("Cluster IP: %s", cluster_ip)
-    logging.info("gRPC target host: %s", host)
+    logger.info("Cluster IP: %s", cluster_ip)
+    logger.info("gRPC target host: %s", host)
     os.environ["GRPC_VERBOSITY"] = "debug"
     if grpc_client is None:
-        method_config = json.dumps({
-            "methodConfig": [{
-                "name": [{"service": "org.pytorch.serve.grpc.inference"}],
-                "retryPolicy": {
-                    "maxAttempts": 3,
-                    "initialBackoff": "0.1s",
-                    "maxBackoff": "10s",
-                    "backoffMultiplier": 2,
-                    "retryableStatusCodes": ["UNAVAILABLE"],
-                }}
-            ]
-        })
         return InferenceGRPCClient(cluster_ip, verbose=True, channel_args=[
             ('grpc.ssl_target_name_override', host),
-            ('grpc.service_config', method_config),
         ])
     return grpc_client
 
@@ -117,16 +104,15 @@ async def predict(url, host, input_path, model_name=None, protocol_version="v1",
     else:
         result = await _predict(url, data, model_name=model_name, headers=headers, protocol_version=protocol_version,
                                 is_graph=is_graph)
-    logging.info("Got response %s", result)
+    logger.info("Got response %s", result)
     return result
 
 
 async def _predict(url, input_data, model_name, headers=None, protocol_version="v1", is_graph=False) \
         -> Union[InferResponse, Dict]:
     client = get_rest_client(protocol=protocol_version)
-    logging.info("Sending Header = %s", headers)
-    logging.info("Sending url = %s", url)
-    logging.info("Sending request data: %s", input_data)
+    logger.info("Sending Header = %s", headers)
+    logger.info("base url = %s", url)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     await asyncio.sleep(5)
     response = await client.infer(url, input_data, model_name=model_name, headers=headers, is_graph_endpoint=is_graph)
@@ -170,22 +156,22 @@ async def explain_response(service_name, input_path) -> Dict:
     headers = {"Host": host}
     with open(input_path) as json_file:
         data = json.load(json_file)
-        logging.info("Sending request data: %s", data)
+        logger.info("Sending request data: %s", data)
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
             await asyncio.sleep(5)
             client = get_rest_client(protocol="v1")
             response = await client.explain(url, model_name=service_name, data=data, headers=headers)
         except (RuntimeError, orjson.JSONDecodeError) as e:
-            logging.info("Explain error -------")
+            logger.info("Explain error -------")
             pods = kfs_client.core_api.list_namespaced_pod(
                 KSERVE_TEST_NAMESPACE,
                 label_selector="serving.kserve.io/inferenceservice={}".format(
                     service_name),
             )
             for pod in pods.items:
-                logging.info(pod)
-                logging.info(
+                logger.info(pod)
+                logger.info(
                     "%s\t%s\t%s" %
                     (pod.metadata.name, pod.status.phase, pod.status.pod_ip))
                 api_response = kfs_client.core_api.read_namespaced_pod_log(
@@ -193,7 +179,7 @@ async def explain_response(service_name, input_path) -> Dict:
                     KSERVE_TEST_NAMESPACE,
                     container="kserve-container",
                 )
-                logging.info(api_response)
+                logger.info(api_response)
             raise e
         return response
 
@@ -241,14 +227,13 @@ async def predict_modelmesh(service_name, input_json, pod_name, model_name=None)
         model_name = service_name
     with portforward.forward("default", pod_name, 8008, 8008, waiting=5):
         headers = {"Content-Type": "application/json"}
-        url = f"http://localhost:8008/v2/models/{model_name}/infer"
-        logging.info("Sending Header = %s", headers)
-        logging.info("Sending url = %s", url)
-        logging.info("Sending request data: %s", data)
+        url = "http://localhost:8008"
+        logger.info("Sending Header = %s", headers)
+        logger.info("base url = %s", url)
 
-        client = get_rest_client()
-        response = await client.infer(url, data, headers)
-        logging.info("Got response content %s", response)
+        client = get_rest_client(protocol="v2")
+        response = await client.infer(url, data, model_name=model_name, headers=headers)
+        logger.info("Got response content %s", response)
         return response
 
 

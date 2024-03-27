@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import re
 
 import httpx
@@ -23,8 +22,6 @@ from kserve.errors import UnsupportedProtocol
 from kserve.inference_client import RESTConfig
 from kserve.protocol.rest.server import RESTServer
 from test.test_server import DummyModel
-
-logging.basicConfig(level=logging.INFO)
 
 
 @pytest.mark.asyncio
