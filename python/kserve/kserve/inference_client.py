@@ -372,15 +372,17 @@ class InferenceRESTClient:
         message = message.format(response, error_message=error_message)
         return httpx.HTTPStatusError(message, request=response.request, response=response)
 
-    async def infer(self, base_url: Union[httpx.URL, str], model_name: str, data: Union[InferRequest, dict],
-                    headers: Optional[Mapping[str, str]] = None, is_graph_endpoint: bool = False,
+    async def infer(self, base_url: Union[httpx.URL, str], data: Union[InferRequest, dict],
+                    model_name: Optional[str] = None, headers: Optional[Mapping[str, str]] = None,
+                    is_graph_endpoint: bool = False,
                     timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT) \
             -> Union[InferResponse, Dict]:
         """
         Run asynchronous inference using the supplied data.
         :param base_url: Base url of the inference server. E.g. https://example.com:443, https://example.com:443/serving
-        :param model_name: Name of the model as string.
         :param data: Input data as InferRequest object.
+        :param model_name: (optional) Name of the model as string. If is_graph_endpoint is true this can be omitted.
+               If is_graph_endpoint is False and model_name is None, this will raise ValueError.
         :param headers: (optional) HTTP headers to include when sending request.
         :param is_graph_endpoint: (optional) If set to True the base_url will be considered as an inference graph
                                   endpoint and will be used as it is for making the request regardless of the
@@ -391,13 +393,16 @@ class InferenceRESTClient:
                         To disable timeout explicitly set it to 'None'.
         :return: Inference result as InferResponse object or python dict.
         :raises HTTPStatusError for response codes other than 2xx.
+        :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
-        if is_v1(self._config.protocol):
+        if is_graph_endpoint:
+            url = base_url
+        elif model_name is None:
+            raise ValueError("model_name should not be 'None'")
+        elif is_v1(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:predict")
         elif is_v2(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}/infer")
-        elif is_graph_endpoint:
-            url = base_url
         else:
             raise UnsupportedProtocol(self._config.protocol)
         if self._config.verbose:
@@ -437,6 +442,7 @@ class InferenceRESTClient:
                         To disable timeout explicitly set it to 'None'.
         :return: Explain result as python dict.
         :raises HTTPStatusError for response codes other than 2xx.
+        :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
         if is_v1(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:explain")
@@ -464,6 +470,7 @@ class InferenceRESTClient:
                         To disable timeout explicitly set it to 'None'.
         :return: True if server is ready, False if server is not ready.
         :raises HTTPStatusError for response codes other than 2xx.
+        :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
         if is_v2(self._config.protocol):
             url = self._construct_url(base_url, f"{self._config.protocol}/health/ready")
