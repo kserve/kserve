@@ -322,7 +322,7 @@ async def test_ig_scenario2():
         graph_name,
         os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "custom_predictor_input.json"),
     )
-    assert response == {'predictions': [{'message': 'SUCCESS'}]}
+    assert response == {"predictions": [{"message": "SUCCESS"}]}
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
@@ -470,7 +470,7 @@ async def test_ig_scenario4():
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_success_picker_input.json"
         ),
     )
-    assert response == {'predictions': [{'message': 'SUCCESS'}]}
+    assert response == {"predictions": [{"message": "SUCCESS"}]}
 
     # Case 3
     with pytest.raises(HTTPStatusError) as exc_info:
@@ -547,7 +547,7 @@ async def test_ig_scenario5():
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_error_picker_input.json"
         ),
     )
-    assert response == {'predictions': [{'message': 'SUCCESS'}]}
+    assert response == {"predictions": [{"message": "SUCCESS"}]}
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
@@ -675,7 +675,7 @@ async def test_ig_scenario7():
         ),
     )
     assert response == {
-        "rootStep1": {'predictions': [{'message': 'SUCCESS'}]},
+        "rootStep1": {"predictions": [{"message": "SUCCESS"}]},
         "rootStep2": {"detail": "Intentional 404 code"},
     }
 
@@ -801,7 +801,7 @@ async def test_ig_scenario9():
         graph_name,
         os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     )
-    assert response == {'predictions': [{'message': 'SUCCESS'}]}
+    assert response == {"predictions": [{"message": "SUCCESS"}]}
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(success_isvc_name, KSERVE_TEST_NAMESPACE)
@@ -916,7 +916,11 @@ async def test_inference_graph_raw_mode():
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations, ),
+        metadata=client.V1ObjectMeta(
+            name=xgb_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
 
@@ -1069,7 +1073,11 @@ async def test_inference_graph_raw_mode_with_hpa():
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations, ),
+        metadata=client.V1ObjectMeta(
+            name=xgb_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
 

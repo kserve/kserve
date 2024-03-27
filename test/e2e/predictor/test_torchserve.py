@@ -196,6 +196,8 @@ async def test_torchserve_runtime_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/torchserve_input.json", model_name="mnist")
+    res = await predict_isvc(
+        service_name, "./data/torchserve_input.json", model_name="mnist"
+    )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

@@ -83,8 +83,9 @@ async def test_custom_model_grpc():
             },
         }
     ]
-    response = await predict_grpc(service_name=service_name,
-                                  payload=payload, model_name=model_name)
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
     fields = response.outputs[0].data
     points = ["%.3f" % (point) for point in fields]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
@@ -162,8 +163,9 @@ async def test_predictor_grpc_with_transformer_grpc():
             },
         }
     ]
-    response = await predict_grpc(service_name=service_name,
-                                  payload=payload, model_name=model_name)
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
     fields = response.outputs[0].data
     points = ["%.3f" % (point) for point in list(fields)]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
@@ -223,8 +225,11 @@ async def test_predictor_grpc_with_transformer_http():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/custom_model_input_v2.json",
-                             protocol_version="v2", model_name=model_name,
+    res = await predict_isvc(
+        service_name,
+        "./data/custom_model_input_v2.json",
+        protocol_version="v2",
+        model_name=model_name,
     )
     points = ["%.3f" % point for point in list(res.outputs[0].data)]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]

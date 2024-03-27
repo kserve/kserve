@@ -82,6 +82,8 @@ async def test_batcher_raw():
         for pod in pods.items:
             print(pod)
         raise e
-    results = await predict_isvc(service_name, './data/iris_batch_input.json', is_batch=True)
+    results = await predict_isvc(
+        service_name, "./data/iris_batch_input.json", is_batch=True
+    )
     assert all(x == results[0] for x in results)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

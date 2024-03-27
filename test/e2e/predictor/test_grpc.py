@@ -54,11 +54,11 @@ async def test_custom_model_grpc():
         ],
     )
 
-    logger_isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                          kind=constants.KSERVE_KIND,
-                                          metadata=client.V1ObjectMeta(
-                                              name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
-                                          spec=V1beta1InferenceServiceSpec(predictor=logger_predictor),
+    logger_isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
+        spec=V1beta1InferenceServiceSpec(predictor=logger_predictor),
     )
 
     kserve_client = KServeClient(
@@ -114,8 +114,9 @@ async def test_custom_model_grpc():
             },
         }
     ]
-    response = await predict_grpc(service_name=service_name,
-                                  payload=payload, model_name=model_name)
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
     fields = response.outputs[0].data
     points = ["%.3f" % (point) for point in fields]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]

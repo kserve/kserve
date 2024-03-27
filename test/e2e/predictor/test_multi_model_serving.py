@@ -37,12 +37,12 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
     "protocol_version,storage_uri",
     [
         (
-                "v1",
-                "gs://kfserving-examples/models/sklearn/1.0/model",
+            "v1",
+            "gs://kfserving-examples/models/sklearn/1.0/model",
         ),
         (
-                "v2",
-                "gs://seldon-models/sklearn/mms/lr_model",
+            "v2",
+            "gs://seldon-models/sklearn/mms/lr_model",
         ),
     ],
 )
@@ -146,12 +146,12 @@ async def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     "protocol_version,storage_uri",
     [
         (
-                "v1",
-                "gs://kfserving-examples/models/xgboost/1.5/model",
+            "v1",
+            "gs://kfserving-examples/models/xgboost/1.5/model",
         ),
         (
-                "v2",
-                "gs://seldon-models/xgboost/mms/iris",
+            "v2",
+            "gs://seldon-models/xgboost/mms/iris",
         ),
     ],
 )

@@ -27,20 +27,18 @@ from kserve import (
     KServeClient,
 )
 from kserve.constants import constants
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, generate
+from ..common.utils import KSERVE_TEST_NAMESPACE, generate, predict_isvc
 
 
 @pytest.mark.llm
 def test_huggingface_openai_chat_completions():
     service_name = "hf-opt-125m-chat"
-    protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
                 name="huggingface",
             ),
-            protocol_version=protocol_version,
             args=[
                 "--model_id",
                 "facebook/opt-125m",
@@ -85,7 +83,8 @@ def test_huggingface_openai_chat_completions():
 
 
 @pytest.mark.llm
-def test_huggingface_v2_sequence_classification():
+@pytest.mark.asyncio(scope="session")
+async def test_huggingface_v2_sequence_classification():
     service_name = "hf-bert-sequence-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -127,18 +126,19 @@ def test_huggingface_v2_sequence_classification():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(
+    res = await predict_isvc(
         service_name,
         "./data/bert_sequence_classification_v2.json",
         protocol_version=protocol_version,
     )
-    assert res["outputs"][0]["data"] == [1]
+    assert res.outputs[0].data == [1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.llm
-def test_huggingface_v1_fill_mask():
+@pytest.mark.asyncio(scope="session")
+async def test_huggingface_v1_fill_mask():
     service_name = "hf-bert-fill-mask-v2"
     protocol_version = "v1"
     predictor = V1beta1PredictorSpec(
@@ -174,7 +174,7 @@ def test_huggingface_v1_fill_mask():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(
+    res = await predict_isvc(
         service_name, "./data/bert_fill_mask_v1.json", protocol_version=protocol_version
     )
     assert res["predictions"] == ["paris", "france"]
@@ -183,7 +183,8 @@ def test_huggingface_v1_fill_mask():
 
 
 @pytest.mark.llm
-def test_huggingface_v2_token_classification():
+@pytest.mark.asyncio(scope="session")
+async def test_huggingface_v2_token_classification():
     service_name = "hf-bert-token-classification-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -224,12 +225,12 @@ def test_huggingface_v2_token_classification():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(
+    res = await predict_isvc(
         service_name,
         "./data/bert_token_classification_v2.json",
         protocol_version=protocol_version,
     )
-    assert res["outputs"][0]["data"] == [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    assert res.outputs[0].data == [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 

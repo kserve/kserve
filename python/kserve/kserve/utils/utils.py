@@ -272,10 +272,14 @@ def strtobool(val: str) -> bool:
 
 
 def is_v2(protocol: Union[str, PredictorProtocol]) -> bool:
-    return (protocol == PredictorProtocol.REST_V2 or (isinstance(protocol, str) and
-            protocol.lower() == PredictorProtocol.REST_V2.value.lower()))
+    return protocol == PredictorProtocol.REST_V2 or (
+        isinstance(protocol, str)
+        and protocol.lower() == PredictorProtocol.REST_V2.value.lower()
+    )
 
 
 def is_v1(protocol: Union[str, PredictorProtocol]) -> bool:
-    return (protocol == PredictorProtocol.REST_V1 or (isinstance(protocol, str) and
-            protocol.lower() == PredictorProtocol.REST_V1.value.lower()))
+    return protocol == PredictorProtocol.REST_V1 or (
+        isinstance(protocol, str)
+        and protocol.lower() == PredictorProtocol.REST_V1.value.lower()
+    )

@@ -224,8 +224,9 @@ async def test_paddle_v2_grpc():
 
     json_file = open("./data/jay-v2-grpc.json")
     payload = json.load(json_file)["inputs"]
-    response = await predict_grpc(service_name=service_name,
-                                  payload=payload, model_name=model_name)
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
     prediction = response.outputs[0].data
     assert np.argmax(prediction) == 17
 

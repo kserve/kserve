@@ -20,13 +20,21 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 from cloudevents.http import CloudEvent
 
-from .constants.constants import PredictorProtocol, PREDICTOR_BASE_URL_FORMAT, EXPLAINER_BASE_URL_FORMAT
+from .constants.constants import (
+    PredictorProtocol,
+    PREDICTOR_BASE_URL_FORMAT,
+    EXPLAINER_BASE_URL_FORMAT,
+)
 from .errors import InvalidInput
 from .inference_client import RESTConfig, InferenceRESTClient, InferenceGRPCClient
-
-from .logging import logger,trace_logger
-from .metrics import (EXPLAIN_HIST_TIME, POST_HIST_TIME, PRE_HIST_TIME,
-                      PREDICT_HIST_TIME, get_labels)
+from .logging import trace_logger
+from .metrics import (
+    EXPLAIN_HIST_TIME,
+    POST_HIST_TIME,
+    PRE_HIST_TIME,
+    PREDICT_HIST_TIME,
+    get_labels,
+)
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest
 from .protocol.infer_type import InferRequest, InferResponse
 
@@ -205,16 +213,16 @@ class Model(BaseKServeModel):
     @property
     def _http_client(self) -> InferenceRESTClient:
         if self._http_client_instance is None:
-            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3, verbose=True)
+            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3)
             self._http_client_instance = InferenceRESTClient(config=config)
         return self._http_client_instance
 
     @property
     def _grpc_client(self) -> InferenceGRPCClient:
         if self._grpc_client_stub is None:
-            self._grpc_client_stub = InferenceGRPCClient(url=self.predictor_host, use_ssl=self.use_ssl
-            ,
-                                                         timeout=self.timeout, verbose=True)
+            self._grpc_client_stub = InferenceGRPCClient(
+                url=self.predictor_host, use_ssl=self.use_ssl, timeout=self.timeout
+            )
         return self._grpc_client_stub
 
     def validate(self, payload):
@@ -295,8 +303,7 @@ class Model(BaseKServeModel):
 
     async def _http_predict(
         self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
-    ) \
-            -> Union[Dict, InferResponse]:
+    ) -> Union[Dict, InferResponse]:
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
         predict_headers = {"Content-Type": "application/json"}
@@ -307,12 +314,14 @@ class Model(BaseKServeModel):
                 predict_headers["x-b3-traceid"] = headers["x-b3-traceid"]
 
         protocol = "https" if self.use_ssl else "http"
-        predict_base_url = PREDICTOR_BASE_URL_FORMAT.format(protocol, self.predictor_host)
+        predict_base_url = PREDICTOR_BASE_URL_FORMAT.format(
+            protocol, self.predictor_host
+        )
         response = await self._http_client.infer(
-                predict_base_url,
-                model_name=self.name,
-                data=payload,
-                headers=predict_headers,
+            predict_base_url,
+            model_name=self.name,
+            data=payload,
+            headers=predict_headers,
         )
         return response
 
@@ -327,8 +336,8 @@ class Model(BaseKServeModel):
             infer_request=payload,
             headers=(
                 ("request_type", "grpc_v2"),
-                     ("response_type", "grpc_v2"),
-                     ("x-request-id", headers.get("x-request-id", "")),
+                ("response_type", "grpc_v2"),
+                ("x-request-id", headers.get("x-request-id", "")),
             ),
         )
         return async_result
@@ -375,14 +384,14 @@ class Model(BaseKServeModel):
         if self.explainer_host is None:
             raise NotImplementedError("Could not find explainer_host.")
 
-        explain_headers = {'content-type': 'application/json'}
+        explain_headers = {"content-type": "application/json"}
         if headers is not None:
-            if 'content-type' in headers:
-                explain_headers['content-type'] = headers['content-type']
-            if 'x-request-id' in headers:
-                explain_headers['x-request-id'] = headers['x-request-id']
-            if 'x-b3-traceid' in headers:
-                explain_headers['x-b3-traceid'] = headers['x-b3-traceid']
+            if "content-type" in headers:
+                explain_headers["content-type"] = headers["content-type"]
+            if "x-request-id" in headers:
+                explain_headers["x-request-id"] = headers["x-request-id"]
+            if "x-b3-traceid" in headers:
+                explain_headers["x-b3-traceid"] = headers["x-b3-traceid"]
 
         protocol = "https" if self.use_ssl else "http"
         # Currently explainer only supports the kserve v1 endpoints
@@ -393,6 +402,6 @@ class Model(BaseKServeModel):
             explain_base_url,
             model_name=self.name,
             data=payload,
-            headers=explain_headers
+            headers=explain_headers,
         )
         return response

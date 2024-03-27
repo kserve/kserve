@@ -103,8 +103,9 @@ async def test_xgboost_v2_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
-                             protocol_version="v2")
+    res = await predict_isvc(
+        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+    )
     assert res.outputs[0].data == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -186,8 +187,9 @@ async def test_xgboost_v2_runtime_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
-                             protocol_version="v2")
+    res = await predict_isvc(
+        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+    )
     assert res.outputs[0].data == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -228,8 +230,9 @@ async def test_xgboost_v2():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
-                             protocol_version="v2")
+    res = await predict_isvc(
+        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+    )
     assert res.outputs[0].data == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -275,8 +278,9 @@ async def test_xgboost_v2_grpc():
 
     json_file = open("./data/iris_input_v2_grpc.json")
     payload = json.load(json_file)["inputs"]
-    response = await predict_grpc(service_name=service_name,
-                                  payload=payload, model_name=model_name)
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
     prediction = response.outputs[0].data
     assert prediction == [1.0, 1.0]
 

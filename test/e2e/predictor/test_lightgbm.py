@@ -153,8 +153,9 @@ async def test_lightgbm_v2_runtime_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
-                             protocol_version="v2")
+    res = await predict_isvc(
+        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+    )
     assert res.outputs[0].data == [
         8.796664107010673e-06,
         0.9992300031041593,
@@ -203,8 +204,9 @@ async def test_lightgbm_v2_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
-                             protocol_version="v2")
+    res = await predict_isvc(
+        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+    )
     assert res.outputs[0].data == [
         8.796664107010673e-06,
         0.9992300031041593,

@@ -26,6 +26,7 @@ from kserve import (
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
 )
+from kserve.logging import logger
 from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, get_cluster_ip
@@ -105,10 +106,10 @@ async def send_metrics_request(kserve_client, service_name):
     with portforward.forward(
         KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT
     ):
-        logging.info(f"metrics request url: {url}")
+        logger.info(f"metrics request url: {url}")
         response = requests.get(url)
-        logging.info(f"response: {response}, content: {response.content}")
-        logging.info(
+        logger.info(f"response: {response}, content: {response.content}")
+        logger.info(
             "Got response code %s, content %s", response.status_code, response.content
         )
 

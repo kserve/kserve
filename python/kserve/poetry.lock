@@ -3486,4 +3486,4 @@ storage = ["azure-identity", "azure-storage-blob", "azure-storage-file-share", "
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "dd3b41f53321123e4769eec48fc1223c9b23b92125c98a50537697f71775b50a"
+content-hash = "fbbe32e5b7d614604289f34404aade4ee2245c56bb09fd399fc4d1e8beba6486"

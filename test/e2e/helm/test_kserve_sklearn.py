@@ -68,8 +68,9 @@ async def test_sklearn_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/iris_input_v2.json",
-                             protocol_version="v2")
+    res = await predict_isvc(
+        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+    )
     assert res.outputs[0].data == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

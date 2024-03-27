@@ -30,9 +30,10 @@ class SampleTemplateNode(kserve.Model):
         self.ready = True
 
     def predict(
-        self, payload: Union[Dict, InferRequest, ModelInferRequest], headers
-    : Dict[str, str] = None)\
-            -> Union[Dict, InferResponse]:
+        self,
+        payload: Union[Dict, InferRequest, ModelInferRequest],
+        headers: Dict[str, str] = None,
+    ) -> Union[Dict, InferResponse]:
         return {"predictions": [{"message": "SUCCESS"}]}
 
 

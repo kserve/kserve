@@ -148,7 +148,9 @@ async def not_implemented_error_handler(_, exc):
 
 async def unsupported_protocol_error_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
-    return JSONResponse(status_code=HTTPStatus.NOT_IMPLEMENTED, content={"error": str(exc)})
+    return JSONResponse(
+        status_code=HTTPStatus.NOT_IMPLEMENTED, content={"error": str(exc)}
+    )
 
 
 class NoModelReady(RuntimeError):

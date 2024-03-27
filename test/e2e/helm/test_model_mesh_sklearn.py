@@ -73,7 +73,9 @@ async def test_sklearn_modelmesh():
     )
 
     pod_name = pods.items[0].metadata.name
-    res = await predict_modelmesh(service_name, "./data/mm_sklearn_input.json", pod_name)
+    res = await predict_modelmesh(
+        service_name, "./data/mm_sklearn_input.json", pod_name
+    )
     assert res.outputs[0].data == [8]
 
     kserve_client.delete(service_name)

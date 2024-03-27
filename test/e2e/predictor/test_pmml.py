@@ -45,10 +45,11 @@ async def test_pmml_kserve():
         ),
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -62,10 +63,10 @@ async def test_pmml_kserve():
     assert res["predictions"] == [
         {
             "Species": "setosa",
-                                    "Probability_setosa": 1.0,
-                                    "Probability_versicolor": 0.0,
-                                    "Probability_virginica": 0.0,
-                                    "Node_Id": "2",
+            "Probability_setosa": 1.0,
+            "Probability_versicolor": 0.0,
+            "Probability_virginica": 0.0,
+            "Node_Id": "2",
         }
     ]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -89,10 +90,11 @@ async def test_pmml_runtime_kserve():
         ),
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -106,10 +108,10 @@ async def test_pmml_runtime_kserve():
     assert res["predictions"] == [
         {
             "Species": "setosa",
-                                    "Probability_setosa": 1.0,
-                                    "Probability_versicolor": 0.0,
-                                    "Probability_virginica": 0.0,
-                                    "Node_Id": "2",
+            "Probability_setosa": 1.0,
+            "Probability_versicolor": 0.0,
+            "Probability_virginica": 0.0,
+            "Node_Id": "2",
         }
     ]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -148,14 +150,42 @@ async def test_pmml_v2_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(service_name, "./data/pmml-input-v2.json",
-                             protocol_version="v2")
+    res = await predict_isvc(
+        service_name, "./data/pmml-input-v2.json", protocol_version="v2"
+    )
     assert res.outputs == [
-        InferOutput(name='Species', shape=[1], datatype='BYTES', data=['setosa'], parameters=None),
-        InferOutput(name='Probability_setosa', shape=[1], datatype='FP64', data=[1.0], parameters=None),
-        InferOutput(name='Probability_versicolor', shape=[1], datatype='FP64', data=[0.0], parameters=None),
-        InferOutput(name='Probability_virginica', shape=[1], datatype='FP64', data=[0.0], parameters=None),
-        InferOutput(name='Node_Id', shape=[1], datatype='BYTES', data=['2'], parameters=None)]
+        InferOutput(
+            name="Species",
+            shape=[1],
+            datatype="BYTES",
+            data=["setosa"],
+            parameters=None,
+        ),
+        InferOutput(
+            name="Probability_setosa",
+            shape=[1],
+            datatype="FP64",
+            data=[1.0],
+            parameters=None,
+        ),
+        InferOutput(
+            name="Probability_versicolor",
+            shape=[1],
+            datatype="FP64",
+            data=[0.0],
+            parameters=None,
+        ),
+        InferOutput(
+            name="Probability_virginica",
+            shape=[1],
+            datatype="FP64",
+            data=[0.0],
+            parameters=None,
+        ),
+        InferOutput(
+            name="Node_Id", shape=[1], datatype="BYTES", data=["2"], parameters=None
+        ),
+    ]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -200,9 +230,10 @@ async def test_pmml_v2_grpc():
     json_file = open("./data/pmml_input_v2_grpc.json")
     payload = json.load(json_file)["inputs"]
 
-    response = await predict_grpc(service_name=service_name,
-                                  payload=payload, model_name=model_name)
-    assert response.outputs[0].data == [b'setosa']
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
+    assert response.outputs[0].data == [b"setosa"]
     assert response.outputs[1].data == [1.0]
     assert response.outputs[2].data == [0.0]
     assert response.outputs[3].data == [0.0]
