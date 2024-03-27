@@ -241,7 +241,7 @@ class Model:
         predict_base_url = PREDICTOR_BASE_URL_FORMAT.format(protocol, self.predictor_host)
         response = await self._http_client.infer(
                 predict_base_url,
-                self.name,
+                model_name=self.name,
                 data=payload,
                 headers=predict_headers,
         )
@@ -319,7 +319,7 @@ class Model:
         explain_base_url = EXPLAINER_BASE_URL_FORMAT.format(protocol, self.explainer_host)
         response = await self._http_client.explain(
             explain_base_url,
-            self.name,
+            model_name=self.name,
             data=payload,
             headers=explain_headers
         )

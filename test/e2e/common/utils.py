@@ -25,12 +25,11 @@ import portforward
 from kubernetes import client as k8s_client
 from orjson import orjson
 
-from kserve import KServeClient, InferResponse
+from kserve import KServeClient, InferResponse, InferRequest
 from kserve import constants
 from kserve.inference_client import InferenceRESTClient, InferenceGRPCClient, RESTConfig
 from kserve.model import PredictorProtocol
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
@@ -175,7 +174,7 @@ async def explain_response(service_name, input_path) -> Dict:
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
             await asyncio.sleep(3)
-            client = get_rest_client()
+            client = get_rest_client(protocol="v1")
             response = await client.explain(url, data, headers=headers)
         except (RuntimeError, orjson.JSONDecodeError) as e:
             logging.info("Explain error -------")
@@ -215,7 +214,7 @@ def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
 
 
 async def predict_grpc(service_name, payload, parameters=None, version=constants.KSERVE_V1BETA1_VERSION,
-                       model_name=None) -> ModelInferResponse:
+                       model_name=None) -> InferResponse:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     isvc = kfs_client.get(
@@ -228,7 +227,9 @@ async def predict_grpc(service_name, payload, parameters=None, version=constants
     if model_name is None:
         model_name = service_name
     client = grpc_stub(host)
-    response = await client.infer(pb.ModelInferRequest(model_name=model_name, inputs=payload, parameters=parameters))
+
+    response = await client.infer(InferRequest.from_grpc(pb.ModelInferRequest(model_name=model_name, inputs=payload,
+                                                                              parameters=parameters)))
     return response
 
 
