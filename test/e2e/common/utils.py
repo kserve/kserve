@@ -57,7 +57,7 @@ def grpc_stub(host):
             "methodConfig": [{
                 "name": [{"service": "org.pytorch.serve.grpc.inference"}],
                 "retryPolicy": {
-                    "maxAttempts": 5,
+                    "maxAttempts": 3,
                     "initialBackoff": "0.1s",
                     "maxBackoff": "10s",
                     "backoffMultiplier": 2,
@@ -77,11 +77,11 @@ def get_rest_client(protocol):
     global rest_client_v2
     if protocol == PredictorProtocol.REST_V1.value:
         if rest_client_v1 is None:
-            rest_client_v1 = InferenceRESTClient(config=RESTConfig(timeout=10, verbose=True, protocol=protocol))
+            rest_client_v1 = InferenceRESTClient(config=RESTConfig(timeout=60, verbose=True, protocol=protocol))
         return rest_client_v1
     else:
         if rest_client_v2 is None:
-            rest_client_v2 = InferenceRESTClient(config=RESTConfig(timeout=10, verbose=True, protocol=protocol))
+            rest_client_v2 = InferenceRESTClient(config=RESTConfig(timeout=60, verbose=True, protocol=protocol))
         return rest_client_v2
 
 
@@ -128,7 +128,7 @@ async def _predict(url, input_data, model_name, headers=None, protocol_version="
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_data)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    await asyncio.sleep(3)
+    await asyncio.sleep(5)
     response = await client.infer(url, input_data, model_name=model_name, headers=headers, is_graph_endpoint=is_graph)
     return response
 
@@ -166,16 +166,16 @@ async def explain_response(service_name, input_path) -> Dict:
         version=constants.KSERVE_V1BETA1_VERSION,
     )
     cluster_ip, host, _ = get_isvc_endpoint(isvc)
-    url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
+    url = f"http://{cluster_ip}"
     headers = {"Host": host}
     with open(input_path) as json_file:
         data = json.load(json_file)
         logging.info("Sending request data: %s", data)
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
             client = get_rest_client(protocol="v1")
-            response = await client.explain(url, data, headers=headers)
+            response = await client.explain(url, model_name=service_name, data=data, headers=headers)
         except (RuntimeError, orjson.JSONDecodeError) as e:
             logging.info("Explain error -------")
             pods = kfs_client.core_api.list_namespaced_pod(
