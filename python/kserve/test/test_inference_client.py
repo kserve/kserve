@@ -88,12 +88,12 @@ class TestInferenceRESTClient:
     async def test_infer(self, rest_client, protocol):
         if protocol == "v1":
             input_data = {"instances": [1, 2]}
-            res = await rest_client.infer("http://test-server/", "TestModel", data=input_data,
+            res = await rest_client.infer("http://test-server/", model_name="TestModel", data=input_data,
                                           headers={"Host": "test-server.com"}, timeout=2)
             assert res["predictions"] == [1, 2]
 
             input_data = {"inputs": [1, 2]}
-            res = await rest_client.infer("http://test-server/", "TestModel", data=input_data,
+            res = await rest_client.infer("http://test-server/", model_name="TestModel", data=input_data,
                                           headers={"Host": "test-server.com"}, timeout=2)
             assert res["predictions"] == [1, 2]
 
@@ -116,7 +116,7 @@ class TestInferenceRESTClient:
                     }
                 ]
             }
-            res = await rest_client.infer("http://test-server/", "TestModel", data=input_data,
+            res = await rest_client.infer("http://test-server/", model_name="TestModel", data=input_data,
                                           headers={"Host": "test-server.com"}, timeout=2)
             assert res.outputs[0].data == [1, 2, 3, 4]
             assert res.id == request_id
@@ -127,7 +127,7 @@ class TestInferenceRESTClient:
                                                                parameters={"test-param": "abc"})],
                                       parameters={"test-param": "abc"})
 
-            res = await rest_client.infer("http://test-server/", "TestModel", data=input_data,
+            res = await rest_client.infer("http://test-server/", model_name="TestModel", data=input_data,
                                           headers={"Host": "test-server.com"}, timeout=2)
             assert res.outputs[0].data == [1, 2, 3, 4]
             assert res.id == request_id
@@ -135,8 +135,78 @@ class TestInferenceRESTClient:
             # Unsupported protocol
             input_data = {"instances": [1, 2]}
             with pytest.raises(UnsupportedProtocol, match="Unsupported protocol v3"):
-                await rest_client.infer("http://test-server/", "TestModel", data=input_data,
+                await rest_client.infer("http://test-server/", model_name="TestModel", data=input_data,
                                         headers={"Host": "test-server.com"}, timeout=2)
+
+        # model_name not provided
+        input_data = {"instances": [1, 2]}
+        with pytest.raises(ValueError):
+            await rest_client.infer("http://test-server/", data=input_data,
+                                    headers={"Host": "test-server.com"}, timeout=2)
+
+    @pytest.mark.parametrize("rest_client", ["v1", "v2", "v3"], indirect=["rest_client"])
+    async def test_infer_graph_endpoint(self, rest_client, httpx_mock):
+        request_id = "2ja0ls9j1309"
+
+        def custom_response(request: httpx.Request):
+            if request.url.__str__() == "http://test-server-v1":
+                return httpx.Response(
+                    status_code=200, json={"predictions": [1, 2]},
+                )
+            if request.url.__str__() == "http://test-server-v2":
+                return httpx.Response(
+                    status_code=200, json={
+                        "id": request_id,
+                        "outputs": [
+                            {
+                                "name": "output-0",
+                                "datatype": "INT32",
+                                "shape": [2, 2],
+                                "data": [1, 2, 3, 4],
+                            }
+                        ]
+                    })
+
+        httpx_mock.add_callback(custom_response)
+        async with httpx.AsyncClient() as client:
+            rest_client._client = client
+            input_data = {"instances": [1, 2]}
+            res = await rest_client.infer("http://test-server-v1", data=input_data,
+                                          headers={"Host": "test-server.com"}, timeout=2, is_graph_endpoint=True)
+            assert res["predictions"] == [1, 2]
+
+            input_data = {
+                "id": request_id,
+                "parameters": {
+                    "test-param": "abc"
+                },
+                "inputs": [
+                    {
+                        "name": "input-0",
+                        "datatype": "INT32",
+                        "shape": [2, 2],
+                        "data": [[1, 2], [3, 4]],
+                        "parameters": {
+                            "test-param": "abc"
+                        },
+                    }
+                ]
+            }
+            res = await rest_client.infer("http://test-server-v2", data=input_data,
+                                          headers={"Host": "test-server.com"}, timeout=2, is_graph_endpoint=True)
+            assert res["outputs"][0]["data"] == [1, 2, 3, 4]
+            assert res["id"] == request_id
+
+            input_data = InferRequest(model_name="TestModel", request_id=request_id,
+                                      infer_inputs=[InferInput(name="input-0", datatype="INT32",
+                                                               shape=[2, 2], data=[[1, 2], [3, 4]],
+                                                               parameters={"test-param": "abc"})],
+                                      parameters={"test-param": "abc"})
+
+            res = await rest_client.infer("http://test-server-v2", data=input_data,
+                                          headers={"Host": "test-server.com"}, timeout=2, is_graph_endpoint=True)
+            assert res["outputs"][0]["data"] == [1, 2, 3, 4]
+            assert res["id"] == request_id
 
     @pytest.mark.parametrize("rest_client, protocol", [("v1", "v1"), ("v2", "v2")], indirect=["rest_client"])
     async def test_explain(self, rest_client, protocol):

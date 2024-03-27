@@ -100,7 +100,8 @@ async def predict_isvc(service_name, input_path, protocol_version="v1",
     if model_name is None:
         model_name = service_name
     base_url = f"http://{cluster_ip}{path}"
-    return await predict(base_url, host, input_path, protocol_version, is_batch)
+    return await predict(base_url, host, input_path, model_name=model_name, protocol_version=protocol_version,
+                         is_batch=is_batch)
 
 
 async def predict(url, host, input_path, model_name=None, protocol_version="v1", is_batch=False, is_graph=False) \
@@ -115,7 +116,8 @@ async def predict(url, host, input_path, model_name=None, protocol_version="v1",
                                                       protocol_version, is_graph) for input_data in data]
             result = await asyncio.gather(*future_list)
     else:
-        result = await _predict(url, data, model_name, headers, protocol_version, is_graph)
+        result = await _predict(url, data, model_name=model_name, headers=headers, protocol_version=protocol_version,
+                                is_graph=is_graph)
     logging.info("Got response %s", result)
     return result
 
@@ -128,7 +130,7 @@ async def _predict(url, input_data, model_name, headers=None, protocol_version="
     logging.info("Sending request data: %s", input_data)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     await asyncio.sleep(3)
-    response = await client.infer(url, input_data, model_name, headers, is_graph)
+    response = await client.infer(url, input_data, model_name=model_name, headers=headers, is_graph_endpoint=is_graph)
     return response
 
 
