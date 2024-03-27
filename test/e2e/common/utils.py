@@ -100,7 +100,7 @@ async def predict_isvc(service_name, input_path, protocol_version="v1",
         model_name = service_name
     base_url = f"http://{cluster_ip}{path}"
     return await predict(base_url, host, input_path, model_name=model_name, protocol_version=protocol_version,
-                         is_batch=is_batch)
+                         is_batch=is_batch, is_graph=False)
 
 
 async def predict(url, host, input_path, model_name=None, protocol_version="v1", is_batch=False, is_graph=False) \

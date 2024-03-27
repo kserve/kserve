@@ -356,9 +356,9 @@ class InferenceRESTClient:
             base_url = httpx.URL(base_url)
         if base_url.is_relative_url:
             raise httpx.InvalidURL("Base url should not be a relative url")
-        if not base_url.raw_path.endswith(b"/"):
-            base_url.join("/")
-        return base_url.join(relative_url.lstrip("/"))
+        if not base_url.raw_path.endswith(b"/") and not relative_url.startswith("/"):
+            relative_url = "/" + relative_url
+        return base_url.join(base_url.path + relative_url)
 
     def _consturct_http_status_error(self, response: httpx.Response) -> httpx.HTTPStatusError:
         message = (
