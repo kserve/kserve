@@ -182,8 +182,7 @@ async def test_isvc_with_multiple_container_port():
     expected_output = ["14.976", "14.037", "13.966", "12.252", "12.086"]
     grpc_response = await predict_grpc(service_name=service_name,
                                        payload=payload, model_name=model_name)
-    fields = grpc_response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    grpc_output = ["%.3f" % value for value in list(field_value)]
+    fields = grpc_response.outputs[0].data
+    grpc_output = ["%.3f" % value for value in fields]
     assert grpc_output == expected_output
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

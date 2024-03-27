@@ -35,7 +35,7 @@ class AlexNetModel(Model):
         self.ready = False
 
     def load(self):
-        self.model = models.alexnet(pretrained=True)
+        self.model = models.alexnet(pretrained=True, progress=False)
         self.model.eval()
         self.ready = True
 

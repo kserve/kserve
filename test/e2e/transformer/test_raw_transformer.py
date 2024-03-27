@@ -95,4 +95,4 @@ async def test_transformer():
 
     res = await predict_isvc(service_name, "./data/transformer.json", model_name="mnist")
     assert res["predictions"][0] == 2
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    # kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

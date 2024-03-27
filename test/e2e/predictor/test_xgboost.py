@@ -277,7 +277,7 @@ async def test_xgboost_v2_grpc():
     payload = json.load(json_file)["inputs"]
     response = await predict_grpc(service_name=service_name,
                                   payload=payload, model_name=model_name)
-    prediction = list(response.outputs[0].contents.fp32_contents)
+    prediction = response.outputs[0].data
     assert prediction == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

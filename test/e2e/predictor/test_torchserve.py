@@ -157,7 +157,7 @@ async def test_torchserve_grpc_v2():
     response = await predict_grpc(
         service_name=service_name, payload=payload, model_name=model_name
     )
-    fields = response.outputs[0].contents.int64_contents
+    fields = response.outputs[0].data
     assert fields == [2]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 

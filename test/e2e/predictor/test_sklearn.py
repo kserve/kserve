@@ -270,7 +270,7 @@ async def test_sklearn_v2_grpc():
 
     response = await predict_grpc(service_name=service_name,
                                   payload=payload, model_name=model_name)
-    prediction = list(response.outputs[0].contents.int_contents)
+    prediction = response.outputs[0].data
     assert prediction == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -381,7 +381,7 @@ async def test_sklearn_v2_mixed_grpc():
     response = await predict_grpc(service_name=service_name,
                                   payload=payload, model_name=model_name, parameters=parameters,
     )
-    prediction = list(response.outputs[0].contents.fp64_contents)
+    prediction = list(response.outputs[0].data)
     assert prediction == [12.202832815138274]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

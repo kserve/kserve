@@ -205,7 +205,7 @@ class Model(BaseKServeModel):
     @property
     def _http_client(self) -> InferenceRESTClient:
         if self._http_client_instance is None:
-            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3)
+            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3, verbose=True)
             self._http_client_instance = InferenceRESTClient(config=config)
         return self._http_client_instance
 
@@ -214,7 +214,7 @@ class Model(BaseKServeModel):
         if self._grpc_client_stub is None:
             self._grpc_client_stub = InferenceGRPCClient(url=self.predictor_host, use_ssl=self.use_ssl
             ,
-                                                         timeout=self.timeout)
+                                                         timeout=self.timeout, verbose=True)
         return self._grpc_client_stub
 
     def validate(self, payload):
@@ -310,7 +310,7 @@ class Model(BaseKServeModel):
         predict_base_url = PREDICTOR_BASE_URL_FORMAT.format(protocol, self.predictor_host)
         response = await self._http_client.infer(
                 predict_base_url,
-                self.name,
+                model_name=self.name,
                 data=payload,
                 headers=predict_headers,
         )
@@ -391,7 +391,7 @@ class Model(BaseKServeModel):
         )
         response = await self._http_client.explain(
             explain_base_url,
-            self.name,
+            model_name=self.name,
             data=payload,
             headers=explain_headers
         )

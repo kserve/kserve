@@ -202,8 +202,8 @@ async def test_pmml_v2_grpc():
 
     response = await predict_grpc(service_name=service_name,
                                   payload=payload, model_name=model_name)
-    assert response.outputs[0].contents.bytes_contents[0] == b"setosa"
-    assert response.outputs[1].contents.fp64_contents[0] == 1.0
-    assert response.outputs[2].contents.fp64_contents[0] == 0.0
-    assert response.outputs[3].contents.fp64_contents[0] == 0.0
+    assert response.outputs[0].data == [b'setosa']
+    assert response.outputs[1].data == [1.0]
+    assert response.outputs[2].data == [0.0]
+    assert response.outputs[3].data == [0.0]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

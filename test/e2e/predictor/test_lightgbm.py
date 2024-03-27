@@ -261,7 +261,7 @@ async def test_lightgbm_v2_grpc():
     response = await predict_grpc(
         service_name=service_name, payload=payload, model_name=model_name
     )
-    prediction = list(response.outputs[0].contents.fp64_contents)
+    prediction = response.outputs[0].data
     assert prediction == [
         8.796664107010673e-06,
         0.9992300031041593,

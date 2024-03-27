@@ -116,9 +116,8 @@ async def test_custom_model_grpc():
     ]
     response = await predict_grpc(service_name=service_name,
                                   payload=payload, model_name=model_name)
-    fields = response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    points = ["%.3f" % (point) for point in list(field_value)]
+    fields = response.outputs[0].data
+    points = ["%.3f" % (point) for point in fields]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
 
     pods = kserve_client.core_api.list_namespaced_pod(

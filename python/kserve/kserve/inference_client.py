@@ -207,7 +207,7 @@ class InferenceGRPCClient:
             response = await self._client_stub.ModelInfer(
                 request=infer_request,
                 metadata=metadata,
-                timeout=self._timeout if isinstance(_UseClientDefault, timeout) else timeout)
+                timeout=self._timeout if isinstance(timeout, _UseClientDefault) else timeout)
             response = InferResponse.from_grpc(response)
             if self._verbose:
                 logger.info("infer response: %s", response)
@@ -230,8 +230,8 @@ class InferenceGRPCClient:
         try:
             response: ServerReadyResponse = await self._client_stub.ServerReady(ServerReadyRequest(),
                                                                                 timeout=self._timeout if isinstance(
-                                                                                    _UseClientDefault,
-                                                                                    timeout) else timeout,
+                                                                                    timeout, _UseClientDefault)
+                                                                                else timeout,
                                                                                 metadata=headers)
             if self._verbose:
                 logger.info("Server ready response: %s", response)
@@ -255,8 +255,8 @@ class InferenceGRPCClient:
         try:
             response: ServerLiveResponse = await self._client_stub.ServerLive(ServerLiveRequest(),
                                                                               timeout=self._timeout if isinstance(
-                                                                                  _UseClientDefault,
-                                                                                  timeout) else timeout,
+                                                                                  timeout, _UseClientDefault)
+                                                                              else timeout,
                                                                               metadata=headers)
             if self._verbose:
                 logger.info("Server live response: %s", response)
@@ -281,8 +281,8 @@ class InferenceGRPCClient:
         try:
             response: ModelReadyResponse = await self._client_stub.ModelReady(ModelReadyRequest(name=model_name),
                                                                               timeout=self._timeout if isinstance(
-                                                                                  _UseClientDefault,
-                                                                                  timeout) else timeout,
+                                                                                  timeout, _UseClientDefault)
+                                                                              else timeout,
                                                                               metadata=headers)
             if self._verbose:
                 logger.info("Model %s ready response: %s", model_name, response)
@@ -355,9 +355,9 @@ class InferenceRESTClient:
             base_url = httpx.URL(base_url)
         if base_url.is_relative_url:
             raise httpx.InvalidURL("Base url should not be a relative url")
-        if not base_url.raw_path.endswith(b"/"):
-            base_url.join("/")
-        return base_url.join(relative_url.lstrip("/"))
+        if not base_url.raw_path.endswith(b"/") and not relative_url.startswith("/"):
+            relative_url = "/" + relative_url
+        return base_url.join(base_url.path + relative_url)
 
     def _consturct_http_status_error(self, response: httpx.Response) -> httpx.HTTPStatusError:
         message = (

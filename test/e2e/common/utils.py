@@ -25,16 +25,11 @@ import portforward
 from kubernetes import client as k8s_client
 from orjson import orjson
 
-from kserve import KServeClient, InferResponse
+from kserve import KServeClient, InferResponse, InferRequest
 from kserve import constants
 from kserve.inference_client import InferenceRESTClient, InferenceGRPCClient, RESTConfig
 from kserve.model import PredictorProtocol
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
-from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
-
-from . import inference_pb2_grpc
-
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
@@ -62,7 +57,7 @@ def grpc_stub(host):
             "methodConfig": [{
                 "name": [{"service": "org.pytorch.serve.grpc.inference"}],
                 "retryPolicy": {
-                    "maxAttempts": 5,
+                    "maxAttempts": 3,
                     "initialBackoff": "0.1s",
                     "maxBackoff": "10s",
                     "backoffMultiplier": 2,
@@ -82,11 +77,11 @@ def get_rest_client(protocol):
     global rest_client_v2
     if protocol == PredictorProtocol.REST_V1.value:
         if rest_client_v1 is None:
-            rest_client_v1 = InferenceRESTClient(config=RESTConfig(timeout=10, verbose=True, protocol=protocol))
+            rest_client_v1 = InferenceRESTClient(config=RESTConfig(timeout=60, verbose=True, protocol=protocol))
         return rest_client_v1
     else:
         if rest_client_v2 is None:
-            rest_client_v2 = InferenceRESTClient(config=RESTConfig(timeout=10, verbose=True, protocol=protocol))
+            rest_client_v2 = InferenceRESTClient(config=RESTConfig(timeout=60, verbose=True, protocol=protocol))
         return rest_client_v2
 
 
@@ -105,7 +100,8 @@ async def predict_isvc(service_name, input_path, protocol_version="v1",
     if model_name is None:
         model_name = service_name
     base_url = f"http://{cluster_ip}{path}"
-    return await predict(base_url, host, input_path, protocol_version, is_batch)
+    return await predict(base_url, host, input_path, model_name=model_name, protocol_version=protocol_version,
+                         is_batch=is_batch, is_graph=False)
 
 
 async def predict(url, host, input_path, model_name=None, protocol_version="v1", is_batch=False, is_graph=False) \
@@ -120,7 +116,8 @@ async def predict(url, host, input_path, model_name=None, protocol_version="v1",
                                                       protocol_version, is_graph) for input_data in data]
             result = await asyncio.gather(*future_list)
     else:
-        result = await _predict(url, data, model_name, headers, protocol_version, is_graph)
+        result = await _predict(url, data, model_name=model_name, headers=headers, protocol_version=protocol_version,
+                                is_graph=is_graph)
     logging.info("Got response %s", result)
     return result
 
@@ -132,8 +129,8 @@ async def _predict(url, input_data, model_name, headers=None, protocol_version="
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_data)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    await asyncio.sleep(3)
-    response = await client.infer(url, input_data, model_name, headers, is_graph)
+    await asyncio.sleep(5)
+    response = await client.infer(url, input_data, model_name=model_name, headers=headers, is_graph_endpoint=is_graph)
     return response
 
 
@@ -173,16 +170,16 @@ async def explain_response(service_name, input_path) -> Dict:
         version=constants.KSERVE_V1BETA1_VERSION,
     )
     cluster_ip, host, _ = get_isvc_endpoint(isvc)
-    url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
+    url = f"http://{cluster_ip}"
     headers = {"Host": host}
     with open(input_path) as json_file:
         data = json.load(json_file)
         logging.info("Sending request data: %s", data)
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-            await asyncio.sleep(3)
-            client = get_rest_client()
-            response = await client.explain(url, data, headers=headers)
+            await asyncio.sleep(5)
+            client = get_rest_client(protocol="v1")
+            response = await client.explain(url, model_name=service_name, data=data, headers=headers)
         except (RuntimeError, orjson.JSONDecodeError) as e:
             logging.info("Explain error -------")
             pods = kfs_client.core_api.list_namespaced_pod(
@@ -223,7 +220,7 @@ def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
 
 
 async def predict_grpc(service_name, payload, parameters=None, version=constants.KSERVE_V1BETA1_VERSION,
-                       model_name=None,) -> ModelInferResponse:
+                       model_name=None,) -> InferResponse:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -237,7 +234,9 @@ async def predict_grpc(service_name, payload, parameters=None, version=constants
     if model_name is None:
         model_name = service_name
     client = grpc_stub(host)
-    response = await client.infer(pb.ModelInferRequest(model_name=model_name, inputs=payload, parameters=parameters))
+
+    response = await client.infer(InferRequest.from_grpc(pb.ModelInferRequest(model_name=model_name, inputs=payload,
+                                                                              parameters=parameters)))
     return response
 
 
