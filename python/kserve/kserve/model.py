@@ -145,7 +145,7 @@ class Model:
     @property
     def _http_client(self) -> InferenceRESTClient:
         if self._http_client_instance is None:
-            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3)
+            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3, verbose=True)
             self._http_client_instance = InferenceRESTClient(config=config)
         return self._http_client_instance
 
@@ -153,7 +153,7 @@ class Model:
     def _grpc_client(self) -> InferenceGRPCClient:
         if self._grpc_client_stub is None:
             self._grpc_client_stub = InferenceGRPCClient(url=self.predictor_host, use_ssl=self.use_ssl,
-                                                         timeout=self.timeout)
+                                                         timeout=self.timeout, verbose=True)
         return self._grpc_client_stub
 
     def validate(self, payload):
