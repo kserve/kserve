@@ -473,9 +473,10 @@ func TestRuntimeDefaults(t *testing.T) {
 
 		case "Triton":
 			g.Expect(scenario.isvc.Spec.Predictor.Triton).To(gomega.BeNil())
-		}
+
 		case "MlServer":
 			g.Expect(scenario.isvc.Spec.Predictor.XGBoost).To(gomega.BeNil())
+		}
 		g.Expect(*scenario.isvc.Spec.Predictor.Model.ProtocolVersion).To(scenario.matcher)
 	}
 }
