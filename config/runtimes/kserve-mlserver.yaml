@@ -1,0 +1,51 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-mlserver
+spec:
+  annotations:
+    # mlserver version 1.1.0 uses port 8082 as default instead of 8080.
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: sklearn
+      version: "0"
+      autoSelect: true
+      priority: 2
+    - name: sklearn
+      version: "1"
+      autoSelect: true
+      priority: 2
+    - name: xgboost
+      version: "1"
+      autoSelect: true
+      priority: 2
+    - name: lightgbm
+      version: "3"
+      autoSelect: true
+      priority: 2
+    - name: mlflow
+      version: "1"
+      autoSelect: true
+      priority: 1
+  protocolVersions:
+    - v2
+  containers:
+    - name: kserve-container
+      image: mlserver:replace
+      env:
+        - name: "MLSERVER_MODEL_IMPLEMENTATION"
+          value: "{{.Labels.modelClass}}"
+        - name: "MLSERVER_HTTP_PORT"
+          value: "8080"
+        - name: "MLSERVER_GRPC_PORT"
+          value: "9000"
+        - name: "MODELS_DIR"
+          value: "/mnt/models"
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi

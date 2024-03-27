@@ -172,6 +172,8 @@ type ServerType string
 const (
 	// Model server is Triton
 	Triton ServerType = "triton"
+	// Model server is MLServer
+	MLServer ServerType = "mlserver"
 	// Model server is OpenVino Model Server
 	OVMS ServerType = "ovms"
 )

@@ -18,10 +18,13 @@ package v1beta1
 
 import (
 	"fmt"
+	"reflect"
+	"strconv"
+
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -261,6 +264,10 @@ func (isvc *InferenceService) assignPaddleRuntime() {
 }
 
 func (isvc *InferenceService) SetRuntimeDefaults() {
+	// add mlserver specific default values
+	if *isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
+		isvc.SetMlServerDefaults()
+	}
 	// add torchserve specific default values
 	if *isvc.Spec.Predictor.Model.Runtime == constants.TorchServe {
 		isvc.SetTorchServeDefaults()
@@ -268,6 +275,48 @@ func (isvc *InferenceService) SetRuntimeDefaults() {
 	// add triton specific default values
 	if *isvc.Spec.Predictor.Model.Runtime == constants.TritonServer {
 		isvc.SetTritonDefaults()
+	}
+}
+
+func (isvc *InferenceService) SetMlServerDefaults() {
+	// set 'v2' as default protocol version for mlserver
+	if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
+	}
+	// set environment variables based on storage uri
+	if isvc.Spec.Predictor.Model.StorageURI == nil && isvc.Spec.Predictor.Model.Storage == nil {
+		isvc.Spec.Predictor.Model.Env = utils.AppendEnvVarIfNotExists(isvc.Spec.Predictor.Model.Env,
+			v1.EnvVar{
+				Name:  constants.MLServerLoadModelsStartupEnv,
+				Value: strconv.FormatBool(false),
+			},
+		)
+	} else {
+		isvc.Spec.Predictor.Model.Env = utils.AppendEnvVarIfNotExists(isvc.Spec.Predictor.Model.Env,
+			v1.EnvVar{
+				Name:  constants.MLServerModelNameEnv,
+				Value: isvc.Name,
+			},
+			v1.EnvVar{
+				Name:  constants.MLServerModelURIEnv,
+				Value: constants.DefaultModelLocalMountPath,
+			},
+		)
+	}
+	// set model class
+	modelClass := constants.MLServerModelClassSKLearn
+	if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelXGBoost {
+		modelClass = constants.MLServerModelClassXGBoost
+	} else if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelLightGBM {
+		modelClass = constants.MLServerModelClassLightGBM
+	} else if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelMLFlow {
+		modelClass = constants.MLServerModelClassMLFlow
+	}
+	if isvc.ObjectMeta.Labels == nil {
+		isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: modelClass}
+	} else {
+		isvc.ObjectMeta.Labels[constants.ModelClassLabel] = modelClass
 	}
 }
 

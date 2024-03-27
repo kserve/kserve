@@ -105,6 +105,56 @@ def test_lightgbm_runtime_kserve():
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
+def test_lightgbm_v2_runtime_mlserver():
+    service_name = "isvc-lightgbm-v2-runtime"
+    protocol_version = "v2"
+
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="lightgbm",
+            ),
+            runtime="kserve-mlserver",
+            storage_uri="gs://kfserving-examples/models/lightgbm/v2/iris",
+            protocol_version=protocol_version,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "1", "memory": "1Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = predict(service_name, "./data/iris_input_v2.json",
+                  protocol_version="v2")
+    assert res["outputs"][0]["data"] == [
+        8.796664107010673e-06,
+        0.9992300031041593,
+        0.0007612002317336916,
+        4.974786820804187e-06,
+        0.9999919650711493,
+        3.0601420299625077e-06]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_lightgbm_v2_kserve():
     service_name = "isvc-lightgbm-v2-kserve"
 

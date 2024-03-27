@@ -92,6 +92,10 @@ kserve:
     tensorflow:
       image: tensorflow/serving
       tag: 2.6.2
+    mlserver:
+      image: docker.io/seldonio/mlserver
+      tag: 1.3.2
+      modelClassPlaceholder: "{{.Labels.modelClass}}"
     sklearnserver:
       image: kserve/sklearnserver
       tag: *defaultVersion

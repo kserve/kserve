@@ -13,41 +13,39 @@
 # limitations under the License.
 
 import os
-
-import pytest
 from kubernetes import client
-from kubernetes.client import V1ResourceRequirements
-
 from kserve import (
+    constants,
     KServeClient,
     V1beta1InferenceService,
     V1beta1InferenceServiceSpec,
-    V1beta1ModelFormat,
-    V1beta1ModelSpec,
     V1beta1PredictorSpec,
-    constants
+    V1beta1ModelSpec,
+    V1beta1ModelFormat,
 )
+from kubernetes.client import V1ResourceRequirements
+import pytest
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict
+from ..common.utils import predict
+from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-@pytest.mark.helm
-def test_sklearn_kserve():
-    service_name = "isvc-sklearn-helm"
+@pytest.mark.predictor
+def test_mlflow_v2_runtime_kserve():
+    service_name = "isvc-mlflow-v2-runtime"
     protocol_version = "v2"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="sklearn",
+                name="mlflow",
             ),
-            runtime="kserve-mlserver",
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            storage_uri="gs://kfserving-examples/models/mlflow/wine",
             protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "512Mi"},
+                limits={"cpu": "1", "memory": "1Gi"},
             ),
         ),
     )
@@ -61,14 +59,10 @@ def test_sklearn_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
-
-    res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 1]
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    res = predict(service_name, "./data/mlflow_input_v2.json", protocol_version=protocol_version)
+    assert res["outputs"][0]["data"] == [5.576883936610762]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
