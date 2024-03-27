@@ -144,6 +144,10 @@ class TestInferenceRESTClient:
             await rest_client.infer("http://test-server/", data=input_data,
                                     headers={"Host": "test-server.com"}, timeout=2)
 
+    # Because no versions of pytest-httpx match >v0.22.0,<0.23.0
+    # and pytest-httpx (0.22.0) depends on httpx (==0.24.*), pytest-httpx (>=v0.22.0,<0.23.0) requires httpx (==0.24.*).
+    # So, because kserve depends on both httpx (^0.26.0) and pytest_httpx (~v0.22.0), version solving failed.
+    @pytest.mark.skip("pytest_httpx requires python >= 3.9")
     @pytest.mark.parametrize("rest_client", ["v1", "v2", "v3"], indirect=["rest_client"])
     async def test_infer_graph_endpoint(self, rest_client, httpx_mock):
         request_id = "2ja0ls9j1309"
