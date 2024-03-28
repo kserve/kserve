@@ -39,7 +39,8 @@ JSON_HEADERS = ["application/json", "application/cloudevents+json", "application
 # RayServeSyncHandle has been the return type of serve.run since Ray 2.5.
 # DeploymentHandle will be the new return type (still under feature flag in Ray 2.7).
 # ref https://github.com/ray-project/ray/pull/37817
-# On Ray 2.10, it now returns DeploymentHandle
+# On Ray 2.10, it now returns DeploymentHandle:
+# https://docs.ray.io/en/latest/serve/api/index.html#deployment-handles
 ModelHandleType = Union[Model, DeploymentHandle]
 
 
