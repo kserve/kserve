@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Union, Callable, Any
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment
-from ray.serve.handle import RayServeHandle
+from ray.serve.handle import DeploymentHandle
 
 from .logging import KSERVE_LOG_CONFIG, logger
 from .model import Model
@@ -262,7 +262,7 @@ class ModelServer:
         loop.run_until_complete(self.stop())
         loop.default_exception_handler(context)
 
-    def register_model_handle(self, name: str, model_handle: RayServeHandle):
+    def register_model_handle(self, name: str, model_handle: DeploymentHandle):
         """Register a model handle to the model server.
 
         Args:

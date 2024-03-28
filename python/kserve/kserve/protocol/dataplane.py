@@ -17,10 +17,10 @@ from typing import Dict, Union, Tuple, Optional, Any, AsyncIterator
 
 import cloudevents.exceptions as ce
 import orjson
-import ray
+
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.handle import RayServeHandle, RayServeSyncHandle, DeploymentHandle
+from ray.serve.handle import DeploymentHandle
 
 from .rest.v2_datamodels import GenerateRequest, GenerateResponse
 from ..model import Model
@@ -39,7 +39,8 @@ JSON_HEADERS = ["application/json", "application/cloudevents+json", "application
 # RayServeSyncHandle has been the return type of serve.run since Ray 2.5.
 # DeploymentHandle will be the new return type (still under feature flag in Ray 2.7).
 # ref https://github.com/ray-project/ray/pull/37817
-ModelHandleType = Union[Model, RayServeHandle, RayServeSyncHandle, DeploymentHandle]
+# On Ray 2.10, it now returns DeploymentHandle
+ModelHandleType = Union[Model, DeploymentHandle]
 
 
 class DataPlane:
@@ -170,10 +171,7 @@ class DataPlane:
         # TODO: model versioning is not supported yet
         model = self.get_model_from_registry(model_name)
 
-        if isinstance(model, RayServeSyncHandle):
-            input_types = ray.get(model.get_input_types.remote())
-            output_types = ray.get(model.get_output_types.remote())
-        elif isinstance(model, (RayServeHandle, DeploymentHandle)):
+        if isinstance(model, DeploymentHandle):
             input_types = await model.get_input_types.remote()
             output_types = await model.get_output_types.remote()
         else:
@@ -316,9 +314,7 @@ class DataPlane:
         """
         # call model locally or remote model workers
         model = self.get_model(model_name)
-        if isinstance(model, RayServeSyncHandle):
-            response = ray.get(model.remote(request, headers=headers))
-        elif isinstance(model, (RayServeHandle, DeploymentHandle)):
+        if isinstance(model, DeploymentHandle):
             response = await model.remote(request, headers=headers)
         else:
             response = await model(request, headers=headers)
@@ -367,9 +363,7 @@ class DataPlane:
         """
         # call model locally or remote model workers
         model = self.get_model(model_name)
-        if isinstance(model, RayServeSyncHandle):
-            response = ray.get(model.remote(request, verb=InferenceVerb.EXPLAIN))
-        elif isinstance(model, (RayServeHandle, DeploymentHandle)):
+        if isinstance(model, DeploymentHandle):
             response = await model.remote(request, verb=InferenceVerb.EXPLAIN)
         else:
             response = await model(request, verb=InferenceVerb.EXPLAIN)
