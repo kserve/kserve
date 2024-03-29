@@ -31,6 +31,10 @@ parser.add_argument('--model_dir', required=False, default=None,
                     help='A local path to the model binary')
 parser.add_argument('--model_id', required=False,
                     help='Huggingface model id')
+parser.add_argument('--model_revision', required=False, default=None,
+                    help='Huggingface model revision')
+parser.add_argument('--tokenizer_revision', required=False, default=None,
+                    help='Huggingface tokenizer revision')
 parser.add_argument('--max_length', type=int, default=None,
                     help='max sequence length for the tokenizer')
 parser.add_argument('--disable_lower_case', action='store_true',
@@ -57,6 +61,7 @@ if __name__ == "__main__":
     engine_args = None
     if _vllm and not args.disable_vllm:
         args.model = args.model_dir or args.model_id
+        args.revision = args.model_revision
         engine_args = AsyncEngineArgs.from_cli_args(args)
     predictor_config = PredictorConfig(args.predictor_host, args.predictor_protocol,
                                        args.predictor_use_ssl,

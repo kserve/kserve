@@ -40,6 +40,20 @@ def test_bert():
     assert response == {"predictions": ["paris", "france"]}
 
 
+def test_model_revision():
+    model = HuggingfaceModel("bert-base-uncased",
+                             {"model_id": "bert-base-uncased",
+                              "model_revision": "main",
+                              "tokenizer_revision": "main",
+                              "disable_lower_case": False}
+                             )
+    model.load()
+
+    response = asyncio.run(model({"instances": ["The capital of France is [MASK].",
+                                                "The capital of [MASK] is paris."]}, headers={}))
+    assert response == {"predictions": ["paris", "france"]}
+
+
 def test_bert_predictor_host(httpx_mock: HTTPXMock):
     httpx_mock.add_response(json={"outputs": [{"name": "OUTPUT__0", "shape": [1, 9, 758],
                                                "data": [1] * 9 * 758,
