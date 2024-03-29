@@ -219,7 +219,7 @@ def test_sklearn_v2_grpc():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -251,7 +251,7 @@ def test_sklearn_v2_grpc():
 
     response = predict_grpc(service_name=service_name,
                             payload=payload, model_name=model_name)
-    prediction = list(response.outputs[0].contents.int64_contents)
+    prediction = list(response.outputs[0].contents.int_contents)
     assert prediction == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
