@@ -219,7 +219,7 @@ def test_sklearn_v2_grpc():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
