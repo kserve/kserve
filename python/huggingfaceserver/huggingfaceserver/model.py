@@ -125,8 +125,16 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if self.model._no_split_modules:
             self.device_map = "auto"
         # load huggingface tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            model_id_or_path, do_lower_case=self.do_lower_case, device_map=self.device_map)
+        if not model_config.is_encoder_decoder:
+            # Pad left for decode-only architecture models.
+            # https://github.com/huggingface/transformers/issues/18388#issuecomment-1204369688
+            # https://github.com/Vision-CAIR/MiniGPT-4/issues/129
+            # https://github.com/huggingface/transformers/blob/1248f0925234f97da9eee98da2aa22f7b8dbeda1/src/transformers/generation/utils.py#L1376-L1388
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_id_or_path, do_lower_case=self.do_lower_case, device_map=self.device_map, padding_side="left")
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_id_or_path, do_lower_case=self.do_lower_case, device_map=self.device_map)
         if not self.tokenizer.pad_token:
             self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
         logger.info(f"successfully loaded tokenizer for task: {self.task}")
