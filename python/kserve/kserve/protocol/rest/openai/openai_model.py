@@ -4,21 +4,24 @@ from typing import AsyncIterator, Callable, Iterable, Union, cast
 
 from openai.types import Completion, CompletionChoice, CompletionCreateParams
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
-from openai.types.chat import \
-    ChatCompletionMessage as BaseChatCompletionMessage
+from openai.types.chat import ChatCompletionMessage as BaseChatCompletionMessage
 from openai.types.chat import ChatCompletionMessageParam
-from openai.types.chat import \
-    CompletionCreateParams as ChatCompletionCreateParams
+from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
 from openai.types.chat.chat_completion import Choice, ChoiceLogprobs
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 from openai.types.chat.chat_completion_chunk import ChoiceDelta
-from openai.types.chat.chat_completion_chunk import \
-    ChoiceLogprobs as ChunkChoiceLogprobs
+from openai.types.chat.chat_completion_chunk import (
+    ChoiceLogprobs as ChunkChoiceLogprobs,
+)
 from openai.types.chat.chat_completion_token_logprob import (
-    ChatCompletionTokenLogprob, TopLogprob)
+    ChatCompletionTokenLogprob,
+    TopLogprob,
+)
 from openai.types.completion_choice import Logprobs
 from openai.types.completion_create_params import (
-    CompletionCreateParamsNonStreaming, CompletionCreateParamsStreaming)
+    CompletionCreateParamsNonStreaming,
+    CompletionCreateParamsStreaming,
+)
 from pydantic import BaseModel
 
 from ....errors import InvalidInput
@@ -73,7 +76,7 @@ class AsyncChunkIterator:
     async def __anext__(self) -> ChatCompletionChunk:
         # This will raise StopAsyncIteration when there are no more completions.
         # We don't catch it so it will stop our iterator as well.
-        completion = await anext(self.completion_iterator)
+        completion = await self.completion_iterator.__anext__()
         return self.mapper(completion)
 
 
