@@ -51,7 +51,6 @@ from .v2_datamodels import (
     ServerLiveResponse,
     ServerMetadataResponse,
     ServerReadyResponse,
-    ListModelsResponse,
 )
 from .v2_endpoints import V2Endpoints
 

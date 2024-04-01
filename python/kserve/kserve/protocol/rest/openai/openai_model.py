@@ -13,29 +13,23 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import AsyncIterator, Callable, Dict, Iterable, Optional, Union, cast
+from typing import (AsyncIterator, Callable, Dict, Iterable, Optional, Union,
+                    cast)
+
 from pydantic import BaseModel
-from kserve.protocol.rest.openai.types.openapi import (
-    ChatCompletionRequestSystemMessage,
-    ChatCompletionRequestUserMessage,
-    ChatCompletionRequestAssistantMessage,
-    ChatCompletionRequestToolMessage,
-    ChatCompletionRequestFunctionMessage,
-    ChatCompletionResponseMessage,
-    ChatCompletionStreamResponseDelta as ChoiceDelta,
-    ChatCompletionTokenLogprob,
-    Choice as CompletionChoice,
-    Choice1 as ChatCompletionChoice,
-    Choice3 as ChunkChoice,
-    CreateChatCompletionRequest,
-    CreateChatCompletionResponse as ChatCompletion,
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
-    CreateCompletionRequest,
-    CreateCompletionResponse as Completion,
-    Logprobs,
-    Logprobs2 as ChatCompletionChoiceLogprobs,
-    TopLogprob,
-)
+
+from kserve.protocol.rest.openai.types import (ChatCompletion,
+                                               ChatCompletionChoice,
+                                               ChatCompletionChoiceLogprobs,
+                                               ChatCompletionChunk,
+                                               ChatCompletionRequestMessage,
+                                               ChatCompletionResponseMessage,
+                                               ChatCompletionTokenLogprob,
+                                               ChoiceDelta, ChunkChoice,
+                                               Completion, CompletionChoice,
+                                               CreateChatCompletionRequest,
+                                               CreateCompletionRequest,
+                                               Logprobs, TopLogprob)
 
 from ....errors import InvalidInput
 from ....model import BaseKServeModel
@@ -50,15 +44,6 @@ class CompletionRequest(BaseModel):
     request_id: Optional[str] = None
     params: Union[CreateCompletionRequest, CreateChatCompletionRequest]
     context: Optional[Dict[str, str]] = None  # headers can go in here
-
-
-ChatCompletionRequestMessage = Union[
-    ChatCompletionRequestSystemMessage,
-    ChatCompletionRequestUserMessage,
-    ChatCompletionRequestAssistantMessage,
-    ChatCompletionRequestToolMessage,
-    ChatCompletionRequestFunctionMessage,
-]
 
 
 class OpenAIModel(BaseKServeModel):

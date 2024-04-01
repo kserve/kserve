@@ -14,17 +14,19 @@
 
 import asyncio
 import unittest
-from pytest_httpx import HTTPXMock
 
 from kserve.model import PredictorConfig
-from kserve.protocol.rest.v2_datamodels import GenerateRequest
-from .task import MLTask
+from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
+from pytest_httpx import HTTPXMock
+
 from .model import HuggingfaceModel
+from .task import MLTask
 
 
-def test_t5():
-    model = HuggingfaceModel("t5-small", {"model_id": "t5-small"})
+def test_t5(request):
+    model = HuggingfaceModel("t5-small", model_id_or_path="google-t5/t5-small")
     model.load()
+    request.addfinalizer(model.unload)
 
     request = "translate this to germany"
     response = asyncio.run(model({"instances": [request, request]}, headers={}))
@@ -33,12 +35,14 @@ def test_t5():
     }
 
 
-def test_bert():
+def test_bert(request):
     model = HuggingfaceModel(
-        "bert-base-uncased",
-        {"model_id": "bert-base-uncased", "disable_lower_case": False},
+        "google-bert/bert-base-uncased",
+        model_id_or_path="bert-base-uncased",
+        do_lower_case=True,
     )
     model.load()
+    request.addfinalizer(model.unload)
 
     response = asyncio.run(
         model(
@@ -54,19 +58,18 @@ def test_bert():
     assert response == {"predictions": ["paris", "france"]}
 
 
-def test_model_revision():
+def test_model_revision(request):
     # https://huggingface.co/google-bert/bert-base-uncased
     commit = "86b5e0934494bd15c9632b12f734a8a67f723594"
     model = HuggingfaceModel(
-        "bert-base-uncased",
-        {
-            "model_id": "bert-base-uncased",
-            "model_revision": commit,
-            "tokenizer_revision": commit,
-            "disable_lower_case": False,
-        },
+        "google-bert/bert-base-uncased",
+        model_id_or_path="bert-base-uncased",
+        model_revision=commit,
+        tokenizer_revision=commit,
+        do_lower_case=True,
     )
     model.load()
+    request.addfinalizer(model.unload)
 
     response = asyncio.run(
         model(
@@ -82,7 +85,7 @@ def test_model_revision():
     assert response == {"predictions": ["paris", "france"]}
 
 
-def test_bert_predictor_host(httpx_mock: HTTPXMock):
+def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
     httpx_mock.add_response(
         json={
             "outputs": [
@@ -98,16 +101,14 @@ def test_bert_predictor_host(httpx_mock: HTTPXMock):
 
     model = HuggingfaceModel(
         "bert",
-        {
-            "model_id": "bert-base-uncased",
-            "tensor_input_names": "input_ids",
-            "disable_lower_case": False,
-        },
+        model_id_or_path="google-bert/bert-base-uncased",
+        tensor_input_names="input_ids",
         predictor_config=PredictorConfig(
             predictor_host="localhost:8081", predictor_protocol="v2"
         ),
     )
     model.load()
+    request.addfinalizer(model.unload)
 
     response = asyncio.run(
         model({"instances": ["The capital of France is [MASK]."]}, headers={})
@@ -115,30 +116,29 @@ def test_bert_predictor_host(httpx_mock: HTTPXMock):
     assert response == {"predictions": ["[PAD]"]}
 
 
-def test_bert_sequence_classification():
+def test_bert_sequence_classification(request):
     model = HuggingfaceModel(
         "bert-base-uncased-yelp-polarity",
-        {
-            "model_id": "textattack/bert-base-uncased-yelp-polarity",
-            "task": MLTask.sequence_classification.value,
-        },
+        model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
+        task=MLTask.sequence_classification,
     )
     model.load()
+    request.addfinalizer(model.unload)
 
     request = "Hello, my dog is cute."
     response = asyncio.run(model({"instances": [request, request]}, headers={}))
     assert response == {"predictions": [1, 1]}
 
 
-def test_bert_token_classification():
+def test_bert_token_classification(request):
     model = HuggingfaceModel(
         "bert-large-cased-finetuned-conll03-english",
-        {
-            "model_id": "dbmdz/bert-large-cased-finetuned-conll03-english",
-            "disable_special_tokens": True,
-        },
+        model_id_or_path="dbmdz/bert-large-cased-finetuned-conll03-english",
+        do_lower_case=True,
+        add_special_tokens=False,
     )
     model.load()
+    request.addfinalizer(model.unload)
 
     request = "HuggingFace is a company based in Paris and New York"
     response = asyncio.run(model({"instances": [request, request]}, headers={}))
@@ -150,32 +150,36 @@ def test_bert_token_classification():
     }
 
 
-def test_bloom():
+def test_bloom(request):
     model = HuggingfaceModel(
         "bloom-560m",
-        {"model_id": "bigscience/bloom-560m", "disable_special_tokens": True},
+        model_id_or_path="bigscience/bloom-560m",
+        add_special_tokens=False,
     )
     model.load()
+    request.addfinalizer(model.unload)
 
-    request = "Hello, my dog is cute"
-    response = asyncio.run(
-        model.generate(generate_request=GenerateRequest(text_input=request), headers={})
+    params = CompletionCreateParamsNonStreaming(
+        model="bloom-560m",
+        prompt="Hello, my dog is cute",
+        stream=False,
+        echo=True,
     )
+    response = asyncio.run(model.create_completion(params))
     assert (
-        response.text_output
-        == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog"
+        response.choices[0].text
+        == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey"
     )
 
 
-def test_input_padding():
+def test_input_padding(request):
     model = HuggingfaceModel(
         "bert-base-uncased-yelp-polarity",
-        {
-            "model_id": "textattack/bert-base-uncased-yelp-polarity",
-            "task": MLTask.sequence_classification.value,
-        },
+        model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
+        task=MLTask.sequence_classification,
     )
     model.load()
+    request.addfinalizer(model.unload)
 
     # inputs with different lengths will throw an error
     # unless we set padding=True in the tokenizer
@@ -185,15 +189,14 @@ def test_input_padding():
     assert response == {"predictions": [1, 1]}
 
 
-def test_input_truncation():
+def test_input_truncation(request):
     model = HuggingfaceModel(
         "bert-base-uncased-yelp-polarity",
-        {
-            "model_id": "textattack/bert-base-uncased-yelp-polarity",
-            "task": MLTask.sequence_classification.value,
-        },
+        model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
+        task=MLTask.sequence_classification,
     )
     model.load()
+    request.addfinalizer(model.unload)
 
     # bert-base-uncased has a max length of 512 (tokenizer.model_max_length).
     # this request exceeds that, so it will throw an error
