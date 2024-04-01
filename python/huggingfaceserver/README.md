@@ -34,6 +34,25 @@ curl -H "content-type:application/json" -v localhost:8080/v1/models/bert:predict
 {"predictions":["paris"]}
 ```
 
+## Using LoRA Adapters
+
+If you have LoRA adapters for any base model, you can now use them for inference. For this, you need to mention the adapters you want while deploying. Note that for VLLM, only local adapters are supported. It will fall back to HuggingFace runtime if it doesn't find the files in the mentioned path (assuming that it is a HF repo). Here's a sample command to deploy multiple adapters. Here "sql" is the name of the adapter followed by path
+
+```bash
+python -m huggingfaceserver --model_id=meta-llama/Llama-2-7b-hf --model_name=llama --enable_lora --lora_modules={"adapter1":"/path/to/adapter1","adapter2":"/path/to/adapter2"}
+```
+
+Now for inference, we can choose the adapter by doing
+```bash
+curl -H "content-type:application/json" -v localhost:8080/v2/models/mistral/generate -d '{"text_input": "Write an SQL query to join two tables" ,"lora_module":"adapter1","parameters":{"temperature":0.001}}'
+```
+
+```bash
+curl -H "content-type:application/json" -v localhost:8080/v2/models/mistral/generate -d '{"text_input": "Who invented telescope" ,"lora_module":"adapter2","parameters":{"temperature":0.6}}'
+```
+Note that if you don't mention any lora_module, it uses base model for inference. If the mentioned adapter doesn't exist, it throws an error
+
+
 ## Deploy Huggingface Server on KServe
 
 1. Serve the huggingface model using KServe python runtime for both preprocess(tokenization)/postprocess and inference.

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import uuid
+import uuid, os, ast
 from threading import Thread
 
 from torch import Tensor
@@ -38,6 +38,7 @@ try:
     from vllm.sampling_params import SamplingParams
     from vllm.engine.async_llm_engine import AsyncLLMEngine
     from vllm.model_executor.models import ModelRegistry
+    from vllm.lora.request import LoRARequest
     _vllm = True
 except ImportError:
     _vllm = False
@@ -46,6 +47,7 @@ from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokeni
     AutoConfig, AutoModel, \
     AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForQuestionAnswering, \
     AutoModelForMaskedLM, BatchEncoding, TensorType
+from peft import PeftConfig, PeftType
 
 VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
@@ -77,7 +79,41 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.vllm_engine = None
         self.vllm_engine_args = engine_args
         self.use_vllm = not kwargs.get('disable_vllm', False) if _vllm else False
+        self.lora_requests = {}
         self.ready = False
+        self.enable_lora = kwargs.get('enable_lora',False)
+        if self.enable_lora:
+            self.lora_modules = kwargs.get('lora_modules',None)
+            assert self.lora_modules is not None, "enabled lora modules with --enable_lora but no lora module provided --lora_modules={'module_name':'module_path',...}"
+            self.lora_modules = ast.literal_eval(self.lora_modules)
+            if self.use_vllm:
+                self.lora_modules_supported(self.lora_modules)
+    
+    def repo_has_tensors(self,adapter_name):
+        file_names = os.listdir(adapter_name) if os.path.isdir(adapter_name) else []
+        return any([file_name.endswith('.safetensors') for file_name in file_names])
+    
+    def load_lora_modules_hf(self,):
+        for module in self.lora_modules.items():
+            module_name,module_path = module
+            self.model.load_adapter(module_path,module_name)
+
+
+    def lora_modules_supported(self,lora_modules):
+        for idx,module in enumerate(lora_modules.items()):
+            module_name,module_path = module
+            peft_config = PeftConfig.from_pretrained(module_path)
+            assert peft_config.base_model_name_or_path==self.model, f"Chosen module {module_name}'s base model {peft_config.base_model_name_or_path} is not {self.model}"
+            try:
+                assert peft_config.peft_type==PeftType.LORA, "chosen peft model is not LoRA. Please use any supported base or LoRA model."
+                assert peft_config.r<=64, f"VLLM only supports LoRA ranks of upto 64. Chosen adapter rank {peft_config.r}"
+                self.lora_requests[module_name] = LoRARequest(module_name, idx+1, module_path)
+            except Exception as e:
+                print(f"failed to load the module {module_name} falling back to Huggingface runtime {e}")
+                self.vllm_engine_args.enable_lora = False # If enable lora is passed but its not peft type, set enable_lora back to False
+                self.lora_requests = {}
+                self.use_vllm = False # Fall back onto HuggingFace if VLLM doesn't support
+                return False
 
     @staticmethod
     def infer_task_from_model_architecture(model_config: str):
@@ -158,6 +194,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id_or_path, device_map=self.device_map)
             else:
                 raise ValueError(f"Unsupported task {self.task}. Please check the supported `task` option.")
+
+            if self.enable_lora:
+                self.load_lora_modules_hf()
             self.model.eval()
             logger.info(f"successfully loaded huggingface model from path {model_id_or_path}")
         self.ready = True
@@ -209,14 +248,27 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             -> Union[GenerateResponse, AsyncIterator[Any]]:
         parameters = generate_request.parameters or {}
         prompt = generate_request.text_input
+        lora_module = generate_request.lora_module
+        lora_module_loaded = False
+        if lora_module is not None:
+            assert lora_module in self.lora_modules.keys(), f"Chosen lora adapter {lora_module} not in enabled adapters. Please choose one of {self.lora_modules.keys()}" if self.enable_lora else "LoRA not enabled for this deployment"
+            lora_module_loaded = True
         request_id = str(uuid.uuid4())
         if self.vllm_engine:
             sampling_params = SamplingParams(**parameters)
             results_generator = self.vllm_engine.generate(
-                prompt, sampling_params=sampling_params, request_id=request_id
+                prompt, sampling_params=sampling_params, request_id=request_id,
+                lora_request=self.lora_requests[lora_module] if lora_module_loaded else None
             )
             return results_generator
         else:
+            if self.enable_lora and not lora_module_loaded:
+                # This is to disable adapters if the prev request used adapter. 
+                # We can't do this later cuz of streamer
+                # Note that calling disable_adapters only works when something is loaded.
+                self.model.disable_adapters()
+            if lora_module_loaded and self.active_adapter!=lora_module: # Load adapter for this request if needed.
+                self.model.set_adapter(lora_module)
             input_batch = self.tokenizer(
                 prompt,
                 max_length=self.max_length,
