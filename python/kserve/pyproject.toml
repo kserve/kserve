@@ -80,6 +80,9 @@ storage = [
 logging = [
     "asgi-logger"
 ]
+openai = [
+    "openai"
+]
 
 [tool.poetry.group.test]
 optional = true
