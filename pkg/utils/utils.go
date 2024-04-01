@@ -163,7 +163,7 @@ func AppendPortIfNotExists(slice []v1.ContainerPort, elems ...v1.ContainerPort) 
 				break
 			}
 		}
-		if isElemExists == false {
+		if !isElemExists {
 			slice = append(slice, elem)
 		}
 	}

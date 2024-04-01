@@ -34,6 +34,7 @@ import (
 
 const (
 	HEADER_SUFFIX = "-headers"
+	DEFAULT_MAX_DECOMPRESSION_SIZE = 500 * 1024 * 1024 // 500MB
 )
 
 type HTTPSProvider struct {
@@ -133,7 +134,7 @@ func (h *HTTPSDownloader) extractHeaders() (map[string]string, error) {
 	if err != nil {
 		log.Error(err, "failed to unmarshal headers")
 	}
-	return headers, nil
+	return headers, err
 }
 
 func createNewFile(fileFullName string) (*os.File, error) {
@@ -186,7 +187,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("unable to open file: %w", err)
 		}
 
-		_, err = io.Copy(file, rc) // #nosec G110
+		_, err = io.CopyN(file, rc, DEFAULT_MAX_DECOMPRESSION_SIZE) // gosec G110
 		closeErr := file.Close()
 		if closeErr != nil {
 			return closeErr
@@ -240,8 +241,8 @@ func extractTarFiles(reader io.Reader, dest string) error {
 			return err
 		}
 
-		// #nosec G110
-		if _, err := io.Copy(newFile, tr); err != nil {
+		// gosec G110
+		if _, err := io.CopyN(newFile, tr, DEFAULT_MAX_DECOMPRESSION_SIZE); err != nil {
 			return fmt.Errorf("unable to copy contents to %s: %w", header.Name, err)
 		}
 	}

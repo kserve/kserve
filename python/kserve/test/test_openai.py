@@ -12,23 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import json
 from pathlib import Path
 from typing import AsyncIterator, Iterable, List, Tuple, Union
-from unittest import mock
 
 import pytest
 from openai.types import Completion, CompletionCreateParams
-from openai.types.chat import (ChatCompletion, ChatCompletionChunk,
-                               ChatCompletionMessageParam)
-from openai.types.chat import \
-    CompletionCreateParams as ChatCompletionCreateParams
-from openai.types.chat.completion_create_params import \
-    CompletionCreateParamsNonStreaming as \
-    ChatCompletionCreateParamsNonStreaming
-from openai.types.completion_create_params import \
-    CompletionCreateParamsNonStreaming
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessageParam,
+)
+from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
+from openai.types.chat.completion_create_params import (
+    CompletionCreateParamsNonStreaming as ChatCompletionCreateParamsNonStreaming,
+)
+from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
 
 from kserve.protocol.rest.openai import ChatPrompt, OpenAIChatAdapterModel
 
@@ -241,7 +240,7 @@ class TestOpenAIParamsConversion:
         converted_params = (
             OpenAIChatAdapterModel.chat_completion_params_to_completion_params(
                 chat_completion_create_params,
-                prompt=chat_completion_create_params["messages"])[0]["content"],
-            )
+                prompt=chat_completion_create_params["messages"],
+            )[0]["content"],
         )
         assert converted_params == completion_create_params
