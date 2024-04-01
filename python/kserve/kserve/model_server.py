@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import argparse
 import asyncio
 import concurrent.futures
 import multiprocessing
 import signal
 import socket
+import sys
 from multiprocessing import Process
-from typing import Dict, List, Optional, Union, Callable, Any
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment
@@ -326,6 +326,8 @@ class ModelServer:
         if self._grpc_server:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
+        for _, model in self.registered_models.get_models().items():
+            model.unload()
 
     def register_exception_handler(
         self,

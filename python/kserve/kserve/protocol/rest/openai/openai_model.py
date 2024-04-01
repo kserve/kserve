@@ -86,7 +86,9 @@ class OpenAIChatAdapterModel(OpenAIModel):
     """
 
     @abstractmethod
-    def apply_chat_template(self, messages: Iterable[ChatCompletionMessageParam]) -> ChatPrompt:
+    def apply_chat_template(
+        self, messages: Iterable[ChatCompletionMessageParam]
+    ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
         """
@@ -153,9 +155,15 @@ class OpenAIChatAdapterModel(OpenAIModel):
         return ChoiceLogprobs(content=chat_completion_logprobs)
 
     @classmethod
-    def to_chat_completion_choice(cls, completion_choice: CompletionChoice, role: str) -> Choice:
+    def to_chat_completion_choice(
+        cls, completion_choice: CompletionChoice, role: str
+    ) -> Choice:
         # translate Token -> ChatCompletionTokenLogprob
-        choice_logprobs = cls.to_choice_logprobs(completion_choice.logprobs)
+        choice_logprobs = (
+            cls.to_choice_logprobs(completion_choice.logprobs)
+            if completion_choice.logprobs is not None
+            else None
+        )
         return Choice(
             index=0,
             finish_reason=completion_choice.finish_reason,
@@ -168,8 +176,16 @@ class OpenAIChatAdapterModel(OpenAIModel):
         cls, completion_choice: CompletionChoice, role: str
     ) -> ChunkChoice:
         # translate Token -> ChatCompletionTokenLogprob
-        choice_logprobs = cls.to_choice_logprobs(completion_choice.logprobs)
-        choice_logprobs = ChunkChoiceLogprobs(content=choice_logprobs.content)
+        choice_logprobs = (
+            cls.to_choice_logprobs(completion_choice.logprobs)
+            if completion_choice.logprobs is not None
+            else None
+        )
+        choice_logprobs = (
+            ChunkChoiceLogprobs(content=choice_logprobs.content)
+            if choice_logprobs is not None
+            else None
+        )
         return ChunkChoice(
             delta=ChoiceDelta(content=completion_choice.text, role=role),
             index=0,
@@ -178,8 +194,12 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
     @classmethod
-    def completion_to_chat_completion(cls, completion: Completion, role: str) -> ChatCompletion:
-        completion_choice = completion.choices[0] if len(completion.choices) > 0 else None
+    def completion_to_chat_completion(
+        cls, completion: Completion, role: str
+    ) -> ChatCompletion:
+        completion_choice = (
+            completion.choices[0] if len(completion.choices) > 0 else None
+        )
         choices = (
             [cls.to_chat_completion_choice(completion_choice, role)]
             if completion_choice is not None
@@ -199,7 +219,9 @@ class OpenAIChatAdapterModel(OpenAIModel):
     def completion_to_chat_completion_chunk(
         cls, completion: Completion, role: str
     ) -> ChatCompletionChunk:
-        completion_choice = completion.choices[0] if len(completion.choices) > 0 else None
+        completion_choice = (
+            completion.choices[0] if len(completion.choices) > 0 else None
+        )
         choices = (
             [cls.to_chat_completion_chunk_choice(completion_choice, role)]
             if completion_choice is not None
@@ -228,8 +250,12 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
         if not params.get("stream", False):
-            completion = cast(Completion, await self.create_completion(completion_params))
-            return self.completion_to_chat_completion(completion, chat_prompt.response_role)
+            completion = cast(
+                Completion, await self.create_completion(completion_params)
+            )
+            return self.completion_to_chat_completion(
+                completion, chat_prompt.response_role
+            )
         else:
             completion_iterator = cast(
                 AsyncIterator[Completion],
@@ -241,4 +267,6 @@ class OpenAIChatAdapterModel(OpenAIModel):
                     completion, chat_prompt.response_role
                 )
 
-            return AsyncChunkIterator(completion_iterator=completion_iterator, mapper=mapper)
+            return AsyncChunkIterator(
+                completion_iterator=completion_iterator, mapper=mapper
+            )

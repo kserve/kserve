@@ -15,7 +15,7 @@
 import inspect
 import time
 from enum import Enum
-from typing import Dict, List, Union, Optional, AsyncIterator, Any
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 import grpc
 import httpx
@@ -24,7 +24,6 @@ from cloudevents.http import CloudEvent
 from httpx import HTTPStatusError
 
 from .errors import InvalidInput
-
 from .logging import trace_logger
 from .metrics import (
     EXPLAIN_HIST_TIME,
@@ -245,6 +244,10 @@ class Model:
         """
         self.ready = True
         return self.ready
+
+    def unload(self):
+        """Unload handler can be overridden to perform model teardown"""
+        pass
 
     def get_input_types(self) -> List[Dict]:
         # Override this function to return appropriate input format expected by your model.

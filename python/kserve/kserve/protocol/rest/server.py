@@ -26,20 +26,32 @@ from prometheus_client import REGISTRY, exposition
 from timing_asgi import TimingClient, TimingMiddleware
 from timing_asgi.integrations import StarletteScopeToName
 
-from kserve.errors import (InferenceError, InvalidInput, ModelNotFound,
-                           ModelNotReady, generic_exception_handler,
-                           inference_error_handler, invalid_input_handler,
-                           model_not_found_handler, model_not_ready_handler,
-                           not_implemented_error_handler)
+from kserve.errors import (
+    InferenceError,
+    InvalidInput,
+    ModelNotFound,
+    ModelNotReady,
+    generic_exception_handler,
+    inference_error_handler,
+    invalid_input_handler,
+    model_not_found_handler,
+    model_not_ready_handler,
+    not_implemented_error_handler,
+)
 from kserve.logging import trace_logger
 from kserve.protocol.dataplane import DataPlane
 
 from .openai.config import maybe_register_openai_endpoints
 from .v1_endpoints import V1Endpoints
-from .v2_datamodels import (InferenceResponse, ListModelsResponse,
-                            ModelMetadataResponse, ModelReadyResponse,
-                            ServerLiveResponse, ServerMetadataResponse,
-                            ServerReadyResponse)
+from .v2_datamodels import (
+    InferenceResponse,
+    ListModelsResponse,
+    ModelMetadataResponse,
+    ModelReadyResponse,
+    ServerLiveResponse,
+    ServerMetadataResponse,
+    ServerReadyResponse,
+)
 from .v2_endpoints import V2Endpoints
 
 
@@ -59,7 +71,9 @@ class _NoSignalUvicornServer(uvicorn.Server):
 
 
 class RESTServer:
-    def __init__(self, data_plane: DataPlane, model_repository_extension, enable_docs_url=False):
+    def __init__(
+        self, data_plane: DataPlane, model_repository_extension, enable_docs_url=False
+    ):
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
         self.enable_docs_url = enable_docs_url
@@ -72,7 +86,6 @@ class RESTServer:
         """
         v1_endpoints = V1Endpoints(self.dataplane, self.model_repository_extension)
         v2_endpoints = V2Endpoints(self.dataplane, self.model_repository_extension)
-        openai_model = OpenAIModel()
 
         app = FastAPI(
             title="KServe ModelServer",
@@ -88,7 +101,9 @@ class RESTServer:
                 # V1 Inference Protocol
                 FastAPIRoute(r"/v1/models", v1_endpoints.models, tags=["V1"]),
                 # Model Health API returns 200 if model is ready to serve.
-                FastAPIRoute(r"/v1/models/{model_name}", v1_endpoints.model_ready, tags=["V1"]),
+                FastAPIRoute(
+                    r"/v1/models/{model_name}", v1_endpoints.model_ready, tags=["V1"]
+                ),
                 # Note: Set response_model to None to resolve fastapi Response issue
                 # https://fastapi.tiangolo.com/tutorial/response-model/#disable-response-model
                 FastAPIRoute(
@@ -223,7 +238,9 @@ class UvicornServer:
     ):
         super().__init__()
         self.sockets = sockets
-        rest_server = RESTServer(data_plane, model_repository_extension, enable_docs_url)
+        rest_server = RESTServer(
+            data_plane, model_repository_extension, enable_docs_url
+        )
         app = rest_server.create_application()
         app.add_middleware(
             TimingMiddleware,
