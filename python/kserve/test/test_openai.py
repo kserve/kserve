@@ -240,7 +240,7 @@ class TestOpenAIParamsConversion:
         converted_params = (
             OpenAIChatAdapterModel.chat_completion_params_to_completion_params(
                 chat_completion_create_params,
-                prompt=chat_completion_create_params["messages"],
-            )[0]["content"],
+                prompt=chat_completion_create_params["messages"][0]["content"],
+            )
         )
         assert converted_params == completion_create_params
