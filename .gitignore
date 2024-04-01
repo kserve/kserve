@@ -68,3 +68,6 @@ hack/istio-*
 
 # iTerm config
 .itermconfig
+
+# Docker config
+docker-compose.yml
