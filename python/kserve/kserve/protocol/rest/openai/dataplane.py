@@ -2,8 +2,7 @@ from typing import AsyncIterator, Dict, Optional, Tuple, Union
 
 from openai.types import Completion, CompletionCreateParams
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
-from openai.types.chat import \
-    CompletionCreateParams as ChatCompletionCreateParams
+from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
 
 from ...dataplane import DataPlane
 from .openai_model import OpenAIModel
@@ -22,12 +21,11 @@ class OpenAIDataPlane(DataPlane):
 
         Args:
             model_name (str): Model name.
-            request (bytes|GenerateRequest|ChatCompletionRequest): Generate Request / ChatCompletion Request body data.
+            request (CompletionCreateParams): Params to create a completion.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
-            response: The generated output or output stream.
-            response_headers: Headers to construct the HTTP response.
+            response: A non-streaming or streaming completion response.
 
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
@@ -47,17 +45,16 @@ class OpenAIDataPlane(DataPlane):
 
         Args:
             model_name (str): Model name.
-            request (bytes|GenerateRequest|ChatCompletionRequest): Generate Request / ChatCompletion Request body data.
+            request (ChatCompletionCreateParams): Params to create a chat completion.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
-            response: The generated output or output stream.
-            response_headers: Headers to construct the HTTP response.
+            response: A non-streaming or streaming chat completion response
 
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
-            raise RuntimeError(f"Model {model_name} does not support completion")
+            raise RuntimeError(f"Model {model_name} does not support chat completion")
         return await model.create_chat_completion(request)
