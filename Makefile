@@ -110,10 +110,6 @@ deploy-dev-pmml : docker-push-pmml
 deploy-dev-paddle: docker-push-paddle
 	./hack/serving_runtime_image_patch.sh "kserve-paddleserver.yaml" "${KO_DOCKER_REPO}/${PADDLE_IMG}"
 
-deploy-dev-alibi: docker-push-alibi
-	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
-	kubectl apply -k config/overlays/dev-image-config
-
 deploy-dev-huggingface: docker-push-huggingface
 	./hack/serving_runtime_image_patch.sh "kserve-huggingfaceserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}"
 
@@ -272,12 +268,6 @@ docker-build-custom-transformer-grpc:
 
 docker-push-custom-transformer-grpc: docker-build-custom-transformer-grpc
 	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}
-
-docker-build-alibi:
-	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
-
-docker-push-alibi: docker-build-alibi
-	docker push ${KO_DOCKER_REPO}/${ALIBI_IMG}
 
 docker-build-aif:
 	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .

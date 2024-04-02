@@ -53,7 +53,7 @@ class TestV1beta1InferenceServiceSpec(unittest.TestCase):
                 explainer = kserve.models.v1beta1_explainer_spec.V1beta1ExplainerSpec(
                     active_deadline_seconds = 56, 
                     affinity = None, 
-                    alibi = kserve.models.v1beta1_alibi_explainer_spec.V1beta1AlibiExplainerSpec(
+                    art = kserve.models.v1beta1_art_explainer_spec.V1beta1ARTExplainerSpec(
                         image = '0', 
                         image_pull_policy = '0', 
                         lifecycle = None, 
