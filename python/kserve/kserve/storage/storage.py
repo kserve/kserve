@@ -295,10 +295,12 @@ class Storage(object):
         components = uri.split("://")[1].split("/")
 
         repo = components[0]
-        model, hash_value = components[1].split(":")
+        model, _, hash_value = components[1].partition(":")
 
-        tokenizer = AutoTokenizer.from_pretrained(f"{repo}/{model}")
-        model_config = AutoConfig.from_pretrained(f"{repo}/{model}")
+        tokenizer = AutoTokenizer.from_pretrained(
+            pretrained_model_name_or_path=f"{repo}/{model}", revision=hash_value)
+        model_config = AutoConfig.from_pretrained(
+            pretrained_model_name_or_path=f"{repo}/{model}", revision=hash_value)
         model = AutoModel.from_config(model_config)
 
         tokenizer.save_pretrained(temp_dir)

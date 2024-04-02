@@ -116,6 +116,9 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
+deploy-dev-huggingface: docker-push-huggingface
+	./hack/serving_runtime_image_patch.sh "kserve-huggingfaceserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}"
+
 deploy-ci: manifests
 	kubectl apply --server-side=true -k config/overlays/test
 	# TODO: Add runtimes as part of default deployment
@@ -329,6 +332,12 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+docker-build-huggingface:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG} -f huggingface_server.Dockerfile .
+
+docker-push-huggingface: docker-build-huggingface
+	docker push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}
 
 apidocs:
 	docker buildx build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
