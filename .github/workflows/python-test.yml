@@ -29,6 +29,7 @@ jobs:
         uses: py-actions/flake8@v2
         with:
           args: "--config python/.flake8"
+          path: "python"
 
       - name: Check formatting with black
         uses: psf/black@stable
