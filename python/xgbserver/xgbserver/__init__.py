@@ -13,4 +13,6 @@
 # limitations under the License.
 
 from .model import XGBoostModel  # noqa # pylint: disable=unused-import
-from .xgboost_model_repository import XGBoostModelRepository  # noqa # pylint: disable=unused-import
+from .xgboost_model_repository import (
+    XGBoostModelRepository,
+)  # noqa # pylint: disable=unused-import

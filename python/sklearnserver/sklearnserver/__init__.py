@@ -13,4 +13,6 @@
 # limitations under the License.
 
 from .model import SKLearnModel  # noqa # pylint: disable=unused-import
-from .sklearn_model_repository import SKLearnModelRepository  # noqa # pylint: disable=unused-import
+from .sklearn_model_repository import (
+    SKLearnModelRepository,
+)  # noqa # pylint: disable=unused-import

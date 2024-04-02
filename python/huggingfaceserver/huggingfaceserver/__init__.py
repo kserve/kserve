@@ -13,4 +13,6 @@
 # limitations under the License.
 
 from .model import HuggingfaceModel  # noqa # pylint: disable=unused-import
-from .huggingface_model_repository import HuggingfaceModelRepository  # noqa # pylint: disable=unused-import
+from .huggingface_model_repository import (
+    HuggingfaceModelRepository,
+)  # noqa # pylint: disable=unused-import

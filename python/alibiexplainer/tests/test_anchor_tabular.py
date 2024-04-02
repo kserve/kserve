@@ -43,5 +43,7 @@ def test_anchor_tabular():
         np.random.seed(0)
         explanation = anchor_tabular.explain(X_test[0:1].tolist())
         exp_json = json.loads(explanation.to_json())
-        assert exp_json["data"]["anchor"][0] == "Relationship = Own-child" or \
-               exp_json["data"]["anchor"][0] == "Age <= 28.00"
+        assert (
+            exp_json["data"]["anchor"][0] == "Relationship = Own-child"
+            or exp_json["data"]["anchor"][0] == "Age <= 28.00"
+        )

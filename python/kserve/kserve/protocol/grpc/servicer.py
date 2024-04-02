@@ -28,20 +28,18 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
     def __init__(
         self,
         data_plane: DataPlane,
-        model_repository_extension: ModelRepositoryExtension
+        model_repository_extension: ModelRepositoryExtension,
     ):
         super().__init__()
         self._data_plane = data_plane
         self._mode_repository_extension = model_repository_extension
 
-    async def ServerMetadata(
-        self, request: pb.ServerMetadataRequest, context
-    ):
+    async def ServerMetadata(self, request: pb.ServerMetadataRequest, context):
         metadata = self._data_plane.metadata()
         return pb.ServerMetadataResponse(
             name=metadata["name"],
             version=metadata["version"],
-            extensions=metadata["extensions"]
+            extensions=metadata["extensions"],
         )
 
     async def ServerLive(
@@ -71,33 +69,44 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
             name=metadata["name"],
             platform=metadata["platform"],
             inputs=metadata["inputs"],
-            outputs=metadata["outputs"]
+            outputs=metadata["outputs"],
         )
 
     async def RepositoryModelLoad(
         self, request: pb.RepositoryModelLoadRequest, context
     ) -> pb.RepositoryModelLoadResponse:
-        response = await self._mode_repository_extension.load(model_name=request.model_name)
-        return pb.RepositoryModelLoadResponse(model_name=response["name"], isLoaded=response["load"])
+        response = await self._mode_repository_extension.load(
+            model_name=request.model_name
+        )
+        return pb.RepositoryModelLoadResponse(
+            model_name=response["name"], isLoaded=response["load"]
+        )
 
     async def RepositoryModelUnload(
         self, request: pb.RepositoryModelUnloadRequest, context
     ) -> pb.RepositoryModelUnloadResponse:
-        response = await self._mode_repository_extension.unload(model_name=request.model_name)
-        return pb.RepositoryModelUnloadResponse(model_name=response["name"], isUnloaded=response["unload"])
+        response = await self._mode_repository_extension.unload(
+            model_name=request.model_name
+        )
+        return pb.RepositoryModelUnloadResponse(
+            model_name=response["name"], isUnloaded=response["unload"]
+        )
 
     async def ModelInfer(
         self, request: pb.ModelInferRequest, context: ServicerContext
     ) -> pb.ModelInferResponse:
         headers = to_headers(context)
         infer_request = InferRequest.from_grpc(request)
-        response_body, _ = await self._data_plane.infer(request=infer_request, headers=headers,
-                                                        model_name=request.model_name)
+        response_body, _ = await self._data_plane.infer(
+            request=infer_request, headers=headers, model_name=request.model_name
+        )
         if isinstance(response_body, pb.ModelInferResponse):
             return response_body
         elif isinstance(response_body, InferResponse):
             return response_body.to_grpc()
         else:
-            return pb.ModelInferResponse(id=response_body["id"],
-                                         model_name=response_body["model_name"],
-                                         outputs=response_body["outputs"])
+            return pb.ModelInferResponse(
+                id=response_body["id"],
+                model_name=response_body["model_name"],
+                outputs=response_body["outputs"],
+            )

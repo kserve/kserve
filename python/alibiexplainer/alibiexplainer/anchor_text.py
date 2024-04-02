@@ -27,11 +27,11 @@ logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 class AnchorText(ExplainerWrapper):
     def __init__(
-            self,
-            predict_fn: Callable,
-            explainer: Optional[alibi.explainers.AnchorText],
-            spacy_language_model: str = "en_core_web_md",
-            **kwargs
+        self,
+        predict_fn: Callable,
+        explainer: Optional[alibi.explainers.AnchorText],
+        spacy_language_model: str = "en_core_web_md",
+        **kwargs,
     ):
         self.predict_fn = predict_fn
         self.kwargs = kwargs
@@ -45,9 +45,9 @@ class AnchorText(ExplainerWrapper):
 
     def explain(self, inputs: List, headers: Dict[str, str] = None) -> Explanation:
         if self.anchors_text is None:
-            self.anchors_text = alibi.explainers.AnchorText(predictor=self.predict_fn,
-                                                            sampling_strategy='unknown',
-                                                            nlp=self.nlp)
+            self.anchors_text = alibi.explainers.AnchorText(
+                predictor=self.predict_fn, sampling_strategy="unknown", nlp=self.nlp
+            )
 
         # We assume the input has batch dimension but Alibi explainers presently assume no batch
         input_words = inputs[0]
