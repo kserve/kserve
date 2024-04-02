@@ -53,7 +53,7 @@ test: fmt vet manifests envtest
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 # Build manager binary
-manager: generate fmt vet lint
+manager: generate fmt vet go-lint
 	go build -o bin/manager ./cmd/manager
 
 # Build agent binary
@@ -65,7 +65,7 @@ router: fmt vet
 	go build -o bin/router ./cmd/router
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet lint
+run: generate fmt vet go-lint
 	go run ./cmd/manager/main.go
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
