@@ -24,9 +24,10 @@ from ....model_repository import ModelRepository
 def openai_is_available() -> bool:
     """Check if the openai package is available"""
     try:
-        find_spec("openai")
+        import openai
+
         return True
-    except ValueError:
+    except ImportError:
         return False
 
 
