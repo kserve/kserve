@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
+
 from typing import Optional, Dict, AsyncGenerator
 
 from fastapi.requests import Request
@@ -26,6 +26,7 @@ from .v2_datamodels import (
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
 from ...errors import ModelNotReady
+from ...metrics import GENERATE_HIST_TIME, get_labels, GENERATE_STREAM_HIST_TIME
 
 
 class V2Endpoints:
@@ -110,12 +111,12 @@ class V2Endpoints:
         return ModelReadyResponse.parse_obj({"name": model_name, "ready": model_ready})
 
     async def infer(
-        self,
-        raw_request: Request,
-        raw_response: Response,
-        model_name: str,
-        request_body: InferenceRequest,
-        model_version: Optional[str] = None
+            self,
+            raw_request: Request,
+            raw_response: Response,
+            model_name: str,
+            request_body: InferenceRequest,
+            model_version: Optional[str] = None
     ) -> InferenceResponse:
         """Infer handler.
 
@@ -159,12 +160,12 @@ class V2Endpoints:
         return res
 
     async def generate(
-        self,
-        raw_request: Request,
-        raw_response: Response,
-        model_name: str,
-        request_body: GenerateRequest,
-        model_version: Optional[str] = None
+            self,
+            raw_request: Request,
+            raw_response: Response,
+            model_name: str,
+            request_body: GenerateRequest,
+            model_version: Optional[str] = None
     ) -> GenerateResponse:
         """Generate handler.
 
@@ -178,43 +179,44 @@ class V2Endpoints:
         Returns:
             Response: Generate response object.
         """
-        # TODO: support model_version
-        if model_version:
-            raise NotImplementedError("Model versioning not supported yet.")
+        with GENERATE_HIST_TIME.labels(**get_labels(model_name)).time():
+            # TODO: support model_version
+            if model_version:
+                raise NotImplementedError("Model versioning not supported yet.")
 
-        model_ready = self.dataplane.model_ready(model_name)
+            model_ready = self.dataplane.model_ready(model_name)
 
-        if not model_ready:
-            raise ModelNotReady(model_name)
+            if not model_ready:
+                raise ModelNotReady(model_name)
 
-        request_headers = dict(raw_request.headers)
-        results, response_headers = await self.dataplane.generate(model_name=model_name,
-                                                                  request=request_body,
-                                                                  headers=request_headers)
+            request_headers = dict(raw_request.headers)
+            results, response_headers = await self.dataplane.generate(model_name=model_name,
+                                                                      request=request_body,
+                                                                      headers=request_headers)
 
-        if isinstance(results, AsyncGenerator):
-            final_output = None
-            async for request_output in results:
-                if await raw_request.is_disconnected():
-                    # Abort the request if the client disconnects.
-                    # await engine.abort(request_id)
-                    return Response(status_code=499)
-                final_output = request_output
+            if isinstance(results, AsyncGenerator):
+                final_output = None
+                async for request_output in results:
+                    if await raw_request.is_disconnected():
+                        # Abort the request if the client disconnects.
+                        # await engine.abort(request_id)
+                        return Response(status_code=499)
+                    final_output = request_output
 
-            assert final_output is not None
-            prompt = request_body.text_input
-            text_outputs = [prompt + output.text for output in final_output.outputs]
-            return GenerateResponse(text_output=text_outputs[0], model_name=model_name)
-        else:
-            return results
+                assert final_output is not None
+                prompt = request_body.text_input
+                text_outputs = [prompt + output.text for output in final_output.outputs]
+                return GenerateResponse(text_output=text_outputs[0], model_name=model_name)
+            else:
+                return results
 
     async def generate_stream(
-        self,
-        raw_request: Request,
-        raw_response: Response,
-        model_name: str,
-        request_body: GenerateRequest,
-        model_version: Optional[str] = None
+            self,
+            raw_request: Request,
+            raw_response: Response,
+            model_name: str,
+            request_body: GenerateRequest,
+            model_version: Optional[str] = None
     ) -> Response:
         """Generate handler.
 
@@ -228,38 +230,22 @@ class V2Endpoints:
         Returns:
             InferenceResponse: Inference response object.
         """
-        # TODO: support model_version
-        if model_version:
-            raise NotImplementedError("Model versioning not supported yet.")
+        with GENERATE_STREAM_HIST_TIME.labels(**get_labels(model_name)).time():
+            # TODO: support model_version
+            if model_version:
+                raise NotImplementedError("Model versioning not supported yet.")
 
-        model_ready = self.dataplane.model_ready(model_name)
+            model_ready = self.dataplane.model_ready(model_name)
 
-        if not model_ready:
-            raise ModelNotReady(model_name)
+            if not model_ready:
+                raise ModelNotReady(model_name)
 
-        request_headers = dict(raw_request.headers)
-        request_headers["streaming"] = "true"
-        results_generator, response_headers = await self.dataplane.generate(model_name=model_name,
-                                                                            request=request_body,
-                                                                            headers=request_headers)
-
-        async def stream_results() -> AsyncGenerator[bytes, None]:
-            async for request_output in results_generator:
-                prompt = request_body.text_input
-                if hasattr(request_output, "outputs"):
-                    # process GenerateResponse
-                    text_outputs = [
-                        prompt + output.text for output in request_output.outputs
-                    ]
-                    ret = GenerateResponse(text_output=text_outputs[0], model_name=model_name,
-                                           outputs=request_output.outputs)
-                else:
-                    if request_output is None:
-                        request_output = ""
-                    ret = GenerateResponse(text_output=request_output, model_name=model_name)
-                yield (json.dumps(ret.json()) + "\0").encode("utf-8")
-
-        return StreamingResponse(stream_results())
+            request_headers = dict(raw_request.headers)
+            request_headers["streaming"] = "true"
+            results_generator, response_headers = await self.dataplane.generate(model_name=model_name,
+                                                                                request=request_body,
+                                                                                headers=request_headers)
+            return StreamingResponse(results_generator)
 
     async def load(self, model_name: str) -> Dict:
         """Model load handler.

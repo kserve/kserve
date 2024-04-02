@@ -12,10 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from asyncio import Queue
-from typing import Optional
+import json
+import time
+from typing import Optional, AsyncGenerator, AsyncIterator, Union, Dict
 
+from asyncio import Queue
 from transformers import TextStreamer, AutoTokenizer
+
+from kserve.metrics import LLMStats, get_labels, TIME_TO_FIRST_TOKEN_HIST
+from kserve.protocol.rest.v2_datamodels import GenerateResponse, GenerateRequest
 
 
 class AsyncGenerateStream(TextStreamer):
@@ -46,3 +51,27 @@ class AsyncGenerateStream(TextStreamer):
             raise StopIteration()
         else:
             return value
+
+
+async def stream_results(model_name: str, request_body: Union[Dict, GenerateRequest],
+                         results_generator: AsyncIterator, stats: Optional[LLMStats] = None) \
+        -> AsyncGenerator[bytes, None]:
+    first_token = True
+    async for request_output in results_generator:
+        prompt = request_body.text_input
+        if hasattr(request_output, "outputs"):
+            # process GenerateResponse
+            text_outputs = [
+                prompt + output.text for output in request_output.outputs
+            ]
+            ret = GenerateResponse(text_output=text_outputs[0], model_name=model_name,
+                                   outputs=request_output.outputs)
+        else:
+            if request_output is None:
+                request_output = ""
+            ret = GenerateResponse(text_output=request_output, model_name=model_name)
+        print("inside 1")
+        if first_token and stats:
+            TIME_TO_FIRST_TOKEN_HIST.labels(**get_labels(model_name)).observe(time.monotonic() - stats.req_start_time)
+            first_token = False
+        yield (json.dumps(ret.json()) + "\0").encode("utf-8")
