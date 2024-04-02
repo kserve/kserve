@@ -37,6 +37,7 @@ from botocore import UNSIGNED
 from botocore.client import Config
 from google.auth import exceptions
 from google.cloud import storage
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoConfig, AutoModel
 
 from ..logging import logger
 
@@ -53,6 +54,7 @@ _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
+_HF_PREFIX = "hf://"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -86,6 +88,8 @@ class Storage(object):
             Storage._download_s3(uri, out_dir)
         elif uri.startswith(_HDFS_PREFIX) or uri.startswith(_WEBHDFS_PREFIX):
             Storage._download_hdfs(uri, out_dir)
+        elif uri.startswith(_HF_PREFIX):
+            Storage._download_hf(uri, out_dir)
         elif re.search(_AZURE_BLOB_RE, uri):
             Storage._download_azure_blob(uri, out_dir)
         elif re.search(_AZURE_FILE_RE, uri):
@@ -275,6 +279,22 @@ class Storage(object):
             mimetype, _ = mimetypes.guess_type(target)
             if mimetype in ["application/x-tar", "application/zip"]:
                 Storage._unpack_archive_file(target, mimetype, temp_dir)
+
+    @staticmethod
+    def _download_hf(uri, temp_dir: str):
+        # TODO: add token validation for private repo
+        # TODO: add hash key
+        components = uri.split("://")[1].split("/")
+
+        repo = components[0]
+        model, hash_value = components[1].split(":")
+
+        tokenizer = AutoTokenizer.from_pretrained(f"{repo}/{model}")
+        model_config = AutoConfig.from_pretrained(f"{repo}/{model}")
+        model = AutoModel.from_config(model_config)
+
+        tokenizer.save_pretrained(temp_dir)
+        model.save_pretrained(temp_dir)
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
