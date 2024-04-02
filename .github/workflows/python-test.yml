@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  flake8-lint:
+  lint:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -21,15 +21,10 @@ jobs:
     steps:
       - name: Check out source repository
         uses: actions/checkout@v4
-      - name: Set up Python environment ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: psf/black@stable
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: flake8 Lint
-        uses: py-actions/flake8@v2
-        with:
-          max-line-length: "120"
-          exclude: "docs/samples/v1beta1/onnx/assets/*.py,python/kserve/kserve/*.py,python/kserve/test/test_v1*.py,python/kserve/kserve/__init__.py,python/kserve/test/__init__.py,python/kserve/test/test_knative*.py,python/kserve/kserve/protocol/grpc/grpc_predict_v2*.py"
+          options: "--check"
+          src: "python"
   build:
     runs-on: ubuntu-latest
     strategy:
