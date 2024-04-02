@@ -15,10 +15,12 @@
 import argparse
 import logging
 
-from kserve.model import PredictorConfig
-from . import HuggingfaceModel, HuggingfaceModelRepository
 import kserve
 from kserve.errors import ModelMissingError
+from kserve.model import PredictorConfig
+
+from .huggingface_model_repository import HuggingfaceModelRepository
+from .model import HuggingfaceModel
 
 
 def list_of_strings(arg):
