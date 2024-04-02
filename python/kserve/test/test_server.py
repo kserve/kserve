@@ -32,8 +32,12 @@ from ray import serve
 from kserve import Model, ModelRepository, ModelServer
 from kserve.errors import InvalidInput
 from kserve.model import PredictorProtocol
-from kserve.protocol.infer_type import (InferInput, InferOutput, InferRequest,
-                                        InferResponse)
+from kserve.protocol.infer_type import (
+    InferInput,
+    InferOutput,
+    InferRequest,
+    InferResponse,
+)
 from kserve.protocol.rest.server import RESTServer
 from kserve.protocol.rest.v2_datamodels import is_pydantic_2
 from kserve.utils.utils import get_predict_input, get_predict_response
