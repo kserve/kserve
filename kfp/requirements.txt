@@ -1,2 +1,2 @@
-kserve==0.11.1
+kserve==0.12.0
 protobuf~=3.19.0

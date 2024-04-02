@@ -1,4 +1,5 @@
 FROM python:3.9-slim-bullseye
+RUN apt-get update && apt-get install -y gcc python3-dev
 
 COPY requirements.txt .
 RUN python3 -m pip install -r \
