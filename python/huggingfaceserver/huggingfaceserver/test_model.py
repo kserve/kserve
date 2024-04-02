@@ -335,3 +335,25 @@ async def test_input_truncation(bert_base_yelp_polarity: HuggingfaceEncoderModel
     request = "good " * 600
     response = await bert_base_yelp_polarity({"instances": [request]}, headers={})
     assert response == {"predictions": [1]}
+
+
+def test_input_padding_with_pad_token_not_specified():
+    model = HuggingfaceModel("openai-gpt",
+                             {"model_id": "openai-community/openai-gpt",
+                              "task": MLTask.text_generation.value})
+    model.load()
+
+    # inputs with different lengths will throw an error
+    # unless padding token is configured.
+    # openai-gpt model does not specify the pad token, so the fallback pad token should be added.
+    assert model.tokenizer.pad_token == "[PAD]"
+    assert model.tokenizer.pad_token_id is not None
+    request_one = "Once upon a time,"
+    request_two = "My name is Teven and I am"
+    response = asyncio.run(model({"instances": [request_one, request_two]}, headers={}))
+    assert response == {'predictions': ['once upon a time, i was a man of the world. \n " i\'m',
+                                        'my name is teven and i am a member of the royal family. " \n " i\'m']}
+
+
+if __name__ == "__main__":
+    unittest.main()
