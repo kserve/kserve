@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	HEADER_SUFFIX = "-headers"
+	HEADER_SUFFIX                  = "-headers"
 	DEFAULT_MAX_DECOMPRESSION_SIZE = 100 * 1024 * 1024 * 1024 // 100 GB
 )
 

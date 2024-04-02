@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .openai_model import ChatPrompt, OpenAIChatAdapterModel, OpenAIModel
+try:
+    from .openai_model import ChatPrompt, OpenAIChatAdapterModel, OpenAIModel
 
-__all__ = ["OpenAIModel", "OpenAIChatAdapterModel", "ChatPrompt"]
+    __all__ = ["OpenAIModel", "OpenAIChatAdapterModel", "ChatPrompt"]
+
+except ImportError:
+    pass
