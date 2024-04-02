@@ -29,17 +29,12 @@ from cloudevents.http import CloudEvent
 from fastapi.testclient import TestClient
 from ray import serve
 
-from kserve import Model, ModelServer, ModelRepository
+from kserve import Model, ModelRepository, ModelServer
 from kserve.errors import InvalidInput
 from kserve.model import PredictorProtocol
+from kserve.protocol.infer_type import (InferInput, InferOutput, InferRequest,
+                                        InferResponse)
 from kserve.protocol.rest.server import RESTServer
-
-from kserve.protocol.infer_type import (
-    InferRequest,
-    InferInput,
-    InferResponse,
-    InferOutput,
-)
 from kserve.protocol.rest.v2_datamodels import is_pydantic_2
 from kserve.utils.utils import get_predict_input, get_predict_response
 
@@ -83,7 +78,7 @@ def dummy_cloud_event(
 
 
 async def fake_data_streamer():
-    for i in range(10):
+    for _ in range(10):
         yield fake_stream_data.encode()
         await asyncio.sleep(0.5)  # sleep 1/2 second
 
@@ -254,7 +249,6 @@ class DummyModelRepository(ModelRepository):
 
 @pytest.mark.asyncio
 class TestModel:
-
     async def test_validate(self):
         model = DummyModel("TestModel")
         good_request = {"instances": []}
@@ -278,7 +272,6 @@ class TestModel:
 
 
 class TestV1Endpoints:
-
     @pytest.fixture(scope="class")
     def app(self):
         model = DummyModel("TestModel")
@@ -339,7 +332,6 @@ class TestV1Endpoints:
 
 
 class TestV2Endpoints:
-
     @pytest.fixture(scope="class")
     def app(self):
         model = DummyModel("TestModel")
@@ -505,7 +497,6 @@ class TestRayServer:
 
 
 class TestTFHttpServerModelNotLoaded:
-
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
@@ -691,7 +682,6 @@ class TestTFHttpServerCloudEvent:
 
 
 class TestTFHttpServerAvroCloudEvent:
-
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         model = DummyAvroCEModel("TestModel")
@@ -735,7 +725,6 @@ class TestTFHttpServerAvroCloudEvent:
 
 
 class TestTFHttpServerLoadAndUnLoad:
-
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         server = ModelServer(

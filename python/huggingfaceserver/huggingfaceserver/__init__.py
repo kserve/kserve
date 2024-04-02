@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import HuggingfaceModel  # noqa # pylint: disable=unused-import
-from .huggingface_model_repository import (
-    HuggingfaceModelRepository,
-)  # noqa # pylint: disable=unused-import
+from .huggingface_model_repository import HuggingfaceModelRepository
+from .model import HuggingfaceModel
+
+__all__ = ["HuggingfaceModelRepository", "HuggingfaceModel"]
