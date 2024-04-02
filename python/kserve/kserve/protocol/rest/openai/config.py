@@ -1,3 +1,17 @@
+# Copyright 2023 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from importlib.util import find_spec
 from typing import List
 
@@ -20,7 +34,11 @@ def get_open_ai_models(repository: ModelRepository) -> List[Model]:
     """Retrieve all models in the repository that implement the OpenAI interface"""
     from .openai_model import OpenAIModel
 
-    return [model for _, model in repository.get_models().items() if isinstance(model, OpenAIModel)]
+    return [
+        model
+        for _, model in repository.get_models().items()
+        if isinstance(model, OpenAIModel)
+    ]
 
 
 def maybe_register_openai_endpoints(app: FastAPI, model_registry: ModelRepository):
