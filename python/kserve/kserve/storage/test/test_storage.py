@@ -23,6 +23,7 @@ from pathlib import Path
 import botocore
 import pytest
 
+import transformers
 from kserve.storage import Storage
 
 STORAGE_MODULE = "kserve.storage.storage"
@@ -301,5 +302,23 @@ def test_unpack_zip_file():
     Path(tar_file).write_bytes(FILE_ZIP_RAW)
     mimetype, _ = mimetypes.guess_type(tar_file)
     Storage._unpack_archive_file(tar_file, mimetype, out_dir)
-    assert os.path.exists(os.path.join(out_dir, "model.pth"))
-    os.remove(os.path.join(out_dir, "model.pth"))
+    assert os.path.exists(os.path.join(out_dir, 'model.pth'))
+    os.remove(os.path.join(out_dir, 'model.pth'))
+
+
+def test_download_hf(mocker):
+    uri = "hf://example.com/model:hash_value"
+    
+    mock_tokenizer_instance = mock.MagicMock()
+    mocker.patch('transformers.AutoTokenizer.from_pretrained', return_value=mock_tokenizer_instance)
+
+    mock_config_instance = mock.MagicMock()
+    mocker.patch('transformers.AutoConfig.from_pretrained', return_value=mock_config_instance)
+
+    mock_model_instance = mock.MagicMock()
+    mocker.patch('transformers.AutoModel.from_config', return_value=mock_model_instance)
+
+    Storage.download(uri)
+
+    mock_tokenizer_instance.save_pretrained.assert_called_once()
+    mock_model_instance.save_pretrained.assert_called_once()

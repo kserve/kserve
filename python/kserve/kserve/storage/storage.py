@@ -37,7 +37,7 @@ from botocore import UNSIGNED
 from botocore.client import Config
 from google.auth import exceptions
 from google.cloud import storage
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoConfig, AutoModel
+from transformers import AutoTokenizer, AutoConfig, AutoModel
 
 from ..logging import logger
 
@@ -284,17 +284,14 @@ class Storage(object):
 
     @staticmethod
     def _download_hf(uri, temp_dir: str) -> str:
-        # TODO: add token validation for private repo
-        # TODO: add hash key
         components = uri.split("://")[1].split("/")
 
         repo = components[0]
         model, _, hash_value = components[1].partition(":")
+        revision = hash_value if hash_value else None
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            pretrained_model_name_or_path=f"{repo}/{model}", revision=hash_value)
-        model_config = AutoConfig.from_pretrained(
-            pretrained_model_name_or_path=f"{repo}/{model}", revision=hash_value)
+        tokenizer = AutoTokenizer.from_pretrained(f"{repo}/{model}", revision=revision)
+        model_config = AutoConfig.from_pretrained(f"{repo}/{model}", revision=revision)
         model = AutoModel.from_config(model_config)
 
         tokenizer.save_pretrained(temp_dir)
