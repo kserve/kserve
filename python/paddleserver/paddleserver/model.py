@@ -48,8 +48,9 @@ class PaddleModel(Model):
             return os.path.join(model_path, file_list[0])
 
         model_path = Storage.download(self.model_dir)
-        config = inference.Config(get_model_files(
-            '.pdmodel'), get_model_files('.pdiparams'))
+        config = inference.Config(
+            get_model_files(".pdmodel"), get_model_files(".pdiparams")
+        )
         # TODO: add GPU support
         config.disable_gpu()
 
@@ -64,10 +65,12 @@ class PaddleModel(Model):
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
+    def predict(
+        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
+    ) -> Union[Dict, InferResponse]:
         try:
             instances = get_predict_input(payload)
-            np_array_input = np.array(instances, dtype='float32')
+            np_array_input = np.array(instances, dtype="float32")
             self.input_tensor.copy_from_cpu(np_array_input)
             self.predictor.run()
             result = self.output_tensor.copy_to_cpu()
