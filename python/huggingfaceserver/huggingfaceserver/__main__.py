@@ -37,7 +37,10 @@ parser.add_argument(
     "--model_revision", required=False, default=None, help="Huggingface model revision"
 )
 parser.add_argument(
-    "--tokenizer_revision", required=False, default=None, help="Huggingface tokenizer revision"
+    "--tokenizer_revision",
+    required=False,
+    default=None,
+    help="Huggingface tokenizer revision",
 )
 parser.add_argument(
     "--max_length", type=int, default=None, help="max sequence length for the tokenizer"

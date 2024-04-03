@@ -57,16 +57,28 @@ def test_bert():
 def test_model_revision():
     # https://huggingface.co/google-bert/bert-base-uncased
     commit = "86b5e0934494bd15c9632b12f734a8a67f723594"
-    model = HuggingfaceModel("bert-base-uncased",
-                             {"model_id": "bert-base-uncased",
-                              "model_revision": commit,
-                              "tokenizer_revision": commit,
-                              "disable_lower_case": False}
-                             )
+    model = HuggingfaceModel(
+        "bert-base-uncased",
+        {
+            "model_id": "bert-base-uncased",
+            "model_revision": commit,
+            "tokenizer_revision": commit,
+            "disable_lower_case": False,
+        },
+    )
     model.load()
 
-    response = asyncio.run(model({"instances": ["The capital of France is [MASK].",
-                                                "The capital of [MASK] is paris."]}, headers={}))
+    response = asyncio.run(
+        model(
+            {
+                "instances": [
+                    "The capital of France is [MASK].",
+                    "The capital of [MASK] is paris.",
+                ]
+            },
+            headers={},
+        )
+    )
     assert response == {"predictions": ["paris", "france"]}
 
 

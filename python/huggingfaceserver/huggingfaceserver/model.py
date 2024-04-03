@@ -130,7 +130,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
         model_config = AutoConfig.from_pretrained(model_id_or_path, revision=revision)
 
-        if self.use_vllm and self.device == torch.device("cuda"):   # vllm needs gpu
+        if self.use_vllm and self.device == torch.device("cuda"):  # vllm needs gpu
             if self.infer_vllm_supported_from_model_architecture(model_config):
                 logger.info("supported model by vLLM")
                 self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
@@ -162,13 +162,15 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 revision=tokenizer_revision,
                 do_lower_case=self.do_lower_case,
                 device_map=self.device_map,
-                padding_side="left")
+                padding_side="left",
+            )
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(
                 model_id_or_path,
                 revision=tokenizer_revision,
                 do_lower_case=self.do_lower_case,
-                device_map=self.device_map)
+                device_map=self.device_map,
+            )
 
         if not self.tokenizer.pad_token:
             self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
