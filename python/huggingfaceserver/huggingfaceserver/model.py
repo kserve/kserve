@@ -83,6 +83,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.model_dir = kwargs.get("model_dir", None)
         if not self.model_id and not self.model_dir:
             self.model_dir = "/mnt/models"
+        self.model_revision = kwargs.get("model_revision", None)
+        self.tokenizer_revision = kwargs.get("tokenizer_revision", None)
         self.do_lower_case = not kwargs.get("disable_lower_case", False)
         self.add_special_tokens = not kwargs.get("disable_special_tokens", False)
         self.max_length = kwargs.get("max_length", None)
@@ -111,8 +113,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             )
 
     @staticmethod
-    def infer_vllm_supported_from_model_architecture(model_config_path: str):
-        model_config = AutoConfig.from_pretrained(model_config_path)
+    def infer_vllm_supported_from_model_architecture(model_config: str):
         architecture = model_config.architectures[0]
         model_cls = ModelRegistry.load_model_cls(architecture)
         if model_cls is None:
@@ -121,19 +122,23 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
     def load(self) -> bool:
         model_id_or_path = self.model_id
+        revision = self.model_revision
+        tokenizer_revision = self.tokenizer_revision
         if self.model_dir:
             model_id_or_path = pathlib.Path(Storage.download(self.model_dir))
             # TODO Read the mapping file, index to object name
+
+        model_config = AutoConfig.from_pretrained(model_id_or_path, revision=revision)
+
         if self.use_vllm and self.device == torch.device("cuda"):  # vllm needs gpu
-            if self.infer_vllm_supported_from_model_architecture(model_id_or_path):
+            if self.infer_vllm_supported_from_model_architecture(model_config):
+                logger.info("supported model by vLLM")
                 self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(
                     self.vllm_engine_args
                 )
                 self.ready = True
                 return self.ready
-
-        model_config = AutoConfig.from_pretrained(model_id_or_path)
 
         if not self.task:
             self.task = self.infer_task_from_model_architecture(model_config)
@@ -154,6 +159,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             # https://github.com/huggingface/transformers/blob/1248f0925234f97da9eee98da2aa22f7b8dbeda1/src/transformers/generation/utils.py#L1376-L1388
             self.tokenizer = AutoTokenizer.from_pretrained(
                 model_id_or_path,
+                revision=tokenizer_revision,
                 do_lower_case=self.do_lower_case,
                 device_map=self.device_map,
                 padding_side="left",
@@ -161,9 +167,11 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(
                 model_id_or_path,
+                revision=tokenizer_revision,
                 do_lower_case=self.do_lower_case,
                 device_map=self.device_map,
             )
+
         if not self.tokenizer.pad_token:
             self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         logger.info(f"successfully loaded tokenizer for task: {self.task}")
@@ -172,27 +180,27 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         if not self.predictor_host:
             if self.task == MLTask.sequence_classification.value:
                 self.model = AutoModelForSequenceClassification.from_pretrained(
-                    model_id_or_path, device_map=self.device_map
+                    model_id_or_path, revision=revision, device_map=self.device_map
                 )
             elif self.task == MLTask.question_answering.value:
                 self.model = AutoModelForQuestionAnswering.from_pretrained(
-                    model_id_or_path, device_map=self.device_map
+                    model_id_or_path, revision=revision, device_map=self.device_map
                 )
             elif self.task == MLTask.token_classification.value:
                 self.model = AutoModelForTokenClassification.from_pretrained(
-                    model_id_or_path, device_map=self.device_map
+                    model_id_or_path, revision=revision, device_map=self.device_map
                 )
             elif self.task == MLTask.fill_mask.value:
                 self.model = AutoModelForMaskedLM.from_pretrained(
-                    model_id_or_path, device_map=self.device_map
+                    model_id_or_path, revision=revision, device_map=self.device_map
                 )
             elif self.task == MLTask.text_generation.value:
                 self.model = AutoModelForCausalLM.from_pretrained(
-                    model_id_or_path, device_map=self.device_map
+                    model_id_or_path, revision=revision, device_map=self.device_map
                 )
             elif self.task == MLTask.text2text_generation.value:
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(
-                    model_id_or_path, device_map=self.device_map
+                    model_id_or_path, revision=revision, device_map=self.device_map
                 )
             else:
                 raise ValueError(
