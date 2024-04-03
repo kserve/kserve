@@ -338,9 +338,14 @@ async def test_input_truncation(bert_base_yelp_polarity: HuggingfaceEncoderModel
 
 
 def test_input_padding_with_pad_token_not_specified():
-    model = HuggingfaceModel("openai-gpt",
-                             {"model_id": "openai-community/openai-gpt",
-                              "task": MLTask.text_generation.value})
+    model = HuggingfaceModel(
+        "openai-gpt",
+        {
+            "model_id": "openai-community/openai-gpt",
+            "task": MLTask.text_generation.value,
+            "disable_special_tokens": True,
+        },
+    )
     model.load()
 
     # inputs with different lengths will throw an error
@@ -348,11 +353,15 @@ def test_input_padding_with_pad_token_not_specified():
     # openai-gpt model does not specify the pad token, so the fallback pad token should be added.
     assert model.tokenizer.pad_token == "[PAD]"
     assert model.tokenizer.pad_token_id is not None
-    request_one = "Once upon a time,"
+    request_one = "My name is Lewis and I like to"
     request_two = "My name is Teven and I am"
     response = asyncio.run(model({"instances": [request_one, request_two]}, headers={}))
-    assert response == {'predictions': ['once upon a time, i was a man of the world. \n " i\'m',
-                                        'my name is teven and i am a member of the royal family. " \n " i\'m']}
+    assert response == {
+        "predictions": [
+            "my name is lewis and i like to think of myself as a'good'man. i'm",
+            'my name is teven and i am a member of the royal family. " \n " i\'m',
+        ]
+    }
 
 
 if __name__ == "__main__":
