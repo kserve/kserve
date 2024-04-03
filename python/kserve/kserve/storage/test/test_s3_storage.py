@@ -20,7 +20,7 @@ from botocore.client import Config
 from botocore import UNSIGNED
 from kserve.storage import Storage
 
-STORAGE_MODULE = 'kserve.storage.storage'
+STORAGE_MODULE = "kserve.storage.storage"
 
 
 def create_mock_obj(path):
@@ -50,133 +50,130 @@ def get_call_args(call_args_list):
 
 
 def expected_call_args_list_single_obj(dest, path):
-    return [(
-        f'{path}'.strip('/'),
-        f'{dest}/{path.rsplit("/", 1)[-1]}'.strip('/'))]
+    return [(f"{path}".strip("/"), f'{dest}/{path.rsplit("/", 1)[-1]}'.strip("/"))]
 
 
 def expected_call_args_list(parent_key, dest, paths):
-    return [(f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
-            for p in paths]
+    return [(f"{parent_key}/{p}".strip("/"), f"{dest}/{p}".strip("/")) for p in paths]
 
 
 # pylint: disable=protected-access
 
 
-@mock.patch(STORAGE_MODULE + '.boto3')
+@mock.patch(STORAGE_MODULE + ".boto3")
 def test_parent_key(mock_storage):
     # given
-    bucket_name = 'foo'
-    paths = ['models/weights.pt', '0002.h5', 'a/very/long/path/config.json']
-    object_paths = ['bar/' + p for p in paths]
+    bucket_name = "foo"
+    paths = ["models/weights.pt", "0002.h5", "a/very/long/path/config.json"]
+    object_paths = ["bar/" + p for p in paths]
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
-    Storage._download_s3(f's3://{bucket_name}/bar', 'dest_path')
+    Storage._download_s3(f"s3://{bucket_name}/bar", "dest_path")
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert arg_list == expected_call_args_list('bar', 'dest_path', paths)
+    assert arg_list == expected_call_args_list("bar", "dest_path", paths)
 
-    mock_boto3_bucket.objects.filter.assert_called_with(Prefix='bar')
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix="bar")
 
 
-@mock.patch(STORAGE_MODULE + '.boto3')
+@mock.patch(STORAGE_MODULE + ".boto3")
 def test_no_key(mock_storage):
     # given
-    bucket_name = 'foo'
-    object_paths = ['models/weights.pt', '0002.h5', 'a/very/long/path/config.json']
+    bucket_name = "foo"
+    object_paths = ["models/weights.pt", "0002.h5", "a/very/long/path/config.json"]
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
-    Storage._download_s3(f's3://{bucket_name}/', 'dest_path')
+    Storage._download_s3(f"s3://{bucket_name}/", "dest_path")
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert arg_list == expected_call_args_list('', 'dest_path', object_paths)
+    assert arg_list == expected_call_args_list("", "dest_path", object_paths)
 
-    mock_boto3_bucket.objects.filter.assert_called_with(Prefix='')
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix="")
 
 
-@mock.patch(STORAGE_MODULE + '.boto3')
+@mock.patch(STORAGE_MODULE + ".boto3")
 def test_full_name_key(mock_storage):
     # given
-    bucket_name = 'foo'
-    object_key = 'path/to/model/name.pt'
+    bucket_name = "foo"
+    object_key = "path/to/model/name.pt"
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, [object_key])
-    Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
+    Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert arg_list == expected_call_args_list_single_obj('dest_path',
-                                                          object_key)
+    assert arg_list == expected_call_args_list_single_obj("dest_path", object_key)
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
 
 
-@mock.patch(STORAGE_MODULE + '.boto3')
+@mock.patch(STORAGE_MODULE + ".boto3")
 def test_full_name_key_root_bucket_dir(mock_storage):
     # given
-    bucket_name = 'foo'
-    object_key = 'name.pt'
+    bucket_name = "foo"
+    object_key = "name.pt"
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, [object_key])
-    Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
+    Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert arg_list == expected_call_args_list_single_obj('dest_path',
-                                                          object_key)
+    assert arg_list == expected_call_args_list_single_obj("dest_path", object_key)
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
 
 
-AWS_TEST_CREDENTIALS = {"AWS_ACCESS_KEY_ID": "testing",
-                        "AWS_SECRET_ACCESS_KEY": "testing",
-                        "AWS_SECURITY_TOKEN": "testing",
-                        "AWS_SESSION_TOKEN": "testing"}
+AWS_TEST_CREDENTIALS = {
+    "AWS_ACCESS_KEY_ID": "testing",
+    "AWS_SECRET_ACCESS_KEY": "testing",
+    "AWS_SECURITY_TOKEN": "testing",
+    "AWS_SESSION_TOKEN": "testing",
+}
 
 
-@mock.patch(STORAGE_MODULE + '.boto3')
+@mock.patch(STORAGE_MODULE + ".boto3")
 def test_multikey(mock_storage):
     # given
-    bucket_name = 'foo'
-    paths = ['b/model.bin']
-    object_paths = ['test/a/' + p for p in paths]
+    bucket_name = "foo"
+    paths = ["b/model.bin"]
+    object_paths = ["test/a/" + p for p in paths]
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
-    Storage._download_s3(f's3://{bucket_name}/test/a', 'dest_path')
+    Storage._download_s3(f"s3://{bucket_name}/test/a", "dest_path")
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert arg_list == expected_call_args_list('test/a', 'dest_path', paths)
+    assert arg_list == expected_call_args_list("test/a", "dest_path", paths)
 
-    mock_boto3_bucket.objects.filter.assert_called_with(Prefix='test/a')
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix="test/a")
 
 
-@mock.patch(STORAGE_MODULE + '.boto3')
+@mock.patch(STORAGE_MODULE + ".boto3")
 def test_files_with_no_extension(mock_storage):
 
     # given
-    bucket_name = 'foo'
-    paths = ['churn-pickle', 'churn-pickle-logs', 'churn-pickle-report']
-    object_paths = ['test/' + p for p in paths]
+    bucket_name = "foo"
+    paths = ["churn-pickle", "churn-pickle-logs", "churn-pickle-report"]
+    object_paths = ["test/" + p for p in paths]
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
-    Storage._download_s3(f's3://{bucket_name}/test/churn-pickle', 'dest_path')
+    Storage._download_s3(f"s3://{bucket_name}/test/churn-pickle", "dest_path")
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
 
     # Download only the exact file if found; otherwise, download all files with the given prefix
-    assert arg_list[0] == expected_call_args_list('test', 'dest_path', paths)[0]
+    assert arg_list[0] == expected_call_args_list("test", "dest_path", paths)[0]
 
-    mock_boto3_bucket.objects.filter.assert_called_with(Prefix='test/churn-pickle')
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix="test/churn-pickle")
 
 
 def test_get_S3_config():
@@ -221,7 +218,10 @@ def test_get_S3_config():
 
     with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "True"}):
         config7 = Storage.get_S3_config()
-    assert config7.s3["use_accelerate_endpoint"] == USE_ACCELERATE_CONFIG.s3["use_accelerate_endpoint"]
+    assert (
+        config7.s3["use_accelerate_endpoint"]
+        == USE_ACCELERATE_CONFIG.s3["use_accelerate_endpoint"]
+    )
 
 
 def test_update_with_storage_spec_s3(monkeypatch):
@@ -271,20 +271,20 @@ def test_update_with_storage_spec_s3(monkeypatch):
     os.environ = previous_env
 
 
-@mock.patch(STORAGE_MODULE + '.boto3')
+@mock.patch(STORAGE_MODULE + ".boto3")
 def test_target_startswith_parent_folder_name(mock_storage):
-    bucket_name = 'foo'
+    bucket_name = "foo"
     paths = ["model.pkl", "a/model.pkl", "conda.yaml"]
-    object_paths = ['test/artifacts/model/' + p for p in paths]
+    object_paths = ["test/artifacts/model/" + p for p in paths]
 
     # when
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
-    Storage._download_s3(
-        f's3://{bucket_name}/test/artifacts/model', 'dest_path')
+    Storage._download_s3(f"s3://{bucket_name}/test/artifacts/model", "dest_path")
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert arg_list[0] == expected_call_args_list(
-        'test/artifacts/model', 'dest_path', paths)[0]
-    mock_boto3_bucket.objects.filter.assert_called_with(
-        Prefix='test/artifacts/model')
+    assert (
+        arg_list[0]
+        == expected_call_args_list("test/artifacts/model", "dest_path", paths)[0]
+    )
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix="test/artifacts/model")

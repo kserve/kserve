@@ -38,7 +38,9 @@ from .exceptions import ApiException
 # import v1alpha1 models into kserve packages
 from .models.v1alpha1_built_in_adapter import V1alpha1BuiltInAdapter
 from .models.v1alpha1_cluster_serving_runtime import V1alpha1ClusterServingRuntime
-from .models.v1alpha1_cluster_serving_runtime_list import V1alpha1ClusterServingRuntimeList
+from .models.v1alpha1_cluster_serving_runtime_list import (
+    V1alpha1ClusterServingRuntimeList,
+)
 from .models.v1alpha1_container import V1alpha1Container
 from .models.v1alpha1_inference_graph import V1alpha1InferenceGraph
 from .models.v1alpha1_inference_graph_list import V1alpha1InferenceGraphList
