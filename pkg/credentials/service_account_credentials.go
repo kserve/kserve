@@ -293,7 +293,7 @@ func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace s
 		volume, volumeMount := hdfs.BuildSecret(secret)
 		*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
 		container.VolumeMounts = append(container.VolumeMounts, volumeMount)
-	} else if _, ok := secret.Data[hf.HFToken]; ok {
+	} else if _, ok := secret.Data[hf.HFTokenKey]; ok {
 		log.Info("Setting secret envs for huggingface", "HfSecret", secret.Name)
 		envs := hf.BuildSecretEnvs(secret)
 		container.Env = append(container.Env, envs...)
