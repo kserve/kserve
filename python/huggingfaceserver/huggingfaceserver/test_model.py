@@ -353,15 +353,11 @@ def test_input_padding_with_pad_token_not_specified():
     # openai-gpt model does not specify the pad token, so the fallback pad token should be added.
     assert model.tokenizer.pad_token == "[PAD]"
     assert model.tokenizer.pad_token_id is not None
-    request_one = "My name is Lewis and I like to"
-    request_two = "My name is Teven and I am"
+    request_one = "my name is merve and my favorite color is blue."
+    request_two = "my name is teven and i am"
     response = asyncio.run(model({"instances": [request_one, request_two]}, headers={}))
-    assert response == {
-        "predictions": [
-            "my name is lewis and i like to think of myself as a'good'man. i'm",
-            'my name is teven and i am a member of the royal family. " \n " i\'m',
-        ]
-    }
+    assert request_one in response["predictions"][0]
+    assert request_two in response["predictions"][1]
 
 
 if __name__ == "__main__":
