@@ -34,8 +34,9 @@ jobs:
       - name: Check formatting with black
         uses: psf/black@stable
         with:
-          options: "--check"
+          options: "--check --diff"
           src: "python"
+          version: "~= 24.3"
   build:
     runs-on: ubuntu-latest
     strategy:
