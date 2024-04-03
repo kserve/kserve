@@ -23,6 +23,7 @@ from pathlib import Path
 import botocore
 import pytest
 
+import transformers
 from kserve.storage import Storage
 
 STORAGE_MODULE = "kserve.storage.storage"
@@ -333,3 +334,27 @@ def test_download_azure_file_share_called_with_matching_uri(
 
     expected_calls = [mock.call(uri, "dest_path") for uri in azure_file_uris]
     mock_download_azure_file_share.assert_has_calls(expected_calls)
+def test_download_hf():
+    uri = "hf://example.com/model:hash_value"
+
+    mock_tokenizer_instance = mock.MagicMock()
+    patch_tokenizer = mock.patch(
+        "transformers.AutoTokenizer.from_pretrained",
+        return_value=mock_tokenizer_instance,
+    )
+
+    mock_config_instance = mock.MagicMock()
+    patch_config = mock.patch(
+        "transformers.AutoConfig.from_pretrained", return_value=mock_config_instance
+    )
+
+    mock_model_instance = mock.MagicMock()
+    patch_model = mock.patch(
+        "transformers.AutoModel.from_config", return_value=mock_model_instance
+    )
+
+    with patch_tokenizer, patch_config, patch_model:
+        Storage.download(uri)
+
+    mock_tokenizer_instance.save_pretrained.assert_called_once()
+    mock_model_instance.save_pretrained.assert_called_once()

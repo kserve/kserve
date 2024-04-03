@@ -4239,6 +4239,7 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 type = ["pytest-mypy"]
 
 [extras]
+hf-storage = ["torch", "transformers"]
 logging = ["asgi-logger"]
 ray = ["ray"]
 storage = ["azure-identity", "azure-storage-blob", "azure-storage-file-share", "boto3", "google-cloud-storage", "requests"]

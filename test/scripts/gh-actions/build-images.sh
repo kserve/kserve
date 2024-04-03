@@ -40,6 +40,9 @@ echo "Building router image"
 docker buildx build -f router.Dockerfile . -t "${ROUTER_IMG_TAG}" \
   -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ROUTER_IMG}-${GITHUB_SHA}",compression-level=0
 
+echo "Disk usage before Building storage initializer:"
+        df -hT
+
 pushd python >/dev/null
   echo "Building storage initializer"
   docker buildx build -f storage-initializer.Dockerfile . -t "${STORAGE_INIT_IMG_TAG}" \

@@ -1097,6 +1097,7 @@ timing-asgi = "^0.3.0"
 uvicorn = {version = "^0.21.1", extras = ["standard"]}
 
 [package.extras]
+hf-storage = ["torch (>=2.1.2,<3.0.0)", "transformers (>=4.37.0,<5.0.0)"]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
 ray = ["ray[serve] (>=2.10.0,<2.11.0)"]
 storage = ["azure-identity (>=1.8.0,<2.0.0)", "azure-storage-blob (>=12.10.0,<13.0.0)", "azure-storage-file-share (>=12.7.0,<13.0.0)", "boto3 (>=1.21.0,<2.0.0)", "google-cloud-storage (>=2.3.0,<3.0.0)", "requests (>=2.20.0,<3.0.0)"]

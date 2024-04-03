@@ -21,27 +21,17 @@ import (
 )
 
 const (
-	HFToken = "HF_TOKEN"
+	HFTokenKey = "HF_TOKEN"
 )
 
-type HFConfig struct {
-	HFToken string `json:"HFToken,omitempty"`
-}
-
 func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
-	envs := []v1.EnvVar{
-		{
-			Name: HFToken,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
-						Name: secret.Name,
-					},
-					Key: HFToken,
-				},
-			},
-		},
-	}
+	envs := make([]v1.EnvVar, 0)
 
+	if token, ok := secret.Data[HFTokenKey]; ok {
+		envs = append(envs, v1.EnvVar{
+			Name:  HFTokenKey,
+			Value: string(token),
+		})
+	}
 	return envs
 }
