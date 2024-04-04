@@ -56,14 +56,17 @@ def test_qpext_kserve():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE,
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
             # set the metric aggregation annotation to true
             annotations={ENABLE_METRIC_AGG: "true"},
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     kserve_client.wait_model_ready(
@@ -75,7 +78,9 @@ def test_qpext_kserve():
         cluster_ip=get_cluster_ip(),
     )
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version=protocol_version)
+    res = predict(
+        service_name, "./data/iris_input_v2.json", protocol_version=protocol_version
+    )
     assert res["outputs"][0]["data"] == [1, 1]
 
     send_metrics_request(kserve_client, service_name)
@@ -84,9 +89,10 @@ def test_qpext_kserve():
 
 def send_metrics_request(kserve_client, service_name):
     time.sleep(10)
-    pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                      label_selector='serving.kserve.io/inferenceservice={}'.
-                                                      format(service_name))
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
     pod_name = ""
     for pod in pods.items:
         # get a pod name
@@ -94,11 +100,15 @@ def send_metrics_request(kserve_client, service_name):
         break
 
     url = f"http://localhost:{METRICS_AGG_PORT}/{METRICS_PATH}"
-    with portforward.forward(KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT):
+    with portforward.forward(
+        KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT
+    ):
         logging.info(f"metrics request url: {url}")
         response = requests.get(url)
         logging.info(f"response: {response}, content: {response.content}")
-        logging.info("Got response code %s, content %s", response.status_code, response.content)
+        logging.info(
+            "Got response code %s, content %s", response.status_code, response.content
+        )
 
         assert response.status_code == 200
         assert len(response.content) > 0

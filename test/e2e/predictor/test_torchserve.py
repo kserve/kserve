@@ -41,14 +41,8 @@ def test_torchserve_kserve():
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             protocol_version="v1",
             resources=V1ResourceRequirements(
-                requests={
-                    "cpu": "100m",
-                    "memory": "256Mi"
-                },
-                limits={
-                    "cpu": "1",
-                    "memory": "1Gi"
-                },
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "1", "memory": "1Gi"},
             ),
         ),
     )
@@ -56,16 +50,20 @@ def test_torchserve_kserve():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/torchserve_input.json")
-    assert (res.get("predictions")[0] == 2)
+    assert res.get("predictions")[0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -78,14 +76,8 @@ def test_torchserve_v2_kserve():
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v2",
             protocol_version="v2",
             resources=V1ResourceRequirements(
-                requests={
-                    "cpu": "100m",
-                    "memory": "256Mi"
-                },
-                limits={
-                    "cpu": "1",
-                    "memory": "1Gi"
-                },
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "1", "memory": "1Gi"},
             ),
         ),
     )
@@ -93,16 +85,25 @@ def test_torchserve_v2_kserve():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/torchserve_input_v2.json", model_name="mnist", protocol_version="v2")
-    assert (res.get("outputs")[0]["data"] == [1])
+    res = predict(
+        service_name,
+        "./data/torchserve_input_v2.json",
+        model_name="mnist",
+        protocol_version="v2",
+    )
+    assert res.get("outputs")[0]["data"] == [1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -117,14 +118,8 @@ def test_torchserve_grpc_v2():
             ports=[V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")],
             protocol_version="grpc-v2",
             resources=V1ResourceRequirements(
-                requests={
-                    "cpu": "100m",
-                    "memory": "256Mi"
-                },
-                limits={
-                    "cpu": "1",
-                    "memory": "1Gi"
-                },
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "1", "memory": "1Gi"},
             ),
         ),
     )
@@ -132,11 +127,15 @@ def test_torchserve_grpc_v2():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -181,14 +180,18 @@ def test_torchserve_runtime_kserve():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/torchserve_input.json", model_name="mnist")
-    assert (res.get("predictions")[0] == 2)
+    assert res.get("predictions")[0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
