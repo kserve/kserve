@@ -129,6 +129,10 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 				"app": constants.GetRawServiceLabel(componentMeta.Name),
 			},
 			Ports: servicePorts,
+			// TODO - add a control flag
+			// Need to add a control flag to properly set it, enable/disable this behavior.
+			// Follow up issue to align with upstream: https://issues.redhat.com/browse/RHOAIENG-5077
+			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
 	return service
