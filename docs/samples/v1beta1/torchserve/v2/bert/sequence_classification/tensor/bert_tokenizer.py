@@ -5,10 +5,16 @@ from transformers import AutoTokenizer
 
 parser = ArgumentParser()
 parser.add_argument("--input_text", help="Input text", type=str, required=True)
-parser.add_argument("--model_name", help="bert model name", default="bert-base-uncased", type=str)
+parser.add_argument(
+    "--model_name", help="bert model name", default="bert-base-uncased", type=str
+)
 parser.add_argument("--do_lower_case", help="Use lower case", default=True, type=bool)
-parser.add_argument("--max_length", help="Max length of the string", default=150, type=int)
-parser.add_argument("--result_file", help="Path to result file", default="bert_v2.json", type=str)
+parser.add_argument(
+    "--max_length", help="Max length of the string", default=150, type=int
+)
+parser.add_argument(
+    "--result_file", help="Path to result file", default="bert_v2.json", type=str
+)
 args = vars(parser.parse_args())
 
 tokenizer = AutoTokenizer.from_pretrained(args["model_name"], do_lower_case=True)

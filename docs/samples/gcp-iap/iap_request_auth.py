@@ -9,14 +9,15 @@
 import argparse
 import json
 import logging
+
 # from google.auth.transport.requests import Request
 from webbrowser import open_new_tab
 
 import requests
 
-IAM_SCOPE = 'https://www.googleapis.com/auth/iam'
+IAM_SCOPE = "https://www.googleapis.com/auth/iam"
 # OAUTH_TOKEN_URI = 'https://www.googleapis.com/oauth2/v4/token'
-OAUTH_TOKEN_URI = 'https://oauth2.googleapis.com/token'
+OAUTH_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 try:
     import http.client as http_client
@@ -36,63 +37,70 @@ requests_log.propagate = True
 def getToken(iap_client_id, desktop_client_id, desktop_client_secret):
     token = None
     if desktop_client_id is None or desktop_client_secret is None:
-        raise ValueError('desktop client id or secret is empty')
+        raise ValueError("desktop client id or secret is empty")
     else:
         # fetch IAP auth token: user account
         # Obtain the ID token for provided Client ID with user accounts.
         #  Flow: get authorization code ->
         #        exchange for refresh token ->
         #        obtain and return ID token
-        refresh_token = getRefreshTokenFromClientId(desktop_client_id,
-                                                    desktop_client_secret)
+        refresh_token = getRefreshTokenFromClientId(
+            desktop_client_id, desktop_client_secret
+        )
 
-        token = idTokenFromRefreshToken(desktop_client_id,
-                                        desktop_client_secret,
-                                        refresh_token,
-                                        iap_client_id)
+        token = idTokenFromRefreshToken(
+            desktop_client_id, desktop_client_secret, refresh_token, iap_client_id
+        )
     return token
 
 
 def getRefreshTokenFromClientId(desktop_client_id, desktop_client_secret):
     auth_code = getAuthCode(desktop_client_id)
     auth_code = auth_code.strip()
-    return getRefreshTokenFromCode(
-            auth_code,
-            desktop_client_id,
-            desktop_client_secret)
+    return getRefreshTokenFromCode(auth_code, desktop_client_id, desktop_client_secret)
 
 
 def getAuthCode(client_id):
-    auth_url = ('https://accounts.google.com/o/oauth2/v2/auth?' +
-                'client_id=%s&response_type=code&scope=openid' +
-                '%%20email&access_type=offline' +
-                '&redirect_uri=urn:ietf:wg:oauth:2.0:oob') % client_id
+    auth_url = (
+        "https://accounts.google.com/o/oauth2/v2/auth?"
+        + "client_id=%s&response_type=code&scope=openid"
+        + "%%20email&access_type=offline"
+        + "&redirect_uri=urn:ietf:wg:oauth:2.0:oob"
+    ) % client_id
     print(auth_url)
     open_new_tab(auth_url)
-    return input("If there's no browser window prompt," +
-                 " please direct to the URL above," +
-                 "then copy and paste the authorization code here: ")
+    return input(
+        "If there's no browser window prompt,"
+        + " please direct to the URL above,"
+        + "then copy and paste the authorization code here: "
+    )
 
 
 def getRefreshTokenFromCode(auth_code, client_id, client_secret):
-    payload = {"code": auth_code,
-               "client_id": client_id,
-               "client_secret": client_secret,
-               "redirect_uri": "urn:ietf:wg:oauth:2.0:oob",
-               "grant_type": "authorization_code"}
+    payload = {
+        "code": auth_code,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": "urn:ietf:wg:oauth:2.0:oob",
+        "grant_type": "authorization_code",
+    }
     # req = requests.Request('POST',OAUTH_TOKEN_URI,data=payload)
 
     res = requests.post(OAUTH_TOKEN_URI, data=payload)
     print(res.text)
-    return (str(json.loads(res.text)[u"refresh_token"]))
+    return str(json.loads(res.text)["refresh_token"])
 
 
 def idTokenFromRefreshToken(client_id, client_secret, refresh_token, audience):
-    payload = {"client_id": client_id, "client_secret": client_secret,
-               "refresh_token": refresh_token, "grant_type": "refresh_token",
-               "audience": audience}
+    payload = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token",
+        "audience": audience,
+    }
     res = requests.post(OAUTH_TOKEN_URI, data=payload)
-    return (str(json.loads(res.text)[u"id_token"]))
+    return str(json.loads(res.text)["id_token"])
 
 
 def makeRequest(url, input_file, user_account, id_token):
@@ -104,23 +112,27 @@ def makeRequest(url, input_file, user_account, id_token):
             verify=False,
             data=data,
             headers={
-                'Authorization': 'Bearer {}'.format(id_token),
-                'x-goog-authenticated-user-email': 'accounts.google.com:{}'
-                .format(user_account)
-            })
+                "Authorization": "Bearer {}".format(id_token),
+                "x-goog-authenticated-user-email": "accounts.google.com:{}".format(
+                    user_account
+                ),
+            },
+        )
     else:
         resp = requests.get(
-            url,
-            verify=False,
-            headers={'Authorization': 'Bearer {}'.format(id_token)})
+            url, verify=False, headers={"Authorization": "Bearer {}".format(id_token)}
+        )
     if resp.status_code == 403:
         raise Exception(
-            'Service account {} does not have permission to '
-            'access the IAP-protected application.'
-            .format("var signer_email"))
+            "Service account {} does not have permission to "
+            "access the IAP-protected application.".format("var signer_email")
+        )
     elif resp.status_code != 200:
-        raise Exception('Bad response from application: {!r} / {!r} / {!r}'
-                        .format(resp.status_code, resp.headers, resp.text))
+        raise Exception(
+            "Bad response from application: {!r} / {!r} / {!r}".format(
+                resp.status_code, resp.headers, resp.text
+            )
+        )
     else:
         print(resp.text)
 
@@ -129,23 +141,24 @@ def main():
     # TODO: Use pythonfire to parse arguments.
     # fire.Fire()
     parser = argparse.ArgumentParser()
-    parser.add_argument('--url', help='External URL of service endpoint')
-    parser.add_argument('--iap_client_id',
-                        help='The client id used to setup IAP')
-    parser.add_argument('--desktop_client_id',
-                        help='The client id for Desktop OAuth client')
-    parser.add_argument('--desktop_client_secret',
-                        help='The client secret for Desktop OAuth client')
-    parser.add_argument('--user_account',
-                        help='The user email address ' +
-                        'which can access the namespace')
-    parser.add_argument('--input',
-                        help='The input file.')
+    parser.add_argument("--url", help="External URL of service endpoint")
+    parser.add_argument("--iap_client_id", help="The client id used to setup IAP")
+    parser.add_argument(
+        "--desktop_client_id", help="The client id for Desktop OAuth client"
+    )
+    parser.add_argument(
+        "--desktop_client_secret", help="The client secret for Desktop OAuth client"
+    )
+    parser.add_argument(
+        "--user_account",
+        help="The user email address " + "which can access the namespace",
+    )
+    parser.add_argument("--input", help="The input file.")
     args = parser.parse_args()
 
-    id_token = getToken(args.iap_client_id,
-                        args.desktop_client_id,
-                        args.desktop_client_secret)
+    id_token = getToken(
+        args.iap_client_id, args.desktop_client_id, args.desktop_client_secret
+    )
     makeRequest(args.url, args.input, args.user_account, id_token)
 
 

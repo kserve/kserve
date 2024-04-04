@@ -2,7 +2,7 @@ import argparse
 import logging
 import json
 from uuid import uuid4
-from typing import Dict, List,  Union
+from typing import Dict, List, Union
 
 import kserve
 from kserve.protocol.infer_type import (
@@ -52,7 +52,8 @@ class Transformer(kserve.Model):
         self.predictor_host = predictor_host
         self.protocol = protocol
         self.tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_path, local_files_only=True,
+            tokenizer_path,
+            local_files_only=True,
         )
         logger.info(self.tokenizer)
 
@@ -105,10 +106,12 @@ class Transformer(kserve.Model):
         Convert input strings to tokens
         """
         inputs = [i.input for i in request.inputs]
-        encoded_inputs = self.tokenizer(inputs, padding=True, return_tensors='np')
+        encoded_inputs = self.tokenizer(inputs, padding=True, return_tensors="np")
         input_token_ids = encoded_inputs["input_ids"].astype(np.uint32)
         input_lengths = (
-            encoded_inputs["attention_mask"].sum(axis=-1, dtype=np.uint32).reshape((-1, 1))
+            encoded_inputs["attention_mask"]
+            .sum(axis=-1, dtype=np.uint32)
+            .reshape((-1, 1))
         )
         input_lengths = np.array(input_lengths, dtype=np.uint32)
         return input_token_ids, input_lengths
