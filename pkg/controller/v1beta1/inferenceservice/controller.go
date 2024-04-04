@@ -302,19 +302,20 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1api.InferenceServiceStatus, deplo
 }
 
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig, ingressConfig *v1beta1api.IngressConfig) error {
-	if deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+	switch {
+	case deployConfig.DefaultDeploymentMode == string(constants.RawDeployment):
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&v1beta1api.InferenceService{}).
 			Owns(&appsv1.Deployment{}).
 			Complete(r)
-	} else if !ingressConfig.DisableIstioVirtualHost {
+	case !ingressConfig.DisableIstioVirtualHost:
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&v1beta1api.InferenceService{}).
 			Owns(&knservingv1.Service{}).
 			Owns(&istioclientv1beta1.VirtualService{}).
 			Owns(&appsv1.Deployment{}).
 			Complete(r)
-	} else {
+	default:
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&v1beta1api.InferenceService{}).
 			Owns(&knservingv1.Service{}).

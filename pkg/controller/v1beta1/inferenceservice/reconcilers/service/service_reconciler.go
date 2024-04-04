@@ -170,21 +170,19 @@ func (r *ServiceReconciler) Reconcile() (*corev1.Service, error) {
 		return nil, err
 	}
 
-	if checkResult == constants.CheckResultCreate {
-		err = r.client.Create(context.TODO(), r.Service)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.Service, nil
-		}
-	} else if checkResult == constants.CheckResultUpdate { // CheckResultUpdate
-		err = r.client.Update(context.TODO(), r.Service)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.Service, nil
-		}
-	} else {
+	var opErr error
+	switch checkResult {
+	case constants.CheckResultCreate:
+		opErr = r.client.Create(context.TODO(), r.Service)
+	case constants.CheckResultUpdate:
+		opErr = r.client.Update(context.TODO(), r.Service)
+	default:
 		return existingService, nil
 	}
+
+	if opErr != nil {
+		return nil, opErr
+	}
+
+	return r.Service, nil
 }

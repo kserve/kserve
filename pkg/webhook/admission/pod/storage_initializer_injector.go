@@ -767,14 +767,15 @@ func mergeContainerSpecs(defaultContainer *v1.Container, crdContainer *v1.Contai
 
 func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	parts := strings.Split(strings.TrimPrefix(srcURI, PvcURIPrefix), "/")
-	if len(parts) > 1 {
-		pvcName = parts[0]
-		pvcPath = strings.Join(parts[1:], "/")
-	} else if len(parts) == 1 {
+	switch len(parts) {
+	case 0:
+		return "", "", fmt.Errorf("Invalid URI must be pvc://<pvcname>/[path]: %s", srcURI)
+	case 1:
 		pvcName = parts[0]
 		pvcPath = ""
-	} else {
-		return "", "", fmt.Errorf("Invalid URI must be pvc://<pvcname>/[path]: %s", srcURI)
+	default:
+		pvcName = parts[0]
+		pvcPath = strings.Join(parts[1:], "/")
 	}
 
 	return pvcName, pvcPath, nil

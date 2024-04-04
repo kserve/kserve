@@ -143,12 +143,13 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 
 		// add predictor host and protocol to metadata
 		isvc.ObjectMeta.Annotations[constants.PredictorHostAnnotationKey] = predictorURL.Host
-		if predictorURL.Scheme == "grpc" {
+		switch predictorURL.Scheme {
+		case "grpc":
 			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolGRPCV2)
-		} else if predictorURL.Scheme == "http" || predictorURL.Scheme == "https" {
+		case "http", "https":
 			// modelmesh supports v2 only
 			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolV2)
-		} else {
+		default:
 			return ctrl.Result{}, fmt.Errorf("Predictor URL Scheme not supported: %v", predictorURL.Scheme)
 		}
 	}

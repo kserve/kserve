@@ -200,27 +200,26 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 
 // Reconcile ...
 func (r *DeploymentReconciler) Reconcile() (*appsv1.Deployment, error) {
-	// reconcile Deployment
+	// Reconcile Deployment
 	checkResult, deployment, err := r.checkDeploymentExist(r.client)
 	if err != nil {
 		return nil, err
 	}
 	log.Info("deployment reconcile", "checkResult", checkResult, "err", err)
-	if checkResult == constants.CheckResultCreate {
-		err = r.client.Create(context.TODO(), r.Deployment)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.Deployment, nil
-		}
-	} else if checkResult == constants.CheckResultUpdate {
-		err = r.client.Update(context.TODO(), r.Deployment)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.Deployment, nil
-		}
-	} else {
+
+	var opErr error
+	switch checkResult {
+	case constants.CheckResultCreate:
+		opErr = r.client.Create(context.TODO(), r.Deployment)
+	case constants.CheckResultUpdate:
+		opErr = r.client.Update(context.TODO(), r.Deployment)
+	default:
 		return deployment, nil
 	}
+
+	if opErr != nil {
+		return nil, opErr
+	}
+
+	return r.Deployment, nil
 }

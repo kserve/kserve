@@ -162,7 +162,8 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 	var rules []netv1.IngressRule
 	existing := &corev1.Service{}
 	predictorName := constants.PredictorServiceName(isvc.Name)
-	if isvc.Spec.Transformer != nil {
+	switch {
+	case isvc.Spec.Transformer != nil:
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:   v1beta1.IngressReady,
@@ -197,7 +198,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		// :predict routes to the transformer when there are both predictor and transformer
 		rules = append(rules, generateRule(host, transformerName, "/", constants.CommonDefaultHttpPort))
 		rules = append(rules, generateRule(transformerHost, predictorName, "/", constants.CommonDefaultHttpPort))
-	} else if isvc.Spec.Explainer != nil {
+	case isvc.Spec.Explainer != nil:
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:   v1beta1.IngressReady,
@@ -223,7 +224,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		// :predict routes to the predictor when there is only predictor and explainer
 		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
 		rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
-	} else {
+	default:
 		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)

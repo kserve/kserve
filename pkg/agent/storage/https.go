@@ -101,16 +101,17 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 	contentType := resp.Header.Get("Content-type")
 	fileDirectory := filepath.Join(h.ModelDir, h.ModelName)
 
-	if strings.Contains(contentType, "application/zip") {
+	switch {
+	case strings.Contains(contentType, "application/zip"):
 		if err := extractZipFiles(resp.Body, fileDirectory); err != nil {
 			return err
 		}
-	} else if strings.Contains(contentType, "application/x-tar") || strings.Contains(contentType, "application/x-gtar") ||
-		strings.Contains(contentType, "application/x-gzip") || strings.Contains(contentType, "application/gzip") {
+	case strings.Contains(contentType, "application/x-tar") || strings.Contains(contentType, "application/x-gtar") ||
+		strings.Contains(contentType, "application/x-gzip") || strings.Contains(contentType, "application/gzip"):
 		if err := extractTarFiles(resp.Body, fileDirectory); err != nil {
 			return err
 		}
-	} else {
+	default:
 		paths := strings.Split(h.Uri.Path, "/")
 		fileName := paths[len(paths)-1]
 		fileFullName := filepath.Join(fileDirectory, fileName)
