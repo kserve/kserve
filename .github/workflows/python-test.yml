@@ -222,6 +222,9 @@ jobs:
           source lgbserver/.venv/bin/activate
           pytest --cov=lgbserver ./lgbserver
 
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       # ----------------------------------------Paddle Server Unit Tests------------------------------------------------
       # load cached paddle venv if cache exists
       - name: Load cached paddle venv
