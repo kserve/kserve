@@ -4,7 +4,6 @@ extend-ignore = E203,E501,E701, B017
 exclude =
   .venv,
   venv,
-  docs/samples/v1beta1/onnx/assets/*.py,
   kserve/kserve/exceptions.py,
   kserve/kserve/configuration.py,
   kserve/kserve/rest.py,
@@ -14,3 +13,4 @@ exclude =
   kserve/test/__init__.py,
   kserve/test/test_knative*.py,
   kserve/kserve/protocol/grpc/grpc_predict_v2*.py
+  *_pb2.py

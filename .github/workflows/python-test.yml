@@ -29,13 +29,13 @@ jobs:
         uses: py-actions/flake8@v2
         with:
           args: "--config python/.flake8"
-          path: "python"
+          path: "."
 
       - name: Check formatting with black
         uses: psf/black@stable
         with:
-          options: "--check --diff"
-          src: "python"
+          options: "--check --diff --config python/pyproject.toml"
+          src: "."
           version: "~= 24.3"
   build:
     runs-on: ubuntu-latest
