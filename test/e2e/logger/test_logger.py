@@ -96,6 +96,7 @@ def test_kserve_logger():
                                                               namespace=pod.metadata.namespace,
                                                               container="kserve-container")
         print(log)
+
     assert ("org.kubeflow.serving.inference.request" in log)
     assert ("org.kubeflow.serving.inference.response" in log)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
