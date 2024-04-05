@@ -64,6 +64,7 @@ jobs:
           sudo chown -R $USER /mnt/poetry
           poetry config cache-dir /mnt/poetry
 
+
       # load poetry cache if cache exists
       - name: Load poetry cache
         id: cached-poetry-dependencies
@@ -246,6 +247,36 @@ jobs:
           cd python
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
+
+      # ----------------------------------------Alibi Explainer Unit Tests------------------------------------------------
+      # load cached alibi venv if cache exists
+      - name: Load cached alibi venv
+        id: cached-alibi-dependencies
+        uses: actions/cache@v4
+        with:
+          path: /mnt/python/alibiexplainer-venv
+          key: alibi-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/alibiexplainer/poetry.lock') }}
+        # install alibi explainer dependencies if cache does not exist
+      - name: Configure poetry for alibiexplainer
+        run: |
+          poetry config virtualenvs.path /mnt/python/alibiexplainer-venv
+          poetry config virtualenvs.in-project false
+      - name: Install alibi dependencies
+        run: |
+          sudo mkdir -p /mnt/python/alibiexplainer-venv
+          # change permission so that poetry can install without sudo
+          sudo chown -R $USER /mnt/python/alibiexplainer-venv
+          cd python/alibiexplainer
+          make install_dependencies
+      - name: Install alibiexplainer
+        run: |
+          cd python/alibiexplainer
+          make dev_install
+      - name: Test alibiexplainer
+        run: |
+          cd python/alibiexplainer
+          # source alibiexplainer/.venv/bin/activate
+          pytest --cov=alibiexplainer ./alibiexplainer
 
       # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
       # load cached huggingface venv if cache exists
