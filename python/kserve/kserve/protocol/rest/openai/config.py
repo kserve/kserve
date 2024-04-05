@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from importlib.util import find_spec
 from typing import List
 
 from fastapi import FastAPI
@@ -24,7 +23,7 @@ from ....model_repository import ModelRepository
 def openai_is_available() -> bool:
     """Check if the openai package is available"""
     try:
-        import openai
+        import openai  # noqa F401
 
         return True
     except ImportError:
