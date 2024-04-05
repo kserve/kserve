@@ -2521,10 +2521,10 @@ files = [
 
 [[package]]
 name = "pyyaml"
-version = "5.4.1"
+version = "6.0.1"
 description = "YAML parser and emitter for Python"
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+python-versions = ">=3.6"
 files = [
     {file = "PyYAML-6.0.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d858aa552c999bc8a8d57426ed01e40bef403cd8ccdd0fc5f6f04a00414cac2a"},
     {file = "PyYAML-6.0.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:fd66fc5d0da6d9815ba2cebeb4205f95818ff4b79c3ebe268e75d961704af52f"},
@@ -3471,4 +3471,4 @@ storage = ["azure-identity", "azure-storage-blob", "azure-storage-file-share", "
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "f337b5b2f5cf8f380737ef5b2baac722bf76e747423f5e5d10078895796101d6"
+content-hash = "7ad31dacdf5e9eb847f87e62d683b9380c1d91f7736283f2b6c16221e69218a0"
