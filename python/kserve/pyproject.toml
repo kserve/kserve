@@ -74,7 +74,9 @@ storage = [
     "azure-storage-blob",
     "azure-storage-file-share",
     "azure-identity",
-    "boto3",
+    "boto3"
+]
+hf-storage = [
     "transformers",
     "torch"
 ]
