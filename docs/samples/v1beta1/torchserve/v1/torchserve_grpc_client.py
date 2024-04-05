@@ -16,9 +16,7 @@ def get_inference_stub(host, port, hostname):
             ),
         ),
     )
-    stub = inference_pb2_grpc.InferenceAPIsServiceStub(
-        channel
-    )
+    stub = inference_pb2_grpc.InferenceAPIsServiceStub(channel)
     return stub
 
 
@@ -32,9 +30,7 @@ def get_management_stub(host, port, hostname):
             ),
         ),
     )
-    stub = management_pb2_grpc.ManagementAPIsServiceStub(
-        channel
-    )
+    stub = management_pb2_grpc.ManagementAPIsServiceStub(channel)
     return stub
 
 
@@ -51,18 +47,14 @@ def infer(stub, model_name, model_input):
     )
 
     try:
-        prediction = response.prediction.decode(
-            "utf-8"
-        )
+        prediction = response.prediction.decode("utf-8")
         print(prediction)
     except grpc.RpcError:
         exit(1)
 
 
 def ping(stub):
-    response = stub.Ping(
-        inference_pb2.TorchServeHealthResponse()
-    )
+    response = stub.Ping(inference_pb2.TorchServeHealthResponse())
     try:
         health = response
         print("Ping Response:", health)
@@ -92,18 +84,10 @@ def register(stub, model_name, mar_set_str):
         "model_name": model_name,
     }
     try:
-        stub.RegisterModel(
-            management_pb2.RegisterModelRequest(
-                **params
-            )
-        )
-        print(
-            f"Model {model_name} registered successfully"
-        )
+        stub.RegisterModel(management_pb2.RegisterModelRequest(**params))
+        print(f"Model {model_name} registered successfully")
     except grpc.RpcError as e:
-        print(
-            f"Failed to register model {model_name}."
-        )
+        print(f"Failed to register model {model_name}.")
         print(str(e.details()))
         exit(1)
 
@@ -111,17 +95,11 @@ def register(stub, model_name, mar_set_str):
 def unregister(stub, model_name):
     try:
         stub.UnregisterModel(
-            management_pb2.UnregisterModelRequest(
-                model_name=model_name
-            )
+            management_pb2.UnregisterModelRequest(model_name=model_name)
         )
-        print(
-            f"Model {model_name} unregistered successfully"
-        )
+        print(f"Model {model_name} unregistered successfully")
     except grpc.RpcError as e:
-        print(
-            f"Failed to unregister model {model_name}."
-        )
+        print(f"Failed to unregister model {model_name}.")
         print(str(e.details()))
         exit(1)
 
@@ -165,9 +143,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    stub = get_inference_stub(
-        args.host, args.port, args.hostname
-    )
+    stub = get_inference_stub(args.host, args.port, args.hostname)
     if args.api_name == "infer":
         infer(stub, args.model, args.input_path)
     elif args.api_name == "ping":

@@ -19,10 +19,16 @@ import pytest
 from kubernetes import client
 from kubernetes.client import V1ContainerPort, V1EnvVar, V1ResourceRequirements
 
-from kserve import (KServeClient, V1beta1InferenceService,
-                    V1beta1InferenceServiceSpec, V1beta1ModelFormat,
-                    V1beta1ModelSpec, V1beta1PredictorSpec, V1beta1XGBoostSpec,
-                    constants)
+from kserve import (
+    KServeClient,
+    V1beta1InferenceService,
+    V1beta1InferenceServiceSpec,
+    V1beta1ModelFormat,
+    V1beta1ModelSpec,
+    V1beta1PredictorSpec,
+    V1beta1XGBoostSpec,
+    constants,
+)
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
@@ -52,10 +58,10 @@ def test_xgboost_kserve():
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -90,12 +96,12 @@ def test_xgboost_v2_mlserver():
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
     assert res["outputs"][0]["data"] == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -129,10 +135,10 @@ def test_xgboost_runtime_kserve():
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -170,12 +176,12 @@ def test_xgboost_v2_runtime_mlserver():
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
     assert res["outputs"][0]["data"] == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -210,13 +216,12 @@ def test_xgboost_v2():
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
     assert res["outputs"][0]["data"] == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -239,32 +244,31 @@ def test_xgboost_v2_grpc():
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
             ),
-            ports=[
-                V1ContainerPort(
-                    container_port=8081,
-                    name="h2c",
-                    protocol="TCP"
-                )],
-            args=["--model_name", model_name]
-        )
+            ports=[V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")],
+            args=["--model_name", model_name],
+        ),
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     json_file = open("./data/iris_input_v2_grpc.json")
     payload = json.load(json_file)["inputs"]
-    response = predict_grpc(service_name=service_name,
-                            payload=payload, model_name=model_name)
+    response = predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
     prediction = list(response.outputs[0].contents.fp32_contents)
     assert prediction == [1.0, 1.0]
 

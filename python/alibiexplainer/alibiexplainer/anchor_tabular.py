@@ -25,10 +25,10 @@ logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 class AnchorTabular(ExplainerWrapper):
     def __init__(
-            self,
-            predict_fn: Callable,
-            explainer=Optional[alibi.explainers.AnchorTabular],
-            **kwargs
+        self,
+        predict_fn: Callable,
+        explainer=Optional[alibi.explainers.AnchorTabular],
+        **kwargs,
     ):
         if explainer is None:
             raise Exception("Anchor images requires a built explainer")

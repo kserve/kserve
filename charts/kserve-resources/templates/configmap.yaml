@@ -25,26 +25,14 @@ data:
     # Example
     explainers: |-
       {
-          "alibi": {
-              "image" : "kserve/alibi-explainer",
-              "defaultImageVersion": "latest"
-          },
           "art": {
               "image" : "kserve/art-explainer",
               "defaultImageVersion": "latest"
           }
       }
-    # Alibi and Art Explainer runtime configuration
+    # Art Explainer runtime configuration
      explainers: |-
         {
-            # Alibi explainer runtime configuration
-            "alibi": {
-                # image contains the default Alibi explainer serving runtime image uri.
-                "image" : "kserve/alibi-explainer",
-
-                # defautltImageVersion contains the Alibi explainer serving runtime default image version.
-                "defaultImageVersion": "latest"
-            },
             # Art explainer runtime configuration
             "art": {
                 # image contains the default Art explainer serving runtime image uri.
@@ -495,10 +483,6 @@ data:
     }
   explainers: |-
     {
-        "alibi": {
-            "image" : "{{ .Values.kserve.servingruntime.alibi.image }}",
-            "defaultImageVersion": "{{ .Values.kserve.servingruntime.alibi.defaultVersion }}"
-        },
         "art": {
             "image" : "{{ .Values.kserve.servingruntime.art.image }}",
             "defaultImageVersion": "{{ .Values.kserve.servingruntime.art.defaultVersion }}"

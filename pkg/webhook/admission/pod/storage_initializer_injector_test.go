@@ -18,6 +18,7 @@ package pod
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -2797,6 +2798,28 @@ func checkVolumeMounts(t *testing.T, pod *v1.Pod, containerNames []string) {
 		assert.Len(t, volumeMounts, 1)
 		assert.Equal(t, volumeMounts[0].MountPath, getParentDirectory(constants.DefaultModelLocalMountPath))
 	}
+}
+
+func TestModelcarIdempotency(t *testing.T) {
+	t.Run("Test that calling the modelcar injector twice results with the same input pod, the injected pod is the same", func(t *testing.T) {
+		podReference := createTestPodForModelcarWithTransformer()
+		pod := createTestPodForModelcarWithTransformer()
+
+		injector := &StorageInitializerInjector{config: &StorageInitializerConfig{}}
+
+		// Inject modelcar twice
+		err := injector.InjectModelcar(pod)
+		assert.Nil(t, err)
+		err = injector.InjectModelcar(pod)
+		assert.Nil(t, err)
+
+		// Reference modelcar
+		err = injector.InjectModelcar(podReference)
+		assert.Nil(t, err)
+
+		// It should not make a difference if the modelcar is injected once or twice
+		assert.True(t, reflect.DeepEqual(podReference, pod))
+	})
 }
 
 func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {

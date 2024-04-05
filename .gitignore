@@ -66,3 +66,9 @@ python/kserve/tox.ini
 
 # Downloaded by hack install
 hack/istio-*
+
+# iTerm config
+.itermconfig
+
+# Docker config
+docker-compose.yml

@@ -13,7 +13,7 @@ For more details, visit the [KServe website](https://kserve.github.io/website/).
 
 ![KServe](/docs/diagrams/kserve_new.png)
 
-_Since 0.7 [KFServing is rebranded to KServe](https://blog.kubeflow.org/release/official/2021/09/27/kfserving-transition.html).
+*[KFServing has been rebranded to KServe since v0.7](https://blog.kubeflow.org/release/official/2021/09/27/kfserving-transition.html).*
 
 ### Why KServe?
 - KServe is a standard, cloud agnostic **Model Inference Platform** for serving predictive and generative AI models on Kubernetes, built for highly scalable use cases.

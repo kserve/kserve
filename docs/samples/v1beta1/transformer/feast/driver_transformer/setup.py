@@ -13,25 +13,18 @@
 
 from setuptools import setup, find_packages
 
-tests_require = [
-    'pytest',
-    'mypy'
-]
+tests_require = ["pytest", "mypy"]
 
 setup(
-    name='driver_transformer',
-    version='1.0.0',
-    author_email='chhuang@us.ibm.com',
-    license='../../LICENSE.txt',
-    url='https://github.com/kserve/kserve/docs/samples/v1beta1/transformer/feast/driver_transformer',
-    description='Driver transformer',
-    python_requires='>=3.9',
+    name="driver_transformer",
+    version="1.0.0",
+    author_email="chhuang@us.ibm.com",
+    license="../../LICENSE.txt",
+    url="https://github.com/kserve/kserve/docs/samples/v1beta1/transformer/feast/driver_transformer",
+    description="Driver transformer",
+    python_requires=">=3.9",
     packages=find_packages("driver_transformer"),
-    install_requires=[
-        "kserve",
-        "requests>=2.22.0",
-        "numpy>=1.16.3"
-    ],
+    install_requires=["kserve", "requests>=2.22.0", "numpy>=1.16.3"],
     tests_require=tests_require,
-    extras_require={'test': tests_require}
+    extras_require={"test": tests_require},
 )
