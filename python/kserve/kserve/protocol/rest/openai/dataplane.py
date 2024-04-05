@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import AsyncIterator, Dict, Optional, Tuple, Union
+from typing import AsyncIterator, Dict, Optional, Union
 
 from openai.types import Completion, CompletionCreateParams
 from openai.types.chat import ChatCompletion, ChatCompletionChunk

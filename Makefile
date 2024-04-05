@@ -166,6 +166,9 @@ manifests: controller-gen
 fmt:
 	go fmt ./pkg/... ./cmd/...
 
+py-fmt:
+	black --config python/pyproject.toml .
+
 # Run go vet against code
 vet:
 	go vet ./pkg/... ./cmd/...

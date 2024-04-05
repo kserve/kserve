@@ -4,15 +4,17 @@ import yaml
 
 
 def parse_events(stdout):
-    line_split = stdout.split('☁️  cloudevents.Event\n')
+    line_split = stdout.split("☁️  cloudevents.Event\n")
 
     # Parse the input and output data from the cloud events
     log_data = []
     for event_iter in range(1, len(line_split)):
         event = line_split[event_iter]
 
-        context_attributes = yaml.safe_load(event[event.index("Context Attributes,")+20: event.index("Extensions,")])
-        payload = json.loads(event[event.index("Data,")+6:])
+        context_attributes = yaml.safe_load(
+            event[event.index("Context Attributes,") + 20 : event.index("Extensions,")]
+        )
+        payload = json.loads(event[event.index("Data,") + 6 :])
         payload["id"] = context_attributes["id"]
         log_data.append(payload)
 
@@ -37,9 +39,9 @@ def parse_events(stdout):
     return log_payload
 
 
-command = ['sh', './get_logs.sh']
+command = ["sh", "./get_logs.sh"]
 result = run(command, stdout=PIPE, stderr=PIPE, universal_newlines=True)
 json_data = parse_events(result.stdout)
 
-with open('data.json', 'w') as f:
+with open("data.json", "w") as f:
     json.dump(json_data, f)

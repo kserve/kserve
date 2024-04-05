@@ -12,9 +12,18 @@ image_read = image.read()
 image_64_encode = base64.b64encode(image_read)
 bytes_array = image_64_encode.decode("utf-8")
 request = {
-    "inputs": [{"name": str(uuid.uuid4()), "shape": -1, "datatype": "BYTES", "data": bytes_array}]
+    "inputs": [
+        {
+            "name": str(uuid.uuid4()),
+            "shape": -1,
+            "datatype": "BYTES",
+            "data": bytes_array,
+        }
+    ]
 }
 
-result_file = "{filename}.{ext}".format(filename=str(args.filename).split(".")[0], ext="json")
+result_file = "{filename}.{ext}".format(
+    filename=str(args.filename).split(".")[0], ext="json"
+)
 with open(result_file, "w") as outfile:
     json.dump(request, outfile, indent=4, sort_keys=True)
