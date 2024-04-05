@@ -11,20 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import argparse
-
-import kserve
 from typing import Dict, Union
-import numpy as np
 
-from kserve import InferRequest, InferResponse, InferInput, model_server, ModelServer
+import numpy as np
 import tokenization
 import data_processing
-import logging
 
+import kserve
+from kserve import InferRequest, InferResponse, InferInput, model_server, ModelServer, logging
 from kserve.model import PredictorConfig
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 class Tokenizer(kserve.Model):
@@ -94,7 +91,6 @@ class Tokenizer(kserve.Model):
     def postprocess(
         self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None
     ) -> Union[Dict, InferResponse]:
-        logging.info(infer_response.__dict__)
 
         end_logits = infer_response.outputs[0].data
         start_logits = infer_response.outputs[1].data
@@ -121,6 +117,7 @@ parser.add_argument("--vocab_file", help="The name of the vocab file.")
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    logging.configure_logging(args.log_config_file)
     model = Tokenizer(
         args.model_name,
         predictor_host=args.predictor_host,

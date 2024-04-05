@@ -13,14 +13,13 @@
 # limitations under the License.
 
 import argparse
-import logging
 from typing import Dict, Union
 
 import kserve
 from fastapi import HTTPException
-from kserve.model import InferRequest, ModelInferRequest
 
-logger = logging.getLogger(__name__)
+from kserve import logging
+from kserve.model import InferRequest, ModelInferRequest
 
 
 class SampleTemplateNode(kserve.Model):
@@ -41,5 +40,6 @@ class SampleTemplateNode(kserve.Model):
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 args, _ = parser.parse_known_args()
 if __name__ == "__main__":
+    logging.configure_logging(args.log_config_file)
     model = SampleTemplateNode(name=args.model_name)
     kserve.ModelServer(workers=1).start([model])

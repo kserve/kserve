@@ -17,6 +17,7 @@ import argparse
 import kserve
 import json
 
+from kserve import logging
 from .model import AIFModel
 
 DEFAULT_MODEL_NAME = "aifserver"
@@ -65,6 +66,7 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    logging.configure_logging(args.log_config_file)
     model = AIFModel(
         name=args.model_name,
         predictor_host=args.predictor_host,

@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+import json
 import logging.config
+from typing import Optional, Union, Dict
+
+import yaml
 
 from .constants.constants import KSERVE_LOGLEVEL
 
@@ -21,7 +24,7 @@ KSERVE_LOGGER_NAME = "kserve"
 KSERVE_TRACE_LOGGER_NAME = "kserve.trace"
 KSERVE_LOGGER_FORMAT = (
     "%(asctime)s.%(msecs)03d %(process)s %(name)s "
-    "%(levelname)s [%(funcName)s():%(lineno)s] %(message)s"
+    "%(levelname)s [%(filename)s:%(funcName)s():%(lineno)s] %(message)s"
 )
 KSERVE_TRACE_LOGGER_FORMAT = "%(asctime)s.%(msecs)03d %(name)s %(message)s"
 KSERVE_LOGGER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -101,3 +104,23 @@ KSERVE_LOG_CONFIG = {
 
 logger = logging.getLogger(KSERVE_LOGGER_NAME)
 trace_logger = logging.getLogger(KSERVE_TRACE_LOGGER_NAME)
+
+
+def configure_logging(log_config: Optional[Union[Dict, str]] = None) -> None:
+    if log_config is not None:
+        if isinstance(log_config, dict):
+            logging.config.dictConfig(log_config)
+        elif log_config.endswith(".json"):
+            with open(log_config) as file:
+                loaded_config = json.load(file)
+                logging.config.dictConfig(loaded_config)
+        elif log_config.endswith((".yaml", ".yml")):
+            with open(log_config) as file:
+                loaded_config = yaml.safe_load(file)
+                logging.config.dictConfig(loaded_config)
+        else:
+            # See the note about fileConfig() here:
+            # https://docs.python.org/3/library/logging.config.html#configuration-file-format
+            logging.config.fileConfig(log_config, disable_existing_loggers=False)
+    else:
+        logging.config.dictConfig(KSERVE_LOG_CONFIG)

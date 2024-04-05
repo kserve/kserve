@@ -13,13 +13,14 @@
 # limitations under the License.
 
 import argparse
-import logging
 
+from kserve import logging
 from lgbserver.lightgbm_model_repository import LightGBMModelRepository
 from lgbserver.model import LightGBMModel
 
 import kserve
 from kserve.errors import ModelMissingError
+from kserve.logging import logger
 
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
@@ -36,14 +37,14 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-
+    logging.configure_logging(args.log_config_file)
     model = LightGBMModel(args.model_name, args.model_dir, args.nthread)
     try:
         model.load()
         # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
         kserve.ModelServer(workers=1).start([model] if model.ready else [])
     except ModelMissingError:
-        logging.error(
+        logger.error(
             f"fail to load model {args.model_name} from dir {args.model_dir},"
             f"trying to load from model repository."
         )

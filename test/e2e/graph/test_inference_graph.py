@@ -1,4 +1,3 @@
-import logging
 import os
 import uuid
 
@@ -18,14 +17,13 @@ from kserve import (
     V1alpha1InferenceStep,
     V1beta1XGBoostSpec,
 )
+from kserve.logging import logger
 from kubernetes import client, config
 from kubernetes.client import V1Container
 from kubernetes.client import V1ResourceRequirements
 from requests.exceptions import HTTPError
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
-
-logging.basicConfig(level=logging.INFO)
 
 SUCCESS_ISVC_IMAGE = "kserve/success-200-isvc:" + os.environ.get("GITHUB_SHA")
 ERROR_ISVC_IMAGE = "kserve/error-404-isvc:" + os.environ.get("GITHUB_SHA")
@@ -35,7 +33,7 @@ IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"
 @pytest.mark.graph
 @pytest.mark.kourier
 def test_inference_graph():
-    logging.info("Starting test test_inference_graph")
+    logger.info("Starting test test_inference_graph")
     sklearn_name = "isvc-sklearn-graph"
     xgb_name = "isvc-xgboost-graph"
     graph_name = "model-chainer"
@@ -167,8 +165,8 @@ def construct_isvc_to_submit(service_name, image, model_name):
 
 
 def setup_isvcs_for_test(suffix):
-    logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
-    logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
+    logger.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
+    logger.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
 
     # construct_isvc_to_submit
     model_name = success_isvc_name = ("-").join(["success-200-isvc", suffix])
@@ -198,13 +196,13 @@ def test_ig_scenario1():
     :return:
     """
 
-    logging.info("Starting test test_ig_scenario1")
+    logger.info("Starting test test_ig_scenario1")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     # Create graph
     graph_name = "-".join(["sequence-graph", suffix])
@@ -271,13 +269,13 @@ def test_ig_scenario2():
     :return:
     """
 
-    logging.info("Starting test test_ig_scenario2")
+    logger.info("Starting test test_ig_scenario2")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     # Create graph
     graph_name = "-".join(["sequence-graph", suffix])
@@ -338,13 +336,13 @@ def test_ig_scenario3():
 
     Expectation: IG will return response of error_isvc and predict_ig will raise exception
     """
-    logging.info("Starting test test_ig_scenario3")
+    logger.info("Starting test test_ig_scenario3")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -409,13 +407,13 @@ def test_ig_scenario4():
                "cause": "None of the routes matched with the switch condition",
        }
     """
-    logging.info("Starting test test_ig_scenario4")
+    logger.info("Starting test test_ig_scenario4")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -498,13 +496,13 @@ def test_ig_scenario5():
     execution and call the next step in the flow as error step will be a soft dependency.
     Expectation: IG will return response of success_isvc.
     """
-    logging.info("Starting test test_ig_scenario5")
+    logger.info("Starting test test_ig_scenario5")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -559,13 +557,13 @@ def test_ig_scenario6():
     continue execution and call the next step in the flow as error step will be a HARD dependency.
     Expectation: IG will return response of success_isvc.
     """
-    logging.info("Starting test test_ig_scenario6")
+    logger.info("Starting test test_ig_scenario6")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -623,13 +621,13 @@ def test_ig_scenario7():
 
     Expectation: IG will return combined response of both the steps.
     """
-    logging.info("Starting test test_ig_scenario7")
+    logger.info("Starting test test_ig_scenario7")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -688,13 +686,13 @@ def test_ig_scenario8():
 
     Expectation: Since HARD step will return non-200, so IG will return that step's output as IG's output
     """
-    logging.info("Starting test test_ig_scenario8")
+    logger.info("Starting test test_ig_scenario8")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -751,13 +749,13 @@ def test_ig_scenario9():
     execution and call the next step in the flow as error step will be a soft dependency.
     Expectation: IG will return response of success_isvc.
     """
-    logging.info("Starting test test_ig_scenario9")
+    logger.info("Starting test test_ig_scenario9")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -810,13 +808,13 @@ def test_ig_scenario10():
     continue execution and call the next step in the flow as error step will be a HARD dependency.
     Expectation: IG will return response of success_isvc.
     """
-    logging.info("Starting test test_ig_scenario10")
+    logger.info("Starting test test_ig_scenario10")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -866,7 +864,7 @@ def test_ig_scenario10():
 
 @pytest.mark.raw
 def test_inference_graph_raw_mode():
-    logging.info("Starting test test_inference_graph_raw_mode")
+    logger.info("Starting test test_inference_graph_raw_mode")
     sklearn_name = "isvc-sklearn-graph-raw"
     xgb_name = "isvc-xgboost-graph-raw"
     graph_name = "model-chainer-raw"
@@ -986,7 +984,7 @@ def test_inference_graph_raw_mode():
                 + "in raw deployment mode"
             )
     except client.rest.ApiException:
-        logging.info("Expected error in finding knative route in raw deployment mode")
+        logger.info("Expected error in finding knative route in raw deployment mode")
 
     try:
         knativesvc = kserve_client.api_instance.get_namespaced_custom_object(
@@ -1000,7 +998,7 @@ def test_inference_graph_raw_mode():
                 + "in raw deployment mode"
             )
     except client.rest.ApiException:
-        logging.info("Expected error in finding knative service in raw deployment mode")
+        logger.info("Expected error in finding knative service in raw deployment mode")
 
     # TODO Fix this when we enable ALB creation for IG raw deployment mode. This is required for traffic ingress
     # for this predict api call to work
@@ -1018,7 +1016,7 @@ def test_inference_graph_raw_mode():
 
 @pytest.mark.raw
 def test_inference_graph_raw_mode_with_hpa():
-    logging.info("Starting test test_inference_graph_raw_mode_with_hpa")
+    logger.info("Starting test test_inference_graph_raw_mode_with_hpa")
     sklearn_name = "isvc-sklearn-graph-raw-hpa"
     xgb_name = "isvc-xgboost-graph-raw-hpa"
     graph_name = "model-chainer-raw-hpa"
@@ -1147,7 +1145,7 @@ def test_inference_graph_raw_mode_with_hpa():
                 + "in raw deployment mode"
             )
     except client.rest.ApiException:
-        logging.info("Expected error in finding knative route in raw deployment mode")
+        logger.info("Expected error in finding knative route in raw deployment mode")
 
     try:
         knativesvc = kserve_client.api_instance.get_namespaced_custom_object(
@@ -1161,7 +1159,7 @@ def test_inference_graph_raw_mode_with_hpa():
                 + "in raw deployment mode"
             )
     except client.rest.ApiException:
-        logging.info("Expected error in finding knative route in raw deployment mode")
+        logger.info("Expected error in finding knative route in raw deployment mode")
 
     # TODO Fix this when we enable ALB creation for IG raw deployment mode. This is required for traffic ingress
     # for this predict api call to work

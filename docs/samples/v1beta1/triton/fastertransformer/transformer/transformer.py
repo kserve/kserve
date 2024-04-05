@@ -1,5 +1,4 @@
 import argparse
-import logging
 import json
 from uuid import uuid4
 from typing import Dict, List, Union
@@ -12,16 +11,13 @@ from kserve.protocol.infer_type import (
     InferResponse,
 )
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
+from kserve.logging import logger
 import numpy as np
 from transformers import AutoTokenizer
 from pydantic import BaseModel
 import multiprocessing as mp
 
 mp.set_start_method("fork")
-
-
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
-logger = logging.getLogger(__name__)
 
 
 def get_output(outputs: List[InferOutput], name: str) -> InferOutput:

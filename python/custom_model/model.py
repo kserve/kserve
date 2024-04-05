@@ -28,7 +28,7 @@ from kserve import (
     model_server,
     InferRequest,
     InferOutput,
-    InferResponse,
+    InferResponse, logging,
 )
 from kserve.errors import InvalidInput
 from kserve.utils.utils import generate_uuid
@@ -119,6 +119,7 @@ parser = argparse.ArgumentParser(parents=[model_server.parser])
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    logging.configure_logging(args.log_config_file)
     model = AlexNetModel(args.model_name)
     model.load()
     ModelServer().start([model])

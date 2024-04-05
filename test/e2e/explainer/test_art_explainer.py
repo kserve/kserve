@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+
 import os
 
 from kubernetes import client
@@ -24,6 +24,7 @@ from kserve import V1beta1ExplainerSpec
 from kserve import V1beta1SKLearnSpec
 from kserve import V1beta1ARTExplainerSpec
 from kserve import V1beta1InferenceService
+from kserve.logging import logger
 from kubernetes.client import V1ResourceRequirements
 import pytest
 
@@ -31,7 +32,6 @@ from ..common.utils import predict
 from ..common.utils import explain_art
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
-logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
@@ -75,7 +75,7 @@ def test_tabular_explainer():
             service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
         )
     except RuntimeError as e:
-        logging.info(
+        logger.info(
             kserve_client.api_instance.get_namespaced_custom_object(
                 "serving.knative.dev",
                 "v1",
@@ -89,7 +89,7 @@ def test_tabular_explainer():
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
-            logging.info(pod)
+            logger.info(pod)
         raise e
 
     res = predict(service_name, "./data/mnist_input_bw_flat.json")

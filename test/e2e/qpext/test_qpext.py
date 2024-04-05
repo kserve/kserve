@@ -12,7 +12,6 @@
 # limitations under the License.
 
 import os
-import logging
 import time
 import requests
 import portforward
@@ -26,10 +25,11 @@ from kserve import (
     V1beta1SKLearnSpec,
 )
 from kubernetes.client import V1ResourceRequirements
+from kserve.logging import logger
+
 from ..common.utils import KSERVE_TEST_NAMESPACE, get_cluster_ip
 from ..common.utils import predict
 
-logging.basicConfig(level=logging.INFO)
 
 ENABLE_METRIC_AGG = "serving.kserve.io/enable-metric-aggregation"
 METRICS_AGG_PORT = 9088
@@ -103,10 +103,10 @@ def send_metrics_request(kserve_client, service_name):
     with portforward.forward(
         KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT
     ):
-        logging.info(f"metrics request url: {url}")
+        logger.info(f"metrics request url: {url}")
         response = requests.get(url)
-        logging.info(f"response: {response}, content: {response.content}")
-        logging.info(
+        logger.info(f"response: {response}, content: {response.content}")
+        logger.info(
             "Got response code %s, content %s", response.status_code, response.content
         )
 

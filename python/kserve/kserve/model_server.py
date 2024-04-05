@@ -26,7 +26,7 @@ from ray import serve as rayserve
 from ray.serve.api import Deployment
 from ray.serve.handle import DeploymentHandle
 
-from .logging import KSERVE_LOG_CONFIG, logger
+from .logging import KSERVE_LOG_CONFIG, logger, configure_logging
 from .model import BaseKServeModel
 from .model_repository import ModelRepository
 from .protocol.dataplane import DataPlane

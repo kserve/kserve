@@ -14,6 +14,7 @@
 import kserve
 import argparse
 
+from kserve import logging
 from .model import RFModel
 
 DEFAULT_MODEL_NAME = "rfserver"
@@ -27,6 +28,7 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    logging.configure_logging(args.log_config_file)
     model = RFModel(args.model_name)
     model.load()
     kserve.ModelServer().start([model])

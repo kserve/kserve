@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import kserve
-import logging
+
 import numpy as np
 import spacy
 import alibi
@@ -22,7 +21,7 @@ from alibi.utils.wrappers import ArgmaxTransformer
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 from typing import Callable, List, Optional, Dict
 
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
+from kserve.logging import logger
 
 
 class AnchorText(ExplainerWrapper):
@@ -35,12 +34,12 @@ class AnchorText(ExplainerWrapper):
     ):
         self.predict_fn = predict_fn
         self.kwargs = kwargs
-        logging.info("Anchor Text args %s", self.kwargs)
+        logger.info("Anchor Text args %s", self.kwargs)
         if explainer is None:
-            logging.info("Loading Spacy Language model for %s", spacy_language_model)
+            logger.info("Loading Spacy Language model for %s", spacy_language_model)
             spacy_model(model=spacy_language_model)
             self.nlp = spacy.load(spacy_language_model)
-            logging.info("Language model loaded")
+            logger.info("Language model loaded")
         self.anchors_text = explainer
 
     def explain(self, inputs: List, headers: Dict[str, str] = None) -> Explanation:

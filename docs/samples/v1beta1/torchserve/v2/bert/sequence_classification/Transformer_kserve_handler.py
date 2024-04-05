@@ -1,5 +1,4 @@
 import torch
-import logging
 from Transformer_handler_generalized import (
     TransformersSeqClassifierHandler,
     captum_sequence_forward,
@@ -9,8 +8,8 @@ from Transformer_handler_generalized import (
 )
 import json
 from captum.attr import LayerIntegratedGradients
+from kserve.logging import logger
 
-logger = logging.getLogger(__name__)
 # TODO Extend the example for token classification, question answering and batch inputs
 
 

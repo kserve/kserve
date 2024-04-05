@@ -18,7 +18,7 @@ import numpy as np
 import io
 from PIL import Image
 from torchvision import transforms
-from kserve import Model, ModelServer, model_server, InferInput, InferRequest
+from kserve import Model, ModelServer, model_server, InferInput, InferRequest, logging
 
 
 def image_transform(data):
@@ -74,6 +74,7 @@ parser = argparse.ArgumentParser(parents=[model_server.parser])
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    logging.configure_logging(args.log_config_file)
     model = ImageTransformer(
         args.model_name,
         predictor_host=args.predictor_host,

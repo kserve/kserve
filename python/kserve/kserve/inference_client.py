@@ -12,27 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import grpc
 
-from .constants.constants import KSERVE_LOGLEVEL
 from .protocol.infer_type import InferRequest
 from .protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
-
-logging.basicConfig(level=KSERVE_LOGLEVEL)
+from .logging import logger
 
 
 class InferenceServerClient:
     def __init__(
-        self,
-        url,
-        verbose=False,
-        ssl=False,
-        root_certificates=None,
-        private_key=None,
-        certificate_chain=None,
-        creds=None,
-        channel_args=None,
+            self,
+            url,
+            verbose=False,
+            ssl=False,
+            root_certificates=None,
+            private_key=None,
+            certificate_chain=None,
+            creds=None,
+            channel_args=None,
     ):
 
         # Explicitly check "is not None" here to support passing an empty
@@ -90,14 +87,14 @@ class InferenceServerClient:
 
         request = infer_request.to_grpc()
         if self._verbose:
-            logging.info("infer, metadata {}\n{}".format(metadata, request))
+            logger.info("infer, metadata {}\n{}".format(metadata, request))
 
         try:
             response = self._client_stub.ModelInfer(
                 request=request, metadata=metadata, timeout=client_timeout
             )
             if self._verbose:
-                logging.info(response)
+                logger.info(response)
             return response
         except grpc.RpcError as rpc_error:
             raise rpc_error

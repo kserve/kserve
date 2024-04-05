@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+
 import json
 import configparser
 from os.path import expanduser
@@ -20,7 +20,7 @@ from os.path import expanduser
 from kubernetes import client
 from ..constants import constants
 
-logger = logging.getLogger(__name__)
+from kserve.logging import logger
 
 
 def set_gcs_credentials(namespace, credentials_file, service_account):
@@ -52,15 +52,15 @@ def set_gcs_credentials(namespace, credentials_file, service_account):
 
 
 def set_s3_credentials(
-    namespace,
-    credentials_file,
-    service_account,
-    s3_profile="default",  # pylint: disable=too-many-locals,too-many-arguments
-    s3_endpoint=None,
-    s3_region=None,
-    s3_use_https=None,
-    s3_verify_ssl=None,
-    s3_cabundle=None,
+        namespace,
+        credentials_file,
+        service_account,
+        s3_profile="default",  # pylint: disable=too-many-locals,too-many-arguments
+        s3_endpoint=None,
+        s3_region=None,
+        s3_use_https=None,
+        s3_verify_ssl=None,
+        s3_cabundle=None,
 ):  # pylint: disable=unused-argument
     """
     Set S3 Credentials (secret and service account).
@@ -253,7 +253,7 @@ def get_creds_name_from_config_map(creds):
             constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
         )
     except client.rest.ApiException:
-        logging.warning(
+        logger.warning(
             "Cannot get configmap %s in namespace %s.",
             constants.INFERENCESERVICE_CONFIG_MAP_NAME,
             constants.INFERENCESERVICE_SYSTEM_NAMESPACE,

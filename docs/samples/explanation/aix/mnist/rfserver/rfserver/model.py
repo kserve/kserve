@@ -11,7 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from typing import Dict, Union
 import pickle
 
@@ -19,10 +18,8 @@ import kserve
 import numpy as np
 
 from kserve import InferRequest, InferResponse
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
-    ModelInferRequest,
-    ModelInferResponse,
-)
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+from kserve.logging import logger
 
 
 class PipeStep(object):
@@ -64,7 +61,7 @@ class RFModel(kserve.Model):  # pylint:disable=c-extension-no-member
 
         try:
             inputs = np.asarray(instances)
-            logging.info("Calling predict on image of shape %s", (inputs.shape,))
+            logger.info("Calling predict on image of shape %s", (inputs.shape,))
         except Exception as e:
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s" % (e, instances)
