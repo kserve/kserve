@@ -15,4 +15,4 @@ repos:
     rev: v2.2.3
     hooks:
       - id: flake8
-        args: [--config, .flake8]
+        args: [--config, .flake8, .]
