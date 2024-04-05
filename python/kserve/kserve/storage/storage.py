@@ -37,7 +37,6 @@ from botocore import UNSIGNED
 from botocore.client import Config
 from google.auth import exceptions
 from google.cloud import storage
-from transformers import AutoTokenizer, AutoConfig, AutoModel
 
 from ..logging import logger
 
@@ -284,6 +283,8 @@ class Storage(object):
 
     @staticmethod
     def _download_hf(uri, temp_dir: str) -> str:
+        from transformers import AutoTokenizer, AutoConfig, AutoModel
+        
         components = uri.split("://")[1].split("/")
 
         repo = components[0]
