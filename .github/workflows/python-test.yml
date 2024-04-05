@@ -276,7 +276,8 @@ jobs:
         run: |
           cd python/alibiexplainer
           # source alibiexplainer/.venv/bin/activate
-          pytest --cov=alibiexplainer ./alibiexplainer
+          # pytest --cov=alibiexplainer ./alibiexplainer
+          poetry run -- pytest --cov=huggingfaceserver
 
       # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
       # load cached huggingface venv if cache exists
