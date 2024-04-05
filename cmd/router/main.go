@@ -78,12 +78,16 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Error(err, "An error has occurred while closing the response body")
+
+	defer func() {
+		if resp.Body != nil {
+			err := resp.Body.Close()
+			if err != nil {
+				log.Error(err, "An error has occurred while closing the response body")
+			}
 		}
-	}(resp.Body)
+	}()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Error(err, "Error while reading the response")
