@@ -20,7 +20,14 @@ import tokenization
 import data_processing
 
 import kserve
-from kserve import InferRequest, InferResponse, InferInput, model_server, ModelServer, logging
+from kserve import (
+    InferRequest,
+    InferResponse,
+    InferInput,
+    model_server,
+    ModelServer,
+    logging,
+)
 from kserve.model import PredictorConfig
 
 

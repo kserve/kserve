@@ -21,15 +21,15 @@ from .logging import logger
 
 class InferenceServerClient:
     def __init__(
-            self,
-            url,
-            verbose=False,
-            ssl=False,
-            root_certificates=None,
-            private_key=None,
-            certificate_chain=None,
-            creds=None,
-            channel_args=None,
+        self,
+        url,
+        verbose=False,
+        ssl=False,
+        root_certificates=None,
+        private_key=None,
+        certificate_chain=None,
+        creds=None,
+        channel_args=None,
     ):
 
         # Explicitly check "is not None" here to support passing an empty

@@ -28,7 +28,8 @@ from kserve import (
     model_server,
     InferRequest,
     InferOutput,
-    InferResponse, logging,
+    InferResponse,
+    logging,
 )
 from kserve.errors import InvalidInput
 from kserve.utils.utils import generate_uuid

@@ -52,15 +52,15 @@ def set_gcs_credentials(namespace, credentials_file, service_account):
 
 
 def set_s3_credentials(
-        namespace,
-        credentials_file,
-        service_account,
-        s3_profile="default",  # pylint: disable=too-many-locals,too-many-arguments
-        s3_endpoint=None,
-        s3_region=None,
-        s3_use_https=None,
-        s3_verify_ssl=None,
-        s3_cabundle=None,
+    namespace,
+    credentials_file,
+    service_account,
+    s3_profile="default",  # pylint: disable=too-many-locals,too-many-arguments
+    s3_endpoint=None,
+    s3_region=None,
+    s3_use_https=None,
+    s3_verify_ssl=None,
+    s3_cabundle=None,
 ):  # pylint: disable=unused-argument
     """
     Set S3 Credentials (secret and service account).

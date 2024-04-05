@@ -119,20 +119,20 @@ class Storage(object):
 
         if storage_secret_json.get("type", "") == "s3":
             for env_var, key in (
-                    ("AWS_ENDPOINT_URL", "endpoint_url"),
-                    ("AWS_ACCESS_KEY_ID", "access_key_id"),
-                    ("AWS_SECRET_ACCESS_KEY", "secret_access_key"),
-                    ("AWS_DEFAULT_REGION", "region"),
-                    ("AWS_CA_BUNDLE", "ca_bundle"),
-                    ("S3_VERIFY_SSL", "verify_ssl"),
-                    ("awsAnonymousCredential", "anonymous"),
+                ("AWS_ENDPOINT_URL", "endpoint_url"),
+                ("AWS_ACCESS_KEY_ID", "access_key_id"),
+                ("AWS_SECRET_ACCESS_KEY", "secret_access_key"),
+                ("AWS_DEFAULT_REGION", "region"),
+                ("AWS_CA_BUNDLE", "ca_bundle"),
+                ("S3_VERIFY_SSL", "verify_ssl"),
+                ("awsAnonymousCredential", "anonymous"),
             ):
                 if key in storage_secret_json:
                     os.environ[env_var] = storage_secret_json.get(key)
 
         if (
-                storage_secret_json.get("type", "") == "hdfs"
-                or storage_secret_json.get("type", "") == "webhdfs"
+            storage_secret_json.get("type", "") == "hdfs"
+            or storage_secret_json.get("type", "") == "webhdfs"
         ):
             temp_dir = tempfile.mkdtemp()
             os.environ["HDFS_SECRET_DIR"] = temp_dir
@@ -202,7 +202,7 @@ class Storage(object):
                         "CA_BUNDLE_VOLUME_MOUNT_POINT"
                     )
                     ca_bundle_full_path = (
-                            global_ca_bundle_volume_mount_path + "/cabundle.crt"
+                        global_ca_bundle_volume_mount_path + "/cabundle.crt"
                     )
                 if os.path.exists(ca_bundle_full_path):
                     logger.info("ca bundle file(%s) exists." % (ca_bundle_full_path))
@@ -246,7 +246,7 @@ class Storage(object):
                 target_key = obj.key.rsplit("/", 1)[-1]
                 exact_obj_found = True
             elif bucket_path_last_part and object_last_path.startswith(
-                    bucket_path_last_part
+                bucket_path_last_part
             ):
                 target_key = object_last_path
             else:
@@ -360,9 +360,9 @@ class Storage(object):
         # Remove hdfs:// or webhdfs:// from the uri to get just the path
         # e.g. hdfs://user/me/model -> user/me/model
         if uri.startswith(_HDFS_PREFIX):
-            path = uri[len(_HDFS_PREFIX):]
+            path = uri[len(_HDFS_PREFIX) :]
         else:
-            path = uri[len(_WEBHDFS_PREFIX):]
+            path = uri[len(_WEBHDFS_PREFIX) :]
 
         if not config["HDFS_ROOTPATH"]:
             path = "/" + path
@@ -439,8 +439,8 @@ class Storage(object):
             prefix,
         )
         token = (
-                Storage._get_azure_storage_token()
-                or Storage._get_azure_storage_access_key()
+            Storage._get_azure_storage_token()
+            or Storage._get_azure_storage_access_key()
         )
         if token is None:
             logger.warning(
@@ -486,7 +486,7 @@ class Storage(object):
 
     @staticmethod
     def _download_azure_file_share(
-            uri, out_dir: str
+        uri, out_dir: str
     ):  # pylint: disable=too-many-locals
         account_name, account_url, share_name, prefix = Storage._parse_azure_uri(uri)
         logger.info(
@@ -512,7 +512,7 @@ class Storage(object):
             if depth < 0:
                 continue
             for item in share_client.list_directories_and_files(
-                    directory_name=curr_prefix
+                directory_name=curr_prefix
             ):
                 if item.is_directory:
                     stack.append(
@@ -649,7 +649,7 @@ class Storage(object):
                 "application/zip-compressed",
             )
             if mimetype == "application/zip" and not response.headers.get(
-                    "Content-Type", ""
+                "Content-Type", ""
             ).startswith(zip_content_types):
                 raise RuntimeError(
                     "URI: %s did not respond with any of following 'Content-Type': "
@@ -663,7 +663,7 @@ class Storage(object):
                 "application/gzip",
             )
             if mimetype == "application/x-tar" and not response.headers.get(
-                    "Content-Type", ""
+                "Content-Type", ""
             ).startswith(tar_content_types):
                 raise RuntimeError(
                     "URI: %s did not respond with any of following 'Content-Type': "
@@ -671,7 +671,7 @@ class Storage(object):
                     + ", ".join(tar_content_types)
                 )
             if (
-                    mimetype != "application/zip" and mimetype != "application/x-tar"
+                mimetype != "application/zip" and mimetype != "application/x-tar"
             ) and not response.headers.get("Content-Type", "").startswith(
                 "application/octet-stream"
             ):

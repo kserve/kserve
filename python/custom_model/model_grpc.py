@@ -39,7 +39,7 @@ class AlexNetModel(Model):
         self.ready = True
 
     def preprocess(
-            self, payload: InferRequest, headers: Dict[str, str] = None
+        self, payload: InferRequest, headers: Dict[str, str] = None
     ) -> torch.Tensor:
         req = payload.inputs[0]
         if req.datatype == "BYTES":
@@ -62,7 +62,7 @@ class AlexNetModel(Model):
             return torch.Tensor(np_array)
 
     def predict(
-            self, input_tensor: torch.Tensor, headers: Dict[str, str] = None
+        self, input_tensor: torch.Tensor, headers: Dict[str, str] = None
     ) -> Dict:
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)

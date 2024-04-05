@@ -27,7 +27,8 @@ from kserve import (
     model_server,
     InferInput,
     InferRequest,
-    InferResponse, logging,
+    InferResponse,
+    logging,
 )
 from kserve.model import PredictorProtocol, PredictorConfig
 
