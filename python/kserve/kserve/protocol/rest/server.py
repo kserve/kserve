@@ -41,15 +41,16 @@ from kserve.errors import (
 from kserve.logging import trace_logger
 from kserve.protocol.dataplane import DataPlane
 
+from .openai.config import maybe_register_openai_endpoints
 from .v1_endpoints import V1Endpoints
 from .v2_datamodels import (
     InferenceResponse,
+    ListModelsResponse,
     ModelMetadataResponse,
     ModelReadyResponse,
     ServerLiveResponse,
     ServerMetadataResponse,
     ServerReadyResponse,
-    ListModelsResponse,
 )
 from .v2_endpoints import V2Endpoints
 
@@ -86,7 +87,7 @@ class RESTServer:
         v1_endpoints = V1Endpoints(self.dataplane, self.model_repository_extension)
         v2_endpoints = V2Endpoints(self.dataplane, self.model_repository_extension)
 
-        return FastAPI(
+        app = FastAPI(
             title="KServe ModelServer",
             version=metadata.version("kserve"),
             docs_url="/docs" if self.enable_docs_url else None,
@@ -217,6 +218,11 @@ class RESTServer:
                 Exception: generic_exception_handler,
             },
         )
+        # Register OpenAI endpoints if any of the models in the registry implement the OpenAI inferface
+        # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
+        # REST server.
+        maybe_register_openai_endpoints(app, self.dataplane.model_registry)
+        return app
 
 
 class UvicornServer:

@@ -338,8 +338,8 @@ func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.In
 	}
 
 	// #nosec G601
-	for _, v := range trainedModels.Items {
-		if err := r.Delete(context.TODO(), &v, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
+	for i, v := range trainedModels.Items {
+		if err := r.Delete(context.TODO(), &trainedModels.Items[i], client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
 			r.Log.Error(err, "unable to delete trainedmodel", "trainedmodel", v)
 		}
 	}
