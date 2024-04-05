@@ -23,6 +23,7 @@ from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 from kserve.logging import logger
 
+
 class DriverTransformer(kserve.Model):
     """A class object for the data handling activities of driver ranking
     Task and returns a KServe compatible response.
