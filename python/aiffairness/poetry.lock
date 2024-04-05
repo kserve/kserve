@@ -990,7 +990,6 @@ files = []
 develop = true
 
 [package.dependencies]
-async-timeout = {version = "^4.0.3", markers = "python_version >= \"3.11.dev0\" and python_version < \"3.12.dev0\""}
 cloudevents = "^1.6.2"
 fastapi = "^0.109.1"
 grpcio = "^1.49.1"
@@ -1004,6 +1003,7 @@ protobuf = "^3.19.0"
 psutil = "^5.9.0"
 pydantic = ">1.0,<3"
 python-dateutil = "^2.8.0"
+pyyaml = "^5.0.1"
 ray = {version = "~2.10.0", extras = ["serve"]}
 six = "^1.16.0"
 tabulate = "^0.9.0"
@@ -1012,7 +1012,7 @@ uvicorn = {version = "^0.21.1", extras = ["standard"]}
 
 [package.extras]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
-storage = ["azure-identity (>=1.8.0,<2.0.0)", "azure-storage-blob (>=12.10.0,<13.0.0)", "azure-storage-file-share (>=12.7.0,<13.0.0)", "boto3 (>=1.21.0,<2.0.0)", "google-cloud-storage (>=2.3.0,<3.0.0)", "requests (>=2.20.0,<3.0.0)", "urllib3 (>=1.26.8,<2.0.0)"]
+storage = ["azure-identity (>=1.8.0,<2.0.0)", "azure-storage-blob (>=12.10.0,<13.0.0)", "azure-storage-file-share (>=12.7.0,<13.0.0)", "boto3 (>=1.21.0,<2.0.0)", "google-cloud-storage (>=2.3.0,<3.0.0)", "requests (>=2.20.0,<3.0.0)"]
 
 [package.source]
 type = "directory"
@@ -1872,10 +1872,10 @@ files = [
 
 [[package]]
 name = "pyyaml"
-version = "6.0.1"
+version = "5.4.1"
 description = "YAML parser and emitter for Python"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 files = [
     {file = "PyYAML-6.0.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d858aa552c999bc8a8d57426ed01e40bef403cd8ccdd0fc5f6f04a00414cac2a"},
     {file = "PyYAML-6.0.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:fd66fc5d0da6d9815ba2cebeb4205f95818ff4b79c3ebe268e75d961704af52f"},
