@@ -28,9 +28,8 @@ jobs:
       - name: Lint with flake8
         uses: py-actions/flake8@v2
         with:
-          args: "--config python/.flake8"
+          args: "--config .flake8"
           path: "."
-
       - name: Check formatting with black
         uses: psf/black@stable
         with:
