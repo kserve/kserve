@@ -106,7 +106,9 @@ def test_xgboost_v2_mlserver():
     # kserve_client.wait_model_ready(service_name, model_name=service_name, isvc_namespace=KSERVE_TEST_NAMESPACE,
     #                                cluster_ip=get_cluster_ip(), protocol_version=protocol_version)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version=protocol_version)
+    res = predict(
+        service_name, "./data/iris_input_v2.json", protocol_version=protocol_version
+    )
     assert res["outputs"][0]["data"] == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -190,7 +192,9 @@ def test_xgboost_v2_runtime_mlserver():
     # kserve_client.wait_model_ready(service_name, model_name=service_name, isvc_namespace=KSERVE_TEST_NAMESPACE,
     #                                cluster_ip=get_cluster_ip(), protocol_version=protocol_version)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version=protocol_version)
+    res = predict(
+        service_name, "./data/iris_input_v2.json", protocol_version=protocol_version
+    )
     assert res["outputs"][0]["data"] == [1.0, 1.0]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
