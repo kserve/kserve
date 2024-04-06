@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import logging
 import os
 
 import numpy as np
@@ -29,7 +30,6 @@ from kserve import (
     V1beta1PredictorSpec,
     constants,
 )
-from kserve.logging import logger
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
@@ -69,7 +69,7 @@ def test_paddle():
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
-            logger.info(pod)
+            logging.info(pod)
         raise e
 
     res = predict(service_name, "./data/jay.json")
@@ -116,7 +116,7 @@ def test_paddle_runtime():
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
-            logger.info(pod)
+            logging.info(pod)
         raise e
 
     res = predict(service_name, "./data/jay.json")
@@ -164,7 +164,7 @@ def test_paddle_v2_kserve():
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
-            logger.info(pod)
+            logging.info(pod)
         raise e
 
     res = predict(service_name, "./data/jay-v2.json", protocol_version="v2")
@@ -215,7 +215,7 @@ def test_paddle_v2_grpc():
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
-            logger.info(pod)
+            logging.info(pod)
         raise e
 
     json_file = open("./data/jay-v2-grpc.json")

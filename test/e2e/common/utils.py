@@ -12,6 +12,7 @@
 # limitations under the License.
 
 import json
+import logging
 import os
 import time
 from urllib.parse import urlparse
@@ -25,7 +26,6 @@ from kserve import KServeClient
 from kserve import constants
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
-from kserve.logging import logger
 
 from . import inference_pb2_grpc
 
@@ -113,13 +113,13 @@ def predict_str(
     if protocol_version == "v2":
         url = f"http://{cluster_ip}{path}/v2/models/{model_name}/infer"
 
-    logger.info("Sending Header = %s", headers)
-    logger.info("Sending url = %s", url)
-    logger.info("Sending request data: %s", input_json)
+    logging.info("Sending Header = %s", headers)
+    logging.info("Sending url = %s", url)
+    logging.info("Sending request data: %s", input_json)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
     time.sleep(10)
     response = requests.post(url, input_json, headers=headers)
-    logger.info(
+    logging.info(
         "Got response code %s, content %s", response.status_code, response.content
     )
     if response.status_code == 200:
@@ -151,11 +151,11 @@ def predict_ig(
         headers = {"Host": host}
         url = f"http://{cluster_ip}"
 
-        logger.info("Sending Header = %s", headers)
-        logger.info("Sending url = %s", url)
-        logger.info("Sending request data: %s", input_json)
+        logging.info("Sending Header = %s", headers)
+        logging.info("Sending url = %s", url)
+        logging.info("Sending request data: %s", input_json)
         response = requests.post(url, data, headers=headers)
-        logger.info(
+        logging.info(
             "Got response code %s, content %s", response.status_code, response.content
         )
         if response.status_code == 200:
@@ -189,12 +189,12 @@ def explain_response(service_name, input_json):
     headers = {"Host": host}
     with open(input_json) as json_file:
         data = json.load(json_file)
-        logger.info("Sending request data: %s", json.dumps(data))
+        logging.info("Sending request data: %s", json.dumps(data))
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
             time.sleep(10)
             response = requests.post(url, json.dumps(data), headers=headers)
-            logger.info(
+            logging.info(
                 "Got response code %s, content %s",
                 response.status_code,
                 response.content,
@@ -204,7 +204,7 @@ def explain_response(service_name, input_json):
             else:
                 response.raise_for_status()
         except (RuntimeError, json.decoder.JSONDecodeError) as e:
-            logger.info("Explain error -------")
+            logging.info("Explain error -------")
             pods = kfs_client.core_api.list_namespaced_pod(
                 KSERVE_TEST_NAMESPACE,
                 label_selector="serving.kserve.io/inferenceservice={}".format(
@@ -212,8 +212,8 @@ def explain_response(service_name, input_json):
                 ),
             )
             for pod in pods.items:
-                logger.info(pod)
-                logger.info(
+                logging.info(pod)
+                logging.info(
                     "%s\t%s\t%s"
                     % (pod.metadata.name, pod.status.phase, pod.status.pod_ip)
                 )
@@ -222,7 +222,7 @@ def explain_response(service_name, input_json):
                     KSERVE_TEST_NAMESPACE,
                     container="kserve-container",
                 )
-                logger.info(api_response)
+                logging.info(api_response)
             raise e
         return json_response
 
@@ -263,8 +263,8 @@ def predict_grpc(
 
     if model_name is None:
         model_name = service_name
-    logger.info("Cluster IP: %s", cluster_ip)
-    logger.info("gRPC target host: %s", host)
+    logging.info("Cluster IP: %s", cluster_ip)
+    logging.info("gRPC target host: %s", host)
 
     channel = grpc.insecure_channel(
         cluster_ip, options=(("grpc.ssl_target_name_override", host),)

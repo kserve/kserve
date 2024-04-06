@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import time
 import requests
@@ -25,7 +26,6 @@ from kserve import (
     V1beta1SKLearnSpec,
 )
 from kubernetes.client import V1ResourceRequirements
-from kserve.logging import logger
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, get_cluster_ip
 from ..common.utils import predict
@@ -103,10 +103,10 @@ def send_metrics_request(kserve_client, service_name):
     with portforward.forward(
         KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT
     ):
-        logger.info(f"metrics request url: {url}")
+        logging.info(f"metrics request url: {url}")
         response = requests.get(url)
-        logger.info(f"response: {response}, content: {response.content}")
-        logger.info(
+        logging.info(f"response: {response}, content: {response.content}")
+        logging.info(
             "Got response code %s, content %s", response.status_code, response.content
         )
 
