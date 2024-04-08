@@ -17,7 +17,7 @@ import pytest
 from xgbserver import XGBoostModelRepository
 
 model_dir = os.path.join(os.path.dirname(__file__), "example_model")
-invalid_model_dir = os.path.join(os.path.dirname(__file__), "model_not_exist", "model")
+invalid_model_dir = os.path.join(os.path.dirname(__file__), "model_not_exist", "bst_model")
 
 
 @pytest.mark.asyncio
