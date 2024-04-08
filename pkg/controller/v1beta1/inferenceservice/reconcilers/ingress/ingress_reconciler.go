@@ -581,11 +581,10 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Res
 				Scheme: scheme,
 			},
 		}
-		if isIngressReady(isvc) {
-			// When the ingress has already been marked Ready for this generation,
-			// then it must have been successfully probed. This exception necessary for the case
-			// of global resyncs.
-		} else {
+
+		// When the ingress has already been marked Ready for this generation,
+		// then it must have been successfully probed. So we can safely skip this for global resyncs.
+		if !isIngressReady(isvc) {
 			if isReady, err := probeIngress(isvc.Status.Address.URL.String()); err != nil {
 				return ctrl.Result{}, err
 			} else if isReady {
