@@ -29,7 +29,7 @@ def to_np_dtype(dtype):
         "FP16": np.float16,
         "FP32": np.float32,
         "FP64": np.float64,
-        "BYTES": np.object_
+        "BYTES": np.object_,
     }
     return dtype_map.get(dtype, None)
 

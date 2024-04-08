@@ -28,7 +28,7 @@ class AnchorImages(ExplainerWrapper):
         self,
         predict_fn: Callable,
         explainer: Optional[alibi.explainers.AnchorImage],
-        **kwargs
+        **kwargs,
     ):
         if explainer is None:
             raise Exception("Anchor images requires a built explainer")

@@ -1,0 +1,206 @@
+{
+  "id": "61ccd360-5fca-446d-ad04-8ea32699764b",
+  "choices": [
+    {
+      "finish_reason": "length",
+      "index": 0,
+      "logprobs": {
+        "content": [
+          {
+            "token": "\n\n",
+            "bytes": [
+              10,
+              10
+            ],
+            "logprob": -0.27425793,
+            "top_logprobs": [
+              {
+                "token": "\n\n",
+                "bytes": [
+                  10,
+                  10
+                ],
+                "logprob": -0.27425793
+              }
+            ]
+          },
+          {
+            "token": "AI",
+            "bytes": [
+              65,
+              73
+            ],
+            "logprob": -0.016520381,
+            "top_logprobs": [
+              {
+                "token": "AI",
+                "bytes": [
+                  65,
+                  73
+                ],
+                "logprob": -0.016520381
+              }
+            ]
+          },
+          {
+            "token": " stands",
+            "bytes": [
+              32,
+              115,
+              116,
+              97,
+              110,
+              100,
+              115
+            ],
+            "logprob": -0.96964926,
+            "top_logprobs": [
+              {
+                "token": " stands",
+                "bytes": [
+                  32,
+                  115,
+                  116,
+                  97,
+                  110,
+                  100,
+                  115
+                ],
+                "logprob": -0.96964926
+              }
+            ]
+          },
+          {
+            "token": " for",
+            "bytes": [
+              32,
+              102,
+              111,
+              114
+            ],
+            "logprob": -1.7835755e-05,
+            "top_logprobs": [
+              {
+                "token": " for",
+                "bytes": [
+                  32,
+                  102,
+                  111,
+                  114
+                ],
+                "logprob": -1.7835755e-05
+              }
+            ]
+          },
+          {
+            "token": " artificial",
+            "bytes": [
+              32,
+              97,
+              114,
+              116,
+              105,
+              102,
+              105,
+              99,
+              105,
+              97,
+              108
+            ],
+            "logprob": -0.35825357,
+            "top_logprobs": [
+              {
+                "token": " artificial",
+                "bytes": [
+                  32,
+                  97,
+                  114,
+                  116,
+                  105,
+                  102,
+                  105,
+                  99,
+                  105,
+                  97,
+                  108
+                ],
+                "logprob": -0.35825357
+              }
+            ]
+          },
+          {
+            "token": " intelligence",
+            "bytes": [
+              32,
+              105,
+              110,
+              116,
+              101,
+              108,
+              108,
+              105,
+              103,
+              101,
+              110,
+              99,
+              101
+            ],
+            "logprob": -0.00023035755,
+            "top_logprobs": [
+              {
+                "token": " intelligence",
+                "bytes": [
+                  32,
+                  105,
+                  110,
+                  116,
+                  101,
+                  108,
+                  108,
+                  105,
+                  103,
+                  101,
+                  110,
+                  99,
+                  101
+                ],
+                "logprob": -0.00023035755
+              }
+            ]
+          },
+          {
+            "token": ".",
+            "bytes": [
+              46
+            ],
+            "logprob": -0.4879583,
+            "top_logprobs": [
+              {
+                "token": ".",
+                "bytes": [
+                  46
+                ],
+                "logprob": -0.4879583
+              }
+            ]
+          }
+        ]
+      },
+      "message": {
+        "content": "\n\nAI stands for artificial intelligence.",
+        "role": "assistant",
+        "function_call": null,
+        "tool_calls": null
+      }
+    }
+  ],
+  "created": 1709934260,
+  "model": "gpt-3.5",
+  "object": "chat.completion",
+  "system_fingerprint": "fp_4f0b692a78",
+  "usage": {
+    "completion_tokens": 7,
+    "prompt_tokens": 4,
+    "total_tokens": 11
+  }
+}

@@ -33,7 +33,6 @@ PADDLE_IMG_TAG=${DOCKER_REPO}/${PADDLE_IMG}:${GITHUB_SHA}
 CUSTOM_MODEL_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${GITHUB_SHA}
 CUSTOM_TRANSFORMER_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${GITHUB_SHA}
 # Explainer images
-ALIBI_IMG_TAG=${DOCKER_REPO}/${ALIBI_IMG}:${GITHUB_SHA}
 ART_IMG_TAG=${DOCKER_REPO}/${ART_IMG}:${GITHUB_SHA}
 # Transformer images
 IMAGE_TRANSFORMER_IMG_TAG=${DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG}:${GITHUB_SHA}
@@ -65,9 +64,6 @@ pushd python >/dev/null
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then
-    echo "Building Alibi image"
-    docker buildx build -t "${ALIBI_IMG_TAG}" -f alibiexplainer.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ALIBI_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Building ART explainer image"
     docker buildx build -t "${ART_IMG_TAG}" -f artexplainer.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ART_IMG}-${GITHUB_SHA}",compression-level=0 .

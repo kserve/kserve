@@ -25,7 +25,7 @@ from kserve import (
     V1beta1ModelFormat,
     V1beta1ModelSpec,
     V1beta1PredictorSpec,
-    constants
+    constants,
 )
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict
@@ -43,7 +43,7 @@ def test_sklearn_kserve():
                 name="sklearn",
             ),
             runtime="kserve-mlserver",
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
@@ -62,13 +62,12 @@ def test_sklearn_kserve():
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json",
-                  protocol_version="v2")
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
     assert res["outputs"][0]["data"] == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

@@ -13,20 +13,17 @@
 
 from setuptools import setup, find_packages
 
-tests_require = [
-    'pytest',
-    'mypy'
-]
+tests_require = ["pytest", "mypy"]
 
 setup(
-    name='transformer',
-    version='0.2.0',
-    author_email='dsun20@bloomberg.net',
-    license='../../LICENSE.txt',
-    url='https://github.com/kserve/kserve/tree/master/docs/samples/kafka',
-    description='Transformer',
-    long_description=open('README.md').read(),
-    python_requires='>=3.7',
+    name="transformer",
+    version="0.2.0",
+    author_email="dsun20@bloomberg.net",
+    license="../../LICENSE.txt",
+    url="https://github.com/kserve/kserve/tree/master/docs/samples/kafka",
+    description="Transformer",
+    long_description=open("README.md").read(),
+    python_requires=">=3.7",
     packages=find_packages("transformer"),
     install_requires=[
         "kserve>0.10.0",
@@ -34,5 +31,5 @@ setup(
         "opencv-python-headless==4.7.0.72",
     ],
     tests_require=tests_require,
-    extras_require={'test': tests_require}
+    extras_require={"test": tests_require},
 )

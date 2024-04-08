@@ -12,5 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import SKLearnModel  # noqa # pylint: disable=unused-import
-from .sklearn_model_repository import SKLearnModelRepository  # noqa # pylint: disable=unused-import
+from .model import SKLearnModel
+from .sklearn_model_repository import SKLearnModelRepository
+
+__all__ = ["SKLearnModelRepository", "SKLearnModel"]

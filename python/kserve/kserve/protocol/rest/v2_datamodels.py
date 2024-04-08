@@ -378,6 +378,7 @@ class Details(BaseModel):
             json_schema_extra=details_schema_extra,
         )
     else:
+
         class Config:
             json_loads = orjson.loads
             schema_extra = details_schema_extra
@@ -502,6 +503,7 @@ class GenerateStreamingResponse(BaseModel):
         )
 
     else:
+
         class Config:
             json_loads = orjson.loads
             schema_extra = generate_streaming_response_schema_extra

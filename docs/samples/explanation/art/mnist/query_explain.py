@@ -9,9 +9,7 @@ import sys
 if len(sys.argv) < 3:
     raise Exception("No endpoint specified. ")
 endpoint = sys.argv[1]
-headers = {
-    'Host': sys.argv[2]
-}
+headers = {"Host": sys.argv[2]}
 
 data = MNISTDataset()
 test_num = 349
@@ -34,9 +32,7 @@ else:
     input_label = data.test_labels[test_num]
     input_image = input_image.tolist()
     label = input_label.argmax()
-    payload = {
-        "instances": [input_image, [input_label.argmax().item()]]
-    }
+    payload = {"instances": [input_image, [input_label.argmax().item()]]}
 
 x = time.time()
 
