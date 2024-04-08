@@ -18,7 +18,7 @@ import os
 from sklearn.datasets import load_iris
 from xgbserver import XGBoostModel
 
-model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
+bst_model_dir = os.path.join(os.path.dirname(__file__), "example_model", "bst_model")
 json_model_dir = os.path.join(os.path.dirname(__file__), "example_model", "json_model")
 ubj_model_dir = os.path.join(os.path.dirname(__file__), "example_model", "ubj_model")
 BST_FILE = "model.bst"
@@ -27,7 +27,7 @@ UBJ_FILE = "model.ubj"
 NTHREAD = 1
 
 
-def test_model():
+def test_bst_model():
     iris = load_iris()
     y = iris["target"]
     X = iris["data"]
@@ -41,9 +41,9 @@ def test_model():
         "objective": "multi:softmax",
     }
     xgb_model = xgb.train(params=param, dtrain=dtrain)
-    model_file = os.path.join(model_dir, BST_FILE)
+    model_file = os.path.join(bst_model_dir, BST_FILE)
     xgb_model.save_model(model_file)
-    model = XGBoostModel("model", model_dir, NTHREAD)
+    model = XGBoostModel("model", bst_model_dir, NTHREAD)
     model.load()
     request = [X[0].tolist()]
     response = model.predict({"instances": request})
