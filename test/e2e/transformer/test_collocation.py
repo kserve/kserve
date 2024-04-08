@@ -119,7 +119,9 @@ def test_transformer_collocation():
 
 
 @pytest.mark.raw
-@pytest.mark.skip("The torchserve container fails in OpenShift with permission denied errors")
+@pytest.mark.skip(
+    "The torchserve container fails in OpenShift with permission denied errors"
+)
 def test_raw_transformer_collocation():
     service_name = "raw-custom-model-collocation"
     model_name = "mnist"
