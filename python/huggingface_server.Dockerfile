@@ -50,8 +50,8 @@ COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
 COPY --from=builder huggingfaceserver huggingfaceserver
 
-# Set a writable cache folder to avoid permission issue. See https://github.com/kserve/kserve/issues/3562
-ENV HUGGINGFACE_HUB_CACHE="/tmp/huggingface/hub"
+# Set a writable Hugging Face home folder to avoid permission issue. See https://github.com/kserve/kserve/issues/3562
+ENV HF_HOME="/tmp/huggingface"
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
 
