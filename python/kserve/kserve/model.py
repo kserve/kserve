@@ -25,7 +25,7 @@ from httpx import HTTPStatusError
 
 from .errors import InvalidInput
 
-from .logging import trace_logger
+from .logging import trace_logger, logger
 from .metrics import (
     EXPLAIN_HIST_TIME,
     POST_HIST_TIME,
@@ -317,9 +317,18 @@ class Model:
         if isinstance(payload, InferRequest):
             payload = payload.to_rest()
         data = orjson.dumps(payload)
-        response = await self._http_client.post(
-            predict_url, timeout=self.timeout, headers=predict_headers, content=data
-        )
+
+        try:
+            response = await self._http_client.post(
+                predict_url, timeout=self.timeout, headers=predict_headers, content=data
+            )
+        except Exception as exc:
+            logger.error(
+                f"Could not send a request to predictor at url {predict_url} "
+                f"due to exception {exc}"
+            )
+            raise exc
+
         if not response.is_success:
             message = (
                 "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
