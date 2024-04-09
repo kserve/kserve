@@ -68,7 +68,10 @@ class OpenAIEndpoints:
 
         request_headers = dict(raw_request.headers)
         completion = await self.dataplane.create_completion(
-            model_name=model_name, request=params, headers=request_headers, raw_request=raw_request
+            model_name=model_name,
+            request=params,
+            headers=request_headers,
+            raw_request=raw_request,
         )
         if isinstance(completion, AsyncIterable):
 

@@ -10,7 +10,7 @@ from vllm.entrypoints.openai.serving_completion import (
     parse_prompt_format,
     merge_async_iterators,
 )
-from .completions_base import OpenAIServing
+from .completions_utils import OpenAIServing
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 
