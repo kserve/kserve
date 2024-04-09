@@ -58,6 +58,16 @@ class OpenAIModel(ABC):
     these endpoints.
     """
 
+    def __init__(self, name: str):
+        """
+        Adds the attributes required by the ModelRepository
+
+        Args:
+            name: The name of the model.
+        """
+        self.name = name
+        self.ready = True
+
     @abstractmethod
     async def create_completion(
         self, params: CompletionCreateParams
