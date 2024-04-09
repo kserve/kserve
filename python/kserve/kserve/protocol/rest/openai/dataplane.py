@@ -14,7 +14,7 @@
 
 from typing import AsyncIterator, Dict, Optional, Union
 
-from openai.types import Completion, CompletionCreateParams
+from openai.types import Completion
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
 from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
@@ -38,7 +38,7 @@ class OpenAIDataPlane(DataPlane):
 
         Args:
             model_name (str): Model name.
-            request (CompletionCreateParams): Params to create a completion.
+            request (CreateCompletionRequest): Params to create a completion.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:

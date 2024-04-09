@@ -39,7 +39,7 @@ from kserve import Model
 import torch
 from accelerate import init_empty_weights
 from fastapi import Request
-from openai.types import Completion, CompletionCreateParams
+from openai.types import Completion
 from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from kserve.protocol.rest.openai.openai_model import OpenAIModel

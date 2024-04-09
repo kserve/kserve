@@ -30,6 +30,7 @@ from openai.types.chat.completion_create_params import (
 from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
 
 from kserve.protocol.rest.openai import ChatPrompt, OpenAIChatAdapterModel
+from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 
@@ -61,7 +62,7 @@ class DummyModel(OpenAIChatAdapterModel):
         self.num_chunks = num_chunks
 
     async def create_completion(
-        self, params: CompletionCreateParams
+        self, params: CreateCompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
         if params.get("stream", False):
             return ChunkIterator([self.data[1]] * self.num_chunks)
