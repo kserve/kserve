@@ -37,6 +37,7 @@ from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
 from kserve.utils.utils import get_predict_response, get_predict_input, from_np_dtype
 from kserve import Model
 import torch
+import torch.nn.functional as F
 from accelerate import init_empty_weights
 
 try:
@@ -91,6 +92,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.tensor_input_names = kwargs.get("tensor_input_names", None)
         self.return_token_type_ids = kwargs.get("return_token_type_ids", None)
         self.task = kwargs.get("task", None)
+        self.classification_labels = kwargs.get("classification_labels", None)
         self.tokenizer = None
         self.model = None
         self.mapping = None
@@ -202,6 +204,10 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(
                     model_id_or_path, revision=revision, device_map=self.device_map
                 )
+            elif self.task == MLTask.text_embedding.value:
+                self.model = AutoModel.from_pretrained(
+                    model_id_or_path, revision=revision, device_map=self.device_map
+                )
             else:
                 raise ValueError(
                     f"Unsupported task {self.task}. Please check the supported `task` option."
@@ -259,6 +265,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 truncation=True,
             )
             context["payload"] = payload
+            context["inputs"] = inputs
             context["input_ids"] = inputs["input_ids"]
             return inputs
 
@@ -340,6 +347,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                         or self.task == MLTask.text_generation
                     ):
                         outputs = self.model.generate(**input_batch)
+                    elif self.task == MLTask.text_embedding.value:
+                        outputs = self.model(**input_batch)
                     else:
                         outputs = self.model(**input_batch).logits
                     return outputs
@@ -358,11 +367,28 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             input_ids = torch.Tensor(input_ids)
         inferences = []
         if self.task == MLTask.sequence_classification.value:
-            num_rows, num_cols = outputs.shape
+            outputs = torch.nn.functional.softmax(outputs, dim = -1).detach()
+            max_indices = torch.argmax(outputs, dim=1).tolist()
+            final = outputs.tolist()
+
+            id2label = {0: 0, 1: 1}
+            if self.classification_labels:
+                id2label = {i: val for i, val in enumerate(self.classification_labels)}
+
+            num_rows, _ = outputs.shape
             for i in range(num_rows):
-                out = outputs[i].unsqueeze(0)
-                predicted_idx = out.argmax().item()
-                inferences.append(predicted_idx)
+                max_id = max_indices[i]
+                res = {
+                    "label": id2label[max_id],
+                    "confidence": final[i][max_id],
+                    "probabilities": [
+                        {
+                            "label": id2label[j],
+                            "probability": final[i][j]
+                        } for j in range(len(final[i]))
+                    ]
+                }
+                inferences.append(res)
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.fill_mask.value:
             num_rows = outputs.shape[0]
@@ -385,7 +411,24 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         ):
             outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
             return get_predict_response(request, outputs, self.name)
+        elif self.task == MLTask.text_embedding.value:
+            # Perform pooling
+            outputs = mean_pooling(outputs, context["inputs"]['attention_mask'])
+            # Normalize embeddings
+            outputs = F.normalize(outputs, p=2, dim=1)
+
+            num_rows, _ = outputs.shape
+            for i in range(num_rows):
+                inferences.append(outputs[i].tolist())
+
+            return get_predict_response(request, inferences, self.name)
         else:
             raise ValueError(
                 f"Unsupported task {self.task}. Please check the supported `task` option."
             )
+
+# Mean Pooling - Take attention mask into account for correct averaging
+def mean_pooling(model_output, attention_mask):
+    token_embeddings = model_output[0] #First element of model_output contains all token embeddings
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)

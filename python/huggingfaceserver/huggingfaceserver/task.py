@@ -28,6 +28,7 @@ class MLTask(str, Enum):
     text_generation = auto()
     text2text_generation = auto()
     multiple_choice = auto()
+    text_embedding = auto()
 
     @classmethod
     def _missing_(cls, value: str):
