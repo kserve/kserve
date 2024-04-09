@@ -582,8 +582,9 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Res
 			},
 		}
 
-		// When the ingress has already been marked Ready for this generation,
-		// then it must have been successfully probed. So we can safely skip this for global resyncs.
+		// All the watched resources are periodically reconciled by the controller irrespective of any change in
+		// the resource. In those scenarios it is unnecessary to probe the ingress, if it was already marked ready
+		// for the current generation i.e. if it is marked true, then it must have already been successfully probed.
 		if !isIngressReady(isvc) {
 			if isReady, err := probeIngress(isvc.Status.Address.URL.String()); err != nil {
 				return ctrl.Result{}, err
