@@ -145,7 +145,9 @@ class HuggingfaceModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-mem
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(
                     self.vllm_engine_args
                 )
-                self.openai_serving_completion = OpenAIServingCompletion(self.vllm_engine, self.model_name)
+                self.openai_serving_completion = OpenAIServingCompletion(
+                    self.vllm_engine, self.model_name
+                )
                 self.ready = True
                 return self.ready
 
@@ -329,13 +331,15 @@ class HuggingfaceModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-mem
                 )
 
     async def create_completion(
-        self, 
-        params: CreateCompletionRequest, 
+        self,
+        params: CreateCompletionRequest,
         raw_request: Request,
     ) -> Union[Completion, AsyncIterator[Completion]]:
 
         if self.vllm_engine:
-            return await self.openai_serving_completion.create_completion(params, raw_request)
+            return await self.openai_serving_completion.create_completion(
+                params, raw_request
+            )
 
         else:
             # TODO - fallback flow

@@ -1,5 +1,4 @@
 import asyncio
-import json
 from http import HTTPStatus
 from typing import Dict, List, Optional, Union
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -10,6 +9,7 @@ from kserve.protocol.rest.openai.types.openapi import (
     Logprobs,
 )
 from vllm.transformers_utils.tokenizer import get_tokenizer
+from vllm.sequence import Logprob
 
 
 class OpenAIServing:
@@ -107,3 +107,38 @@ class OpenAIServing:
             )
         else:
             return input_ids
+
+    def _create_logprobs(
+        self,
+        token_ids: List[int],
+        top_logprobs: Optional[List[Optional[Dict[int, Logprob]]]] = None,
+        num_output_top_logprobs: Optional[int] = None,
+        initial_text_offset: int = 0,
+    ) -> Logprobs:
+        """Create OpenAI-style logprobs."""
+        logprobs = Logprobs()
+        last_token_len = 0
+        if num_output_top_logprobs:
+            logprobs.top_logprobs = []
+        for i, token_id in enumerate(token_ids):
+            step_top_logprobs = top_logprobs[i]
+            if step_top_logprobs is not None:
+                token_logprob = step_top_logprobs[token_id].logprob
+            else:
+                token_logprob = None
+            token = step_top_logprobs[token_id].decoded_token
+            logprobs.tokens.append(token)
+            logprobs.token_logprobs.append(token_logprob)
+            if len(logprobs.text_offset) == 0:
+                logprobs.text_offset.append(initial_text_offset)
+            else:
+                logprobs.text_offset.append(logprobs.text_offset[-1] + last_token_len)
+            last_token_len = len(token)
+
+            if num_output_top_logprobs:
+                logprobs.top_logprobs.append(
+                    {p.decoded_token: p.logprob for i, p in step_top_logprobs.items()}
+                    if step_top_logprobs
+                    else None
+                )
+        return logprobs

@@ -1,8 +1,9 @@
 import time
+import torch
 from openai.types import Completion, CompletionChoice, CompletionUsage
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
-from typing import AsyncGenerator, AsyncIterator, Callable, List, Optional, Dict, Tuple
+from typing import AsyncGenerator, AsyncIterator, List, Tuple
 from fastapi import Request
 from vllm.outputs import RequestOutput
 from vllm.entrypoints.openai.serving_completion import (
@@ -11,7 +12,7 @@ from vllm.entrypoints.openai.serving_completion import (
 )
 from .completions_base import OpenAIServing
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest, Logprobs
+from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 
 
 def to_sampling_params(request: CreateCompletionRequest):
@@ -107,7 +108,7 @@ class OpenAIServingCompletion(OpenAIServing):
             merge_async_iterators(*generators)
         )
 
-        # Similar to the OpenAI API, when n != best_of, we do not stream 
+        # Similar to the OpenAI API, when n != best_of, we do not stream
         # the results.
         stream = request.stream and (
             request.best_of is None or request.n == request.best_of
