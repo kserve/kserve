@@ -38,11 +38,18 @@ from kserve.utils.utils import get_predict_response, get_predict_input, from_np_
 from kserve import Model
 import torch
 from accelerate import init_empty_weights
+from fastapi import Request
+from openai.types import Completion, CompletionCreateParams
+from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
+from kserve.protocol.rest.openai.openai_model import OpenAIModel
+from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 
 try:
     from vllm.sampling_params import SamplingParams
     from vllm.engine.async_llm_engine import AsyncLLMEngine
     from vllm.model_executor.models import ModelRegistry
+    from .vllm_completions import OpenAIServingCompletion
 
     _vllm = True
 except ImportError:
@@ -65,7 +72,7 @@ from transformers import (
 VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
 
-class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
+class HuggingfaceModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
     def __init__(
         self,
         model_name: str,
@@ -80,6 +87,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device_map = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_id = kwargs.get("model_id", None)
+        self.model_name = model_name
         self.model_dir = kwargs.get("model_dir", None)
         if not self.model_id and not self.model_dir:
             self.model_dir = "/mnt/models"
@@ -137,6 +145,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(
                     self.vllm_engine_args
                 )
+                self.openai_serving_completion = OpenAIServingCompletion(self.vllm_engine, self.model_name)
                 self.ready = True
                 return self.ready
 
@@ -318,6 +327,24 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                     model_name=self.name,
                     details=generate_details,
                 )
+
+    async def create_completion(
+        self, 
+        params: CreateCompletionRequest, 
+        raw_request: Request,
+    ) -> Union[Completion, AsyncIterator[Completion]]:
+
+        if self.vllm_engine:
+            return await self.openai_serving_completion.create_completion(params, raw_request)
+
+        else:
+            # TODO - fallback flow
+            raise NotImplementedError("completion is not implemented")
+
+    async def create_chat_completion(
+        self, params: ChatCompletionCreateParams
+    ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+        pass
 
     async def predict(
         self,

@@ -36,6 +36,8 @@ from openai.types.completion_create_params import (
     CompletionCreateParamsStreaming,
 )
 from pydantic import BaseModel
+from fastapi import Request
+from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 
 from ....errors import InvalidInput
 from ....model import BaseKServeModel
@@ -68,7 +70,7 @@ class OpenAIModel(BaseKServeModel):
 
     @abstractmethod
     async def create_completion(
-        self, params: CompletionCreateParams
+        self, params: CreateCompletionRequest, raw_request: Request
     ) -> Union[Completion, AsyncIterator[Completion]]:
         pass
 

@@ -46,7 +46,7 @@ ray = { version = "^2.10.0", extras = ["serve"] }
 async-timeout = { version = "^4.0.3", python = "==3.11.*" }
 grpcio = "^1.49.1"
 protobuf = "^3.19.0"
-prometheus-client = "^0.13.1"
+prometheus-client = "^0.20.0"
 orjson = "^3.9.15"
 httpx = "^0.26.0"
 timing-asgi = "^0.3.0"

@@ -17,9 +17,11 @@ from typing import AsyncIterator, Dict, Optional, Union
 from openai.types import Completion, CompletionCreateParams
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
+from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 
 from ...dataplane import DataPlane
 from .openai_model import OpenAIModel
+from fastapi import Request
 
 
 class OpenAIDataPlane(DataPlane):
@@ -28,7 +30,8 @@ class OpenAIDataPlane(DataPlane):
     async def create_completion(
         self,
         model_name: str,
-        request: CompletionCreateParams,
+        request: CreateCompletionRequest,
+        raw_request: Request,
         headers: Optional[Dict[str, str]] = None,
     ) -> Union[Completion, AsyncIterator[Completion]]:
         """Generate the text with the provided text prompt.
@@ -47,7 +50,7 @@ class OpenAIDataPlane(DataPlane):
         model = self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support completion")
-        return await model.create_completion(request)
+        return await model.create_completion(request, raw_request)
 
     async def create_chat_completion(
         self,
