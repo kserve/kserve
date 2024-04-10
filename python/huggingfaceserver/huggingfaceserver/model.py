@@ -72,7 +72,7 @@ from transformers import (
 VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
 
-class HuggingfaceModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
+class HuggingfaceModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no-member
     def __init__(
         self,
         model_name: str,
@@ -344,11 +344,6 @@ class HuggingfaceModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-mem
         else:
             # TODO - fallback flow
             raise NotImplementedError("completion is not implemented")
-
-    async def create_chat_completion(
-        self, params: ChatCompletionCreateParams
-    ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
-        pass
 
     async def predict(
         self,
