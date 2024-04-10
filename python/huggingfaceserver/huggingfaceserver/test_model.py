@@ -16,6 +16,9 @@ import asyncio
 import unittest
 from pytest_httpx import HTTPXMock
 
+import torch.nn.functional as F
+import torch
+
 from kserve.model import PredictorConfig
 from kserve.protocol.rest.v2_datamodels import GenerateRequest
 from .task import MLTask
@@ -202,6 +205,78 @@ def test_input_truncation():
     response = asyncio.run(model({"instances": [request]}, headers={}))
     assert response == {"predictions": [1]}
 
+def test_text_embedding():
+    def cosine_similarity(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+        if len(a.shape) == 1:
+            a = a.unsqueeze(0)
+
+        if len(b.shape) == 1:
+            b = b.unsqueeze(0)
+
+        a_norm = F.normalize(a, p=2, dim=1)
+        b_norm = F.normalize(b, p=2, dim=1)
+        return torch.mm(a_norm, b_norm.transpose(0, 1))
+
+    model = HuggingfaceModel(
+        "embeddings",
+        {
+            "model_id": "mixedbread-ai/mxbai-embed-large-v1",
+            "task": MLTask.text_embedding.value,
+        },
+    )
+    model.load()
+
+    requests = ["I'm happy", "I'm full of happiness", "The capital of France is Paris"]
+    response = asyncio.run(model({"instances": requests}, headers={}))
+    predictions = response["predictions"]
+
+    print(cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[1]))[0])
+    print(cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[2]))[0])
+    assert cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[1]))[0] > 0.9
+    assert cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[2]))[0] < 0.5
+
+def test_named_entity_recognition():
+    model = HuggingfaceModel(
+        "ner",
+        {
+            "model_id": "dslim/bert-base-NER",
+            "task": MLTask.token_classification.value,
+        },
+    )
+    model.load()
+
+    requests = ["My name is Clara and I live in Berkeley, California."]
+    response = asyncio.run(model({"instances": requests}, headers={}))
+    predictions = response["predictions"]
+
+    assert predictions == [
+        [
+            {
+                "entity": "B-PER",
+                "score": 0.9964176416397095,
+                "index": 4,
+                "word": "Clara",
+                "start": 11,
+                "end": 16
+            },
+            {
+                "entity": "B-LOC",
+                "score": 0.9961979985237122,
+                "index": 9,
+                "word": "Berkeley",
+                "start": 31,
+                "end": 39
+            },
+            {
+                "entity": "B-LOC",
+                "score": 0.9990196228027344,
+                "index": 11,
+                "word": "California",
+                "start": 41,
+                "end": 51
+            }
+        ]
+    ]
 
 if __name__ == "__main__":
     unittest.main()

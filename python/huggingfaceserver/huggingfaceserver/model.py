@@ -60,6 +60,7 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
     BatchEncoding,
+    pipeline,
     TensorType,
 )
 
@@ -95,6 +96,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.classification_labels = kwargs.get("classification_labels", None)
         self.tokenizer = None
         self.model = None
+        self.nlp = None
         self.mapping = None
         self.vllm_engine = None
         self.vllm_engine_args = engine_args
@@ -153,6 +155,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
 
         if self.model._no_split_modules:
             self.device_map = "auto"
+        # somehow, setting it to True give worse results for NER task
+        if self.task == MLTask.token_classification.value:
+            self.do_lower_case = False
         # load huggingface tokenizer
         if not model_config.is_encoder_decoder:
             # Pad left for decode-only architecture models.
@@ -192,6 +197,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 self.model = AutoModelForTokenClassification.from_pretrained(
                     model_id_or_path, revision=revision, device_map=self.device_map
                 )
+                self.nlp = pipeline("ner", model=self.model, tokenizer=self.tokenizer)
             elif self.task == MLTask.fill_mask.value:
                 self.model = AutoModelForMaskedLM.from_pretrained(
                     model_id_or_path, revision=revision, device_map=self.device_map
@@ -238,8 +244,8 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 padding=True,
                 truncation=True,
             )
+            context["inputs"] = inputs
             context["payload"] = payload
-            context["input_ids"] = inputs["input_ids"]
             infer_inputs = []
             for key, input_tensor in inputs.items():
                 if (not self.tensor_input_names) or (key in self.tensor_input_names):
@@ -255,6 +261,12 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             )
             return infer_request
         else:
+            if self.task == MLTask.token_classification.value:
+                context["payload"] = payload
+                context["inputs"] = instances
+                context["input_ids"] = []
+                return instances
+
             inputs = self.tokenizer(
                 instances,
                 max_length=self.max_length,
@@ -339,8 +351,12 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             # like NVIDIA triton inference server
             return await super().predict(input_batch, context)
         else:
-            input_batch = input_batch.to(self.device)
             try:
+                if self.task == MLTask.token_classification.value:
+                    with torch.no_grad():
+                        return self.nlp(input_batch)
+
+                input_batch = input_batch.to(self.device)
                 with torch.no_grad():
                     if (
                         self.task == MLTask.text2text_generation.value
@@ -399,11 +415,15 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 inferences.append(self.tokenizer.decode(predicted_token_id))
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.token_classification.value:
-            num_rows = outputs.shape[0]
+            num_rows = len(outputs)
             for i in range(num_rows):
-                output = outputs[i].unsqueeze(0)
-                predictions = torch.argmax(output, dim=2)
-                inferences.append(predictions.tolist())
+                output = outputs[i]
+                for entity in output:
+                    # without this, it fails with
+                    # ValueError: [TypeError("'numpy.float32' object is not iterable"), TypeError('vars() argument must have __dict__ attribute')]
+                    entity["score"] = float(entity["score"])
+                predictions = output
+                inferences.append(predictions)
             return get_predict_response(request, inferences, self.name)
         elif (
             self.task == MLTask.text_generation.value
@@ -413,10 +433,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
             return get_predict_response(request, outputs, self.name)
         elif self.task == MLTask.text_embedding.value:
             # Perform pooling
-            outputs = mean_pooling(outputs, context["inputs"]['attention_mask'])
+            outputs = mean_pooling(outputs, context["inputs"]["attention_mask"])
             # Normalize embeddings
             outputs = F.normalize(outputs, p=2, dim=1)
-
             num_rows, _ = outputs.shape
             for i in range(num_rows):
                 inferences.append(outputs[i].tolist())
