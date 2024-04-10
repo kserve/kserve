@@ -33,6 +33,7 @@ from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
+from .protocol.rest.openai import OpenAIModel
 from .utils import utils
 
 DEFAULT_HTTP_PORT = 8080
@@ -226,7 +227,7 @@ class ModelServer:
         """
         if isinstance(models, list):
             for model in models:
-                if isinstance(model, Model):
+                if isinstance(model, Union[Model, OpenAIModel]):
                     self.register_model(model)
                     # pass whether to log request latency into the model
                     model.enable_latency_logging = self.enable_latency_logging
