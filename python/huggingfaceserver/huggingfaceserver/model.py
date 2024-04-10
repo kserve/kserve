@@ -28,7 +28,7 @@ from .async_generate_stream import AsyncGenerateStream
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
 import pathlib
-from typing import Dict, Union, Any, AsyncIterator, Optional
+from typing import Dict, Union, Any, AsyncIterator, Iterable, Optional
 
 from kserve.errors import InferenceError
 from kserve.storage import Storage
@@ -40,8 +40,9 @@ import torch
 from accelerate import init_empty_weights
 from fastapi import Request
 from openai.types import Completion
-from kserve.protocol.rest.openai.openai_model import OpenAIChatAdapterModel
+from kserve.protocol.rest.openai import ChatPrompt, OpenAIChatAdapterModel
 from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
+from openai.types.chat import ChatCompletionMessageParam
 
 try:
     from vllm.sampling_params import SamplingParams
@@ -329,6 +330,16 @@ class HuggingfaceModel(
                     model_name=self.name,
                     details=generate_details,
                 )
+
+    def apply_chat_template(
+        self, messages: Iterable[ChatCompletionMessageParam]
+    ) -> ChatPrompt:
+        """
+        Given a list of chat completion messages, convert them to a prompt.
+        """
+        return ChatPrompt(
+            prompt=self.tokenizer.apply_chat_template(messages, tokenize=False)
+        )
 
     async def create_completion(
         self,
