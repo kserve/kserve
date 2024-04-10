@@ -40,9 +40,7 @@ import torch
 from accelerate import init_empty_weights
 from fastapi import Request
 from openai.types import Completion
-from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
-from openai.types.chat import ChatCompletion, ChatCompletionChunk
-from kserve.protocol.rest.openai.openai_model import OpenAIModel
+from kserve.protocol.rest.openai.openai_model import OpenAIChatAdapterModel
 from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 
 try:
@@ -72,7 +70,9 @@ from transformers import (
 VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
 
-class HuggingfaceModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no-member
+class HuggingfaceModel(
+    Model, OpenAIChatAdapterModel
+):  # pylint:disable=c-extension-no-member
     def __init__(
         self,
         model_name: str,
