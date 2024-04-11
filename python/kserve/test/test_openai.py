@@ -12,25 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 from pathlib import Path
 from typing import AsyncIterator, Iterable, List, Tuple, Union
 
 import pytest
-from openai.types import Completion, CompletionCreateParams
+from openai.types import Completion
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessageParam,
 )
-from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
-from openai.types.chat.completion_create_params import (
-    CompletionCreateParamsNonStreaming as ChatCompletionCreateParamsNonStreaming,
-)
-from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
-
 from kserve.protocol.rest.openai import ChatPrompt, OpenAIChatAdapterModel
-from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateCompletionRequest,
+    CreateChatCompletionRequest,
+)
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 
@@ -64,7 +60,7 @@ class DummyModel(OpenAIChatAdapterModel):
     async def create_completion(
         self, params: CreateCompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
-        if params.get("stream", False):
+        if params.stream:
             return ChunkIterator([self.data[1]] * self.num_chunks)
         else:
             return self.data[0]
@@ -103,13 +99,13 @@ def chat_completion_chunk():
 @pytest.fixture
 def completion_create_params():
     with open(FIXTURES_PATH / "completion_create_params.json") as f:
-        return CompletionCreateParamsNonStreaming(**json.load(f))
+        return CreateCompletionRequest.model_validate_json(f.read())
 
 
 @pytest.fixture
 def chat_completion_create_params():
     with open(FIXTURES_PATH / "chat_completion_create_params.json") as f:
-        return ChatCompletionCreateParamsNonStreaming(**json.load(f))
+        return CreateChatCompletionRequest.model_validate_json(f.read())
 
 
 @pytest.fixture
@@ -136,7 +132,7 @@ class TestOpenAICreateCompletion:
         self,
         dummy_model: DummyModel,
         completion: Completion,
-        completion_create_params: CompletionCreateParams,
+        completion_create_params: CreateCompletionRequest,
     ):
         c = await dummy_model.create_completion(completion_create_params)
         assert isinstance(c, Completion)
@@ -147,9 +143,9 @@ class TestOpenAICreateCompletion:
         self,
         dummy_model: DummyModel,
         completion_partial: Completion,
-        completion_create_params: CompletionCreateParams,
+        completion_create_params: CreateCompletionRequest,
     ):
-        completion_create_params["stream"] = True
+        completion_create_params.stream = True
         c = await dummy_model.create_completion(completion_create_params)
         assert isinstance(c, AsyncIterator)
         num_chunks_consumed = 0
@@ -180,7 +176,7 @@ class TestOpenAICreateChatCompletion:
         self,
         dummy_model: DummyModel,
         chat_completion: ChatCompletion,
-        chat_completion_create_params: ChatCompletionCreateParams,
+        chat_completion_create_params: CreateChatCompletionRequest,
     ):
         c = await dummy_model.create_chat_completion(chat_completion_create_params)
         assert isinstance(c, ChatCompletion)
@@ -191,9 +187,9 @@ class TestOpenAICreateChatCompletion:
         self,
         dummy_model: DummyModel,
         chat_completion_chunk: ChatCompletionChunk,
-        chat_completion_create_params: ChatCompletionCreateParams,
+        chat_completion_create_params: CreateChatCompletionRequest,
     ):
-        chat_completion_create_params["stream"] = True
+        chat_completion_create_params.stream = True
         c = await dummy_model.create_chat_completion(chat_completion_create_params)
         assert isinstance(c, AsyncIterator)
         num_chunks_consumed = 0
@@ -235,13 +231,13 @@ class TestOpenAICompletionConversion:
 class TestOpenAIParamsConversion:
     def test_convert_params(
         self,
-        chat_completion_create_params: ChatCompletionCreateParamsNonStreaming,
-        completion_create_params: CompletionCreateParams,
+        chat_completion_create_params: CreateChatCompletionRequest,
+        completion_create_params: CreateCompletionRequest,
     ):
         converted_params = (
             OpenAIChatAdapterModel.chat_completion_params_to_completion_params(
                 chat_completion_create_params,
-                prompt=chat_completion_create_params["messages"][0]["content"],
+                prompt=chat_completion_create_params.messages[0].root.content,
             )
         )
         assert converted_params == completion_create_params
