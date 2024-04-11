@@ -19,6 +19,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
 from typing import AsyncIterator, Union
 
+
 class DummyOpenAIModel(OpenAIModel):
     async def create_completion(
         self, params: CompletionCreateParams
@@ -30,6 +31,7 @@ class DummyOpenAIModel(OpenAIModel):
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         pass
 
+
 def test_adding_kserve_model():
     repo = ModelRepository()
     repo.update(Model(name="kserve-model"))
@@ -39,6 +41,7 @@ def test_adding_kserve_model():
     assert actual is not None
     assert isinstance(actual, Model)
     assert actual.name == "kserve-model"
+
 
 def test_adding_openai_model():
     repo = ModelRepository()
@@ -50,10 +53,12 @@ def test_adding_openai_model():
     assert isinstance(actual, OpenAIModel)
     assert actual.name == "openai-model"
 
+
 def test_is_model_ready_inexsistent_model():
     repo = ModelRepository()
     actual = repo.is_model_ready("none-model")
     assert actual is False
+
 
 def test_is_model_ready_kserve_model():
     repo = ModelRepository()
@@ -66,6 +71,7 @@ def test_is_model_ready_kserve_model():
     model.load()
     actual = repo.is_model_ready("kserve-model")
     assert actual is True
+
 
 def test_is_model_ready_openai_model():
     repo = ModelRepository()

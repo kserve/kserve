@@ -155,6 +155,7 @@ args, _ = parser.parse_known_args()
 
 BaseModelType = Union[Model, OpenAIModel]
 
+
 class ModelServer:
     def __init__(
         self,
