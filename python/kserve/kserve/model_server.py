@@ -153,6 +153,7 @@ parser.add_argument(
 )
 args, _ = parser.parse_known_args()
 
+BaseModelType = Union[Model, OpenAIModel]
 
 class ModelServer:
     def __init__(
@@ -227,7 +228,7 @@ class ModelServer:
         """
         if isinstance(models, list):
             for model in models:
-                if isinstance(model, Union[Model, OpenAIModel]):
+                if isinstance(model, BaseModelType):
                     self.register_model(model)
                     # pass whether to log request latency into the model
                     model.enable_latency_logging = self.enable_latency_logging

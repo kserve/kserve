@@ -15,6 +15,7 @@
 import pytest
 from kserve import ModelServer
 
+UNKNOWN_MODEL_TYPE_ERR_MESSAGE = "Unknown model collection types"
 
 def test_model_server_start_no_models():
     server = ModelServer()
@@ -22,4 +23,4 @@ def test_model_server_start_no_models():
     with pytest.raises(RuntimeError) as exc:
         server.start(models=None)
 
-    assert exc.value.args[0] == "Unknown model collection types"
+    assert exc.value.args[0] == UNKNOWN_MODEL_TYPE_ERR_MESSAGE
