@@ -43,7 +43,9 @@ class ModelRepository:
     def set_models_dir(self, models_dir):  # used for unit tests
         self.models_dir = models_dir
 
-    def get_model(self, name: str) -> Optional[Union[Model, OpenAIModel, DeploymentHandle]]:
+    def get_model(
+        self, name: str
+    ) -> Optional[Union[Model, OpenAIModel, DeploymentHandle]]:
         return self.models.get(name, None)
 
     def get_models(self) -> Dict[str, Union[Model, OpenAIModel, DeploymentHandle]]:
