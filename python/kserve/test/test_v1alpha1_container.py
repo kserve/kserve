@@ -33,6 +33,7 @@ import kserve
 from kserve.models.v1alpha1_container import V1alpha1Container  # noqa: E501
 from kserve.rest import ApiException
 
+
 class TestV1alpha1Container(unittest.TestCase):
     """V1alpha1Container unit test stubs"""
 
@@ -44,32 +45,25 @@ class TestV1alpha1Container(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1Container
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_container.V1alpha1Container()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1Container(
-                args = [
-                    '0'
-                    ], 
-                command = [
-                    '0'
-                    ], 
-                env = [
-                    None
-                    ], 
-                image = '0', 
-                image_pull_policy = '0', 
-                liveness_probe = None, 
-                name = '0', 
-                readiness_probe = None, 
-                resources = None, 
-                working_dir = '0'
+                args=["0"],
+                command=["0"],
+                env=[None],
+                image="0",
+                image_pull_policy="0",
+                liveness_probe=None,
+                name="0",
+                readiness_probe=None,
+                resources=None,
+                working_dir="0",
             )
-        else :
-            return V1alpha1Container(
-        )
+        else:
+            return V1alpha1Container()
 
     def testV1alpha1Container(self):
         """Test V1alpha1Container"""
@@ -77,5 +71,5 @@ class TestV1alpha1Container(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

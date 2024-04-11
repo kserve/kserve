@@ -22,8 +22,8 @@ import math
 
 
 def convert_doc_tokens(paragraph_text):
+    """Return the list of tokens from the doc text"""
 
-    """ Return the list of tokens from the doc text """
     def is_whitespace(c):
         if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F:
             return True
@@ -65,7 +65,7 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
     # and 0 right context.
     best_score = None
     best_span_index = None
-    for (span_index, doc_span) in enumerate(doc_spans):
+    for span_index, doc_span in enumerate(doc_spans):
         end = doc_span.start + doc_span.length - 1
         if position < doc_span.start:
             continue
@@ -81,8 +81,9 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
     return cur_span_index == best_span_index
 
 
-def convert_examples_to_features(doc_tokens, question_text, tokenizer, max_seq_length,
-                                 doc_stride, max_query_length):
+def convert_examples_to_features(
+    doc_tokens, question_text, tokenizer, max_seq_length, doc_stride, max_query_length
+):
     """Loads a data file into a list of `InputBatch`s."""
 
     query_tokens = tokenizer.tokenize(question_text)
@@ -93,7 +94,7 @@ def convert_examples_to_features(doc_tokens, question_text, tokenizer, max_seq_l
     tok_to_orig_index = []
     orig_to_tok_index = []
     all_doc_tokens = []
-    for (i, token) in enumerate(doc_tokens):
+    for i, token in enumerate(doc_tokens):
         orig_to_tok_index.append(len(all_doc_tokens))
         sub_tokens = tokenizer.tokenize(token)
         for sub_token in sub_tokens:
@@ -107,7 +108,8 @@ def convert_examples_to_features(doc_tokens, question_text, tokenizer, max_seq_l
     # To deal with this we do a sliding window approach, where we take chunks
     # of the up to our max length with a stride of `doc_stride`.
     _DocSpan = collections.namedtuple(  # pylint: disable=invalid-name
-        "DocSpan", ["start", "length"])
+        "DocSpan", ["start", "length"]
+    )
     doc_spans = []
     start_offset = 0
     while start_offset < len(all_doc_tokens):
@@ -119,7 +121,7 @@ def convert_examples_to_features(doc_tokens, question_text, tokenizer, max_seq_l
             break
         start_offset += min(length, doc_stride)
 
-    for (doc_span_index, doc_span) in enumerate(doc_spans):
+    for doc_span_index, doc_span in enumerate(doc_spans):
         tokens = []
         token_to_orig_map = {}
         token_is_max_context = {}
@@ -136,7 +138,9 @@ def convert_examples_to_features(doc_tokens, question_text, tokenizer, max_seq_l
             split_token_index = doc_span.start + i
             token_to_orig_map[len(tokens)] = tok_to_orig_index[split_token_index]
 
-            is_max_context = _check_is_max_context(doc_spans, doc_span_index, split_token_index)
+            is_max_context = _check_is_max_context(
+                doc_spans, doc_span_index, split_token_index
+            )
             token_is_max_context[len(tokens)] = is_max_context
             tokens.append(all_doc_tokens[split_token_index])
             segment_ids.append(1)
@@ -217,7 +221,7 @@ def get_final_text(pred_text, orig_text, do_lower_case):
     def _strip_spaces(text):
         ns_chars = []
         ns_to_s_map = collections.OrderedDict()
-        for (i, c) in enumerate(text):
+        for i, c in enumerate(text):
             if c == " ":
                 continue
             ns_to_s_map[len(ns_chars)] = i
@@ -247,7 +251,7 @@ def get_final_text(pred_text, orig_text, do_lower_case):
     # We then project the characters in `pred_text` back to `orig_text` using
     # the character-to-character alignment.
     tok_s_to_ns_map = {}
-    for (i, tok_index) in six.iteritems(tok_ns_to_s_map):
+    for i, tok_index in six.iteritems(tok_ns_to_s_map):
         tok_s_to_ns_map[tok_index] = i
 
     orig_start_position = None
@@ -268,7 +272,7 @@ def get_final_text(pred_text, orig_text, do_lower_case):
     if orig_end_position is None:
         return orig_text
 
-    output_text = orig_text[orig_start_position:(orig_end_position + 1)]
+    output_text = orig_text[orig_start_position : (orig_end_position + 1)]
     return output_text
 
 
@@ -295,10 +299,13 @@ def _compute_softmax(scores):
     return probs
 
 
-def get_predictions(doc_tokens, features, start_logits, end_logits, n_best_size, max_answer_length):
+def get_predictions(
+    doc_tokens, features, start_logits, end_logits, n_best_size, max_answer_length
+):
     _PrelimPrediction = collections.namedtuple(  # pylint: disable=invalid-name
         "PrelimPrediction",
-        ["feature_index", "start_index", "end_index", "start_logit", "end_logit"])
+        ["feature_index", "start_index", "end_index", "start_logit", "end_logit"],
+    )
 
     prediction = ""
     scores_diff_json = 0.0
@@ -328,15 +335,15 @@ def get_predictions(doc_tokens, features, start_logits, end_logits, n_best_size,
             # We could hypothetically create invalid predictions, e.g., predict
             # that the start of the span is in the question. We throw out all
             # invalid predictions.
-            if start_index >= len(features['tokens']):
+            if start_index >= len(features["tokens"]):
                 continue
-            if end_index >= len(features['tokens']):
+            if end_index >= len(features["tokens"]):
                 continue
-            if start_index not in features['token_to_orig_map']:
+            if start_index not in features["token_to_orig_map"]:
                 continue
-            if end_index not in features['token_to_orig_map']:
+            if end_index not in features["token_to_orig_map"]:
                 continue
-            if not features['token_is_max_context'].get(start_index, False):
+            if not features["token_is_max_context"].get(start_index, False):
                 continue
             if end_index < start_index:
                 continue
@@ -349,7 +356,9 @@ def get_predictions(doc_tokens, features, start_logits, end_logits, n_best_size,
                     start_index=start_index,
                     end_index=end_index,
                     start_logit=start_logits[start_index],
-                    end_logit=end_logits[end_index]))
+                    end_logit=end_logits[end_index],
+                )
+            )
 
     if version_2_with_negative:
         prelim_predictions.append(
@@ -358,15 +367,17 @@ def get_predictions(doc_tokens, features, start_logits, end_logits, n_best_size,
                 start_index=0,
                 end_index=0,
                 start_logit=null_start_logit,
-                end_logit=null_end_logit))
+                end_logit=null_end_logit,
+            )
+        )
 
     prelim_predictions = sorted(
-        prelim_predictions,
-        key=lambda x: (x.start_logit + x.end_logit),
-        reverse=True)
+        prelim_predictions, key=lambda x: (x.start_logit + x.end_logit), reverse=True
+    )
 
     _NbestPrediction = collections.namedtuple(  # pylint: disable=invalid-name
-        "NbestPrediction", ["text", "start_logit", "end_logit"])
+        "NbestPrediction", ["text", "start_logit", "end_logit"]
+    )
 
     seen_predictions = {}
     nbest = []
@@ -375,10 +386,10 @@ def get_predictions(doc_tokens, features, start_logits, end_logits, n_best_size,
             break
 
         if pred.start_index > 0:  # this is a non-null prediction
-            tok_tokens = features['tokens'][pred.start_index:(pred.end_index + 1)]
-            orig_doc_start = features['token_to_orig_map'][pred.start_index]
-            orig_doc_end = features['token_to_orig_map'][pred.end_index]
-            orig_tokens = doc_tokens[orig_doc_start:(orig_doc_end + 1)]
+            tok_tokens = features["tokens"][pred.start_index : (pred.end_index + 1)]
+            orig_doc_start = features["token_to_orig_map"][pred.start_index]
+            orig_doc_end = features["token_to_orig_map"][pred.end_index]
+            orig_tokens = doc_tokens[orig_doc_start : (orig_doc_end + 1)]
             tok_text = " ".join(tok_tokens)
 
             # De-tokenize WordPieces that have been split off.
@@ -401,22 +412,22 @@ def get_predictions(doc_tokens, features, start_logits, end_logits, n_best_size,
 
         nbest.append(
             _NbestPrediction(
-                text=final_text,
-                start_logit=pred.start_logit,
-                end_logit=pred.end_logit))
+                text=final_text, start_logit=pred.start_logit, end_logit=pred.end_logit
+            )
+        )
 
     # if we didn't include the empty option in the n-best, include it
     if version_2_with_negative:
         if "" not in seen_predictions:
             nbest.append(
                 _NbestPrediction(
-                    text="", start_logit=null_start_logit,
-                    end_logit=null_end_logit))
+                    text="", start_logit=null_start_logit, end_logit=null_end_logit
+                )
+            )
     # In very rare edge cases we could have no valid predictions. So we
     # just create a nonce prediction in this case to avoid failure.
     if not nbest:
-        nbest.append(
-            _NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0))
+        nbest.append(_NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0))
 
     assert len(nbest) >= 1
 
@@ -431,7 +442,7 @@ def get_predictions(doc_tokens, features, start_logits, end_logits, n_best_size,
     probs = _compute_softmax(total_scores)
 
     nbest_json = []
-    for (i, entry) in enumerate(nbest):
+    for i, entry in enumerate(nbest):
         output = collections.OrderedDict()
         output["text"] = entry.text
         output["probability"] = probs[i]
@@ -446,8 +457,11 @@ def get_predictions(doc_tokens, features, start_logits, end_logits, n_best_size,
         prediction = nbest_json[0]["text"]
     else:
         # predict "" iff the null score - the score of best non-null > threshold
-        score_diff = score_null - best_non_null_entry.start_logit - (
-            best_non_null_entry.end_logit)
+        score_diff = (
+            score_null
+            - best_non_null_entry.start_logit
+            - (best_non_null_entry.end_logit)
+        )
         scores_diff_json = score_diff
         if score_diff > null_score_diff_threshold:
             prediction = ""

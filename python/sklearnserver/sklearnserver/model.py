@@ -45,17 +45,22 @@ class SKLearnModel(Model):  # pylint:disable=c-extension-no-member
         if len(model_files) == 0:
             raise ModelMissingError(model_path)
         elif len(model_files) > 1:
-            raise RuntimeError('More than one model file is detected, '
-                               f'Only one is allowed within model_dir: {model_files}')
+            raise RuntimeError(
+                "More than one model file is detected, "
+                f"Only one is allowed within model_dir: {model_files}"
+            )
         self._model = joblib.load(model_files[0])
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
+    def predict(
+        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
+    ) -> Union[Dict, InferResponse]:
         try:
             instances = get_predict_input(payload)
-            if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and \
-                    hasattr(self._model, "predict_proba"):
+            if os.environ.get(ENV_PREDICT_PROBA, "false").lower() == "true" and hasattr(
+                self._model, "predict_proba"
+            ):
                 result = self._model.predict_proba(instances)
             else:
                 result = self._model.predict(instances)
