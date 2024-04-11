@@ -139,14 +139,14 @@ paths:
                   -H "Content-Type: application/json" \
                   -H "Authorization: Bearer $OPENAI_API_KEY" \
                   -d '{
-                    "model": "gpt-4-vision-preview",
+                    "model": "gpt-4-turbo",
                     "messages": [
                       {
                         "role": "user",
                         "content": [
                           {
                             "type": "text",
-                            "text": "What’s in this image?"
+                            "text": "What'\''s in this image?"
                           },
                           {
                             "type": "image_url",
@@ -165,12 +165,12 @@ paths:
                 client = OpenAI()
 
                 response = client.chat.completions.create(
-                    model="gpt-4-vision-preview",
+                    model="gpt-4-turbo",
                     messages=[
                         {
                             "role": "user",
                             "content": [
-                                {"type": "text", "text": "What’s in this image?"},
+                                {"type": "text", "text": "What's in this image?"},
                                 {
                                     "type": "image_url",
                                     "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
@@ -189,12 +189,12 @@ paths:
 
                 async function main() {
                   const response = await openai.chat.completions.create({
-                    model: "gpt-4-vision-preview",
+                    model: "gpt-4-turbo",
                     messages: [
                       {
                         role: "user",
                         content: [
-                          { type: "text", text: "What’s in this image?" },
+                          { type: "text", text: "What's in this image?" },
                           {
                             type: "image_url",
                             image_url:
@@ -218,7 +218,7 @@ paths:
                   "index": 0,
                   "message": {
                     "role": "assistant",
-                    "content": "\n\nHello there, how may I assist you today?",
+                    "content": "\n\nThis image shows a wooden boardwalk extending through a lush green marshland.",
                   },
                   "logprobs": null,
                   "finish_reason": "stop"
@@ -301,11 +301,11 @@ paths:
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer $OPENAI_API_KEY" \
                 -d '{
-                  "model": "gpt-3.5-turbo",
+                  "model": "gpt-4-turbo",
                   "messages": [
                     {
                       "role": "user",
-                      "content": "What is the weather like in Boston?"
+                      "content": "What'\''s the weather like in Boston today?"
                     }
                   ],
                   "tools": [
@@ -395,7 +395,7 @@ paths:
                   ];
 
                   const response = await openai.chat.completions.create({
-                    model: "gpt-3.5-turbo",
+                    model: "gpt-4-turbo",
                     messages: messages,
                     tools: tools,
                     tool_choice: "auto",
@@ -1892,6 +1892,52 @@ paths:
                 "validation_file": "file-abc123",
                 "training_file": "file-abc123",
               }
+          - title: W&B Integration
+            request:
+              curl: |
+                curl https://api.openai.com/v1/fine_tuning/jobs \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer $OPENAI_API_KEY" \
+                  -d '{
+                    "training_file": "file-abc123",
+                    "validation_file": "file-abc123",
+                    "model": "gpt-3.5-turbo",
+                    "integrations": [
+                      {
+                        "type": "wandb",
+                        "wandb": {
+                          "project": "my-wandb-project",
+                          "name": "ft-run-display-name"
+                          "tags": [
+                            "first-experiment", "v2"
+                          ]
+                        }
+                      }
+                    ]
+                  }'
+            response: |
+              {
+                "object": "fine_tuning.job",
+                "id": "ftjob-abc123",
+                "model": "gpt-3.5-turbo-0125",
+                "created_at": 1614807352,
+                "fine_tuned_model": null,
+                "organization_id": "org-123",
+                "result_files": [],
+                "status": "queued",
+                "validation_file": "file-abc123",
+                "training_file": "file-abc123",
+                "integrations": [
+                  {
+                    "type": "wandb",
+                    "wandb": {
+                      "project": "my-wandb-project",
+                      "entity": None,
+                      "run_id": "ftjob-abc123"
+                    }
+                  }
+                ]
+              }
     get:
       operationId: listPaginatedFineTuningJobs
       tags:
@@ -2032,8 +2078,12 @@ paths:
               "training_file": "file-abc123",
               "hyperparameters": {
                   "n_epochs": 4,
+                  "batch_size": 1,
+                  "learning_rate_multiplier": 1.0
               },
-              "trained_tokens": 5768
+              "trained_tokens": 5768,
+              "integrations": [],
+              "seed": 0
             }
   /fine_tuning/jobs/{fine_tuning_job_id}/events:
     get:
@@ -2191,6 +2241,84 @@ paths:
               "validation_file": "file-abc123",
               "training_file": "file-abc123"
             }
+  /fine_tuning/jobs/{fine_tuning_job_id}/checkpoints:
+    get:
+      operationId: listFineTuningJobCheckpoints
+      tags:
+        - Fine-tuning
+      summary: |
+        List checkpoints for a fine-tuning job.
+      parameters:
+        - in: path
+          name: fine_tuning_job_id
+          required: true
+          schema:
+            type: string
+            example: ft-AF1WoRqd3aJAHsqc9NY7iL8F
+          description: |
+            The ID of the fine-tuning job to get checkpoints for.
+        - name: after
+          in: query
+          description: Identifier for the last checkpoint ID from the previous pagination request.
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Number of checkpoints to retrieve.
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListFineTuningJobCheckpointsResponse"
+      x-oaiMeta:
+        name: List fine-tuning checkpoints
+        group: fine-tuning
+        returns: A list of fine-tuning [checkpoint objects](/docs/api-reference/fine-tuning/checkpoint-object) for a fine-tuning job.
+        examples:
+          request:
+            curl: |
+              curl https://api.openai.com/v1/fine_tuning/jobs/ftjob-abc123/checkpoints \
+                -H "Authorization: Bearer $OPENAI_API_KEY"
+          response: |
+            {
+              "object": "list"
+              "data": [
+                {
+                  "object": "fine_tuning.job.checkpoint",
+                  "id": "ftckpt_zc4Q7MP6XxulcVzj4MZdwsAB",
+                  "created_at": 1519129973,
+                  "fine_tuned_model_checkpoint": "ft:gpt-3.5-turbo-0125:my-org:custom-suffix:96olL566:ckpt-step-2000",
+                  "metrics": {
+                    "full_valid_loss": 0.134,
+                    "full_valid_mean_token_accuracy": 0.874
+                  },
+                  "fine_tuning_job_id": "ftjob-abc123",
+                  "step_number": 2000,
+                },
+                {
+                  "object": "fine_tuning.job.checkpoint",
+                  "id": "ftckpt_enQCFmOTGj3syEpYVhBRLTSy",
+                  "created_at": 1519129833,
+                  "fine_tuned_model_checkpoint": "ft:gpt-3.5-turbo-0125:my-org:custom-suffix:7q8mpxmy:ckpt-step-1000",
+                  "metrics": {
+                    "full_valid_loss": 0.167,
+                    "full_valid_mean_token_accuracy": 0.781
+                  },
+                  "fine_tuning_job_id": "ftjob-abc123",
+                  "step_number": 1000,
+                },
+              ],
+              "first_id": "ftckpt_zc4Q7MP6XxulcVzj4MZdwsAB",
+              "last_id": "ftckpt_enQCFmOTGj3syEpYVhBRLTSy",
+              "has_more": true
+            }
 
   /models:
     get:
@@ -2299,7 +2427,7 @@ paths:
               const openai = new OpenAI();
 
               async function main() {
-                const model = await openai.models.retrieve("gpt-3.5-turbo");
+                const model = await openai.models.retrieve("VAR_model_id");
 
                 console.log(model);
               }
@@ -2539,7 +2667,7 @@ paths:
                   "created_at": 1698982736,
                   "name": "Coding Tutor",
                   "description": null,
-                  "model": "gpt-4",
+                  "model": "gpt-4-turbo",
                   "instructions": "You are a helpful assistant designed to make me better at coding!",
                   "tools": [],
                   "file_ids": [],
@@ -2551,7 +2679,7 @@ paths:
                   "created_at": 1698982718,
                   "name": "My Assistant",
                   "description": null,
-                  "model": "gpt-4",
+                  "model": "gpt-4-turbo",
                   "instructions": "You are a helpful assistant designed to make me better at coding!",
                   "tools": [],
                   "file_ids": [],
@@ -2563,7 +2691,7 @@ paths:
                   "created_at": 1698982643,
                   "name": null,
                   "description": null,
-                  "model": "gpt-4",
+                  "model": "gpt-4-turbo",
                   "instructions": null,
                   "tools": [],
                   "file_ids": [],
@@ -2609,7 +2737,7 @@ paths:
                     "instructions": "You are a personal math tutor. When asked a question, write and run Python code to answer the question.",
                     "name": "Math Tutor",
                     "tools": [{"type": "code_interpreter"}],
-                    "model": "gpt-4"
+                    "model": "gpt-4-turbo"
                   }'
 
               python: |
@@ -2620,7 +2748,7 @@ paths:
                     instructions="You are a personal math tutor. When asked a question, write and run Python code to answer the question.",
                     name="Math Tutor",
                     tools=[{"type": "code_interpreter"}],
-                    model="gpt-4",
+                    model="gpt-4-turbo",
                 )
                 print(my_assistant)
               node.js: |-
@@ -2634,7 +2762,7 @@ paths:
                       "You are a personal math tutor. When asked a question, write and run Python code to answer the question.",
                     name: "Math Tutor",
                     tools: [{ type: "code_interpreter" }],
-                    model: "gpt-4",
+                    model: "gpt-4-turbo",
                   });
 
                   console.log(myAssistant);
@@ -2648,7 +2776,7 @@ paths:
                 "created_at": 1698984975,
                 "name": "Math Tutor",
                 "description": null,
-                "model": "gpt-4",
+                "model": "gpt-4-turbo",
                 "instructions": "You are a personal math tutor. When asked a question, write and run Python code to answer the question.",
                 "tools": [
                   {
@@ -2668,7 +2796,7 @@ paths:
                   -d '{
                     "instructions": "You are an HR bot, and you have access to files to answer employee questions about company policies.",
                     "tools": [{"type": "retrieval"}],
-                    "model": "gpt-4",
+                    "model": "gpt-4-turbo",
                     "file_ids": ["file-abc123"]
                   }'
               python: |
@@ -2679,7 +2807,7 @@ paths:
                     instructions="You are an HR bot, and you have access to files to answer employee questions about company policies.",
                     name="HR Helper",
                     tools=[{"type": "retrieval"}],
-                    model="gpt-4",
+                    model="gpt-4-turbo",
                     file_ids=["file-abc123"],
                 )
                 print(my_assistant)
@@ -2694,7 +2822,7 @@ paths:
                       "You are an HR bot, and you have access to files to answer employee questions about company policies.",
                     name: "HR Helper",
                     tools: [{ type: "retrieval" }],
-                    model: "gpt-4",
+                    model: "gpt-4-turbo",
                     file_ids: ["file-abc123"],
                   });
 
@@ -2709,7 +2837,7 @@ paths:
                 "created_at": 1699009403,
                 "name": "HR Helper",
                 "description": null,
-                "model": "gpt-4",
+                "model": "gpt-4-turbo",
                 "instructions": "You are an HR bot, and you have access to files to answer employee questions about company policies.",
                 "tools": [
                   {
@@ -2781,7 +2909,7 @@ paths:
               "created_at": 1699009709,
               "name": "HR Helper",
               "description": null,
-              "model": "gpt-4",
+              "model": "gpt-4-turbo",
               "instructions": "You are an HR bot, and you have access to files to answer employee questions about company policies.",
               "tools": [
                 {
@@ -2833,7 +2961,7 @@ paths:
                 -d '{
                     "instructions": "You are an HR bot, and you have access to files to answer employee questions about company policies. Always response with info from either of the files.",
                     "tools": [{"type": "retrieval"}],
-                    "model": "gpt-4",
+                    "model": "gpt-4-turbo",
                     "file_ids": ["file-abc123", "file-abc456"]
                   }'
             python: |
@@ -2845,7 +2973,7 @@ paths:
                 instructions="You are an HR bot, and you have access to files to answer employee questions about company policies. Always response with info from either of the files.",
                 name="HR Helper",
                 tools=[{"type": "retrieval"}],
-                model="gpt-4",
+                model="gpt-4-turbo",
                 file_ids=["file-abc123", "file-abc456"],
               )
 
@@ -2863,7 +2991,7 @@ paths:
                       "You are an HR bot, and you have access to files to answer employee questions about company policies. Always response with info from either of the files.",
                     name: "HR Helper",
                     tools: [{ type: "retrieval" }],
-                    model: "gpt-4",
+                    model: "gpt-4-turbo",
                     file_ids: [
                       "file-abc123",
                       "file-abc456",
@@ -2882,7 +3010,7 @@ paths:
               "created_at": 1699009709,
               "name": "HR Helper",
               "description": null,
-              "model": "gpt-4",
+              "model": "gpt-4-turbo",
               "instructions": "You are an HR bot, and you have access to files to answer employee questions about company policies. Always response with info from either of the files.",
               "tools": [
                 {
@@ -3767,7 +3895,7 @@ paths:
                 "failed_at": null,
                 "completed_at": null,
                 "last_error": null,
-                "model": "gpt-4",
+                "model": "gpt-4-turbo",
                 "instructions": "You are a helpful assistant.",
                 "tools": [],
                 "file_ids": [],
@@ -3835,13 +3963,13 @@ paths:
               data: {"id":"thread_123","object":"thread","created_at":1710348075,"metadata":{}}
 
               event: thread.run.created
-              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.queued
-              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.in_progress
-              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710348075,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710348075,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.step.created
               data: {"id":"step_001","object":"thread.run.step","created_at":1710348076,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"message_creation","status":"in_progress","cancelled_at":null,"completed_at":null,"expires_at":1710348675,"failed_at":null,"last_error":null,"step_details":{"type":"message_creation","message_creation":{"message_id":"msg_001"}},"usage":null}
@@ -3873,7 +4001,7 @@ paths:
               data: {"id":"step_001","object":"thread.run.step","created_at":1710348076,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"message_creation","status":"completed","cancelled_at":null,"completed_at":1710348077,"expires_at":1710348675,"failed_at":null,"last_error":null,"step_details":{"type":"message_creation","message_creation":{"message_id":"msg_001"}},"usage":{"prompt_tokens":20,"completion_tokens":11,"total_tokens":31}}
 
               event: thread.run.completed
-              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"completed","started_at":1710348075,"expires_at":null,"cancelled_at":null,"failed_at":null,"completed_at":1710348077,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":{"prompt_tokens":20,"completion_tokens":11,"total_tokens":31}}
+              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"completed","started_at":1710348075,"expires_at":null,"cancelled_at":null,"failed_at":null,"completed_at":1710348077,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":{"prompt_tokens":20,"completion_tokens":11,"total_tokens":31}}
 
               event: done
               data: [DONE]
@@ -4004,13 +4132,13 @@ paths:
               data: {"id":"thread_123","object":"thread","created_at":1710351818,"metadata":{}}
 
               event: thread.run.created
-              data: {"id":"run_123","object":"thread.run","created_at":1710351818,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710352418,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710351818,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710352418,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.queued
-              data: {"id":"run_123","object":"thread.run","created_at":1710351818,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710352418,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710351818,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710352418,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.in_progress
-              data: {"id":"run_123","object":"thread.run","created_at":1710351818,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710351818,"expires_at":1710352418,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710351818,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710351818,"expires_at":1710352418,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.step.created
               data: {"id":"step_001","object":"thread.run.step","created_at":1710351819,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"tool_calls","status":"in_progress","cancelled_at":null,"completed_at":null,"expires_at":1710352418,"failed_at":null,"last_error":null,"step_details":{"type":"tool_calls","tool_calls":[]},"usage":null}
@@ -4036,7 +4164,7 @@ paths:
               data: {"id":"step_001","object":"thread.run.step.delta","delta":{"step_details":{"type":"tool_calls","tool_calls":[{"index":0,"type":"function","function":{"arguments":"\"}"}}]}}}
 
               event: thread.run.requires_action
-              data: {"id":"run_123","object":"thread.run","created_at":1710351818,"assistant_id":"asst_123","thread_id":"thread_123","status":"requires_action","started_at":1710351818,"expires_at":1710352418,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":{"type":"submit_tool_outputs","submit_tool_outputs":{"tool_calls":[{"id":"call_XXNp8YGaFrjrSjgqxtC8JJ1B","type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"San Francisco, CA\",\"unit\":\"fahrenheit\"}"}}]}},"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710351818,"assistant_id":"asst_123","thread_id":"thread_123","status":"requires_action","started_at":1710351818,"expires_at":1710352418,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":{"type":"submit_tool_outputs","submit_tool_outputs":{"tool_calls":[{"id":"call_XXNp8YGaFrjrSjgqxtC8JJ1B","type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"San Francisco, CA\",\"unit\":\"fahrenheit\"}"}}]}},"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
 
               event: done
               data: [DONE]
@@ -4138,7 +4266,7 @@ paths:
                   "failed_at": null,
                   "completed_at": 1699075073,
                   "last_error": null,
-                  "model": "gpt-3.5-turbo",
+                  "model": "gpt-4-turbo",
                   "instructions": null,
                   "tools": [
                     {
@@ -4170,7 +4298,7 @@ paths:
                   "failed_at": null,
                   "completed_at": 1699063291,
                   "last_error": null,
-                  "model": "gpt-3.5-turbo",
+                  "model": "gpt-4-turbo",
                   "instructions": null,
                   "tools": [
                     {
@@ -4274,7 +4402,7 @@ paths:
                 "failed_at": null,
                 "completed_at": 1699063291,
                 "last_error": null,
-                "model": "gpt-4",
+                "model": "gpt-4-turbo",
                 "instructions": null,
                 "tools": [
                   {
@@ -4331,13 +4459,13 @@ paths:
                 main();
             response: |
               event: thread.run.created
-              data: {"id":"run_123","object":"thread.run","created_at":1710330640,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710331240,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710330640,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710331240,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.queued
-              data: {"id":"run_123","object":"thread.run","created_at":1710330640,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710331240,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710330640,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710331240,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.in_progress
-              data: {"id":"run_123","object":"thread.run","created_at":1710330640,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710330641,"expires_at":1710331240,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710330640,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710330641,"expires_at":1710331240,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.step.created
               data: {"id":"step_001","object":"thread.run.step","created_at":1710330641,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"message_creation","status":"in_progress","cancelled_at":null,"completed_at":null,"expires_at":1710331240,"failed_at":null,"last_error":null,"step_details":{"type":"message_creation","message_creation":{"message_id":"msg_001"}},"usage":null}
@@ -4369,7 +4497,7 @@ paths:
               data: {"id":"step_001","object":"thread.run.step","created_at":1710330641,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"message_creation","status":"completed","cancelled_at":null,"completed_at":1710330642,"expires_at":1710331240,"failed_at":null,"last_error":null,"step_details":{"type":"message_creation","message_creation":{"message_id":"msg_001"}},"usage":{"prompt_tokens":20,"completion_tokens":11,"total_tokens":31}}
 
               event: thread.run.completed
-              data: {"id":"run_123","object":"thread.run","created_at":1710330640,"assistant_id":"asst_123","thread_id":"thread_123","status":"completed","started_at":1710330641,"expires_at":null,"cancelled_at":null,"failed_at":null,"completed_at":1710330642,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":{"prompt_tokens":20,"completion_tokens":11,"total_tokens":31}}
+              data: {"id":"run_123","object":"thread.run","created_at":1710330640,"assistant_id":"asst_123","thread_id":"thread_123","status":"completed","started_at":1710330641,"expires_at":null,"cancelled_at":null,"failed_at":null,"completed_at":1710330642,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":{"prompt_tokens":20,"completion_tokens":11,"total_tokens":31}}
 
               event: done
               data: [DONE]
@@ -4486,13 +4614,13 @@ paths:
                 main();
             response: |
               event: thread.run.created
-              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.queued
-              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":null,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.in_progress
-              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710348075,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710348075,"expires_at":1710348675,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.step.created
               data: {"id":"step_001","object":"thread.run.step","created_at":1710348076,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"message_creation","status":"in_progress","cancelled_at":null,"completed_at":null,"expires_at":1710348675,"failed_at":null,"last_error":null,"step_details":{"type":"message_creation","message_creation":{"message_id":"msg_001"}},"usage":null}
@@ -4524,7 +4652,7 @@ paths:
               data: {"id":"step_001","object":"thread.run.step","created_at":1710348076,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"message_creation","status":"completed","cancelled_at":null,"completed_at":1710348077,"expires_at":1710348675,"failed_at":null,"last_error":null,"step_details":{"type":"message_creation","message_creation":{"message_id":"msg_001"}},"usage":{"prompt_tokens":20,"completion_tokens":11,"total_tokens":31}}
 
               event: thread.run.completed
-              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"completed","started_at":1710348075,"expires_at":null,"cancelled_at":null,"failed_at":null,"completed_at":1710348077,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":{"prompt_tokens":20,"completion_tokens":11,"total_tokens":31}}
+              data: {"id":"run_123","object":"thread.run","created_at":1710348075,"assistant_id":"asst_123","thread_id":"thread_123","status":"completed","started_at":1710348075,"expires_at":null,"cancelled_at":null,"failed_at":null,"completed_at":1710348077,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[],"file_ids":[],"metadata":{},"usage":{"prompt_tokens":20,"completion_tokens":11,"total_tokens":31}}
 
               event: done
               data: [DONE]
@@ -4606,7 +4734,7 @@ paths:
               "failed_at": null,
               "completed_at": 1699075073,
               "last_error": null,
-              "model": "gpt-3.5-turbo",
+              "model": "gpt-4-turbo",
               "instructions": null,
               "tools": [
                 {
@@ -4718,7 +4846,7 @@ paths:
               "failed_at": null,
               "completed_at": 1699075073,
               "last_error": null,
-              "model": "gpt-3.5-turbo",
+              "model": "gpt-4-turbo",
               "instructions": null,
               "tools": [
                 {
@@ -4847,7 +4975,7 @@ paths:
                 "failed_at": null,
                 "completed_at": null,
                 "last_error": null,
-                "model": "gpt-4",
+                "model": "gpt-4-turbo",
                 "instructions": null,
                 "tools": [
                   {
@@ -4942,10 +5070,10 @@ paths:
               data: {"id":"step_001","object":"thread.run.step","created_at":1710352449,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"tool_calls","status":"completed","cancelled_at":null,"completed_at":1710352475,"expires_at":1710353047,"failed_at":null,"last_error":null,"step_details":{"type":"tool_calls","tool_calls":[{"id":"call_iWr0kQ2EaYMaxNdl0v3KYkx7","type":"function","function":{"name":"get_current_weather","arguments":"{\"location\":\"San Francisco, CA\",\"unit\":\"fahrenheit\"}","output":"70 degrees and sunny."}}]},"usage":{"prompt_tokens":291,"completion_tokens":24,"total_tokens":315}}
 
               event: thread.run.queued
-              data: {"id":"run_123","object":"thread.run","created_at":1710352447,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":1710352448,"expires_at":1710353047,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710352447,"assistant_id":"asst_123","thread_id":"thread_123","status":"queued","started_at":1710352448,"expires_at":1710353047,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.in_progress
-              data: {"id":"run_123","object":"thread.run","created_at":1710352447,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710352475,"expires_at":1710353047,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
+              data: {"id":"run_123","object":"thread.run","created_at":1710352447,"assistant_id":"asst_123","thread_id":"thread_123","status":"in_progress","started_at":1710352475,"expires_at":1710353047,"cancelled_at":null,"failed_at":null,"completed_at":null,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":null}
 
               event: thread.run.step.created
               data: {"id":"step_002","object":"thread.run.step","created_at":1710352476,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"message_creation","status":"in_progress","cancelled_at":null,"completed_at":null,"expires_at":1710353047,"failed_at":null,"last_error":null,"step_details":{"type":"message_creation","message_creation":{"message_id":"msg_002"}},"usage":null}
@@ -4983,7 +5111,7 @@ paths:
               data: {"id":"step_002","object":"thread.run.step","created_at":1710352476,"run_id":"run_123","assistant_id":"asst_123","thread_id":"thread_123","type":"message_creation","status":"completed","cancelled_at":null,"completed_at":1710352477,"expires_at":1710353047,"failed_at":null,"last_error":null,"step_details":{"type":"message_creation","message_creation":{"message_id":"msg_002"}},"usage":{"prompt_tokens":329,"completion_tokens":18,"total_tokens":347}}
 
               event: thread.run.completed
-              data: {"id":"run_123","object":"thread.run","created_at":1710352447,"assistant_id":"asst_123","thread_id":"thread_123","status":"completed","started_at":1710352475,"expires_at":null,"cancelled_at":null,"failed_at":null,"completed_at":1710352477,"required_action":null,"last_error":null,"model":"gpt-4-0125-preview","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":{"prompt_tokens":620,"completion_tokens":42,"total_tokens":662}}
+              data: {"id":"run_123","object":"thread.run","created_at":1710352447,"assistant_id":"asst_123","thread_id":"thread_123","status":"completed","started_at":1710352475,"expires_at":null,"cancelled_at":null,"failed_at":null,"completed_at":1710352477,"required_action":null,"last_error":null,"model":"gpt-4-turbo","instructions":null,"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}],"file_ids":[],"metadata":{},"usage":{"prompt_tokens":620,"completion_tokens":42,"total_tokens":662}}
 
               event: done
               data: [DONE]
@@ -5065,7 +5193,7 @@ paths:
               "failed_at": null,
               "completed_at": null,
               "last_error": null,
-              "model": "gpt-4",
+              "model": "gpt-4-turbo",
               "instructions": "You summarize books.",
               "tools": [
                 {
@@ -6120,7 +6248,7 @@ components:
             "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
             "object": "text_completion",
             "created": 1589478378,
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-4-turbo",
             "choices": [
               {
                 "text": "\n\nThis is indeed a test",
@@ -6550,12 +6678,14 @@ components:
             $ref: "#/components/schemas/ChatCompletionRequestMessage"
         model:
           description: ID of the model to use. See the [model endpoint compatibility](/docs/models/model-endpoint-compatibility) table for details on which models work with the Chat API.
-          example: "gpt-3.5-turbo"
+          example: "gpt-4-turbo"
           anyOf:
             - type: string
             - type: string
               enum:
                 [
+                  "gpt-4-turbo",
+                  "gpt-4-turbo-2024-04-09",
                   "gpt-4-0125-preview",
                   "gpt-4-turbo-preview",
                   "gpt-4-1106-preview",
@@ -6594,7 +6724,7 @@ components:
 
             Accepts a JSON object that maps tokens (specified by their token ID in the tokenizer) to an associated bias value from -100 to 100. Mathematically, the bias is added to the logits generated by the model prior to sampling. The exact effect will vary per model, but values between -1 and 1 should decrease or increase likelihood of selection; values like -100 or 100 should result in a ban or exclusive selection of the relevant token.
         logprobs:
-          description: Whether to return log probabilities of the output tokens or not. If true, returns the log probabilities of each output token returned in the `content` of `message`. This option is currently not available on the `gpt-4-vision-preview` model.
+          description: Whether to return log probabilities of the output tokens or not. If true, returns the log probabilities of each output token returned in the `content` of `message`.
           type: boolean
           default: false
           nullable: true
@@ -7443,6 +7573,65 @@ components:
           type: string
           nullable: true
           example: "file-abc123"
+        integrations:
+          type: array
+          description: A list of integrations to enable for your fine-tuning job.
+          nullable: true
+          items:
+            type: object
+            required:
+              - type
+              - wandb
+            properties:
+              type:
+                description: |
+                  The type of integration to enable. Currently, only "wandb" (Weights and Biases) is supported.
+                oneOf:
+                  - type: string
+                    enum: [wandb]
+              wandb:
+                type: object
+                description: |
+                  The settings for your integration with Weights and Biases. This payload specifies the project that
+                  metrics will be sent to. Optionally, you can set an explicit display name for your run, add tags
+                  to your run, and set a default entity (team, username, etc) to be associated with your run.
+                required:
+                  - project
+                properties:
+                  project:
+                    description: |
+                      The name of the project that the new run will be created under.
+                    type: string
+                    example: "my-wandb-project"
+                  name:
+                    description: |
+                      A display name to set for the run. If not set, we will use the Job ID as the name.
+                    nullable: true
+                    type: string
+                  entity:
+                    description: |
+                      The entity to use for the run. This allows you to set the team or username of the WandB user that you would
+                      like associated with the run. If not set, the default entity for the registered WandB API key is used.
+                    nullable: true
+                    type: string
+                  tags:
+                    description: |
+                      A list of tags to be attached to the newly created run. These tags are passed through directly to WandB. Some
+                      default tags are generated by OpenAI: "openai/finetune", "openai/{base-model}", "openai/{ftjob-abcdef}".
+                    type: array
+                    items:
+                      type: string
+                      example: "custom-tag"
+
+        seed:
+          description: |
+            The seed controls the reproducibility of the job. Passing in the same seed and job parameters should produce the same results, but may differ in rare cases.
+            If a seed is not specified, one will be generated for you.
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 2147483647
+          example: 42
       required:
         - model
         - training_file
@@ -7460,6 +7649,29 @@ components:
       required:
         - object
         - data
+
+    ListFineTuningJobCheckpointsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/FineTuningJobCheckpoint"
+        object:
+          type: string
+          enum: [list]
+        first_id:
+          type: string
+          nullable: true
+        last_id:
+          type: string
+          nullable: true
+        has_more:
+          type: boolean
+      required:
+        - object
+        - data
+        - has_more
 
     CreateEmbeddingRequest:
       type: object
@@ -8049,6 +8261,18 @@ components:
           type: string
           nullable: true
           description: The file ID used for validation. You can retrieve the validation results with the [Files API](/docs/api-reference/files/retrieve-contents).
+        integrations:
+          type: array
+          nullable: true
+          description: A list of integrations to enable for this fine-tuning job.
+          maxItems: 5
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/FineTuningIntegration"
+            x-oaiExpandable: true
+        seed:
+          type: integer
+          description: The seed used for the fine-tuning job.
       required:
         - created_at
         - error
@@ -8064,9 +8288,55 @@ components:
         - trained_tokens
         - training_file
         - validation_file
+        - seed
       x-oaiMeta:
         name: The fine-tuning job object
         example: *fine_tuning_example
+
+    FineTuningIntegration:
+      type: object
+      title: Fine-Tuning Job Integration
+      required:
+        - type
+        - wandb
+      properties:
+        type:
+          type: string
+          description: "The type of the integration being enabled for the fine-tuning job"
+          enum: ["wandb"]
+        wandb:
+          type: object
+          description: |
+            The settings for your integration with Weights and Biases. This payload specifies the project that
+            metrics will be sent to. Optionally, you can set an explicit display name for your run, add tags
+            to your run, and set a default entity (team, username, etc) to be associated with your run.
+          required:
+            - project
+          properties:
+            project:
+              description: |
+                The name of the project that the new run will be created under.
+              type: string
+              example: "my-wandb-project"
+            name:
+              description: |
+                A display name to set for the run. If not set, we will use the Job ID as the name.
+              nullable: true
+              type: string
+            entity:
+              description: |
+                The entity to use for the run. This allows you to set the team or username of the WandB user that you would
+                like associated with the run. If not set, the default entity for the registered WandB API key is used.
+              nullable: true
+              type: string
+            tags:
+              description: |
+                A list of tags to be attached to the newly created run. These tags are passed through directly to WandB. Some
+                default tags are generated by OpenAI: "openai/finetune", "openai/{base-model}", "openai/{ftjob-abcdef}".
+              type: array
+              items:
+                type: string
+                example: "custom-tag"
 
     FineTuningJobEvent:
       type: object
@@ -8099,6 +8369,78 @@ components:
             "created_at": 1677610602,
             "level": "info",
             "message": "Created fine-tuning job"
+          }
+
+    FineTuningJobCheckpoint:
+      type: object
+      title: FineTuningJobCheckpoint
+      description: |
+        The `fine_tuning.job.checkpoint` object represents a model checkpoint for a fine-tuning job that is ready to use.
+      properties:
+        id:
+          type: string
+          description: The checkpoint identifier, which can be referenced in the API endpoints.
+        created_at:
+          type: integer
+          description: The Unix timestamp (in seconds) for when the checkpoint was created.
+        fine_tuned_model_checkpoint:
+          type: string
+          description: The name of the fine-tuned checkpoint model that is created.
+        step_number:
+          type: integer
+          description: The step number that the checkpoint was created at.
+        metrics:
+          type: object
+          description: Metrics at the step number during the fine-tuning job.
+          properties:
+            step:
+              type: number
+            train_loss:
+              type: number
+            train_mean_token_accuracy:
+              type: number
+            valid_loss:
+              type: number
+            valid_mean_token_accuracy:
+              type: number
+            full_valid_loss:
+              type: number
+            full_valid_mean_token_accuracy:
+              type: number
+        fine_tuning_job_id:
+          type: string
+          description: The name of the fine-tuning job that this checkpoint was created from.
+        object:
+          type: string
+          description: The object type, which is always "fine_tuning.job.checkpoint".
+          enum: [fine_tuning.job.checkpoint]
+      required:
+        - created_at
+        - fine_tuning_job_id
+        - fine_tuned_model_checkpoint
+        - id
+        - metrics
+        - object
+        - step_number
+      x-oaiMeta:
+        name: The fine-tuning job checkpoint object
+        example: |
+          {
+            "object": "fine_tuning.job.checkpoint",
+            "id": "ftckpt_qtZ5Gyk4BLq1SfLFWp3RtO3P",
+            "created_at": 1712211699,
+            "fine_tuned_model_checkpoint": "ft:gpt-3.5-turbo-0125:my-org:custom_suffix:9ABel2dg:ckpt-step-88",
+            "fine_tuning_job_id": "ftjob-fpbNQ3H1GrMehXRf8cO97xTN",
+            "metrics": {
+              "step": 88,
+              "train_loss": 0.478,
+              "train_mean_token_accuracy": 0.924,
+              "valid_loss": 10.112,
+              "valid_mean_token_accuracy": 0.145,
+              "full_valid_loss": 0.567,
+              "full_valid_mean_token_accuracy": 0.944
+            },
+            "step_number": 88
           }
 
     CompletionUsage:
@@ -8189,9 +8531,9 @@ components:
           type: string
         instructions:
           description: &assistant_instructions_param_description |
-            The system instructions that the assistant uses. The maximum length is 32768 characters.
+            The system instructions that the assistant uses. The maximum length is 256,000 characters.
           type: string
-          maxLength: 32768
+          maxLength: 256000
           nullable: true
         tools:
           description: &assistant_tools_param_description |
@@ -8241,8 +8583,32 @@ components:
       properties:
         model:
           description: *model_description
+          example: "gpt-4-turbo"
           anyOf:
             - type: string
+            - type: string
+              enum:
+                [
+                  "gpt-4-turbo",
+                  "gpt-4-turbo-2024-04-09",
+                  "gpt-4-0125-preview",
+                  "gpt-4-turbo-preview",
+                  "gpt-4-1106-preview",
+                  "gpt-4-vision-preview",
+                  "gpt-4",
+                  "gpt-4-0314",
+                  "gpt-4-0613",
+                  "gpt-4-32k",
+                  "gpt-4-32k-0314",
+                  "gpt-4-32k-0613",
+                  "gpt-3.5-turbo",
+                  "gpt-3.5-turbo-16k",
+                  "gpt-3.5-turbo-0613",
+                  "gpt-3.5-turbo-1106",
+                  "gpt-3.5-turbo-0125",
+                  "gpt-3.5-turbo-16k-0613",
+                ]
+          x-oaiTypeLabel: string
         name:
           description: *assistant_name_param_description
           type: string
@@ -8257,7 +8623,7 @@ components:
           description: *assistant_instructions_param_description
           type: string
           nullable: true
-          maxLength: 32768
+          maxLength: 256000
         tools:
           description: *assistant_tools_param_description
           default: []
@@ -8306,7 +8672,7 @@ components:
           description: *assistant_instructions_param_description
           type: string
           nullable: true
-          maxLength: 32768
+          maxLength: 256000
         tools:
           description: *assistant_tools_param_description
           default: []
@@ -8577,7 +8943,7 @@ components:
             "failed_at": null,
             "completed_at": 1699073498,
             "last_error": null,
-            "model": "gpt-4",
+            "model": "gpt-4-turbo",
             "instructions": null,
             "tools": [{"type": "retrieval"}, {"type": "code_interpreter"}],
             "file_ids": [],
@@ -8598,7 +8964,32 @@ components:
           type: string
         model:
           description: The ID of the [Model](/docs/api-reference/models) to be used to execute this run. If a value is provided here, it will override the model associated with the assistant. If not, the model associated with the assistant will be used.
-          type: string
+          example: "gpt-4-turbo"
+          anyOf:
+            - type: string
+            - type: string
+              enum:
+                [
+                  "gpt-4-turbo",
+                  "gpt-4-turbo-2024-04-09",
+                  "gpt-4-0125-preview",
+                  "gpt-4-turbo-preview",
+                  "gpt-4-1106-preview",
+                  "gpt-4-vision-preview",
+                  "gpt-4",
+                  "gpt-4-0314",
+                  "gpt-4-0613",
+                  "gpt-4-32k",
+                  "gpt-4-32k-0314",
+                  "gpt-4-32k-0613",
+                  "gpt-3.5-turbo",
+                  "gpt-3.5-turbo-16k",
+                  "gpt-3.5-turbo-0613",
+                  "gpt-3.5-turbo-1106",
+                  "gpt-3.5-turbo-0125",
+                  "gpt-3.5-turbo-16k-0613",
+                ]
+          x-oaiTypeLabel: string
           nullable: true
         instructions:
           description: Overrides the [instructions](/docs/api-reference/assistants/createAssistant) of the assistant. This is useful for modifying the behavior on a per-run basis.
@@ -8746,7 +9137,32 @@ components:
           description: If no thread is provided, an empty thread will be created.
         model:
           description: The ID of the [Model](/docs/api-reference/models) to be used to execute this run. If a value is provided here, it will override the model associated with the assistant. If not, the model associated with the assistant will be used.
-          type: string
+          example: "gpt-4-turbo"
+          anyOf:
+            - type: string
+            - type: string
+              enum:
+                [
+                  "gpt-4-turbo",
+                  "gpt-4-turbo-2024-04-09",
+                  "gpt-4-0125-preview",
+                  "gpt-4-turbo-preview",
+                  "gpt-4-1106-preview",
+                  "gpt-4-vision-preview",
+                  "gpt-4",
+                  "gpt-4-0314",
+                  "gpt-4-0613",
+                  "gpt-4-32k",
+                  "gpt-4-32k-0314",
+                  "gpt-4-32k-0613",
+                  "gpt-3.5-turbo",
+                  "gpt-3.5-turbo-16k",
+                  "gpt-3.5-turbo-0613",
+                  "gpt-3.5-turbo-1106",
+                  "gpt-3.5-turbo-0125",
+                  "gpt-3.5-turbo-16k-0613",
+                ]
+          x-oaiTypeLabel: string
           nullable: true
         instructions:
           description: Override the default system message of the assistant. This is useful for modifying the behavior on a per-run basis.
@@ -9074,7 +9490,7 @@ components:
         content:
           type: string
           minLength: 1
-          maxLength: 32768
+          maxLength: 256000
           description: The content of the message.
         file_ids:
           description: A list of [File](/docs/api-reference/files) IDs that the message should use. There can be a maximum of 10 files attached to a message. Useful for tools like `retrieval` and `code_interpreter` that can access and use files.
@@ -10506,6 +10922,9 @@ x-oaiMeta:
           key: listFineTuningEvents
           path: list-events
         - type: endpoint
+          key: listFineTuningJobCheckpoints
+          path: list-checkpoints
+        - type: endpoint
           key: retrieveFineTuningJob
           path: retrieve
         - type: endpoint
@@ -10517,6 +10936,9 @@ x-oaiMeta:
         - type: object
           key: FineTuningJobEvent
           path: event-object
+        - type: object
+          key: FineTuningJobCheckpoint
+          path: checkpoint-object
     - id: files
       title: Files
       description: |
