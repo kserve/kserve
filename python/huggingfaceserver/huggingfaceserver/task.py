@@ -19,6 +19,7 @@ class MLTask(str, Enum):
     """
     Task defines the common ML tasks using Huggingface Transformer Models
     """
+
     table_question_answering = auto()
     question_answering = auto()
     token_classification = auto()
@@ -47,5 +48,5 @@ ARCHITECTURES_2_TASK = {
     "ForCausalLM": MLTask.text_generation.value,
     "ForConditionalGeneration": MLTask.text2text_generation.value,
     "MTModel": MLTask.text2text_generation.value,
-    "EncoderDecoderModel": MLTask.text2text_generation.value
+    "EncoderDecoderModel": MLTask.text2text_generation.value,
 }

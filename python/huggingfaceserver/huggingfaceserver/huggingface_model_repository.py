@@ -13,12 +13,13 @@
 # limitations under the License.
 
 import os
-from kserve.model_repository import ModelRepository, MODEL_MOUNT_DIRS
-from . import HuggingfaceModel
+
+from kserve.model_repository import MODEL_MOUNT_DIRS, ModelRepository
+
+from .model import HuggingfaceModel
 
 
 class HuggingfaceModelRepository(ModelRepository):
-
     def __init__(self, model_dir: str = MODEL_MOUNT_DIRS):
         super().__init__(model_dir)
         self.load_models()

@@ -22,15 +22,6 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
-	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,12 +31,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
+	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices;inferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
@@ -66,9 +68,9 @@ import (
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations;validatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;create
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
@@ -85,9 +87,10 @@ const (
 // InferenceServiceReconciler reconciles a InferenceService object
 type InferenceServiceReconciler struct {
 	client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Clientset kubernetes.Interface
+	Log       logr.Logger
+	Scheme    *runtime.Scheme
+	Recorder  record.EventRecorder
 }
 
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -108,7 +111,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
 
-	deployConfig, err := v1beta1api.NewDeployConfig(r.Client)
+	deployConfig, err := v1beta1api.NewDeployConfig(r.Clientset)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
@@ -163,26 +166,26 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
-	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
+	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Clientset)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
 	}
 
 	// Reconcile cabundleConfigMap
-	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Scheme)
+	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
 	if err := caBundleConfigMapReconciler.Reconcile(isvc); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	reconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
-		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Scheme, isvcConfig, deploymentMode))
+		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
 	if isvc.Spec.Transformer != nil {
-		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Scheme, isvcConfig, deploymentMode))
+		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
 	if isvc.Spec.Explainer != nil {
-		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Scheme, isvcConfig, deploymentMode))
+		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
 	for _, reconciler := range reconcilers {
 		result, err := reconciler.Reconcile(isvc)
@@ -212,7 +215,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.LatestDeploymentReady)
 	}
 	//Reconcile ingress
-	ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
+	ingressConfig, err := v1beta1api.NewIngressConfig(r.Clientset)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
@@ -235,7 +238,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Reconcile modelConfig
-	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Scheme)
+	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Clientset, r.Scheme)
 	if err := configMapReconciler.Reconcile(isvc); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -335,8 +338,8 @@ func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.In
 	}
 
 	// #nosec G601
-	for _, v := range trainedModels.Items {
-		if err := r.Delete(context.TODO(), &v, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
+	for i, v := range trainedModels.Items {
+		if err := r.Delete(context.TODO(), &trainedModels.Items[i], client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
 			r.Log.Error(err, "unable to delete trainedmodel", "trainedmodel", v)
 		}
 	}

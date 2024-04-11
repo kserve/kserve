@@ -33,6 +33,7 @@ import kserve
 from kserve.models.v1alpha1_model_spec import V1alpha1ModelSpec  # noqa: E501
 from kserve.rest import ApiException
 
+
 class TestV1alpha1ModelSpec(unittest.TestCase):
     """V1alpha1ModelSpec unit test stubs"""
 
@@ -44,22 +45,18 @@ class TestV1alpha1ModelSpec(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1ModelSpec
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_model_spec.V1alpha1ModelSpec()  # noqa: E501
-        if include_optional :
+        if include_optional:
+            return V1alpha1ModelSpec(framework="0", memory="0", storage_uri="0")
+        else:
             return V1alpha1ModelSpec(
-                framework = '0', 
-                memory = '0', 
-                storage_uri = '0'
+                framework="0",
+                memory="0",
+                storage_uri="0",
             )
-        else :
-            return V1alpha1ModelSpec(
-                framework = '0',
-                memory = '0', 
-                storage_uri = '0',
-        )
 
     def testV1alpha1ModelSpec(self):
         """Test V1alpha1ModelSpec"""
@@ -67,5 +64,5 @@ class TestV1alpha1ModelSpec(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

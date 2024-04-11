@@ -98,7 +98,7 @@ oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION
 
 # Install KServe built-in serving runtimes and storagecontainers
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resoucess.yaml"
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resources.yaml"
 
 # Add NetworkPolicies to allow traffic to kserve webhook
 oc apply -f openshift/networkpolicies.yaml

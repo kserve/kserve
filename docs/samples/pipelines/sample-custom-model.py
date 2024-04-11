@@ -17,25 +17,26 @@ from kfp import components
 
 # kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/master/'
 #                                                   'components/kubeflow/kfserving/component.yaml')
-kserve_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/'
-                                               'master/components/kserve/component.yaml')
-
-
-@dsl.pipeline(
-    name='KServe pipeline',
-    description='A pipeline for KServe.'
+kserve_op = components.load_component_from_url(
+    "https://raw.githubusercontent.com/kubeflow/pipelines/"
+    "master/components/kserve/component.yaml"
 )
+
+
+@dsl.pipeline(name="KServe pipeline", description="A pipeline for KServe.")
 def kservePipeline(
-        action='apply',
-        model_name='max-image-segmenter',
-        namespace='anonymous',
-        custom_model_spec='{"name": "image-segmenter", "image": "codait/max-image-segmenter:latest", "port": "5000"}'
+    action="apply",
+    model_name="max-image-segmenter",
+    namespace="anonymous",
+    custom_model_spec='{"name": "image-segmenter", "image": "codait/max-image-segmenter:latest", "port": "5000"}',
 ):
-    kserve_op(action=action,
-              model_name=model_name,
-              namespace=namespace,
-              custom_model_spec=custom_model_spec)
+    kserve_op(
+        action=action,
+        model_name=model_name,
+        namespace=namespace,
+        custom_model_spec=custom_model_spec,
+    )
 
 
-if __name__ == '__main__':
-    compiler.Compiler().compile(kservePipeline, __file__ + '.tar.gz')
+if __name__ == "__main__":
+    compiler.Compiler().compile(kservePipeline, __file__ + ".tar.gz")

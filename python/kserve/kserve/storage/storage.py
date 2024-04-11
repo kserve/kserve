@@ -489,9 +489,10 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                         name_starts_with=item.name, include=["snapshots"]
                     )
         for blob in blobs:
-            dest_path = os.path.join(
-                out_dir, blob.name.replace(prefix, "", 1).lstrip("/")
-            )
+            file_name = blob.name.replace(prefix, "", 1).lstrip("/")
+            if not file_name:
+                file_name = os.path.basename(prefix)
+            dest_path = os.path.join(out_dir, file_name)
             Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
             logging.info("Downloading: %s to %s", blob.name, dest_path)
             downloader = container_client.download_blob(blob.name)

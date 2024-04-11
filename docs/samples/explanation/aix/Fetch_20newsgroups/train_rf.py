@@ -24,6 +24,7 @@ class PipeStep(object):
     """
     Wrapper for turning functions into pipeline transforms (no-fitting)
     """
+
     def __init__(self, step_func):
         self._step_func = step_func
 
@@ -44,15 +45,15 @@ Y = data.target[1:1001]
 vectorizer = sklearn.feature_extraction.text.TfidfVectorizer(lowercase=False)
 X = vectorizer.fit_transform(X)
 
-simple_rf_pipeline = Pipeline([('RF', RandomForestClassifier())])
+simple_rf_pipeline = Pipeline([("RF", RandomForestClassifier())])
 
 simple_rf_pipeline.fit(X, Y)
 
 simple_rf_pipeline = Pipeline(
-    [('vectorizer', vectorizer),
-        ('RF + fit', simple_rf_pipeline)])
+    [("vectorizer", vectorizer), ("RF + fit", simple_rf_pipeline)]
+)
 
-with open(path_to_save, 'wb') as f:
+with open(path_to_save, "wb") as f:
     pickle.dump(simple_rf_pipeline, f)
 
 print("File saved")
