@@ -57,11 +57,13 @@ class ModelRepository:
             return False
         if isinstance(model, Model):
             return model.ready
+
         if isinstance(model, OpenAIModel):
+            # Duplicating this logic until we merge all the models in an abstract class
             return model.ready
-        else:
-            # For Ray Serve, the models are guaranteed to be ready after deploying the model.
-            return True
+
+        # For Ray Serve, the models are guaranteed to be ready after deploying the model.
+        return True
 
     def update(self, model: Union[Model, OpenAIModel]):
         self.models[model.name] = model
