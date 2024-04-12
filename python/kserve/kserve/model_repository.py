@@ -55,7 +55,9 @@ class ModelRepository:
         model = self.get_model(name)
         if not model:
             return False
-        if isinstance(model, Union[Model, OpenAIModel]):
+        if isinstance(model, Model):
+            return model.ready
+        if isinstance(model, OpenAIModel):
             return model.ready
         else:
             # For Ray Serve, the models are guaranteed to be ready after deploying the model.
