@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import AsyncIterator, Callable, Iterable, Union, cast
 
 from openai.types import Completion, CompletionChoice, CompletionCreateParams

@@ -218,7 +218,9 @@ class ModelServer:
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
 
-    def start(self, models: Union[List[BaseKserveModel], Dict[str, Deployment]]) -> None:
+    def start(
+        self, models: Union[List[BaseKserveModel], Dict[str, Deployment]]
+    ) -> None:
         """Start the model server with a set of registered models.
 
         Args:
