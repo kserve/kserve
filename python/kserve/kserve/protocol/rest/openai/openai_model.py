@@ -38,6 +38,7 @@ from openai.types.completion_create_params import (
 from pydantic import BaseModel
 
 from ....errors import InvalidInput
+from ....model import BaseKserveModel
 
 
 class ChatPrompt(BaseModel):
@@ -49,7 +50,7 @@ class ChatCompletionMessage(BaseChatCompletionMessage):
     role: str
 
 
-class OpenAIModel(ABC):
+class OpenAIModel(BaseKserveModel):
     """
     An abstract model with methods for implementing OpenAI's completions (v1/completions)
     and chat completions (v1/chat/completions) endpoints.
@@ -59,13 +60,10 @@ class OpenAIModel(ABC):
     """
 
     def __init__(self, name: str):
-        """
-        Adds the attributes required by the ModelRepository
+        super().__init__(name)
 
-        Args:
-            name: The name of the model.
-        """
-        self.name = name
+        # We don't support the `load()` method on OpenAIModel yet
+        # Assume the model is ready
         self.ready = True
 
     @abstractmethod
