@@ -22,6 +22,7 @@ from typing import (Any, AsyncIterator, Dict, Iterable, Optional, TypedDict,
 
 import torch
 from accelerate import init_empty_weights
+from fastapi import Response
 from kserve import Model
 from kserve.errors import InferenceError
 from kserve.logging import logger

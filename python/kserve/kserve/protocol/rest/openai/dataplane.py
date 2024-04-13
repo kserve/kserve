@@ -12,18 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from inspect import signature
 from typing import AsyncIterator, Dict, Optional, Union
 
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionRequest,
-    CreateChatCompletionResponse as ChatCompletion,
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
-    CreateCompletionRequest,
-    CreateCompletionResponse as Completion,
-)
+from fastapi import Response
+from starlette.datastructures import Headers
+
+from kserve.protocol.rest.openai.types.openapi import \
+    CreateChatCompletionRequest
+from kserve.protocol.rest.openai.types.openapi import \
+    CreateChatCompletionResponse as ChatCompletion
+from kserve.protocol.rest.openai.types.openapi import \
+    CreateChatCompletionStreamResponse as ChatCompletionChunk
+from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
+from kserve.protocol.rest.openai.types.openapi import \
+    CreateCompletionResponse as Completion
 
 from ...dataplane import DataPlane
-from .openai_model import OpenAIModel, CompletionRequest
+from .openai_model import CompletionRequest, OpenAIModel
 
 
 class OpenAIDataPlane(DataPlane):
@@ -33,7 +39,8 @@ class OpenAIDataPlane(DataPlane):
         self,
         model_name: str,
         request: CreateCompletionRequest,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Headers,
+        response: Response,
     ) -> Union[Completion, AsyncIterator[Completion]]:
         """Generate the text with the provided text prompt.
 
@@ -55,7 +62,7 @@ class OpenAIDataPlane(DataPlane):
         completion_request = CompletionRequest(
             request_id=headers.get("x-request-id", None),
             params=request,
-            context=headers,
+            context=dict(headers),
         )
         return await model.create_completion(completion_request)
 
@@ -63,7 +70,8 @@ class OpenAIDataPlane(DataPlane):
         self,
         model_name: str,
         request: CreateChatCompletionRequest,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Headers,
+        response: Response,
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         """Generate the text with the provided text prompt.
 
@@ -85,6 +93,6 @@ class OpenAIDataPlane(DataPlane):
         completion_request = CompletionRequest(
             request_id=headers.get("x-request-id", None),
             params=request,
-            context=headers,
+            context=dict(headers),
         )
         return await model.create_chat_completion(completion_request)
