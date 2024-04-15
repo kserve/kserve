@@ -124,7 +124,7 @@ def test_huggingface_v2():
         service_name, "./data/opt_125m_input_v2.json", protocol_version=protocol_version
     )
     assert res["outputs"][0]["data"] == [
-        "What are we having for dinner?\n\nWe're having a dinner with a couple of friends."
+        "What are we having for dinner?\nA nice dinner with a friend.\nI'm not"
     ]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
