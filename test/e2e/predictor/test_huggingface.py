@@ -49,8 +49,8 @@ def test_huggingface_v1():
                 "--disable_vllm",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "512Mi"},
-                limits={"cpu": "2", "memory": "1024Mi"},
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
             ),
         ),
     )
@@ -99,8 +99,8 @@ def test_huggingface_v2():
                 "--disable_vllm",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "512Mi"},
-                limits={"cpu": "2", "memory": "1024Mi"},
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
             ),
         ),
     )
@@ -151,8 +151,8 @@ def test_huggingface_v2_generate():
                 "--disable_vllm",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "512Mi"},
-                limits={"cpu": "2", "memory": "1024Mi"},
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
             ),
         ),
     )
