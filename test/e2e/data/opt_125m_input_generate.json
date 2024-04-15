@@ -1,0 +1,6 @@
+{
+  "text_input": "What are we having for dinner?",
+  "parameters": {
+    "temperature": 0
+  }
+}

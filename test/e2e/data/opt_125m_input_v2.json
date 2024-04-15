@@ -1,0 +1,10 @@
+{
+  "inputs": [
+    {
+      "name": "input-0",
+      "shape": [],
+      "datatype": "BYTES",
+      "data": ["What are we having for dinner?"]
+    }
+  ]
+}
