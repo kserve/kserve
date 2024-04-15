@@ -16,6 +16,7 @@ from http import HTTPStatus
 from fastapi.responses import JSONResponse
 from kserve.logging import logger
 
+
 class OpenAIError(Exception):
     """
     Exception class for generic OpenAI error.
