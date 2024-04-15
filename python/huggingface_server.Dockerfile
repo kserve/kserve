@@ -3,7 +3,6 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} as builder
 
-
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.7.1
@@ -27,15 +26,12 @@ COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache
 
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/
-RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
+RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache --extras "vllm"
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
-RUN pip3 install vllm==${VLLM_VERSION}
 
 FROM nvidia/cuda:12.1.0-base-ubuntu22.04 as prod
-
-RUN apt-get update -y && apt-get install python3.10-venv -y
 
 COPY third_party third_party
 
