@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import Dict, Optional, Union
-from .model import BaseKserveModel
+from .model import BaseKServeModel
 from ray.serve.handle import DeploymentHandle
 import os
 
@@ -30,7 +30,7 @@ class ModelRepository:
     """
 
     def __init__(self, models_dir: str = MODEL_MOUNT_DIRS):
-        self.models: Dict[str, Union[BaseKserveModel, DeploymentHandle]] = {}
+        self.models: Dict[str, Union[BaseKServeModel, DeploymentHandle]] = {}
         self.models_dir = models_dir
 
     def load_models(self):
@@ -44,23 +44,23 @@ class ModelRepository:
 
     def get_model(
         self, name: str
-    ) -> Optional[Union[BaseKserveModel, DeploymentHandle]]:
+    ) -> Optional[Union[BaseKServeModel, DeploymentHandle]]:
         return self.models.get(name, None)
 
-    def get_models(self) -> Dict[str, Union[BaseKserveModel, DeploymentHandle]]:
+    def get_models(self) -> Dict[str, Union[BaseKServeModel, DeploymentHandle]]:
         return self.models
 
     def is_model_ready(self, name: str):
         model = self.get_model(name)
         if not model:
             return False
-        if isinstance(model, BaseKserveModel):
+        if isinstance(model, BaseKServeModel):
             return model.ready
         else:
             # For Ray Serve, the models are guaranteed to be ready after deploying the model.
             return True
 
-    def update(self, model: BaseKserveModel):
+    def update(self, model: BaseKServeModel):
         self.models[model.name] = model
 
     def update_handle(self, name: str, model_handle: DeploymentHandle):

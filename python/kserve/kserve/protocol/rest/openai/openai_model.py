@@ -38,7 +38,7 @@ from openai.types.completion_create_params import (
 from pydantic import BaseModel
 
 from ....errors import InvalidInput
-from ....model import BaseKserveModel
+from ....model import BaseKServeModel
 
 
 class ChatPrompt(BaseModel):
@@ -50,7 +50,7 @@ class ChatCompletionMessage(BaseChatCompletionMessage):
     role: str
 
 
-class OpenAIModel(BaseKserveModel):
+class OpenAIModel(BaseKServeModel):
     """
     An abstract model with methods for implementing OpenAI's completions (v1/completions)
     and chat completions (v1/chat/completions) endpoints.
