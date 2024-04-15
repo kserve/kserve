@@ -147,7 +147,7 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
 
 def get_predict_input(
     payload: Union[Dict, InferRequest], columns: List = None
-) -> Union[np.ndarray, pd.DataFrame]:
+) -> Union[np.ndarray, pd.DataFrame, List[str]]:
     if isinstance(payload, Dict):
         instances = payload["inputs"] if "inputs" in payload else payload["instances"]
         if len(instances) == 0:
