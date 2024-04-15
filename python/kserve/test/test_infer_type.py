@@ -14,7 +14,7 @@
 
 
 from kserve import InferRequest, InferInput, InferResponse, InferOutput
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
+from tritonclient.grpc.service_pb2 import (
     ModelInferRequest,
     InferParameter,
     ModelInferResponse,

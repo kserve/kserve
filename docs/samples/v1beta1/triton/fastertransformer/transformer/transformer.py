@@ -11,7 +11,7 @@ from kserve.protocol.infer_type import (
     InferRequest,
     InferResponse,
 )
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
+from tritonclient.grpc.service_pb2 import ModelInferResponse
 import numpy as np
 from transformers import AutoTokenizer
 from pydantic import BaseModel

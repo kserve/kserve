@@ -24,7 +24,7 @@ vllm = [
 ]
 
 triton = [
-"nvidia-pytriton",
+    "nvidia-pytriton",
 ]
 
 [tool.poetry.group.test]

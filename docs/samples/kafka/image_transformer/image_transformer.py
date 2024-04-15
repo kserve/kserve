@@ -19,7 +19,7 @@ import cv2
 
 import kserve
 from kserve import InferRequest, InferResponse
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
+from tritonclient.grpc.service_pb2 import ModelInferResponse
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 

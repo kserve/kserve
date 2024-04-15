@@ -1888,6 +1888,7 @@ requests = {version = "^2.20.0", optional = true}
 six = "^1.16.0"
 tabulate = "^0.9.0"
 timing-asgi = "^0.3.0"
+tritonclient = {version = "^2.40", extras = ["grpc"]}
 uvicorn = {version = "^0.21.1", extras = ["standard"]}
 
 [package.extras]
@@ -3301,7 +3302,7 @@ cli = ["click (>=5.0)"]
 name = "python-rapidjson"
 version = "1.16"
 description = "Python wrapper around rapidjson"
-optional = true
+optional = false
 python-versions = ">=3.6"
 files = [
     {file = "python-rapidjson-1.16.tar.gz", hash = "sha256:3c9330e9cfd9223cb473384754df9692c18d4ec446ec94ce9ba7dff01a610d05"},
@@ -4656,7 +4657,7 @@ tutorials = ["matplotlib", "pandas", "tabulate"]
 name = "tritonclient"
 version = "2.44.0"
 description = "Python client library and utilities for communicating with Triton Inference Server"
-optional = true
+optional = false
 python-versions = "*"
 files = [
     {file = "tritonclient-2.44.0-py3-none-any.whl", hash = "sha256:2d0e7f3b414b4fc39dd406b6e1c004954c722516dc5707bd83049de76d06af2c"},
