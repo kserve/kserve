@@ -77,6 +77,9 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 			},
 		},
 	}
+	if componentExt.DeploymentStrategy != nil {
+		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
+	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 	return deployment
 }
