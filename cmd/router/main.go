@@ -19,11 +19,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"os"
 	"os/signal"
@@ -32,8 +33,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"crypto/rand"
-	"math/big"
 
 	"github.com/pkg/errors"
 
@@ -41,9 +40,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	flag "github.com/spf13/pflag"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
-	flag "github.com/spf13/pflag"
 )
 
 var log = logf.Log.WithName("InferenceGraphRouter")
@@ -374,21 +374,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := &http.Server{
-		Addr:    ":" + strconv.Itoa(constants.RouterPort),
-		Handler: nil, // default server mux
-		// https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
-		ReadHeaderTimeout: time.Minute,
-	}
 	http.HandleFunc("/", graphHandler)
 	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
 
 	server := &http.Server{
-		Addr:         ":8080",                        // specify the address and port
-		Handler:      http.HandlerFunc(graphHandler), // specify your HTTP handler
-		ReadTimeout:  time.Minute,                    // set the maximum duration for reading the entire request, including the body
-		WriteTimeout: time.Minute,                    // set the maximum duration before timing out writes of the response
-		IdleTimeout:  3 * time.Minute,                // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		Addr:         ":" + strconv.Itoa(constants.RouterPort),
+		Handler:      nil,             // default server mux
+		ReadTimeout:  time.Minute,     // https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		WriteTimeout: time.Minute,     // set the maximum duration before timing out writes of the response
+		IdleTimeout:  3 * time.Minute, // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 
 	go func() {
