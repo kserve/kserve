@@ -79,6 +79,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         model_revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
+        return_probabilities: bool = False,
         predictor_config: Optional[PredictorConfig] = None,
     ):
         super().__init__(model_name, predictor_config)
@@ -93,6 +94,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         self.model_revision = model_revision
         self.tokenizer_revision = tokenizer_revision
         self.trust_remote_code = trust_remote_code
+        self.return_probabilities = return_probabilities
 
         if model_config:
             self.model_config = model_config
@@ -259,23 +261,40 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             num_rows, num_cols = outputs.shape
             for i in range(num_rows):
                 out = outputs[i].unsqueeze(0)
-                predicted_idx = out.argmax().item()
-                inferences.append(predicted_idx)
+                if self.return_probabilities:
+                    inferences.append(dict(enumerate(out.numpy().flatten())))
+                else:
+                    predicted_idx = out.argmax().item()
+                    inferences.append(predicted_idx)
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.fill_mask:
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 mask_pos = (input_ids == self._tokenizer.mask_token_id)[i]
                 mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
-                predicted_token_id = outputs[i, mask_token_index].argmax(axis=-1)
-                inferences.append(self._tokenizer.decode(predicted_token_id))
+                if self.return_probabilities:
+                    probabilities = torch.softmax(outputs[i, mask_token_index], dim=-1)
+                    decoded_probabilities = []
+                    for idx, probs in enumerate(probabilities):
+                        token_probs = []
+                        for token_id, prob in enumerate(probs):
+                            token = self.tokenizer.decode([token_id])
+                            token_probs.append({f"{token}": f"{prob.item():.4f}"})
+                        decoded_probabilities.append(token_probs)
+                    inferences.append(decoded_probabilities)
+                else:
+                    predicted_token_id = outputs[i, mask_token_index].argmax(axis=-1)
+                    inferences.append(self._tokenizer.decode(predicted_token_id))
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.token_classification:
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 output = outputs[i].unsqueeze(0)
-                predictions = torch.argmax(output, dim=2)
-                inferences.append(predictions.tolist())
+                if self.return_probabilities:
+                    inferences.append(output.tolist())
+                else:
+                    predictions = torch.argmax(output, dim=2)
+                    inferences.append(predictions.tolist())
             return get_predict_response(request, inferences, self.name)
         else:
             raise ValueError(

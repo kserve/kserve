@@ -22,6 +22,7 @@ from kserve.protocol.rest.openai.types import (
 )
 from pytest_httpx import HTTPXMock
 from transformers import AutoConfig
+from pytest import approx
 
 from .task import infer_task_from_model_architecture
 from .encoder_model import HuggingfaceEncoderModel
@@ -75,6 +76,19 @@ def bert_base_yelp_polarity():
         model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
         task=MLTask.sequence_classification,
         dtype=torch.float32,
+    )
+    model.load()
+    yield model
+    model.stop()
+
+
+@pytest.fixture(scope="module")
+def bert_base_return_prob():
+    model = HuggingfaceEncoderModel(
+        "bert-base-uncased-yelp-polarity",
+        model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
+        task=MLTask.sequence_classification,
+        return_probabilities=True
     )
     model.load()
     yield model
@@ -234,6 +248,20 @@ async def test_bert_sequence_classification(bert_base_yelp_polarity):
         {"instances": [request, request]}, headers={}
     )
     assert response == {"predictions": [1, 1]}
+
+
+@pytest.mark.asyncio
+async def test_bert_sequence_classification_return_probabilities(bert_base_return_prob):
+    request = "Hello, my dog is cute."
+    response = await bert_base_return_prob(
+        {"instances": [request, request]}, headers={}
+    )
+    assert response == {
+        'predictions': [
+            {0: approx(-2.1522036), 1: approx(2.5094054)},
+            {0: approx(-2.1522038), 1: approx(2.5094054)}
+        ]
+    }
 
 
 @pytest.mark.asyncio
