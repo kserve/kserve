@@ -12,11 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import pathlib
 import uuid
-from threading import Thread
+from functools import partial
+from typing import Dict, Union, Any, AsyncIterator, Optional, List
 
+import numpy as np
+import torch
+from accelerate import init_empty_weights
 from torch import Tensor
+from transformers import (
+    AutoModelForCausalLM,
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
+    AutoConfig,
+    AutoModel,
+    AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
+    AutoModelForQuestionAnswering,
+    AutoModelForMaskedLM,
+    BatchEncoding,
+    TensorType,
+)
 
+from kserve import Model
+from kserve.errors import InferenceError
+from kserve.logging import logger
 from kserve.model import PredictorConfig
 from kserve.protocol.rest.v2_datamodels import (
     GenerateRequest,
@@ -24,6 +46,10 @@ from kserve.protocol.rest.v2_datamodels import (
     Token,
     Details,
 )
+from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
+from kserve.storage import Storage
+from kserve.utils.utils import get_predict_response, get_predict_input, from_np_dtype
+
 from .async_generate_stream import AsyncGenerateStream
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
@@ -58,32 +84,29 @@ try:
 except ImportError:
     _vllm = False
 
-from transformers import (
-    AutoModelForCausalLM,
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    AutoConfig,
-    AutoModel,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    AutoModelForQuestionAnswering,
-    AutoModelForMaskedLM,
-    BatchEncoding,
-    TensorType,
-)
+try:
+    from pytriton.triton import Triton, TritonConfig, TritonLifecyclePolicy
+    from pytriton.proxy.types import Request
+    from pytriton.client import AsyncioModelClient
+    from pytriton.model_config import ModelConfig
+
+    _triton = True
+except ImportError:
+    _triton = False
 
 VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
 
 class HuggingfaceModel(
     Model, OpenAIChatAdapterModel
-):  # pylint:disable=c-extension-no-member
+):
     def __init__(
         self,
         model_name: str,
         kwargs,
         engine_args=None,
         predictor_config: Optional[PredictorConfig] = None,
+        triton_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(model_name, predictor_config)
         if kwargs is None:
@@ -110,6 +133,36 @@ class HuggingfaceModel(
         self.vllm_engine_args = engine_args
         self.use_vllm = not kwargs.get("disable_vllm", False) if _vllm else False
         self.ready = False
+        self.use_triton = kwargs.get("enable_triton", False) if _triton else False
+        if self.use_triton:
+            self.use_vllm = False
+            self.triton_server = None
+            self._triton_client_instance = None
+            self._triton_config = (
+                TritonConfig.from_dict(triton_config)
+                if triton_config
+                else TritonConfig(
+                    allow_http=False,
+                    http_port=8000,
+                    allow_grpc=True,
+                    grpc_port=8001,
+                    allow_metrics=True,
+                    allow_gpu_metrics=True,
+                    allow_cpu_metrics=True,
+                    metrics_port=8002,
+                    cache_config=["local,size=1048576"],
+                    exit_timeout_secs=5,
+                )
+            )
+
+    @property
+    def _triton_client(self):
+        if self._triton_client_instance is None:
+            url = f"grpc://localhost:{self._triton_config.grpc_port}"
+            self._triton_client_instance = AsyncioModelClient(
+                url, self.name, init_timeout_s=self.timeout, lazy_init=False
+            )
+        return self._triton_client_instance
 
     @staticmethod
     def infer_task_from_model_architecture(model_config: str):
@@ -191,6 +244,35 @@ class HuggingfaceModel(
             self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         logger.info(f"successfully loaded tokenizer for task: {self.task}")
 
+        if self.use_triton:
+            triton_lifecycle_policy = TritonLifecyclePolicy(
+                launch_triton_on_startup=True, local_model_store=True
+            )
+            self.triton_server = Triton(
+                config=self._triton_config,
+                triton_lifecycle_policy=triton_lifecycle_policy,
+            )
+            self.triton_server.bind(
+                model_name=self.name,
+                infer_func=self.infer_fn,
+                inputs=[
+                    Tensor(name="input_ids", dtype=np.int64, shape=(-1, -1)),
+                    Tensor(name="attention_mask", dtype=np.int64, shape=(-1, -1)),
+                    Tensor(
+                        name="token_type_ids",
+                        dtype=np.int64,
+                        shape=(-1, -1),
+                        optional=True,
+                    ),
+                ],
+                outputs=[
+                    Tensor(name="outputs", dtype=np.int64, shape=(-1, -1)),
+                ],
+                strict=True,
+                config=ModelConfig(batching=False, response_cache=True),
+            )
+            self.triton_server.run()
+
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
             if self.task == MLTask.sequence_classification.value:
@@ -230,7 +312,7 @@ class HuggingfaceModel(
 
     def preprocess(
         self, payload: Union[Dict, InferRequest], context: Dict[str, Any] = None
-    ) -> Union[BatchEncoding, InferRequest]:
+    ) -> Union[BatchEncoding, InferRequest, Dict[str, np.ndarray]]:
         instances = get_predict_input(payload)
 
         if self.vllm_engine:
@@ -263,8 +345,24 @@ class HuggingfaceModel(
                 infer_inputs=infer_inputs, model_name=self.name
             )
             return infer_request
-        else:
+        elif self.use_triton:
             inputs = self.tokenizer(
+                instances,
+                max_length=self.max_length,
+                add_special_tokens=self.add_special_tokens,
+                return_tensors=TensorType.NUMPY,
+                return_token_type_ids=self.return_token_type_ids,
+                padding=True,
+                truncation=True,
+            )
+            context["payload"] = payload
+            context["input_ids"] = inputs["input_ids"]
+            req_inputs: Dict[str, np.ndarray] = {}
+            for key, input_tensor in inputs.items():
+                req_inputs[key] = input_tensor
+            return req_inputs
+        else:
+            inputs: BatchEncoding = self.tokenizer(
                 instances,
                 max_length=self.max_length,
                 add_special_tokens=self.add_special_tokens,
@@ -305,8 +403,11 @@ class HuggingfaceModel(
                         **input_batch, **parameters, streamer=streamer
                     )
                 # TODO change to use thread pool executor
-                thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
-                thread.start()
+                # thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
+                asyncio.get_running_loop().run_in_executor(
+                    None, partial(self.model.generate, **generation_kwargs)
+                )
+                # thread.start()
                 return streamer
             else:
                 if parameters:
@@ -356,6 +457,25 @@ class HuggingfaceModel(
             # TODO - fallback flow
             raise NotImplementedError("completion is not implemented")
 
+    async def infer_fn(self, requests: List[Request]):
+        responses = []
+        for request in requests:
+            input_tensors = {}
+            for input_name, input_array in request.data.items():
+                input_tensors[input_name] = torch.tensor(
+                    input_array, device=self.device
+                )
+
+            if (
+                self.task == MLTask.text2text_generation.value
+                or self.task == MLTask.text_generation
+            ):
+                outputs = self.model.generate(**input_tensors)
+            else:
+                outputs = self.model(**input_tensors)
+            responses.append({"outputs": outputs.numpy()})
+        return responses
+
     async def predict(
         self,
         input_batch: Union[BatchEncoding, InferRequest],
@@ -363,6 +483,10 @@ class HuggingfaceModel(
     ) -> Union[Tensor, InferResponse]:
         if self.vllm_engine:
             raise InferenceError(VLLM_USE_GENERATE_ENDPOINT_ERROR)
+
+        if self.use_triton:
+            res = await self._triton_client.infer_sample(**input_batch)
+            return torch.tensor(res["outputs"], device=self.device)
 
         if self.predictor_host:
             # when predictor_host is provided, serialize the tensor and send to optimized model serving runtime
@@ -390,9 +514,9 @@ class HuggingfaceModel(
         request = context["payload"]
         if isinstance(outputs, InferResponse):
             shape = torch.Size(outputs.outputs[0].shape)
-            data = torch.Tensor(outputs.outputs[0].data)
+            data = torch.tensor(outputs.outputs[0].as_numpy(), device=self.device)
             outputs = data.view(shape)
-            input_ids = torch.Tensor(input_ids)
+            input_ids = torch.tensor(input_ids, device=self.device)
         inferences = []
         if self.task == MLTask.sequence_classification.value:
             num_rows, num_cols = outputs.shape

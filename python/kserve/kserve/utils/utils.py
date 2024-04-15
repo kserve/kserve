@@ -16,7 +16,7 @@ import os
 import sys
 import uuid
 
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import InferParameter
+from tritonclient.grpc.service_pb2 import InferParameter
 from typing import Dict, Union, List
 
 from kserve.utils.numpy_codec import from_np_dtype

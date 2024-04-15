@@ -10,16 +10,21 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.10,<3.12"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
 transformers = "~4.39.3"
 accelerate = "~0.27.2"
 torch = "~2.1.2"
 vllm = { version = "^0.4.0.post1", optional = true }
+nvidia-pytriton = { version = "^0.5.3", optional = true }
 
 [tool.poetry.extras]
 vllm = [
     "vllm",
+]
+
+triton = [
+"nvidia-pytriton",
 ]
 
 [tool.poetry.group.test]

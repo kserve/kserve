@@ -24,7 +24,7 @@ from google.protobuf.internal.containers import MessageMap
 
 from ..constants.constants import GRPC_CONTENT_DATATYPE_MAPPINGS
 from ..errors import InvalidInput, InferenceError
-from ..protocol.grpc.grpc_predict_v2_pb2 import (
+from tritonclient.grpc.service_pb2 import (
     ModelInferRequest,
     InferTensorContents,
     ModelInferResponse,

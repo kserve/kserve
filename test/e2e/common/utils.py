@@ -10,6 +10,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
 import logging
 import os
@@ -20,11 +21,11 @@ import grpc
 import portforward
 import requests
 from kubernetes import client
+from tritonclient.grpc import service_pb2 as pb
+from tritonclient.grpc import service_pb2_grpc as grpc_predict_v2_pb2_grpc
 
 from kserve import KServeClient
 from kserve import constants
-from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
-from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
 
 from . import inference_pb2_grpc
 
