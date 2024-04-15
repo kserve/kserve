@@ -44,6 +44,7 @@ from kserve.protocol.rest.openai.types.openapi import (
     Error,
     Logprobs,
 )
+from kserve.protocol.rest.openai.errors import OpenAIError
 
 
 def to_sampling_params(request: CreateCompletionRequest):
@@ -81,9 +82,8 @@ def to_sampling_params(request: CreateCompletionRequest):
 
 class OpenAIServingCompletion:
 
-    def __init__(self, engine: AsyncLLMEngine, served_model: str):
+    def __init__(self, engine: AsyncLLMEngine):
         self.engine = engine
-        self.served_model = served_model
 
         self.max_model_len = 0
         self.tokenizer = None
@@ -112,13 +112,9 @@ class OpenAIServingCompletion:
             - suffix (the language models we currently support do not support
             suffix)
         """
-        error_check_ret = await self._check_model(request)
-        if error_check_ret is not None:
-            return error_check_ret
-
         # Return error for unsupported features.
         if request.suffix is not None:
-            return self.create_error_response("suffix is not currently supported")
+            raise OpenAIError("suffix is not currently supported")
 
         model_name = request.model
         request_id = f"cmpl-{random_uuid()}"
@@ -148,8 +144,8 @@ class OpenAIServingCompletion:
                         prompt_token_ids=input_ids,
                     )
                 )
-        except ValueError as e:
-            return self.create_error_response(str(e))
+        except Exception as e:
+            raise OpenAIError(str(e))
 
         result_generator: AsyncIterator[Tuple[int, RequestOutput]] = (
             merge_async_iterators(*generators)
@@ -180,8 +176,8 @@ class OpenAIServingCompletion:
             response = self.request_output_to_completion_response(
                 final_res_batch, request, request_id, created_time, model_name
             )
-        except ValueError as e:
-            return self.create_error_response(str(e))
+        except Exception as e:
+            raise OpenAIError(str(e))
 
         return response
 
@@ -316,7 +312,6 @@ class OpenAIServingCompletion:
                     text=output_text,
                     logprobs=logprobs,
                     finish_reason=output.finish_reason,
-                    stop_reason=output.stop_reason,
                 )
                 choices.append(choice_data)
 
@@ -343,27 +338,16 @@ class OpenAIServingCompletion:
     def apply_chat_template(self, messages: Iterable[ChatCompletionMessageParam]):
         return self.tokenizer.apply_chat_template(conversation=messages, tokenize=False)
 
-    def create_error_response(
-        self,
-        message: str,
-        err_type: str = "BadRequestError",
-        status_code: HTTPStatus = HTTPStatus.BAD_REQUEST,
-    ) -> ErrorResponse:
-
-        error = Error(
-            message=message, type=err_type, param="", code=str(status_code.value)
-        )
-        return ErrorResponse(error=error)
-
     def create_streaming_error_response(
         self,
         message: str,
         err_type: str = "BadRequestError",
         status_code: HTTPStatus = HTTPStatus.BAD_REQUEST,
     ) -> ErrorResponse:
-        return self.create_error_response(
-            message=message, err_type=err_type, status_code=status_code
+        error = Error(
+            message=message, type=err_type, param="", code=str(status_code.value)
         )
+        return ErrorResponse(error=error)
 
     async def _post_init(self):
         engine_model_config = await self.engine.get_model_config()
@@ -376,15 +360,6 @@ class OpenAIServingCompletion:
             trust_remote_code=engine_model_config.trust_remote_code,
         )
 
-    async def _check_model(self, request) -> Optional[ErrorResponse]:
-        if request.model == self.served_model:
-            return
-        return self.create_error_response(
-            message=f"The model `{request.model}` does not exist.",
-            err_type="NotFoundError",
-            status_code=HTTPStatus.NOT_FOUND,
-        )
-
     def _validate_prompt_and_tokenize(
         self,
         request: Union[CreateCompletionRequest],
@@ -392,9 +367,9 @@ class OpenAIServingCompletion:
         prompt_ids: Optional[List[int]] = None,
     ) -> List[int]:
         if not (prompt or prompt_ids):
-            raise ValueError("Either prompt or prompt_ids should be provided.")
+            raise OpenAIError("Either prompt or prompt_ids should be provided.")
         if prompt and prompt_ids:
-            raise ValueError("Only one of prompt or prompt_ids should be provided.")
+            raise OpenAIError("Only one of prompt or prompt_ids should be provided.")
 
         input_ids = (
             prompt_ids if prompt_ids is not None else self.tokenizer(prompt).input_ids
@@ -405,7 +380,7 @@ class OpenAIServingCompletion:
             request.max_tokens = self.max_model_len - token_num
 
         if token_num + request.max_tokens > self.max_model_len:
-            raise ValueError(
+            raise OpenAIError(
                 f"This model's maximum context length is "
                 f"{self.max_model_len} tokens. However, you requested "
                 f"{request.max_tokens + token_num} tokens "

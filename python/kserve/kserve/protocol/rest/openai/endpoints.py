@@ -27,6 +27,7 @@ from kserve.protocol.rest.openai.types.openapi import (
 
 from ....errors import ModelNotReady
 from .dataplane import OpenAIDataPlane
+from .errors import OpenAIError, openai_error_handler
 
 OPENAI_ROUTE_PREFIX = os.environ.get("KSERVE_OPENAI_ROUTE_PREFIX", "/openai")
 
@@ -143,3 +144,4 @@ def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
         methods=["POST"],
     )
     app.include_router(openai_router)
+    app.add_exception_handler(OpenAIError, openai_error_handler)

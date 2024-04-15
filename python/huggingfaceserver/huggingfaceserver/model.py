@@ -87,7 +87,6 @@ class HuggingfaceModel(
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device_map = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_id = kwargs.get("model_id", None)
-        self.model_name = model_name
         self.model_dir = kwargs.get("model_dir", None)
         if not self.model_id and not self.model_dir:
             self.model_dir = "/mnt/models"
@@ -146,7 +145,7 @@ class HuggingfaceModel(
                     self.vllm_engine_args
                 )
                 self.openai_serving_completion = OpenAIServingCompletion(
-                    self.vllm_engine, self.model_name
+                    self.vllm_engine
                 )
                 self.ready = True
                 return self.ready
