@@ -12,8 +12,11 @@ class ImageClassifier(DenseNet):
         # to find such keys.
         # Credit - https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py#def _load_state_dict()
         import re
-        pattern = re.compile(r'^(.*denselayer\d+\.(?:norm|relu|conv))\.((?:[12])\.'
-                             r'(?:weight|bias|running_mean|running_var))$')
+
+        pattern = re.compile(
+            r"^(.*denselayer\d+\.(?:norm|relu|conv))\.((?:[12])\."
+            r"(?:weight|bias|running_mean|running_var))$"
+        )
 
         for key in list(state_dict.keys()):
             res = pattern.match(key)

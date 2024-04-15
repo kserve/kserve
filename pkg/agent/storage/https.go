@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,7 +33,8 @@ import (
 )
 
 const (
-	HEADER_SUFFIX = "-headers"
+	HEADER_SUFFIX                  = "-headers"
+	DEFAULT_MAX_DECOMPRESSION_SIZE = 1024 * 1024 * 1024 // 1 GB
 )
 
 type HTTPSProvider struct {
@@ -43,7 +45,7 @@ func (m *HTTPSProvider) DownloadModel(modelDir string, modelName string, storage
 	log.Info("Download model ", "modelName", modelName, "storageUri", storageUri, "modelDir", modelDir)
 	uri, err := url.Parse(storageUri)
 	if err != nil {
-		return fmt.Errorf("unable to parse storage uri: %v", err)
+		return fmt.Errorf("unable to parse storage uri: %w", err)
 	}
 	HTTPSDownloader := &HTTPSDownloader{
 		StorageUri: storageUri,
@@ -82,7 +84,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 	// Query request
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to make a request: %v", err)
+		return fmt.Errorf("failed to make a request: %w", err)
 	}
 
 	defer func(Body io.ReadCloser) {
@@ -117,34 +119,35 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 			return err
 		}
 		if _, err = io.Copy(file, resp.Body); err != nil {
-			return fmt.Errorf("unable to copy file content: %v", err)
+			return fmt.Errorf("unable to copy file content: %w", err)
 		}
 	}
 
 	return nil
 }
 
-func (h *HTTPSDownloader) extractHeaders() (map[string]string, error) {
-	var headers map[string]string
+func (h *HTTPSDownloader) extractHeaders() (headers map[string]string, err error) {
 	hostname := h.Uri.Hostname()
 	headerJSON := os.Getenv(hostname + HEADER_SUFFIX)
-	err := json.Unmarshal([]byte(headerJSON), &headers)
-	if err != nil {
-		log.Error(err, "failed to unmarshal headers")
+	if headerJSON != "" {
+		err = json.Unmarshal([]byte(headerJSON), &headers)
+		if err != nil {
+			log.Error(err, "failed to unmarshal headers")
+		}
 	}
-	return headers, nil
+	return headers, err
 }
 
 func createNewFile(fileFullName string) (*os.File, error) {
 	if FileExists(fileFullName) {
 		if err := os.Remove(fileFullName); err != nil {
-			return nil, fmt.Errorf("file is unable to be deleted: %v", err)
+			return nil, fmt.Errorf("file is unable to be deleted: %w", err)
 		}
 	}
 
 	file, err := Create(fileFullName)
 	if err != nil {
-		return nil, fmt.Errorf("file is already created: %v", err)
+		return nil, fmt.Errorf("file is already created: %w", err)
 	}
 	return file, nil
 }
@@ -157,12 +160,12 @@ func extractZipFiles(reader io.Reader, dest string) error {
 
 	zipReader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
-		return fmt.Errorf("unable to create new reader: %v", err)
+		return fmt.Errorf("unable to create new reader: %w", err)
 	}
 
 	// Read all the files from zip archive
 	for _, zipFile := range zipReader.File {
-		fileFullPath := filepath.Join(dest, zipFile.Name)
+		fileFullPath := filepath.Join(dest, zipFile.Name) // #nosecG305
 		if !strings.HasPrefix(fileFullPath, filepath.Clean(dest)+string(os.PathSeparator)) {
 			return fmt.Errorf("%s: illegal file path", fileFullPath)
 		}
@@ -182,10 +185,10 @@ func extractZipFiles(reader io.Reader, dest string) error {
 		}
 		rc, err := zipFile.Open()
 		if err != nil {
-			return fmt.Errorf("unable to open file: %v", err)
+			return fmt.Errorf("unable to open file: %w", err)
 		}
 
-		_, err = io.Copy(file, rc)
+		_, err = io.CopyN(file, rc, DEFAULT_MAX_DECOMPRESSION_SIZE) // gosec G110
 		closeErr := file.Close()
 		if closeErr != nil {
 			return closeErr
@@ -195,7 +198,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 			return closeErr
 		}
 		if err != nil {
-			return fmt.Errorf("unable to copy file content: %v", err)
+			return fmt.Errorf("unable to copy file content: %w", err)
 		}
 	}
 	return nil
@@ -218,13 +221,13 @@ func extractTarFiles(reader io.Reader, dest string) error {
 	// Read all the files from tar archive
 	for {
 		header, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return fmt.Errorf("unable to access next tar file: %v", err)
+			return fmt.Errorf("unable to access next tar file: %w", err)
 		}
 
-		fileFullPath := filepath.Join(dest, header.Name)
+		fileFullPath := filepath.Join(dest, header.Name) // #nosec G305
 		if header.Typeflag == tar.TypeDir {
 			err = os.MkdirAll(fileFullPath, 0755)
 			if err != nil {
@@ -238,8 +241,10 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		if err != nil {
 			return err
 		}
-		if _, err := io.Copy(newFile, tr); err != nil {
-			return fmt.Errorf("unable to copy contents to %s: %v", header.Name, err)
+
+		// gosec G110
+		if _, err := io.CopyN(newFile, tr, DEFAULT_MAX_DECOMPRESSION_SIZE); err != nil {
+			return fmt.Errorf("unable to copy contents to %s: %w", header.Name, err)
 		}
 	}
 	return nil

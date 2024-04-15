@@ -23,8 +23,11 @@ class AsyncGenerateStream(TextStreamer):
     iterated over asynchronously."""
 
     def __init__(
-            self, tokenizer: AutoTokenizer, skip_prompt: bool = False, timeout: Optional[float] = None,
-            **decode_kwargs
+        self,
+        tokenizer: AutoTokenizer,
+        skip_prompt: bool = False,
+        timeout: Optional[float] = None,
+        **decode_kwargs,
     ):
         super().__init__(tokenizer, skip_prompt, **decode_kwargs)
         self.text_queue = Queue()

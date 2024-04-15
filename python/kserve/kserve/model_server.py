@@ -19,12 +19,13 @@ import concurrent.futures
 import multiprocessing
 import signal
 import socket
+import sys
 from multiprocessing import Process
 from typing import Dict, List, Optional, Union, Callable, Any, IO
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment
-from ray.serve.handle import RayServeHandle
+from ray.serve.handle import DeploymentHandle
 
 from .logging import KSERVE_LOG_CONFIG, logger
 from .model import Model
@@ -38,61 +39,141 @@ from .utils import utils
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
 
-parser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(
+    add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+)
 # Model Server Arguments: The arguments are passed to the kserve.ModelServer object
-parser.add_argument("--http_port", default=DEFAULT_HTTP_PORT, type=int,
-                    help="The HTTP Port listened to by the model server.")
-parser.add_argument("--grpc_port", default=DEFAULT_GRPC_PORT, type=int,
-                    help="The GRPC Port listened to by the model server.")
-parser.add_argument("--workers", default=1, type=int,
-                    help="The number of uvicorn workers for multi-processing.")
-parser.add_argument("--max_threads", default=4, type=int,
-                    help="The max number of gRPC processing threads.")
-parser.add_argument('--max_asyncio_workers', default=None, type=int,
-                    help='The max number of asyncio workers to spawn.')
-parser.add_argument("--enable_grpc", default=True, type=lambda x: utils.strtobool(x),
-                    help="Enable gRPC for the model server.")
-parser.add_argument("--enable_docs_url", default=False, type=lambda x: utils.strtobool(x),
-                    help="Enable docs url '/docs' to display Swagger UI.")
-parser.add_argument("--enable_latency_logging", default=True, type=lambda x: utils.strtobool(x),
-                    help="Enable a log line per request with preprocess/predict/postprocess latency metrics.")
-parser.add_argument("--configure_logging", default=True, type=lambda x: utils.strtobool(x),
-                    help="Enable to configure KServe and Uvicorn logging.")
-parser.add_argument("--log_config_file", default=None, type=str,
-                    help="File path containing UvicornServer's log config. Needs to be a yaml or json file.")
-parser.add_argument("--access_log_format", default=None, type=str,
-                    help="The asgi access logging format.")
-parser.add_argument("--secure_grpc_server", default=False, type=bool,
-                    choices=[True, False],
-                    help="Enable gRPC server authentication using SSL for the model server.")
-parser.add_argument("--ssl_server_key", default=None, type=str,
-                    help="File path for SSL server key used for gRPC server authentication.")
-parser.add_argument("--ssl_server_cert", default=None, type=str,
-                    help="File path for SSL server key used for gRPC server authentication.")
-parser.add_argument("--ssl_ca_cert", default=None, type=str,
-                    help="File path for SSL server key used for gRPC server authentication.")
+parser.add_argument(
+    "--http_port",
+    default=DEFAULT_HTTP_PORT,
+    type=int,
+    help="The HTTP Port listened to by the model server.",
+)
+parser.add_argument(
+    "--grpc_port",
+    default=DEFAULT_GRPC_PORT,
+    type=int,
+    help="The GRPC Port listened to by the model server.",
+)
+parser.add_argument(
+    "--workers",
+    default=1,
+    type=int,
+    help="The number of uvicorn workers for multi-processing.",
+)
+parser.add_argument(
+    "--max_threads",
+    default=4,
+    type=int,
+    help="The max number of gRPC processing threads.",
+)
+parser.add_argument(
+    "--max_asyncio_workers",
+    default=None,
+    type=int,
+    help="The max number of asyncio workers to spawn.",
+)
+parser.add_argument(
+    "--enable_grpc",
+    default=True,
+    type=lambda x: utils.strtobool(x),
+    help="Enable gRPC for the model server.",
+)
+parser.add_argument(
+    "--enable_docs_url",
+    default=False,
+    type=lambda x: utils.strtobool(x),
+    help="Enable docs url '/docs' to display Swagger UI.",
+)
+parser.add_argument(
+    "--enable_latency_logging",
+    default=True,
+    type=lambda x: utils.strtobool(x),
+    help="Enable a log line per request with preprocess/predict/postprocess latency metrics.",
+)
+parser.add_argument(
+    "--configure_logging",
+    default=True,
+    type=lambda x: utils.strtobool(x),
+    help="Enable to configure KServe and Uvicorn logging.",
+)
+parser.add_argument(
+    "--log_config_file",
+    default=None,
+    type=str,
+    help="File path containing UvicornServer's log config. Needs to be a yaml or json file.",
+)
+parser.add_argument(
+    "--access_log_format",
+    default=None,
+    type=str,
+    help="The asgi access logging format.",
+)
+parser.add_argument(
+    "--secure_grpc_server", 
+    default=False, 
+    type=bool,
+    choices=[True, False],
+    help="Enable gRPC server authentication using SSL for the model server.")
+parser.add_argument(
+    "--ssl_server_key", 
+    default=None, type=str,              
+    help="File path for SSL server key used for gRPC server authentication.")
+parser.add_argument(
+    "--ssl_server_cert", 
+    default=None, type=str,       
+    help="File path for SSL server key used for gRPC server authentication.")
+parser.add_argument(
+    "--ssl_ca_cert", 
+    default=None, type=str,                 
+    help="File path for SSL server key used for gRPC server authentication.")
 
 # Model arguments: The arguments are passed to the kserve.Model object
-parser.add_argument("--model_name", default="model", type=str,
-                    help="The name of the model used on the endpoint path.")
-parser.add_argument("--predictor_host", default=None, type=str,
-                    help="The host name used for calling to the predictor from transformer.")
+parser.add_argument(
+    "--model_name",
+    default="model",
+    type=str,
+    help="The name of the model used on the endpoint path.",
+)
+parser.add_argument(
+    "--predictor_host",
+    default=None,
+    type=str,
+    help="The host name used for calling to the predictor from transformer.",
+)
 # For backwards compatibility.
-parser.add_argument("--protocol", default="v1", type=str,
-                    choices=["v1", "v2", "grpc-v2"],
-                    help="The inference protocol used for calling to the predictor from transformer. "
-                         "Deprecated and replaced by --predictor_protocol")
-parser.add_argument("--predictor_protocol", default="v1", type=str,
-                    choices=["v1", "v2", "grpc-v2"],
-                    help="The inference protocol used for calling to the predictor from transformer.")
-parser.add_argument("--predictor_use_ssl", default=False, type=lambda x: utils.strtobool(x),
-                    help="Use ssl for the http connection to the predictor.")
-parser.add_argument("--predictor_request_timeout_seconds", default=600, type=int,
-                    help="The timeout seconds for the request sent to the predictor.")
+parser.add_argument(
+    "--protocol",
+    default="v1",
+    type=str,
+    choices=["v1", "v2", "grpc-v2"],
+    help="The inference protocol used for calling to the predictor from transformer. "
+    "Deprecated and replaced by --predictor_protocol",
+)
+parser.add_argument(
+    "--predictor_protocol",
+    default="v1",
+    type=str,
+    choices=["v1", "v2", "grpc-v2"],
+    help="The inference protocol used for calling to the predictor from transformer.",
+)
+parser.add_argument(
+    "--predictor_use_ssl",
+    default=False,
+    type=lambda x: utils.strtobool(x),
+    help="Use ssl for the http connection to the predictor.",
+)
+parser.add_argument(
+    "--predictor_request_timeout_seconds",
+    default=600,
+    type=int,
+    help="The timeout seconds for the request sent to the predictor.",
+)
 args, _ = parser.parse_known_args()
 
 
 class ModelServer:
+
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers,
@@ -111,6 +192,7 @@ class ModelServer:
                  ca_cert: Union[str, bytes] = args.ssl_ca_cert
                  ):
         self.registered_models = registered_models
+
         """KServe ModelServer Constructor
 
         Args:
@@ -141,7 +223,8 @@ class ModelServer:
         self.enable_latency_logging = enable_latency_logging
         self.dataplane = DataPlane(model_registry=registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
-            model_registry=self.registered_models)
+            model_registry=self.registered_models
+        )
         self._grpc_server = None
         self._rest_server = None
         self.secure_grpc_server = secure_grpc_server
@@ -188,7 +271,9 @@ class ModelServer:
         # Logs can be passed as a path to a file or a dictConfig.
         # We rely on Uvicorn to configure the loggers for us.
         if configure_logging:
-            self.log_config = log_config if log_config is not None else KSERVE_LOG_CONFIG
+            self.log_config = (
+                log_config if log_config is not None else KSERVE_LOG_CONFIG
+            )
         else:
             # By setting log_config to None we tell Uvicorn not to configure logging
             self.log_config = None
@@ -197,7 +282,7 @@ class ModelServer:
         self._custom_exception_handler = None
 
     def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
-        """ Start the model server with a set of registered models.
+        """Start the model server with a set of registered models.
 
         Args:
             models: a list of models to register to the model server.
@@ -213,7 +298,9 @@ class ModelServer:
         elif isinstance(models, dict):
             if all([isinstance(v, Deployment) for v in models.values()]):
                 # TODO: make this port number a variable
-                rayserve.start(detached=True, http_options={"host": "0.0.0.0", "port": 9071})
+                rayserve.start(
+                    detached=True, http_options={"host": "0.0.0.0", "port": 9071}
+                )
                 for key in models:
                     models[key].deploy()
                     handle = models[key].get_handle()
@@ -228,12 +315,13 @@ class ModelServer:
             self.max_asyncio_workers = min(32, utils.cpu_count() + 4)
         logger.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
         asyncio.get_event_loop().set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
+            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers)
+        )
 
         async def serve():
             logger.info(f"Starting uvicorn with {self.workers} workers")
             loop = asyncio.get_event_loop()
-            if sys.platform not in ['win32', 'win64']:
+            if sys.platform not in ["win32", "win64"]:
                 sig_list = [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]
             else:
                 sig_list = [signal.SIGINT, signal.SIGTERM]
@@ -247,11 +335,15 @@ class ModelServer:
             else:
                 loop.set_exception_handler(self._custom_exception_handler)
             if self.workers == 1:
-                self._rest_server = UvicornServer(self.http_port, [],
-                                                  self.dataplane, self.model_repository_extension,
-                                                  self.enable_docs_url,
-                                                  log_config=self.log_config,
-                                                  access_log_format=self.access_log_format)
+                self._rest_server = UvicornServer(
+                    self.http_port,
+                    [],
+                    self.dataplane,
+                    self.model_repository_extension,
+                    self.enable_docs_url,
+                    log_config=self.log_config,
+                    access_log_format=self.access_log_format,
+                )
                 await self._rest_server.run()
             else:
                 # Since py38 MacOS/Windows defaults to use spawn for starting multiprocessing.
@@ -260,13 +352,18 @@ class ModelServer:
                 # https://github.com/tiangolo/fastapi/issues/1586
                 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                serversocket.bind(('0.0.0.0', self.http_port))
+                serversocket.bind(("0.0.0.0", self.http_port))
                 serversocket.listen(5)
-                multiprocessing.set_start_method('fork')
-                self._rest_server = UvicornServer(self.http_port, [serversocket],
-                                                  self.dataplane, self.model_repository_extension,
-                                                  self.enable_docs_url, log_config=self.log_config,
-                                                  access_log_format=self.access_log_format)
+                multiprocessing.set_start_method("fork")
+                self._rest_server = UvicornServer(
+                    self.http_port,
+                    [serversocket],
+                    self.dataplane,
+                    self.model_repository_extension,
+                    self.enable_docs_url,
+                    log_config=self.log_config,
+                    access_log_format=self.access_log_format,
+                )
                 for _ in range(self.workers):
                     p = Process(target=self._rest_server.run_sync)
                     p.start()
@@ -280,7 +377,10 @@ class ModelServer:
         asyncio.run(servers_task())
 
     async def stop(self, sig: Optional[int] = None):
-        """ Stop the instances of REST and gRPC model servers.
+        """Stop the instances of REST and gRPC model servers.
+
+        Args:
+            sig: The signal to stop the server. Default: ``None``.
         """
         logger.info("Stopping the model server")
         if self._rest_server:
@@ -289,10 +389,14 @@ class ModelServer:
         if self._grpc_server:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
+        for _, model in self.registered_models.get_models().items():
+            model.unload()
 
-    def register_exception_handler(self, handler: Callable[[asyncio.events.AbstractEventLoop, Dict[str, Any]], None]):
-        """
-        Add a custom handler as the event loop exception handler.
+    def register_exception_handler(
+        self,
+        handler: Callable[[asyncio.events.AbstractEventLoop, Dict[str, Any]], None],
+    ):
+        """Add a custom handler as the event loop exception handler.
 
         If a handler is not provided, the default exception handler will be set.
 
@@ -302,9 +406,10 @@ class ModelServer:
         """
         self._custom_exception_handler = handler
 
-    def default_exception_handler(self, loop: asyncio.events.AbstractEventLoop, context: Dict[str, Any]):
-        """
-        Default exception handler for event loop.
+    def default_exception_handler(
+        self, loop: asyncio.events.AbstractEventLoop, context: Dict[str, Any]
+    ):
+        """Default exception handler for event loop.
 
         This is called when an exception occurs and no exception handler is set.
         By default, this will shut down the server gracefully.
@@ -315,13 +420,23 @@ class ModelServer:
         loop.run_until_complete(self.stop())
         loop.default_exception_handler(context)
 
-    def register_model_handle(self, name: str, model_handle: RayServeHandle):
+    def register_model_handle(self, name: str, model_handle: DeploymentHandle):
+        """Register a model handle to the model server.
+
+        Args:
+            name: The name of the model handle.
+            model_handle: The model handle object.
+        """
         self.registered_models.update_handle(name, model_handle)
         logger.info("Registering model handle: %s", name)
 
     def register_model(self, model: Model):
+        """Register a model to the model server.
+
+        Args:
+            model: The model object.
+        """
         if not model.name:
-            raise Exception(
-                "Failed to register model, model.name must be provided.")
+            raise Exception("Failed to register model, model.name must be provided.")
         self.registered_models.update(model)
         logger.info("Registering model: %s", model.name)

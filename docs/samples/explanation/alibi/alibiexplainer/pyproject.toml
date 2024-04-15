@@ -17,6 +17,7 @@ tensorflow = ">=2.12.0,<2.14"  # the range that supports python 3.8 -- 3.11
 dill = "^0.3.6"
 nest-asyncio = "~1.4.0"
 llvmlite = ">0.38.1" # needed since poetry chooses lower version of llvmlite which is not supported by python 3.9 above
+tensorflow-io-gcs-filesystem = "0.34.0"
 
 [tool.poetry.group.test]
 optional = true
@@ -26,6 +27,12 @@ pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 mypy = "^0.991"
 sklearnserver = { path = "../sklearnserver", develop = true }
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "~24.3.0", extras = ["colorama"] }
 
 [tool.poetry-version-plugin]
 source = "file"

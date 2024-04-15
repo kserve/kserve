@@ -58,7 +58,7 @@ func NewDeploymentReconciler(client kclient.Client,
 }
 
 func createRawDeployment(componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec,
+	componentExt *v1beta1.ComponentExtensionSpec, //nolint:unparam
 	podSpec *corev1.PodSpec) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)

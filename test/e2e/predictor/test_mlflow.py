@@ -30,9 +30,10 @@ from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_mlflow_v2_runtime_kserve():
     service_name = "isvc-mlflow-v2-runtime"
+    protocol_version = "v2"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -41,7 +42,7 @@ def test_mlflow_v2_runtime_kserve():
                 name="mlflow",
             ),
             storage_uri="gs://kfserving-examples/models/mlflow/wine",
-            protocol_version="v2",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "1", "memory": "1Gi"},
@@ -58,11 +59,14 @@ def test_mlflow_v2_runtime_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
-    res = predict(service_name, "./data/mlflow_input_v2.json", protocol_version="v2")
+    res = predict(
+        service_name, "./data/mlflow_input_v2.json", protocol_version=protocol_version
+    )
     assert res["outputs"][0]["data"] == [5.576883936610762]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

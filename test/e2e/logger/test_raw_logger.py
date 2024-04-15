@@ -33,75 +33,92 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.raw
 def test_kserve_logger():
-    msg_dumper = 'message-dumper-raw'
-
-    annotations = dict()
-    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
+    msg_dumper = "message-dumper-raw"
+    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        containers=[V1Container(name="kserve-container",
-                                image='gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display',
-                                resources=V1ResourceRequirements(requests={'cpu': '10m', 'memory': '128Mi'},
-                                                                 limits={'cpu': '100m', 'memory': '256Mi'}))]
+        containers=[
+            V1Container(
+                name="kserve-container",
+                image="gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display",
+                resources=V1ResourceRequirements(
+                    requests={"cpu": "10m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "256Mi"},
+                ),
+            )
+        ],
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                        name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE,
-                                        annotations=annotations),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
 
-    service_name = 'isvc-logger-raw'
+    service_name = "isvc-logger-raw"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         logger=V1beta1LoggerSpec(
             mode="all",
-            url="http://"+msg_dumper+"-predictor."+KSERVE_TEST_NAMESPACE+".svc.cluster.local"
+            url="http://"
+            + msg_dumper
+            + "-predictor"
+            + "."
+            + KSERVE_TEST_NAMESPACE
+            + ".svc.cluster.local",
         ),
         sklearn=V1beta1SKLearnSpec(
-            storage_uri='gs://kfserving-examples/models/sklearn/1.0/model',
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
-                requests={'cpu': '10m', 'memory': '128Mi'},
-                limits={'cpu': '100m', 'memory': '256Mi'}
-            )
-        )
+                requests={"cpu": "10m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE,
-                                       annotations=annotations),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     except RuntimeError:
-        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                          label_selector='serving.kserve.io/inferenceservice={}'.
-                                                          format(service_name))
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
         for pod in pods.items:
             print(pod)
 
-    res = predict(service_name, './data/iris_input.json')
-    assert (res["predictions"] == [1, 1])
-    pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                      label_selector='serving.kserve.io/inferenceservice={}'.
-                                                      format(msg_dumper))
+    res = predict(service_name, "./data/iris_input.json")
+    assert res["predictions"] == [1, 1]
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(msg_dumper),
+    )
     time.sleep(5)
-    log = ''
+    log = ""
     for pod in pods.items:
-        log += kserve_client.core_api.read_namespaced_pod_log(name=pod.metadata.name,
-                                                              namespace=pod.metadata.namespace,
-                                                              container="kserve-container")
+        log += kserve_client.core_api.read_namespaced_pod_log(
+            name=pod.metadata.name,
+            namespace=pod.metadata.namespace,
+            container="kserve-container",
+        )
         print(log)
-    assert ("org.kubeflow.serving.inference.request" in log)
-    assert ("org.kubeflow.serving.inference.response" in log)
+    assert "org.kubeflow.serving.inference.request" in log
+    assert "org.kubeflow.serving.inference.response" in log
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(msg_dumper, KSERVE_TEST_NAMESPACE)

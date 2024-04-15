@@ -147,7 +147,7 @@ func AppendEnvVarIfNotExists(slice []v1.EnvVar, elems ...v1.EnvVar) []v1.EnvVar 
 				break
 			}
 		}
-		if isElemExists == false {
+		if !isElemExists {
 			slice = append(slice, elem)
 		}
 	}
@@ -163,7 +163,7 @@ func AppendPortIfNotExists(slice []v1.ContainerPort, elems ...v1.ContainerPort) 
 				break
 			}
 		}
-		if isElemExists == false {
+		if !isElemExists {
 			slice = append(slice, elem)
 		}
 	}

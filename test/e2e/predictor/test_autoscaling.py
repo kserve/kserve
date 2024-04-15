@@ -35,12 +35,12 @@ MODEL = "gs://kfserving-examples/models/sklearn/1.0/model"
 INPUT = "./data/iris_input.json"
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_sklearn_kserve_concurrency():
     service_name = "isvc-sklearn-scale-concurrency"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        scale_metric='concurrency',
+        scale_metric="concurrency",
         scale_target=2,
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
@@ -59,28 +59,31 @@ def test_sklearn_kserve_concurrency():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                      label_selector='serving.kserve.io/inferenceservice={}'
-                                                      .format(service_name))
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
 
     isvc_annotations = pods.items[0].metadata.annotations
 
     res = predict(service_name, INPUT)
     assert res["predictions"] == [1, 1]
-    assert (isvc_annotations[METRIC] == 'concurrency')
-    assert (isvc_annotations[TARGET] == '2')
+    assert isvc_annotations[METRIC] == "concurrency"
+    assert isvc_annotations[TARGET] == "2"
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_sklearn_kserve_rps():
     service_name = "isvc-sklearn-scale-rps"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        scale_metric='rps',
+        scale_metric="rps",
         scale_target=5,
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
@@ -100,17 +103,20 @@ def test_sklearn_kserve_rps():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                      label_selector='serving.kserve.io/inferenceservice={}'
-                                                      .format(service_name))
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
 
     annotations = pods.items[0].metadata.annotations
 
-    assert (annotations[METRIC] == 'rps')
-    assert (annotations[TARGET] == '5')
+    assert annotations[METRIC] == "rps"
+    assert annotations[TARGET] == "5"
     res = predict(service_name, INPUT)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -121,7 +127,7 @@ def test_sklearn_kserve_cpu():
     service_name = "isvc-sklearn-scale-cpu"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        scale_metric='cpu',
+        scale_metric="cpu",
         scale_target=50,
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
@@ -133,29 +139,31 @@ def test_sklearn_kserve_cpu():
     )
 
     annotations = dict()
-    annotations['autoscaling.knative.dev/class'] = 'hpa.autoscaling.knative.dev'
+    annotations["autoscaling.knative.dev/class"] = "hpa.autoscaling.knative.dev"
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE,
-            annotations=annotations
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                      label_selector='serving.kserve.io/inferenceservice={}'
-                                                      .format(service_name))
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
 
     isvc_annotations = pods.items[0].metadata.annotations
 
-    assert (isvc_annotations[METRIC] == 'cpu')
-    assert (isvc_annotations[TARGET] == '50')
+    assert isvc_annotations[METRIC] == "cpu"
+    assert isvc_annotations[TARGET] == "50"
     res = predict(service_name, INPUT)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -166,7 +174,7 @@ def test_sklearn_scale_raw():
     service_name = "isvc-sklearn-scale-raw"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        scale_metric='cpu',
+        scale_metric="cpu",
         scale_target=50,
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
@@ -178,29 +186,32 @@ def test_sklearn_scale_raw():
     )
 
     annotations = dict()
-    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE,
-            annotations=annotations
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
-    hpa_resp = api_instance.list_namespaced_custom_object(group='autoscaling', version='v1',
-                                                          namespace=KSERVE_TEST_NAMESPACE,
-                                                          label_selector=f"serving.kserve.io/inferenceservice="
-                                                                         f"{service_name}",
-                                                          plural='horizontalpodautoscalers')
+    hpa_resp = api_instance.list_namespaced_custom_object(
+        group="autoscaling",
+        version="v1",
+        namespace=KSERVE_TEST_NAMESPACE,
+        label_selector=f"serving.kserve.io/inferenceservice=" f"{service_name}",
+        plural="horizontalpodautoscalers",
+    )
 
-    assert (hpa_resp['items'][0]['spec']['targetCPUUtilizationPercentage'] == 50)
+    assert hpa_resp["items"][0]["spec"]["targetCPUUtilizationPercentage"] == 50
     res = predict(service_name, INPUT)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

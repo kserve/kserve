@@ -1,4 +1,3 @@
-HAS_LINT := $(shell command -v golint;)
 
 # Base Image URL
 BASE_IMG ?= python:3.9-slim-bullseye
@@ -17,7 +16,6 @@ CUSTOM_MODEL_IMG ?= custom-model
 CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
 CUSTOM_TRANSFORMER_IMG ?= image-transformer
 CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
-ALIBI_IMG ?= alibi-explainer
 AIF_IMG ?= aiffairness
 ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
@@ -54,7 +52,7 @@ test: fmt vet manifests envtest
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 # Build manager binary
-manager: generate fmt vet lint
+manager: generate fmt vet go-lint
 	go build -o bin/manager ./cmd/manager
 
 # Build agent binary
@@ -66,7 +64,7 @@ router: fmt vet
 	go build -o bin/router ./cmd/router
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet lint
+run: generate fmt vet go-lint
 	go run ./cmd/manager/main.go
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
@@ -109,10 +107,6 @@ deploy-dev-pmml : docker-push-pmml
 
 deploy-dev-paddle: docker-push-paddle
 	./hack/serving_runtime_image_patch.sh "kserve-paddleserver.yaml" "${KO_DOCKER_REPO}/${PADDLE_IMG}"
-
-deploy-dev-alibi: docker-push-alibi
-	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
-	kubectl apply -k config/overlays/dev-image-config
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
@@ -172,15 +166,14 @@ manifests: controller-gen
 fmt:
 	go fmt ./pkg/... ./cmd/...
 
+py-fmt:
+	black --config python/pyproject.toml .
+
 # Run go vet against code
 vet:
 	go vet ./pkg/... ./cmd/...
 
-lint:
-ifndef HAS_LINT
-	go get -u golang.org/x/lint/golint
-	echo "installing golint"
-endif
+go-lint:
 	hack/verify-golint.sh
 
 # Generate code
@@ -189,6 +182,7 @@ generate: controller-gen
 	hack/update-codegen.sh
 	hack/update-openapigen.sh
 	hack/python-sdk/client-gen.sh
+	hack/update-helm-docs.sh
 
 bump-version:
 	# TBA
@@ -272,12 +266,6 @@ docker-build-custom-transformer-grpc:
 
 docker-push-custom-transformer-grpc: docker-build-custom-transformer-grpc
 	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}
-
-docker-build-alibi:
-	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
-
-docker-push-alibi: docker-build-alibi
-	docker push ${KO_DOCKER_REPO}/${ALIBI_IMG}
 
 docker-build-aif:
 	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .

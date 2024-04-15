@@ -25,6 +25,7 @@ from alibiexplainer.anchor_text import AnchorText
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
 import nest_asyncio
+
 nest_asyncio.apply()
 
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
@@ -41,12 +42,12 @@ class ExplainerMethod(Enum):
 
 class AlibiExplainer(kserve.Model):
     def __init__(  # pylint:disable=too-many-arguments
-            self,
-            name: str,
-            predictor_host: str,
-            method: ExplainerMethod,
-            config: Mapping,
-            explainer: object = None,
+        self,
+        name: str,
+        predictor_host: str,
+        method: ExplainerMethod,
+        config: Mapping,
+        explainer: object = None,
     ):
         super().__init__(name)
         self.predictor_host = predictor_host
@@ -77,9 +78,9 @@ class AlibiExplainer(kserve.Model):
 
     def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Any:
         if (
-                self.method is ExplainerMethod.anchor_tabular
-                or self.method is ExplainerMethod.anchor_images
-                or self.method is ExplainerMethod.anchor_text
+            self.method is ExplainerMethod.anchor_tabular
+            or self.method is ExplainerMethod.anchor_images
+            or self.method is ExplainerMethod.anchor_text
         ):
             explanation = self.wrapper.explain(payload["instances"])
             explanationAsJsonStr = explanation.to_json()

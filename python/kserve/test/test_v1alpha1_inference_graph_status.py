@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1alpha1_inference_graph_status import V1alpha1InferenceGraphStatus  # noqa: E501
+from kserve.models.v1alpha1_inference_graph_status import (
+    V1alpha1InferenceGraphStatus,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1alpha1InferenceGraphStatus(unittest.TestCase):
     """V1alpha1InferenceGraphStatus unit test stubs"""
@@ -44,24 +47,19 @@ class TestV1alpha1InferenceGraphStatus(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1InferenceGraphStatus
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_inference_graph_status.V1alpha1InferenceGraphStatus()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1InferenceGraphStatus(
-                annotations = {
-                    'key' : '0'
-                    }, 
-                conditions = [
-                    None
-                    ], 
-                observed_generation = 56, 
-                url = None
+                annotations={"key": "0"},
+                conditions=[None],
+                observed_generation=56,
+                url=None,
             )
-        else :
-            return V1alpha1InferenceGraphStatus(
-        )
+        else:
+            return V1alpha1InferenceGraphStatus()
 
     def testV1alpha1InferenceGraphStatus(self):
         """Test V1alpha1InferenceGraphStatus"""
@@ -69,5 +67,5 @@ class TestV1alpha1InferenceGraphStatus(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

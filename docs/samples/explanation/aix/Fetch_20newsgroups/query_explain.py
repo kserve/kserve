@@ -6,17 +6,15 @@ import numpy as np
 from sklearn.datasets import fetch_20newsgroups
 import time
 
-print('************************************************************')
-print('************************************************************')
-print('************************************************************')
+print("************************************************************")
+print("************************************************************")
+print("************************************************************")
 print("starting query")
 
 if len(sys.argv) < 3:
     raise Exception("No endpoint specified. ")
 endpoint = sys.argv[1]
-headers = {
-    'Host': sys.argv[2]
-}
+headers = {"Host": sys.argv[2]}
 parameters = {}
 test_num = 1002
 is_file = False
@@ -59,14 +57,15 @@ res_json = res.json()
 temp = res_json["explanations"]
 
 #  get class name from dataset
-nameset = fetch_20newsgroups(subset='train')
+nameset = fetch_20newsgroups(subset="train")
 class_names = [
-    x.split('.')[-1] if 'misc' not in x
-    else '.'.join(x.split('.')[-2:])for x in nameset.target_names]
+    x.split(".")[-1] if "misc" not in x else ".".join(x.split(".")[-2:])
+    for x in nameset.target_names
+]
 
 #  print detailed values
 for feature_label in temp.keys():
-    print('\nExplanation of '+class_names[int(feature_label)]+':')
+    print("\nExplanation of " + class_names[int(feature_label)] + ":")
     for composition in temp[feature_label]:
         print(composition)
 
@@ -86,7 +85,5 @@ for feature_label in temp.keys():
     subplot_count += 1
     features = []
     composition_value = []
-plt.subplots_adjust(
-    left=0.125, bottom=0.1, right=0.9,
-    top=0.9, wspace=0.5, hspace=0.5)
+plt.subplots_adjust(left=0.125, bottom=0.1, right=0.9, top=0.9, wspace=0.5, hspace=0.5)
 plt.show()
