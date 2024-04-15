@@ -51,6 +51,7 @@ class V1beta1ComponentExtensionSpec(object):
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
         'container_concurrency': 'int',
+        'deployment_strategy': 'K8sIoApiAppsV1DeploymentStrategy',
         'labels': 'dict(str, str)',
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
@@ -65,6 +66,7 @@ class V1beta1ComponentExtensionSpec(object):
         'batcher': 'batcher',
         'canary_traffic_percent': 'canaryTrafficPercent',
         'container_concurrency': 'containerConcurrency',
+        'deployment_strategy': 'deploymentStrategy',
         'labels': 'labels',
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
@@ -74,7 +76,7 @@ class V1beta1ComponentExtensionSpec(object):
         'timeout': 'timeout'
     }
 
-    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -84,6 +86,7 @@ class V1beta1ComponentExtensionSpec(object):
         self._batcher = None
         self._canary_traffic_percent = None
         self._container_concurrency = None
+        self._deployment_strategy = None
         self._labels = None
         self._logger = None
         self._max_replicas = None
@@ -101,6 +104,8 @@ class V1beta1ComponentExtensionSpec(object):
             self.canary_traffic_percent = canary_traffic_percent
         if container_concurrency is not None:
             self.container_concurrency = container_concurrency
+        if deployment_strategy is not None:
+            self.deployment_strategy = deployment_strategy
         if labels is not None:
             self.labels = labels
         if logger is not None:
@@ -205,6 +210,27 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._container_concurrency = container_concurrency
+
+    @property
+    def deployment_strategy(self):
+        """Gets the deployment_strategy of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The deployment_strategy of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: K8sIoApiAppsV1DeploymentStrategy
+        """
+        return self._deployment_strategy
+
+    @deployment_strategy.setter
+    def deployment_strategy(self, deployment_strategy):
+        """Sets the deployment_strategy of this V1beta1ComponentExtensionSpec.
+
+
+        :param deployment_strategy: The deployment_strategy of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: K8sIoApiAppsV1DeploymentStrategy
+        """
+
+        self._deployment_strategy = deployment_strategy
 
     @property
     def labels(self):
