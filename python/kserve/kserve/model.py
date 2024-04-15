@@ -44,7 +44,7 @@ PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
 EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
 
 
-class BaseKserveModel(ABC):
+class BaseKServeModel(ABC):
     """
     A base class to inherit all of the kserve models from.
 
