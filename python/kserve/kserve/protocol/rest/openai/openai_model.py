@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import AsyncIterator, Callable, Iterable, Union, cast
 
 from openai.types import Completion, CompletionChoice, CompletionCreateParams
@@ -38,6 +38,7 @@ from openai.types.completion_create_params import (
 from pydantic import BaseModel
 
 from ....errors import InvalidInput
+from ....model import BaseKServeModel
 
 
 class ChatPrompt(BaseModel):
@@ -49,7 +50,7 @@ class ChatCompletionMessage(BaseChatCompletionMessage):
     role: str
 
 
-class OpenAIModel(ABC):
+class OpenAIModel(BaseKServeModel):
     """
     An abstract model with methods for implementing OpenAI's completions (v1/completions)
     and chat completions (v1/chat/completions) endpoints.
@@ -57,6 +58,13 @@ class OpenAIModel(ABC):
     Users should extend this model and implement the abstract methods in order to expose
     these endpoints.
     """
+
+    def __init__(self, name: str):
+        super().__init__(name)
+
+        # We don't support the `load()` method on OpenAIModel yet
+        # Assume the model is ready
+        self.ready = True
 
     @abstractmethod
     async def create_completion(

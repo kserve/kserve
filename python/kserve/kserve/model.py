@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from abc import ABC
 import inspect
 import time
 from enum import Enum
 from typing import Dict, List, Union, Optional, AsyncIterator, Any
-
 import grpc
 import httpx
 import orjson
@@ -42,6 +42,24 @@ PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
 EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
 PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
 EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
+
+
+class BaseKServeModel(ABC):
+    """
+    A base class to inherit all of the kserve models from.
+
+    This class implements the expectations of model repository and model server.
+    """
+
+    def __init__(self, name: str):
+        """
+        Adds the required attributes
+
+        Args:
+            name: The name of the model.
+        """
+        self.name = name
+        self.ready = False
 
 
 class InferenceVerb(Enum):
@@ -86,7 +104,7 @@ class PredictorConfig:
         self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
 
 
-class Model:
+class Model(BaseKServeModel):
     def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
         """KServe Model Public Interface
 
@@ -96,8 +114,8 @@ class Model:
             name: The name of the model.
             predictor_config: The configurations for http call to the predictor.
         """
-        self.name = name
-        self.ready = False
+        super().__init__(name)
+
         # The predictor config member fields are kept for backwards compatibility as they could be set outside
         self.protocol = (
             predictor_config.predictor_protocol
