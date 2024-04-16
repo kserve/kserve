@@ -32,7 +32,6 @@ from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionStreamResponse as ChatCompletionChunk,
     CreateCompletionRequest,
     CreateCompletionResponse as Completion,
-    ErrorResponse,
     Logprobs,
     Logprobs2 as ChatCompletionChoiceLogprobs,
     TopLogprob,
