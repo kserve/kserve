@@ -21,9 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
@@ -37,6 +34,10 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("Inference Graph controller test", func() {
@@ -65,6 +66,24 @@ var _ = Describe("Inference Graph controller test", func() {
 				}`,
 		}
 	)
+
+	var expectedReadinessProbe = &v1.Probe{
+		ProbeHandler: v1.ProbeHandler{
+			HTTPGet: &v1.HTTPGetAction{
+				Path: constants.RouterReadinessEndpoint,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: constants.RouterPort,
+				},
+				Scheme: v1.URISchemeHTTP,
+			},
+		},
+		InitialDelaySeconds: 5,
+		TimeoutSeconds:      1,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
+	}
 
 	Context("When creating an inferencegraph with headers in global config", func() {
 		It("Should create a knative service with headers as env var of podspec", func() {
@@ -167,23 +186,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
-											ReadinessProbe: &v1.Probe{
-												ProbeHandler: v1.ProbeHandler{
-													HTTPGet: &v1.HTTPGetAction{
-														Path: constants.RouterReadinessEndpoint,
-														Port: intstr.IntOrString{
-															Type:   intstr.Int,
-															IntVal: constants.RouterPort,
-														},
-														Scheme: v1.URISchemeHTTP,
-													},
-												},
-												InitialDelaySeconds: 5,
-												TimeoutSeconds:      1,
-												PeriodSeconds:       10,
-												SuccessThreshold:    1,
-												FailureThreshold:    3,
-											},
+											ReadinessProbe: expectedReadinessProbe,
 											SecurityContext: &v1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
@@ -320,23 +323,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("123Mi"),
 												},
 											},
-											ReadinessProbe: &v1.Probe{
-												ProbeHandler: v1.ProbeHandler{
-													HTTPGet: &v1.HTTPGetAction{
-														Path: constants.RouterReadinessEndpoint,
-														Port: intstr.IntOrString{
-															Type:   intstr.Int,
-															IntVal: constants.RouterPort,
-														},
-														Scheme: v1.URISchemeHTTP,
-													},
-												},
-												InitialDelaySeconds: 5,
-												TimeoutSeconds:      1,
-												PeriodSeconds:       10,
-												SuccessThreshold:    1,
-												FailureThreshold:    3,
-											},
+											ReadinessProbe: expectedReadinessProbe,
 											SecurityContext: &v1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
@@ -496,23 +483,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													Drop: []v1.Capability{v1.Capability("ALL")},
 												},
 											},
-											ReadinessProbe: &v1.Probe{
-												ProbeHandler: v1.ProbeHandler{
-													HTTPGet: &v1.HTTPGetAction{
-														Path: constants.RouterReadinessEndpoint,
-														Port: intstr.IntOrString{
-															Type:   intstr.Int,
-															IntVal: constants.RouterPort,
-														},
-														Scheme: v1.URISchemeHTTP,
-													},
-												},
-												InitialDelaySeconds: 5,
-												TimeoutSeconds:      1,
-												PeriodSeconds:       10,
-												SuccessThreshold:    1,
-												FailureThreshold:    3,
-											},
+											ReadinessProbe: expectedReadinessProbe,
 										},
 									},
 									Affinity: &v1.Affinity{
