@@ -19,8 +19,6 @@ package inferencegraph
 import (
 	"context"
 	"fmt"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,6 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var _ = Describe("Inference Graph controller test", func() {
@@ -62,6 +63,24 @@ var _ = Describe("Inference Graph controller test", func() {
 				}`,
 		}
 	)
+
+	var expectedReadinessProbe = &v1.Probe{
+		ProbeHandler: v1.ProbeHandler{
+			HTTPGet: &v1.HTTPGetAction{
+				Path: constants.RouterReadinessEndpoint,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: constants.RouterPort,
+				},
+				Scheme: v1.URISchemeHTTP,
+			},
+		},
+		InitialDelaySeconds: 5,
+		TimeoutSeconds:      1,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
+	}
 
 	Context("When creating an inferencegraph with headers in global config", func() {
 		It("Should create a knative service with headers as env var of podspec", func() {
@@ -164,23 +183,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
-											ReadinessProbe: &v1.Probe{
-												ProbeHandler: v1.ProbeHandler{
-													HTTPGet: &v1.HTTPGetAction{
-														Path: constants.RouterReadinessEndpoint,
-														Port: intstr.IntOrString{
-															Type:   intstr.Int,
-															IntVal: constants.RouterPort,
-														},
-														Scheme: v1.URISchemeHTTP,
-													},
-												},
-												InitialDelaySeconds: 5,
-												TimeoutSeconds:      1,
-												PeriodSeconds:       10,
-												SuccessThreshold:    1,
-												FailureThreshold:    3,
-											},
+											ReadinessProbe: expectedReadinessProbe,
 										},
 									},
 								},
@@ -310,23 +313,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("123Mi"),
 												},
 											},
-											ReadinessProbe: &v1.Probe{
-												ProbeHandler: v1.ProbeHandler{
-													HTTPGet: &v1.HTTPGetAction{
-														Path: constants.RouterReadinessEndpoint,
-														Port: intstr.IntOrString{
-															Type:   intstr.Int,
-															IntVal: constants.RouterPort,
-														},
-														Scheme: v1.URISchemeHTTP,
-													},
-												},
-												InitialDelaySeconds: 5,
-												TimeoutSeconds:      1,
-												PeriodSeconds:       10,
-												SuccessThreshold:    1,
-												FailureThreshold:    3,
-											},
+											ReadinessProbe: expectedReadinessProbe,
 										},
 									},
 								},
@@ -470,23 +457,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
-											ReadinessProbe: &v1.Probe{
-												ProbeHandler: v1.ProbeHandler{
-													HTTPGet: &v1.HTTPGetAction{
-														Path: constants.RouterReadinessEndpoint,
-														Port: intstr.IntOrString{
-															Type:   intstr.Int,
-															IntVal: constants.RouterPort,
-														},
-														Scheme: v1.URISchemeHTTP,
-													},
-												},
-												InitialDelaySeconds: 5,
-												TimeoutSeconds:      1,
-												PeriodSeconds:       10,
-												SuccessThreshold:    1,
-												FailureThreshold:    3,
-											},
+											ReadinessProbe: expectedReadinessProbe,
 										},
 									},
 									Affinity: &v1.Affinity{
