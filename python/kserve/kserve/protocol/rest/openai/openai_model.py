@@ -13,27 +13,29 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import AsyncIterator, Callable, Iterable, Union, cast
-
-from openai.types import Completion, CompletionChoice
-from openai.types.chat import ChatCompletion, ChatCompletionChunk
-from openai.types.chat import ChatCompletionMessage as BaseChatCompletionMessage
-from openai.types.chat import ChatCompletionMessageParam
-from openai.types.chat.chat_completion import Choice, ChoiceLogprobs
-from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
-from openai.types.chat.chat_completion_chunk import ChoiceDelta
-from openai.types.chat.chat_completion_chunk import (
-    ChoiceLogprobs as ChunkChoiceLogprobs,
-)
-from openai.types.chat.chat_completion_token_logprob import (
-    ChatCompletionTokenLogprob,
-    TopLogprob,
-)
-from openai.types.completion_choice import Logprobs
+from typing import AsyncIterator, Callable, Dict, Iterable, Optional, Union, cast
 from pydantic import BaseModel
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateCompletionRequest,
+    ChatCompletionRequestSystemMessage,
+    ChatCompletionRequestUserMessage,
+    ChatCompletionRequestAssistantMessage,
+    ChatCompletionRequestToolMessage,
+    ChatCompletionRequestFunctionMessage,
+    ChatCompletionResponseMessage,
+    ChatCompletionStreamResponseDelta as ChoiceDelta,
+    ChatCompletionTokenLogprob,
+    Choice as CompletionChoice,
+    Choice1 as ChatCompletionChoice,
+    Choice3 as ChunkChoice,
     CreateChatCompletionRequest,
+    CreateChatCompletionResponse as ChatCompletion,
+    CreateChatCompletionStreamResponse as ChatCompletionChunk,
+    CreateCompletionRequest,
+    CreateCompletionResponse as Completion,
+    ErrorResponse,
+    Logprobs,
+    Logprobs2 as ChatCompletionChoiceLogprobs,
+    TopLogprob,
 )
 
 from ....errors import InvalidInput
@@ -45,8 +47,19 @@ class ChatPrompt(BaseModel):
     prompt: str
 
 
-class ChatCompletionMessage(BaseChatCompletionMessage):
-    role: str
+class CompletionRequest(BaseModel):
+    request_id: Optional[str] = None
+    params: Union[CreateCompletionRequest, CreateChatCompletionRequest]
+    context: Optional[Dict[str, str]] = None  # headers can go in here
+
+
+ChatCompletionRequestMessage = Union[
+    ChatCompletionRequestSystemMessage,
+    ChatCompletionRequestUserMessage,
+    ChatCompletionRequestAssistantMessage,
+    ChatCompletionRequestToolMessage,
+    ChatCompletionRequestFunctionMessage,
+]
 
 
 class OpenAIModel(BaseKServeModel):
@@ -67,13 +80,13 @@ class OpenAIModel(BaseKServeModel):
 
     @abstractmethod
     async def create_completion(
-        self, params: CreateCompletionRequest
+        self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
         pass
 
     @abstractmethod
     async def create_chat_completion(
-        self, params: CreateChatCompletionRequest
+        self, request: CompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         pass
 
@@ -110,7 +123,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
 
     @abstractmethod
     def apply_chat_template(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self, messages: Iterable[ChatCompletionRequestMessage]
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
@@ -140,7 +153,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
     @classmethod
-    def to_choice_logprobs(cls, logprobs: Logprobs) -> ChoiceLogprobs:
+    def to_choice_logprobs(cls, logprobs: Logprobs) -> ChatCompletionChoiceLogprobs:
         chat_completion_logprobs = []
         for i in range(len(logprobs.tokens)):
             token = logprobs.tokens[i]
@@ -163,23 +176,25 @@ class OpenAIChatAdapterModel(OpenAIModel):
                 )
             )
 
-        return ChoiceLogprobs(content=chat_completion_logprobs)
+        return ChatCompletionChoiceLogprobs(content=chat_completion_logprobs)
 
     @classmethod
     def to_chat_completion_choice(
         cls, completion_choice: CompletionChoice, role: str
-    ) -> Choice:
+    ) -> ChatCompletionChoice:
         # translate Token -> ChatCompletionTokenLogprob
         choice_logprobs = (
             cls.to_choice_logprobs(completion_choice.logprobs)
             if completion_choice.logprobs is not None
             else None
         )
-        return Choice(
+        return ChatCompletionChoice(
             index=0,
             finish_reason=completion_choice.finish_reason,
             logprobs=choice_logprobs,
-            message=ChatCompletionMessage(content=completion_choice.text, role=role),
+            message=ChatCompletionResponseMessage(
+                content=completion_choice.text, role=role
+            ),
         )
 
     @classmethod
@@ -193,7 +208,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
             else None
         )
         choice_logprobs = (
-            ChunkChoiceLogprobs(content=choice_logprobs.content)
+            ChatCompletionChoiceLogprobs(content=choice_logprobs.content)
             if choice_logprobs is not None
             else None
         )
@@ -248,8 +263,10 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
     async def create_chat_completion(
-        self, params: CreateChatCompletionRequest
+        self, request: CompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+        params = request.params
+
         if params.n != 1:
             raise InvalidInput("n != 1 is not supported")
 
@@ -260,9 +277,15 @@ class OpenAIChatAdapterModel(OpenAIModel):
             params, chat_prompt.prompt
         )
 
+        completion_request = CompletionRequest(
+            request_id=request.request_id,
+            params=completion_params,
+            context=request.context,
+        )
+
         if not params.stream:
             completion = cast(
-                Completion, await self.create_completion(completion_params)
+                Completion, await self.create_completion(completion_request)
             )
             return self.completion_to_chat_completion(
                 completion, chat_prompt.response_role
@@ -270,7 +293,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
         else:
             completion_iterator = cast(
                 AsyncIterator[Completion],
-                await self.create_completion(completion_params),
+                await self.create_completion(completion_request),
             )
 
             def mapper(completion: Completion) -> ChatCompletionChunk:

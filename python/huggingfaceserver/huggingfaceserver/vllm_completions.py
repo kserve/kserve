@@ -16,8 +16,6 @@ import time
 import torch
 import asyncio
 from http import HTTPStatus
-from openai.types import Completion, CompletionChoice, CompletionUsage
-from openai.types.chat import ChatCompletionMessageParam
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 from typing import (
@@ -39,12 +37,16 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from vllm.sequence import Logprob
 from kserve.protocol.rest.openai.types.openapi import (
+    Choice as CompletionChoice,
+    CompletionUsage,
     CreateCompletionRequest,
+    CreateCompletionResponse as Completion,
     ErrorResponse,
     Error,
     Logprobs,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
+from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest
 
 
 def to_sampling_params(request: CreateCompletionRequest):
@@ -102,7 +104,7 @@ class OpenAIServingCompletion:
             loop.run_until_complete(self._post_init())
             loop.close()
 
-    async def create_completion(self, request: CreateCompletionRequest):
+    async def create_completion(self, completion_request: CompletionRequest):
         """Completion API similar to OpenAI's API.
 
         See https://platform.openai.com/docs/api-reference/completions/create
@@ -113,11 +115,17 @@ class OpenAIServingCompletion:
             suffix)
         """
         # Return error for unsupported features.
+        request = completion_request.params
+
         if request.suffix is not None:
             raise OpenAIError("suffix is not currently supported")
 
         model_name = request.model
-        request_id = f"cmpl-{random_uuid()}"
+        request_id = (
+            completion_request.request_id
+            if completion_request.request_id
+            else f"cmpl-{random_uuid()}"
+        )
         created_time = int(time.time())
 
         # Schedule the request and get the result generator.
@@ -264,8 +272,7 @@ class OpenAIServingCompletion:
                     )
                     yield response_json
         except ValueError as e:
-            data = self.create_streaming_error_response(str(e))
-            yield data
+            raise OpenAIError(str(e))
 
     def request_output_to_completion_response(
         self,
@@ -335,7 +342,10 @@ class OpenAIServingCompletion:
             usage=usage,
         )
 
-    def apply_chat_template(self, messages: Iterable[ChatCompletionMessageParam]):
+    def apply_chat_template(
+        self,
+        messages: Iterable[ChatCompletionRequestMessage,],
+    ):
         return self.tokenizer.apply_chat_template(conversation=messages, tokenize=False)
 
     def create_streaming_error_response(

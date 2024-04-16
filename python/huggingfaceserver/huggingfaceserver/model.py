@@ -38,10 +38,15 @@ from kserve.utils.utils import get_predict_response, get_predict_input, from_np_
 from kserve import Model
 import torch
 from accelerate import init_empty_weights
-from openai.types import Completion
-from kserve.protocol.rest.openai import ChatPrompt, OpenAIChatAdapterModel
-from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
-from openai.types.chat import ChatCompletionMessageParam
+from kserve.protocol.rest.openai import (
+    ChatCompletionRequestMessage,
+    ChatPrompt,
+    CompletionRequest,
+    OpenAIChatAdapterModel,
+)
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateCompletionResponse as Completion,
+)
 
 try:
     from vllm.sampling_params import SamplingParams
@@ -330,7 +335,8 @@ class HuggingfaceModel(
                 )
 
     def apply_chat_template(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self,
+        messages: Iterable[ChatCompletionRequestMessage,],
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
@@ -340,12 +346,11 @@ class HuggingfaceModel(
         )
 
     async def create_completion(
-        self,
-        params: CreateCompletionRequest,
+        self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
 
         if self.vllm_engine:
-            return await self.openai_serving_completion.create_completion(params)
+            return await self.openai_serving_completion.create_completion(request)
 
         else:
             # TODO - fallback flow

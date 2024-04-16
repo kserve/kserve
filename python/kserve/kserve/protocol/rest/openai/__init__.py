@@ -13,9 +13,21 @@
 # limitations under the License.
 
 try:
-    from .openai_model import ChatPrompt, OpenAIChatAdapterModel, OpenAIModel
+    from .openai_model import (
+        ChatCompletionRequestMessage,
+        ChatPrompt,
+        CompletionRequest,
+        OpenAIChatAdapterModel,
+        OpenAIModel,
+    )
 
-    __all__ = ["OpenAIModel", "OpenAIChatAdapterModel", "ChatPrompt"]
+    __all__ = [
+        "OpenAIModel",
+        "OpenAIChatAdapterModel",
+        "ChatPrompt",
+        "CompletionRequest",
+        "ChatCompletionRequestMessage",
+    ]
 
 except ImportError:
     pass

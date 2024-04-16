@@ -14,15 +14,16 @@
 
 from typing import AsyncIterator, Dict, Optional, Union
 
-from openai.types import Completion
-from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateCompletionRequest,
     CreateChatCompletionRequest,
+    CreateChatCompletionResponse as ChatCompletion,
+    CreateChatCompletionStreamResponse as ChatCompletionChunk,
+    CreateCompletionRequest,
+    CreateCompletionResponse as Completion,
 )
 
 from ...dataplane import DataPlane
-from .openai_model import OpenAIModel
+from .openai_model import OpenAIModel, CompletionRequest
 
 
 class OpenAIDataPlane(DataPlane):
@@ -50,7 +51,13 @@ class OpenAIDataPlane(DataPlane):
         model = self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support completion")
-        return await model.create_completion(request)
+
+        completion_request = CompletionRequest(
+            request_id=headers.get("x-request-id", None),
+            params=request,
+            context=headers,
+        )
+        return await model.create_completion(completion_request)
 
     async def create_chat_completion(
         self,
@@ -74,4 +81,10 @@ class OpenAIDataPlane(DataPlane):
         model = self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support chat completion")
-        return await model.create_chat_completion(request)
+
+        completion_request = CompletionRequest(
+            request_id=headers.get("x-request-id", None),
+            params=request,
+            context=headers,
+        )
+        return await model.create_chat_completion(completion_request)
