@@ -15,7 +15,6 @@
 import time
 import torch
 import asyncio
-from http import HTTPStatus
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 from typing import (
@@ -41,10 +40,9 @@ from kserve.protocol.rest.openai.types.openapi import (
     CompletionUsage,
     CreateCompletionRequest,
     CreateCompletionResponse as Completion,
-    ErrorResponse,
-    Error,
     Logprobs,
 )
+from kserve.errors import InvalidInput
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest
 
@@ -348,17 +346,6 @@ class OpenAIServingCompletion:
     ):
         return self.tokenizer.apply_chat_template(conversation=messages, tokenize=False)
 
-    def create_streaming_error_response(
-        self,
-        message: str,
-        err_type: str = "BadRequestError",
-        status_code: HTTPStatus = HTTPStatus.BAD_REQUEST,
-    ) -> ErrorResponse:
-        error = Error(
-            message=message, type=err_type, param="", code=str(status_code.value)
-        )
-        return ErrorResponse(error=error)
-
     async def _post_init(self):
         engine_model_config = await self.engine.get_model_config()
         self.max_model_len = engine_model_config.max_model_len
@@ -377,9 +364,9 @@ class OpenAIServingCompletion:
         prompt_ids: Optional[List[int]] = None,
     ) -> List[int]:
         if not (prompt or prompt_ids):
-            raise OpenAIError("Either prompt or prompt_ids should be provided.")
+            raise InvalidInput("Either prompt or prompt_ids should be provided.")
         if prompt and prompt_ids:
-            raise OpenAIError("Only one of prompt or prompt_ids should be provided.")
+            raise InvalidInput("Only one of prompt or prompt_ids should be provided.")
 
         input_ids = (
             prompt_ids if prompt_ids is not None else self.tokenizer(prompt).input_ids
@@ -390,7 +377,7 @@ class OpenAIServingCompletion:
             request.max_tokens = self.max_model_len - token_num
 
         if token_num + request.max_tokens > self.max_model_len:
-            raise OpenAIError(
+            raise InvalidInput(
                 f"This model's maximum context length is "
                 f"{self.max_model_len} tokens. However, you requested "
                 f"{request.max_tokens + token_num} tokens "
@@ -409,7 +396,7 @@ class OpenAIServingCompletion:
         initial_text_offset: int = 0,
     ) -> Logprobs:
         """Create OpenAI-style logprobs."""
-        logprobs = Logprobs()
+        logprobs = Logprobs(text_offset=[], tokens=[], token_logprobs=[])
         last_token_len = 0
         if num_output_top_logprobs:
             logprobs.top_logprobs = []

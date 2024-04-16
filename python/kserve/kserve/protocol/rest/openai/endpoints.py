@@ -36,7 +36,7 @@ if len(OPENAI_ROUTE_PREFIX) > 0 and not OPENAI_ROUTE_PREFIX.startswith("/"):
 
 
 CreateCompletionRequestAdapter = TypeAdapter(CreateCompletionRequest)
-ChatCompletionCreateParamsAdapter = TypeAdapter(CreateChatCompletionRequest)
+ChatCompletionRequestAdapter = TypeAdapter(CreateChatCompletionRequest)
 
 
 class OpenAIEndpoints:
@@ -96,13 +96,13 @@ class OpenAIEndpoints:
         Args:
             raw_request (Request): fastapi request object,
             model_name (str): Model name.
-            request_body (ChatCompletionCreateParams): Chat completion params body.
+            request_body (ChatCompletionRequestAdapter): Chat completion params body.
 
         Returns:
             InferenceResponse: Inference response object.
         """
         try:
-            params = ChatCompletionCreateParamsAdapter.validate_python(request_body)
+            params = ChatCompletionRequestAdapter.validate_python(request_body)
         except ValidationError as e:
             raise RequestValidationError(errors=e.errors())
         params = request_body
