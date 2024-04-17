@@ -247,29 +247,6 @@ jobs:
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
 
-      # ----------------------------------------Alibi Explainer Unit Tests------------------------------------------------
-      # load cached alibi venv if cache exists
-      - name: Load cached alibi venv
-        id: cached-alibi-dependencies
-        uses: actions/cache@v4
-        with:
-          path: python/alibiexplainer/.venv
-          key: alibi-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/alibiexplainer/poetry.lock') }}
-        # install alibi explainer dependencies if cache does not exist
-      - name: Install alibi dependencies
-        run: |
-          cd python/alibiexplainer
-          make install_dependencies
-      - name: Install alibiexplainer
-        run: |
-          cd python/alibiexplainer
-          make dev_install
-      - name: Test alibiexplainer
-        run: |
-          cd python
-          source alibiexplainer/.venv/bin/activate
-          pytest --cov=alibiexplainer ./alibiexplainer
-
       # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
       # load cached huggingface venv if cache exists
       - name: Load cached huggingface venv

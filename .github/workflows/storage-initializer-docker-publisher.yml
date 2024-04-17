@@ -15,6 +15,7 @@ on:
 
 env:
   IMAGE_NAME: storage-initializer
+  HF_IMAGE_NAME: hf-storage-initializer
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,6 +43,16 @@ jobs:
           platforms: linux/amd64, linux/arm64/v8
           context: python
           file: python/storage-initializer.Dockerfile
+          push: false
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false
+
+      - name: Run tests
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64, linux/arm64/v8
+          context: python
+          file: python/hf-storage-initializer.Dockerfile
           push: false
           # https://github.com/docker/buildx/issues/1533
           provenance: false
@@ -74,9 +85,11 @@ jobs:
       - name: Export version variable
         run: |
           IMAGE_ID=kserve/$IMAGE_NAME
+          HF_IMAGE_ID=kserve/$HF_IMAGE_NAME
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          HF_IMAGE_ID=$(echo $HF_IMAGE_ID | tr '[A-Z]' '[a-z]')
 
           # Strip git ref prefix from version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
@@ -89,6 +102,7 @@ jobs:
 
           echo VERSION=$VERSION >> $GITHUB_ENV
           echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
+          echo HF_IMAGE_ID=$HF_IMAGE_ID >> $GITHUB_ENV
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -100,3 +114,15 @@ jobs:
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533
           provenance: false
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64, linux/arm64/v8
+          context: python
+          file: python/hf-storage-initializer.Dockerfile
+          push: true
+          tags: ${{ env.HF_IMAGE_NAME }}:${{ env.VERSION }}
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false
+  
