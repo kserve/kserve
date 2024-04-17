@@ -15,6 +15,7 @@
 from http import HTTPStatus
 from fastapi.responses import JSONResponse
 from kserve.logging import logger
+from .types.openapi import Error, ErrorResponse
 
 
 class OpenAIError(Exception):
@@ -31,7 +32,25 @@ class OpenAIError(Exception):
 
 async def openai_error_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
-    return JSONResponse(
+    response = create_error_response(
+        message=str(exc),
+        err_type=type(exc).__name__,
         status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-        content={"error": f"{type(exc).__name__} : {str(exc)}"},
     )
+
+    return JSONResponse(
+        status_code=int(response.error.code),
+        content=response.dict(),
+    )
+
+
+def create_error_response(
+    message: str,
+    err_type: str = "BadRequestError",
+    param: str = "",
+    status_code: HTTPStatus = HTTPStatus.BAD_REQUEST,
+) -> ErrorResponse:
+    error = Error(
+        message=message, type=err_type, param=param, code=str(status_code.value)
+    )
+    return ErrorResponse(error=error)
