@@ -179,3 +179,200 @@ def test_huggingface_v2_generate():
     )
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.llm
+def test_huggingface_v2_sequence_classification():
+    service_name = "hf-bert-sequence-v2"
+    protocol_version = "v2"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="huggingface",
+            ),
+            protocol_version=protocol_version,
+            args=[
+                "--model_id",
+                "textattack/bert-base-uncased-yelp-polarity",
+                "--model_revision",
+                "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
+                "--tokenizer_revision",
+                "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
+                "--disable_vllm",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = predict(
+        service_name,
+        "./data/bert_sequence_classification_v2.json",
+        protocol_version=protocol_version,
+    )
+    assert res["outputs"][0]["data"] == [1]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.llm
+def test_huggingface_v1_fill_mask():
+    service_name = "hf-bert-fill-mask-v2"
+    protocol_version = "v1"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="huggingface",
+            ),
+            protocol_version=protocol_version,
+            args=[
+                "--model_id",
+                "bert-base-uncased",
+                "--disable_vllm",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = predict(
+        service_name, "./data/bert_fill_mask_v1.json", protocol_version=protocol_version
+    )
+    assert res["predictions"] == ["paris", "france"]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.llm
+def test_huggingface_v2_token_classification():
+    service_name = "hf-bert-token-classification-v2"
+    protocol_version = "v2"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="huggingface",
+            ),
+            protocol_version=protocol_version,
+            args=[
+                "--model_id",
+                "dbmdz/bert-large-cased-finetuned-conll03-english",
+                "--model_revision",
+                "4c534963167c08d4b8ff1f88733cf2930f86add0",
+                "--tokenizer_revision",
+                "4c534963167c08d4b8ff1f88733cf2930f86add0",
+                "--disable_special_tokens",
+                "--disable_vllm",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = predict(
+        service_name,
+        "./data/bert_token_classification_v2.json",
+        protocol_version=protocol_version,
+    )
+    assert res["outputs"][0]["data"] == [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.llm
+def test_huggingface_v2_text_2_text():
+    service_name = "hf-t5-small-v2"
+    protocol_version = "v2"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="huggingface",
+            ),
+            protocol_version=protocol_version,
+            args=[
+                "--model_id",
+                "t5-small",
+                "--disable_vllm",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = predict(
+        service_name, "./data/t5_small_v2_input.json", protocol_version=protocol_version
+    )
+    assert res["outputs"][0]["data"] == ["Das ist für Deutschland"]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
