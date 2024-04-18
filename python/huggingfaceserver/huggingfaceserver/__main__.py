@@ -108,7 +108,9 @@ parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
 )
 parser.add_argument(
-    "--return_probabilities", required=False, default=None, help="Return all probabilities"
+    "--return_probabilities",
+    action="store_true",
+    help="Return all probabilities",
 )
 
 parser = maybe_add_vllm_cli_parser(parser)
