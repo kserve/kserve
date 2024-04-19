@@ -2699,6 +2699,13 @@
     "v1beta1.IngressConfig": {
       "type": "object",
       "properties": {
+        "additionalIngressDomains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
         "disableIngressCreation": {
           "type": "boolean"
         },
