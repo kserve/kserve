@@ -54,7 +54,6 @@ from .v2_datamodels import (
     ListModelsResponse,
 )
 from .v2_endpoints import V2Endpoints
-from .openai_model import OpenAIModel
 
 
 async def metrics_handler(request: Request) -> Response:
