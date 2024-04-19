@@ -9,7 +9,7 @@ ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.7.1
 
 # Install vllm
-ARG VLLM_VERSION=0.2.7
+ARG VLLM_VERSION=0.4.0.post1
 
 RUN apt-get update -y && apt-get install gcc python3.10-venv python3-dev -y
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}

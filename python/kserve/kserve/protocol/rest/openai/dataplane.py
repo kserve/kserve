@@ -14,12 +14,16 @@
 
 from typing import AsyncIterator, Dict, Optional, Union
 
-from openai.types import Completion, CompletionCreateParams
-from openai.types.chat import ChatCompletion, ChatCompletionChunk
-from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionRequest,
+    CreateChatCompletionResponse as ChatCompletion,
+    CreateChatCompletionStreamResponse as ChatCompletionChunk,
+    CreateCompletionRequest,
+    CreateCompletionResponse as Completion,
+)
 
 from ...dataplane import DataPlane
-from .openai_model import OpenAIModel
+from .openai_model import OpenAIModel, CompletionRequest
 
 
 class OpenAIDataPlane(DataPlane):
@@ -28,14 +32,14 @@ class OpenAIDataPlane(DataPlane):
     async def create_completion(
         self,
         model_name: str,
-        request: CompletionCreateParams,
+        request: CreateCompletionRequest,
         headers: Optional[Dict[str, str]] = None,
     ) -> Union[Completion, AsyncIterator[Completion]]:
         """Generate the text with the provided text prompt.
 
         Args:
             model_name (str): Model name.
-            request (CompletionCreateParams): Params to create a completion.
+            request (CreateCompletionRequest): Params to create a completion.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
@@ -47,19 +51,25 @@ class OpenAIDataPlane(DataPlane):
         model = self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support completion")
-        return await model.create_completion(request)
+
+        completion_request = CompletionRequest(
+            request_id=headers.get("x-request-id", None),
+            params=request,
+            context=headers,
+        )
+        return await model.create_completion(completion_request)
 
     async def create_chat_completion(
         self,
         model_name: str,
-        request: ChatCompletionCreateParams,
+        request: CreateChatCompletionRequest,
         headers: Optional[Dict[str, str]] = None,
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         """Generate the text with the provided text prompt.
 
         Args:
             model_name (str): Model name.
-            request (ChatCompletionCreateParams): Params to create a chat completion.
+            request (CreateChatCompletionRequest): Params to create a chat completion.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
@@ -71,4 +81,10 @@ class OpenAIDataPlane(DataPlane):
         model = self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support chat completion")
-        return await model.create_chat_completion(request)
+
+        completion_request = CompletionRequest(
+            request_id=headers.get("x-request-id", None),
+            params=request,
+            context=headers,
+        )
+        return await model.create_chat_completion(completion_request)

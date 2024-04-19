@@ -28,7 +28,7 @@ from .async_generate_stream import AsyncGenerateStream
 from .task import ARCHITECTURES_2_TASK, MLTask
 from kserve.logging import logger
 import pathlib
-from typing import Dict, Union, Any, AsyncIterator, Optional
+from typing import Dict, Union, Any, AsyncIterator, Iterable, Optional
 
 from kserve.errors import InferenceError
 from kserve.storage import Storage
@@ -38,11 +38,21 @@ from kserve.utils.utils import get_predict_response, get_predict_input, from_np_
 from kserve import Model
 import torch
 from accelerate import init_empty_weights
+from kserve.protocol.rest.openai import (
+    ChatCompletionRequestMessage,
+    ChatPrompt,
+    CompletionRequest,
+    OpenAIChatAdapterModel,
+)
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateCompletionResponse as Completion,
+)
 
 try:
     from vllm.sampling_params import SamplingParams
     from vllm.engine.async_llm_engine import AsyncLLMEngine
     from vllm.model_executor.models import ModelRegistry
+    from .vllm_completions import OpenAIServingCompletion
 
     _vllm = True
 except ImportError:
@@ -65,7 +75,9 @@ from transformers import (
 VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
 
-class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
+class HuggingfaceModel(
+    Model, OpenAIChatAdapterModel
+):  # pylint:disable=c-extension-no-member
     def __init__(
         self,
         model_name: str,
@@ -136,6 +148,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                 self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
                 self.vllm_engine = AsyncLLMEngine.from_engine_args(
                     self.vllm_engine_args
+                )
+                self.openai_serving_completion = OpenAIServingCompletion(
+                    self.vllm_engine
                 )
                 self.ready = True
                 return self.ready
@@ -318,6 +333,28 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
                     model_name=self.name,
                     details=generate_details,
                 )
+
+    def apply_chat_template(
+        self,
+        messages: Iterable[ChatCompletionRequestMessage,],
+    ) -> ChatPrompt:
+        """
+        Given a list of chat completion messages, convert them to a prompt.
+        """
+        return ChatPrompt(
+            prompt=self.openai_serving_completion.apply_chat_template(messages)
+        )
+
+    async def create_completion(
+        self, request: CompletionRequest
+    ) -> Union[Completion, AsyncIterator[Completion]]:
+
+        if self.vllm_engine:
+            return await self.openai_serving_completion.create_completion(request)
+
+        else:
+            # TODO - fallback flow
+            raise NotImplementedError("completion is not implemented")
 
     async def predict(
         self,
