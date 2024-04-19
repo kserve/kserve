@@ -93,7 +93,8 @@ args, _ = parser.parse_known_args()
 
 
 class ModelServer:
-    def __init__(self, http_port: int = args.http_port,
+    def __init__(self,
+                 http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers,
                  max_threads: int = args.max_threads,
@@ -151,36 +152,17 @@ class ModelServer:
         if self.enable_grpc:
             if self.secure_grpc_server:
                 server_credentials = []
-                if type(self.grpc_ssl_key) == str:
-                    ssl_key_file = open(self.grpc_ssl_key, 'rb').read()
-                    server_credentials.append(ssl_key_file)
-                elif type(self.grpc_ssl_key) == bytes:
-                    server_credentials.append(self.grpc_ssl_key)
-                else:
-                    raise Exception(
-                        "SSL key must be of type string (file path to cert) or bytes (raw cert).")
-                if type(self.grpc_ssl_cert) == str:
-                    ssl_cert_file = open(self.grpc_ssl_cert, 'rb').read()
-                    server_credentials.append(ssl_cert_file)
-                elif type(self.grpc_ssl_cert) == bytes:
-                    server_credentials.append(self.grpc_ssl_cert)
-                else:
-                    raise Exception(
-                        "SSL cert must be of type string (file path to cert) or bytes (raw cert).")
-                if type(self.grpc_ssl_ca_cert) == str:
-                    ssl_ca_cert_file = open(self.grpc_ssl_ca_cert, 'rb').read()
-                    server_credentials.append(ssl_ca_cert_file)
-                elif type(self.grpc_ssl_ca_cert) == bytes:
-                    server_credentials.append(self.grpc_ssl_ca_cert)
-                else:
-                    raise Exception(
-                        "SSL CA cert must be of type string (file path to cert) or bytes (raw cert).")
-
+                ssl_key = utils.parse_grpc_server_credentials(self.grpc_ssl_key)
+                server_credentials.append(ssl_key)
+                ssl_cert = utils.parse_grpc_server_credentials(self.grpc_ssl_cert)
+                server_credentials.append(ssl_cert)
+                ssl_ca_cert = utils.parse_grpc_server_credentials(self.grpc_ssl_ca_cert)
+                server_credentials.append(ssl_ca_cert)
                 self._grpc_server = GRPCServer(grpc_port, self.dataplane,
-                                                self.model_repository_extension,
-                                                secure_server=self.secure_grpc_server,
-                                                grpc_secure_server_credentials=server_credentials
-                                                )
+                                               self.model_repository_extension,
+                                               secure_server=self.secure_grpc_server,
+                                               grpc_secure_server_credentials=server_credentials
+                                               )
             else:
                 self._grpc_server = GRPCServer(grpc_port, self.dataplane,
                                                 self.model_repository_extension)
