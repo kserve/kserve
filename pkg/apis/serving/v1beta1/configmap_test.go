@@ -87,10 +87,29 @@ func TestNewIngressConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: `{
+				"ingressGateway": "knative-serving/knative-ingress-gateway",
+				"ingressService": "test-destination",
+				"localGateway": "knative-serving/knative-local-gateway",
+				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
+                "urlScheme": "https",
+                "ingressDomain": "example.com",
+                "additionalIngressDomains": ["other-example.com", "other-example-second.com"]
+			}`,
+		},
 	})
 	ingressCfg, err := NewIngressConfig(clientset)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
+
+	g.Expect(ingressCfg.IngressGateway).To(gomega.Equal("knative-serving/knative-ingress-gateway"))
+	g.Expect(ingressCfg.IngressServiceName).To(gomega.Equal("test-destination"))
+	g.Expect(ingressCfg.LocalGateway).To(gomega.Equal("knative-serving/knative-local-gateway"))
+	g.Expect(ingressCfg.LocalGatewayServiceName).To(gomega.Equal("knative-local-gateway.istio-system.svc.cluster.local"))
+	g.Expect(ingressCfg.UrlScheme).To(gomega.Equal("https"))
+	g.Expect(ingressCfg.IngressDomain).To(gomega.Equal("example.com"))
+	g.Expect(*ingressCfg.AdditionalIngressDomains).To(gomega.Equal([]string{"other-example.com", "other-example-second.com"}))
 }
 
 func TestNewDeployConfig(t *testing.T) {
