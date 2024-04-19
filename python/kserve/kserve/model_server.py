@@ -20,7 +20,7 @@ import multiprocessing
 import signal
 import socket
 from multiprocessing import Process
-from typing import Dict, List, Optional, Union, Callable, Any, IO
+from typing import Any, Callable, Dict, List, Optional, Union, IO
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment
