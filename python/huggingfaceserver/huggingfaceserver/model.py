@@ -98,7 +98,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.vllm_engine_args = engine_args
         self.use_vllm = not kwargs.get("disable_vllm", False) if _vllm else False
         self.ready = False
-        self.dtype = kwargs.get("dtype","bfloat16")
+        self.dtype = kwargs.get("dtype", "float16")
 
     @staticmethod
     def infer_task_from_model_architecture(model_config: str):
@@ -180,9 +180,9 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
             hf_dtype_map = {
-                "float32":torch.float32,
-                "float16":torch.float16,
-                "bfloat16":torch.bfloat16
+                "float32": torch.float32,
+                "float16": torch.float16,
+                "bfloat16": torch.bfloat16
             }
             self.dtype = hf_dtype_map[self.dtype]
             if self.task == MLTask.sequence_classification.value:
