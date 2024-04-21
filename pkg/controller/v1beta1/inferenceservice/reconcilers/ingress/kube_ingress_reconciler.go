@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -118,7 +119,7 @@ func generateRule(ingressHost string, componentName string, path string, port in
 
 func generateMetadata(isvc *v1beta1.InferenceService,
 	componentType constants.InferenceServiceComponent, name string) metav1.ObjectMeta {
-	//get annotations from isvc
+	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
@@ -161,7 +162,8 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 	var rules []netv1.IngressRule
 	existing := &corev1.Service{}
 	predictorName := constants.PredictorServiceName(isvc.Name)
-	if isvc.Spec.Transformer != nil {
+	switch {
+	case isvc.Spec.Transformer != nil:
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:   v1beta1.IngressReady,
@@ -196,7 +198,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		// :predict routes to the transformer when there are both predictor and transformer
 		rules = append(rules, generateRule(host, transformerName, "/", constants.CommonDefaultHttpPort))
 		rules = append(rules, generateRule(transformerHost, predictorName, "/", constants.CommonDefaultHttpPort))
-	} else if isvc.Spec.Explainer != nil {
+	case isvc.Spec.Explainer != nil:
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:   v1beta1.IngressReady,
@@ -222,7 +224,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		// :predict routes to the predictor when there is only predictor and explainer
 		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
 		rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
-	} else {
+	default:
 		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
@@ -233,7 +235,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		}
 		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
 	}
-	//add predictor rule
+	// add predictor rule
 	predictorHost, err := generateIngressHost(ingressConfig, isvc, string(constants.Predictor), false, predictorName)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating predictor ingress host: %w", err)
@@ -279,7 +281,7 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		if err != nil {
 			return err
 		}
-		//reconcile ingress
+		// reconcile ingress
 		existingIngress := &netv1.Ingress{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{
 			Namespace: isvc.Namespace,

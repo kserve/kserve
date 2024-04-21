@@ -29,10 +29,6 @@ jobs:
         run: |
           go get -v -t -d ./...
 
-      - name: Go lint
-        run: |
-          make fmt
-
       - name: Test
         id: test
         run: |

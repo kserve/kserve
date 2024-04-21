@@ -40,7 +40,6 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 			Name:  AWSEndpointUrl,
 			Value: s3EndpointUrl,
 		})
-
 	} else if s3Config.S3Endpoint != "" {
 		s3EndpointUrl := "https://" + s3Config.S3Endpoint
 		if s3Config.S3UseHttps == "0" {
@@ -58,7 +57,6 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 			Name:  AWSEndpointUrl,
 			Value: s3EndpointUrl,
 		})
-
 	}
 
 	// For each variable, prefer the value from the annotation, otherwise default to the value from the inferenceservice configmap if set.

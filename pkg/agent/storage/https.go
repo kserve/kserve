@@ -87,30 +87,33 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 		return fmt.Errorf("failed to make a request: %w", err)
 	}
 
-	defer func(Body io.ReadCloser) {
-		closeErr := Body.Close()
-		if closeErr != nil {
-			log.Error(closeErr, "failed to close body")
+	defer func() {
+		if resp.Body != nil {
+			closeErr := resp.Body.Close()
+			if closeErr != nil {
+				log.Error(closeErr, "failed to close body")
+			}
 		}
-	}(resp.Body)
+	}()
+
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("URI: %s returned a %d response code", h.StorageUri, resp.StatusCode)
 	}
-
 	// Write content into file(s)
 	contentType := resp.Header.Get("Content-type")
 	fileDirectory := filepath.Join(h.ModelDir, h.ModelName)
 
-	if strings.Contains(contentType, "application/zip") {
+	switch {
+	case strings.Contains(contentType, "application/zip"):
 		if err := extractZipFiles(resp.Body, fileDirectory); err != nil {
 			return err
 		}
-	} else if strings.Contains(contentType, "application/x-tar") || strings.Contains(contentType, "application/x-gtar") ||
-		strings.Contains(contentType, "application/x-gzip") || strings.Contains(contentType, "application/gzip") {
+	case strings.Contains(contentType, "application/x-tar") || strings.Contains(contentType, "application/x-gtar") ||
+		strings.Contains(contentType, "application/x-gzip") || strings.Contains(contentType, "application/gzip"):
 		if err := extractTarFiles(resp.Body, fileDirectory); err != nil {
 			return err
 		}
-	} else {
+	default:
 		paths := strings.Split(h.Uri.Path, "/")
 		fileName := paths[len(paths)-1]
 		fileFullName := filepath.Join(fileDirectory, fileName)

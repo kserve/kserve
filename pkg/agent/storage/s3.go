@@ -18,15 +18,16 @@ package storage
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
-	"os"
-	"path/filepath"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"strings"
 )
 
 type S3Provider struct {

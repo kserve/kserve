@@ -75,7 +75,7 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 		}
 	}
 
-	//Ensure that we set proper values
+	// Ensure that we set proper values
 	resourceDefaults := []string{agentConfig.MemoryRequest,
 		agentConfig.MemoryLimit,
 		agentConfig.CpuRequest,
@@ -92,7 +92,6 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 }
 
 func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
-
 	loggerConfig := &LoggerConfig{}
 	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
@@ -101,7 +100,7 @@ func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
 		}
 	}
 
-	//Ensure that we set proper values for CPU/Memory Limit/Request
+	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{loggerConfig.MemoryRequest,
 		loggerConfig.MemoryLimit,
 		loggerConfig.CpuRequest,
@@ -211,7 +210,6 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		}
 
 		if container.Name == "kserve-container" {
-
 			containerPort := constants.InferenceServiceDefaultHttpPort
 			if len(container.Ports) > 0 {
 				containerPort = fmt.Sprint(container.Ports[0].ContainerPort)
@@ -317,9 +315,9 @@ func mountModelDir(pod *v1.Pod) error {
 				EmptyDir: &v1.EmptyDirVolumeSource{},
 			},
 		}
-		//Mount the model dir into agent container
+		// Mount the model dir into agent container
 		mountVolumeToContainer(constants.AgentContainerName, pod, modelDirVolume, constants.ModelDir)
-		//Mount the model dir into model server container
+		// Mount the model dir into model server container
 		mountVolumeToContainer(constants.InferenceServiceContainerName, pod, modelDirVolume, constants.ModelDir)
 		return nil
 	}
@@ -372,6 +370,6 @@ func appendVolume(existingVolumes []v1.Volume, additionalVolume v1.Volume) []v1.
 			return existingVolumes
 		}
 	}
-	updatedVolumes := append(existingVolumes, additionalVolume)
-	return updatedVolumes
+	existingVolumes = append(existingVolumes, additionalVolume)
+	return existingVolumes
 }

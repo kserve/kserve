@@ -54,7 +54,7 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 		if _, ok := secret.Data[legacyDataKey]; ok {
 			dataKey = legacyDataKey
 		}
-		//Leave out the AzureClientSecret env var if not defined as Data in the secret
+		// Leave out the AzureClientSecret env var if not defined as Data in the secret
 		if _, ok := secret.Data[dataKey]; !(!ok && dataKey == AzureClientSecret) {
 			envs = append(envs, v1.EnvVar{
 				Name: k,

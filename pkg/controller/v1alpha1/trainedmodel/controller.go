@@ -124,7 +124,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	} else {
 		// The object is being deleted
 		if utils.Includes(tm.GetFinalizers(), tmFinalizerName) {
-			//reconcile configmap to remove the model
+			// reconcile configmap to remove the model
 			if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
 				return reconcile.Result{}, err
 			}
