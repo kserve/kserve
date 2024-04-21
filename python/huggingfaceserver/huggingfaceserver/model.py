@@ -98,7 +98,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         self.vllm_engine_args = engine_args
         self.use_vllm = not kwargs.get("disable_vllm", False) if _vllm else False
         self.ready = False
-        self.dtype = kwargs.get("dtype", "float16")
+        self.dtype = kwargs.get("dtype", "float16") # This parameter is used both by HF and vLLM runtimes. This will ensure consistency b/w the two.
 
     @staticmethod
     def infer_task_from_model_architecture(model_config: str):
@@ -178,6 +178,7 @@ class HuggingfaceModel(Model):  # pylint:disable=c-extension-no-member
         logger.info(f"successfully loaded tokenizer for task: {self.task}")
 
         # load huggingface model using from_pretrained for inference mode
+        # Convert dtype from string to torch type for HF
         if not self.predictor_host:
             hf_dtype_map = {
                 "float32": torch.float32,
