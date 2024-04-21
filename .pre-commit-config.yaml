@@ -10,7 +10,7 @@ repos:
     rev: 24.3.0
     hooks:
       - id: black
-        args: [--check, --diff, --config, python/pyproject.toml]
+        args: [--config, python/pyproject.toml]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.2.3
     hooks:
