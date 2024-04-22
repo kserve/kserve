@@ -16,7 +16,7 @@ import asyncio
 import pathlib
 import uuid
 from functools import partial
-from typing import Dict, Union, Any, AsyncIterator, Optional, List
+from typing import Dict, Union, Any, AsyncIterator, Optional, List, Iterable
 
 import numpy as np
 import torch
@@ -47,25 +47,6 @@ from kserve.protocol.rest.v2_datamodels import (
     Details,
 )
 from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
-from kserve.storage import Storage
-from kserve.storage.storage import MODEL_MOUNT_DIRS
-from kserve.utils.numpy_codec import from_triton_type_to_np_type
-from kserve.utils.utils import get_predict_response, get_predict_input, from_np_dtype
-
-from .async_generate_stream import AsyncGenerateStream
-from .task import ARCHITECTURES_2_TASK, MLTask
-from kserve.logging import logger
-import pathlib
-from typing import Dict, Union, Any, AsyncIterator, Iterable, Optional
-
-from kserve.errors import InferenceError
-from kserve.storage import Storage
-
-from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
-from kserve.utils.utils import get_predict_response, get_predict_input, from_np_dtype
-from kserve import Model
-import torch
-from accelerate import init_empty_weights
 from kserve.protocol.rest.openai import (
     ChatCompletionRequestMessage,
     ChatPrompt,
@@ -75,6 +56,13 @@ from kserve.protocol.rest.openai import (
 from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse as Completion,
 )
+from kserve.storage import Storage
+from kserve.storage.storage import MODEL_MOUNT_DIRS
+from kserve.utils.numpy_codec import from_triton_type_to_np_type
+from kserve.utils.utils import get_predict_response, get_predict_input, from_np_dtype
+
+from .async_generate_stream import AsyncGenerateStream
+from .task import ARCHITECTURES_2_TASK, MLTask
 
 try:
     from vllm.sampling_params import SamplingParams
@@ -105,9 +93,7 @@ except ImportError:
 VLLM_USE_GENERATE_ENDPOINT_ERROR = "Use /generate endpoint for vllm runtime"
 
 
-class HuggingfaceModel(
-    Model, OpenAIChatAdapterModel
-):
+class HuggingfaceModel(Model, OpenAIChatAdapterModel):
     def __init__(
         self,
         model_name: str,
