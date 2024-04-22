@@ -19,6 +19,7 @@ package ingress
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"text/template"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -61,4 +62,9 @@ func GenerateDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1bet
 	}
 
 	return buf.String(), nil
+}
+
+func IsValidHostURL(hostURL string) bool {
+	_, err := url.ParseRequestURI(hostURL)
+	return err == nil
 }
