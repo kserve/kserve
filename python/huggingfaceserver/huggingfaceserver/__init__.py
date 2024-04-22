@@ -12,7 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from enum import Enum, auto as auto_value
 from .huggingface_model_repository import HuggingfaceModelRepository
 from .model import HuggingfaceModel
+
+
+class Backend(str, Enum):
+    """
+    Backend defines the framework used to load a model
+    """
+
+    auto = auto_value()
+    huggingface = auto_value()
+    vllm = auto_value()
+
 
 __all__ = ["HuggingfaceModelRepository", "HuggingfaceModel"]

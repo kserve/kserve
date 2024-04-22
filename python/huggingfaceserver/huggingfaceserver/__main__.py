@@ -23,7 +23,7 @@ from kserve.storage import Storage
 
 from huggingfaceserver.task import MLTask
 
-from . import HuggingfaceModel, HuggingfaceModelRepository
+from . import HuggingfaceModel, HuggingfaceModelRepository, Backend
 from .vllm.utils import (
     build_vllm_engine_args,
     infer_vllm_supported_from_model_architecture,
@@ -83,8 +83,12 @@ parser.add_argument(
     help="the tensor input names passed to the model",
 )
 parser.add_argument("--task", required=False, help="The ML task name")
+available_backends = ", ".join(f"'{b.name}'" for b in Backend)
 parser.add_argument(
-    "--disable_vllm", action="store_true", help="Do not use vllm as the default runtime"
+    "--backend",
+    default="auto",
+    type=lambda t: Backend[t],
+    help=f"the backend to use to load the model. Can be one of {available_backends}",
 )
 parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
@@ -104,14 +108,18 @@ if __name__ == "__main__":
     if model_id_or_path is None:
         raise ValueError("You must provide a model_id or model_dir")
 
+    if args.backend == Backend.vllm and not vllm_available():
+        raise RuntimeError("Backend is set to 'vllm' but vLLM is not available")
+
     if (
-        vllm_available
-        and not args.disable_vllm
+        (args.backend == Backend.vllm or args.backend == Backend.auto)
+        and vllm_available()
         and infer_vllm_supported_from_model_architecture(model_id_or_path) is not None
     ):
         from .vllm.vllm_model import VLLMModel
 
         args.model = args.model_dir or args.model_id
+        args.revision = args.model_revision
         engine_args = build_vllm_engine_args(args)
         model = VLLMModel(args.model_name, engine_args)
 
@@ -150,7 +158,7 @@ if __name__ == "__main__":
     except ModelMissingError:
         logging.error(
             f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
-            f"trying loading from model repository."
+            "trying loading from model repository."
         )
         kserve.ModelServer(
             registered_models=HuggingfaceModelRepository(args.model_dir)
