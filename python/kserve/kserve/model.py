@@ -26,11 +26,15 @@ from httpx import HTTPStatusError
 
 from .errors import InvalidInput
 from .logging import logger, trace_logger
-from .metrics import (EXPLAIN_HIST_TIME, POST_HIST_TIME, PRE_HIST_TIME,
-                      PREDICT_HIST_TIME, get_labels)
+from .metrics import (
+    EXPLAIN_HIST_TIME,
+    POST_HIST_TIME,
+    PRE_HIST_TIME,
+    PREDICT_HIST_TIME,
+    get_labels,
+)
 from .protocol.grpc import grpc_predict_v2_pb2_grpc
-from .protocol.grpc.grpc_predict_v2_pb2 import (ModelInferRequest,
-                                                ModelInferResponse)
+from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 from .protocol.infer_type import InferRequest, InferResponse
 from .protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
 
@@ -56,6 +60,10 @@ class BaseKServeModel(ABC):
         """
         self.name = name
         self.ready = False
+
+    def stop(self):
+        """Stop handler can be overridden to perform model teardown"""
+        pass
 
 
 class InferenceVerb(Enum):
@@ -259,10 +267,6 @@ class Model(BaseKServeModel):
         """
         self.ready = True
         return self.ready
-
-    def unload(self):
-        """Unload handler can be overridden to perform model teardown"""
-        pass
 
     def get_input_types(self) -> List[Dict]:
         # Override this function to return appropriate input format expected by your model.

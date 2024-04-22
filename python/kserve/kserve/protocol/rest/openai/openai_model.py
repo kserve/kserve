@@ -13,23 +13,27 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import (AsyncIterator, Callable, Dict, Iterable, Optional, Union,
-                    cast)
+from typing import AsyncIterator, Callable, Dict, Iterable, Optional, Union, cast
 
 from pydantic import BaseModel
 
-from kserve.protocol.rest.openai.types import (ChatCompletion,
-                                               ChatCompletionChoice,
-                                               ChatCompletionChoiceLogprobs,
-                                               ChatCompletionChunk,
-                                               ChatCompletionRequestMessage,
-                                               ChatCompletionResponseMessage,
-                                               ChatCompletionTokenLogprob,
-                                               ChoiceDelta, ChunkChoice,
-                                               Completion, CompletionChoice,
-                                               CreateChatCompletionRequest,
-                                               CreateCompletionRequest,
-                                               Logprobs, TopLogprob)
+from kserve.protocol.rest.openai.types import (
+    ChatCompletion,
+    ChatCompletionChoice,
+    ChatCompletionChoiceLogprobs,
+    ChatCompletionChunk,
+    ChatCompletionRequestMessage,
+    ChatCompletionResponseMessage,
+    ChatCompletionTokenLogprob,
+    ChoiceDelta,
+    ChunkChoice,
+    Completion,
+    CompletionChoice,
+    CreateChatCompletionRequest,
+    CreateCompletionRequest,
+    Logprobs,
+    TopLogprob,
+)
 
 from ....errors import InvalidInput
 from ....model import BaseKServeModel

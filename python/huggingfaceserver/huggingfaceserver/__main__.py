@@ -55,7 +55,10 @@ parser.add_argument(
     help="Huggingface tokenizer revision",
 )
 parser.add_argument(
-    "--max_length", type=int, default=16, help="max sequence length for the tokenizer"
+    "--max_length",
+    type=int,
+    required=False,
+    help="max sequence length for the tokenizer",
 )
 parser.add_argument(
     "--disable_lower_case",
@@ -136,14 +139,12 @@ if __name__ == "__main__":
         )
     try:
         model.load()
+        kserve.ModelServer().start([model] if model.ready else [])
     except ModelMissingError:
         logging.error(
             f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
             f"trying loading from model repository."
         )
-    if not args.model_id:
         kserve.ModelServer(
             registered_models=HuggingfaceModelRepository(args.model_dir)
         ).start([model] if model.ready else [])
-    else:
-        kserve.ModelServer().start([model] if model.ready else [])

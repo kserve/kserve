@@ -17,9 +17,12 @@ from typing import Any, AsyncIterator, Iterable, Optional, Union
 import torch
 from kserve import Model
 from kserve.model import PredictorConfig
-from kserve.protocol.rest.openai import (ChatCompletionRequestMessage,
-                                         ChatPrompt, CompletionRequest,
-                                         OpenAIChatAdapterModel)
+from kserve.protocol.rest.openai import (
+    ChatCompletionRequestMessage,
+    ChatPrompt,
+    CompletionRequest,
+    OpenAIChatAdapterModel,
+)
 from kserve.protocol.rest.openai.types import Completion
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 

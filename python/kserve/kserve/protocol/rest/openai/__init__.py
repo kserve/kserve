@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .openai_model import (ChatCompletionRequestMessage, ChatPrompt,
-                           CompletionRequest, OpenAIChatAdapterModel,
-                           OpenAIModel)
+from .openai_model import (
+    ChatCompletionRequestMessage,
+    ChatPrompt,
+    CompletionRequest,
+    OpenAIChatAdapterModel,
+    OpenAIModel,
+)
 
 __all__ = [
     "OpenAIModel",
     "OpenAIChatAdapterModel",
-    "OpenAIProxyModel",
     "ChatPrompt",
     "CompletionRequest",
     "ChatCompletionRequestMessage",

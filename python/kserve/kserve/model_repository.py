@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Optional, Union
-from .model import BaseKServeModel
-from ray.serve.handle import DeploymentHandle
 import os
+from typing import Dict, Optional, Union
+
+from ray.serve.handle import DeploymentHandle
+
+from .model import BaseKServeModel
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -74,6 +76,9 @@ class ModelRepository:
 
     def unload(self, name: str):
         if name in self.models:
+            model = self.models[name]
+            if callable(getattr(model, "stop", None)):
+                model.stop()
             del self.models[name]
         else:
             raise KeyError(f"model {name} does not exist")

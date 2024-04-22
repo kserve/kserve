@@ -17,8 +17,7 @@ import pathlib
 import queue
 import time
 from threading import Thread
-from typing import (Any, AsyncIterator, Dict, Iterable, Optional, TypedDict,
-                    Union)
+from typing import Any, AsyncIterator, Dict, Iterable, Optional, TypedDict, Union
 
 import torch
 from accelerate import init_empty_weights
@@ -27,22 +26,40 @@ from kserve.errors import InferenceError
 from kserve.logging import logger
 from kserve.model import PredictorConfig
 from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
-from kserve.protocol.rest.openai import (ChatPrompt, CompletionRequest,
-                                         OpenAIChatAdapterModel)
-from kserve.protocol.rest.openai.types import (ChatCompletionRequestMessage,
-                                               Completion, CompletionChoice,
-                                               CreateCompletionRequest)
-from kserve.utils.utils import (from_np_dtype, generate_uuid,
-                                get_predict_input, get_predict_response)
+from kserve.protocol.rest.openai import (
+    ChatPrompt,
+    CompletionRequest,
+    OpenAIChatAdapterModel,
+)
+from kserve.protocol.rest.openai.types import (
+    ChatCompletionRequestMessage,
+    Completion,
+    CompletionChoice,
+    CreateCompletionRequest,
+)
+from kserve.utils.utils import (
+    from_np_dtype,
+    generate_uuid,
+    get_predict_input,
+    get_predict_response,
+)
 from torch import Tensor
-from transformers import (AutoConfig, AutoModel, AutoTokenizer, BatchEncoding,
-                          GenerationConfig, PreTrainedModel,
-                          PreTrainedTokenizerBase, StoppingCriteriaList,
-                          TensorType, TextIteratorStreamer, set_seed)
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoTokenizer,
+    BatchEncoding,
+    GenerationConfig,
+    PreTrainedModel,
+    PreTrainedTokenizerBase,
+    StoppingCriteriaList,
+    TensorType,
+    TextIteratorStreamer,
+    set_seed,
+)
 
 from .stop_sequence_stopping_criteria import StopSequenceStoppingCriteria
-from .task import (MLTask, get_model_class_for_task,
-                   infer_task_from_model_architecture)
+from .task import MLTask, get_model_class_for_task, infer_task_from_model_architecture
 
 
 class _GenerateRequest(TypedDict):
@@ -211,7 +228,7 @@ class HuggingfaceModel(
         self.ready = True
         return self.ready
 
-    def unload(self):
+    def stop(self):
         # Signal to the background thread that it should shut down
         self._request_queue.put(None)
 

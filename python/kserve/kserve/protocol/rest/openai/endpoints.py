@@ -22,7 +22,9 @@ from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
 
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionRequest, CreateCompletionRequest)
+    CreateChatCompletionRequest,
+    CreateCompletionRequest,
+)
 
 from ....errors import ModelNotReady
 from .dataplane import OpenAIDataPlane

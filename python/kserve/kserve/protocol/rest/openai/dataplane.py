@@ -17,15 +17,17 @@ from typing import AsyncIterator, Union
 from fastapi import Response
 from starlette.datastructures import Headers
 
-from kserve.protocol.rest.openai.types.openapi import \
-    CreateChatCompletionRequest
-from kserve.protocol.rest.openai.types.openapi import \
-    CreateChatCompletionResponse as ChatCompletion
-from kserve.protocol.rest.openai.types.openapi import \
-    CreateChatCompletionStreamResponse as ChatCompletionChunk
+from kserve.protocol.rest.openai.types.openapi import CreateChatCompletionRequest
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionResponse as ChatCompletion,
+)
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionStreamResponse as ChatCompletionChunk,
+)
 from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
-from kserve.protocol.rest.openai.types.openapi import \
-    CreateCompletionResponse as Completion
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateCompletionResponse as Completion,
+)
 
 from ...dataplane import DataPlane
 from .openai_model import ChatCompletionRequest, CompletionRequest, OpenAIModel
