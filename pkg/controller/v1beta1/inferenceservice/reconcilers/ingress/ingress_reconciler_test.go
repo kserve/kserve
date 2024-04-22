@@ -18,6 +18,9 @@ package ingress
 
 import (
 	"fmt"
+	"net/url"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -31,8 +34,6 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
-	"net/url"
-	"testing"
 )
 
 func TestCreateVirtualService(t *testing.T) {
@@ -563,6 +564,127 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName, "my-domain.com"},
+					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Prefix{
+											Prefix: fmt.Sprintf("/serving/%s/%s/", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Exact{
+											Exact: fmt.Sprintf("/serving/%s/%s", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Rewrite: &istiov1beta1.HTTPRewrite{
+								Uri: "/",
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								createHTTPRouteDestination("knative-local-gateway.istio-system.svc.cluster.local"),
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{
+									Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "found predictor status with path template and the additional ingress domains",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:           constants.KnativeIngressGateway,
+				IngressServiceName:       "someIngressServiceName",
+				LocalGateway:             constants.KnativeLocalGateway,
+				LocalGatewayServiceName:  "knative-local-gateway.istio-system.svc.cluster.local",
+				UrlScheme:                "http",
+				IngressDomain:            "my-domain.com",
+				AdditionalIngressDomains: &[]string{"my-additional-domain.com", "my-second-additional-domain.com"},
+				PathTemplate:             "/serving/{{ .Namespace }}/{{ .Name }}",
+				DisableIstioVirtualHost:  false,
+			},
+			useDefault: false,
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
+				Spec: istiov1beta1.VirtualService{
+					Hosts: []string{serviceInternalHostName, serviceHostName, "my-domain.com",
+						"my-additional-domain.com", "my-second-additional-domain.com"},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
