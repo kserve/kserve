@@ -48,6 +48,8 @@ from kserve.protocol.rest.v2_datamodels import (
 )
 from kserve.protocol.infer_type import InferRequest, InferResponse, InferInput
 from kserve.storage import Storage
+from kserve.storage.storage import MODEL_MOUNT_DIRS
+from kserve.utils.numpy_codec import from_triton_type_to_np_type
 from kserve.utils.utils import get_predict_response, get_predict_input, from_np_dtype
 
 from .async_generate_stream import AsyncGenerateStream
@@ -88,7 +90,13 @@ try:
     from pytriton.triton import Triton, TritonConfig, TritonLifecyclePolicy
     from pytriton.proxy.types import Request
     from pytriton.client import AsyncioModelClient
-    from pytriton.model_config import ModelConfig
+    from pytriton.model_config import ModelConfig, Tensor as TritonTensor
+    from tritonclient.grpc.model_config_pb2 import (
+        ModelConfig as ModelConfigGRPC,
+    )
+    import os
+    from google.protobuf import text_format
+    from google.protobuf.json_format import MessageToDict
 
     _triton = True
 except ImportError:
@@ -245,6 +253,50 @@ class HuggingfaceModel(
         logger.info(f"successfully loaded tokenizer for task: {self.task}")
 
         if self.use_triton:
+            model_version = "1"
+            model_repository_path = MODEL_MOUNT_DIRS
+            config_file_path = os.path.join(
+                model_repository_path, self.name, model_version, "config.pbtxt"
+            )
+            if os.path.exists(config_file_path):
+                with open(config_file_path, "r") as f:
+                    config_text = f.read()
+                model_config = ModelConfigGRPC()
+                text_format.Parse(config_text, model_config)
+                config_dict = MessageToDict(model_config)
+                inputs_config = [
+                    TritonTensor(
+                        name=input["name"],
+                        dtype=from_triton_type_to_np_type(input["dataType"]),
+                        shape=input["dims"],
+                        optional=input.get("optional", False),
+                    )
+                    for input in config_dict["input"]
+                ]
+                outputs_config = [
+                    TritonTensor(
+                        name=output["name"],
+                        dtype=from_triton_type_to_np_type(output["dataType"]),
+                        shape=output["dims"],
+                        optional=output.get("optional", False),
+                    )
+                    for output in config_dict["output"]
+                ]
+            else:
+                # Fallback config
+                inputs_config = [
+                    TritonTensor(name="input_ids", dtype=np.int64, shape=(-1, -1)),
+                    TritonTensor(name="attention_mask", dtype=np.int64, shape=(-1, -1)),
+                    TritonTensor(
+                        name="token_type_ids",
+                        dtype=np.int64,
+                        shape=(-1, -1),
+                        optional=True,
+                    ),
+                ]
+                outputs_config = [
+                    TritonTensor(name="outputs", dtype=np.int64, shape=(-1, -1)),
+                ]
             triton_lifecycle_policy = TritonLifecyclePolicy(
                 launch_triton_on_startup=True, local_model_store=True
             )
@@ -255,19 +307,8 @@ class HuggingfaceModel(
             self.triton_server.bind(
                 model_name=self.name,
                 infer_func=self.infer_fn,
-                inputs=[
-                    Tensor(name="input_ids", dtype=np.int64, shape=(-1, -1)),
-                    Tensor(name="attention_mask", dtype=np.int64, shape=(-1, -1)),
-                    Tensor(
-                        name="token_type_ids",
-                        dtype=np.int64,
-                        shape=(-1, -1),
-                        optional=True,
-                    ),
-                ],
-                outputs=[
-                    Tensor(name="outputs", dtype=np.int64, shape=(-1, -1)),
-                ],
+                inputs=inputs_config,
+                outputs=outputs_config,
                 strict=True,
                 config=ModelConfig(batching=False, response_cache=True),
             )
