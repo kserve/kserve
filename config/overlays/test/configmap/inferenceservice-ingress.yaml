@@ -11,7 +11,7 @@ data:
         "localGateway": "knative-serving/knative-local-gateway",
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
         "ingressClassName" : "istio",
-        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+        "domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
         "urlScheme": "http",
         "pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}",
         "ingressDomain": "mydomain.com"

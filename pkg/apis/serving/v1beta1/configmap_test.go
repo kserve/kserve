@@ -58,7 +58,7 @@ func createFakeClient() client.WithWatch {
      				"localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",                                                                                                                             │
      				"ingressDomain"  : "example.com",                                                                                                                                                                           │
      				"ingressClassName" : "istio",                                                                                                                                                                               │
-     				"domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",                                                                                                                                      │
+     				"domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",                                                                                                                                      │
      				"urlScheme": "http"                                                                                                                                                                                         │
  			}`),
 			DeployConfigName: []byte(`{                                                                                                                                                                                                               │
