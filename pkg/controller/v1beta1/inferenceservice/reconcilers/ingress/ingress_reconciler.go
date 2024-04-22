@@ -490,8 +490,16 @@ func probeIngress(url string) (bool, error) {
 	// IngressReadinessUserAgent is the user-agent header value set in probe requests for Ingress status.
 	req.Header.Add(knheader.UserAgentKey, knheader.IngressReadinessUserAgent)
 	resp, err := Transport.RoundTrip(req)
+	defer func(resp *http.Response) {
+		if resp != nil && resp.Body != nil {
+			err := resp.Body.Close()
+			if err != nil {
+				log.Error(err, "Failed to close ingress probe response body")
+			}
+		}
+	}(resp)
 	if err != nil {
-		return isReady, errors.Wrapf(err, "failed to probe ingress %s", target)
+		return false, errors.Wrapf(err, "failed to probe ingress %s", target)
 	}
 	if resp.StatusCode == http.StatusOK {
 		isReady = true
