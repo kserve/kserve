@@ -563,7 +563,7 @@ func TestCreateVirtualService(t *testing.T) {
 			expectedService: &istioclientv1beta1.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
-					Hosts:    []string{serviceInternalHostName, serviceHostName, "my-domain.com"},
+					Hosts:    []string{serviceInternalHostName, serviceHostName, "my-model.test.my-domain.com"},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
@@ -683,8 +683,8 @@ func TestCreateVirtualService(t *testing.T) {
 			expectedService: &istioclientv1beta1.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
-					Hosts: []string{serviceInternalHostName, serviceHostName, "my-domain.com",
-						"my-additional-domain.com", "my-second-additional-domain.com"},
+					Hosts: []string{serviceInternalHostName, serviceHostName, "my-model.test.my-domain.com",
+						"my-model.test.my-additional-domain.com", "my-model.test.my-second-additional-domain.com"},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{

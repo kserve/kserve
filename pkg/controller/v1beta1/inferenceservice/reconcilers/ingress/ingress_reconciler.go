@@ -383,21 +383,21 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			log.Error(err, "Failed to generate URL from pathTemplate")
 			return nil
 		}
-		url := &apis.URL{}
-		url.Path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
-		url.Host = config.IngressDomain
+		apiURL := &apis.URL{}
+		apiURL.Path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
+		apiURL.Host = config.IngressDomain
 		// In this case, we have a path-based URL so we add a path-based rule
 		httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
 			Match: []*istiov1beta1.HTTPMatchRequest{
 				{
 					Uri: &istiov1beta1.StringMatch{
 						MatchType: &istiov1beta1.StringMatch_Prefix{
-							Prefix: url.Path + "/",
+							Prefix: apiURL.Path + "/",
 						},
 					},
 					Authority: &istiov1beta1.StringMatch{
 						MatchType: &istiov1beta1.StringMatch_Regex{
-							Regex: constants.HostRegExp(url.Host),
+							Regex: constants.HostRegExp(apiURL.Host),
 						},
 					},
 					Gateways: []string{config.IngressGateway},
@@ -405,12 +405,12 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 				{
 					Uri: &istiov1beta1.StringMatch{
 						MatchType: &istiov1beta1.StringMatch_Exact{
-							Exact: url.Path,
+							Exact: apiURL.Path,
 						},
 					},
 					Authority: &istiov1beta1.StringMatch{
 						MatchType: &istiov1beta1.StringMatch_Regex{
-							Regex: constants.HostRegExp(url.Host),
+							Regex: constants.HostRegExp(apiURL.Host),
 						},
 					},
 					Gateways: []string{config.IngressGateway},
@@ -431,11 +431,18 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			},
 		})
 		// Include ingressDomain to the domains (both internal and external) derived by KNative
-		hosts = append(hosts, url.Host)
+		hosts = append(hosts, apiURL.Host)
 
 		// Include additional ingressDomain to the domains (both internal and external)
 		if config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
-			hosts = append(hosts, *config.AdditionalIngressDomains...)
+			for _, domain := range *config.AdditionalIngressDomains {
+				host := constants.InferenceServiceHostName(isvc.Name, isvc.Namespace, domain)
+				if !IsValidHostURL(fmt.Sprintf("%s://%s", config.UrlScheme, host)) {
+					log.Error(err, "Failed to get a valid Service Host Name for the domain %s.", domain)
+					return nil
+				}
+				hosts = append(hosts, host)
+			}
 		}
 	}
 
