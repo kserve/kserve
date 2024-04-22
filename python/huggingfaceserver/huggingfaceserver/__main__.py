@@ -71,6 +71,12 @@ parser.add_argument(
     help="the sequences will not be encoded with the special tokens relative to their model",
 )
 parser.add_argument(
+    "--trust_remote_code",
+    action="store_true",
+    default=False,
+    help="allow loading of models and tokenizers with custom code",
+)
+parser.add_argument(
     "--tensor_input_names",
     type=list_of_strings,
     default=None,
@@ -133,6 +139,7 @@ if __name__ == "__main__":
             do_lower_case=not kwargs.get("disable_lower_case", False),
             add_special_tokens=not kwargs.get("disable_special_tokens", False),
             max_length=kwargs["max_length"],
+            trust_remote_code=kwargs["trust_remote_code"],
             tensor_input_names=kwargs.get("tensor_input_names", None),
             return_token_type_ids=kwargs.get("return_token_type_ids", None),
             task=task,
