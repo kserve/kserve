@@ -432,6 +432,11 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		})
 		// Include ingressDomain to the domains (both internal and external) derived by KNative
 		hosts = append(hosts, url.Host)
+
+		// Include additional ingressDomain to the domains (both internal and external)
+		if config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
+			hosts = append(hosts, *config.AdditionalIngressDomains...)
+		}
 	}
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
