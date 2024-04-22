@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import uuid
-from typing import Any, AsyncIterator, Dict, Iterable, Optional, Union
+from typing import Any, AsyncIterator, Iterable, Optional, Union
 
 import torch
 from kserve import Model
@@ -22,11 +21,7 @@ from kserve.protocol.rest.openai import (ChatCompletionRequestMessage,
                                          ChatPrompt, CompletionRequest,
                                          OpenAIChatAdapterModel)
 from kserve.protocol.rest.openai.types import Completion
-from kserve.protocol.rest.v2_datamodels import (GenerateRequest,
-                                                GenerateResponse)
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.model_executor.models import ModelRegistry
-from vllm.sampling_params import SamplingParams
 
 from .vllm_completions import OpenAIServingCompletion
 

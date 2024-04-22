@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from inspect import signature
-from typing import AsyncIterator, Dict, Optional, Union
+from typing import AsyncIterator, Union
 
 from fastapi import Response
 from starlette.datastructures import Headers
@@ -29,7 +28,7 @@ from kserve.protocol.rest.openai.types.openapi import \
     CreateCompletionResponse as Completion
 
 from ...dataplane import DataPlane
-from .openai_model import CompletionRequest, OpenAIModel
+from .openai_model import ChatCompletionRequest, CompletionRequest, OpenAIModel
 
 
 class OpenAIDataPlane(DataPlane):
@@ -90,7 +89,7 @@ class OpenAIDataPlane(DataPlane):
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support chat completion")
 
-        completion_request = CompletionRequest(
+        completion_request = ChatCompletionRequest(
             request_id=headers.get("x-request-id", None),
             params=request,
             context=dict(headers),

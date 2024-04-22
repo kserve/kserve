@@ -18,11 +18,10 @@ import queue
 import time
 from threading import Thread
 from typing import (Any, AsyncIterator, Dict, Iterable, Optional, TypedDict,
-                    Union, cast)
+                    Union)
 
 import torch
 from accelerate import init_empty_weights
-from fastapi import Response
 from kserve import Model
 from kserve.errors import InferenceError
 from kserve.logging import logger
@@ -349,7 +348,7 @@ class HuggingfaceModel(
         if request.params.seed is not None:
             set_seed(request.params.seed)
 
-        echo = bool(cast(CreateCompletionRequest, request.params).echo)
+        echo = bool(request.params.echo)
 
         if request.params.stream:
             streamer = TextIteratorStreamer(
@@ -446,7 +445,7 @@ class HuggingfaceModel(
     async def create_completion(
         self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
-        params = cast(CreateCompletionRequest, request.params)
+        params = request.params
         prompt = params.prompt
         prompts = (
             prompt

@@ -40,10 +40,17 @@ class ChatPrompt(BaseModel):
     prompt: str
 
 
-class CompletionRequest(BaseModel):
+class BaseCompletionRequest(BaseModel):
     request_id: Optional[str] = None
-    params: Union[CreateCompletionRequest, CreateChatCompletionRequest]
     context: Optional[Dict[str, str]] = None  # headers can go in here
+
+
+class CompletionRequest(BaseCompletionRequest):
+    params: CreateCompletionRequest
+
+
+class ChatCompletionRequest(BaseCompletionRequest):
+    params: CreateChatCompletionRequest
 
 
 class OpenAIModel(BaseKServeModel):
@@ -70,7 +77,7 @@ class OpenAIModel(BaseKServeModel):
 
     @abstractmethod
     async def create_chat_completion(
-        self, request: CompletionRequest
+        self, request: ChatCompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         pass
 
@@ -247,7 +254,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
     async def create_chat_completion(
-        self, request: CompletionRequest
+        self, request: ChatCompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         params = request.params
 
