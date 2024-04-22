@@ -22,6 +22,7 @@ import re
 import shutil
 import tarfile
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Dict
@@ -60,6 +61,7 @@ _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 class Storage(object):
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
+        start = time.monotonic()
         Storage._update_with_storage_spec()
         logger.info("Copying contents of %s to local", uri)
 
@@ -105,6 +107,7 @@ class Storage(object):
             )
 
         logger.info("Successfully copied %s to %s", uri, out_dir)
+        logger.info(f"Model downloaded in {time.monotonic() - start} seconds.")
         return out_dir
 
     @staticmethod
