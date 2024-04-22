@@ -232,9 +232,7 @@ class InferenceRequest(BaseModel):
     outputs: Optional[List[RequestOutput]] = None
 
     if is_pydantic_2:
-        model_config = ConfigDict(
-            json_loads=orjson.loads, json_schema_extra=inference_request_schema_extra
-        )
+        model_config = ConfigDict(json_schema_extra=inference_request_schema_extra)
 
     else:
 
@@ -312,9 +310,7 @@ class GenerateRequest(BaseModel):
     parameters: Optional[Parameters] = None
 
     if is_pydantic_2:
-        model_config = ConfigDict(
-            json_loads=orjson.loads, json_schema_extra=generate_request_schema_extra
-        )
+        model_config = ConfigDict(json_schema_extra=generate_request_schema_extra)
     else:
 
         class Config:
@@ -341,9 +337,7 @@ class Token(BaseModel):
     text: str
 
     if is_pydantic_2:
-        model_config = ConfigDict(
-            json_loads=orjson.loads, json_schema_extra=token_schema_extra
-        )
+        model_config = ConfigDict(json_schema_extra=token_schema_extra)
     else:
 
         class Config:
@@ -374,7 +368,6 @@ class Details(BaseModel):
 
     if is_pydantic_2:
         model_config = ConfigDict(
-            json_loads=orjson.loads,
             json_schema_extra=details_schema_extra,
         )
     else:
@@ -405,7 +398,6 @@ class StreamingDetails(BaseModel):
 
     if is_pydantic_2:
         model_config = ConfigDict(
-            json_loads=orjson.loads,
             json_schema_extra=streaming_details_schema_extra,
         )
     else:
@@ -453,7 +445,8 @@ class GenerateResponse(BaseModel):
 
     if is_pydantic_2:
         model_config = ConfigDict(
-            json_loads=orjson.loads, json_schema_extra=generate_response_schema_extra
+            protected_namespaces=(),
+            json_schema_extra=generate_response_schema_extra,
         )
     else:
 
@@ -498,7 +491,7 @@ class GenerateStreamingResponse(BaseModel):
 
     if is_pydantic_2:
         model_config = ConfigDict(
-            json_loads=orjson.loads,
+            protected_namespaces=(),
             json_schema_extra=generate_streaming_response_schema_extra,
         )
 
