@@ -93,9 +93,9 @@ func TestNewIngressConfig(t *testing.T) {
 				"ingressService": "test-destination",
 				"localGateway": "knative-serving/knative-local-gateway",
 				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-                "urlScheme": "https",
-                "ingressDomain": "example.com",
-                "additionalIngressDomains": ["other-example.com", "other-example-second.com"]
+				"urlScheme": "https",
+				"ingressDomain": "example.com",
+				"additionalIngressDomains": ["other-example.com", "other-example-second.com"]
 			}`,
 		},
 	})
