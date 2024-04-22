@@ -239,11 +239,7 @@ class HuggingfaceModel(Model, OpenAIChatAdapterModel):
         logger.info(f"successfully loaded tokenizer for task: {self.task}")
 
         if self.use_triton:
-            model_version = "1"
-            model_repository_path = MODEL_MOUNT_DIRS
-            config_file_path = os.path.join(
-                model_repository_path, self.name, model_version, "config.pbtxt"
-            )
+            config_file_path = os.path.join(MODEL_MOUNT_DIRS, self.name, "config.pbtxt")
             if os.path.exists(config_file_path):
                 with open(config_file_path, "r") as f:
                     config_text = f.read()
@@ -290,9 +286,29 @@ class HuggingfaceModel(Model, OpenAIChatAdapterModel):
                 config=self._triton_config,
                 triton_lifecycle_policy=triton_lifecycle_policy,
             )
+
+            def infer_fn(requests: List[Request]):
+                responses = []
+                for request in requests:
+                    input_tensors = {}
+                    for input_name, input_array in request.data.items():
+                        input_tensors[input_name] = torch.tensor(
+                            input_array, device=self.device
+                        )
+
+                    if (
+                        self.task == MLTask.text2text_generation.value
+                        or self.task == MLTask.text_generation
+                    ):
+                        outputs = self.model.generate(**input_tensors)
+                    else:
+                        outputs = self.model(**input_tensors)
+                    responses.append({"outputs": outputs.numpy()})
+                return responses
+
             self.triton_server.bind(
                 model_name=self.name,
-                infer_func=self.infer_fn,
+                infer_func=infer_fn,
                 inputs=inputs_config,
                 outputs=outputs_config,
                 strict=True,
@@ -483,25 +499,6 @@ class HuggingfaceModel(Model, OpenAIChatAdapterModel):
         else:
             # TODO - fallback flow
             raise NotImplementedError("completion is not implemented")
-
-    async def infer_fn(self, requests: List[Request]):
-        responses = []
-        for request in requests:
-            input_tensors = {}
-            for input_name, input_array in request.data.items():
-                input_tensors[input_name] = torch.tensor(
-                    input_array, device=self.device
-                )
-
-            if (
-                self.task == MLTask.text2text_generation.value
-                or self.task == MLTask.text_generation
-            ):
-                outputs = self.model.generate(**input_tensors)
-            else:
-                outputs = self.model(**input_tensors)
-            responses.append({"outputs": outputs.numpy()})
-        return responses
 
     async def predict(
         self,
