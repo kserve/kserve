@@ -432,16 +432,23 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		})
 		// Include ingressDomain to the domains (both internal and external) derived by KNative
 		hosts = append(hosts, apiURL.Host)
+	}
 
-		// Include additional ingressDomain to the domains (both internal and external)
-		if config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
-			for _, domain := range *config.AdditionalIngressDomains {
-				if !IsValidHostURL(fmt.Sprintf("%s://%s", config.UrlScheme, domain)) {
-					log.Error(err, "The domain name %s in the additionalIngressDomains is not a valid domain name.", domain)
-					continue
-				}
-				hosts = append(hosts, domain)
+	// Include additional ingressDomain to the domains (both internal and external)
+	s := strings.Split(serviceHost, isvc.Namespace)
+	if len(s) > 1 && config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
+		// len(s) > 1 means serviceHost contains the namespace.
+		// If the list of the additionalIngressDomains is not empty, we will append the valid host created by the
+		// additional ingress domain.
+		prefix := fmt.Sprintf("%s%s", s[0], isvc.Namespace)
+		for _, domain := range *config.AdditionalIngressDomains {
+			host := fmt.Sprintf("%s.%s", prefix, domain)
+			if !IsValidHostURL(fmt.Sprintf("%s://%s", config.UrlScheme, host)) {
+				log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not a valid domain name.", domain),
+					"Failed to get the valid host name")
+				continue
 			}
+			hosts = append(hosts, host)
 		}
 	}
 
