@@ -76,9 +76,9 @@ kubectl kustomize config/clusterresources | sed s/:latest/:$TAG/ > $RUNTIMES_INS
 yq -i 'select(.metadata.name == "inferenceservice-config").data.ingress |= (fromjson | .ingressGateway = "kubeflow/kubeflow-gateway" | tojson)' $KUBEFLOW_INSTALL_PATH
 
 # Copy CRD files to charts crds directory
-cp config/crd/serving.kserve.io_clusterservingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
-cp config/crd/serving.kserve.io_inferenceservices.yaml charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
-cp config/crd/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
-cp config/crd/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
-cp config/crd/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
-cp config/crd/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/serving.kserve.io_clusterstoragecontainers.yaml
+cp config/crd/full/serving.kserve.io_clusterservingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
+cp config/crd/full/serving.kserve.io_inferenceservices.yaml charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
+cp config/crd/full/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
+cp config/crd/full/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
+cp config/crd/full/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
+cp config/crd/full/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/serving.kserve.io_clusterstoragecontainers.yaml
