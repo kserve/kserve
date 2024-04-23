@@ -20,6 +20,7 @@ from kserve.protocol.rest.openai import (
     ChatCompletionRequestMessage,
     ChatPrompt,
     CompletionRequest,
+    ChatCompletionRequest,
     OpenAIChatAdapterModel,
 )
 from kserve.protocol.rest.openai.types.openapi import (
@@ -183,7 +184,7 @@ class TestOpenAICreateChatCompletion:
         chat_completion: ChatCompletion,
         chat_completion_create_params: CreateChatCompletionRequest,
     ):
-        request = CompletionRequest(params=chat_completion_create_params)
+        request = ChatCompletionRequest(params=chat_completion_create_params)
         c = await dummy_model.create_chat_completion(request)
         assert isinstance(c, ChatCompletion)
         assert c.model_dump_json(indent=2) == chat_completion.model_dump_json(indent=2)
@@ -196,7 +197,7 @@ class TestOpenAICreateChatCompletion:
         chat_completion_create_params: CreateChatCompletionRequest,
     ):
         chat_completion_create_params.stream = True
-        request = CompletionRequest(params=chat_completion_create_params)
+        request = ChatCompletionRequest(params=chat_completion_create_params)
         c = await dummy_model.create_chat_completion(request)
         assert isinstance(c, AsyncIterator)
         num_chunks_consumed = 0
