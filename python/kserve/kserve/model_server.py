@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
+import sys
 import argparse
 import asyncio
 import concurrent.futures
@@ -20,7 +21,7 @@ import signal
 import socket
 import sys
 from multiprocessing import Process
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Callable, Any, IO
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment
@@ -108,6 +109,24 @@ parser.add_argument(
     type=str,
     help="The asgi access logging format.",
 )
+parser.add_argument(
+    "--secure_grpc_server", 
+    default=False, 
+    type=bool,
+    choices=[True, False],
+    help="Enable gRPC server authentication using SSL for the model server.")
+parser.add_argument(
+    "--ssl_server_key", 
+    default=None, type=str,              
+    help="File path for SSL server key used for gRPC server authentication.")
+parser.add_argument(
+    "--ssl_server_cert", 
+    default=None, type=str,       
+    help="File path for SSL server key used for gRPC server authentication.")
+parser.add_argument(
+    "--ssl_ca_cert", 
+    default=None, type=str,                 
+    help="File path for SSL server key used for gRPC server authentication.")
 
 # Model arguments: The arguments are passed to the kserve.Model object
 parser.add_argument(
@@ -154,21 +173,26 @@ args, _ = parser.parse_known_args()
 
 
 class ModelServer:
-    def __init__(
-        self,
-        http_port: int = args.http_port,
-        grpc_port: int = args.grpc_port,
-        workers: int = args.workers,
-        max_threads: int = args.max_threads,
-        max_asyncio_workers: int = args.max_asyncio_workers,
-        registered_models: ModelRepository = ModelRepository(),
-        enable_grpc: bool = args.enable_grpc,
-        enable_docs_url: bool = args.enable_docs_url,
-        enable_latency_logging: bool = args.enable_latency_logging,
-        configure_logging: bool = args.configure_logging,
-        log_config: Optional[Union[Dict, str]] = args.log_config_file,
-        access_log_format: str = args.access_log_format,
-    ):
+
+    def __init__(self, http_port: int = args.http_port,
+                 grpc_port: int = args.grpc_port,
+                 workers: int = args.workers,
+                 max_threads: int = args.max_threads,
+                 max_asyncio_workers: int = args.max_asyncio_workers,
+                 registered_models: ModelRepository = ModelRepository(),
+                 enable_grpc: bool = args.enable_grpc,
+                 enable_docs_url: bool = args.enable_docs_url,
+                 enable_latency_logging: bool = args.enable_latency_logging,
+                 configure_logging: bool = args.configure_logging,
+                 log_config: Optional[Union[Dict, str]] = args.log_config_file,
+                 access_log_format: str = args.access_log_format,
+                 secure_grpc_server: bool = args.secure_grpc_server,
+                 server_key: Union[str, bytes] = args.ssl_server_key,
+                 server_cert: Union[str, bytes] = args.ssl_server_cert,
+                 ca_cert: Union[str, bytes] = args.ssl_ca_cert
+                 ):
+        self.registered_models = registered_models
+
         """KServe ModelServer Constructor
 
         Args:
@@ -184,8 +208,11 @@ class ModelServer:
             configure_logging: Whether to configure KServe and Uvicorn logging. Default: ``True``.
             log_config: File path or dict containing log config. Default: ``None``.
             access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``
+            secure_grpc_server: Whether to enable secure grpc server. Default: ``False``.
+            ssl_server_key: File path to server key for secure grpc SSL server credentials.  Default: ``None``.
+            ssl_server_cert: File path to server cert for secure grpc SSL server credentials.  Default: ``None``.
+            ssl_ca_cert: File path to CA cert for secure grpc SSL server credentials.  Default: ``None``.
         """
-        self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
@@ -200,10 +227,46 @@ class ModelServer:
         )
         self._grpc_server = None
         self._rest_server = None
+        self.secure_grpc_server = secure_grpc_server
+        self.grpc_ssl_key = server_key
+        self.grpc_ssl_cert = server_cert
+        self.grpc_ssl_ca_cert = ca_cert
         if self.enable_grpc:
-            self._grpc_server = GRPCServer(
-                grpc_port, self.dataplane, self.model_repository_extension
-            )
+            if self.secure_grpc_server:
+                server_credentials = []
+                if type(self.grpc_ssl_key) == str:
+                    ssl_key_file = open(self.grpc_ssl_key, 'rb').read()
+                    server_credentials.append(ssl_key_file)
+                elif type(self.grpc_ssl_key) == bytes:
+                    server_credentials.append(self.grpc_ssl_key)
+                else:
+                    raise Exception(
+                        "SSL key must be of type string (file path to cert) or bytes (raw cert).")
+                if type(self.grpc_ssl_cert) == str:
+                    ssl_cert_file = open(self.grpc_ssl_cert, 'rb').read()
+                    server_credentials.append(ssl_cert_file)
+                elif type(self.grpc_ssl_cert) == bytes:
+                    server_credentials.append(self.grpc_ssl_cert)
+                else:
+                    raise Exception(
+                        "SSL cert must be of type string (file path to cert) or bytes (raw cert).")
+                if type(self.grpc_ssl_ca_cert) == str:
+                    ssl_ca_cert_file = open(self.grpc_ssl_ca_cert, 'rb').read()
+                    server_credentials.append(ssl_ca_cert_file)
+                elif type(self.grpc_ssl_ca_cert) == bytes:
+                    server_credentials.append(self.grpc_ssl_ca_cert)
+                else:
+                    raise Exception(
+                        "SSL CA cert must be of type string (file path to cert) or bytes (raw cert).")
+
+                self._grpc_server = GRPCServer(grpc_port, self.dataplane,
+                                                self.model_repository_extension,
+                                                secure_server=self.secure_grpc_server,
+                                                grpc_secure_server_credentials=server_credentials
+                                                )
+            else:
+                self._grpc_server = GRPCServer(grpc_port, self.dataplane,
+                                                self.model_repository_extension)
 
         # Logs can be passed as a path to a file or a dictConfig.
         # We rely on Uvicorn to configure the loggers for us.
