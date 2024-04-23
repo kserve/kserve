@@ -684,7 +684,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts: []string{serviceInternalHostName, serviceHostName, "my-domain.com",
-						"my-model.test.my-additional-domain.com", "my-model.test.my-second-additional-domain.com"},
+						"my-additional-domain.com", "my-second-additional-domain.com"},
 					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{

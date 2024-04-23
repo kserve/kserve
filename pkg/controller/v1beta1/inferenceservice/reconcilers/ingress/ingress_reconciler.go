@@ -436,12 +436,11 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		// Include additional ingressDomain to the domains (both internal and external)
 		if config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
 			for _, domain := range *config.AdditionalIngressDomains {
-				host := constants.InferenceServiceHostName(isvc.Name, isvc.Namespace, domain)
-				if !IsValidHostURL(fmt.Sprintf("%s://%s", config.UrlScheme, host)) {
-					log.Error(err, "Failed to get a valid Service Host Name for the domain %s.", domain)
-					return nil
+				if !IsValidHostURL(fmt.Sprintf("%s://%s", config.UrlScheme, domain)) {
+					log.Error(err, "The domain name %s in the additionalIngressDomains is not a valid domain name.", domain)
+					continue
 				}
-				hosts = append(hosts, host)
+				hosts = append(hosts, domain)
 			}
 		}
 	}
