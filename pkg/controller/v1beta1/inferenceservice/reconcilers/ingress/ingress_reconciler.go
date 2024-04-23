@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmp"
@@ -443,7 +444,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		prefix := fmt.Sprintf("%s%s", s[0], isvc.Namespace)
 		for _, domain := range *config.AdditionalIngressDomains {
 			host := fmt.Sprintf("%s.%s", prefix, domain)
-			if !IsValidHostURL(fmt.Sprintf("%s://%s", config.UrlScheme, host)) {
+			if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
 				log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not a valid domain name.", domain),
 					"Failed to get the valid host name")
 				continue
