@@ -384,21 +384,21 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			log.Error(err, "Failed to generate URL from pathTemplate")
 			return nil
 		}
-		apiURL := &apis.URL{}
-		apiURL.Path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
-		apiURL.Host = config.IngressDomain
+		url := &apis.URL{}
+		url.Path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
+		url.Host = config.IngressDomain
 		// In this case, we have a path-based URL so we add a path-based rule
 		httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
 			Match: []*istiov1beta1.HTTPMatchRequest{
 				{
 					Uri: &istiov1beta1.StringMatch{
 						MatchType: &istiov1beta1.StringMatch_Prefix{
-							Prefix: apiURL.Path + "/",
+							Prefix: url.Path + "/",
 						},
 					},
 					Authority: &istiov1beta1.StringMatch{
 						MatchType: &istiov1beta1.StringMatch_Regex{
-							Regex: constants.HostRegExp(apiURL.Host),
+							Regex: constants.HostRegExp(url.Host),
 						},
 					},
 					Gateways: []string{config.IngressGateway},
@@ -406,12 +406,12 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 				{
 					Uri: &istiov1beta1.StringMatch{
 						MatchType: &istiov1beta1.StringMatch_Exact{
-							Exact: apiURL.Path,
+							Exact: url.Path,
 						},
 					},
 					Authority: &istiov1beta1.StringMatch{
 						MatchType: &istiov1beta1.StringMatch_Regex{
-							Regex: constants.HostRegExp(apiURL.Host),
+							Regex: constants.HostRegExp(url.Host),
 						},
 					},
 					Gateways: []string{config.IngressGateway},
@@ -432,7 +432,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			},
 		})
 		// Include ingressDomain to the domains (both internal and external) derived by KNative
-		hosts = append(hosts, apiURL.Host)
+		hosts = append(hosts, url.Host)
 	}
 
 	// Include additional ingressDomain to the domains (both internal and external)
