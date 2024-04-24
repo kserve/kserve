@@ -445,7 +445,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		for _, domain := range *config.AdditionalIngressDomains {
 			host := fmt.Sprintf("%s.%s", prefix, domain)
 			if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
-				log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not a valid domain name.", domain),
+				log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
 					"Failed to get the valid host name")
 				continue
 			}
