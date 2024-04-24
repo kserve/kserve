@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import argparse
-import logging
 from pathlib import Path
 
 import kserve

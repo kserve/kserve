@@ -150,7 +150,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         if not self._tokenizer.pad_token:
             self._tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 
-        logger.info(f"Successfully loaded tokenizer")
+        logger.info("Successfully loaded tokenizer")
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
             model_cls = get_model_class_for_task(self.task)

@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-import unittest
 import pytest
 
 from kserve.model import PredictorConfig
-from kserve.protocol.rest.openai import CompletionRequest
-from kserve.protocol.rest.openai.types import CreateCompletionRequest
+from kserve.protocol.rest.openai import ChatCompletionRequest, CompletionRequest
+from kserve.protocol.rest.openai.types import (
+    CreateChatCompletionRequest,
+    CreateCompletionRequest,
+)
 from pytest_httpx import HTTPXMock
 
 from .encoder_model import HuggingfaceEncoderModel
@@ -26,37 +27,96 @@ from .generative_model import HuggingfaceGenerativeModel
 from .task import MLTask
 
 
-@pytest.mark.asyncio
-async def test_t5(request):
+@pytest.fixture(scope="module")
+def bloom_model():
+    model = HuggingfaceGenerativeModel(
+        "bloom-560m",
+        model_id_or_path="bigscience/bloom-560m",
+    )
+    model.load()
+    print("Here is the model")
+    yield model
+    model.stop()
+
+
+@pytest.fixture(scope="module")
+def t5_model():
     model = HuggingfaceGenerativeModel(
         "t5-small",
         model_id_or_path="google-t5/t5-small",
         max_length=512,
     )
     model.load()
-    request.addfinalizer(model.stop)
-
-    params = CreateCompletionRequest(
-        model="t5-small",
-        prompt="translate from English to German: we are making words",
-        stream=False,
-    )
-    request = CompletionRequest(params=params)
-    response = await model.create_completion(request)
-    assert response.choices[0].text == "wir setzen Worte"
+    yield model
+    model.stop()
 
 
-@pytest.mark.asyncio
-async def test_bert(request):
+@pytest.fixture(scope="module")
+def bert_base_model():
     model = HuggingfaceEncoderModel(
         "google-bert/bert-base-uncased",
         model_id_or_path="bert-base-uncased",
         do_lower_case=True,
     )
     model.load()
-    request.addfinalizer(model.stop)
+    yield model
+    model.stop()
 
-    response = await model(
+
+@pytest.fixture(scope="module")
+def bert_base_yelp_polarity():
+    model = HuggingfaceEncoderModel(
+        "bert-base-uncased-yelp-polarity",
+        model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
+        task=MLTask.sequence_classification,
+    )
+    model.load()
+    yield model
+    model.stop()
+
+
+@pytest.fixture(scope="module")
+def bert_token_classification():
+    model = HuggingfaceEncoderModel(
+        "bert-large-cased-finetuned-conll03-english",
+        model_id_or_path="dbmdz/bert-large-cased-finetuned-conll03-english",
+        do_lower_case=True,
+        add_special_tokens=False,
+    )
+    model.load()
+    yield model
+    model.stop()
+
+
+@pytest.mark.asyncio
+async def test_t5(t5_model: HuggingfaceGenerativeModel):
+    params = CreateCompletionRequest(
+        model="t5-small",
+        prompt="translate from English to German: we are making words",
+        stream=False,
+    )
+    request = CompletionRequest(params=params)
+    response = await t5_model.create_completion(request)
+    assert response.choices[0].text == "wir setzen Worte"
+
+
+@pytest.mark.asyncio
+async def test_t5_bad_params(t5_model: HuggingfaceGenerativeModel):
+    params = CreateCompletionRequest(
+        model="t5-small",
+        prompt="translate from English to German: we are making words",
+        echo=True,
+        stream=False,
+    )
+    request = CompletionRequest(params=params)
+    with pytest.raises(ValueError) as err_info:
+        await t5_model.create_completion(request)
+    assert err_info.value.args[0] == "'echo' is not supported by encoder-decoder models"
+
+
+@pytest.mark.asyncio
+async def test_bert(bert_base_model: HuggingfaceEncoderModel):
+    response = await bert_base_model(
         {
             "instances": [
                 "The capital of France is [MASK].",
@@ -69,7 +129,7 @@ async def test_bert(request):
 
 
 @pytest.mark.asyncio
-async def test_model_revision(request):
+async def test_model_revision(request: HuggingfaceEncoderModel):
     # https://huggingface.co/google-bert/bert-base-uncased
     commit = "86b5e0934494bd15c9632b12f734a8a67f723594"
     model = HuggingfaceEncoderModel(
@@ -127,33 +187,20 @@ async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
 
 
 @pytest.mark.asyncio
-async def test_bert_sequence_classification(request):
-    model = HuggingfaceEncoderModel(
-        "bert-base-uncased-yelp-polarity",
-        model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
-        task=MLTask.sequence_classification,
-    )
-    model.load()
-    request.addfinalizer(model.stop)
-
+async def test_bert_sequence_classification(bert_base_yelp_polarity):
     request = "Hello, my dog is cute."
-    response = await model({"instances": [request, request]}, headers={})
+    response = await bert_base_yelp_polarity(
+        {"instances": [request, request]}, headers={}
+    )
     assert response == {"predictions": [1, 1]}
 
 
 @pytest.mark.asyncio
-async def test_bert_token_classification(request):
-    model = HuggingfaceEncoderModel(
-        "bert-large-cased-finetuned-conll03-english",
-        model_id_or_path="dbmdz/bert-large-cased-finetuned-conll03-english",
-        do_lower_case=True,
-        add_special_tokens=False,
-    )
-    model.load()
-    request.addfinalizer(model.stop)
-
+async def test_bert_token_classification(bert_token_classification):
     request = "HuggingFace is a company based in Paris and New York"
-    response = await model({"instances": [request, request]}, headers={})
+    response = await bert_token_classification(
+        {"instances": [request, request]}, headers={}
+    )
     assert response == {
         "predictions": [
             [[0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
@@ -163,14 +210,7 @@ async def test_bert_token_classification(request):
 
 
 @pytest.mark.asyncio
-async def test_bloom(request):
-    model = HuggingfaceGenerativeModel(
-        "bloom-560m",
-        model_id_or_path="bigscience/bloom-560m",
-    )
-    model.load()
-    request.addfinalizer(model.stop)
-
+async def test_bloom_completion(bloom_model: HuggingfaceGenerativeModel):
     params = CreateCompletionRequest(
         model="bloom-560m",
         prompt="Hello, my dog is cute",
@@ -178,7 +218,7 @@ async def test_bloom(request):
         echo=True,
     )
     request = CompletionRequest(params=params)
-    response = await model.create_completion(request)
+    response = await bloom_model.create_completion(request)
     assert (
         response.choices[0].text
         == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute"
@@ -186,40 +226,92 @@ async def test_bloom(request):
 
 
 @pytest.mark.asyncio
-async def test_input_padding(request):
-    model = HuggingfaceEncoderModel(
-        "bert-base-uncased-yelp-polarity",
-        model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
-        task=MLTask.sequence_classification,
+async def test_bloom_completion_streaming(bloom_model: HuggingfaceGenerativeModel):
+    params = CreateCompletionRequest(
+        model="bloom-560m",
+        prompt="Hello, my dog is cute",
+        stream=True,
+        echo=False,
     )
-    model.load()
-    request.addfinalizer(model.stop)
+    request = CompletionRequest(params=params)
+    response = await bloom_model.create_completion(request)
+    output = ""
+    async for chunk in response:
+        output += chunk.choices[0].text
+        print(chunk)
+    assert output == ".\n- Hey, my dog is cute.\n- Hey, my dog is cute"
 
+
+@pytest.mark.asyncio
+async def test_bloom_chat_completion(bloom_model: HuggingfaceGenerativeModel):
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a friendly chatbot who always responds in the style of a pirate",
+        },
+        {
+            "role": "user",
+            "content": "How many helicopters can a human eat in one sitting?",
+        },
+    ]
+    params = CreateChatCompletionRequest(
+        model="bloom-560m",
+        messages=messages,
+        stream=False,
+    )
+    request = ChatCompletionRequest(params=params)
+    response = await bloom_model.create_chat_completion(request)
+    assert (
+        response.choices[0].message.content
+        == "The first thing you need to do is to get a good idea of what you are looking for"
+    )
+
+
+@pytest.mark.asyncio
+async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativeModel):
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a friendly chatbot who always responds in the style of a pirate",
+        },
+        {
+            "role": "user",
+            "content": "How many helicopters can a human eat in one sitting?",
+        },
+    ]
+    params = CreateChatCompletionRequest(
+        model="bloom-560m",
+        messages=messages,
+        stream=True,
+    )
+    request = ChatCompletionRequest(params=params)
+    response = await bloom_model.create_chat_completion(request)
+    output = ""
+    async for chunk in response:
+        output += chunk.choices[0].delta.content
+    assert (
+        output
+        == "The first thing you need to do is to get a good idea of what you are looking for"
+    )
+
+
+@pytest.mark.asyncio
+async def test_input_padding(bert_base_yelp_polarity: HuggingfaceEncoderModel):
     # inputs with different lengths will throw an error
     # unless we set padding=True in the tokenizer
     request_one = "Hello, my dog is cute."
     request_two = "Hello there, my dog is cute."
-    response = await model({"instances": [request_one, request_two]}, headers={})
+    response = await bert_base_yelp_polarity(
+        {"instances": [request_one, request_two]}, headers={}
+    )
     assert response == {"predictions": [1, 1]}
 
 
 @pytest.mark.asyncio
-async def test_input_truncation(request):
-    model = HuggingfaceEncoderModel(
-        "bert-base-uncased-yelp-polarity",
-        model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
-        task=MLTask.sequence_classification,
-    )
-    model.load()
-    request.addfinalizer(model.stop)
-
+async def test_input_truncation(bert_base_yelp_polarity: HuggingfaceEncoderModel):
     # bert-base-uncased has a max length of 512 (tokenizer.model_max_length).
     # this request exceeds that, so it will throw an error
     # unless we set truncation=True in the tokenizer
     request = "good " * 600
-    response = await model({"instances": [request]}, headers={})
+    response = await bert_base_yelp_polarity({"instances": [request]}, headers={})
     assert response == {"predictions": [1]}
-
-
-if __name__ == "__main__":
-    unittest.main()

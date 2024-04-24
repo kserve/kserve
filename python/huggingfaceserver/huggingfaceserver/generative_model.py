@@ -31,7 +31,6 @@ from typing import (
 import torch
 from accelerate import init_empty_weights
 from kserve.logging import logger
-from kserve.model import PredictorConfig
 from kserve.protocol.rest.openai import (
     ChatPrompt,
     CompletionRequest,
@@ -71,6 +70,7 @@ class _GenerateRequest(TypedDict):
     kwargs: Dict[str, Any]
     request: CompletionRequest
     response_queue: asyncio.Queue
+    loop: asyncio.AbstractEventLoop
 
 
 class CompletionStreamer:
@@ -134,7 +134,6 @@ class HuggingfaceGenerativeModel(
     _model: PreTrainedModel
     _device: torch.device
     _request_queue: queue.Queue[Optional[_GenerateRequest]]
-    _loop: asyncio.AbstractEventLoop
 
     def __init__(
         self,
@@ -216,7 +215,7 @@ class HuggingfaceGenerativeModel(
         if not self._tokenizer.pad_token:
             self._tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 
-        logger.info(f"Successfully loaded tokenizer")
+        logger.info("Successfully loaded tokenizer")
         # load huggingface model using from_pretrained for inference mode
         model_cls = get_model_class_for_task(self.task)
         self._model = model_cls.from_pretrained(
@@ -237,6 +236,7 @@ class HuggingfaceGenerativeModel(
     def stop(self):
         # Signal to the background thread that it should shut down
         self._request_queue.put(None)
+        self.ready = False
 
     @property
     def is_encoder_decoder(self) -> bool:
@@ -251,14 +251,15 @@ class HuggingfaceGenerativeModel(
         Handle a single generation request
         """
 
-        response_queue, kwargs, request = (
+        response_queue, kwargs, request, loop = (
             req["response_queue"],
             req["kwargs"],
             req["request"],
+            req["loop"],
         )
 
         def queue_put(outputs):
-            self._loop.call_soon_threadsafe(response_queue.put_nowait, outputs)
+            loop.call_soon_threadsafe(response_queue.put_nowait, outputs)
 
         if request.params.seed is not None:
             set_seed(request.params.seed)
@@ -313,10 +314,11 @@ class HuggingfaceGenerativeModel(
         Add a request to the request queue to be processed. Results for this request
         will be pushed to the returned async queue.
         """
-        if not hasattr(self, "_loop"):
-            self._loop = asyncio.get_running_loop()
         req = _GenerateRequest(
-            kwargs=kwargs, request=request, response_queue=asyncio.Queue()
+            kwargs=kwargs,
+            request=request,
+            response_queue=asyncio.Queue(),
+            loop=asyncio.get_running_loop(),
         )
         self._request_queue.put(req)
         return req["response_queue"]
