@@ -70,6 +70,7 @@ func TestCreateVirtualService(t *testing.T) {
 		name            string
 		isvc            *v1beta1.InferenceService
 		ingressConfig   *v1beta1.IngressConfig
+		domainList      *[]string
 		useDefault      bool
 		componentStatus *v1beta1.InferenceServiceStatus
 		expectedService *istioclientv1beta1.VirtualService
@@ -655,6 +656,7 @@ func TestCreateVirtualService(t *testing.T) {
 				PathTemplate:             "/serving/{{ .Namespace }}/{{ .Name }}",
 				DisableIstioVirtualHost:  false,
 			},
+			domainList: &[]string{"my-domain-1.com", "example.com"},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
@@ -1129,7 +1131,7 @@ func TestCreateVirtualService(t *testing.T) {
 				testIsvc.Spec.Explainer = &v1beta1.ExplainerSpec{}
 			}
 
-			actualService := createIngress(testIsvc, tc.useDefault, tc.ingressConfig)
+			actualService := createIngress(testIsvc, tc.useDefault, tc.ingressConfig, tc.domainList)
 			if diff := cmp.Diff(tc.expectedService.DeepCopy(), actualService.DeepCopy(), protocmp.Transform()); diff != "" {
 				t.Errorf("Test %q unexpected status (-want +got): %v", tc.name, diff)
 			}
