@@ -22,7 +22,7 @@ from kserve.logging import logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 
-from . import grpc_predict_v2_pb2_grpc
+from tritonclient.grpc.aio import service_pb2_grpc as grpc_predict_v2_pb2_grpc
 from .interceptors import LoggingInterceptor
 from .servicer import InferenceServicer
 

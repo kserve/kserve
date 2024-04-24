@@ -68,6 +68,9 @@ parser.add_argument(
 parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
 )
+parser.add_argument(
+    "--enable_triton", action="store_true", help="Use triton as the runtime"
+)
 
 try:
     from vllm.engine.arg_utils import AsyncEngineArgs

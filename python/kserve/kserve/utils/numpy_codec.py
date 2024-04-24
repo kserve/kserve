@@ -62,3 +62,22 @@ def from_np_dtype(np_dtype):
     elif np_dtype == np.object_ or np_dtype.type == np.bytes_:
         return "BYTES"
     return None
+
+
+def from_triton_type_to_np_type(dtype: str):
+    dtype_map = {
+        "TYPE_BOOL": bool,
+        "TYPE_UINT8": np.uint8,
+        "TYPE_UINT16": np.uint16,
+        "TYPE_UINT32": np.uint32,
+        "TYPE_UINT64": np.uint64,
+        "TYPE_INT8": np.int8,
+        "TYPE_INT16": np.int16,
+        "TYPE_INT32": np.int32,
+        "TYPE_INT64": np.int64,
+        "TYPE_FP16": np.float16,
+        "TYPE_FP32": np.float32,
+        "TYPE_FP64": np.float64,
+        "TYPE_STRING": np.object_,
+    }
+    return dtype_map.get(dtype, None)

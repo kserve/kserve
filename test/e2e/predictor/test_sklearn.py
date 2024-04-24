@@ -29,7 +29,7 @@ from kserve import (
     constants,
 )
 
-import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
+import tritonclient.grpc.service_pb2 as inference_pb2
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 

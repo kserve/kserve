@@ -17,7 +17,7 @@ import grpc
 
 from .constants.constants import KSERVE_LOGLEVEL
 from .protocol.infer_type import InferRequest
-from .protocol.grpc.grpc_predict_v2_pb2_grpc import GRPCInferenceServiceStub
+from tritonclient.grpc.service_pb2_grpc import GRPCInferenceServiceStub
 
 logging.basicConfig(level=KSERVE_LOGLEVEL)
 

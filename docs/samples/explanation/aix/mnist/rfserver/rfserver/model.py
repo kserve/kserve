@@ -19,7 +19,7 @@ import kserve
 import numpy as np
 
 from kserve import InferRequest, InferResponse
-from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
+from tritonclient.grpc.service_pb2 import (
     ModelInferRequest,
     ModelInferResponse,
 )

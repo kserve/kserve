@@ -33,8 +33,8 @@ from .metrics import (
     PREDICT_HIST_TIME,
     get_labels,
 )
-from .protocol.grpc import grpc_predict_v2_pb2_grpc
-from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+from tritonclient.grpc import service_pb2_grpc as grpc_predict_v2_pb2_grpc
+from tritonclient.grpc.service_pb2 import ModelInferRequest, ModelInferResponse
 from .protocol.infer_type import InferRequest, InferResponse
 from .protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
 
