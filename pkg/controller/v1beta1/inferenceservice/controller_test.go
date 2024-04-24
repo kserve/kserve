@@ -25,9 +25,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
@@ -46,6 +43,10 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {

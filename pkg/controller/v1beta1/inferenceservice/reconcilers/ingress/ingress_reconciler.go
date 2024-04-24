@@ -18,12 +18,13 @@ package ingress
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	utils "github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/testing/protocmp"
 	istiov1beta1 "istio.io/api/networking/v1beta1"
@@ -34,21 +35,40 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	knnethttp "knative.dev/networking/pkg/http"
+	knheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/network"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	"strings"
-
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	utils "github.com/kserve/kserve/pkg/utils"
 )
 
 var (
 	log = logf.Log.WithName("IngressReconciler")
+	// probeTimeout defines the maximum amount of time a request will wait
+	probeTimeout                   = 1 * time.Second
+	Transport    http.RoundTripper = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		TLSClientConfig: &tls.Config{
+			// #nosec G402
+			// We only want to know that the Ingress is configured, not that the configuration is valid.
+			// Therefore, we can safely ignore any TLS certificate validation.
+			InsecureSkipVerify: true,
+		},
+		TLSHandshakeTimeout:   2 * time.Second,
+		DisableKeepAlives:     true,
+		IdleConnTimeout:       1 * time.Second,
+		ResponseHeaderTimeout: 1 * time.Second,
+	}
 )
 
 type IngressReconciler struct {
@@ -173,7 +193,7 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 	}
 }
 
-func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) error {
+func (ir *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) error {
 	desired := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
@@ -185,17 +205,17 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 			SessionAffinity: corev1.ServiceAffinityNone,
 		},
 	}
-	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(isvc, desired, ir.scheme); err != nil {
 		return err
 	}
 
 	// Create service if does not exist
 	existing := &corev1.Service{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
+	err := ir.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if apierr.IsNotFound(err) {
 			log.Info("Creating external name service", "namespace", desired.Namespace, "name", desired.Name)
-			err = r.client.Create(context.TODO(), desired)
+			err = ir.client.Create(context.TODO(), desired)
 		}
 		return err
 	}
@@ -215,7 +235,7 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 	existing.Spec = desired.Spec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
-	err = r.client.Update(context.TODO(), existing)
+	err = ir.client.Update(context.TODO(), existing)
 	if err != nil {
 		return errors.Wrapf(err, "fails to update external name service")
 	}
@@ -453,12 +473,52 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	return desiredIngress
 }
 
-func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
+func probeIngress(url string) (bool, error) {
+	isReady := false
+	// Probes Queue-Proxy or Activator
+	target := url + knnethttp.HealthCheckPath
+	ctx, cancel := context.WithTimeout(context.TODO(), probeTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return isReady, errors.Wrapf(err, "failed to create ingress probe request %s", target)
+	}
+	// ProbeKey is the name of a header that can be added to requests to probe the ingress.
+	// Requests with this header will not be passed to the user container or included in request metrics.
+	req.Header.Add(knheader.ProbeKey, knheader.ProbeValue)
+	req.Header.Add(knheader.HashKey, knheader.HashValueOverride)
+	// IngressReadinessUserAgent is the user-agent header value set in probe requests for Ingress status.
+	req.Header.Add(knheader.UserAgentKey, knheader.IngressReadinessUserAgent)
+	resp, err := Transport.RoundTrip(req)
+	defer func(resp *http.Response) {
+		if resp != nil && resp.Body != nil {
+			err := resp.Body.Close()
+			if err != nil {
+				log.Error(err, "Failed to close ingress probe response body")
+			}
+		}
+	}(resp)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to probe ingress %s", target)
+	}
+	if resp.StatusCode == http.StatusOK {
+		isReady = true
+	} else {
+		log.V(1).Error(fmt.Errorf("failed to probe ingress"), "Failed to probe ingress", "url", target)
+	}
+	return isReady, nil
+}
+
+func isIngressReady(isvc *v1beta1.InferenceService) bool {
+	return isvc.Generation == isvc.Status.ObservedGeneration && isvc.Status.GetCondition(v1beta1.IngressReady).IsTrue()
+}
+
+func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	serviceHost := getServiceHost(isvc)
 	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 	if serviceHost == "" || serviceUrl == "" {
-		return nil
+		return ctrl.Result{}, nil
 	}
 	// When Istio virtual host is disabled, we return the underlying component url.
 	// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
@@ -472,16 +532,16 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 		desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig)
 		if desiredIngress == nil {
-			return nil
+			return ctrl.Result{}, nil
 		}
 
 		// Create external service which points to local gateway
 		if err := ir.reconcileExternalService(isvc, ir.ingressConfig); err != nil {
-			return errors.Wrapf(err, "fails to reconcile external name service")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile external name service")
 		}
 
 		if err := controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set owner reference for ingress")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for ingress")
 		}
 
 		existing := &istioclientv1beta1.VirtualService{}
@@ -502,7 +562,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			}
 		}
 		if err != nil {
-			return errors.Wrapf(err, "fails to create or update ingress")
+			return ctrl.Result{}, errors.Wrapf(err, "fails to create or update ingress")
 		}
 	}
 
@@ -521,20 +581,37 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		} else {
 			hostPrefix = getHostPrefix(isvc, disableIstioVirtualHost, false)
 		}
-
+		host := network.GetServiceHostname(hostPrefix, isvc.Namespace)
+		scheme := "http"
 		isvc.Status.Address = &duckv1.Addressable{
 			URL: &apis.URL{
-				Host:   network.GetServiceHostname(hostPrefix, isvc.Namespace),
-				Scheme: "http",
+				Host:   host,
+				Scheme: scheme,
 			},
 		}
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-			Type:   v1beta1.IngressReady,
-			Status: corev1.ConditionTrue,
-		})
-		return nil
+
+		// All the watched resources are periodically reconciled by the controller irrespective of any change in
+		// the resource. In those scenarios it is unnecessary to probe the ingress, if it was already marked ready
+		// for the current generation i.e. if it is marked true, then it must have already been successfully probed.
+		if !isIngressReady(isvc) {
+			if isReady, err := probeIngress(isvc.Status.Address.URL.String()); err != nil {
+				return ctrl.Result{}, err
+			} else if isReady {
+				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+					Type:   v1beta1.IngressReady,
+					Status: corev1.ConditionTrue,
+				})
+			} else {
+				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+					Type:   v1beta1.IngressReady,
+					Status: corev1.ConditionFalse,
+				})
+				return ctrl.Result{Requeue: true}, nil
+			}
+		}
+		return ctrl.Result{}, nil
 	} else {
-		return errors.Wrapf(err, "fails to parse service url")
+		return ctrl.Result{}, errors.Wrapf(err, "fails to parse service url")
 	}
 }
 

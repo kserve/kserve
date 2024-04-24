@@ -13,7 +13,6 @@
 import json
 import logging
 import os
-import time
 from urllib.parse import urlparse
 
 import grpc
@@ -117,8 +116,6 @@ def predict_str(
     logging.info("Sending Header = %s", headers)
     logging.info("Sending url = %s", url)
     logging.info("Sending request data: %s", input_json)
-    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    time.sleep(10)
     response = requests.post(url, input_json, headers=headers)
     logging.info(
         "Got response code %s, content %s", response.status_code, response.content
@@ -192,8 +189,6 @@ def explain_response(service_name, input_json):
         data = json.load(json_file)
         logging.info("Sending request data: %s", json.dumps(data))
         try:
-            # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-            time.sleep(10)
             response = requests.post(url, json.dumps(data), headers=headers)
             logging.info(
                 "Got response code %s, content %s",
