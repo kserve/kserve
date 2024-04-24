@@ -17,15 +17,21 @@ import pathlib
 import queue
 import time
 from threading import Thread
-from typing import Any, AsyncIterator, Dict, Iterable, Optional, TypedDict, Union
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    Iterable,
+    Optional,
+    TypedDict,
+    Union,
+    cast,
+)
 
 import torch
 from accelerate import init_empty_weights
-from kserve import Model
-from kserve.errors import InferenceError
 from kserve.logging import logger
 from kserve.model import PredictorConfig
-from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
 from kserve.protocol.rest.openai import (
     ChatPrompt,
     CompletionRequest,
@@ -37,21 +43,15 @@ from kserve.protocol.rest.openai.types import (
     CompletionChoice,
     CreateCompletionRequest,
 )
-from kserve.utils.utils import (
-    from_np_dtype,
-    generate_uuid,
-    get_predict_input,
-    get_predict_response,
-)
-from torch import Tensor
+from kserve.utils.utils import generate_uuid
 from transformers import (
     AutoConfig,
     AutoModel,
     AutoTokenizer,
-    BatchEncoding,
     GenerationConfig,
     PreTrainedModel,
     PreTrainedTokenizerBase,
+    PretrainedConfig,
     StoppingCriteriaList,
     TensorType,
     TextIteratorStreamer,
@@ -59,7 +59,12 @@ from transformers import (
 )
 
 from .stop_sequence_stopping_criteria import StopSequenceStoppingCriteria
-from .task import MLTask, get_model_class_for_task, infer_task_from_model_architecture
+from .task import (
+    MLTask,
+    is_generative_task,
+    get_model_class_for_task,
+    infer_task_from_model_architecture,
+)
 
 
 class _GenerateRequest(TypedDict):
@@ -112,82 +117,84 @@ class CompletionStreamer:
         )
 
 
-class HuggingfaceModel(
-    Model, OpenAIChatAdapterModel
+class HuggingfaceGenerativeModel(
+    OpenAIChatAdapterModel
 ):  # pylint:disable=c-extension-no-member
-    tokenizer: PreTrainedTokenizerBase
-    model: PreTrainedModel
-    device: torch.device
+    model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
-    max_length: Optional[int]
+    task: MLTask
     do_lower_case: bool
-    add_special_tokens: bool
-    tensor_input_names: Optional[str]
-    return_token_type_ids: Optional[bool]
-    system_fingerprint: Optional[str] = None
+    max_length: Optional[int]
+    model_revision: Optional[str]
+    tokenizer_revision: Optional[str]
     trust_remote_code: bool
-    task: Optional[MLTask]
+    system_fingerprint: Optional[str] = None
     ready: bool = False
+    _tokenizer: PreTrainedTokenizerBase
+    _model: PreTrainedModel
+    _device: torch.device
     _request_queue: queue.Queue[Optional[_GenerateRequest]]
     _loop: asyncio.AbstractEventLoop
 
     def __init__(
         self,
-        model_name: str,
+        name: str,
         model_id_or_path: Union[pathlib.Path, str],
+        task: Optional[MLTask] = None,
+        model_config: Optional[PretrainedConfig] = None,
         do_lower_case: bool = False,
-        add_special_tokens: bool = True,
         max_length: Optional[int] = None,
-        tensor_input_names: Optional[str] = None,
-        return_token_type_ids: Optional[bool] = None,
         model_revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
         system_fingerprint: Optional[str] = None,
-        task: Optional[MLTask] = None,
-        predictor_config: Optional[PredictorConfig] = None,
     ):
-        super().__init__(model_name, predictor_config)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        super().__init__(name)
+        self.model_config = model_config
         self.model_id_or_path = model_id_or_path
         self.model_revision = model_revision
         self.tokenizer_revision = tokenizer_revision
         self.do_lower_case = do_lower_case
-        self.add_special_tokens = add_special_tokens
         self.max_length = max_length
-        self.tensor_input_names = tensor_input_names
-        self.return_token_type_ids = return_token_type_ids
         self.system_fingerprint = system_fingerprint
         self.trust_remote_code = trust_remote_code
-        self.task = task
+        self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._request_queue = queue.Queue()
+
+        if model_config:
+            self.model_config = model_config
+        else:
+            self.model_config = AutoConfig.from_pretrained(self.model_id_or_path)
+        if task:
+            self.task = task
+        else:
+            self.task = infer_task_from_model_architecture(self.model_config)
+        if not is_generative_task(self.task):
+            raise RuntimeError(
+                f"Generative model does not support encoder-only task: {self.task.name}"
+            )
 
     def load(self) -> bool:
         model_id_or_path = self.model_id_or_path
-        model_config = AutoConfig.from_pretrained(
-            str(model_id_or_path), revision=self.model_revision
-        )
-        if not self.task:
-            self.task = infer_task_from_model_architecture(model_config)
 
         if self.max_length is None:
-            self.max_length = model_config.max_length
+            self.max_length = self.model_config.max_length
 
         # device_map = "auto" enables model parallelism but all model architcture dont support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
-            self.model = AutoModel.from_config(model_config)
+            self._model = AutoModel.from_config(self.model_config)
 
-        device_map = self.device
+        device_map = self._device
 
-        if self.model._no_split_modules:
+        if self._model._no_split_modules:
             device_map = "auto"
 
         tokenizer_kwargs = {}
         model_kwargs = {}
 
-        if not model_config.is_encoder_decoder:
+        if not self.model_config.is_encoder_decoder:
             # Pad left for decode-only architecture models.
             # https://github.com/huggingface/transformers/issues/18388#issuecomment-1204369688
             # https://github.com/Vision-CAIR/MiniGPT-4/issues/129
@@ -199,31 +206,30 @@ class HuggingfaceModel(
             tokenizer_kwargs["trust_remote_code"] = True
 
         # load huggingface tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(
+        self._tokenizer = AutoTokenizer.from_pretrained(
             str(model_id_or_path),
             revision=self.tokenizer_revision,
             do_lower_case=self.do_lower_case,
             **tokenizer_kwargs,
         )
 
-        if not self.tokenizer.pad_token:
-            self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+        if not self._tokenizer.pad_token:
+            self._tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 
-        logger.info(f"Successfully loaded tokenizer for task: {self.task}")
+        logger.info(f"Successfully loaded tokenizer")
         # load huggingface model using from_pretrained for inference mode
-        if not self.predictor_host:
-            model_cls = get_model_class_for_task(self.task)
-            self.model = model_cls.from_pretrained(
-                model_id_or_path,
-                revision=self.model_revision,
-                device_map=device_map,
-                **model_kwargs,
-            )
-            self.model.eval()
-            self.model.to(self.device)
-            logger.info(
-                f"Successfully loaded huggingface model from path {model_id_or_path}"
-            )
+        model_cls = get_model_class_for_task(self.task)
+        self._model = model_cls.from_pretrained(
+            model_id_or_path,
+            revision=self.model_revision,
+            device_map=device_map,
+            **model_kwargs,
+        )
+        self._model.eval()
+        self._model.to(self._device)
+        logger.info(
+            f"Successfully loaded huggingface model from path {model_id_or_path}"
+        )
         Thread(target=self._process_requests).start()
         self.ready = True
         return self.ready
@@ -232,121 +238,13 @@ class HuggingfaceModel(
         # Signal to the background thread that it should shut down
         self._request_queue.put(None)
 
-    def preprocess(
-        self,
-        payload: Union[Dict, InferRequest],
-        context: Dict[str, Any],
-    ) -> Union[BatchEncoding, InferRequest]:
-        instances = get_predict_input(payload)
-
-        # Serialize to tensor
-        if self.predictor_host:
-            inputs = self.tokenizer(
-                instances,
-                max_length=self.max_length,
-                add_special_tokens=self.add_special_tokens,
-                return_tensors=TensorType.NUMPY,
-                return_token_type_ids=self.return_token_type_ids,
-                padding=True,
-                truncation=True,
-            )
-            context["payload"] = payload
-            context["input_ids"] = inputs["input_ids"]
-            infer_inputs = []
-            for key, input_tensor in inputs.items():
-                if (not self.tensor_input_names) or (key in self.tensor_input_names):
-                    infer_input = InferInput(
-                        name=key,
-                        datatype=from_np_dtype(input_tensor.dtype),
-                        shape=list(input_tensor.shape),
-                        data=input_tensor,
-                    )
-                    infer_inputs.append(infer_input)
-            infer_request = InferRequest(
-                infer_inputs=infer_inputs, model_name=self.name
-            )
-            return infer_request
-        else:
-            inputs = self.tokenizer(
-                instances,
-                max_length=self.max_length,
-                add_special_tokens=self.add_special_tokens,
-                return_tensors=TensorType.PYTORCH,
-                return_token_type_ids=self.return_token_type_ids,
-                padding=True,
-                truncation=True,
-            )
-            context["payload"] = payload
-            context["input_ids"] = inputs["input_ids"]
-            return inputs
-
-    async def predict(
-        self,
-        input_batch: Union[BatchEncoding, InferRequest],
-        context: Dict[str, Any],
-    ) -> Union[Tensor, InferResponse]:
-        if self.predictor_host:
-            # when predictor_host is provided, serialize the tensor and send to optimized model serving runtime
-            # like NVIDIA triton inference server
-            return await super().predict(input_batch, context)
-        else:
-            input_batch = input_batch.to(self.device)
-            try:
-                with torch.no_grad():
-                    if (
-                        self.task == MLTask.text2text_generation
-                        or self.task == MLTask.text_generation
-                    ):
-                        outputs = self.model.generate(**input_batch)
-                    else:
-                        outputs = self.model(**input_batch).logits
-                    return outputs
-            except Exception as e:
-                raise InferenceError(str(e))
-
-    def postprocess(
-        self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any]
-    ) -> Union[Dict, InferResponse]:
-        input_ids = context["input_ids"]
-        request = context["payload"]
-        if isinstance(outputs, InferResponse):
-            shape = torch.Size(outputs.outputs[0].shape)
-            data = torch.Tensor(outputs.outputs[0].data)
-            outputs = data.view(shape)
-            input_ids = torch.Tensor(input_ids)
-        inferences = []
-        if self.task == MLTask.sequence_classification:
-            num_rows, num_cols = outputs.shape
-            for i in range(num_rows):
-                out = outputs[i].unsqueeze(0)
-                predicted_idx = out.argmax().item()
-                inferences.append(predicted_idx)
-            return get_predict_response(request, inferences, self.name)
-        elif self.task == MLTask.fill_mask:
-            num_rows = outputs.shape[0]
-            for i in range(num_rows):
-                mask_pos = (input_ids == self.tokenizer.mask_token_id)[i]
-                mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
-                predicted_token_id = outputs[i, mask_token_index].argmax(axis=-1)
-                inferences.append(self.tokenizer.decode(predicted_token_id))
-            return get_predict_response(request, inferences, self.name)
-        elif self.task == MLTask.token_classification:
-            num_rows = outputs.shape[0]
-            for i in range(num_rows):
-                output = outputs[i].unsqueeze(0)
-                predictions = torch.argmax(output, dim=2)
-                inferences.append(predictions.tolist())
-            return get_predict_response(request, inferences, self.name)
-        elif (
-            self.task == MLTask.text_generation
-            or self.task == MLTask.text2text_generation
-        ):
-            outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            return get_predict_response(request, outputs, self.name)
-        else:
-            raise ValueError(
-                f"Unsupported task {self.task}. Please check the supported `task` option."
-            )
+    @property
+    def is_encoder_decoder(self) -> bool:
+        return self.task in {
+            MLTask.table_question_answering,
+            MLTask.question_answering,
+            MLTask.text2text_generation,
+        }
 
     def _handle_request(self, req: _GenerateRequest):
         """
@@ -369,11 +267,11 @@ class HuggingfaceModel(
 
         if request.params.stream:
             streamer = TextIteratorStreamer(
-                self.tokenizer,
+                cast(AutoTokenizer, self._tokenizer),
                 skip_prompt=not echo,
             )
             thread = Thread(
-                target=self.model.generate, kwargs={**kwargs, "streamer": streamer}
+                target=self._model.generate, kwargs={**kwargs, "streamer": streamer}
             )
             thread.start()
             # Consume the tokens one by one and add them to the queue
@@ -383,9 +281,12 @@ class HuggingfaceModel(
             # Put None to indicate we are finished
             queue_put(None)
         else:
-            output_start = 0 if echo else kwargs["input_ids"].shape[-1]
-            outputs = self.model.generate(**kwargs)
-            outputs = self.tokenizer.batch_decode(
+            # Encoder-decoder models do not include the input tokens in the output
+            output_start = (
+                0 if echo or self.is_encoder_decoder else kwargs["input_ids"].shape[-1]
+            )
+            outputs = self._model.generate(**kwargs)
+            outputs = self._tokenizer.batch_decode(
                 outputs[:, output_start:], skip_special_tokens=True
             )
             queue_put(outputs)
@@ -431,6 +332,8 @@ class HuggingfaceModel(
         if params.n is not None and params.n > 1:
             # TODO: support 'n' by using num
             raise ValueError("'n' > 1 is not supported")
+        if params.echo and self.is_encoder_decoder:
+            raise ValueError("'echo' is not supported by encoder-decoder models")
 
     def build_generation_config(
         self, params: CreateCompletionRequest
@@ -456,13 +359,20 @@ class HuggingfaceModel(
         Given a list of chat completion messages, convert them to a prompt.
         """
         return ChatPrompt(
-            prompt=self.tokenizer.apply_chat_template(messages, tokenize=False)
+            prompt=cast(
+                str,
+                self._tokenizer.apply_chat_template(
+                    [m.model_dump() for m in messages], tokenize=False
+                ),
+            )
         )
 
     async def create_completion(
         self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
         params = request.params
+        if params.prompt is None:
+            raise ValueError("prompt is required")
         prompt = params.prompt
         prompts = (
             prompt
@@ -472,7 +382,7 @@ class HuggingfaceModel(
         if isinstance(prompts[0][0], int):
             inputs = {"input_ids": torch.tensor(prompts, dtype=torch.int64)}
         else:
-            inputs = self.tokenizer(
+            inputs = self._tokenizer(
                 prompts, padding=True, return_tensors=TensorType.PYTORCH
             )
         num_input_tokens = len(inputs["input_ids"])
@@ -494,7 +404,7 @@ class HuggingfaceModel(
         if params.stop is not None:
             stop = params.stop if isinstance(params.stop, list) else [params.stop]
             stop_sequences = [
-                self.tokenizer.encode(
+                self._tokenizer.encode(
                     seq, return_tensors=TensorType.PYTORCH, add_special_tokens=False
                 )[0]
                 for seq in stop

@@ -19,9 +19,11 @@ from transformers import (
     AutoModel,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
+    AutoModelForMultipleChoice,
     AutoModelForQuestionAnswering,
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
+    AutoModelForTableQuestionAnswering,
     AutoModelForTokenClassification,
     PretrainedConfig,
 )
@@ -66,10 +68,12 @@ ARCHITECTURES_2_TASK = {
 TASK_2_CLS = {
     MLTask.sequence_classification: AutoModelForSequenceClassification,
     MLTask.question_answering: AutoModelForQuestionAnswering,
+    MLTask.table_question_answering: AutoModelForTableQuestionAnswering,
     MLTask.token_classification: AutoModelForTokenClassification,
     MLTask.fill_mask: AutoModelForMaskedLM,
     MLTask.text_generation: AutoModelForCausalLM,
     MLTask.text2text_generation: AutoModelForSeq2SeqLM,
+    MLTask.multiple_choice: AutoModelForMultipleChoice,
 }
 
 
@@ -86,6 +90,15 @@ def infer_task_from_model_architecture(
         raise ValueError(
             f"Task couldn't be inferred from {architecture}. Please manually set `task` option."
         )
+
+
+def is_generative_task(task: MLTask) -> bool:
+    return task in {
+        MLTask.table_question_answering,
+        MLTask.question_answering,
+        MLTask.text_generation,
+        MLTask.text2text_generation,
+    }
 
 
 def get_model_class_for_task(task: MLTask) -> Type[AutoModel]:

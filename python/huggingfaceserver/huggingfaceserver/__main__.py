@@ -17,13 +17,23 @@ import logging
 from pathlib import Path
 
 import kserve
-from kserve.errors import ModelMissingError
+from kserve.logging import logger
 from kserve.model import PredictorConfig
 from kserve.storage import Storage
 
-from huggingfaceserver.task import MLTask
+from transformers import AutoConfig
 
-from . import HuggingfaceModel, HuggingfaceModelRepository, Backend
+from huggingfaceserver.task import (
+    MLTask,
+    infer_task_from_model_architecture,
+    is_generative_task,
+)
+
+from . import (
+    HuggingfaceGenerativeModel,
+    HuggingfaceEncoderModel,
+    Backend,
+)
 from .vllm.utils import (
     build_vllm_engine_args,
     infer_vllm_supported_from_model_architecture,
@@ -124,42 +134,52 @@ if __name__ == "__main__":
         model = VLLMModel(args.model_name, engine_args)
 
     else:
-        predictor_config = PredictorConfig(
-            args.predictor_host,
-            args.predictor_protocol,
-            args.predictor_use_ssl,
-            args.predictor_request_timeout_seconds,
-        )
-        task = None
         kwargs = vars(args)
+        model_config = AutoConfig.from_pretrained(
+            str(model_id_or_path), revision=kwargs.get("model_revision", None)
+        )
         if kwargs.get("task", None) is not None:
             try:
                 task = MLTask[kwargs["task"]]
             except KeyError:
                 raise ValueError(f"Unsupported task: {kwargs['task']}")
+        else:
+            task = infer_task_from_model_architecture(model_config)
 
-        model = HuggingfaceModel(
-            args.model_name,
-            model_id_or_path=model_id_or_path,
-            model_revision=kwargs.get("model_revision", None),
-            tokenizer_revision=kwargs.get("tokenizer_revision", None),
-            predictor_config=predictor_config,
-            do_lower_case=not kwargs.get("disable_lower_case", False),
-            add_special_tokens=not kwargs.get("disable_special_tokens", False),
-            max_length=kwargs["max_length"],
-            trust_remote_code=kwargs["trust_remote_code"],
-            tensor_input_names=kwargs.get("tensor_input_names", None),
-            return_token_type_ids=kwargs.get("return_token_type_ids", None),
-            task=task,
-        )
-    try:
-        model.load()
-        kserve.ModelServer().start([model] if model.ready else [])
-    except ModelMissingError:
-        logging.error(
-            f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
-            "trying loading from model repository."
-        )
-        kserve.ModelServer(
-            registered_models=HuggingfaceModelRepository(args.model_dir)
-        ).start([model] if model.ready else [])
+        if is_generative_task(task):
+            logger.info(f"Loading generative model for task '{task.name}'")
+            model = HuggingfaceGenerativeModel(
+                args.model_name,
+                model_id_or_path=model_id_or_path,
+                task=task,
+                model_config=model_config,
+                model_revision=kwargs.get("model_revision", None),
+                tokenizer_revision=kwargs.get("tokenizer_revision", None),
+                do_lower_case=not kwargs.get("disable_lower_case", False),
+                max_length=kwargs["max_length"],
+                trust_remote_code=kwargs["trust_remote_code"],
+            )
+        else:
+            predictor_config = PredictorConfig(
+                args.predictor_host,
+                args.predictor_protocol,
+                args.predictor_use_ssl,
+                args.predictor_request_timeout_seconds,
+            )
+            logger.info(f"Loading encoder model for task '{task.name}'")
+            model = HuggingfaceEncoderModel(
+                model_name=args.model_name,
+                model_id_or_path=model_id_or_path,
+                task=task,
+                model_config=model_config,
+                model_revision=kwargs.get("model_revision", None),
+                tokenizer_revision=kwargs.get("tokenizer_revision", None),
+                do_lower_case=not kwargs.get("disable_lower_case", False),
+                add_special_tokens=not kwargs.get("disable_special_tokens", False),
+                max_length=kwargs["max_length"],
+                trust_remote_code=kwargs["trust_remote_code"],
+                tensor_input_names=kwargs.get("tensor_input_names", None),
+                return_token_type_ids=kwargs.get("return_token_type_ids", None),
+            )
+    model.load()
+    kserve.ModelServer().start([model] if model.ready else [])

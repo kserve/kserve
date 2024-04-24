@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from enum import Enum, auto as auto_value
-from .huggingface_model_repository import HuggingfaceModelRepository
-from .model import HuggingfaceModel
+from .encoder_model import HuggingfaceEncoderModel
+from .generative_model import HuggingfaceGenerativeModel
 
 
 class Backend(str, Enum):
@@ -27,4 +27,7 @@ class Backend(str, Enum):
     vllm = auto_value()
 
 
-__all__ = ["HuggingfaceModelRepository", "HuggingfaceModel"]
+__all__ = [
+    "HuggingfaceGenerativeModel",
+    "HuggingfaceEncoderModel",
+]
