@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -487,12 +488,16 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 // getDomainList gets all the available domain names available with Knative Serving.
 func getDomainList(clientset kubernetes.Interface) *[]string {
 	res := new([]string)
-	configMap, err := clientset.CoreV1().ConfigMaps(system.Namespace()).Get(context.TODO(),
+	ns := constants.DefaultNSKnativeServing
+	if namespace := os.Getenv(system.NamespaceEnvKey); namespace != "" {
+		ns = namespace
+	}
+	configMap, err := clientset.CoreV1().ConfigMaps(ns).Get(context.TODO(),
 		config.DomainConfigName, metav1.GetOptions{})
 	if err != nil {
 		return res
 	}
-	for domain, _ := range configMap.Data {
+	for domain := range configMap.Data {
 		*res = append(*res, domain)
 	}
 	return res
