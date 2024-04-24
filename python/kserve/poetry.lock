@@ -1972,8 +1972,8 @@ files = [
 [package.dependencies]
 numpy = [
     {version = ">=1.20.3", markers = "python_version < \"3.10\""},
-    {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
     {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
+    {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -3488,4 +3488,4 @@ storage = ["azure-identity", "azure-storage-blob", "azure-storage-file-share", "
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "73f2e7c6fe91c93295d246bc9cbcfd9487b2ebe6a0ee6a0d40d021bd14d1127e"
+content-hash = "5b1ec46b747b68e2177b9c0e8f2e2e6dc7a6c852570ed8d76ea81e5e68a0c8b8"
