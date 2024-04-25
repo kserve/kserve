@@ -267,12 +267,6 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
                 predictions = torch.argmax(output, dim=2)
                 inferences.append(predictions.tolist())
             return get_predict_response(request, inferences, self.name)
-        elif (
-            self.task == MLTask.text_generation
-            or self.task == MLTask.text2text_generation
-        ):
-            outputs = self._tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            return get_predict_response(request, outputs, self.name)
         else:
             raise ValueError(
                 f"Unsupported task {self.task}. Please check the supported `task` option."

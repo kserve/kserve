@@ -78,12 +78,10 @@ TASK_2_CLS = {
 
 SUPPORTED_TASKS = {
     MLTask.sequence_classification,
-    MLTask.question_answering,
     MLTask.token_classification,
     MLTask.fill_mask,
     MLTask.text_generation,
     MLTask.text2text_generation,
-    MLTask.multiple_choice,
 }
 
 
