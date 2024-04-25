@@ -14,16 +14,16 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.1
 
 ## Values
 
-| Key | Type   | Default | Description |
-|-----|--------|----|-------------|
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | kserve.agent.image | string | `"kserve/agent"` |  |
 | kserve.agent.tag | string | `"v0.12.1"` |  |
 | kserve.controller.affinity | object | `{}` |  |
 | kserve.controller.deploymentMode | string | `"Serverless"` |  |
-| kserve.controller.gateway.disableIngressCreation | bool   | `false` |  |
-| kserve.controller.gateway.disableIstioVirtualHost | bool   | `false` |  |
+| kserve.controller.gateway.additionalIngressDomains[0] | string | `"example.com"` |  |
+| kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
+| kserve.controller.gateway.disableIstioVirtualHost | bool | `false` |  |
 | kserve.controller.gateway.domain | string | `"example.com"` |  |
-| kserve.controller.gateway.additionalIngressDomains | List   | `[]` |  |
 | kserve.controller.gateway.domainTemplate | string | `"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"` |  |
 | kserve.controller.gateway.ingressGateway.className | string | `"istio"` |  |
 | kserve.controller.gateway.ingressGateway.gateway | string | `"knative-serving/knative-ingress-gateway"` |  |
@@ -39,8 +39,8 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.1
 | kserve.controller.resources.requests.cpu | string | `"100m"` |  |
 | kserve.controller.resources.requests.memory | string | `"300Mi"` |  |
 | kserve.controller.tag | string | `"v0.12.1"` |  |
-| kserve.controller.tolerations | list   | `[]` |  |
-| kserve.controller.topologySpreadConstraints | list   | `[]` |  |
+| kserve.controller.tolerations | list | `[]` |  |
+| kserve.controller.topologySpreadConstraints | list | `[]` |  |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` |  |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` |  |
 | kserve.modelmesh.config.modelmeshImage | string | `"kserve/modelmesh"` |  |
@@ -54,7 +54,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.1
 | kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchExpressions[0].operator | string | `"In"` |  |
 | kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchExpressions[0].values[0] | string | `"modelmesh-controller"` |  |
 | kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.topologyKey | string | `"topology.kubernetes.io/zone"` |  |
-| kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight | int    | `100` |  |
+| kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight | int | `100` |  |
 | kserve.modelmesh.controller.image | string | `"kserve/modelmesh-controller"` |  |
 | kserve.modelmesh.controller.nodeSelector | object | `{}` |  |
 <<<<<<< HEAD
@@ -65,9 +65,9 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.1
 | kserve.modelmeshVersion | string | `"v0.12.0-rc0"` |  |
 =======
 | kserve.modelmesh.controller.tag | string | `"v0.11.2"` |  |
-| kserve.modelmesh.controller.tolerations | list   | `[]` |  |
-| kserve.modelmesh.controller.topologySpreadConstraints | list   | `[]` |  |
-| kserve.modelmesh.enabled | bool   | `true` |  |
+| kserve.modelmesh.controller.tolerations | list | `[]` |  |
+| kserve.modelmesh.controller.topologySpreadConstraints | list | `[]` |  |
+| kserve.modelmesh.enabled | bool | `true` |  |
 | kserve.modelmeshVersion | string | `"v0.11.2"` |  |
 >>>>>>> ddc9f696 (Add additionalIngressDomains into the charts)
 | kserve.router.image | string | `"kserve/router"` |  |
@@ -100,7 +100,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.1
 | kserve.storage.caBundleConfigMapName | string | `""` |  |
 | kserve.storage.caBundleVolumeMountPath | string | `"/etc/ssl/custom-certs"` |  |
 | kserve.storage.cpuModelcar | string | `"10m"` |  |
-| kserve.storage.enableModelcar | bool   | `false` |  |
+| kserve.storage.enableModelcar | bool | `false` |  |
 | kserve.storage.image | string | `"kserve/storage-initializer"` |  |
 | kserve.storage.memoryModelcar | string | `"15Mi"` |  |
 | kserve.storage.s3.CABundle | string | `""` |  |
