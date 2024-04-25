@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 
 	"github.com/go-logr/logr"
 	guuid "github.com/google/uuid"
@@ -32,30 +33,32 @@ import (
 )
 
 type LoggerHandler struct {
-	log              logr.Logger
-	logUrl           *url.URL
-	sourceUri        *url.URL
-	logMode          v1beta1.LoggerType
-	inferenceService string
-	namespace        string
-	component        string
-	endpoint         string
-	next             http.Handler
+	log                  logr.Logger
+	logUrl               *url.URL
+	sourceUri            *url.URL
+	logMode              v1beta1.LoggerType
+	inferenceService     string
+	namespace            string
+	component            string
+	endpoint             string
+	next                 http.Handler
+	metadataHeaderPrefix string
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
-	inferenceService string, namespace string, endpoint string, component string, next http.Handler) http.Handler {
+	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaderPrefix string) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
-		log:              logf.Log.WithName("Logger"),
-		logUrl:           logUrl,
-		sourceUri:        sourceUri,
-		logMode:          logMode,
-		inferenceService: inferenceService,
-		namespace:        namespace,
-		component:        component,
-		endpoint:         endpoint,
-		next:             next,
+		log:                  logf.Log.WithName("Logger"),
+		logUrl:               logUrl,
+		sourceUri:            sourceUri,
+		logMode:              logMode,
+		inferenceService:     inferenceService,
+		namespace:            namespace,
+		component:            component,
+		endpoint:             endpoint,
+		next:                 next,
+		metadataHeaderPrefix: metadataHeaderPrefix,
 	}
 }
 
@@ -82,6 +85,22 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metadata := map[string][]interface{}{}
+	if eh.metadataHeaderPrefix != "" {
+		// Loop over header names
+		for name, values := range r.Header {
+			// Loop over all values for the name.
+			if strings.HasPrefix(name, eh.metadataHeaderPrefix) {
+				metadataValues := []interface{}{}
+				for _, value := range values {
+					metadataValues = append(metadataValues, value)
+				}
+				metadataName, _ := strings.CutPrefix(name, eh.metadataHeaderPrefix)
+				metadata[metadataName] = metadataValues
+			}
+		}
+	}
+
 	// Get or Create an ID
 	id := getOrCreateID(r)
 	contentType := r.Header.Get("Content-Type")
@@ -98,6 +117,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Namespace:        eh.namespace,
 			Endpoint:         eh.endpoint,
 			Component:        eh.component,
+			Metadata:         metadata,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
