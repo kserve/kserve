@@ -36,7 +36,6 @@ def bloom_model():
         model_id_or_path="bigscience/bloom-560m",
     )
     model.load()
-    print("Here is the model")
     yield model
     model.stop()
 
@@ -94,7 +93,7 @@ def test_unsupported_model():
     config = AutoConfig.from_pretrained("google/tapas-base-finetuned-wtq")
     with pytest.raises(ValueError) as err_info:
         infer_task_from_model_architecture(config)
-    assert "Task couldn't be inferred" in err_info.value.args[0]
+    assert "Task table_question_answering is not supported" in err_info.value.args[0]
 
 
 @pytest.mark.asyncio
@@ -247,7 +246,6 @@ async def test_bloom_completion_streaming(bloom_model: HuggingfaceGenerativeMode
     output = ""
     async for chunk in response:
         output += chunk.choices[0].text
-        print(chunk)
     assert output == ".\n- Hey, my dog is cute.\n- Hey, my dog is cute"
 
 
