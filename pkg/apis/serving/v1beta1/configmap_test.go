@@ -43,7 +43,7 @@ var (
 		"localGatewayService" : "%s",
 		"ingressDomain": "%s",
 		"urlScheme": "https",
-        "additionalIngressDomains": ["%s", "%s"]
+        "additionalIngressDomains": ["%s","%s"]
 	}`, KnativeIngressGateway, IngressService, KnativeLocalGateway, LocalGatewayService, IngressDomain,
 		AdditionalDomain, AdditionalDomainExtra)
 )

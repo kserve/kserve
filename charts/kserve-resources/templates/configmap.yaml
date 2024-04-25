@@ -500,7 +500,11 @@ data:
         "localGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.gatewayService }}",
         "ingressClassName" : "{{ .Values.kserve.controller.gateway.ingressGateway.className }}",
         "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}",
-        "additionalIngressDomains": "{{ .Values.kserve.controller.gateway.additionalIngressDomains }}",
+        "additionalIngressDomains": [
+            {{- range $index, $flag := .Values.kserve.controller.gateway.additionalIngressDomains }}
+              {{ $flag | quote }} {{ if ne $index (sub (len $.Values.kserve.controller.gateway.additionalIngressDomains) 1)}}, {{ end }}
+            {{- end}}
+        ],
         "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
         "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
         "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
