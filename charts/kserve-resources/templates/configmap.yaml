@@ -185,6 +185,7 @@ data:
            "localGateway" : "knative-serving/knative-local-gateway",
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
            "ingressDomain"  : "example.com",
+           "additionalIngressDomains": ["additional-example.com", "additional-example-1.com"],
            "ingressClassName" : "istio",
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
            "urlScheme": "http",
@@ -214,6 +215,9 @@ data:
            # If ingressDomain is empty then example.com is used as default domain.
            # NOTE: This configuration only applicable for raw deployment.
            "ingressDomain"  : "example.com",
+
+           # additionalIngressDomains specifies the additional domain names which are used for creating the url.
+           "additionalIngressDomains": ["additional-example.com", "additional-example-1.com"]
 
            # ingressClassName specifies the ingress controller to use for ingress traffic.
            # This is optional and if omitted the default ingress in the cluster is used.
@@ -496,6 +500,7 @@ data:
         "localGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.gatewayService }}",
         "ingressClassName" : "{{ .Values.kserve.controller.gateway.ingressGateway.className }}",
         "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}",
+        "additionalIngressDomains": "{{ .Values.kserve.controller.gateway.additionalIngressDomains }}",
         "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
         "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
         "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
