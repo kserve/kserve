@@ -56,7 +56,9 @@ var (
 )
 
 type IngressReconciler struct {
-	client        client.Client
+	// client is the client that is used to access the custom resources
+	client client.Client
+	// clientset is the client that allows us to talk to the k8s for core APIs
 	clientset     kubernetes.Interface
 	scheme        *runtime.Scheme
 	ingressConfig *v1beta1.IngressConfig
@@ -492,6 +494,8 @@ func getDomainList(clientset kubernetes.Interface) *[]string {
 	if namespace := os.Getenv(system.NamespaceEnvKey); namespace != "" {
 		ns = namespace
 	}
+
+	// Leverage the clientset to access the configMap to get all the available domain names
 	configMap, err := clientset.CoreV1().ConfigMaps(ns).Get(context.TODO(),
 		config.DomainConfigName, metav1.GetOptions{})
 	if err != nil {
