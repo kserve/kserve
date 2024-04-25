@@ -188,6 +188,7 @@ def load_model():
                 trust_remote_code=kwargs["trust_remote_code"],
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
+                predictor_config=predictor_config,
             )
     model.load()
     return model
