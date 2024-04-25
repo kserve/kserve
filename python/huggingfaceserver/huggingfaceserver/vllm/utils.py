@@ -13,7 +13,8 @@
 # limitations under the License.
 
 from argparse import ArgumentParser
-from typing import Any, Optional, Type
+from typing import Any, Optional, Type, Union
+from pathlib import Path
 
 from kserve.logging import logger
 from torch import nn
@@ -35,7 +36,7 @@ def vllm_available() -> bool:
 
 
 def infer_vllm_supported_from_model_architecture(
-    model_config_path: str,
+    model_config_path: Union[Path, str],
 ) -> Optional[Type[nn.Module]]:
     if not _vllm:
         return None

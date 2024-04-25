@@ -14,6 +14,7 @@
 
 import argparse
 from pathlib import Path
+from typing import cast
 
 import kserve
 from kserve.logging import logger
@@ -26,6 +27,7 @@ from huggingfaceserver.task import (
     MLTask,
     infer_task_from_model_architecture,
     is_generative_task,
+    SUPPORTED_TASKS,
 )
 
 from . import (
@@ -107,12 +109,13 @@ parser = maybe_add_vllm_cli_parser(parser)
 
 args, _ = parser.parse_known_args()
 
-if __name__ == "__main__":
+
+def load_model():
     engine_args = None
     if args.model_dir:
         model_id_or_path = Path(Storage.download(args.model_dir))
     else:
-        model_id_or_path = args.model_id
+        model_id_or_path = cast(str, args.model_id)
 
     if model_id_or_path is None:
         raise ValueError("You must provide a model_id or model_dir")
@@ -140,8 +143,14 @@ if __name__ == "__main__":
         if kwargs.get("task", None):
             try:
                 task = MLTask[kwargs["task"]]
-            except KeyError:
-                raise ValueError(f"Unsupported task: {kwargs['task']}")
+                if task not in SUPPORTED_TASKS:
+                    raise ValueError(f"Task not supported: {task.name}")
+            except (KeyError, ValueError):
+                tasks_str = ", ".join(t.name for t in SUPPORTED_TASKS)
+                raise ValueError(
+                    f"Unsupported task: {kwargs['task']}. "
+                    f"Currently supported tasks are: {tasks_str}"
+                )
         else:
             task = infer_task_from_model_architecture(model_config)
 
@@ -181,4 +190,15 @@ if __name__ == "__main__":
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
             )
     model.load()
-    kserve.ModelServer().start([model] if model.ready else [])
+    return model
+
+
+if __name__ == "__main__":
+    try:
+        model = load_model()
+        kserve.ModelServer().start([model] if model.ready else [])
+    except Exception as e:
+        import sys
+
+        logger.error(f"Failed to start model server: {e}")
+        sys.exit(1)

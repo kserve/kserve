@@ -21,7 +21,9 @@ from kserve.protocol.rest.openai.types import (
     CreateCompletionRequest,
 )
 from pytest_httpx import HTTPXMock
+from transformers import AutoConfig
 
+from .task import infer_task_from_model_architecture
 from .encoder_model import HuggingfaceEncoderModel
 from .generative_model import HuggingfaceGenerativeModel
 from .task import MLTask
@@ -86,6 +88,13 @@ def bert_token_classification():
     model.load()
     yield model
     model.stop()
+
+
+def test_unsupported_model():
+    config = AutoConfig.from_pretrained("google/tapas-base-finetuned-wtq")
+    with pytest.raises(ValueError) as err_info:
+        infer_task_from_model_architecture(config)
+    assert "Task couldn't be inferred" in err_info.value.args[0]
 
 
 @pytest.mark.asyncio

@@ -76,6 +76,16 @@ TASK_2_CLS = {
     MLTask.multiple_choice: AutoModelForMultipleChoice,
 }
 
+SUPPORTED_TASKS = {
+    MLTask.sequence_classification,
+    MLTask.question_answering,
+    MLTask.token_classification,
+    MLTask.fill_mask,
+    MLTask.text_generation,
+    MLTask.text2text_generation,
+    MLTask.multiple_choice,
+}
+
 
 def infer_task_from_model_architecture(
     model_config: PretrainedConfig,
@@ -84,18 +94,23 @@ def infer_task_from_model_architecture(
     task = None
     for arch_options in ARCHITECTURES_2_TASK:
         if architecture.endswith(arch_options):
-            return ARCHITECTURES_2_TASK[arch_options]
+            task = ARCHITECTURES_2_TASK[arch_options]
+            break
 
     if task is None:
         raise ValueError(
-            f"Task couldn't be inferred from {architecture}. Please manually set `task` option."
+            f"Task couldn't be inferred from {architecture}. Please manually set `task` option. "
         )
+    elif task not in SUPPORTED_TASKS:
+        tasks_str = ", ".join(t.name for t in SUPPORTED_TASKS)
+        raise ValueError(
+            f"Task {task.name} is not supported. Currently supported tasks are: {tasks_str}."
+        )
+    return task
 
 
 def is_generative_task(task: MLTask) -> bool:
     return task in {
-        MLTask.table_question_answering,
-        MLTask.question_answering,
         MLTask.text_generation,
         MLTask.text2text_generation,
     }
