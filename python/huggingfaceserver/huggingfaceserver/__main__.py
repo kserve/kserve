@@ -137,7 +137,7 @@ if __name__ == "__main__":
         model_config = AutoConfig.from_pretrained(
             str(model_id_or_path), revision=kwargs.get("model_revision", None)
         )
-        if kwargs.get("task", None) is not None:
+        if kwargs.get("task", None):
             try:
                 task = MLTask[kwargs["task"]]
             except KeyError:
