@@ -20,9 +20,10 @@ from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
+
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateCompletionRequest,
     CreateChatCompletionRequest,
+    CreateCompletionRequest,
 )
 
 from ....errors import ModelNotReady
@@ -47,6 +48,7 @@ class OpenAIEndpoints:
         self,
         raw_request: Request,
         request_body: CreateCompletionRequest,
+        response: Response,
     ) -> Response:
         """Create completion handler.
 
@@ -69,11 +71,11 @@ class OpenAIEndpoints:
         if not model_ready:
             raise ModelNotReady(model_name)
 
-        request_headers = dict(raw_request.headers)
         completion = await self.dataplane.create_completion(
             model_name=model_name,
             request=params,
-            headers=request_headers,
+            headers=raw_request.headers,
+            response=response,
         )
         if isinstance(completion, AsyncIterable):
 
@@ -90,6 +92,7 @@ class OpenAIEndpoints:
         self,
         raw_request: Request,
         request_body: CreateChatCompletionRequest,
+        response: Response,
     ) -> Response:
         """Create chat completion handler.
 
@@ -112,11 +115,12 @@ class OpenAIEndpoints:
         if not model_ready:
             raise ModelNotReady(model_name)
 
-        request_headers = dict(raw_request.headers)
+        request_headers = raw_request.headers
         completion = await self.dataplane.create_chat_completion(
             model_name=model_name,
             request=request_body,
             headers=request_headers,
+            response=response,
         )
         if isinstance(completion, AsyncIterable):
 

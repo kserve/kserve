@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC
 import inspect
 import time
+from abc import ABC
 from enum import Enum
-from typing import Dict, List, Union, Optional, AsyncIterator, Any
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
+
 import grpc
 import httpx
 import orjson
@@ -24,8 +25,7 @@ from cloudevents.http import CloudEvent
 from httpx import HTTPStatusError
 
 from .errors import InvalidInput
-
-from .logging import trace_logger, logger
+from .logging import logger, trace_logger
 from .metrics import (
     EXPLAIN_HIST_TIME,
     POST_HIST_TIME,
@@ -60,6 +60,10 @@ class BaseKServeModel(ABC):
         """
         self.name = name
         self.ready = False
+
+    def stop(self):
+        """Stop handler can be overridden to perform model teardown"""
+        pass
 
 
 class InferenceVerb(Enum):

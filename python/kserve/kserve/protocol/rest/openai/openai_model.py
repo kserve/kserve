@@ -14,26 +14,24 @@
 
 from abc import abstractmethod
 from typing import AsyncIterator, Callable, Dict, Iterable, Optional, Union, cast
+
 from pydantic import BaseModel
-from kserve.protocol.rest.openai.types.openapi import (
-    ChatCompletionRequestSystemMessage,
-    ChatCompletionRequestUserMessage,
-    ChatCompletionRequestAssistantMessage,
-    ChatCompletionRequestToolMessage,
-    ChatCompletionRequestFunctionMessage,
+
+from kserve.protocol.rest.openai.types import (
+    ChatCompletion,
+    ChatCompletionChoice,
+    ChatCompletionChoiceLogprobs,
+    ChatCompletionChunk,
+    ChatCompletionRequestMessage,
     ChatCompletionResponseMessage,
-    ChatCompletionStreamResponseDelta as ChoiceDelta,
     ChatCompletionTokenLogprob,
-    Choice as CompletionChoice,
-    Choice1 as ChatCompletionChoice,
-    Choice3 as ChunkChoice,
+    ChoiceDelta,
+    ChunkChoice,
+    Completion,
+    CompletionChoice,
     CreateChatCompletionRequest,
-    CreateChatCompletionResponse as ChatCompletion,
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
     CreateCompletionRequest,
-    CreateCompletionResponse as Completion,
     Logprobs,
-    Logprobs2 as ChatCompletionChoiceLogprobs,
     TopLogprob,
 )
 
@@ -46,19 +44,17 @@ class ChatPrompt(BaseModel):
     prompt: str
 
 
-class CompletionRequest(BaseModel):
+class BaseCompletionRequest(BaseModel):
     request_id: Optional[str] = None
-    params: Union[CreateCompletionRequest, CreateChatCompletionRequest]
     context: Optional[Dict[str, str]] = None  # headers can go in here
 
 
-ChatCompletionRequestMessage = Union[
-    ChatCompletionRequestSystemMessage,
-    ChatCompletionRequestUserMessage,
-    ChatCompletionRequestAssistantMessage,
-    ChatCompletionRequestToolMessage,
-    ChatCompletionRequestFunctionMessage,
-]
+class CompletionRequest(BaseCompletionRequest):
+    params: CreateCompletionRequest
+
+
+class ChatCompletionRequest(BaseCompletionRequest):
+    params: CreateChatCompletionRequest
 
 
 class OpenAIModel(BaseKServeModel):
@@ -85,7 +81,7 @@ class OpenAIModel(BaseKServeModel):
 
     @abstractmethod
     async def create_chat_completion(
-        self, request: CompletionRequest
+        self, request: ChatCompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         pass
 
@@ -262,7 +258,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
     async def create_chat_completion(
-        self, request: CompletionRequest
+        self, request: ChatCompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         params = request.params
 
