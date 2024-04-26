@@ -64,7 +64,7 @@ class OpenAIProxyModel(OpenAIModel):
         self._http_client = (
             http_client
             if http_client is not None
-            else httpx.AsyncClient(timeout=httpx.Timeout(read=30.0))
+            else httpx.AsyncClient(timeout=httpx.Timeout(timeout=5.0, read=30.0))
         )
         self._completions_endpoint = (
             f"{self.predictor_url.rstrip('/')}{COMPLETIONS_ENDPOINT}"
