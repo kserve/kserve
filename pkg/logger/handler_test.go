@@ -127,7 +127,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 
 	reader := bytes.NewReader(predictorRequest)
 	r := httptest.NewRequest("POST", "http://a", reader)
-	r.Header().Set("my-meta/foo", "bar")
+	r.Header.Add("my-meta/foo", "bar")
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(zap.New())
