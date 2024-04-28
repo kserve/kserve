@@ -46,7 +46,8 @@ def test_huggingface_v1():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--tokenizer_revision",
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--disable_vllm",
+                "--backend",
+                "huggingface",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -96,7 +97,8 @@ def test_huggingface_v2():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--tokenizer_revision",
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--disable_vllm",
+                "--backend",
+                "huggingface",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -148,7 +150,8 @@ def test_huggingface_v2_generate():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--tokenizer_revision",
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--disable_vllm",
+                "--backend",
+                "huggingface",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -199,7 +202,8 @@ def test_huggingface_v2_sequence_classification():
                 "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
                 "--tokenizer_revision",
                 "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
-                "--disable_vllm",
+                "--backend",
+                "huggingface",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -247,7 +251,6 @@ def test_huggingface_v1_fill_mask():
             args=[
                 "--model_id",
                 "bert-base-uncased",
-                "--disable_vllm",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -298,7 +301,6 @@ def test_huggingface_v2_token_classification():
                 "--tokenizer_revision",
                 "4c534963167c08d4b8ff1f88733cf2930f86add0",
                 "--disable_special_tokens",
-                "--disable_vllm",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -343,11 +345,7 @@ def test_huggingface_v2_text_2_text():
                 name="huggingface",
             ),
             protocol_version=protocol_version,
-            args=[
-                "--model_id",
-                "t5-small",
-                "--disable_vllm",
-            ],
+            args=["--model_id", "t5-small", "--backend", "huggingface"],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
                 limits={"cpu": "1", "memory": "4Gi"},
