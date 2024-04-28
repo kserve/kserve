@@ -305,6 +305,7 @@ def generate(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
+    chat_completitons=True,
 ):
     with open(input_json) as json_file:
         data = json.load(json_file)
@@ -323,8 +324,10 @@ def generate(
         if model_name is None:
             model_name = service_name
 
-        url = f"http://{cluster_ip}{path}/v2/models/{model_name}/generate"
-
+        if chat_completitons:
+            url = f"http://{cluster_ip}{path}/openai/v1/chat/completions"
+        else:
+            url = f"http://{cluster_ip}{path}/openai/v1/completions"
         logging.info("Sending Header = %s", headers)
         logging.info("Sending url = %s", url)
         logging.info("Sending request data: %s", data)

@@ -174,7 +174,6 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         context: Dict[str, Any],
     ) -> Union[BatchEncoding, InferRequest]:
         instances = get_predict_input(payload)
-
         # Serialize to tensor
         if self.predictor_host:
             inputs = self._tokenizer(

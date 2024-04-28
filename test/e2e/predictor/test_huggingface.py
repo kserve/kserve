@@ -31,110 +31,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict, generate
 
 
 @pytest.mark.llm
-def test_huggingface_v1():
-    service_name = "hf-opt-125m-v1"
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        model=V1beta1ModelSpec(
-            model_format=V1beta1ModelFormat(
-                name="huggingface",
-            ),
-            args=[
-                "--model_id",
-                "facebook/opt-125m",
-                "--model_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--tokenizer_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--backend",
-                "huggingface",
-            ],
-            resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "2Gi"},
-                limits={"cpu": "1", "memory": "4Gi"},
-            ),
-        ),
-    )
-
-    isvc = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
-    )
-
-    kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-    )
-    kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
-    res = predict(service_name, "./data/opt_125m_input_v1.json")
-    assert res["predictions"] == [
-        "What are we having for dinner?\nA nice dinner with a friend.\nI'm not"
-    ]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
-
-@pytest.mark.llm
-def test_huggingface_v2():
-    service_name = "hf-opt-125m-v2"
-    protocol_version = "v2"
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        model=V1beta1ModelSpec(
-            model_format=V1beta1ModelFormat(
-                name="huggingface",
-            ),
-            protocol_version=protocol_version,
-            args=[
-                "--model_id",
-                "facebook/opt-125m",
-                "--model_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--tokenizer_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--backend",
-                "huggingface",
-            ],
-            resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "2Gi"},
-                limits={"cpu": "1", "memory": "4Gi"},
-            ),
-        ),
-    )
-
-    isvc = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
-    )
-
-    kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-    )
-    kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
-    res = predict(
-        service_name, "./data/opt_125m_input_v2.json", protocol_version=protocol_version
-    )
-    assert res["outputs"][0]["data"] == [
-        "What are we having for dinner?\nA nice dinner with a friend.\nI'm not"
-    ]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
-
-@pytest.mark.llm
-def test_huggingface_v2_generate():
-    service_name = "hf-opt-125m-v2-generate"
+def test_huggingface_openai_chat_completions():
+    service_name = "hf-opt-125m-chat"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -177,8 +75,8 @@ def test_huggingface_v2_generate():
 
     res = generate(service_name, "./data/opt_125m_input_generate.json")
     assert (
-        res["text_output"]
-        == "What are we having for dinner?\nA nice dinner with a friend.\nI'm not"
+        res["choices"][0]["message"]["content"]
+        == "I'm not sure if this is a good idea, but I'm not sure if I should"
     )
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -335,16 +233,14 @@ def test_huggingface_v2_token_classification():
 
 
 @pytest.mark.llm
-def test_huggingface_v2_text_2_text():
-    service_name = "hf-t5-small-v2"
-    protocol_version = "v2"
+def test_huggingface_openai_text_2_text():
+    service_name = "hf-t5-small"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
                 name="huggingface",
             ),
-            protocol_version=protocol_version,
             args=["--model_id", "t5-small", "--backend", "huggingface"],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -368,9 +264,8 @@ def test_huggingface_v2_text_2_text():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(
-        service_name, "./data/t5_small_v2_input.json", protocol_version=protocol_version
-    )
-    assert res["outputs"][0]["data"] == ["Das ist für Deutschland"]
+    res = generate(
+        service_name, "./data/t5_small_generate.json", chat_completions=False)
+    assert res["choices"][0]["message"]["content"] == ["Das ist für Deutschland"]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

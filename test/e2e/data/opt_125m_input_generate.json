@@ -1,6 +1,14 @@
 {
-  "text_input": "What are we having for dinner?",
-  "parameters": {
+    "model": "hf-opt-125m-chat",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "What are we having for dinner?"
+      }
+    ],
     "temperature": 0
-  }
 }
