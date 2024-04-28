@@ -216,9 +216,7 @@ def get_predict_response(
                 )
                 infer_outputs.append(infer_output)
         elif (
-            isinstance(result, list)
-            and len(result) > 0
-            and isinstance(result[0], str)
+            isinstance(result, list) and len(result) > 0 and isinstance(result[0], str)
         ):
             infer_output = InferOutput(
                 name="output-0",

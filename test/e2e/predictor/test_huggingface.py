@@ -265,7 +265,8 @@ def test_huggingface_openai_text_2_text():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = generate(
-        service_name, "./data/t5_small_generate.json", chat_completions=False)
-    assert res["choices"][0]["message"]["content"] == ["Das ist für Deutschland"]
+        service_name, "./data/t5_small_generate.json", chat_completions=False
+    )
+    assert res["choices"][0]["text"] == "Das ist für Deutschland"
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

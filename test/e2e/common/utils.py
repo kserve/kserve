@@ -304,8 +304,7 @@ def generate(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
-    model_name=None,
-    chat_completitons=True,
+    chat_completions=True,
 ):
     with open(input_json) as json_file:
         data = json.load(json_file)
@@ -321,10 +320,7 @@ def generate(
         cluster_ip, host, path = get_isvc_endpoint(isvc)
         headers = {"Host": host, "Content-Type": "application/json"}
 
-        if model_name is None:
-            model_name = service_name
-
-        if chat_completitons:
+        if chat_completions:
             url = f"http://{cluster_ip}{path}/openai/v1/chat/completions"
         else:
             url = f"http://{cluster_ip}{path}/openai/v1/completions"
