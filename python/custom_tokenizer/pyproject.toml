@@ -9,7 +9,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.9,<3.13"
 kserve = {path = "../kserve", develop = true}
 
 [tool.poetry.group.test]
