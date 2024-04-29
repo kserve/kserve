@@ -52,6 +52,11 @@ COPY --from=builder huggingfaceserver huggingfaceserver
 
 # Set a writable Hugging Face home folder to avoid permission issue. See https://github.com/kserve/kserve/issues/3562
 ENV HF_HOME="/tmp/huggingface"
+# https://huggingface.co/docs/safetensors/en/speed#gpu-benchmark
+ENV SAFETENSORS_FAST_GPU="1"
+# https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hfhubdisabletelemetry
+ENV HF_HUB_DISABLE_TELEMETRY="1"
+
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
 
