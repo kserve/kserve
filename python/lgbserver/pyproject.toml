@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.8,<3.13"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
 lightgbm = "~3.3.2"
 pandas = "^1.3.5"
