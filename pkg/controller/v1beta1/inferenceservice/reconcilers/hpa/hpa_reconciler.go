@@ -144,7 +144,8 @@ func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResu
 }
 
 func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler) bool {
-	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
 }
 
 // Reconcile ...
