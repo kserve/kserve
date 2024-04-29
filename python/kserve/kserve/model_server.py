@@ -22,9 +22,6 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
-from ray import serve as rayserve
-from ray.serve.api import Deployment
-from ray.serve.handle import DeploymentHandle
 
 from . import logging
 from .constants.constants import (
@@ -272,9 +269,7 @@ class ModelServer:
         )
         await self._rest_server.run()
 
-    def start(
-        self, models: Union[List[BaseKServeModel], Dict[str, Deployment]]
-    ) -> None:
+    def start(self, models: List[BaseKServeModel]) -> None:
         """Start the model server with a set of registered models.
 
         Args:
@@ -289,24 +284,15 @@ class ModelServer:
                         self.register_model(model)
                         # pass whether to log request latency into the model
                         model.enable_latency_logging = self.enable_latency_logging
+                    model.start()
                 else:
                     raise RuntimeError("Model type should be 'BaseKServeModel'")
             if not at_least_one_model_ready and models:
                 raise NoModelReady(models)
-        elif isinstance(models, dict):
-            if all([isinstance(v, Deployment) for v in models.values()]):
-                # TODO: make this port number a variable
-                rayserve.start(
-                    detached=True, http_options={"host": "0.0.0.0", "port": 9071}
-                )
-                for key in models:
-                    models[key].deploy()
-                    handle = models[key].get_handle()
-                    self.register_model_handle(key, handle)
             else:
                 raise RuntimeError("Model type should be RayServe Deployment")
         else:
-            raise RuntimeError("Unknown model collection types")
+            raise RuntimeError("Unknown model collection type")
 
         if self.max_asyncio_workers is None:
             # formula as suggest in https://bugs.python.org/issue35279
@@ -366,16 +352,6 @@ class ModelServer:
             logger.error(f"Caught exception: {context.get('exception')}")
         logger.error(f"message: { context.get('message')}")
         loop.default_exception_handler(context)
-
-    def register_model_handle(self, name: str, model_handle: DeploymentHandle):
-        """Register a model handle to the model server.
-
-        Args:
-            name: The name of the model handle.
-            model_handle: The model handle object.
-        """
-        self.registered_models.update_handle(name, model_handle)
-        logger.info("Registering model handle: %s", name)
 
     def register_model(self, model: BaseKServeModel):
         """Register a model to the model server.

@@ -14,9 +14,9 @@
 
 import inspect
 import time
-from abc import ABC
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Awaitable, Dict, List, Optional, Union
 
 from cloudevents.http import CloudEvent
 
@@ -65,15 +65,63 @@ class BaseKServeModel(ABC):
         """
         return self.ready
 
+    def load(self) -> bool:
+        """Load handler can be overridden to load the model from storage.
+        The `self.ready` should be set to True after the model is loaded. The flag is used for model health check.
+
+        Returns:
+            bool: True if model is ready, False otherwise
+        """
+        self.ready = True
+        return self.ready
+
+    def start(self):
+        """Start handler can be overridden to perform model setup"""
+        self.ready = True
+
     def stop(self):
         """Stop handler can be overridden to perform model teardown"""
-        pass
+        self.ready = False
 
 
 class InferenceVerb(Enum):
     EXPLAIN = 1
     PREDICT = 2
-    GENERATE = 3
+
+
+class InferenceModel(BaseKServeModel):
+    """
+    Abstract class representing a model that supports standard inference and prediction.
+    """
+
+    @abstractmethod
+    def __call__(
+        self,
+        body: Union[Dict, CloudEvent, InferRequest],
+        headers: Optional[Dict[str, str]] = None,
+        verb: InferenceVerb = InferenceVerb.PREDICT,
+    ) -> InferReturnType:
+        pass
+
+    def get_input_types(self) -> List[Dict]:
+        # Override this function to return appropriate input format expected by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
+
+    def get_output_types(self) -> List[Dict]:
+        # Override this function to return appropriate output format returned by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
+
+
+def is_v2(protocol: PredictorProtocol) -> bool:
+    return protocol != PredictorProtocol.REST_V1
 
 
 def get_latency_ms(start: float, end: float) -> float:
@@ -102,7 +150,7 @@ class PredictorConfig:
         self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
 
 
-class Model(BaseKServeModel):
+class Model(InferenceModel):
     def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
         """KServe Model Public Interface
 
@@ -140,9 +188,9 @@ class Model(BaseKServeModel):
     async def __call__(
         self,
         body: Union[Dict, CloudEvent, InferRequest],
+        headers: Optional[Dict[str, str]] = None,
         verb: InferenceVerb = InferenceVerb.PREDICT,
-        headers: Dict[str, str] = None,
-    ) -> Union[Dict, InferResponse, List[str]]:
+    ) -> InferReturnType:
         """Method to call predictor or explainer with the given input.
 
         Args:
@@ -212,14 +260,14 @@ class Model(BaseKServeModel):
 
     @property
     def _http_client(self) -> InferenceRESTClient:
-        if self._http_client_instance is None:
+        if self._http_client_instance is None and self.predictor_host:
             config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3)
             self._http_client_instance = InferenceRESTClient(config=config)
         return self._http_client_instance
 
     @property
     def _grpc_client(self) -> InferenceGRPCClient:
-        if self._grpc_client_stub is None:
+        if self._grpc_client_stub is None and self.predictor_host:
             self._grpc_client_stub = InferenceGRPCClient(
                 url=self.predictor_host, use_ssl=self.use_ssl, timeout=self.timeout
             )
@@ -252,22 +300,6 @@ class Model(BaseKServeModel):
         """
         self.ready = True
         return self.ready
-
-    def get_input_types(self) -> List[Dict]:
-        # Override this function to return appropriate input format expected by your model.
-        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
-
-        # Eg.
-        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
-        return []
-
-    def get_output_types(self) -> List[Dict]:
-        # Override this function to return appropriate output format returned by your model.
-        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
-
-        # Eg.
-        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
-        return []
 
     async def preprocess(
         self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
