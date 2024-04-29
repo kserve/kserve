@@ -57,19 +57,11 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.1
 | kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight | int | `100` |  |
 | kserve.modelmesh.controller.image | string | `"kserve/modelmesh-controller"` |  |
 | kserve.modelmesh.controller.nodeSelector | object | `{}` |  |
-<<<<<<< HEAD
 | kserve.modelmesh.controller.tag | string | `"v0.12.0-rc0"` |  |
 | kserve.modelmesh.controller.tolerations | list | `[]` |  |
 | kserve.modelmesh.controller.topologySpreadConstraints | list | `[]` |  |
 | kserve.modelmesh.enabled | bool | `true` |  |
 | kserve.modelmeshVersion | string | `"v0.12.0-rc0"` |  |
-=======
-| kserve.modelmesh.controller.tag | string | `"v0.11.2"` |  |
-| kserve.modelmesh.controller.tolerations | list | `[]` |  |
-| kserve.modelmesh.controller.topologySpreadConstraints | list | `[]` |  |
-| kserve.modelmesh.enabled | bool | `true` |  |
-| kserve.modelmeshVersion | string | `"v0.11.2"` |  |
->>>>>>> ddc9f696 (Add additionalIngressDomains into the charts)
 | kserve.router.image | string | `"kserve/router"` |  |
 | kserve.router.tag | string | `"v0.12.1"` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.12.1"` |  |
