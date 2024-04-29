@@ -35,8 +35,7 @@ kserve:
     rbacProxyImage: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
     gateway:
       domain: example.com
-      additionalIngressDomains:
-        - example.com
+      additionalIngressDomains: []
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
       urlScheme: http
       disableIstioVirtualHost: false

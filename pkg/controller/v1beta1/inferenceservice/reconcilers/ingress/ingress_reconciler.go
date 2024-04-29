@@ -109,6 +109,34 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	}
 }
 
+func getAdditionalHosts(domainList *[]string, serviceHost string, config *v1beta1.IngressConfig, additionalHosts *[]string) {
+	// Include additional ingressDomain to the domains (both internal and external)
+	subdomain := ""
+	if domainList != nil && len(*domainList) != 0 {
+		for _, domain := range *domainList {
+			res, found := strings.CutSuffix(serviceHost, domain)
+			if found {
+				subdomain = res
+				break
+			}
+		}
+	}
+	if len(subdomain) != 0 && config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
+		// len(subdomain) != 0 means we have found the subdomain.
+		// If the list of the additionalIngressDomains is not empty, we will append the valid host created by the
+		// additional ingress domain.
+		for _, domain := range *config.AdditionalIngressDomains {
+			host := fmt.Sprintf("%s%s", subdomain, domain)
+			if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
+				log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
+					"Failed to get the valid host name")
+				continue
+			}
+			*additionalHosts = append(*additionalHosts, host)
+		}
+	}
+}
+
 func getServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
 	url := getHostBasedServiceUrl(isvc, config)
 	if url == "" {
@@ -244,7 +272,7 @@ func createHTTPRouteDestination(gatewayService string) *istiov1beta1.HTTPRouteDe
 	return httpRouteDestination
 }
 
-func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool, config *v1beta1.IngressConfig) []*istiov1beta1.HTTPMatchRequest {
+func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalHosts *[]string, isInternal bool, config *v1beta1.IngressConfig) []*istiov1beta1.HTTPMatchRequest {
 	var uri *istiov1beta1.StringMatch
 	if prefix != "" {
 		uri = &istiov1beta1.StringMatch{
@@ -265,6 +293,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 		},
 	}
 	if !isInternal {
+		// We only create the HTTPMatchRequest for the targetHost and the additional hosts, when the ingress is not internal.
 		matchRequests = append(matchRequests,
 			&istiov1beta1.HTTPMatchRequest{
 				Uri: uri,
@@ -275,6 +304,21 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 				},
 				Gateways: []string{config.IngressGateway},
 			})
+
+		if additionalHosts != nil && len(*additionalHosts) != 0 {
+			for _, host := range *additionalHosts {
+				matchRequests = append(matchRequests,
+					&istiov1beta1.HTTPMatchRequest{
+						Uri: uri,
+						Authority: &istiov1beta1.StringMatch{
+							MatchType: &istiov1beta1.StringMatch_Regex{
+								Regex: constants.HostRegExp(host),
+							},
+						},
+						Gateways: []string{config.IngressGateway},
+					})
+			}
+		}
 	}
 	return matchRequests
 }
@@ -331,6 +375,15 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	if useDefault {
 		expBackend = constants.DefaultExplainerServiceName(isvc.Name)
 	}
+
+	additionalHosts := &[]string{}
+	hosts := []string{
+		network.GetServiceHostname(isvc.Name, isvc.Namespace),
+	}
+	if !isInternal {
+		getAdditionalHosts(domainList, serviceHost, config, additionalHosts)
+	}
+
 	if isvc.Spec.Explainer != nil {
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
 			status := corev1.ConditionFalse
@@ -346,7 +399,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		}
 		explainerRouter := istiov1beta1.HTTPRoute{
 			Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
-				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
+				network.GetServiceHostname(isvc.Name, isvc.Namespace), additionalHosts, isInternal, config),
 			Route: []*istiov1beta1.HTTPRouteDestination{
 				createHTTPRouteDestination(config.LocalGatewayServiceName),
 			},
@@ -363,7 +416,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	// Add predict route
 	httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
 		Match: createHTTPMatchRequest("", serviceHost,
-			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
+			network.GetServiceHostname(isvc.Name, isvc.Namespace), additionalHosts, isInternal, config),
 		Route: []*istiov1beta1.HTTPRouteDestination{
 			createHTTPRouteDestination(config.LocalGatewayServiceName),
 		},
@@ -375,9 +428,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			},
 		},
 	})
-	hosts := []string{
-		network.GetServiceHostname(isvc.Name, isvc.Namespace),
-	}
+
 	gateways := []string{
 		config.LocalGateway,
 	}
@@ -385,6 +436,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		hosts = append(hosts, serviceHost)
 		gateways = append(gateways, config.IngressGateway)
 	}
+
 	if config.PathTemplate != "" {
 		path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, config)
 		if err != nil {
@@ -442,32 +494,10 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		hosts = append(hosts, url.Host)
 	}
 
-	// Include additional ingressDomain to the domains (both internal and external)
-	subdomain := ""
-	if domainList != nil && len(*domainList) != 0 {
-		for _, domain := range *domainList {
-			res, found := strings.CutSuffix(serviceHost, domain)
-			if found {
-				subdomain = res
-				break
-			}
-		}
+	if !isInternal {
+		// We only append the additional hosts, when the ingress is not internal.
+		hosts = append(hosts, *additionalHosts...)
 	}
-	if len(subdomain) != 0 && config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
-		// len(subdomain) != 0 means we have found the subdomain.
-		// If the list of the additionalIngressDomains is not empty, we will append the valid host created by the
-		// additional ingress domain.
-		for _, domain := range *config.AdditionalIngressDomains {
-			host := fmt.Sprintf("%s%s", subdomain, domain)
-			if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
-				log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
-					"Failed to get the valid host name")
-				continue
-			}
-			hosts = append(hosts, host)
-		}
-	}
-
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})

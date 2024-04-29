@@ -43,6 +43,8 @@ func TestCreateVirtualService(t *testing.T) {
 	isvcAnnotations := map[string]string{"test": "test", "kubectl.kubernetes.io/last-applied-configuration": "test"}
 	labels := map[string]string{"test": "test"}
 	domain := "example.com"
+	additionalDomain := "my-additional-domain.com"
+	additionalSecondDomain := "my-second-additional-domain.com"
 	serviceHostName := constants.InferenceServiceHostName(serviceName, namespace, domain)
 	serviceInternalHostName := network.GetServiceHostname(serviceName, namespace)
 	predictorHostname := constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain)
@@ -644,7 +646,7 @@ func TestCreateVirtualService(t *testing.T) {
 				},
 			},
 		}, {
-			name: "found predictor status with path template and the additional ingress domains",
+			name: "found predictor status with the additional ingress domains",
 			ingressConfig: &v1beta1.IngressConfig{
 				IngressGateway:           constants.KnativeIngressGateway,
 				IngressServiceName:       "someIngressServiceName",
@@ -652,7 +654,7 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:  "knative-local-gateway.istio-system.svc.cluster.local",
 				UrlScheme:                "http",
 				IngressDomain:            "my-domain.com",
-				AdditionalIngressDomains: &[]string{"my-additional-domain.com", "my-second-additional-domain.com"},
+				AdditionalIngressDomains: &[]string{additionalDomain, additionalSecondDomain},
 				PathTemplate:             "/serving/{{ .Namespace }}/{{ .Name }}",
 				DisableIstioVirtualHost:  false,
 			},
@@ -703,6 +705,22 @@ func TestCreateVirtualService(t *testing.T) {
 									Authority: &istiov1beta1.StringMatch{
 										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, additionalDomain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, additionalSecondDomain)),
 										},
 									},
 									Gateways: []string{constants.KnativeIngressGateway},
