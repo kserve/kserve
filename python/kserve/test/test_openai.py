@@ -28,7 +28,12 @@ from kserve.protocol.rest.openai import (
     OpenAIChatAdapterModel,
     OpenAIProxyModel,
 )
-from kserve.protocol.rest.openai.types.openapi import CreateChatCompletionRequest
+from kserve.protocol.rest.openai.errors import OpenAIError
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionRequest,
+    Error,
+    ErrorResponse,
+)
 from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionResponse as ChatCompletion,
 )
@@ -312,7 +317,7 @@ class TestOpenAIParamsConversion:
 class TestOpenAIProxyModelCompletion:
 
     @pytest.mark.asyncio
-    async def test_completion_upstream_error(
+    async def test_completion_upstream_connection_error(
         self,
         completion_request: CompletionRequest,
         completion: Completion,
@@ -323,8 +328,84 @@ class TestOpenAIProxyModelCompletion:
             )
 
         async with mocked_openai_proxy_model(handler) as model:
-            result = await model.create_completion(completion_request)
-            assert result == completion
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert (
+            "Failed to communicate with upstream: [Errno 8] nodename nor servname provided"
+            in str(err_info.value)
+        )
+
+    @pytest.mark.asyncio
+    async def test_completion_upstream_status_code_error_invalid_body(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        def handler(request):
+            return httpx.Response(status_code=400, content="Junk response")
+
+        async with mocked_openai_proxy_model(handler) as model:
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert "Received invalid response from upstream: Junk response" in str(
+            err_info.value
+        )
+
+    @pytest.mark.asyncio
+    async def test_completion_upstream_status_code_error_valid_body(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        res = ErrorResponse(
+            error=Error(
+                code="400", message="Bad request", type="BadRequest", param=None
+            )
+        )
+
+        def handler(request):
+            return httpx.Response(status_code=400, content=res.model_dump_json())
+
+        async with mocked_openai_proxy_model(handler) as model:
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert err_info.value.response == res
+
+    @pytest.mark.asyncio
+    async def test_completion_upstream_timeout(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        def handler(request):
+            raise httpx.ReadTimeout("Read timed out", request=request)
+
+        async with mocked_openai_proxy_model(handler) as model:
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert (
+            str(err_info.value)
+            == "Timed out when communicating with upstream: Read timed out"
+        )
+
+    @pytest.mark.asyncio
+    async def test_completion_upstream_request_error(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        def handler(request):
+            raise httpx.RequestError("Some error", request=request)
+
+        async with mocked_openai_proxy_model(handler) as model:
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert str(err_info.value) == "Upstream request failed: Some error"
 
     @pytest.mark.asyncio
     async def test_completion_non_streamed(

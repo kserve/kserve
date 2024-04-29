@@ -1,10 +1,14 @@
 from typing import AsyncIterator, Optional, Union
 import httpx
-from functools import partial
+from http import HTTPStatus
+from functools import partial, wraps
 import orjson
+
+from pydantic import ValidationError
 
 
 from .openai_model import (
+    BaseCompletionRequest,
     OpenAIModel,
     AsyncMappingIterator,
     CompletionRequest,
@@ -14,12 +18,63 @@ from .types import (
     ChatCompletion,
     ChatCompletionChunk,
     Completion,
+    ErrorResponse,
 )
 from .errors import OpenAIError, create_error_response
+from ....logging import logger
 
 
 COMPLETIONS_ENDPOINT = "/v1/completions"
 CHAT_COMPLETIONS_ENDPOINT = "/v1/chat/completions"
+
+
+def error_handler(f):
+    @wraps(f)
+    async def wrapper(*args, **kwargs):
+        try:
+            res = await f(*args, **kwargs)
+            return res
+        except httpx.HTTPStatusError as e:
+            try:
+                # Try to parse upstream error as an ErrorResponse object
+                response = ErrorResponse.model_validate_json(e.response.content)
+            except ValidationError:
+                logger.warning(
+                    f"Failed to parse error response from upstream: {e.response.content}"
+                )
+                response = create_error_response(
+                    f"Received invalid response from upstream: {e.response.text}",
+                    status_code=HTTPStatus.BAD_GATEWAY,
+                    err_type="BadGateway",
+                )
+            raise OpenAIError(response=response)
+
+        except httpx.TimeoutException as e:
+            raise OpenAIError(
+                response=create_error_response(
+                    f"Timed out when communicating with upstream: {e}",
+                    err_type="GatewayTimeout",
+                    status_code=HTTPStatus.GATEWAY_TIMEOUT,
+                )
+            )
+        except httpx.NetworkError as e:
+            raise OpenAIError(
+                response=create_error_response(
+                    f"Failed to communicate with upstream: {e}",
+                    err_type="ServiceUnavailableError",
+                    status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+                )
+            )
+        except httpx.HTTPError as e:
+            raise OpenAIError(
+                response=create_error_response(
+                    f"Upstream request failed: {e}",
+                    err_type="InternalServerError",
+                    status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
+            )
+
+    return wrapper
 
 
 class OpenAIProxyModel(OpenAIModel):
@@ -148,26 +203,36 @@ class OpenAIProxyModel(OpenAIModel):
         self.postprocess_chat_completion_chunk(chat_completion_chunk, request)
         return chat_completion_chunk
 
-    async def _stream(self, endpoint: str, content: str) -> httpx.Response:
+    def _build_request(
+        self, endpoint: str, request: BaseCompletionRequest
+    ) -> httpx.Request:
+
+        if request.context and "upstream_headers" in request.context:
+            headers = httpx.Headers(request.context["upstream_headers"])
+        else:
+            headers = httpx.Headers()
+
+        headers["Content-type"] = "application/json"
 
         req = self._http_client.build_request(
             "POST",
             endpoint,
-            content=content,
-            headers={"Content-type": "application/json"},
+            content=request.params.model_dump_json(
+                exclude_unset=True, exclude_none=True
+            ),
+            headers=headers,
         )
-        r = await self._http_client.send(req, stream=True)
-        return r
+        return req
 
+    @error_handler
     async def create_completion(
         self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
         self.preprocess_completion_request(request)
+        req = self._build_request(self._completions_endpoint, request)
         if request.params.stream:
-            r = await self._stream(
-                self._completions_endpoint,
-                request.params.model_dump_json(exclude_none=True, exclude_unset=True),
-            )
+            r = await self._http_client.send(req, stream=True)
+            r.raise_for_status()
             it = AsyncMappingIterator(
                 iterator=r.aiter_lines(),
                 mapper=partial(self._handle_completion_chunk, request=request),
@@ -175,13 +240,8 @@ class OpenAIProxyModel(OpenAIModel):
             )
             return it
         else:
-            response = await self._http_client.post(
-                self._completions_endpoint,
-                content=request.params.model_dump_json(
-                    exclude_none=True, exclude_unset=True
-                ),
-                headers={"Content-type": "application/json"},
-            )
+            response = await self._http_client.send(req)
+            response.raise_for_status()
             if self.skip_upstream_validation:
                 obj = response.json()
                 completion = Completion.model_construct(**obj)
@@ -190,15 +250,15 @@ class OpenAIProxyModel(OpenAIModel):
             self.postprocess_completion(completion, request)
             return completion
 
+    @error_handler
     async def create_chat_completion(
         self, request: ChatCompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         self.preprocess_chat_completion_request(request)
+        req = self._build_request(self._chat_completions_endpoint, request)
         if request.params.stream:
-            r = await self._stream(
-                self._chat_completions_endpoint,
-                request.params.model_dump_json(exclude_none=True, exclude_unset=True),
-            )
+            r = await self._http_client.send(req, stream=True)
+            r.raise_for_status()
             it = AsyncMappingIterator(
                 iterator=r.aiter_lines(),
                 mapper=partial(self._handle_chat_completion_chunk, request=request),
@@ -206,25 +266,12 @@ class OpenAIProxyModel(OpenAIModel):
             )
             return it
         else:
-            try:
-                response = await self._http_client.post(
-                    f"{self.predictor_url}{CHAT_COMPLETIONS_ENDPOINT}",
-                    content=request.params.model_dump_json(
-                        exclude_none=True, exclude_unset=True
-                    ),
-                    headers={"Content-type": "application/json"},
-                )
-
-                if self.skip_upstream_validation:
-                    obj = response.json()
-                    chat_completion = ChatCompletion.model_construct(**obj)
-                else:
-                    chat_completion = ChatCompletion.model_validate_json(
-                        response.content
-                    )
-                self.postprocess_chat_completion(chat_completion, request)
-                return chat_completion
-            except httpx.NetworkError:
-                raise OpenAIError(
-                    response=create_error_response("Failed to connect to upstream")
-                )
+            response = await self._http_client.send(req)
+            response.raise_for_status()
+            if self.skip_upstream_validation:
+                obj = response.json()
+                chat_completion = ChatCompletion.model_construct(**obj)
+            else:
+                chat_completion = ChatCompletion.model_validate_json(response.content)
+            self.postprocess_chat_completion(chat_completion, request)
+            return chat_completion

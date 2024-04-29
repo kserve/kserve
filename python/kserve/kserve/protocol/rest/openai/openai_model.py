@@ -37,6 +37,7 @@ class ChatPrompt(BaseModel):
 class BaseCompletionRequest(BaseModel):
     request_id: Optional[str] = None
     context: Optional[Dict[str, Any]] = None  # headers can go in here
+    params: Union[CreateCompletionRequest, CreateChatCompletionRequest]
 
 
 class CompletionRequest(BaseCompletionRequest):
