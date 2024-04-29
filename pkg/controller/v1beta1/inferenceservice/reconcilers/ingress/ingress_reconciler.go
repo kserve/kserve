@@ -518,7 +518,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 }
 
 // getDomainList gets all the available domain names available with Knative Serving.
-func getDomainList(clientset kubernetes.Interface) *[]string {
+func getDomainList(client client.Client) *[]string {
 	res := new([]string)
 	ns := constants.DefaultNSKnativeServing
 	if namespace := os.Getenv(system.NamespaceEnvKey); namespace != "" {
@@ -526,8 +526,8 @@ func getDomainList(clientset kubernetes.Interface) *[]string {
 	}
 
 	// Leverage the clientset to access the configMap to get all the available domain names
-	configMap, err := clientset.CoreV1().ConfigMaps(ns).Get(context.TODO(),
-		config.DomainConfigName, metav1.GetOptions{})
+	configMap := &corev1.ConfigMap{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: config.DomainConfigName, Namespace: ns}, configMap)
 	if err != nil {
 		return res
 	}
@@ -554,7 +554,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		if err == nil {
 			useDefault = true
 		}
-		domainList := getDomainList(ir.clientset)
+		domainList := getDomainList(ir.client)
 		desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig, domainList)
 		if desiredIngress == nil {
 			return nil
