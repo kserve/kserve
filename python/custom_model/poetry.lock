@@ -899,6 +899,7 @@ uvicorn = {version = "^0.21.1", extras = ["standard"]}
 
 [package.extras]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
+ray = ["ray[serve] (>=2.10.0,<2.11.0)"]
 storage = ["azure-identity (>=1.8.0,<2.0.0)", "azure-storage-blob (>=12.10.0,<13.0.0)", "azure-storage-file-share (>=12.7.0,<13.0.0)", "boto3 (>=1.21.0,<2.0.0)", "google-cloud-storage (>=2.3.0,<3.0.0)", "requests (>=2.20.0,<3.0.0)", "urllib3 (>=1.26.8,<2.0.0)"]
 
 [package.source]
@@ -2815,4 +2816,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "9672531a6fcfa0dd210b40c500d483b61aad7a7afdd4726aa86db231527aeac5"
+content-hash = "ca578cd6b40da807c15dde9292e9cbf2b4f79bbd40b3d96725b33812e3b4566d"

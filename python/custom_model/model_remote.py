@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from kserve import Model, ModelServer
+from kserve.ray import RayModel
 from torchvision import models, transforms
 from typing import Dict
 import torch
@@ -71,4 +72,7 @@ class AlexNetModel(Model):
 
 
 if __name__ == "__main__":
-    ModelServer().start({"custom-model": AlexNetModel})
+    app = AlexNetModel.bind()
+    handle = serve.run(app)
+    model = RayModel(name="custom-model", handle=handle)
+    ModelServer().start([model])

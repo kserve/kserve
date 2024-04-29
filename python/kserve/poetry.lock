@@ -3466,9 +3466,10 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 
 [extras]
 logging = ["asgi-logger"]
+ray = ["ray"]
 storage = ["azure-identity", "azure-storage-blob", "azure-storage-file-share", "boto3", "google-cloud-storage", "requests", "urllib3"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "f337b5b2f5cf8f380737ef5b2baac722bf76e747423f5e5d10078895796101d6"
+content-hash = "acd9d28e6a4f6dbc01c14e6a45ecf7725bcc29f769cdb870169641f010126c73"

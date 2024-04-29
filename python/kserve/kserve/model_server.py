@@ -22,10 +22,6 @@ import sys
 from multiprocessing import Process
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from ray import serve as rayserve
-from ray.serve.api import Deployment
-from ray.serve.handle import DeploymentHandle
-
 from .logging import KSERVE_LOG_CONFIG, logger
 from .model import BaseKServeModel
 from .model_repository import ModelRepository
@@ -218,9 +214,7 @@ class ModelServer:
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
 
-    def start(
-        self, models: Union[List[BaseKServeModel], Dict[str, Deployment]]
-    ) -> None:
+    def start(self, models: List[BaseKServeModel]) -> None:
         """Start the model server with a set of registered models.
 
         Args:
@@ -232,22 +226,11 @@ class ModelServer:
                     self.register_model(model)
                     # pass whether to log request latency into the model
                     model.enable_latency_logging = self.enable_latency_logging
+                    model.start()
                 else:
                     raise RuntimeError("Model type should be 'BaseKServeModel'")
-        elif isinstance(models, dict):
-            if all([isinstance(v, Deployment) for v in models.values()]):
-                # TODO: make this port number a variable
-                rayserve.start(
-                    detached=True, http_options={"host": "0.0.0.0", "port": 9071}
-                )
-                for key in models:
-                    models[key].deploy()
-                    handle = models[key].get_handle()
-                    self.register_model_handle(key, handle)
-            else:
-                raise RuntimeError("Model type should be RayServe Deployment")
         else:
-            raise RuntimeError("Unknown model collection types")
+            raise RuntimeError("Unknown model collection type")
 
         if self.max_asyncio_workers is None:
             # formula as suggest in https://bugs.python.org/issue35279
@@ -358,16 +341,6 @@ class ModelServer:
         # gracefully shutdown the server
         loop.run_until_complete(self.stop())
         loop.default_exception_handler(context)
-
-    def register_model_handle(self, name: str, model_handle: DeploymentHandle):
-        """Register a model handle to the model server.
-
-        Args:
-            name: The name of the model handle.
-            model_handle: The model handle object.
-        """
-        self.registered_models.update_handle(name, model_handle)
-        logger.info("Registering model handle: %s", name)
 
     def register_model(self, model: BaseKServeModel):
         """Register a model to the model server.

@@ -42,7 +42,6 @@ kubernetes = ">=23.3.0"
 python-dateutil = "^2.8.0"
 numpy = "^1.23.5"
 psutil = "^5.9.0"
-ray = { version = "~2.10.0", extras = ["serve"] }
 async-timeout = { version = "^4.0.3", python = "==3.11.*" }
 grpcio = "^1.49.1"
 protobuf = "^3.19.0"
@@ -66,6 +65,9 @@ boto3 = { version = "^1.21.0", optional = true }
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true, python = ">3.8.0,<3.11" }
 
+# Ray dependency
+ray = { version = "~2.10.0", extras = ["serve"] }
+
 [tool.poetry.extras]
 storage = [
     "urllib3",
@@ -79,7 +81,9 @@ storage = [
 logging = [
     "asgi-logger"
 ]
-
+ray = [
+    "ray"
+]
 [tool.poetry.group.test]
 optional = true
 

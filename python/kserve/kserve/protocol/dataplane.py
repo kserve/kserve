@@ -16,17 +16,17 @@ import logging
 import time
 from importlib import metadata
 from typing import Dict, Optional, Tuple, Union
+from inspect import iscoroutinefunction
 
 import cloudevents.exceptions as ce
 import orjson
 
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.handle import DeploymentHandle
 
 from ..constants import constants
 from ..errors import InvalidInput, ModelNotFound
-from ..model import InferenceVerb, Model
+from ..model import InferenceVerb, BaseKServeModel, InferenceModel
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
@@ -36,14 +36,6 @@ JSON_HEADERS = [
     "application/cloudevents+json",
     "application/ld+json",
 ]
-
-# RayServeHandle used to be the return type of serve.run.
-# RayServeSyncHandle has been the return type of serve.run since Ray 2.5.
-# DeploymentHandle will be the new return type (still under feature flag in Ray 2.7).
-# ref https://github.com/ray-project/ray/pull/37817
-# On Ray 2.10, it now returns DeploymentHandle:
-# https://docs.ray.io/en/latest/serve/api/index.html#deployment-handles
-ModelHandleType = Union[Model, DeploymentHandle]
 
 
 class DataPlane:
@@ -61,14 +53,14 @@ class DataPlane:
     def model_registry(self):
         return self._model_registry
 
-    def get_model_from_registry(self, name: str) -> ModelHandleType:
+    def get_model_from_registry(self, name: str) -> BaseKServeModel:
         model = self._model_registry.get_model(name)
         if model is None:
             raise ModelNotFound(name)
 
         return model
 
-    def get_model(self, name: str) -> ModelHandleType:
+    def get_model(self, name: str) -> BaseKServeModel:
         """Get the model instance with the given name.
 
         Args:
@@ -181,12 +173,20 @@ class DataPlane:
         # TODO: model versioning is not supported yet
         model = self.get_model_from_registry(model_name)
 
-        if isinstance(model, DeploymentHandle):
-            input_types = await model.get_input_types.remote()
-            output_types = await model.get_output_types.remote()
-        else:
-            input_types = model.get_input_types()
-            output_types = model.get_output_types()
+        if not isinstance(model, InferenceModel):
+            raise ValueError(
+                f"Model of type {type(model).__name__} does not support inference"
+            )
+        input_types = (
+            await model.get_input_types()
+            if iscoroutinefunction(model.get_input_types)
+            else model.get_input_types()
+        )
+        output_types = (
+            await model.get_output_types()
+            if iscoroutinefunction(model.get_output_types)
+            else model.get_output_types()
+        )
 
         return {
             "name": model_name,
@@ -333,10 +333,11 @@ class DataPlane:
         """
         # call model locally or remote model workers
         model = self.get_model(model_name)
-        if isinstance(model, DeploymentHandle):
-            response = await model.remote(request, headers=headers)
-        else:
-            response = await model(request, headers=headers)
+        if not isinstance(model, InferenceModel):
+            raise ValueError(
+                f"Model of type {type(model).__name__} does not support inference"
+            )
+        response = await model(request, headers=headers)
         return response, headers
 
     async def explain(
@@ -360,8 +361,9 @@ class DataPlane:
         """
         # call model locally or remote model workers
         model = self.get_model(model_name)
-        if isinstance(model, DeploymentHandle):
-            response = await model.remote(request, verb=InferenceVerb.EXPLAIN)
-        else:
-            response = await model(request, verb=InferenceVerb.EXPLAIN)
+        if not isinstance(model, InferenceModel):
+            raise ValueError(
+                f"Model of type {type(model).__name__} does not support inference"
+            )
+        response = await model(request, verb=InferenceVerb.EXPLAIN, headers=headers)
         return response, headers
