@@ -7,7 +7,7 @@ from kserve import (
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
     V1beta1TransformerSpec,
-    constants
+    constants,
 )
 from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
@@ -24,17 +24,13 @@ def test_predictor_headers_v1():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-rest:"
-                      + os.environ.get("GITHUB_SHA"),
+                image="kserve/custom-model-rest:" + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
-                ports=[
-                    V1ContainerPort(
-                        container_port=8080,
-                        protocol="TCP"
-                    )],
-                args=["--model_name", model_name]
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
+                args=["--model_name", model_name],
             )
         ]
     )
@@ -44,11 +40,12 @@ def test_predictor_headers_v1():
             V1Container(
                 name="kserve-container",
                 image="kserve/custom-image-transformer-rest:"
-                      + os.environ.get("GITHUB_SHA"),
+                + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
-                args=["--model_name", model_name, "--predictor_protocol", "v1"]
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                args=["--model_name", model_name, "--predictor_protocol", "v1"],
             )
         ]
     )
@@ -59,21 +56,24 @@ def test_predictor_headers_v1():
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
-        spec=V1beta1InferenceServiceSpec(
-            predictor=predictor, transformer=transformer),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/custom_model_input.json",
-                  protocol_version="v1", model_name=model_name)
+    res = predict(
+        service_name,
+        "./data/custom_model_input.json",
+        protocol_version="v1",
+        model_name=model_name,
+    )
     response_headers = res["headers"]
     assert response_headers["my-header"] == "test_header"
-    points = ['%.3f' % (point) for point in list(res["predictions"])]
+    points = ["%.3f" % (point) for point in list(res["predictions"])]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -87,17 +87,13 @@ def test_predictor_headers_v2():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-rest:"
-                      + os.environ.get("GITHUB_SHA"),
+                image="kserve/custom-model-rest:" + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
-                ports=[
-                    V1ContainerPort(
-                        container_port=8080,
-                        protocol="TCP"
-                    )],
-                args=["--model_name", model_name]
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
+                args=["--model_name", model_name],
             )
         ]
     )
@@ -107,11 +103,12 @@ def test_predictor_headers_v2():
             V1Container(
                 name="kserve-container",
                 image="kserve/custom-image-transformer-rest:"
-                      + os.environ.get("GITHUB_SHA"),
+                + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
-                args=["--model_name", model_name, "--predictor_protocol", "v2"]
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                args=["--model_name", model_name, "--predictor_protocol", "v2"],
             )
         ]
     )
@@ -122,20 +119,23 @@ def test_predictor_headers_v2():
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
-        spec=V1beta1InferenceServiceSpec(
-            predictor=predictor, transformer=transformer),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/custom_model_input_v2.json",
-                  protocol_version="v2", model_name=model_name)
+    res = predict(
+        service_name,
+        "./data/custom_model_input_v2.json",
+        protocol_version="v2",
+        model_name=model_name,
+    )
     response_headers = res["headers"]
     assert response_headers["my-header"] == "test_header"
-    points = ['%.3f' % (point) for point in list(res["outputs"][0]["data"])]
+    points = ["%.3f" % (point) for point in list(res["outputs"][0]["data"])]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
