@@ -382,11 +382,11 @@ class HuggingfaceGenerativeModel(
             else [prompt]
         )
         if isinstance(prompts[0][0], int):
-            inputs = {"input_ids": torch.tensor(prompts, dtype=torch.int64)}
+            inputs = {"input_ids": torch.tensor(prompts, dtype=torch.int64).to(self._device)}
         else:
             inputs = self._tokenizer(
                 prompts, padding=True, return_tensors=TensorType.PYTORCH
-            )
+            ).to(self._device)
         num_input_tokens = len(inputs["input_ids"])
         if params.max_tokens is None:
             params.max_tokens = self.max_length - num_input_tokens
