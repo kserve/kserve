@@ -278,7 +278,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
                     for idx, probs in enumerate(probabilities):
                         token_probs = []
                         for token_id, prob in enumerate(probs):
-                            token = self.tokenizer.decode([token_id])
+                            token = self._tokenizer.decode([token_id])
                             token_probs.append({f"{token}": f"{prob.item():.4f}"})
                         decoded_probabilities.append(token_probs)
                     inferences.append(decoded_probabilities)
@@ -291,7 +291,9 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             for i in range(num_rows):
                 output = outputs[i].unsqueeze(0)
                 if self.return_probabilities:
-                    inferences.append(output.tolist())
+                    for values in output.tolist():
+                        res = [{k: v for k, v in enumerate(value)} for value in values]
+                        inferences.append([res])
                 else:
                     predictions = torch.argmax(output, dim=2)
                     inferences.append(predictions.tolist())

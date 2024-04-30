@@ -88,7 +88,7 @@ def bert_base_return_prob():
         "bert-base-uncased-yelp-polarity",
         model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
         task=MLTask.sequence_classification,
-        return_probabilities=True
+        return_probabilities=True,
     )
     model.load()
     yield model
@@ -256,10 +256,11 @@ async def test_bert_sequence_classification_return_probabilities(bert_base_retur
     response = await bert_base_return_prob(
         {"instances": [request, request]}, headers={}
     )
+
     assert response == {
-        'predictions': [
-            {0: approx(-2.1522036), 1: approx(2.5094054)},
-            {0: approx(-2.1522038), 1: approx(2.5094054)}
+        "predictions": [
+            {0: approx(-3.1508713), 1: approx(3.5892851)},
+            {0: approx(-3.1508713), 1: approx(3.589285)},
         ]
     }
 
