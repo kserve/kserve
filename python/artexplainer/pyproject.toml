@@ -10,10 +10,10 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.9,<3.13"
 kserve = {path = "../kserve", develop = true}
 adversarial-robustness-toolbox = {version = "^1.10.3", extras = ["keras"]}
-nest-asyncio = "^1.4.0"
+nest-asyncio = "^1.5.8"
 pillow = "^10.2.0"
 
 [tool.poetry.group.test]
