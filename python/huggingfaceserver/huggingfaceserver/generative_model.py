@@ -435,6 +435,7 @@ class HuggingfaceGenerativeModel(
                 request=request,
                 generate_queue=response_queue,
                 system_fingerprint=self.system_fingerprint,
+                stop_sequence_stopping_criteria=stop_sequence_stopping_criteria,
             )
         else:
             outputs = await response_queue.get()
