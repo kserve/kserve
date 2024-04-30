@@ -36,7 +36,6 @@ from .metrics import (
 from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 from .protocol.infer_type import InferRequest, InferResponse
-from .protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
 
 PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
 EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
@@ -416,12 +415,6 @@ class Model(BaseKServeModel):
                 if is_v2(PredictorProtocol(self.protocol))
                 else res
             )
-
-    async def generate(
-        self, payload: GenerateRequest, headers: Dict[str, str] = None
-    ) -> Union[GenerateResponse, AsyncIterator[Any]]:
-        """`generate` handler can be overridden to implement text generation."""
-        raise NotImplementedError("generate is not implemented")
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.
