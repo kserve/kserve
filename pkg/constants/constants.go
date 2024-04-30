@@ -360,6 +360,10 @@ const (
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
 
+const (
+	DefaultNSKnativeServing = "knative-serving"
+)
+
 // built-in runtime servers
 const (
 	SKLearnServer = "kserve-sklearnserver"
