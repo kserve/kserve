@@ -109,6 +109,19 @@ async def test_t5(t5_model: HuggingfaceGenerativeModel):
 
 
 @pytest.mark.asyncio
+async def test_t5_stopping_criteria(t5_model: HuggingfaceGenerativeModel):
+    params = CreateCompletionRequest(
+        model="t5-small",
+        prompt="translate from English to German: we are making words",
+        stop=["setzen "],
+        stream=False,
+    )
+    request = CompletionRequest(params=params)
+    response = await t5_model.create_completion(request)
+    assert response.choices[0].text == "wir setzen"
+
+
+@pytest.mark.asyncio
 async def test_t5_bad_params(t5_model: HuggingfaceGenerativeModel):
     params = CreateCompletionRequest(
         model="t5-small",
