@@ -1,3 +1,17 @@
+# Copyright 2024 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import unittest.mock as mock
 import pytest
 from kserve.storage import Storage
@@ -71,24 +85,6 @@ def test_download_model_from_gcs(mock_storage):
 
     arg_list = get_call_args(mock_file.download_to_filename.call_args_list)
     assert "/mock.object" in arg_list[0][0]
-
-
-@mock.patch(STORAGE_MODULE + ".storage")
-def test_gcs_with_multiple_model(mock_storage):
-    gcs_path = "gs://foo/bar"
-
-    mock_dir = create_mock_dir("bar/")
-    mock_file1 = create_mock_dir_with_file("bar", "mock.object")
-    mock_file2 = create_mock_dir_with_file("bar", "mock.object")
-
-    mock_storage.Client().bucket().list_blobs().__iter__.return_value = [
-        mock_dir,
-        mock_file1,
-        mock_file2,
-    ]
-
-    with pytest.raises(Exception):
-        Storage.download(gcs_path)
 
 
 @mock.patch("os.remove")

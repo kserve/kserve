@@ -312,9 +312,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             if mimetype in ["application/x-tar", "application/zip"]:
                 Storage._unpack_archive_file(dest_path, mimetype, temp_dir)
 
-        if file_count > 1:
-            raise RuntimeError("More than one model found in %s." % uri)
-
     @staticmethod
     def _load_hdfs_configuration() -> Dict:
         config = {
