@@ -347,6 +347,7 @@ class Model(BaseKServeModel):
         except Exception as exc:
             logger.error(
                 f"Could not send a request to predictor at url {predict_url} "
+                f"with headers {predict_headers} "
                 f"due to exception {exc}"
             )
             raise exc
