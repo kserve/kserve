@@ -227,10 +227,13 @@ def test_http_uri_paths(uri, response, expected_error):
 def test_mock_gcs(mock_storage):
     gcs_path = "gs://foo/bar"
     mock_obj = mock.MagicMock()
-    mock_obj.name = 'bar/'
+    mock_obj.name = "bar/"
     mock_obj1 = mock.MagicMock()
-    mock_obj1.name = 'bar/mock.object'
-    mock_storage.Client().bucket().list_blobs().__iter__.return_value = [mock_obj, mock_obj1]
+    mock_obj1.name = "bar/mock.object"
+    mock_storage.Client().bucket().list_blobs().__iter__.return_value = [
+        mock_obj,
+        mock_obj1,
+    ]
     assert Storage.download(gcs_path)
 
 
