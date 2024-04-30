@@ -20,6 +20,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.1
 | kserve.agent.tag | string | `"v0.12.1"` |  |
 | kserve.controller.affinity | object | `{}` |  |
 | kserve.controller.deploymentMode | string | `"Serverless"` |  |
+| kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
 | kserve.controller.gateway.disableIstioVirtualHost | bool | `false` |  |
 | kserve.controller.gateway.domain | string | `"example.com"` |  |
