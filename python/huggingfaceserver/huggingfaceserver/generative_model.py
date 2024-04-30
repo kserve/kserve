@@ -414,7 +414,10 @@ class HuggingfaceGenerativeModel(
                 for seq in stop
             ]
             stop_sequence_stopping_criteria = StopSequenceStoppingCriteria(
-                input_length=inputs["input_ids"].shape[-1],
+                # Encoder-decoder models do not include input tokens in output
+                input_length=(
+                    0 if self.is_encoder_decoder else inputs["input_ids"].shape[-1]
+                ),
                 stop_sequences=stop_sequences,
             )
             stopping_criteria = StoppingCriteriaList([stop_sequence_stopping_criteria])
