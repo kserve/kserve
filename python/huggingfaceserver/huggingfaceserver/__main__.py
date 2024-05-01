@@ -21,7 +21,6 @@ import kserve
 from kserve import logging
 from kserve.logging import logger
 from kserve.model import PredictorConfig
-from kserve.logging import logger
 from kserve.storage import Storage
 
 from transformers import AutoConfig
@@ -132,7 +131,6 @@ if "dtype" in args and args.dtype == "auto":
 
 
 def load_model():
-    logging.configure_logging(args.log_config_file)
     engine_args = None
     if args.model_dir:
         model_id_or_path = Path(Storage.download(args.model_dir))
@@ -237,6 +235,7 @@ def load_model():
 
 
 if __name__ == "__main__":
+    logging.configure_logging(args.log_config_file)
     try:
         model = load_model()
         kserve.ModelServer().start([model] if model.ready else [])

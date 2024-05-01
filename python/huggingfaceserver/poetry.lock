@@ -1651,23 +1651,6 @@ files = [
 ]
 
 [[package]]
-name = "lm-format-enforcer"
-version = "0.9.8"
-description = "Enforce the output format (JSON Schema, Regex etc) of a language model"
-optional = true
-python-versions = "<4.0,>=3.8"
-files = [
-    {file = "lm_format_enforcer-0.9.8-py3-none-any.whl", hash = "sha256:6525906bb11a538afb4c6ea4fdac7c693b7b43c6f3a361ec1a7179385e5682b1"},
-    {file = "lm_format_enforcer-0.9.8.tar.gz", hash = "sha256:b3433c50674045b0e46cd53e5016aa3aa1ba2740411802f57441a4c80d3f9606"},
-]
-
-[package.dependencies]
-interegular = ">=0.3.2"
-packaging = "*"
-pydantic = ">=1.10.8"
-pyyaml = "*"
-
-[[package]]
 name = "markupsafe"
 version = "2.1.5"
 description = "Safely add untrusted strings to HTML/XML markup."
@@ -1735,24 +1718,6 @@ files = [
     {file = "MarkupSafe-2.1.5-cp39-cp39-win_amd64.whl", hash = "sha256:fa173ec60341d6bb97a89f5ea19c85c5643c1e7dedebc22f5181eb73573142c5"},
     {file = "MarkupSafe-2.1.5.tar.gz", hash = "sha256:d283d37a890ba4c1ae73ffadf8046435c76e7bc2247bbb63c00bd1a709c6544b"},
 ]
-
-[[package]]
-name = "mkl"
-version = "2021.4.0"
-description = "Intel® oneAPI Math Kernel Library"
-optional = false
-python-versions = "*"
-files = [
-    {file = "mkl-2021.4.0-py2.py3-none-macosx_10_15_x86_64.macosx_11_0_x86_64.whl", hash = "sha256:67460f5cd7e30e405b54d70d1ed3ca78118370b65f7327d495e9c8847705e2fb"},
-    {file = "mkl-2021.4.0-py2.py3-none-manylinux1_i686.whl", hash = "sha256:636d07d90e68ccc9630c654d47ce9fdeb036bb46e2b193b3a9ac8cfea683cce5"},
-    {file = "mkl-2021.4.0-py2.py3-none-manylinux1_x86_64.whl", hash = "sha256:398dbf2b0d12acaf54117a5210e8f191827f373d362d796091d161f610c1ebfb"},
-    {file = "mkl-2021.4.0-py2.py3-none-win32.whl", hash = "sha256:439c640b269a5668134e3dcbcea4350459c4a8bc46469669b2d67e07e3d330e8"},
-    {file = "mkl-2021.4.0-py2.py3-none-win_amd64.whl", hash = "sha256:ceef3cafce4c009dd25f65d7ad0d833a0fbadc3d8903991ec92351fe5de1e718"},
-]
-
-[package.dependencies]
-intel-openmp = "==2021.*"
-tbb = "==2021.*"
 
 [[package]]
 name = "mpmath"
@@ -3787,19 +3752,6 @@ files = [
 
 [package.extras]
 widechars = ["wcwidth"]
-
-[[package]]
-name = "tbb"
-version = "2021.12.0"
-description = "Intel® oneAPI Threading Building Blocks (oneTBB)"
-optional = false
-python-versions = "*"
-files = [
-    {file = "tbb-2021.12.0-py2.py3-none-manylinux1_i686.whl", hash = "sha256:f2cc9a7f8ababaa506cbff796ce97c3bf91062ba521e15054394f773375d81d8"},
-    {file = "tbb-2021.12.0-py2.py3-none-manylinux1_x86_64.whl", hash = "sha256:a925e9a7c77d3a46ae31c34b0bb7f801c4118e857d137b68f68a8e458fcf2bd7"},
-    {file = "tbb-2021.12.0-py3-none-win32.whl", hash = "sha256:b1725b30c174048edc8be70bd43bb95473f396ce895d91151a474d0fa9f450a8"},
-    {file = "tbb-2021.12.0-py3-none-win_amd64.whl", hash = "sha256:fc2772d850229f2f3df85f1109c4844c495a2db7433d38200959ee9265b34789"},
-]
 
 [[package]]
 name = "tiktoken"
