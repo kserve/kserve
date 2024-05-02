@@ -146,11 +146,8 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             do_lower_case=self.do_lower_case,
             **tokenizer_kwargs,
         )
-
-        if not self._tokenizer.pad_token:
-            self._tokenizer.add_special_tokens({"pad_token": "[PAD]"})
-
         logger.info("Successfully loaded tokenizer")
+
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
             model_cls = get_model_class_for_task(self.task)
@@ -162,6 +159,16 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             )
             self._model.eval()
             self._model.to(self._device)
+            if not self._tokenizer.pad_token:
+                pad_token_str = "[PAD]"
+                logger.warning(
+                    f"Tokenizer does not have a padding token defined. Adding fall back pad token `{pad_token_str}`"
+                )
+                # Add fallback pad token [PAD]
+                self._tokenizer.add_special_tokens({"pad_token": pad_token_str})
+                # When adding new tokens to the vocabulary, we should make sure to also resize the token embedding
+                # matrix of the model so that its embedding matrix matches the tokenizer.
+                self._model.resize_token_embeddings(len(self._tokenizer))
             logger.info(
                 f"Successfully loaded huggingface model from path {model_id_or_path}"
             )
