@@ -89,6 +89,19 @@ def bert_token_classification():
     model.stop()
 
 
+@pytest.fixture(scope="module")
+def openai_gpt_model():
+    model = HuggingfaceGenerativeModel(
+        "openai-gpt",
+        model_id_or_path="openai-community/openai-gpt",
+        task=MLTask.text_generation,
+        max_length=512,
+    )
+    model.load()
+    yield model
+    model.stop()
+
+
 def test_unsupported_model():
     config = AutoConfig.from_pretrained("google/tapas-base-finetuned-wtq")
     with pytest.raises(ValueError) as err_info:
@@ -335,3 +348,27 @@ async def test_input_truncation(bert_base_yelp_polarity: HuggingfaceEncoderModel
     request = "good " * 600
     response = await bert_base_yelp_polarity({"instances": [request]}, headers={})
     assert response == {"predictions": [1]}
+
+
+@pytest.mark.asyncio
+async def test_input_padding_with_pad_token_not_specified(
+    openai_gpt_model: HuggingfaceGenerativeModel,
+):
+    # inputs with different lengths will throw an error
+    # unless padding token is configured.
+    # openai-gpt model does not specify the pad token, so the fallback pad token should be added.
+    assert openai_gpt_model._tokenizer.pad_token == "[PAD]"
+    assert openai_gpt_model._tokenizer.pad_token_id is not None
+    params = CreateCompletionRequest(
+        model="openai-gpt",
+        prompt=["Sun rises in the east, sets in the", "My name is Teven and I am"],
+        stream=False,
+        temperature=0,
+    )
+    request = CompletionRequest(params=params)
+    response = await openai_gpt_model.create_completion(request)
+    assert (
+        response.choices[0].text
+        == "west, and the sun sets in the west. \n the sun rises in the"
+    )
+    assert "a member of the royal family." in response.choices[1].text
