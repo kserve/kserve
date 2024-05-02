@@ -16,6 +16,7 @@ import argparse
 from pathlib import Path
 from typing import cast
 
+import torch
 import kserve
 from kserve.logging import logger
 from kserve.model import PredictorConfig
@@ -109,6 +110,11 @@ parser = maybe_add_vllm_cli_parser(parser)
 
 args, _ = parser.parse_known_args()
 
+if (
+    "dtype" in args and args.dtype == "auto"
+):  # Replacing auto with float16 to make it consistent with HF (VLLM defaults to BF16 for BF16 models but HF doesn't)
+    args.dtype = "float16"
+
 
 def load_model():
     engine_args = None
@@ -137,6 +143,17 @@ def load_model():
 
     else:
         kwargs = vars(args)
+        # Convert dtype from string to torch dtype. Default to float16
+        dtype = kwargs.get("dtype", "float16")
+        hf_dtype_map = {
+            "float32": torch.float32,
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+            "half": torch.float16,
+            "float": torch.float32,
+        }
+        dtype = hf_dtype_map[dtype]
+
         model_config = AutoConfig.from_pretrained(
             str(model_id_or_path), revision=kwargs.get("model_revision", None)
         )
@@ -165,6 +182,7 @@ def load_model():
                 tokenizer_revision=kwargs.get("tokenizer_revision", None),
                 do_lower_case=not kwargs.get("disable_lower_case", False),
                 max_length=kwargs["max_length"],
+                dtype=dtype,
                 trust_remote_code=kwargs["trust_remote_code"],
             )
         else:
@@ -185,6 +203,7 @@ def load_model():
                 do_lower_case=not kwargs.get("disable_lower_case", False),
                 add_special_tokens=not kwargs.get("disable_special_tokens", False),
                 max_length=kwargs["max_length"],
+                dtype=dtype,
                 trust_remote_code=kwargs["trust_remote_code"],
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
