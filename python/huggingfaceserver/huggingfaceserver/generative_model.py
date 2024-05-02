@@ -198,6 +198,7 @@ class HuggingfaceGenerativeModel(
             # https://github.com/huggingface/transformers/issues/18388#issuecomment-1204369688
             # https://github.com/Vision-CAIR/MiniGPT-4/issues/129
             # https://github.com/huggingface/transformers/blob/1248f0925234f97da9eee98da2aa22f7b8dbeda1/src/transformers/generation/utils.py#L1376-L1388
+            logger.info("Decoder-only model detected. Setting padding side to left.")
             tokenizer_kwargs["padding_side"] = "left"
 
         if self.trust_remote_code:
@@ -212,9 +213,6 @@ class HuggingfaceGenerativeModel(
             **tokenizer_kwargs,
         )
 
-        if not self._tokenizer.pad_token:
-            self._tokenizer.add_special_tokens({"pad_token": "[PAD]"})
-
         logger.info("Successfully loaded tokenizer")
         # load huggingface model using from_pretrained for inference mode
         model_cls = get_model_class_for_task(self.task)
@@ -226,6 +224,16 @@ class HuggingfaceGenerativeModel(
         )
         self._model.eval()
         self._model.to(self._device)
+        if not self._tokenizer.pad_token:
+            pad_token_str = "[PAD]"
+            logger.warning(
+                f"Tokenizer does not have a padding token defined. Adding fall back pad token `{pad_token_str}`"
+            )
+            # Add fallback pad token [PAD]
+            self._tokenizer.add_special_tokens({"pad_token": pad_token_str})
+            # When adding new tokens to the vocabulary, we should make sure to also resize the token embedding
+            # matrix of the model so that its embedding matrix matches the tokenizer.
+            self._model.resize_token_embeddings(len(self._tokenizer))
         logger.info(
             f"Successfully loaded huggingface model from path {model_id_or_path}"
         )
@@ -340,8 +348,12 @@ class HuggingfaceGenerativeModel(
     def build_generation_config(
         self, params: CreateCompletionRequest
     ) -> GenerationConfig:
-        kwargs = {}
-        kwargs["max_new_tokens"] = params.max_tokens
+        kwargs = {
+            "max_new_tokens": params.max_tokens,
+            "top_p": params.top_p,
+            "temperature": params.temperature,
+            "pad_token_id": self._tokenizer.pad_token_id,
+        }
         if params.presence_penalty and params.presence_penalty > 0:
             kwargs["repetition_penalty"] = params.presence_penalty
         if params.logit_bias is not None:
@@ -349,9 +361,6 @@ class HuggingfaceGenerativeModel(
             kwargs["sequence_bias"] = {
                 tuple(token): bias for token, bias in params.logit_bias.items()
             }
-        kwargs["top_p"] = params.top_p
-        kwargs["temperature"] = params.temperature
-
         return GenerationConfig(**kwargs)
 
     def apply_chat_template(
