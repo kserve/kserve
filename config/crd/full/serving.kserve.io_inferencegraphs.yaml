@@ -420,6 +420,8 @@ spec:
                     steps:
                       items:
                         properties:
+                          beMerged:
+                            type: boolean
                           condition:
                             type: string
                           data:

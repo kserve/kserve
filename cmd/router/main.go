@@ -228,6 +228,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 	if currentNode.RouterType == v1alpha1.Sequence {
 		var statusCode int
 		var responseBytes []byte
+		combinedResponses := map[string]interface{}{}
 		var err error
 		for i := range currentNode.Steps {
 			step := &currentNode.Steps[i]
@@ -254,6 +255,19 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			if responseBytes, statusCode, err = executeStep(step, graph, request, headers); err != nil {
 				return nil, 500, err
 			}
+			// collect responses if BeMerged is set
+			if step.BeMerged == true || i == len(currentNode.Steps)-1 {
+				key := step.StepName
+				if key == "" {
+					key = strconv.Itoa(i) // Use index if no step name
+				}
+				var res map[string]interface{}
+				if err = json.Unmarshal(responseBytes, &res); err == nil {
+					combinedResponses[key] = res
+				} else {
+					// should return err?
+				}
+			}
 			/*
 			   Only if a step is a hard dependency, we will check for its success.
 			*/
@@ -265,8 +279,12 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				}
 			}
 		}
-
-		return responseBytes, statusCode, nil
+		// If no BeMerged set, maintain same behavior
+		if len(combinedResponses) == 1 {
+			return responseBytes, statusCode, nil
+		}
+		ret, _ := json.Marshal(combinedResponses)
+		return ret, 200, nil
 	}
 	log.Error(nil, "invalid route type", "type", currentNode.RouterType)
 	return nil, 500, fmt.Errorf("invalid route type: %v", currentNode.RouterType)

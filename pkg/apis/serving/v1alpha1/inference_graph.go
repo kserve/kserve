@@ -295,6 +295,10 @@ type InferenceStep struct {
 	// to decide whether a step is a hard or a soft dependency in the Inference Graph
 	// +optional
 	Dependency InferenceStepDependencyType `json:"dependency,omitempty"`
+
+	// specify which steps' response need to be merged
+	// +optional
+	BeMerged bool `json:"beMerged,omitempty"`
 }
 
 // InferenceGraphStatus defines the InferenceGraph conditions and status
