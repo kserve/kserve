@@ -147,7 +147,7 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
 
 def get_predict_input(
     payload: Union[Dict, InferRequest], columns: List = None
-) -> Union[np.ndarray, pd.DataFrame]:
+) -> Union[np.ndarray, pd.DataFrame, List[str]]:
     if isinstance(payload, Dict):
         instances = payload["inputs"] if "inputs" in payload else payload["instances"]
         if len(instances) == 0:
@@ -181,6 +181,12 @@ def get_predict_input(
             return payload.as_dataframe()
         else:
             input = payload.inputs[0]
+            if (
+                input.datatype == "BYTES"
+                and len(input.data) > 0
+                and isinstance(input.data[0], str)
+            ):
+                return input.data
             return input.as_numpy()
 
 
@@ -209,7 +215,19 @@ def get_predict_response(
                     data=result[col].tolist(),
                 )
                 infer_outputs.append(infer_output)
+        elif (
+            isinstance(result, list) and len(result) > 0 and isinstance(result[0], str)
+        ):
+            infer_output = InferOutput(
+                name="output-0",
+                shape=[len(result)],
+                datatype="BYTES",
+                data=result,
+            )
+            infer_outputs.append(infer_output)
         else:
+            if isinstance(result, list):
+                result = np.array(result)
             infer_output = InferOutput(
                 name="output-0",
                 shape=list(result.shape),

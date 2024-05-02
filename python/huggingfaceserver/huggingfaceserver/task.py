@@ -12,7 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import auto, Enum
+from enum import Enum, auto
+from typing import Type
+
+from transformers import (
+    AutoModel,
+    AutoModelForCausalLM,
+    AutoModelForMaskedLM,
+    AutoModelForMultipleChoice,
+    AutoModelForQuestionAnswering,
+    AutoModelForSeq2SeqLM,
+    AutoModelForSequenceClassification,
+    AutoModelForTableQuestionAnswering,
+    AutoModelForTokenClassification,
+    PretrainedConfig,
+)
 
 
 class MLTask(str, Enum):
@@ -39,14 +53,66 @@ class MLTask(str, Enum):
 
 
 ARCHITECTURES_2_TASK = {
-    "TapasForQuestionAnswering": MLTask.table_question_answering.value,
-    "ForQuestionAnswering": MLTask.question_answering.value,
-    "ForTokenClassification": MLTask.token_classification.value,
-    "ForSequenceClassification": MLTask.sequence_classification.value,
-    "ForMultipleChoice": MLTask.multiple_choice.value,
-    "ForMaskedLM": MLTask.fill_mask.value,
-    "ForCausalLM": MLTask.text_generation.value,
-    "ForConditionalGeneration": MLTask.text2text_generation.value,
-    "MTModel": MLTask.text2text_generation.value,
-    "EncoderDecoderModel": MLTask.text2text_generation.value,
+    "TapasForQuestionAnswering": MLTask.table_question_answering,
+    "ForQuestionAnswering": MLTask.question_answering,
+    "ForTokenClassification": MLTask.token_classification,
+    "ForSequenceClassification": MLTask.sequence_classification,
+    "ForMultipleChoice": MLTask.multiple_choice,
+    "ForMaskedLM": MLTask.fill_mask,
+    "ForCausalLM": MLTask.text_generation,
+    "ForConditionalGeneration": MLTask.text2text_generation,
+    "MTModel": MLTask.text2text_generation,
+    "EncoderDecoderModel": MLTask.text2text_generation,
 }
+
+TASK_2_CLS = {
+    MLTask.sequence_classification: AutoModelForSequenceClassification,
+    MLTask.question_answering: AutoModelForQuestionAnswering,
+    MLTask.table_question_answering: AutoModelForTableQuestionAnswering,
+    MLTask.token_classification: AutoModelForTokenClassification,
+    MLTask.fill_mask: AutoModelForMaskedLM,
+    MLTask.text_generation: AutoModelForCausalLM,
+    MLTask.text2text_generation: AutoModelForSeq2SeqLM,
+    MLTask.multiple_choice: AutoModelForMultipleChoice,
+}
+
+SUPPORTED_TASKS = {
+    MLTask.sequence_classification,
+    MLTask.token_classification,
+    MLTask.fill_mask,
+    MLTask.text_generation,
+    MLTask.text2text_generation,
+}
+
+
+def infer_task_from_model_architecture(
+    model_config: PretrainedConfig,
+) -> MLTask:
+    architecture = model_config.architectures[0]
+    task = None
+    for arch_options in ARCHITECTURES_2_TASK:
+        if architecture.endswith(arch_options):
+            task = ARCHITECTURES_2_TASK[arch_options]
+            break
+
+    if task is None:
+        raise ValueError(
+            f"Task couldn't be inferred from {architecture}. Please manually set `task` option. "
+        )
+    elif task not in SUPPORTED_TASKS:
+        tasks_str = ", ".join(t.name for t in SUPPORTED_TASKS)
+        raise ValueError(
+            f"Task {task.name} is not supported. Currently supported tasks are: {tasks_str}."
+        )
+    return task
+
+
+def is_generative_task(task: MLTask) -> bool:
+    return task in {
+        MLTask.text_generation,
+        MLTask.text2text_generation,
+    }
+
+
+def get_model_class_for_task(task: MLTask) -> Type[AutoModel]:
+    return TASK_2_CLS[task]

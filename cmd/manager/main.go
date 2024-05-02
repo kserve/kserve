@@ -196,7 +196,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//Setup TrainedModel controller
+	// Setup TrainedModel controller
 	trainedModelEventBroadcaster := record.NewBroadcaster()
 	setupLog.Info("Setting up v1beta1 TrainedModel controller")
 	trainedModelEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
@@ -211,7 +211,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//Setup Inference graph controller
+	// Setup Inference graph controller
 	inferenceGraphEventBroadcaster := record.NewBroadcaster()
 	setupLog.Info("Setting up InferenceGraph controller")
 	inferenceGraphEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})

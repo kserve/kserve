@@ -15,3 +15,4 @@ exclude =
   python/kserve/kserve/protocol/grpc/grpc_predict_v2*.py
   python/*_pb2.py
   docs/**/*.py
+  python/kserve/kserve/protocol/rest/openai/types/openapi.py

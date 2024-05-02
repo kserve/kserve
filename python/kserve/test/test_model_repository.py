@@ -13,21 +13,23 @@
 # limitations under the License.
 
 from kserve import ModelRepository, Model
-from kserve.protocol.rest.openai import OpenAIModel
-from openai.types import Completion, CompletionCreateParams
-from openai.types.chat import ChatCompletion, ChatCompletionChunk
-from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
+from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionResponse as ChatCompletion,
+    CreateChatCompletionStreamResponse as ChatCompletionChunk,
+    CreateCompletionResponse as Completion,
+)
 from typing import AsyncIterator, Union
 
 
 class DummyOpenAIModel(OpenAIModel):
     async def create_completion(
-        self, params: CompletionCreateParams
+        self, params: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
         pass
 
     async def create_chat_completion(
-        self, params: ChatCompletionCreateParams
+        self, params: CompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         pass
 

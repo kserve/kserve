@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC
 import inspect
 import time
+from abc import ABC
 from enum import Enum
-from typing import Dict, List, Union, Optional, AsyncIterator, Any
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
+
 import grpc
 import httpx
 import orjson
@@ -24,8 +25,7 @@ from cloudevents.http import CloudEvent
 from httpx import HTTPStatusError
 
 from .errors import InvalidInput
-
-from .logging import trace_logger
+from .logging import logger, trace_logger
 from .metrics import (
     EXPLAIN_HIST_TIME,
     POST_HIST_TIME,
@@ -36,7 +36,6 @@ from .metrics import (
 from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 from .protocol.infer_type import InferRequest, InferResponse
-from .protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
 
 PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
 EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
@@ -60,6 +59,10 @@ class BaseKServeModel(ABC):
         """
         self.name = name
         self.ready = False
+
+    def stop(self):
+        """Stop handler can be overridden to perform model teardown"""
+        pass
 
 
 class InferenceVerb(Enum):
@@ -335,9 +338,18 @@ class Model(BaseKServeModel):
         if isinstance(payload, InferRequest):
             payload = payload.to_rest()
         data = orjson.dumps(payload)
-        response = await self._http_client.post(
-            predict_url, timeout=self.timeout, headers=predict_headers, content=data
-        )
+
+        try:
+            response = await self._http_client.post(
+                predict_url, timeout=self.timeout, headers=predict_headers, content=data
+            )
+        except Exception as exc:
+            logger.error(
+                f"Could not send a request to predictor at url {predict_url} "
+                f"due to exception {exc}"
+            )
+            raise exc
+
         if not response.is_success:
             message = (
                 "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
@@ -403,12 +415,6 @@ class Model(BaseKServeModel):
                 if is_v2(PredictorProtocol(self.protocol))
                 else res
             )
-
-    async def generate(
-        self, payload: GenerateRequest, headers: Dict[str, str] = None
-    ) -> Union[GenerateResponse, AsyncIterator[Any]]:
-        """`generate` handler can be overridden to implement text generation."""
-        raise NotImplementedError("generate is not implemented")
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.

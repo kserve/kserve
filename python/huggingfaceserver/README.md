@@ -36,6 +36,9 @@ curl -H "content-type:application/json" -v localhost:8080/v1/models/bert:predict
 
 ## Deploy Huggingface Server on KServe
 
+> 1. `SAFETENSORS_FAST_GPU` is set by default to improve the model loading performance.
+> 2. `HF_HUB_DISABLE_TELEMETRY` is set by default to disable the telemetry.
+
 1. Serve the huggingface model using KServe python runtime for both preprocess(tokenization)/postprocess and inference.
 ```yaml
 apiVersion: serving.kserve.io/v1beta1

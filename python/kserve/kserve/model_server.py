@@ -328,8 +328,8 @@ class ModelServer:
         if self._grpc_server:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
-        for _, model in self.registered_models.get_models().items():
-            model.unload()
+        for model_name in list(self.registered_models.get_models().keys()):
+            self.registered_models.unload(model_name)
 
     def register_exception_handler(
         self,

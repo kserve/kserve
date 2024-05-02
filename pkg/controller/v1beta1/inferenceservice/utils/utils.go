@@ -115,15 +115,13 @@ func GetModelName(isvc *v1beta1api.InferenceService) string {
 				}
 			}
 		}
-	} else {
+	} else if len(isvc.Spec.Predictor.Containers) > 0 {
 		// Return model name from args for KServe custom model server
-		if len(isvc.Spec.Predictor.Containers) > 0 {
-			for _, arg := range isvc.Spec.Predictor.Containers[0].Args {
-				if strings.HasPrefix(arg, constants.ArgumentModelName) {
-					modelNameValueArr := strings.Split(arg, "=")
-					if len(modelNameValueArr) == 2 {
-						return modelNameValueArr[1]
-					}
+		for _, arg := range isvc.Spec.Predictor.Containers[0].Args {
+			if strings.HasPrefix(arg, constants.ArgumentModelName) {
+				modelNameValueArr := strings.Split(arg, "=")
+				if len(modelNameValueArr) == 2 {
+					return modelNameValueArr[1]
 				}
 			}
 		}
@@ -145,14 +143,12 @@ func GetPredictorEndpoint(isvc *v1beta1.InferenceService) (string, error) {
 				path = constants.PredictPath(modelName, constants.ProtocolV2)
 			}
 		} else if !IsMMSPredictor(&isvc.Spec.Predictor) {
-
 			protocol := isvc.Spec.Predictor.GetImplementation().GetProtocol()
 			if protocol == constants.ProtocolV1 {
 				path = constants.PredictPath(modelName, constants.ProtocolV1)
 			} else if protocol == constants.ProtocolV2 {
 				path = constants.PredictPath(modelName, constants.ProtocolV2)
 			}
-
 		}
 		return fmt.Sprintf("%s%s", hostName, path), nil
 	} else {
@@ -221,7 +217,6 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
 // to override runtime PodSpec settings from the predictor spec.
 func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
-
 	runtimePodSpecJson, err := json.Marshal(v1.PodSpec{
 		NodeSelector:     runtimePodSpec.NodeSelector,
 		Affinity:         runtimePodSpec.Affinity,
@@ -255,7 +250,6 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 // GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
 // If a resource of the specified name is not found, then ClusterServingRuntimes will be checked.
 func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error) {
-
 	runtime := &v1alpha1.ServingRuntime{}
 	err := cl.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: namespace}, runtime)
 	if err == nil {
@@ -299,17 +293,15 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRunt
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
 		}
-	} else {
-		if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
-			re := regexp.MustCompile(`(:([\w.\-_]*))$`)
-			if len(re.FindString(image)) > 0 {
-				// For TFServing/TorchServe the GPU image is tagged with suffix "-gpu", when the version is found in the tag
-				// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
-				if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe) {
-					//check for the case when image field is specified directly with gpu tag
-					if !strings.HasSuffix(container.Image, "-gpu") {
-						container.Image = image + "-gpu"
-					}
+	} else if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
+		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+		if len(re.FindString(image)) > 0 {
+			// For TFServing/TorchServe the GPU image is tagged with suffix "-gpu", when the version is found in the tag
+			// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
+			if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe) {
+				// check for the case when image field is specified directly with gpu tag
+				if !strings.HasSuffix(container.Image, "-gpu") {
+					container.Image = image + "-gpu"
 				}
 			}
 		}
@@ -363,10 +355,8 @@ func ValidateStorageURI(storageURI *string, client client.Client) error {
 		if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
 			return nil
 		}
-	} else {
-		if utils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
-			return nil
-		}
+	} else if utils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
+		return nil
 	}
 
 	return fmt.Errorf(v1beta1.UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)

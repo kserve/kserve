@@ -18,6 +18,7 @@ package autoscaler
 
 import (
 	"fmt"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
@@ -93,7 +94,7 @@ func createAutoscaler(client client.Client,
 
 // Reconcile ...
 func (r *AutoscalerReconciler) Reconcile() error {
-	//reconcile Autoscaler
+	// reconcile Autoscaler
 	_, err := r.Autoscaler.Reconcile()
 	if err != nil {
 		return err

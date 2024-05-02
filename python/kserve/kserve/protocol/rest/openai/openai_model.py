@@ -13,29 +13,27 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import AsyncIterator, Callable, Iterable, Union, cast
+from typing import AsyncIterator, Callable, Dict, Iterable, Optional, Union, cast
 
-from openai.types import Completion, CompletionChoice, CompletionCreateParams
-from openai.types.chat import ChatCompletion, ChatCompletionChunk
-from openai.types.chat import ChatCompletionMessage as BaseChatCompletionMessage
-from openai.types.chat import ChatCompletionMessageParam
-from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
-from openai.types.chat.chat_completion import Choice, ChoiceLogprobs
-from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
-from openai.types.chat.chat_completion_chunk import ChoiceDelta
-from openai.types.chat.chat_completion_chunk import (
-    ChoiceLogprobs as ChunkChoiceLogprobs,
-)
-from openai.types.chat.chat_completion_token_logprob import (
+from pydantic import BaseModel
+
+from kserve.protocol.rest.openai.types import (
+    ChatCompletion,
+    ChatCompletionChoice,
+    ChatCompletionChoiceLogprobs,
+    ChatCompletionChunk,
+    ChatCompletionRequestMessage,
+    ChatCompletionResponseMessage,
     ChatCompletionTokenLogprob,
+    ChoiceDelta,
+    ChunkChoice,
+    Completion,
+    CompletionChoice,
+    CreateChatCompletionRequest,
+    CreateCompletionRequest,
+    Logprobs,
     TopLogprob,
 )
-from openai.types.completion_choice import Logprobs
-from openai.types.completion_create_params import (
-    CompletionCreateParamsNonStreaming,
-    CompletionCreateParamsStreaming,
-)
-from pydantic import BaseModel
 
 from ....errors import InvalidInput
 from ....model import BaseKServeModel
@@ -46,8 +44,17 @@ class ChatPrompt(BaseModel):
     prompt: str
 
 
-class ChatCompletionMessage(BaseChatCompletionMessage):
-    role: str
+class BaseCompletionRequest(BaseModel):
+    request_id: Optional[str] = None
+    context: Optional[Dict[str, str]] = None  # headers can go in here
+
+
+class CompletionRequest(BaseCompletionRequest):
+    params: CreateCompletionRequest
+
+
+class ChatCompletionRequest(BaseCompletionRequest):
+    params: CreateChatCompletionRequest
 
 
 class OpenAIModel(BaseKServeModel):
@@ -68,13 +75,13 @@ class OpenAIModel(BaseKServeModel):
 
     @abstractmethod
     async def create_completion(
-        self, params: CompletionCreateParams
+        self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
         pass
 
     @abstractmethod
     async def create_chat_completion(
-        self, params: ChatCompletionCreateParams
+        self, request: ChatCompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         pass
 
@@ -111,7 +118,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
 
     @abstractmethod
     def apply_chat_template(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self, messages: Iterable[ChatCompletionRequestMessage]
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
@@ -120,40 +127,28 @@ class OpenAIChatAdapterModel(OpenAIModel):
 
     @classmethod
     def chat_completion_params_to_completion_params(
-        cls, params: ChatCompletionCreateParams, prompt: str
-    ) -> CompletionCreateParams:
-        params_cls = (
-            CompletionCreateParamsStreaming
-            if params.get("stream", False)
-            else CompletionCreateParamsNonStreaming
-        )
-        kwargs = {
-            "prompt": prompt,
-            "model": params.get("model"),
-        }
-        optional_params = {
-            "frequency_penalty",
-            "logit_bias",
-            "max_tokens",
-            "n",
-            "presence_penalty",
-            "seed",
-            "stop",
-            "stream",
-            "temperature",
-            "top_p",
-            "user",
-        }
-        for param in optional_params:
-            if param in params:
-                kwargs[param] = params[param]
+        cls, params: CreateChatCompletionRequest, prompt: str
+    ) -> CreateCompletionRequest:
 
-        if "logprobs" in params:
-            kwargs["logprobs"] = params.get("top_logprobs", 1)
-        return params_cls(**kwargs)
+        return CreateCompletionRequest(
+            prompt=prompt,
+            model=params.model,
+            frequency_penalty=params.frequency_penalty,
+            logit_bias=params.logit_bias,
+            max_tokens=params.max_tokens,
+            n=params.n,
+            presence_penalty=params.presence_penalty,
+            seed=params.seed,
+            stop=params.stop,
+            stream=params.stream,
+            temperature=params.temperature,
+            top_p=params.top_p,
+            user=params.user,
+            logprobs=params.top_logprobs,
+        )
 
     @classmethod
-    def to_choice_logprobs(cls, logprobs: Logprobs) -> ChoiceLogprobs:
+    def to_choice_logprobs(cls, logprobs: Logprobs) -> ChatCompletionChoiceLogprobs:
         chat_completion_logprobs = []
         for i in range(len(logprobs.tokens)):
             token = logprobs.tokens[i]
@@ -176,23 +171,25 @@ class OpenAIChatAdapterModel(OpenAIModel):
                 )
             )
 
-        return ChoiceLogprobs(content=chat_completion_logprobs)
+        return ChatCompletionChoiceLogprobs(content=chat_completion_logprobs)
 
     @classmethod
     def to_chat_completion_choice(
         cls, completion_choice: CompletionChoice, role: str
-    ) -> Choice:
+    ) -> ChatCompletionChoice:
         # translate Token -> ChatCompletionTokenLogprob
         choice_logprobs = (
             cls.to_choice_logprobs(completion_choice.logprobs)
             if completion_choice.logprobs is not None
             else None
         )
-        return Choice(
+        return ChatCompletionChoice(
             index=0,
             finish_reason=completion_choice.finish_reason,
             logprobs=choice_logprobs,
-            message=ChatCompletionMessage(content=completion_choice.text, role=role),
+            message=ChatCompletionResponseMessage(
+                content=completion_choice.text, role=role
+            ),
         )
 
     @classmethod
@@ -206,7 +203,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
             else None
         )
         choice_logprobs = (
-            ChunkChoiceLogprobs(content=choice_logprobs.content)
+            ChatCompletionChoiceLogprobs(content=choice_logprobs.content)
             if choice_logprobs is not None
             else None
         )
@@ -261,21 +258,29 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
     async def create_chat_completion(
-        self, params: ChatCompletionCreateParams
+        self, request: ChatCompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
-        if params.get("n", 1) != 1:
+        params = request.params
+
+        if params.n != 1:
             raise InvalidInput("n != 1 is not supported")
 
         # Convert the messages into a prompt
-        chat_prompt = self.apply_chat_template(params["messages"])
+        chat_prompt = self.apply_chat_template(params.messages)
         # Translate the chat completion request to a completion request
         completion_params = self.chat_completion_params_to_completion_params(
             params, chat_prompt.prompt
         )
 
-        if not params.get("stream", False):
+        completion_request = CompletionRequest(
+            request_id=request.request_id,
+            params=completion_params,
+            context=request.context,
+        )
+
+        if not params.stream:
             completion = cast(
-                Completion, await self.create_completion(completion_params)
+                Completion, await self.create_completion(completion_request)
             )
             return self.completion_to_chat_completion(
                 completion, chat_prompt.response_role
@@ -283,7 +288,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
         else:
             completion_iterator = cast(
                 AsyncIterator[Completion],
-                await self.create_completion(completion_params),
+                await self.create_completion(completion_request),
             )
 
             def mapper(completion: Completion) -> ChatCompletionChunk:

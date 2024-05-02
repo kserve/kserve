@@ -63,7 +63,7 @@ func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1alpha1api.Trai
 		return err
 	}
 	if tm.DeletionTimestamp != nil {
-		//A TrainedModel is being deleted, remove the model from the model configmap
+		// A TrainedModel is being deleted, remove the model from the model configmap
 		deletedConfigs := []string{tm.Name}
 		configDelta := modelconfig.NewConfigsDelta([]modelconfig.ModelConfig{}, deletedConfigs)
 		err := configDelta.Process(desiredModelConfig)

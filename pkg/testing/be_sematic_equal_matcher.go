@@ -18,10 +18,11 @@ package testing
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"reflect"
 )
 
 // Gomega does not support semantic equal so adding this here in testing util
