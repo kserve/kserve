@@ -8,7 +8,7 @@ jobs:
   cherry-pick:
     
     name: Cherry Pick
-    if: github.event.issue.pull_request != '' && contains(github.event.comment.body, '/cherry-pick') && github.event.comment.author_association == 'OWNER'
+    if: github.event.issue.pull_request != '' && contains(github.event.comment.body, '/cherry-pick') && github.event.comment.author_association == 'CONTRIBUTOR'
     runs-on: ubuntu-latest
 
     steps:
