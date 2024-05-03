@@ -110,9 +110,10 @@ parser = maybe_add_vllm_cli_parser(parser)
 
 args, _ = parser.parse_known_args()
 
-if (
-    "dtype" in args and args.dtype == "auto"
-):  # Replacing auto with float16 to make it consistent with HF (VLLM defaults to BF16 for BF16 models but HF doesn't)
+# auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
+# To ensure consistency b/w vLLM and HF, we use FP16 for auto and half
+# FP16, BF16 and FP32 if explicitly mentioned would use those data types
+if "dtype" in args and args.dtype == "auto":
     args.dtype = "float16"
 
 

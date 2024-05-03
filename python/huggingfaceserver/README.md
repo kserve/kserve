@@ -26,6 +26,12 @@ INFO:kserve:Starting uvicorn with 1 workers
 2024-01-08 06:32:08.805 uvicorn.error INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
 ```
 
+If you want to change the datatype, you can use --dtype flag. Available choices are float16, bfloat16, float32, auto, float, half.
+auto and half default to float16 for ensuring consistency between vLLM and HuggingFace backends. float is shorthand for float32. The rest are as the name reads.
+```bash
+python -m huggingfaceserver --model_id=bert-base-uncased --model_name=bert --dtype=float16
+```
+
 Perform the inference
 
 ```bash
