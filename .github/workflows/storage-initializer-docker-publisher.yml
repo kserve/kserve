@@ -88,7 +88,7 @@ jobs:
           TAGS=$IMAGE_ID:$VERSION
           # If a vX.Y.Z release is being built, also update the vX.Y tag.
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && MINOR_VERSION=$(echo $VERSION | sed 's/\(.*\)\.[[:digit:]]\+$/\1/')
-          [ ! -z "env.MINOR_VERSION" ] && TAGS=$TAGS,$IMAGE_ID:$MINOR_VERSION
+          [ ! -z "$MINOR_VERSION" ] && TAGS=$TAGS,$IMAGE_ID:$MINOR_VERSION
           
           echo TAGS=$TAGS >> $GITHUB_ENV
 
