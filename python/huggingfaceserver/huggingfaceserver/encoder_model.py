@@ -73,6 +73,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         do_lower_case: bool = False,
         add_special_tokens: bool = True,
         max_length: Optional[int] = None,
+        dtype: torch.dtype = "float16",
         tensor_input_names: Optional[str] = None,
         return_token_type_ids: Optional[bool] = None,
         model_revision: Optional[str] = None,
@@ -86,6 +87,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         self.do_lower_case = do_lower_case
         self.add_special_tokens = add_special_tokens
         self.max_length = max_length
+        self.dtype = dtype
         self.tensor_input_names = tensor_input_names
         self.return_token_type_ids = return_token_type_ids
         self.model_revision = model_revision
@@ -138,6 +140,8 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         if self.trust_remote_code:
             model_kwargs["trust_remote_code"] = True
             tokenizer_kwargs["trust_remote_code"] = True
+
+        model_kwargs["torch_dtype"] = self.dtype
 
         # load huggingface tokenizer
         self._tokenizer = AutoTokenizer.from_pretrained(
