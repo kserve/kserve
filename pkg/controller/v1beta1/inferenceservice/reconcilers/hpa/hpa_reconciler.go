@@ -149,10 +149,8 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 	var autoscalerClassChanged bool
 	if hasDesiredAutoscalerClass && hasExistingAutoscalerClass {
 		autoscalerClassChanged = desiredAutoscalerClass != existingAutoscalerClass
-	} else {
-		if hasDesiredAutoscalerClass || hasExistingAutoscalerClass {
-			autoscalerClassChanged = true
-		}
+	} else if hasDesiredAutoscalerClass || hasExistingAutoscalerClass {
+		autoscalerClassChanged = true
 	}
 
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) && !autoscalerClassChanged
