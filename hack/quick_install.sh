@@ -58,7 +58,7 @@ if [ -d ${ISTIO_DIR} ]; then
 else
   curl -L https://istio.io/downloadIstio | sh -
 fi
-cd ${ISTIO_DIR}
+pushd ${ISTIO_DIR} >> /dev/null
 
 # Create istio-system namespace
 cat <<EOF | kubectl apply -f -
@@ -103,6 +103,7 @@ EOF
 bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
 
 echo "😀 Successfully installed Istio"
+popd >> /dev/null
 rm -rf ${ISTIO_DIR}
 
 # Install Knative
