@@ -6190,6 +6190,7 @@ components:
                   `length` if the maximum number of tokens specified in the request was reached,
                   or `content_filter` if content was omitted due to a flag from our content filters.
                 enum: ["stop", "length", "content_filter"]
+                nullable: true
               index:
                 type: integer
               logprobs:
