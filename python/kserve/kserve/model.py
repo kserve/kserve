@@ -344,8 +344,10 @@ class Model(BaseKServeModel):
                 predict_url, timeout=self.timeout, headers=predict_headers, content=data
             )
         except Exception as exc:
+            request_id = predict_headers.get("x-request-id", "N.A.")
             logger.error(
                 f"Could not send a request to predictor at url {predict_url} "
+                f"for {request_id=} "
                 f"due to exception {exc}"
             )
             raise exc
