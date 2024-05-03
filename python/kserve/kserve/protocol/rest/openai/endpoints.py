@@ -141,11 +141,15 @@ def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
         r"/v1/completions",
         endpoints.create_completion,
         methods=["POST"],
+        response_model_exclude_none=True,
+        response_model_exclude_unset=True,
     )
     openai_router.add_api_route(
         r"/v1/chat/completions",
         endpoints.create_chat_completion,
         methods=["POST"],
+        response_model_exclude_none=True,
+        response_model_exclude_unset=True,
     )
     app.include_router(openai_router)
     app.add_exception_handler(OpenAIError, openai_error_handler)
