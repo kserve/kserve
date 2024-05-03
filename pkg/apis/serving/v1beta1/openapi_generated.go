@@ -1948,7 +1948,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 					},
 					"deploymentStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The deployment strategy to use to replace existing pods with new ones.",
+							Description: "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},
@@ -4288,7 +4288,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					},
 					"deploymentStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The deployment strategy to use to replace existing pods with new ones.",
+							Description: "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},
@@ -8010,7 +8010,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"deploymentStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The deployment strategy to use to replace existing pods with new ones.",
+							Description: "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},
@@ -9504,7 +9504,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					},
 					"deploymentStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The deployment strategy to use to replace existing pods with new ones.",
+							Description: "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},

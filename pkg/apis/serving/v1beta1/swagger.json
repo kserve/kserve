@@ -1008,7 +1008,7 @@
           "format": "int64"
         },
         "deploymentStrategy": {
-          "description": "The deployment strategy to use to replace existing pods with new ones.",
+          "description": "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
           "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
         },
         "labels": {
@@ -2099,7 +2099,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "deploymentStrategy": {
-          "description": "The deployment strategy to use to replace existing pods with new ones.",
+          "description": "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
           "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
         },
         "dnsConfig": {
@@ -4134,7 +4134,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "deploymentStrategy": {
-          "description": "The deployment strategy to use to replace existing pods with new ones.",
+          "description": "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
           "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
         },
         "dnsConfig": {
@@ -5011,7 +5011,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "deploymentStrategy": {
-          "description": "The deployment strategy to use to replace existing pods with new ones.",
+          "description": "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
           "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
         },
         "dnsConfig": {
