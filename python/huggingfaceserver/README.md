@@ -27,7 +27,7 @@ INFO:kserve:Starting uvicorn with 1 workers
 ```
 
 If you want to change the datatype, you can use --dtype flag. Available choices are float16, bfloat16, float32, auto, float, half.
-auto and half default to float16 for ensuring consistency between vLLM and HuggingFace backends. float is shorthand for float32. The rest are as the name reads.
+auto and half default to float16 for ensuring consistency between vLLM and HuggingFace backends. float is shorthand for float32. The rest are as the name reads. vLLM and HF generative model default to float16 while hf encoder model defaults to float32.
 ```bash
 python -m huggingfaceserver --model_id=bert-base-uncased --model_name=bert --dtype=float16
 ```

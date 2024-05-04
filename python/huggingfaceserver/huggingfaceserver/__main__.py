@@ -144,8 +144,6 @@ def load_model():
 
     else:
         kwargs = vars(args)
-        # Convert dtype from string to torch dtype. Default to float16
-        dtype = kwargs.get("dtype", "float16")
         hf_dtype_map = {
             "float32": torch.float32,
             "float16": torch.float16,
@@ -153,7 +151,6 @@ def load_model():
             "half": torch.float16,
             "float": torch.float32,
         }
-        dtype = hf_dtype_map[dtype]
 
         model_config = AutoConfig.from_pretrained(
             str(model_id_or_path), revision=kwargs.get("model_revision", None)
@@ -173,7 +170,13 @@ def load_model():
             task = infer_task_from_model_architecture(model_config)
 
         if is_generative_task(task):
-            logger.info(f"Loading generative model for task '{task.name}'")
+            # Convert dtype from string to torch dtype. Default to float16
+            dtype = kwargs.get("dtype", "float16")
+            dtype = hf_dtype_map[dtype]
+            logger.debug(f"Loading model in {dtype}")
+
+            logger.info(f"Loading generative model for task '{task.name}' in {dtype}")
+
             model = HuggingfaceGenerativeModel(
                 args.model_name,
                 model_id_or_path=model_id_or_path,
@@ -187,13 +190,17 @@ def load_model():
                 trust_remote_code=kwargs["trust_remote_code"],
             )
         else:
+            # Convert dtype from string to torch dtype. Default to float32
+            dtype = kwargs.get("dtype", "float32")
+            dtype = hf_dtype_map[dtype]
+
             predictor_config = PredictorConfig(
                 args.predictor_host,
                 args.predictor_protocol,
                 args.predictor_use_ssl,
                 args.predictor_request_timeout_seconds,
             )
-            logger.info(f"Loading encoder model for task '{task.name}'")
+            logger.info(f"Loading encoder model for task '{task.name}' in {dtype}")
             model = HuggingfaceEncoderModel(
                 model_name=args.model_name,
                 model_id_or_path=model_id_or_path,

@@ -143,7 +143,7 @@ class HuggingfaceGenerativeModel(
         model_config: Optional[PretrainedConfig] = None,
         do_lower_case: bool = False,
         max_length: Optional[int] = None,
-        dtype: torch.dtype = "float16",
+        dtype: torch.dtype = torch.float16,
         model_revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
