@@ -1,6 +1,6 @@
 kserve:
-  version: &defaultVersion v0.12.0-rc1
-  modelmeshVersion: &defaultModelMeshVersion v0.11.1
+  version: &defaultVersion v0.12.1
+  modelmeshVersion: &defaultModelMeshVersion v0.12.0-rc0
   agent:
     image: kserve/agent
     tag: *defaultVersion
@@ -35,9 +35,11 @@ kserve:
     rbacProxyImage: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
     gateway:
       domain: example.com
+      additionalIngressDomains: []
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
       urlScheme: http
       disableIstioVirtualHost: false
+      disableIngressCreation: false
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local
@@ -120,9 +122,6 @@ kserve:
       image: pytorch/torchserve-kfs
       tag: 0.9.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
-    alibi:
-      image: kserve/alibi-explainer
-      defaultVersion: *defaultVersion
     art:
       image: kserve/art-explainer
       defaultVersion: *defaultVersion

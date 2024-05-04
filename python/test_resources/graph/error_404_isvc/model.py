@@ -32,7 +32,9 @@ class SampleTemplateNode(kserve.Model):
     def load(self):
         self.ready = True
 
-    def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest], headers) -> Dict:
+    def predict(
+        self, payload: Union[Dict, InferRequest, ModelInferRequest], headers
+    ) -> Dict:
         raise HTTPException(status_code=404, detail="Intentional 404 code")
 
 

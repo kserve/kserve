@@ -24,26 +24,14 @@ data:
     # Example
     explainers: |-
       {
-          "alibi": {
-              "image" : "kserve/alibi-explainer",
-              "defaultImageVersion": "latest"
-          },
           "art": {
               "image" : "kserve/art-explainer",
               "defaultImageVersion": "latest"
           }
       }
-    # Alibi and Art Explainer runtime configuration
+    # Art Explainer runtime configuration
      explainers: |-
        {
-           # Alibi explainer runtime configuration
-           "alibi": {
-               # image contains the default Alibi explainer serving runtime image uri.
-               "image" : "kserve/alibi-explainer",
-               
-               # defautltImageVersion contains the Alibi explainer serving runtime default image version.
-               "defaultImageVersion": "latest"
-           },
            # Art explainer runtime configuration
            "art": {
                # image contains the default Art explainer serving runtime image uri.
@@ -208,10 +196,12 @@ data:
            "localGateway" : "knative-serving/knative-local-gateway",
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
            "ingressDomain"  : "example.com",
+           "additionalIngressDomains": ["additional-example.com", "additional-example-1.com"],
            "ingressClassName" : "istio",
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
            "urlScheme": "http",
-           "disableIstioVirtualHost": false
+           "disableIstioVirtualHost": false,
+           "disableIngressCreation": false
        }
      ingress: |-
        {
@@ -236,7 +226,10 @@ data:
            # If ingressDomain is empty then example.com is used as default domain.
            # NOTE: This configuration only applicable for raw deployment.
            "ingressDomain"  : "example.com",
-     
+
+           # additionalIngressDomains specifies the additional domain names which are used for creating the url.
+           "additionalIngressDomains": ["additional-example.com", "additional-example-1.com"]
+
            # ingressClassName specifies the ingress controller to use for ingress traffic.
            # This is optional and if omitted the default ingress in the cluster is used.
            # https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class
@@ -263,7 +256,10 @@ data:
            # By setting this field to true, user can use other networking layers supported by knative.
            # For more info https://github.com/kserve/kserve/pull/2380, https://kserve.github.io/website/master/admin/serverless/kourier_networking/.
            # NOTE: This configuration is only applicable to serverless deployment.
-           "disableIstioVirtualHost": false
+           "disableIstioVirtualHost": false,
+
+           # disableIngressCreation controls whether to disable ingress creation for raw deployment mode.
+           "disableIngressCreation": false,
      
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
@@ -453,10 +449,6 @@ data:
 
   explainers: |-
     {
-        "alibi": {
-            "image" : "kserve/alibi-explainer",
-            "defaultImageVersion": "latest"
-        },
         "art": {
             "image" : "kserve/art-explainer",
             "defaultImageVersion": "latest"
@@ -509,7 +501,8 @@ data:
         "ingressClassName" : "istio",
         "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
         "urlScheme": "http",
-        "disableIstioVirtualHost": false
+        "disableIstioVirtualHost": false,
+        "disableIngressCreation": false
     }
 
   logger: |-

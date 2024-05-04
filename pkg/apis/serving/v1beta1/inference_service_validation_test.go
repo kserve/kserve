@@ -221,7 +221,7 @@ func TestBadReplicaValues(t *testing.T) {
 	isvc.Spec.Transformer = nil
 
 	isvc.Spec.Explainer = &ExplainerSpec{
-		Alibi: &AlibiExplainerSpec{
+		ART: &ARTExplainerSpec{
 			ExplainerExtensionSpec: ExplainerExtensionSpec{
 				StorageURI: "gs://testbucket/testmodel",
 			},
@@ -283,7 +283,7 @@ func TestGoodExplainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Explainer = &ExplainerSpec{
-		Alibi: &AlibiExplainerSpec{
+		ART: &ARTExplainerSpec{
 			ExplainerExtensionSpec: ExplainerExtensionSpec{
 				StorageURI: "gs://testbucket/testmodel",
 			},

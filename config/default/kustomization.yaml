@@ -28,11 +28,6 @@ replacements:
     version: v1
   targets:
   - fieldPaths:
-    - spec.conversion.webhook.clientConfig.service.name
-    select:
-      kind: CustomResourceDefinition
-      name: inferenceservices.serving.kserve.io
-  - fieldPaths:
     - webhooks.*.clientConfig.service.name
     select:
       kind: MutatingWebhookConfiguration
@@ -78,11 +73,6 @@ replacements:
     name: kserve-controller-manager
     version: v1
   targets:
-  - fieldPaths:
-    - spec.conversion.webhook.clientConfig.service.namespace
-    select:
-      kind: CustomResourceDefinition
-      name: inferenceservices.serving.kserve.io
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
     select:
@@ -199,5 +189,4 @@ patches:
 - path: clusterservingruntime_validatingwebhook_cainjection_patch.yaml
 - path: servingruntime_validationwebhook_cainjection_patch.yaml
 - path: manager_resources_patch.yaml
-- path: inferenceservice_conversion_webhook.yaml
 - path: cainjection_conversion_webhook.yaml

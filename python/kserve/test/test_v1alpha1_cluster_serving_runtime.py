@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1alpha1_cluster_serving_runtime import V1alpha1ClusterServingRuntime  # noqa: E501
+from kserve.models.v1alpha1_cluster_serving_runtime import (
+    V1alpha1ClusterServingRuntime,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1alpha1ClusterServingRuntime(unittest.TestCase):
     """V1alpha1ClusterServingRuntime unit test stubs"""
@@ -44,65 +47,59 @@ class TestV1alpha1ClusterServingRuntime(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1ClusterServingRuntime
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_cluster_serving_runtime.V1alpha1ClusterServingRuntime()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1ClusterServingRuntime(
-                api_version = '0', 
-                kind = '0', 
-                metadata = None, 
-                spec = kserve.models.v1alpha1_serving_runtime_spec.V1alpha1ServingRuntimeSpec(
-                    affinity = None, 
-                    built_in_adapter = kserve.models.v1alpha1_built_in_adapter.V1alpha1BuiltInAdapter(
-                        mem_buffer_bytes = 56, 
-                        model_loading_timeout_millis = 56, 
-                        runtime_management_port = 56, 
-                        server_type = '0', ), 
-                    containers = [
+                api_version="0",
+                kind="0",
+                metadata=None,
+                spec=kserve.models.v1alpha1_serving_runtime_spec.V1alpha1ServingRuntimeSpec(
+                    affinity=None,
+                    built_in_adapter=kserve.models.v1alpha1_built_in_adapter.V1alpha1BuiltInAdapter(
+                        mem_buffer_bytes=56,
+                        model_loading_timeout_millis=56,
+                        runtime_management_port=56,
+                        server_type="0",
+                    ),
+                    containers=[
                         kserve.models.v1alpha1_container.V1alpha1Container(
-                            args = [
-                                '0'
-                                ], 
-                            command = [
-                                '0'
-                                ], 
-                            env = [
-                                None
-                                ], 
-                            image = '0', 
-                            image_pull_policy = '0', 
-                            liveness_probe = None, 
-                            name = '0', 
-                            readiness_probe = None, 
-                            resources = None, 
-                            working_dir = '0', )
-                        ], 
-                    disabled = True, 
-                    grpc_data_endpoint = '0', 
-                    grpc_endpoint = '0', 
-                    http_data_endpoint = '0', 
-                    node_selector = {
-                        'key' : '0'
-                        }, 
-                    replicas = 56, 
-                    storage_helper = kserve.models.v1alpha1_storage_helper.V1alpha1StorageHelper(
-                        disabled = True, ), 
-                    supported_model_formats = [
+                            args=["0"],
+                            command=["0"],
+                            env=[None],
+                            image="0",
+                            image_pull_policy="0",
+                            liveness_probe=None,
+                            name="0",
+                            readiness_probe=None,
+                            resources=None,
+                            working_dir="0",
+                        )
+                    ],
+                    disabled=True,
+                    grpc_data_endpoint="0",
+                    grpc_endpoint="0",
+                    http_data_endpoint="0",
+                    node_selector={"key": "0"},
+                    replicas=56,
+                    storage_helper=kserve.models.v1alpha1_storage_helper.V1alpha1StorageHelper(
+                        disabled=True,
+                    ),
+                    supported_model_formats=[
                         kserve.models.v1alpha1_supported_model_format.V1alpha1SupportedModelFormat(
-                            auto_select = True, 
-                            name = '0', 
-                            version = '0', )
-                        ], 
-                    tolerations = [
-                        None
-                        ], ), 
-                status = None
+                            auto_select=True,
+                            name="0",
+                            version="0",
+                        )
+                    ],
+                    tolerations=[None],
+                ),
+                status=None,
             )
-        else :
-            return V1alpha1ClusterServingRuntime(
-        )
+        else:
+            return V1alpha1ClusterServingRuntime()
 
     def testV1alpha1ClusterServingRuntime(self):
         """Test V1alpha1ClusterServingRuntime"""
@@ -110,5 +107,5 @@ class TestV1alpha1ClusterServingRuntime(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

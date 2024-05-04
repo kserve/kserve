@@ -19,6 +19,7 @@ package knative
 import (
 	"context"
 	"fmt"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -137,7 +138,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			trafficTargets = append(trafficTargets, canaryTarget)
 		}
 	} else {
-		//blue green rollout
+		// blue green rollout
 		latestTarget := knservingv1.TrafficTarget{
 			LatestRevision: proto.Bool(true),
 			Percent:        proto.Int64(100),
@@ -191,7 +192,7 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	// https://github.com/knative/serving/blob/main/pkg/apis/serving/v1/revision_defaults.go#L134
 	if desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == nil &&
 		existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks != nil &&
-		*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == false {
+		!*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks {
 		desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks = proto.Bool(false)
 	}
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)

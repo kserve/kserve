@@ -19,10 +19,10 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	utils "github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/testing/protocmp"
 	istiov1beta1 "istio.io/api/networking/v1beta1"
@@ -33,17 +33,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/network"
+	"knative.dev/pkg/system"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	"strings"
-
+	"knative.dev/serving/pkg/reconciler/route/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var (
@@ -51,14 +56,18 @@ var (
 )
 
 type IngressReconciler struct {
-	client        client.Client
+	// client is the client that is used to access the custom resources
+	client client.Client
+	// clientset is the client that allows us to talk to the k8s for core APIs
+	clientset     kubernetes.Interface
 	scheme        *runtime.Scheme
 	ingressConfig *v1beta1.IngressConfig
 }
 
-func NewIngressReconciler(client client.Client, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig) *IngressReconciler {
+func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig) *IngressReconciler {
 	return &IngressReconciler{
 		client:        client,
+		clientset:     clientset,
 		scheme:        scheme,
 		ingressConfig: ingressConfig,
 	}
@@ -68,7 +77,7 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	if isvc.Status.Components == nil {
 		return ""
 	}
-	//Derive the ingress service host from underlying service url
+	// Derive the ingress service host from underlying service url
 	if isvc.Spec.Transformer != nil {
 		if transformerStatus, ok := isvc.Status.Components[v1beta1.TransformerComponent]; !ok {
 			return ""
@@ -100,8 +109,35 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	}
 }
 
-func getServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
+func getAdditionalHosts(domainList *[]string, serviceHost string, config *v1beta1.IngressConfig, additionalHosts *[]string) {
+	// Include additional ingressDomain to the domains (both internal and external)
+	subdomain := ""
+	if domainList != nil && len(*domainList) != 0 {
+		for _, domain := range *domainList {
+			res, found := strings.CutSuffix(serviceHost, domain)
+			if found {
+				subdomain = res
+				break
+			}
+		}
+	}
+	if len(subdomain) != 0 && config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
+		// len(subdomain) != 0 means we have found the subdomain.
+		// If the list of the additionalIngressDomains is not empty, we will append the valid host created by the
+		// additional ingress domain.
+		for _, domain := range *config.AdditionalIngressDomains {
+			host := fmt.Sprintf("%s%s", subdomain, domain)
+			if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
+				log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
+					"Failed to get the valid host name")
+				continue
+			}
+			*additionalHosts = append(*additionalHosts, host)
+		}
+	}
+}
 
+func getServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
 	url := getHostBasedServiceUrl(isvc, config)
 	if url == "" {
 		return ""
@@ -111,7 +147,6 @@ func getServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 	} else {
 		return getPathBasedServiceUrl(isvc, config)
 	}
-
 }
 
 func getPathBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
@@ -134,7 +169,7 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 	if isvc.Status.Components == nil {
 		return ""
 	}
-	//Derive the ingress url from underlying service url
+	// Derive the ingress url from underlying service url
 	if isvc.Spec.Transformer != nil {
 		if transformerStatus, ok := isvc.Status.Components[v1beta1.TransformerComponent]; !ok {
 			return ""
@@ -144,7 +179,7 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 			url := transformerStatus.URL
 			url.Scheme = urlScheme
 			urlString := url.String()
-			if disableIstioVirtualHost == false {
+			if !disableIstioVirtualHost {
 				if strings.Contains(urlString, "-default") {
 					return strings.Replace(urlString, fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
 				} else {
@@ -163,7 +198,7 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 		url := predictorStatus.URL
 		url.Scheme = urlScheme
 		urlString := url.String()
-		if disableIstioVirtualHost == false {
+		if !disableIstioVirtualHost {
 			if strings.Contains(urlString, "-default") {
 				return strings.Replace(urlString, fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
 			} else {
@@ -237,7 +272,7 @@ func createHTTPRouteDestination(gatewayService string) *istiov1beta1.HTTPRouteDe
 	return httpRouteDestination
 }
 
-func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool, config *v1beta1.IngressConfig) []*istiov1beta1.HTTPMatchRequest {
+func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalHosts *[]string, isInternal bool, config *v1beta1.IngressConfig) []*istiov1beta1.HTTPMatchRequest {
 	var uri *istiov1beta1.StringMatch
 	if prefix != "" {
 		uri = &istiov1beta1.StringMatch{
@@ -258,6 +293,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 		},
 	}
 	if !isInternal {
+		// We only create the HTTPMatchRequest for the targetHost and the additional hosts, when the ingress is not internal.
 		matchRequests = append(matchRequests,
 			&istiov1beta1.HTTPMatchRequest{
 				Uri: uri,
@@ -268,11 +304,26 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 				},
 				Gateways: []string{config.IngressGateway},
 			})
+
+		if additionalHosts != nil && len(*additionalHosts) != 0 {
+			for _, host := range *additionalHosts {
+				matchRequests = append(matchRequests,
+					&istiov1beta1.HTTPMatchRequest{
+						Uri: uri,
+						Authority: &istiov1beta1.StringMatch{
+							MatchType: &istiov1beta1.StringMatch_Regex{
+								Regex: constants.HostRegExp(host),
+							},
+						},
+						Gateways: []string{config.IngressGateway},
+					})
+			}
+		}
 	}
 	return matchRequests
 }
 
-func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig) *istioclientv1beta1.VirtualService {
+func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig, domainList *[]string) *istioclientv1beta1.VirtualService {
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		status := corev1.ConditionFalse
 		if isvc.Status.IsConditionUnknown(v1beta1.PredictorReady) {
@@ -310,7 +361,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	}
 	isInternal := false
 	serviceHost := getServiceHost(isvc)
-	//if service is labelled with cluster local or knative domain is configured as internal
+	// if service is labelled with cluster local or knative domain is configured as internal
 	if val, ok := isvc.Labels[constants.VisibilityLabel]; ok && val == constants.ClusterLocalVisibility {
 		isInternal = true
 	}
@@ -324,6 +375,15 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	if useDefault {
 		expBackend = constants.DefaultExplainerServiceName(isvc.Name)
 	}
+
+	additionalHosts := &[]string{}
+	hosts := []string{
+		network.GetServiceHostname(isvc.Name, isvc.Namespace),
+	}
+	if !isInternal {
+		getAdditionalHosts(domainList, serviceHost, config, additionalHosts)
+	}
+
 	if isvc.Spec.Explainer != nil {
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
 			status := corev1.ConditionFalse
@@ -339,7 +399,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		}
 		explainerRouter := istiov1beta1.HTTPRoute{
 			Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
-				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
+				network.GetServiceHostname(isvc.Name, isvc.Namespace), additionalHosts, isInternal, config),
 			Route: []*istiov1beta1.HTTPRouteDestination{
 				createHTTPRouteDestination(config.LocalGatewayServiceName),
 			},
@@ -356,7 +416,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	// Add predict route
 	httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
 		Match: createHTTPMatchRequest("", serviceHost,
-			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
+			network.GetServiceHostname(isvc.Name, isvc.Namespace), additionalHosts, isInternal, config),
 		Route: []*istiov1beta1.HTTPRouteDestination{
 			createHTTPRouteDestination(config.LocalGatewayServiceName),
 		},
@@ -368,9 +428,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			},
 		},
 	})
-	hosts := []string{
-		network.GetServiceHostname(isvc.Name, isvc.Namespace),
-	}
+
 	gateways := []string{
 		config.LocalGateway,
 	}
@@ -378,6 +436,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		hosts = append(hosts, serviceHost)
 		gateways = append(gateways, config.IngressGateway)
 	}
+
 	if config.PathTemplate != "" {
 		path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, config)
 		if err != nil {
@@ -435,6 +494,10 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		hosts = append(hosts, url.Host)
 	}
 
+	if !isInternal {
+		// We only append the additional hosts, when the ingress is not internal.
+		hosts = append(hosts, *additionalHosts...)
+	}
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
@@ -454,6 +517,26 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	return desiredIngress
 }
 
+// getDomainList gets all the available domain names available with Knative Serving.
+func getDomainList(clientset kubernetes.Interface) *[]string {
+	res := new([]string)
+	ns := constants.DefaultNSKnativeServing
+	if namespace := os.Getenv(system.NamespaceEnvKey); namespace != "" {
+		ns = namespace
+	}
+
+	// Leverage the clientset to access the configMap to get all the available domain names
+	configMap, err := clientset.CoreV1().ConfigMaps(ns).Get(context.TODO(),
+		config.DomainConfigName, metav1.GetOptions{})
+	if err != nil {
+		return res
+	}
+	for domain := range configMap.Data {
+		*res = append(*res, domain)
+	}
+	return res
+}
+
 func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	serviceHost := getServiceHost(isvc)
 	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
@@ -463,7 +546,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	// When Istio virtual host is disabled, we return the underlying component url.
 	// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
-	if disableIstioVirtualHost == false {
+	if !disableIstioVirtualHost {
 		// Check if existing knative service name has default suffix
 		defaultNameExisting := &knservingv1.Service{}
 		useDefault := false
@@ -471,12 +554,13 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		if err == nil {
 			useDefault = true
 		}
-		desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig)
+		domainList := getDomainList(ir.clientset)
+		desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig, domainList)
 		if desiredIngress == nil {
 			return nil
 		}
 
-		//Create external service which points to local gateway
+		// Create external service which points to local gateway
 		if err := ir.reconcileExternalService(isvc, ir.ingressConfig); err != nil {
 			return errors.Wrapf(err, "fails to reconcile external name service")
 		}
@@ -510,7 +594,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
 		isvc.Status.URL = url
 		var hostPrefix string
-		if disableIstioVirtualHost == true {
+		if disableIstioVirtualHost {
 			// Check if existing kubernetes service name has default suffix
 			existingServiceWithDefaultSuffix := &corev1.Service{}
 			useDefault := false
@@ -546,16 +630,14 @@ func routeSemanticEquals(desired, existing *istioclientv1beta1.VirtualService) b
 }
 
 func getHostPrefix(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool, useDefault bool) string {
-	if disableIstioVirtualHost == true {
+	if disableIstioVirtualHost {
 		if useDefault {
 			if isvc.Spec.Transformer != nil {
-
 				return constants.DefaultTransformerServiceName(isvc.Name)
 			}
 			return constants.DefaultPredictorServiceName(isvc.Name)
 		} else {
 			if isvc.Spec.Transformer != nil {
-
 				return constants.TransformerServiceName(isvc.Name)
 			}
 			return constants.PredictorServiceName(isvc.Name)

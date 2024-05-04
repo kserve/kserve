@@ -20,7 +20,7 @@ from kserve import (
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
-    V1beta1StorageSpec
+    V1beta1StorageSpec,
 )
 from kubernetes.client import V1ResourceRequirements
 import pytest
@@ -29,7 +29,8 @@ from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-@pytest.mark.fast
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
 def test_sklearn_s3_storagespec_kserve():
     service_name = "isvc-sklearn-s3"
     predictor = V1beta1PredictorSpec(
@@ -38,7 +39,7 @@ def test_sklearn_s3_storagespec_kserve():
             storage=V1beta1StorageSpec(
                 key="localMinIO",
                 path="sklearn",
-                parameters={"bucket": "example-models"}
+                parameters={"bucket": "example-models"},
             ),
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
@@ -56,7 +57,9 @@ def test_sklearn_s3_storagespec_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = predict(service_name, "./data/iris_input.json")

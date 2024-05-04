@@ -36,7 +36,9 @@ import (
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
-	network "knative.dev/networking/pkg"
+
+	"knative.dev/networking/pkg/http/header"
+	proxy "knative.dev/networking/pkg/http/proxy"
 	pkglogging "knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
 	pkghandler "knative.dev/pkg/network/handlers"
@@ -67,14 +69,14 @@ var (
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
 	maxLatency    = flag.String("max-latency", "5000", "Max Latency in milliseconds")
 	// probing flags
-	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
+	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout") //nolint: unused
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/kserve/agent.sock"
 )
 
 const (
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
-	reportingPeriod = 1 * time.Second
+	reportingPeriod = 1 * time.Second //nolint: unused
 
 	// Duration the /wait-for-drain handler should wait before returning.
 	// This is to give networking a little bit more time to remove the pod
@@ -83,7 +85,7 @@ const (
 )
 
 type config struct {
-	//Making the below fields optional since raw deployment wont have them
+	// Making the below fields optional since raw deployment wont have them
 	ContainerConcurrency   int    `split_words:"true"`
 	QueueServingPort       int    `split_words:"true"`
 	UserPort               int    `split_words:"true"`
@@ -186,7 +188,16 @@ func main() {
 			errCh <- fmt.Errorf("failed to listen to unix socket: %w", err)
 			return
 		}
-		if err := http.Serve(l, mainServer.Handler); err != nil {
+		// Create an http.Server instance with timeouts
+		// https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		ServerInstance := &http.Server{
+			Handler:           mainServer.Handler, // specify your HTTP handler
+			ReadHeaderTimeout: time.Minute,        // set the maximum duration for reading the entire request, including the body
+			WriteTimeout:      time.Minute,        // set the maximum duration before timing out writes of the response
+			IdleTimeout:       3 * time.Minute,    // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		}
+
+		if err := ServerInstance.Serve(l); err != nil {
 			errCh <- fmt.Errorf("serving failed on unix socket: %w", err)
 		}
 	}()
@@ -198,7 +209,9 @@ func main() {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up agent, shutting down.", zap.Error(err))
 		// This extra flush is needed because defers are not handled via os.Exit calls.
-		logger.Sync()
+		if err := logger.Sync(); err != nil {
+			logger.Errorw("Error syncing logger: %v", err)
+		}
 		os.Stdout.Sync()
 		os.Stderr.Sync()
 		os.Exit(1)
@@ -298,9 +311,8 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 	return newProbe
 }
 
-func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
+func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs, // nolint unparam
 	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
-
 	logging.Infof("Building server user port %s port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",
@@ -312,8 +324,8 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 	httpProxy.Transport = pkgnet.NewAutoTransport(maxIdleConns /* max-idle */, maxIdleConns /* max-idle-per-host */)
 	httpProxy.ErrorHandler = pkghandler.Error(logging)
-	httpProxy.BufferPool = network.NewBufferPool()
-	httpProxy.FlushInterval = network.FlushInterval
+	httpProxy.BufferPool = proxy.NewBufferPool()
+	httpProxy.FlushInterval = proxy.FlushInterval
 
 	// Create handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
@@ -332,7 +344,7 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
-		HealthCheckUAPrefixes: []string{network.ActivatorUserAgent},
+		HealthCheckUAPrefixes: []string{header.ActivatorUserAgent},
 		Inner:                 composedHandler,
 		HealthCheck:           health.ProbeHandler(probeContainer, false),
 	}

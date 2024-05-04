@@ -92,7 +92,7 @@ var (
 	PrometheusPortAnnotationKey                 = "prometheus.io/port"
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
 	DefaultPrometheusPath                       = "/metrics"
-	QueueProxyAggregatePrometheusMetricsPort    = "9088"
+	QueueProxyAggregatePrometheusMetricsPort    = 9088
 	DefaultPodPrometheusPort                    = "9091"
 )
 
@@ -127,7 +127,7 @@ const (
 // StorageSpec Constants
 var (
 	DefaultStorageSpecSecret     = "storage-config"
-	DefaultStorageSpecSecretPath = "/mnt/storage-secret"
+	DefaultStorageSpecSecretPath = "/mnt/storage-secret" // #nosec G101
 )
 
 // Controller Constants
@@ -262,6 +262,7 @@ const (
 	InferenceServiceDefaultAgentPortStr = "9081"
 	InferenceServiceDefaultAgentPort    = 9081
 	CommonDefaultHttpPort               = 80
+	AggregateMetricsPortName            = "aggr-metric"
 )
 
 // Labels to put on kservice
@@ -359,6 +360,10 @@ const (
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
 
+const (
+	DefaultNSKnativeServing = "knative-serving"
+)
+
 // built-in runtime servers
 const (
 	SKLearnServer = "kserve-sklearnserver"
@@ -431,6 +436,12 @@ const (
 	StateReasonCrashLoopBackOff = "CrashLoopBackOff"
 )
 
+// CRD Kinds
+const (
+	IstioVirtualServiceKind = "VirtualService"
+	KnativeServiceKind      = "Service"
+)
+
 // GetRawServiceLabel generate native service label
 func GetRawServiceLabel(service string) string {
 	return "isvc." + service
@@ -451,6 +462,7 @@ func getEnvOrDefault(key string, fallback string) string {
 	return fallback
 }
 
+// nolint: unused
 func isEnvVarMatched(envVar, matchtedValue string) bool {
 	return getEnvOrDefault(envVar, "") == matchtedValue
 }
@@ -530,11 +542,11 @@ func ExplainPath(name string) string {
 }
 
 func PredictPrefix() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+(:predict)?")
+	return "^/v1/models/[\\w-]+(:predict)?"
 }
 
 func ExplainPrefix() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+:explain$")
+	return "^/v1/models/[\\w-]+:explain$"
 }
 
 func VirtualServiceHostname(name string, predictorHostName string) string {

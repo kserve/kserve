@@ -26,7 +26,7 @@ from kserve import (
     V1beta1SKLearnSpec,
 )
 from kubernetes.client import V1ResourceRequirements
-from ..common.utils import KSERVE_TEST_NAMESPACE
+from ..common.utils import KSERVE_TEST_NAMESPACE, get_cluster_ip
 from ..common.utils import predict
 
 logging.basicConfig(level=logging.INFO)
@@ -38,12 +38,13 @@ METRICS_PATH = "metrics"
 
 def test_qpext_kserve():
     # test the qpext using the sklearn predictor
-    service_name = "isvc-sklearn-v2"
+    service_name = "sklearn-v2-metrics"
+    protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
-            protocol_version="v2",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -55,18 +56,31 @@ def test_qpext_kserve():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE,
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
             # set the metric aggregation annotation to true
             annotations={ENABLE_METRIC_AGG: "true"},
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_model_ready(
+        service_name,
+        model_name=service_name,
+        isvc_namespace=KSERVE_TEST_NAMESPACE,
+        isvc_version=constants.KSERVE_V1BETA1_VERSION,
+        protocol_version=protocol_version,
+        cluster_ip=get_cluster_ip(),
+    )
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
+    res = predict(
+        service_name, "./data/iris_input_v2.json", protocol_version=protocol_version
+    )
     assert res["outputs"][0]["data"] == [1, 1]
 
     send_metrics_request(kserve_client, service_name)
@@ -75,9 +89,10 @@ def test_qpext_kserve():
 
 def send_metrics_request(kserve_client, service_name):
     time.sleep(10)
-    pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                      label_selector='serving.kserve.io/inferenceservice={}'.
-                                                      format(service_name))
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
     pod_name = ""
     for pod in pods.items:
         # get a pod name
@@ -85,11 +100,15 @@ def send_metrics_request(kserve_client, service_name):
         break
 
     url = f"http://localhost:{METRICS_AGG_PORT}/{METRICS_PATH}"
-    with portforward.forward(KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT):
+    with portforward.forward(
+        KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT
+    ):
         logging.info(f"metrics request url: {url}")
         response = requests.get(url)
         logging.info(f"response: {response}, content: {response.content}")
-        logging.info("Got response code %s, content %s", response.status_code, response.content)
+        logging.info(
+            "Got response code %s, content %s", response.status_code, response.content
+        )
 
         assert response.status_code == 200
         assert len(response.content) > 0

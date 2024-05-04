@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "huggingfaceserver"
-version = "0.12.0rc1"
+version = "0.12.1"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 authors = ["Dan Sun <dsun20@bloomberg.net>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -12,9 +12,10 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
-transformers = "~4.36.0"
+transformers = "~4.39.3"
+accelerate = "~0.27.2"
 torch = "~2.1.2"
-vllm = { version = "^0.2.6", optional = true }
+vllm = { version = "^0.4.0.post1", optional = true }
 
 [tool.poetry.extras]
 vllm = [
@@ -30,6 +31,12 @@ pytest-cov = "^4.0.0"
 mypy = "^0.991"
 pytest-asyncio = "^0.20.3"
 pytest_httpx = "^v0.28.0"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "~24.3.0", extras = ["colorama"] }
 
 [tool.poetry-version-plugin]
 source = "file"

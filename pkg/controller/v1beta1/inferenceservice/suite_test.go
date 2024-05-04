@@ -20,26 +20,26 @@ import (
 	"context"
 	"testing"
 
-	netv1 "k8s.io/api/networking/v1"
-
-	kfservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	pkgtest "github.com/kserve/kserve/pkg/testing"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	kfservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -51,6 +51,7 @@ var (
 	testEnv   *envtest.Environment
 	cancel    context.CancelFunc
 	ctx       context.Context
+	clientset kubernetes.Interface
 )
 
 func TestV1beta1APIs(t *testing.T) {
@@ -81,6 +82,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
+	clientset, err = kubernetes.NewForConfig(cfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(clientset).ToNot(BeNil())
+
 	//Create namespace
 	kfservingNamespaceObj := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -106,10 +111,11 @@ var _ = BeforeSuite(func() {
 		DisableIstioVirtualHost: false,
 	}
 	err = (&InferenceServiceReconciler{
-		Client:   k8sClient,
-		Scheme:   k8sClient.Scheme(),
-		Log:      ctrl.Log.WithName("V1beta1InferenceServiceController"),
-		Recorder: k8sManager.GetEventRecorderFor("V1beta1InferenceServiceController"),
+		Client:    k8sClient,
+		Clientset: clientset,
+		Scheme:    k8sClient.Scheme(),
+		Log:       ctrl.Log.WithName("V1beta1InferenceServiceController"),
+		Recorder:  k8sManager.GetEventRecorderFor("V1beta1InferenceServiceController"),
 	}).SetupWithManager(k8sManager, deployConfig, ingressConfig)
 	Expect(err).ToNot(HaveOccurred())
 

@@ -2,14 +2,14 @@
 
 Helm chart for deploying kserve resources
 
-![Version: v0.12.0-rc1](https://img.shields.io/badge/Version-v0.12.0--rc1-informational?style=flat-square)
+![Version: v0.12.1](https://img.shields.io/badge/Version-v0.12.1-informational?style=flat-square)
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0-rc1
+$ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.1
 ```
 
 ## Values
@@ -17,9 +17,11 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0-rc1
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | kserve.agent.image | string | `"kserve/agent"` |  |
-| kserve.agent.tag | string | `"v0.12.0-rc1"` |  |
+| kserve.agent.tag | string | `"v0.12.1"` |  |
 | kserve.controller.affinity | object | `{}` |  |
 | kserve.controller.deploymentMode | string | `"Serverless"` |  |
+| kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
+| kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
 | kserve.controller.gateway.disableIstioVirtualHost | bool | `false` |  |
 | kserve.controller.gateway.domain | string | `"example.com"` |  |
 | kserve.controller.gateway.domainTemplate | string | `"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"` |  |
@@ -36,18 +38,18 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0-rc1
 | kserve.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.controller.resources.requests.cpu | string | `"100m"` |  |
 | kserve.controller.resources.requests.memory | string | `"300Mi"` |  |
-| kserve.controller.tag | string | `"v0.12.0-rc1"` |  |
+| kserve.controller.tag | string | `"v0.12.1"` |  |
 | kserve.controller.tolerations | list | `[]` |  |
 | kserve.controller.topologySpreadConstraints | list | `[]` |  |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` |  |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` |  |
 | kserve.modelmesh.config.modelmeshImage | string | `"kserve/modelmesh"` |  |
-| kserve.modelmesh.config.modelmeshImageTag | string | `"v0.11.1"` |  |
+| kserve.modelmesh.config.modelmeshImageTag | string | `"v0.12.0-rc0"` |  |
 | kserve.modelmesh.config.modelmeshRuntimeAdapterImage | string | `"kserve/modelmesh-runtime-adapter"` |  |
-| kserve.modelmesh.config.modelmeshRuntimeAdapterImageTag | string | `"v0.11.1"` |  |
+| kserve.modelmesh.config.modelmeshRuntimeAdapterImageTag | string | `"v0.12.0-rc0"` |  |
 | kserve.modelmesh.config.podsPerRuntime | int | `2` |  |
 | kserve.modelmesh.config.restProxyImage | string | `"kserve/rest-proxy"` |  |
-| kserve.modelmesh.config.restProxyImageTag | string | `"v0.11.1"` |  |
+| kserve.modelmesh.config.restProxyImageTag | string | `"v0.12.0-rc0"` |  |
 | kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchExpressions[0].key | string | `"control-plane"` |  |
 | kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchExpressions[0].operator | string | `"In"` |  |
 | kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchExpressions[0].values[0] | string | `"modelmesh-controller"` |  |
@@ -55,29 +57,29 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0-rc1
 | kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight | int | `100` |  |
 | kserve.modelmesh.controller.image | string | `"kserve/modelmesh-controller"` |  |
 | kserve.modelmesh.controller.nodeSelector | object | `{}` |  |
-| kserve.modelmesh.controller.tag | string | `"v0.11.1"` |  |
+| kserve.modelmesh.controller.tag | string | `"v0.12.0-rc0"` |  |
 | kserve.modelmesh.controller.tolerations | list | `[]` |  |
 | kserve.modelmesh.controller.topologySpreadConstraints | list | `[]` |  |
 | kserve.modelmesh.enabled | bool | `true` |  |
-| kserve.modelmeshVersion | string | `"v0.11.1"` |  |
+| kserve.modelmeshVersion | string | `"v0.12.0-rc0"` |  |
 | kserve.router.image | string | `"kserve/router"` |  |
-| kserve.router.tag | string | `"v0.12.0-rc1"` |  |
-| kserve.servingruntime.alibi.defaultVersion | string | `"v0.12.0-rc1"` |  |
-| kserve.servingruntime.alibi.image | string | `"kserve/alibi-explainer"` |  |
-| kserve.servingruntime.art.defaultVersion | string | `"v0.12.0-rc1"` |  |
+| kserve.router.tag | string | `"v0.12.1"` |  |
+| kserve.servingruntime.art.defaultVersion | string | `"v0.12.1"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
+| kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
+| kserve.servingruntime.huggingfaceserver.tag | string | `"v0.12.1"` |  |
 | kserve.servingruntime.lgbserver.image | string | `"kserve/lgbserver"` |  |
-| kserve.servingruntime.lgbserver.tag | string | `"v0.12.0-rc1"` |  |
+| kserve.servingruntime.lgbserver.tag | string | `"v0.12.1"` |  |
 | kserve.servingruntime.mlserver.image | string | `"docker.io/seldonio/mlserver"` |  |
 | kserve.servingruntime.mlserver.modelClassPlaceholder | string | `"{{.Labels.modelClass}}"` |  |
 | kserve.servingruntime.mlserver.tag | string | `"1.3.2"` |  |
 | kserve.servingruntime.modelNamePlaceholder | string | `"{{.Name}}"` |  |
 | kserve.servingruntime.paddleserver.image | string | `"kserve/paddleserver"` |  |
-| kserve.servingruntime.paddleserver.tag | string | `"v0.12.0-rc1"` |  |
+| kserve.servingruntime.paddleserver.tag | string | `"v0.12.1"` |  |
 | kserve.servingruntime.pmmlserver.image | string | `"kserve/pmmlserver"` |  |
-| kserve.servingruntime.pmmlserver.tag | string | `"v0.12.0-rc1"` |  |
+| kserve.servingruntime.pmmlserver.tag | string | `"v0.12.1"` |  |
 | kserve.servingruntime.sklearnserver.image | string | `"kserve/sklearnserver"` |  |
-| kserve.servingruntime.sklearnserver.tag | string | `"v0.12.0-rc1"` |  |
+| kserve.servingruntime.sklearnserver.tag | string | `"v0.12.1"` |  |
 | kserve.servingruntime.tensorflow.image | string | `"tensorflow/serving"` |  |
 | kserve.servingruntime.tensorflow.tag | string | `"2.6.2"` |  |
 | kserve.servingruntime.torchserve.image | string | `"pytorch/torchserve-kfs"` |  |
@@ -86,7 +88,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0-rc1
 | kserve.servingruntime.tritonserver.image | string | `"nvcr.io/nvidia/tritonserver"` |  |
 | kserve.servingruntime.tritonserver.tag | string | `"23.05-py3"` |  |
 | kserve.servingruntime.xgbserver.image | string | `"kserve/xgbserver"` |  |
-| kserve.servingruntime.xgbserver.tag | string | `"v0.12.0-rc1"` |  |
+| kserve.servingruntime.xgbserver.tag | string | `"v0.12.1"` |  |
 | kserve.storage.caBundleConfigMapName | string | `""` |  |
 | kserve.storage.caBundleVolumeMountPath | string | `"/etc/ssl/custom-certs"` |  |
 | kserve.storage.cpuModelcar | string | `"10m"` |  |
@@ -104,8 +106,5 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.0-rc1
 | kserve.storage.s3.verifySSL | string | `""` |  |
 | kserve.storage.storageSecretNameAnnotation | string | `"serving.kserve.io/secretName"` |  |
 | kserve.storage.storageSpecSecretName | string | `"storage-config"` |  |
-| kserve.storage.tag | string | `"v0.12.0-rc1"` |  |
-| kserve.version | string | `"v0.12.0-rc1"` |  |
-
-----------------------------------------------
-Autogenerated from chart metadata using [helm-docs v1.12.0](https://github.com/norwoodj/helm-docs/releases/v1.12.0)
+| kserve.storage.tag | string | `"v0.12.1"` |  |
+| kserve.version | string | `"v0.12.1"` |  |

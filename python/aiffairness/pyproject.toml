@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aifserver"
-version = "0.12.0rc1"
+version = "0.12.1"
 description = "'Model Server implementation for AI fairness. Not intended for use outside KServe Frameworks Images."
 authors = ["Andrew Butler <Andrew.Butler@ibm.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -24,6 +24,12 @@ optional = true
 pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 mypy = "^0.991"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "~24.3.0", extras = ["colorama"] }
 
 [tool.poetry-version-plugin]
 source = "file"

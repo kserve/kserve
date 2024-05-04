@@ -74,7 +74,7 @@ type ComponentExtensionSpec struct {
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
-	//(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
+	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
 	// +optional
 	ScaleTarget *int `json:"scaleTarget,omitempty"`
 	// ScaleMetric defines the scaling metric type watched by autoscaler

@@ -19,8 +19,11 @@ from .model import RFModel
 DEFAULT_MODEL_NAME = "rfserver"
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
-parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
-                    help='The name that the model is served under.')
+parser.add_argument(
+    "--model_name",
+    default=DEFAULT_MODEL_NAME,
+    help="The name that the model is served under.",
+)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":

@@ -38,17 +38,22 @@ class AlexNetModel(Model):
         self.model.eval()
         self.ready = True
 
-    def preprocess(self, payload: InferRequest, headers: Dict[str, str] = None) -> torch.Tensor:
+    def preprocess(
+        self, payload: InferRequest, headers: Dict[str, str] = None
+    ) -> torch.Tensor:
         req = payload.inputs[0]
         if req.datatype == "BYTES":
             input_image = Image.open(io.BytesIO(req.data[0]))
-            preprocess = transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
-            ])
+            preprocess = transforms.Compose(
+                [
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            )
 
             input_tensor = preprocess(input_image)
             return input_tensor.unsqueeze(0)
@@ -56,7 +61,9 @@ class AlexNetModel(Model):
             np_array = payload.inputs[0].as_numpy()
             return torch.Tensor(np_array)
 
-    def predict(self, input_tensor: torch.Tensor, headers: Dict[str, str] = None) -> Dict:
+    def predict(
+        self, input_tensor: torch.Tensor, headers: Dict[str, str] = None
+    ) -> Dict:
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
@@ -72,9 +79,10 @@ class AlexNetModel(Model):
                     },
                     "datatype": "FP32",
                     "name": "output-0",
-                    "shape": list(values.shape)
+                    "shape": list(values.shape),
                 }
-            ]}
+            ],
+        }
         return response
 
 

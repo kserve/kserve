@@ -28,6 +28,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
@@ -68,8 +69,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		}
 		configs = map[string]string{
 			"explainers": `{
-				"alibi": {
-					"image": "kserve/alibi-explainer",
+				"art": {
+					"image": "kserve/art-explainer",
 					"defaultImageVersion": "latest"
 				}
 			}`,
@@ -392,6 +393,83 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(updatedVirtualService.Annotations).To(gomega.Equal(annotations))
 			Expect(updatedVirtualService.Labels).To(gomega.Equal(labels))
 		})
+		It("Should fail if Knative Serving is not installed", func() {
+			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
+			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
+			Expect(getServingResourcesErr).To(BeNil())
+			defer utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), servingResources)
+			utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), nil)
+
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create InferenceService
+			serviceName := "serverless-isvc"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": "Serverless",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil)
+
+			ctx := context.Background()
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			Eventually(func() bool {
+				events := &v1.EventList{}
+				err := k8sClient.List(ctx, events, client.InNamespace(serviceKey.Namespace))
+				if err != nil {
+					return false
+				}
+				if events == nil {
+					return false
+				}
+
+				for _, event := range events.Items {
+					if event.InvolvedObject.Kind == "InferenceService" &&
+						event.InvolvedObject.Name == serviceKey.Name &&
+						event.Reason == "ServerlessModeRejected" {
+						return true
+					}
+				}
+
+				return false
+			}, timeout, interval).Should(BeTrue())
+		})
 	})
 
 	Context("Inference Service with transformer", func() {
@@ -705,307 +783,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestReadyRevision:   "t-revision-v1",
 						LatestCreatedRevision: "t-revision-v1",
 						URL:                   transformerUrl,
-					},
-				},
-				ModelStatus: v1beta1.ModelStatus{
-					TransitionStatus:    "InProgress",
-					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
-				},
-			}
-			Eventually(func() string {
-				isvc := &v1beta1.InferenceService{}
-				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
-					return err.Error()
-				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.Condition{}, "LastTransitionTime", "Severity"))
-			}, timeout).Should(gomega.BeEmpty())
-		})
-	})
-
-	Context("Inference Service with explainer", func() {
-		It("Should create successfully", func() {
-			serviceName := "svc-with-explainer"
-			namespace := "default"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
-			var serviceKey = expectedRequest.NamespacedName
-
-			var predictorServiceKey = types.NamespacedName{Name: constants.PredictorServiceName(serviceName),
-				Namespace: namespace}
-			var explainerServiceKey = types.NamespacedName{Name: constants.ExplainerServiceName(serviceName),
-				Namespace: namespace}
-			var explainer = &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceName,
-					Namespace: namespace,
-					Labels: map[string]string{
-						"key1": "val1FromISVC",
-						"key2": "val2FromISVC",
-					},
-					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": "Serverless",
-						"key1":                             "val1FromISVC",
-						"key2":                             "val2FromISVC",
-					},
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: v1beta1.GetIntReference(1),
-							MaxReplicas: 3,
-							Labels: map[string]string{
-								"key2": "val2FromPredictor",
-							},
-							Annotations: map[string]string{
-								"key2": "val2FromPredictor",
-							},
-						},
-						Tensorflow: &v1beta1.TFServingSpec{
-							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-								StorageURI:     proto.String("s3://test/mnist/export"),
-								RuntimeVersion: proto.String("1.13.0"),
-							},
-						},
-					},
-					Explainer: &v1beta1.ExplainerSpec{
-						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: v1beta1.GetIntReference(1),
-							MaxReplicas: 3,
-							Labels: map[string]string{
-								"key2": "val2FromExplainer",
-							},
-							Annotations: map[string]string{
-								"key2": "val2FromExplainer",
-							},
-						},
-						Alibi: &v1beta1.AlibiExplainerSpec{
-							Type: v1beta1.AlibiAnchorsTabularExplainer,
-							ExplainerExtensionSpec: v1beta1.ExplainerExtensionSpec{
-								StorageURI:     "s3://test/mnist/explainer",
-								RuntimeVersion: proto.String("0.4.0"),
-								Container: v1.Container{
-									Name:      constants.InferenceServiceContainerName,
-									Resources: defaultResource,
-								},
-							},
-						},
-					},
-				},
-				Status: v1beta1.InferenceServiceStatus{
-					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: {
-							LatestReadyRevision: "revision-v1",
-						},
-					},
-				},
-			}
-
-			// Create configmap
-			var configMap = &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Data: configs,
-			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
-
-			// Create the InferenceService object and expect the Reconcile and knative service to be created
-			instance := explainer.DeepCopy()
-			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), instance)
-
-			predictorService := &knservingv1.Service{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, predictorService) }, timeout).
-				Should(gomega.Succeed())
-
-			explainerService := &knservingv1.Service{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), explainerServiceKey, explainerService) }, timeout).
-				Should(gomega.Succeed())
-
-			expectedExplainerService := &knservingv1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultExplainerServiceName(instance.Name),
-					Namespace: instance.Namespace,
-				},
-				Spec: knservingv1.ServiceSpec{
-					ConfigurationSpec: knservingv1.ConfigurationSpec{
-						Template: knservingv1.RevisionTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kserve.io/inferenceservice": serviceName,
-									constants.KServiceComponentLabel: constants.Explainer.String(),
-									"key1":                           "val1FromISVC",
-									"key2":                           "val2FromExplainer",
-								},
-								Annotations: map[string]string{
-									"serving.kserve.io/deploymentMode":                         "Serverless",
-									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/max-scale":                        "3",
-									"autoscaling.knative.dev/min-scale":                        "1",
-									"internal.serving.kserve.io/storage-initializer-sourceuri": "s3://test/mnist/explainer",
-									"key1": "val1FromISVC",
-									"key2": "val2FromExplainer",
-								},
-							},
-							Spec: knservingv1.RevisionSpec{
-								ContainerConcurrency: nil,
-								TimeoutSeconds:       nil,
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
-										{
-											Name:  constants.InferenceServiceContainerName,
-											Image: "kserve/alibi-explainer:0.4.0",
-											Args: []string{
-												"--model_name",
-												serviceName,
-												constants.ArgumentHttpPort,
-												constants.InferenceServiceDefaultHttpPort,
-												"--predictor_host",
-												constants.PredictorServiceName(instance.Name) + "." + instance.Namespace,
-												"--storage_uri",
-												"/mnt/models",
-												"AnchorTabular",
-											},
-											Resources: defaultResource,
-										},
-									},
-								},
-							},
-						},
-					},
-					RouteSpec: knservingv1.RouteSpec{
-						Traffic: []knservingv1.TrafficTarget{{LatestRevision: proto.Bool(true), Percent: proto.Int64(100)}},
-					},
-				},
-			}
-			// Set ResourceVersion which is required for update operation.
-			expectedExplainerService.ResourceVersion = explainerService.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), explainerService, client.DryRunAll)
-			Expect(err).Should(BeNil())
-			Expect(cmp.Diff(explainerService.Spec, expectedExplainerService.Spec)).To(gomega.Equal(""))
-
-			// mock update knative service status since knative serving controller is not running in test
-			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
-			explainerUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.ExplainerServiceName(serviceKey.Name), serviceKey.Namespace, domain))
-
-			// update predictor
-			updatedPredictorService := predictorService.DeepCopy()
-			updatedPredictorService.Status.LatestCreatedRevisionName = "revision-v1"
-			updatedPredictorService.Status.LatestReadyRevisionName = "revision-v1"
-			updatedPredictorService.Status.URL = predictorUrl
-			updatedPredictorService.Status.Conditions = duckv1.Conditions{
-				{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionRoutesReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionConfigurationsReady,
-					Status: "True",
-				},
-			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(gomega.HaveOccurred())
-
-			// update explainer
-			updatedExplainerService := explainerService.DeepCopy()
-			updatedExplainerService.Status.LatestCreatedRevisionName = "exp-revision-v1"
-			updatedExplainerService.Status.LatestReadyRevisionName = "exp-revision-v1"
-			updatedExplainerService.Status.URL = explainerUrl
-			updatedExplainerService.Status.Conditions = duckv1.Conditions{
-				{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionRoutesReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionConfigurationsReady,
-					Status: "True",
-				},
-			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerService)).NotTo(gomega.HaveOccurred())
-
-			// verify if InferenceService status is updated
-			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
-				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:     v1beta1.ExplainerReady,
-							Severity: "Info",
-							Status:   "True",
-						},
-						{
-							Type:     v1beta1.ExplainerRoutesReady,
-							Severity: "Info",
-							Status:   "True",
-						},
-						{
-							Type:     v1beta1.ExplainerConfigurationReady,
-							Severity: "Info",
-							Status:   "True",
-						},
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.PredictorRouteReady,
-							Severity: "Info",
-							Status:   "True",
-						},
-						{
-							Type:     v1beta1.PredictorConfigurationReady,
-							Severity: "Info",
-							Status:   "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.RoutesReady,
-							Severity: "Info",
-							Status:   "True",
-						},
-						{
-							Type:     v1beta1.LatestDeploymentReady,
-							Severity: "Info",
-							Status:   "True",
-						},
-					},
-				},
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
-				},
-				Address: &duckv1.Addressable{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
-					},
-				},
-				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-					v1beta1.PredictorComponent: {
-						LatestReadyRevision:   "revision-v1",
-						LatestCreatedRevision: "revision-v1",
-						URL:                   predictorUrl,
-					},
-					v1beta1.ExplainerComponent: {
-						LatestReadyRevision:   "exp-revision-v1",
-						LatestCreatedRevision: "exp-revision-v1",
-						URL:                   explainerUrl,
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{

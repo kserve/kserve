@@ -37,51 +37,64 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.explainer
 def test_tabular_explainer():
-    service_name = 'art-explainer'
+    service_name = "art-explainer"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
         spec=V1beta1InferenceServiceSpec(
             predictor=V1beta1PredictorSpec(
                 sklearn=V1beta1SKLearnSpec(
-                    storage_uri='gs://kfserving-examples/models/sklearn/mnist/art',
+                    storage_uri="gs://kfserving-examples/models/sklearn/mnist/art",
                     resources=V1ResourceRequirements(
-                        requests={'cpu': '10m', 'memory': '128Mi'},
-                        limits={'cpu': '100m', 'memory': '256Mi'}
-                    )
+                        requests={"cpu": "10m", "memory": "128Mi"},
+                        limits={"cpu": "100m", "memory": "256Mi"},
+                    ),
                 )
             ),
             explainer=V1beta1ExplainerSpec(
                 min_replicas=1,
                 art=V1beta1ARTExplainerSpec(
-                    type='SquareAttack',
-                    name='explainer',
+                    type="SquareAttack",
+                    name="explainer",
                     resources=V1ResourceRequirements(
-                        requests={'cpu': '10m', 'memory': '128Mi'},
-                        limits={'cpu': '100m', 'memory': '256Mi'}
+                        requests={"cpu": "10m", "memory": "128Mi"},
+                        limits={"cpu": "100m", "memory": "256Mi"},
                     ),
-                    config={"nb_classes": "10"})))
+                    config={"nb_classes": "10"},
+                ),
+            ),
+        ),
     )
 
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
+        kserve_client.wait_isvc_ready(
+            service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
+        )
     except RuntimeError as e:
-        logging.info(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                                                                             KSERVE_TEST_NAMESPACE, "services",
-                                                                             service_name + "-predictor"))
-        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                          label_selector='serving.kserve.io/inferenceservice={}'.
-                                                          format(service_name))
+        logging.info(
+            kserve_client.api_instance.get_namespaced_custom_object(
+                "serving.knative.dev",
+                "v1",
+                KSERVE_TEST_NAMESPACE,
+                "services",
+                service_name + "-predictor",
+            )
+        )
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
         for pod in pods.items:
             logging.info(pod)
         raise e
 
-    res = predict(service_name, './data/mnist_input_bw_flat.json')
-    assert (res["predictions"] == [3])
+    res = predict(service_name, "./data/mnist_input_bw_flat.json")
+    assert res["predictions"] == [3]
 
-    adv_prediction = explain_art(service_name, './data/mnist_input_bw.json')
-    assert (adv_prediction != 3)
+    adv_prediction = explain_art(service_name, "./data/mnist_input_bw.json")
+    assert adv_prediction != 3
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

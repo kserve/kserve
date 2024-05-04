@@ -20,8 +20,9 @@ import kserve
 
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
-parser.add_argument('--model_dir', required=True,
-                    help='A URI pointer to the model directory')
+parser.add_argument(
+    "--model_dir", required=True, help="A local path to the model directory"
+)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":

@@ -48,14 +48,15 @@ Create a branch from the master and do the following:
 2. Add a new version `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}` in the `RELEASES` array in [generate-install.sh](../hack/generate-install.sh). Example: Refer [this commit](https://github.com/rachitchauhan43/kserve/commit/6e9bd24ea137a3619da3297b4ff000379f7b2b38#diff-5f8f3e3a8ca601067664c7bf00c05aa2290a6ba625312754856ec873b840b6dbR42)
 3. Generate install manifest `./hack/generate-install.sh $VERSION`.
 4. Run `./hack/python-release.sh` to update pyproject.toml files for all packages.
-5. Submit your PR and wait for it to merge.
-6. After it is merged,
+5. Run `make go-lint` from the Kserve root directory. Address any lint errors if found.
+6. Submit your PR and wait for it to merge.
+7. After it is merged,
     1. Create a release branch of the form release-X.Y.Z from the master 
     2. Create a release candidate tag X.Y.Z-rc0 from that branch and do git push for both the branch and tag
     3. Now goto GITHUB and from the recently pushed X.Y.Z-rc0 tag, create a release-candidate (basically a pre-release) on GITHUB
     4. With this you are done with the creation of RC0 for upcoming release
-7. Announce in the community about the availability of release-candidate so that community can start consuming and testing. And ask them to report bugs as soon as possible.
-8. After feature freeze date, now only bug fixes will be merged into the release branch.
+8. Announce in the community about the availability of release-candidate so that community can start consuming and testing. And ask them to report bugs as soon as possible.
+9. After feature freeze date, now only bug fixes will be merged into the release branch.
 
 ### 1 week after feature freeze:
 After feature freeze, we will be merging only the bug fixes into the release branch and creating another release candidate (RC1) out of it.
@@ -73,6 +74,12 @@ Steps:
 
 You can repeat same steps for RC2 or other release candidates if needed
 
+#### Instructions to Automatic Cherry-Pick:
+We can use the GitHub action to automatically cherry-pick PRs. use the following comment
+
+ `/cherry-pick release-branch`
+
+
 ### On the release day:
 
 #### Updating the version in master 
@@ -86,12 +93,13 @@ This will be the last commit before the release and last one to be cherry-picked
 2. Add a new version `v${MAJOR}.${MINOR}.${PATCH}` in the `RELEASES` array in [generate-install.sh](../hack/generate-install.sh). Example: Refer [this commit](https://github.com/rachitchauhan43/kserve/commit/6e9bd24ea137a3619da3297b4ff000379f7b2b38#diff-5f8f3e3a8ca601067664c7bf00c05aa2290a6ba625312754856ec873b840b6dbR42)
 3. Generate install manifest `./hack/generate-install.sh $VERSION`.
 4. Run `./hack/python-release.sh` to update pyproject.toml files for all packages.
-5. Submit your PR and wait for it to merge.
-6. Once merged, cherry-pick the `merge commits` that have come out of PRs labeled with `cherrypick-approved` to the release branch (including the just created PR in step 1 in this section)
-7. Create a release tag X.Y.Z from the release branch and do git push for both the branch and tag
-8. From that tag create the final release on GITHUB
-9. With this you are done with the creation of final release
-10. Announce in the community about the availability of release so that community can start consuming it
+5. Run `make go-lint` from the Kserve root directory. Address any lint errors if found.
+6. Submit your PR and wait for it to merge.
+7. Once merged, cherry-pick the `merge commits` that have come out of PRs labeled with `cherrypick-approved` to the release branch (including the just created PR in step 1 in this section)
+8. Create a release tag X.Y.Z from the release branch and do git push for both the branch and tag
+9. From that tag create the final release on GITHUB
+10. With this you are done with the creation of final release
+11. Announce in the community about the availability of release so that community can start consuming it
 
 
 

@@ -6,7 +6,6 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **active_deadline_seconds** | **int** | Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer. | [optional] 
 **affinity** | [**V1Affinity**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Affinity.md) |  | [optional] 
-**alibi** | [**V1beta1AlibiExplainerSpec**](V1beta1AlibiExplainerSpec.md) |  | [optional] 
 **annotations** | **dict(str, str)** | Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations | [optional] 
 **art** | [**V1beta1ARTExplainerSpec**](V1beta1ARTExplainerSpec.md) |  | [optional] 
 **automount_service_account_token** | **bool** | AutomountServiceAccountToken indicates whether a service account token should be automatically mounted. | [optional] 

@@ -33,7 +33,7 @@ const (
 	InferenceServiceAttr = "inferenceservicename"
 	NamespaceAttr        = "namespace"
 	ComponentAttr        = "component"
-	//endpoint would be either default or canary
+	// endpoint would be either default or canary
 	EndpointAttr = "endpoint"
 
 	LoggerWorkerQueueSize = 100
@@ -78,14 +78,14 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	)
 
 	if err != nil {
-		return fmt.Errorf("while creating http transport: %s", err)
+		return fmt.Errorf("while creating http transport: %w", err)
 	}
 
 	c, err := cloudevents.NewClient(t,
 		cloudevents.WithTimeNow(),
 	)
 	if err != nil {
-		return fmt.Errorf("while creating new cloudevents client: %s", err)
+		return fmt.Errorf("while creating new cloudevents client: %w", err)
 	}
 	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
@@ -98,11 +98,11 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 
 	event.SetSource(logReq.SourceUri.String())
 	if err := event.SetData(logReq.ContentType, *logReq.Bytes); err != nil {
-		return fmt.Errorf("while setting cloudevents data: %s", err)
+		return fmt.Errorf("while setting cloudevents data: %w", err)
 	}
 
 	if result := c.Send(w.CeCtx, event); cloudevents.IsUndelivered(result) {
-		return fmt.Errorf("while sending event: %s", result)
+		return fmt.Errorf("while sending event: %w", result)
 	}
 	return nil
 }

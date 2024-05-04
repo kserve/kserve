@@ -24,9 +24,13 @@ from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 session = boto3.Session()
-client = session.client('s3', endpoint_url='http://minio-service:9000', aws_access_key_id='minio',
-                        aws_secret_access_key='minio123')
-digits_bucket = 'digits'
+client = session.client(
+    "s3",
+    endpoint_url="http://minio-service:9000",
+    aws_access_key_id="minio",
+    aws_secret_access_key="minio123",
+)
+digits_bucket = "digits"
 
 
 def image_transform(image):
@@ -42,27 +46,28 @@ class ImageTransformer(kserve.Model):
         self.predictor_host = predictor_host
         self._key = None
 
-    async def preprocess(self, inputs: Union[Dict, InferRequest],
-                         headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
+    async def preprocess(
+        self, inputs: Union[Dict, InferRequest], headers: Dict[str, str] = None
+    ) -> Union[Dict, InferRequest]:
         logging.info("Received inputs %s", inputs)
-        if inputs['EventName'] == 's3:ObjectCreated:Put':
-            bucket = inputs['Records'][0]['s3']['bucket']['name']
-            key = inputs['Records'][0]['s3']['object']['key']
+        if inputs["EventName"] == "s3:ObjectCreated:Put":
+            bucket = inputs["Records"][0]["s3"]["bucket"]["name"]
+            key = inputs["Records"][0]["s3"]["object"]["key"]
             self._key = key
-            client.download_file(bucket, key, '/tmp/' + key)
-            request = image_transform('/tmp/' + key)
+            client.download_file(bucket, key, "/tmp/" + key)
+            request = image_transform("/tmp/" + key)
             return {"instances": [request]}
         raise Exception("unknown event")
 
     async def postprocess(
-            self,
-            response: Union[Dict, InferResponse, ModelInferResponse],
-            headers: Dict[str, str] = None
+        self,
+        response: Union[Dict, InferResponse, ModelInferResponse],
+        headers: Dict[str, str] = None,
     ) -> Union[Dict, ModelInferResponse]:
         logging.info("response: %s", response)
         index = response["predictions"][0]["classes"]
         logging.info("digit:" + str(index))
-        upload_path = f'digit-{index}/{self._key}'
-        client.upload_file('/tmp/' + self._key, digits_bucket, upload_path)
+        upload_path = f"digit-{index}/{self._key}"
+        client.upload_file("/tmp/" + self._key, digits_bucket, upload_path)
         logging.info(f"Image {self._key} successfully uploaded to {upload_path}")
         return response

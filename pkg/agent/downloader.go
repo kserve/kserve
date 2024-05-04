@@ -47,7 +47,8 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 		d.Logger.Infof("Downloading %s to model dir %s", modelSpec.StorageURI, d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
 		_, err := os.Stat(successFile)
-		if os.IsNotExist(err) {
+		switch {
+		case os.IsNotExist(err):
 			if err := d.download(modelName, modelSpec.StorageURI); err != nil {
 				return errors.Wrapf(err, "failed to download model")
 			}
@@ -65,14 +66,14 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to encode model spec")
 			}
-			err = os.WriteFile(successFile, encodedJson, 0644)
+			err = os.WriteFile(successFile, encodedJson, 0644) //#nosec
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to write the success file")
 			}
 			d.Logger.Infof("Creating successFile %s", successFile)
-		} else if err == nil {
+		case err == nil:
 			d.Logger.Infof("Model successFile exists already for %s", modelName)
-		} else {
+		default:
 			d.Logger.Errorf("Model successFile error %v", err)
 		}
 	}
@@ -96,6 +97,7 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	return nil
 }
 
+// nolint: unused
 func hash(s string) string {
 	src := []byte(s)
 	dst := make([]byte, hex.EncodedLen(len(src)))
@@ -108,7 +110,7 @@ func extractProtocol(storageURI string) (storage.Protocol, error) {
 		return "", fmt.Errorf("there is no storageUri supplied")
 	}
 
-	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
+	if !regexp.MustCompile(`\w+?://`).MatchString(storageURI) {
 		return "", fmt.Errorf("there is no protocol specified for the storageUri")
 	}
 

@@ -35,7 +35,7 @@ for file in "${packages[@]}"
 do
     folder=$(dirname "${file}")
     echo "moving into folder ${folder}"
-    if [[ ${folder} == *'plugin'* ]]; then
+    if [[ ${folder} == *'plugin'* ]] || [[ ${folder} == '.' ]]; then
         echo -e "${YELLOW}skipping folder ${folder}${NC}"
         continue
     fi

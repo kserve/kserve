@@ -32,8 +32,11 @@ import datetime
 from kubernetes.client import V1Container
 
 import kserve
-from kserve.models.v1alpha1_cluster_storage_container_list import V1alpha1ClusterStorageContainerList  # noqa: E501
+from kserve.models.v1alpha1_cluster_storage_container_list import (
+    V1alpha1ClusterStorageContainerList,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1alpha1ClusterStorageContainerList(unittest.TestCase):
     """V1alpha1ClusterStorageContainerList unit test stubs"""
@@ -46,47 +49,57 @@ class TestV1alpha1ClusterStorageContainerList(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1ClusterStorageContainerList
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_cluster_storage_container_list.V1alpha1ClusterStorageContainerList()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1ClusterStorageContainerList(
-                api_version = '0', 
-                items = [
+                api_version="0",
+                items=[
                     kserve.models.v1alpha1_cluster_storage_container.V1alpha1ClusterStorageContainer(
-                        api_version = '0', 
-                        disabled = True, 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1_storage_container_spec.V1alpha1StorageContainerSpec(
-                            container = V1Container(name="test-container", image="kserve/testimage:0.11"),
-                            supported_uri_formats = [
+                        api_version="0",
+                        disabled=True,
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1_storage_container_spec.V1alpha1StorageContainerSpec(
+                            container=V1Container(
+                                name="test-container", image="kserve/testimage:0.11"
+                            ),
+                            supported_uri_formats=[
                                 kserve.models.v1alpha1_supported_uri_format.V1alpha1SupportedUriFormat(
-                                    prefix = '0', 
-                                    regex = '0', )
-                                ], ), )
-                    ], 
-                kind = '0', 
-                metadata = None
+                                    prefix="0",
+                                    regex="0",
+                                )
+                            ],
+                        ),
+                    )
+                ],
+                kind="0",
+                metadata=None,
             )
-        else :
+        else:
             return V1alpha1ClusterStorageContainerList(
-                items = [
+                items=[
                     kserve.models.v1alpha1_cluster_storage_container.V1alpha1ClusterStorageContainer(
-                        api_version = '0', 
-                        disabled = True, 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1_storage_container_spec.V1alpha1StorageContainerSpec(
-                            container = V1Container(name="test-container", image="kserve/testimage:0.11"),
-                            supported_uri_formats = [
+                        api_version="0",
+                        disabled=True,
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1_storage_container_spec.V1alpha1StorageContainerSpec(
+                            container=V1Container(
+                                name="test-container", image="kserve/testimage:0.11"
+                            ),
+                            supported_uri_formats=[
                                 kserve.models.v1alpha1_supported_uri_format.V1alpha1SupportedUriFormat(
-                                    prefix = '0', 
-                                    regex = '0', )
-                                ], ), )
-                    ],
-        )
+                                    prefix="0",
+                                    regex="0",
+                                )
+                            ],
+                        ),
+                    )
+                ],
+            )
 
     def testV1alpha1ClusterStorageContainerList(self):
         """Test V1alpha1ClusterStorageContainerList"""
@@ -94,5 +107,5 @@ class TestV1alpha1ClusterStorageContainerList(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

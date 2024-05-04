@@ -53,13 +53,17 @@ class ModelRepositoryExtension:
             model_ready = self._model_registry.is_model_ready(model_name)
             if model_ready or not filter_ready:
                 # If model is ready or filter_ready is set to False
-                model_list.append({
-                    "name": model_name,
-                    "state": (
-                        "Ready" if self._model_registry.is_model_ready(model_name) else "NotReady"
-                    ),
-                    "reason": ""
-                })
+                model_list.append(
+                    {
+                        "name": model_name,
+                        "state": (
+                            "Ready"
+                            if self._model_registry.is_model_ready(model_name)
+                            else "NotReady"
+                        ),
+                        "reason": "",
+                    }
+                )
 
         return model_list
 
@@ -82,7 +86,9 @@ class ModelRepositoryExtension:
                 self._model_registry.load(model_name)
         except Exception:
             ex_type, ex_value, ex_traceback = sys.exc_info()
-            raise ModelNotReady(model_name, f"Error type: {ex_type} error msg: {ex_value}")
+            raise ModelNotReady(
+                model_name, f"Error type: {ex_type} error msg: {ex_value}"
+            )
 
         if not self._model_registry.is_model_ready(model_name):
             raise ModelNotReady(model_name)

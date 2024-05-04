@@ -6,7 +6,7 @@ cd ./python
 echo "Installing poetry version plugin"
 pip install plugin/poetry-version-plugin
 
-pyproject_files=$(find . -type f -name "pyproject.toml")
+pyproject_files=$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml") # Skip python/pyproject.toml
 for file in ${pyproject_files[@]}
 do
     folder=$(dirname "${file}")

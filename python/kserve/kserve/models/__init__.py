@@ -53,7 +53,6 @@ from kserve.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kserve.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kserve.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
 from kserve.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
-from kserve.models.v1beta1_alibi_explainer_spec import V1beta1AlibiExplainerSpec
 from kserve.models.v1beta1_batcher import V1beta1Batcher
 from kserve.models.v1beta1_component_extension_spec import V1beta1ComponentExtensionSpec
 from kserve.models.v1beta1_component_status_spec import V1beta1ComponentStatusSpec

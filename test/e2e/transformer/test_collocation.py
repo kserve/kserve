@@ -46,12 +46,18 @@ def test_transformer_collocation():
                 name=INFERENCESERVICE_CONTAINER,
                 image="pytorch/torchserve:0.9.0-cpu",
                 env=[
-                    V1EnvVar(name=STORAGE_URI_ENV,
-                             value="gs://kfserving-examples/models/torchserve/image_classifier/v1"),
-                    V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kserve")
+                    V1EnvVar(
+                        name=STORAGE_URI_ENV,
+                        value="gs://kfserving-examples/models/torchserve/image_classifier/v1",
+                    ),
+                    V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kserve"),
                 ],
-                args=["torchserve", "--start", "--model-store=/mnt/models/model-store",
-                      "--ts-config=/mnt/models/config/config.properties"],
+                args=[
+                    "torchserve",
+                    "--start",
+                    "--model-store=/mnt/models/model-store",
+                    "--ts-config=/mnt/models/config/config.properties",
+                ],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "1", "memory": "1Gi"},
@@ -59,44 +65,56 @@ def test_transformer_collocation():
             ),
             V1Container(
                 name=TRANSFORMER_CONTAINER,
-                image='kserve/image-transformer:' + os.environ.get("GITHUB_SHA"),
-                args=[f"--model_name={model_name}", "--http_port=8080", "--grpc_port=8081",
-                      "--predictor_host=localhost:8085"],
-                ports=[
-                    V1ContainerPort(
-                        container_port=8080,
-                        protocol="TCP"
-                    )
+                image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
+                args=[
+                    f"--model_name={model_name}",
+                    "--http_port=8080",
+                    "--grpc_port=8081",
+                    "--predictor_host=localhost:8085",
                 ],
+                ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '10m', 'memory': '128Mi'},
-                    limits={'cpu': '100m', 'memory': '1Gi'}),
-            )
-        ]
+                    requests={"cpu": "10m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+            ),
+        ],
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     except RuntimeError as e:
-        print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                                                                      KSERVE_TEST_NAMESPACE,
-                                                                      "services", service_name + "-predictor"))
-        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                          label_selector='serving.kserve.io/inferenceservice={}'
-                                                          .format(service_name))
+        print(
+            kserve_client.api_instance.get_namespaced_custom_object(
+                "serving.knative.dev",
+                "v1",
+                KSERVE_TEST_NAMESPACE,
+                "services",
+                service_name + "-predictor",
+            )
+        )
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
         for pod in pods.items:
             print(pod)
         raise e
     res = predict(service_name, "./data/transformer.json", model_name=model_name)
-    assert (res.get("predictions")[0] == 2)
+    assert res.get("predictions")[0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -111,12 +129,18 @@ def test_raw_transformer_collocation():
                 name=INFERENCESERVICE_CONTAINER,
                 image="pytorch/torchserve:0.9.0-cpu",
                 env=[
-                    V1EnvVar(name=STORAGE_URI_ENV,
-                             value="gs://kfserving-examples/models/torchserve/image_classifier/v1"),
-                    V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kserve")
+                    V1EnvVar(
+                        name=STORAGE_URI_ENV,
+                        value="gs://kfserving-examples/models/torchserve/image_classifier/v1",
+                    ),
+                    V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kserve"),
                 ],
-                args=["torchserve", "--start", "--model-store=/mnt/models/model-store",
-                      "--ts-config=/mnt/models/config/config.properties"],
+                args=[
+                    "torchserve",
+                    "--start",
+                    "--model-store=/mnt/models/model-store",
+                    "--ts-config=/mnt/models/config/config.properties",
+                ],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "1", "memory": "1Gi"},
@@ -124,50 +148,59 @@ def test_raw_transformer_collocation():
             ),
             V1Container(
                 name=TRANSFORMER_CONTAINER,
-                image='kserve/image-transformer:' + os.environ.get("GITHUB_SHA"),
-                args=[f"--model_name={model_name}", "--http_port=8080", "--grpc_port=8081",
-                      "--predictor_host=localhost:8085"],
+                image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
+                args=[
+                    f"--model_name={model_name}",
+                    "--http_port=8080",
+                    "--grpc_port=8081",
+                    "--predictor_host=localhost:8085",
+                ],
                 ports=[
-                    V1ContainerPort(
-                        name="http",
-                        container_port=8080,
-                        protocol="TCP"
-                    ),
-                    V1ContainerPort(
-                        name="grpc",
-                        container_port=8081,
-                        protocol="TCP"
-                    )
+                    V1ContainerPort(name="http", container_port=8080, protocol="TCP"),
+                    V1ContainerPort(name="grpc", container_port=8081, protocol="TCP"),
                 ],
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '10m', 'memory': '128Mi'},
-                    limits={'cpu': '100m', 'memory': '1Gi'}),
-            )
-        ]
+                    requests={"cpu": "10m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+            ),
+        ],
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE,
-                                       annotations={"serving.kserve.io/deploymentMode": "RawDeployment"}
-                                   ),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations={"serving.kserve.io/deploymentMode": "RawDeployment"},
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     except RuntimeError as e:
-        print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                                                                      KSERVE_TEST_NAMESPACE,
-                                                                      "services", service_name + "-predictor"))
-        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                          label_selector='serving.kserve.io/inferenceservice={}'
-                                                          .format(service_name))
+        print(
+            kserve_client.api_instance.get_namespaced_custom_object(
+                "serving.knative.dev",
+                "v1",
+                KSERVE_TEST_NAMESPACE,
+                "services",
+                service_name + "-predictor",
+            )
+        )
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
         for pod in pods.items:
             print(pod)
         raise e
     res = predict(service_name, "./data/transformer.json", model_name=model_name)
-    assert (res.get("predictions")[0] == 2)
+    assert res.get("predictions")[0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

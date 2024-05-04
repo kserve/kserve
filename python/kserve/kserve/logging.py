@@ -17,11 +17,13 @@ import logging.config
 
 from .constants.constants import KSERVE_LOGLEVEL
 
-KSERVE_LOGGER_NAME = 'kserve'
-KSERVE_TRACE_LOGGER_NAME = 'kserve.trace'
-KSERVE_LOGGER_FORMAT = ('%(asctime)s.%(msecs)03d %(process)s %(name)s '
-                        '%(levelname)s [%(funcName)s():%(lineno)s] %(message)s')
-KSERVE_TRACE_LOGGER_FORMAT = ('%(asctime)s.%(msecs)03d %(name)s %(message)s')
+KSERVE_LOGGER_NAME = "kserve"
+KSERVE_TRACE_LOGGER_NAME = "kserve.trace"
+KSERVE_LOGGER_FORMAT = (
+    "%(asctime)s.%(msecs)03d %(process)s %(name)s "
+    "%(levelname)s [%(funcName)s():%(lineno)s] %(message)s"
+)
+KSERVE_TRACE_LOGGER_FORMAT = "%(asctime)s.%(msecs)03d %(name)s %(message)s"
 KSERVE_LOGGER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
@@ -48,9 +50,9 @@ KSERVE_LOG_CONFIG = {
         "uvicorn_access": {
             "()": "uvicorn.logging.AccessFormatter",
             "datefmt": KSERVE_LOGGER_DATE_FORMAT,
-            "fmt": '%(asctime)s.%(msecs)03d %(name)s '
-                   '%(levelprefix)s %(client_addr)s %(process)s - '
-                   '"%(request_line)s" %(status_code)s',
+            "fmt": "%(asctime)s.%(msecs)03d %(name)s "
+            "%(levelprefix)s %(client_addr)s %(process)s - "
+            '"%(request_line)s" %(status_code)s',
             # noqa: E501
         },
     },
@@ -77,15 +79,22 @@ KSERVE_LOG_CONFIG = {
         },
     },
     "loggers": {
-        "kserve": {"handlers": ["kserve"], "level": KSERVE_LOGLEVEL, "propagate": False},
-        "kserve.trace": {"handlers": ["kserve_trace"],
-                         "level": KSERVE_LOGLEVEL, "propagate": False},
+        "kserve": {
+            "handlers": ["kserve"],
+            "level": KSERVE_LOGLEVEL,
+            "propagate": False,
+        },
+        "kserve.trace": {
+            "handlers": ["kserve_trace"],
+            "level": KSERVE_LOGLEVEL,
+            "propagate": False,
+        },
         "uvicorn": {"handlers": ["uvicorn"], "level": "INFO", "propagate": False},
         "uvicorn.error": {"level": "INFO"},
         "uvicorn.access": {
             "handlers": ["uvicorn_access"],
             "level": "INFO",
-            "propagate": False
+            "propagate": False,
         },
     },
 }

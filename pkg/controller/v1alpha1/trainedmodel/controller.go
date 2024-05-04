@@ -18,9 +18,9 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=trainedmodels/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;update
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;update
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 package trainedmodel
@@ -30,17 +30,12 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
-	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -48,6 +43,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
+	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
@@ -62,6 +64,7 @@ var log = logf.Log.WithName("TrainedModel controller")
 // TrainedModelReconciler reconciles a TrainedModel object
 type TrainedModelReconciler struct {
 	client.Client
+	Clientset             kubernetes.Interface
 	Log                   logr.Logger
 	Scheme                *runtime.Scheme
 	Recorder              record.EventRecorder
@@ -85,7 +88,10 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Parent InferenceService does not exists, deleting TrainedModel", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
-			r.Delete(context.TODO(), tm)
+			if err := r.Delete(context.TODO(), tm); err != nil {
+				log.Error(err, "Error deleting resource")
+				return reconcile.Result{}, err
+			}
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
@@ -118,7 +124,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	} else {
 		// The object is being deleted
 		if utils.Includes(tm.GetFinalizers(), tmFinalizerName) {
-			//reconcile configmap to remove the model
+			// reconcile configmap to remove the model
 			if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
 				return reconcile.Result{}, err
 			}

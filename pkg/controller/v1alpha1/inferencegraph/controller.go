@@ -25,20 +25,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/go-logr/logr"
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -46,14 +46,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 // InferenceGraphReconciler reconciles a InferenceGraph object
 type InferenceGraphReconciler struct {
 	client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	ClientConfig *rest.Config
+	Clientset    kubernetes.Interface
+	Log          logr.Logger
+	Scheme       *runtime.Scheme
+	Recorder     record.EventRecorder
 }
 
 // InferenceGraphState describes the Readiness of the InferenceGraph
@@ -86,16 +94,15 @@ type RouterConfig struct {
 }
 
 func getRouterConfigs(configMap *v1.ConfigMap) (*RouterConfig, error) {
-
 	routerConfig := &RouterConfig{}
 	if agentConfigValue, ok := configMap.Data["router"]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &routerConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall agent json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall agent json string due to %w ", err))
 		}
 	}
 
-	//Ensure that we set proper values for CPU/Memory Limit/Request
+	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{routerConfig.MemoryRequest,
 		routerConfig.MemoryLimit,
 		routerConfig.CpuRequest,
@@ -126,8 +133,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	r.Log.Info("Reconciling inference graph", "apiVersion", graph.APIVersion, "graph", graph.Name)
-	configMap := &v1.ConfigMap{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
+	configMap, err := r.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return reconcile.Result{}, err
@@ -152,7 +158,6 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 							return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.ServiceName)
 						}
 					}
-
 				} else {
 					r.Log.Info("inference service is not found", "name", route.ServiceName)
 					return reconcile.Result{Requeue: true}, errors.Wrapf(err, "Failed to find graph service %s", route.ServiceName)
@@ -160,7 +165,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
-	deployConfig, err := v1beta1api.NewDeployConfig(r.Client)
+	deployConfig, err := v1beta1api.NewDeployConfig(r.Clientset)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
@@ -168,8 +173,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	deploymentMode := isvcutils.GetDeploymentMode(graph.ObjectMeta.Annotations, deployConfig)
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.RawDeployment {
-		//Create inference graph resources such as deployment, service, hpa in raw deployment mode
-		deployment, url, err := handleInferenceGraphRawDeployment(r.Client, r.Scheme, graph, routerConfig)
+		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
+		deployment, url, err := handleInferenceGraphRawDeployment(r.Client, r.Clientset, r.Scheme, graph, routerConfig)
 
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw deployment")
@@ -184,14 +189,26 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 		if !igAvailable {
-			//If Deployment resource not yet available, IG is not available as well. Reconcile again.
+			// If Deployment resource not yet available, IG is not available as well. Reconcile again.
 			return reconcile.Result{Requeue: true}, errors.Wrapf(err,
 				"Failed to find inference graph deployment  %s", graph.Name)
 		}
 		logger.Info("Inference graph raw before propagate status")
 		PropagateRawStatus(&graph.Status, deployment, url)
 	} else {
-		//@TODO check raw deployment mode
+		// Abort if Knative Services are not available
+		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+		if err != nil {
+			return reconcile.Result{}, checkKsvcErr
+		}
+
+		if !ksvcAvailable {
+			r.Recorder.Event(graph, v1.EventTypeWarning, "ServerlessModeRejected",
+				"It is not possible to use Serverless deployment mode when Knative Services are not available")
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Serving is not available", graph.Name))
+		}
+
+		// @TODO check raw deployment mode
 		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
 		err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
 		if err != nil {
@@ -206,7 +223,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		r.Log.Info("updating inference graph status", "status", ksvcStatus)
 		graph.Status.Conditions = ksvcStatus.Status.Conditions
-		//@TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status
+		// @TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status
 		for _, con := range ksvcStatus.Status.Conditions {
 			if con.Type == apis.ConditionReady {
 				if con.Status == "True" {
@@ -266,15 +283,22 @@ func inferenceGraphReadiness(status v1alpha1api.InferenceGraphStatus) bool {
 }
 
 func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig) error {
-	if deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
-		return ctrl.NewControllerManagedBy(mgr).
-			For(&v1alpha1api.InferenceGraph{}).
-			Owns(&appsv1.Deployment{}).
-			Complete(r)
-	} else {
-		return ctrl.NewControllerManagedBy(mgr).
-			For(&v1alpha1api.InferenceGraph{}).
-			Owns(&knservingv1.Service{}).
-			Complete(r)
+	r.ClientConfig = mgr.GetConfig()
+
+	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+	if err != nil {
+		return err
 	}
+
+	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha1api.InferenceGraph{}).
+		Owns(&appsv1.Deployment{})
+
+	if ksvcFound {
+		ctrlBuilder = ctrlBuilder.Owns(&knservingv1.Service{})
+	} else {
+		r.Log.Info("The InferenceGraph controller won't watch serving.knative.dev/v1/Service resources because the CRD is not available.")
+	}
+
+	return ctrlBuilder.Complete(r)
 }
