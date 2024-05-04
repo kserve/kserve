@@ -74,6 +74,12 @@ Steps:
 
 You can repeat same steps for RC2 or other release candidates if needed
 
+#### Instructions to Automatic Cherry-Pick:
+We can use the GitHub action to automatically cherry-pick PRs. use the following comment
+
+ `/cherry-pick release-branch`
+
+
 ### On the release day:
 
 #### Updating the version in master 
