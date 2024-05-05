@@ -37,6 +37,7 @@ from azure.storage.fileshare import ShareServiceClient
 from botocore import UNSIGNED
 from botocore.client import Config
 from google.auth import exceptions
+from google.oauth2 import service_account
 from google.cloud import storage
 
 MODEL_MOUNT_DIRS = "/mnt/models"
@@ -149,20 +150,18 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                     f.flush()
 
         if storage_secret_json.get("type", "") == "gs":
-            temp_dir = tempfile.mkdtemp()
-            credential_dir = temp_dir + "/" + "google_application_credentials.json"
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credential_dir
             if storage_secret_json.get("base64_service_account", "") != "":
                 try:
-                    with open(credential_dir, "w") as f:
-                        base64_service_account = storage_secret_json.get(
-                            "base64_service_account", ""
-                        )
-                        service_account = base64.b64decode(
-                            base64_service_account
-                        ).decode("utf-8")
-                        f.write(service_account)
-                        f.flush()
+                    base64_service_account = storage_secret_json.get(
+                        "base64_service_account", ""
+                    )
+                    service_account_str = base64.b64decode(
+                        base64_service_account
+                    ).decode("utf-8")
+                    service_account_dict = json.loads(service_account_str)
+                    os.environ["GOOGLE_SERVICE_ACCOUNT"] = json.dumps(
+                        service_account_dict
+                    )
                 except binascii.Error:
                     raise RuntimeError("Error: Invalid base64 encoding.")
                 except UnicodeDecodeError:
@@ -299,9 +298,18 @@ class Storage(object):  # pylint: disable=too-few-public-methods
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
         try:
-            storage_client = storage.Client()
+            credentials = None
+            if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+                google_service_account = json.loads(
+                    os.environ["GOOGLE_SERVICE_ACCOUNT"]
+                )
+                credentials = service_account.Credentials.from_service_account_info(
+                    google_service_account
+                )
+            storage_client = storage.Client(credentials=credentials)
         except exceptions.DefaultCredentialsError:
             storage_client = storage.Client.create_anonymous_client()
+
         bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
         bucket_name = bucket_args[0]
         bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""

@@ -290,22 +290,21 @@ def test_unpack_zip_file():
     os.remove(os.path.join(out_dir, "model.pth"))
 
 
-@mock.patch("os.environ")
-def test_gs_storage(mock_os):
-    def side_effect(key, default=None):
-        if key == "STORAGE_CONFIG":
-            return json.dumps(
-                {
-                    "type": "gs",
-                    "base64_service_account": base64.b64encode(
-                        b"service_account_content"
-                    ).decode(),
-                }
-            )
-        return default
-
-    mock_os.get.side_effect = side_effect
+@mock.patch.dict(
+    "os.environ",
+    {
+        "STORAGE_CONFIG": json.dumps(
+            {
+                "type": "gs",
+                "base64_service_account": base64.b64encode(
+                    json.dumps({"key": "value"}).encode("utf-8")
+                ).decode("utf-8"),
+            }
+        )
+    },
+    clear=True,
+)
+def test_gs_storage_spec():
     Storage._update_with_storage_spec()
-    credential_dir = mock_os.__setitem__.call_args_list[0][0][1]
-    with open(credential_dir, "r") as f:
-        assert f.read() == "service_account_content"
+    assert "GOOGLE_SERVICE_ACCOUNT" in os.environ
+    assert json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"]) == {"key": "value"}
