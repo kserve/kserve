@@ -125,3 +125,6 @@ kserve:
     art:
       image: kserve/art-explainer
       defaultVersion: *defaultVersion
+    deeploy-shapkernelserver:
+      image: deeployml/deeploy-shap
+      tag: v0.1.0
