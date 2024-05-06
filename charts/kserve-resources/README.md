@@ -66,6 +66,8 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.12.1
 | kserve.router.tag | string | `"v0.12.1"` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.12.1"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
+| kserve.servingruntime.deeploy-shapkernelserver.image | string | `"deeployml/deeploy-shap"` |  |
+| kserve.servingruntime.deeploy-shapkernelserver.tag | string | `"v0.1.0"` |  |
 | kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
 | kserve.servingruntime.huggingfaceserver.tag | string | `"v0.12.1"` |  |
 | kserve.servingruntime.lgbserver.image | string | `"kserve/lgbserver"` |  |

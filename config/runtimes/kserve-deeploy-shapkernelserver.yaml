@@ -15,19 +15,19 @@ spec:
   - v1
   - v2
   containers:
-    name: kserve-container
-    image: kserve-deeploy-shapkernelserver:replace
-    args:
-      - --model_name={{.Name}}
-      - --predictor_host={{.Name}}-predictor.{{.Namespace}}
-      - --model_dir=/mnt/models
-      - --http_port=8080
-      - --nthread=1
-      - --explainer_sub_type=SHAPKernel
-    resources:
-      limits:
-        cpu: "1"
-        memory: 2Gi
-      requests:
-        cpu: "1"
-        memory: 2Gi
+    - name: kserve-container
+      image: kserve-deeploy-shapkernelserver:replace
+      args:
+        - --model_name={{.Name}}
+        - --predictor_host={{.Name}}-predictor.{{.Namespace}}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+        - --nthread=1
+        - --explainer_sub_type=SHAPKernel
+      resources:
+        limits:
+          cpu: "1"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 2Gi
