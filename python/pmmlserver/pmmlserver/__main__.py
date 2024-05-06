@@ -35,7 +35,8 @@ def validate_max_workers(actual_workers: int, max_workers: int):
 
 
 if __name__ == "__main__":
-    logging.configure_logging(args.log_config_file)
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     model = PmmlModel(args.model_name, args.model_dir)
     model.load()
     server = kserve.ModelServer()

@@ -75,5 +75,6 @@ parser = argparse.ArgumentParser(parents=[model_server.parser])
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    logging.configure_logging(args.log_config_file)
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     ModelServer().start({"custom-model": AlexNetModel})

@@ -42,7 +42,8 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    logging.configure_logging(args.log_config_file)
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     model = ARTModel(
         args.model_name,
         args.predictor_host,

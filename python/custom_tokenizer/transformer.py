@@ -124,7 +124,8 @@ parser.add_argument("--vocab_file", help="The name of the vocab file.")
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    logging.configure_logging(args.log_config_file)
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     model = Tokenizer(
         args.model_name,
         predictor_host=args.predictor_host,
