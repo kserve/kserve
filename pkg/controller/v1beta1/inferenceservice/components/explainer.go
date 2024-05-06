@@ -222,10 +222,8 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		sRuntimeAnnotations = utils.Filter(sRuntime.ServingRuntimePodSpec.Annotations, func(key string) bool {
 			return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 		})
-
 	} else {
 		container = explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig, predictorName)
-
 		podSpec = v1.PodSpec(isvc.Spec.Explainer.PodSpec)
 		if len(podSpec.Containers) == 0 {
 			podSpec.Containers = []v1.Container{
