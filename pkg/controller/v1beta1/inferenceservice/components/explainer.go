@@ -94,7 +94,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	explainerName := constants.ExplainerServiceName(isvc.Name)
 	predictorName := constants.PredictorServiceName(isvc.Name)
 
-	//If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
+	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Explainer.Model != nil {
 		var sRuntime v1alpha1.ServingRuntimeSpec
 		var err error
@@ -113,12 +113,12 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			}
 
 			if isvc.Spec.Explainer.Model.ProtocolVersion != nil &&
-			!r.IsProtocolVersionSupported(*isvc.Spec.Explainer.Model.ProtocolVersion) {
+				!r.IsProtocolVersionSupported(*isvc.Spec.Explainer.Model.ProtocolVersion) {
 				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 					Reason:  v1beta1.NoSupportingRuntime,
 					Message: "Specified runtime does not support specified protocol version",
 				})
-			return ctrl.Result{}, fmt.Errorf("specified runtime %s does not support specified protocol version", *isvc.Spec.Explainer.Model.Runtime)
+				return ctrl.Result{}, fmt.Errorf("specified runtime %s does not support specified protocol version", *isvc.Spec.Explainer.Model.Runtime)
 			}
 
 			// Verify that the selected runtime supports the specified framework.
@@ -234,7 +234,6 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		} else {
 			podSpec.Containers[0] = *container
 		}
-
 	}
 
 	if e.deploymentMode == constants.RawDeployment {
@@ -242,14 +241,12 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		err := e.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
-			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}
 	} else {
 		existing := &knservingv1.Service{}
 		err := e.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
-			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}
 	}
 
