@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import AsyncIterator, Union
+from typing import AsyncIterator, Union, List
 
 from fastapi import Response
 from starlette.datastructures import Headers
@@ -97,3 +97,15 @@ class OpenAIDataPlane(DataPlane):
             context=dict(headers),
         )
         return await model.create_chat_completion(completion_request)
+
+    async def models(self) -> List[OpenAIModel]:
+        """Retrieve a list of models
+
+        Returns:
+            response: A list of OpenAIModel instances
+        """
+        return [
+            model
+            for model in self.model_registry.get_models().values()
+            if isinstance(model, OpenAIModel)
+        ]
