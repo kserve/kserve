@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kserve"
-version = "0.12.1"
+version = "0.13.0rc0"
 description = "KServe Python SDK"
 authors = [
     "The KServe Authors <dsun20@bloomberg.net>",
