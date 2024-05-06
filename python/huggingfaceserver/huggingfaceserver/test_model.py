@@ -29,6 +29,7 @@ from .encoder_model import HuggingfaceEncoderModel
 from .generative_model import HuggingfaceGenerativeModel
 from .task import MLTask
 import torch
+from .test_output import bert_token_classification_retrun_prob_expected_output
 
 
 @pytest.fixture(scope="module")
@@ -88,6 +89,20 @@ def bert_base_return_prob():
         "bert-base-uncased-yelp-polarity",
         model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
         task=MLTask.sequence_classification,
+        return_probabilities=True,
+    )
+    model.load()
+    yield model
+    model.stop()
+
+
+@pytest.fixture(scope="module")
+def bert_token_classification_retrun_prob():
+    model = HuggingfaceEncoderModel(
+        "bert-large-cased-finetuned-conll03-english",
+        model_id_or_path="dbmdz/bert-large-cased-finetuned-conll03-english",
+        do_lower_case=True,
+        add_special_tokens=False,
         return_probabilities=True,
     )
     model.load()
@@ -263,6 +278,17 @@ async def test_bert_sequence_classification_return_probabilities(bert_base_retur
             {0: approx(-3.1508713), 1: approx(3.589285)},
         ]
     }
+
+
+@pytest.mark.asyncio
+async def test_bert_token_classification_return_prob(
+    bert_token_classification_retrun_prob,
+):
+    request = "Hello, my dog is cute."
+    response = await bert_token_classification_retrun_prob(
+        {"instances": [request, request]}, headers={}
+    )
+    assert response == bert_token_classification_retrun_prob_expected_output
 
 
 @pytest.mark.asyncio
