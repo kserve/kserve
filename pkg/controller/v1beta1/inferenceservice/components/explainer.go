@@ -39,6 +39,7 @@ import (
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
@@ -69,6 +70,11 @@ func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *
 
 // Reconcile observes the explainer and attempts to drive the status towards the desired state.
 func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error) {
+	var container *v1.Container
+	var podSpec v1.PodSpec
+	var sRuntimeLabels map[string]string
+	var sRuntimeAnnotations map[string]string
+
 	e.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
 	explainer := isvc.Spec.Explainer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
@@ -87,6 +93,150 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 
 	explainerName := constants.ExplainerServiceName(isvc.Name)
 	predictorName := constants.PredictorServiceName(isvc.Name)
+
+	//If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
+	if isvc.Spec.Explainer.Model != nil {
+		var sRuntime v1alpha1.ServingRuntimeSpec
+		var err error
+
+		if isvc.Spec.Explainer.Model.Runtime != nil {
+			e.Log.Info("Reconciling Explainer", "ExplainerRuntime", isvc.Spec.Explainer.Model.Runtime)
+			// set runtime defaults
+			isvc.SetRuntimeDefaults()
+			r, err := isvcutils.GetServingRuntime(e.client, *isvc.Spec.Explainer.Model.Runtime, isvc.Namespace)
+			if err != nil {
+				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+					Reason:  v1beta1.RuntimeNotRecognized,
+					Message: "Waiting for runtime to become available",
+				})
+				return ctrl.Result{}, err
+			}
+
+			if isvc.Spec.Explainer.Model.ProtocolVersion != nil &&
+			!r.IsProtocolVersionSupported(*isvc.Spec.Explainer.Model.ProtocolVersion) {
+				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+					Reason:  v1beta1.NoSupportingRuntime,
+					Message: "Specified runtime does not support specified protocol version",
+				})
+			return ctrl.Result{}, fmt.Errorf("specified runtime %s does not support specified protocol version", *isvc.Spec.Explainer.Model.Runtime)
+			}
+
+			// Verify that the selected runtime supports the specified framework.
+			if !isvc.Spec.Explainer.Model.RuntimeSupportsModel(r) {
+				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+					Reason:  v1beta1.NoSupportingRuntime,
+					Message: "Specified runtime does not support specified framework/version",
+				})
+				return ctrl.Result{}, fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Explainer.Model.Runtime)
+			}
+
+			sRuntime = *r
+		} else {
+			e.Log.Info("Reconciling Explainer", "ExplainerRuntime", "Runtime not specified")
+			runtimes, err := isvc.Spec.Explainer.Model.GetSupportingRuntimes(e.client, isvc.Namespace, false)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if len(runtimes) == 0 {
+				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+					Reason:  v1beta1.NoSupportingRuntime,
+					Message: "No runtime found to support specified framework/version",
+				})
+				return ctrl.Result{}, fmt.Errorf("no runtime found to support explainer with model type: %v", isvc.Spec.Explainer.Model.ModelFormat)
+			}
+			// Get first supporting runtime
+			sRuntime = runtimes[0].Spec
+			isvc.Spec.Explainer.Model.Runtime = &runtimes[0].Name
+
+			// set runtime defaults
+			isvc.SetRuntimeDefaults()
+		}
+		// assign protocol version to inferenceservice based on runtime selected
+		if isvc.Spec.Explainer.Model.ProtocolVersion == nil {
+			protocolVersion := constants.GetProtocolVersionString(
+				constants.ProtocolVersion(
+					v1beta1.GetProtocolVersionPriority(sRuntime.ProtocolVersions),
+				),
+			)
+			isvc.Spec.Explainer.Model.ProtocolVersion = &protocolVersion
+		}
+
+		if len(sRuntime.Containers) == 0 {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidExplainerSpec,
+				Message: "No container configuration found in selected serving runtime",
+			})
+			return ctrl.Result{}, errors.New("no container configuration found in selected serving runtime")
+		}
+
+		kserveContainerIdx := -1
+		for i := range sRuntime.Containers {
+			if sRuntime.Containers[i].Name == constants.InferenceServiceContainerName {
+				kserveContainerIdx = i
+				break
+			}
+		}
+		if kserveContainerIdx == -1 {
+			return ctrl.Result{}, errors.New("failed to find kserve-container in ServingRuntime containers")
+		}
+
+		container, err = isvcutils.MergeRuntimeContainers(&sRuntime.Containers[kserveContainerIdx], &isvc.Spec.Explainer.Model.Container)
+		if err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidExplainerSpec,
+				Message: "Failed to get runtime container",
+			})
+			return ctrl.Result{}, errors.Wrapf(err, "failed to get runtime container")
+		}
+
+		mergedPodSpec, err := isvcutils.MergePodSpec(&sRuntime.ServingRuntimePodSpec, &isvc.Spec.Explainer.PodSpec)
+		if err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidExplainerSpec,
+				Message: "Failed to consolidate serving runtime PodSpecs",
+			})
+			return ctrl.Result{}, errors.Wrapf(err, "failed to consolidate serving runtime PodSpecs")
+		}
+
+		// Replace placeholders in runtime container by values from inferenceservice metadata
+		if err = isvcutils.ReplacePlaceholders(container, isvc.ObjectMeta); err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidExplainerSpec,
+				Message: "Failed to replace placeholders in serving runtime Container",
+			})
+			return ctrl.Result{}, errors.Wrapf(err, "failed to replace placeholders in serving runtime Container")
+		}
+
+		// Update image tag if GPU is enabled or runtime version is provided
+		isvcutils.UpdateImageTag(container, isvc.Spec.Explainer.Model.RuntimeVersion, isvc.Spec.Explainer.Model.Runtime)
+
+		podSpec = *mergedPodSpec
+		podSpec.Containers = []v1.Container{
+			*container,
+		}
+		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[:kserveContainerIdx]...)
+		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
+
+		// Label filter will be handled in ksvc_reconciler
+		sRuntimeLabels = sRuntime.ServingRuntimePodSpec.Labels
+		sRuntimeAnnotations = utils.Filter(sRuntime.ServingRuntimePodSpec.Annotations, func(key string) bool {
+			return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		})
+
+	} else {
+		container = explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig, predictorName)
+
+		podSpec = v1.PodSpec(isvc.Spec.Explainer.PodSpec)
+		if len(podSpec.Containers) == 0 {
+			podSpec.Containers = []v1.Container{
+				*container,
+			}
+		} else {
+			podSpec.Containers[0] = *container
+		}
+
+	}
+
 	if e.deploymentMode == constants.RawDeployment {
 		existing := &v1.Service{}
 		err := e.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
@@ -116,6 +266,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		Name:      explainerName,
 		Namespace: isvc.Namespace,
 		Labels: utils.Union(
+			sRuntimeLabels,
 			isvc.Labels,
 			explainerLabels,
 			map[string]string{
@@ -124,23 +275,21 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			},
 		),
 		Annotations: utils.Union(
+			sRuntimeAnnotations,
 			annotations,
 			explainerAnnotations,
 		),
 	}
-	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig, predictorName)
-	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
-		isvc.Spec.Explainer.PodSpec.Containers = []v1.Container{
-			*container,
-		}
-	} else {
-		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
-	}
 
-	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)
+	e.Log.Info("Resolved container", "Container", container.String(), "podSpec", podSpec.String())
+	var rawDeployment bool
+	var podLabelKey string
+	var podLabelValue string
 
 	// Here we allow switch between knative and vanilla deployment
 	if e.deploymentMode == constants.RawDeployment {
+		rawDeployment = true
+		podLabelKey = constants.RawDeploymentAppLabel
 		r, err := raw.NewRawKubeReconciler(e.client, e.clientset, e.scheme, objectMeta,
 			&isvc.Spec.Explainer.ComponentExtensionSpec, &podSpec)
 		if err != nil {
@@ -165,6 +314,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.ExplainerComponent, deployment, r.URL)
 	} else {
+		podLabelKey = constants.RevisionLabel
 		r := knative.NewKsvcReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
 			&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent])
 
@@ -177,5 +327,16 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		isvc.Status.PropagateStatus(v1beta1.ExplainerComponent, status)
 	}
+	statusSpec := isvc.Status.Components[v1beta1.ExplainerComponent]
+	if rawDeployment {
+		podLabelValue = constants.GetRawServiceLabel(explainerName)
+	} else {
+		podLabelValue = statusSpec.LatestCreatedRevision
+	}
+	explainerPods, err := isvcutils.ListPodsByLabel(e.client, isvc.ObjectMeta.Namespace, podLabelKey, podLabelValue)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
+	}
+	isvc.Status.PropagateModelStatus(statusSpec, explainerPods, rawDeployment)
 	return ctrl.Result{}, nil
 }

@@ -276,6 +276,11 @@ func (in *ExplainerSpec) DeepCopyInto(out *ExplainerSpec) {
 		*out = new(ARTExplainerSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Model != nil {
+		in, out := &in.Model, &out.Model
+		*out = new(ModelSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	in.PodSpec.DeepCopyInto(&out.PodSpec)
 	in.ComponentExtensionSpec.DeepCopyInto(&out.ComponentExtensionSpec)
 }

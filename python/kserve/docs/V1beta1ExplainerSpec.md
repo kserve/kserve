@@ -29,6 +29,7 @@ Name | Type | Description | Notes
 **logger** | [**V1beta1LoggerSpec**](V1beta1LoggerSpec.md) |  | [optional] 
 **max_replicas** | **int** | Maximum number of replicas for autoscaling. | [optional] 
 **min_replicas** | **int** | Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. | [optional] 
+**model** | [**V1beta1ModelSpec**](V1beta1ModelSpec.md) |  | [optional] 
 **node_name** | **str** | NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements. | [optional] 
 **node_selector** | **dict(str, str)** | NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node&#39;s labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ | [optional] 
 **os** | [**V1PodOS**](V1PodOS.md) |  | [optional] 
