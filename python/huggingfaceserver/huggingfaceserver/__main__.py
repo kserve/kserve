@@ -108,13 +108,19 @@ parser.add_argument(
 
 parser = maybe_add_vllm_cli_parser(parser)
 
+default_dtype = 'float16' if torch.cuda.is_available() else 'float32'
+if not vllm_available():
+    dtype_choices = ["auto", "float16", "float32", "bfloat16", "float", "half"]
+    parser.add_argument("--dtype", required=False, default="auto", choices=dtype_choices, help=f"data type to load the weights in. One of {dtype_choices}. Defaults to float16 for GPU and float32 for CPU systems")
+
 args, _ = parser.parse_known_args()
 
 # auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
-# To ensure consistency b/w vLLM and HF, we use FP16 for auto and half
+# To ensure consistency b/w vLLM and HF, we use FP16 for auto on GPU instances
+# auto would use FP32 for CPU only instances.
 # FP16, BF16 and FP32 if explicitly mentioned would use those data types
 if "dtype" in args and args.dtype == "auto":
-    args.dtype = "float16"
+    args.dtype = default_dtype
 
 
 def load_model():
@@ -171,7 +177,7 @@ def load_model():
 
         if is_generative_task(task):
             # Convert dtype from string to torch dtype. Default to float16
-            dtype = kwargs.get("dtype", "float16")
+            dtype = kwargs.get("dtype", default_dtype)
             dtype = hf_dtype_map[dtype]
             logger.debug(f"Loading model in {dtype}")
 
@@ -191,7 +197,7 @@ def load_model():
             )
         else:
             # Convert dtype from string to torch dtype. Default to float32
-            dtype = kwargs.get("dtype", "float32")
+            dtype = kwargs.get("dtype", default_dtype)
             dtype = hf_dtype_map[dtype]
 
             predictor_config = PredictorConfig(
