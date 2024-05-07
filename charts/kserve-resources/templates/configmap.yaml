@@ -420,6 +420,20 @@ data:
          "defaultDeploymentMode": "Serverless"
        }
 
+     # ====================================== SERVICE CONFIGURATION ======================================
+     # Example
+     service: |-
+       {
+         "serviceClusterIPNone": true
+       }
+     service: |-
+       {
+          # ServiceClusterIPNone is a flag to indicate if the service should have a clusterIP set to None.
+          # This is particularly useful for headless services to allow users to use out of the box balancers.
+          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is true
+          # "serviceClusterIPNone": true
+       }
+
      # ====================================== METRICS CONFIGURATION ======================================
      # Example
      metricsAggregator: |-
@@ -502,6 +516,10 @@ data:
   deploy: |-
     {
       "defaultDeploymentMode": "{{ .Values.kserve.controller.deploymentMode }}"
+    }
+  service: |-
+    {
+      "serviceClusterIPNone": "{{ .Values.kserve.service.serviceClusterIPNone }}"
     }
   explainers: |-
     {

@@ -46,6 +46,9 @@ var (
         "additionalIngressDomains": ["%s","%s"]
 	}`, KnativeIngressGateway, KnativeLocalGatewayService, KnativeLocalGateway, LocalGatewayService, IngressDomain,
 		AdditionalDomain, AdditionalDomainExtra)
+	ServiceConfigData = fmt.Sprintf(`{
+		"serviceClusterIPNone" : %t
+	}`, true)
 )
 
 func TestNewInferenceServiceConfig(t *testing.T) {
@@ -109,4 +112,40 @@ func TestNewDeployConfig(t *testing.T) {
 	deployConfig, err := NewDeployConfig(clientset)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(deployConfig).ShouldNot(gomega.BeNil())
+}
+
+func TestNewServiceConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	// nothing declared
+	empty := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+	})
+	emp, err := NewServiceConfig(empty)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(emp).ShouldNot(gomega.BeNil())
+
+	// with value
+	withTrue := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			ServiceConfigName: ServiceConfigData,
+		},
+	})
+	wt, err := NewServiceConfig(withTrue)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(wt).ShouldNot(gomega.BeNil())
+	g.Expect(*wt.ServiceClusterIPNone).Should(gomega.BeTrue())
+
+	// no value, should be nil
+	noValue := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			ServiceConfigName: `{}`,
+		},
+	})
+	nv, err := NewServiceConfig(noValue)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(nv).ShouldNot(gomega.BeNil())
+	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeNil())
+
 }

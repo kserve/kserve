@@ -31,7 +31,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var log = logf.Log.WithName("RawKubeReconciler")
 
 // RawKubeReconciler reconciles the Native K8S Resources
 type RawKubeReconciler struct {
@@ -60,15 +64,23 @@ func NewRawKubeReconciler(client client.Client,
 	if err != nil {
 		return nil, err
 	}
+
 	var multiNodeEnabled bool
 	if workerPodSpec != nil {
 		multiNodeEnabled = true
 	}
+
+	// do not return error as service config is optional
+	serviceConfig, err1 := v1beta1.NewServiceConfig(clientset)
+	if err1 != nil {
+		log.Error(err1, "failed to get service config")
+	}
+
 	return &RawKubeReconciler{
 		client:     client,
 		scheme:     scheme,
 		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec),
-		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled),
+		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		Scaler:     as,
 		URL:        url,
 	}, nil
