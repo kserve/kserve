@@ -351,6 +351,7 @@ const (
 	CheckResultExisted CheckResultType = 2
 	CheckResultUnknown CheckResultType = 3
 	CheckResultDelete  CheckResultType = 4
+	CheckResultSkipped CheckResultType = 5
 )
 
 type DeploymentModeType string
