@@ -99,11 +99,11 @@ type ComponentExtensionSpec struct {
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
 	// Labels that will be add to the component pod.
-	// More info: http://kubernetes.io/docs/user-guide/labels
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 	// Annotations that will be add to the component pod.
-	// More info: http://kubernetes.io/docs/user-guide/annotations
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
