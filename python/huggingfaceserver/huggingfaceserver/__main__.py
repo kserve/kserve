@@ -108,10 +108,16 @@ parser.add_argument(
 
 parser = maybe_add_vllm_cli_parser(parser)
 
-default_dtype = 'float16' if torch.cuda.is_available() else 'float32'
+default_dtype = "float16" if torch.cuda.is_available() else "float32"
 if not vllm_available():
     dtype_choices = ["auto", "float16", "float32", "bfloat16", "float", "half"]
-    parser.add_argument("--dtype", required=False, default="auto", choices=dtype_choices, help=f"data type to load the weights in. One of {dtype_choices}. Defaults to float16 for GPU and float32 for CPU systems")
+    parser.add_argument(
+        "--dtype",
+        required=False,
+        default="auto",
+        choices=dtype_choices,
+        help=f"data type to load the weights in. One of {dtype_choices}. Defaults to float16 for GPU and float32 for CPU systems",
+    )
 
 args, _ = parser.parse_known_args()
 
