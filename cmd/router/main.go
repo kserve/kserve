@@ -264,8 +264,6 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				var res map[string]interface{}
 				if err = json.Unmarshal(responseBytes, &res); err == nil {
 					combinedResponses[key] = res
-				} else {
-					// should return err?
 				}
 			}
 			/*

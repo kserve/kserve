@@ -296,7 +296,7 @@ type InferenceStep struct {
 	// +optional
 	Dependency InferenceStepDependencyType `json:"dependency,omitempty"`
 
-	// specify which steps' response need to be merged
+	// specify this step response alongside final steps response in sequence node
 	// +optional
 	BeMerged bool `json:"beMerged,omitempty"`
 }
