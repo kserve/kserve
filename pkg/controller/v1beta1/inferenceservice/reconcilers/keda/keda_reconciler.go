@@ -19,17 +19,18 @@ package keda
 import (
 	"context"
 
-	"github.com/docker/docker/client"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -82,7 +83,16 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			Annotations: ksvcAnnotations,
 		},
 		Spec: kedav1alpha1.ScaledObjectSpec{
-			ScaleTargetRef: &kedav1alpha1.ScaleTarget{},
+			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+				Name: componentMeta.Name,
+			},
+			Triggers: []kedav1alpha1.ScaleTriggers{
+				{
+					Type:             "cpu",
+					UseCachedMetrics: false,
+					Metadata:         map[string]string{"type": "Utilization", "value": "60"}},
+			},
+			MinReplicaCount: proto.Int32(1),
 		},
 		Status: kedav1alpha1.ScaledObjectStatus{},
 	}
