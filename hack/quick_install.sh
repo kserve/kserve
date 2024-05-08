@@ -116,6 +116,8 @@ if [ $deploymentMode = serverless ]; then
    echo "😀 Successfully installed Knative"
 fi
 
+kubectl apply --server-side -f https://github.com/kedacore/keda/releases/download/v2.14.0/keda-2.14.0.yaml
+
 # Install Cert Manager
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
 kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager

@@ -23,6 +23,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/kserve/kserve/pkg/utils"
 	istio_networking "istio.io/api/networking/v1beta1"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
@@ -185,6 +186,13 @@ func main() {
 				setupLog.Error(err, "unable to add Istio v1beta1 APIs to scheme")
 				os.Exit(1)
 			}
+		}
+	}
+	if deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+		setupLog.Info("Setting up KEDA scheme")
+		if err := kedav1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add KEDA APIs to scheme")
+			os.Exit(1)
 		}
 	}
 
