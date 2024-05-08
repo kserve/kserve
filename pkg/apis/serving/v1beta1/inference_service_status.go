@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"strings"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -498,6 +499,35 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 
 	ss.Components[component] = statusSpec
 	ss.ObservedGeneration = serviceStatus.ObservedGeneration
+}
+
+func getScaledObjectCondition(scaledObjectStatus *kedav1alpha1.ScaledObjectStatus) *apis.Condition {
+	condition := apis.Condition{}
+
+	condition.Type = apis.ConditionType("Ready")
+	condition.Status = v1.ConditionStatus(scaledObjectStatus.Conditions.GetReadyCondition().Status)
+	condition.Message = scaledObjectStatus.Conditions.GetReadyCondition().Message
+	condition.Reason = scaledObjectStatus.Conditions.GetReadyCondition().Reason
+
+	return &condition
+}
+
+func (ss *InferenceServiceStatus) PropagateScaledObjectStatus(component ComponentType, scaledObjectStatus *kedav1alpha1.ScaledObjectStatus) {
+	if len(ss.Components) == 0 {
+		ss.Components = make(map[ComponentType]ComponentStatusSpec)
+	}
+	statusSpec, ok := ss.Components[component]
+	if !ok {
+		ss.Components[component] = ComponentStatusSpec{}
+	}
+	statusSpec.LatestCreatedRevision = scaledObjectStatus.CompositeScalerName
+
+	// propagate overall ready condition for each component
+	readyCondition := getScaledObjectCondition(scaledObjectStatus)
+
+	readyConditionType := readyConditionsMap[component]
+	ss.SetCondition(readyConditionType, readyCondition)
+
 }
 
 func (ss *InferenceServiceStatus) SetCondition(conditionType apis.ConditionType, condition *apis.Condition) {
