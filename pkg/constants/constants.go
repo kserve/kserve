@@ -456,6 +456,7 @@ const (
 	IstioVirtualServiceKind = "VirtualService"
 	KnativeServiceKind      = "Service"
 	ClusterLocalModelKind   = "ClusterLocalModel"
+	KedaScaledObjectKind    = "ScaledObject"
 )
 
 // GetRawServiceLabel generate native service label
