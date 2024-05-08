@@ -45,6 +45,7 @@ from kserve.protocol.rest.openai.types.openapi import (
     Logprobs2 as ChatCompletionChoiceLogprobs,
 )
 from kserve.protocol.rest.openai.types.openapi import TopLogprob
+from kserve.protocol.rest.openai.types.openapi import ErrorResponse
 
 ChatCompletionRequestMessage = Union[
     ChatCompletionRequestSystemMessage,
@@ -74,6 +75,7 @@ __all__ = [
     "CompletionChoice",
     "CreateChatCompletionRequest",
     "CreateCompletionRequest",
+    "ErrorResponse",
     "Logprobs",
     "TopLogprob",
 ]

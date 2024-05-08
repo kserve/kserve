@@ -13,17 +13,20 @@
 # limitations under the License.
 
 from .openai_model import (
-    ChatCompletionRequestMessage,
     ChatPrompt,
     CompletionRequest,
     ChatCompletionRequest,
-    OpenAIChatAdapterModel,
     OpenAIModel,
 )
+
+from .openai_proxy_model import OpenAIProxyModel
+from .openai_chat_adapter_model import OpenAIChatAdapterModel
+from .types import ChatCompletionRequestMessage
 
 __all__ = [
     "OpenAIModel",
     "OpenAIChatAdapterModel",
+    "OpenAIProxyModel",
     "ChatPrompt",
     "CompletionRequest",
     "ChatCompletionRequest",

@@ -48,8 +48,8 @@ class OpenAIDataPlane(DataPlane):
         Args:
             model_name (str): Model name.
             request (CreateCompletionRequest): Params to create a completion.
-            headers: (Optional[Dict[str, str]]): Request headers.
-
+            headers: (Headers): Request headers.
+            response: (Response): FastAPI response object
         Returns:
             response: A non-streaming or streaming completion response.
 
@@ -63,7 +63,7 @@ class OpenAIDataPlane(DataPlane):
         completion_request = CompletionRequest(
             request_id=headers.get("x-request-id", None),
             params=request,
-            context=dict(headers),
+            context={"headers": dict(headers), "response": response},
         )
         return await model.create_completion(completion_request)
 
@@ -94,6 +94,7 @@ class OpenAIDataPlane(DataPlane):
         completion_request = ChatCompletionRequest(
             request_id=headers.get("x-request-id", None),
             params=request,
-            context=dict(headers),
+            # We pass the response object in the context so it can be used to set response headers or a custom status code
+            context={"headers": dict(headers), "response": response},
         )
         return await model.create_chat_completion(completion_request)
