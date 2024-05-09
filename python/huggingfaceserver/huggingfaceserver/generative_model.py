@@ -143,6 +143,7 @@ class HuggingfaceGenerativeModel(
         model_config: Optional[PretrainedConfig] = None,
         do_lower_case: bool = False,
         max_length: Optional[int] = None,
+        dtype: torch.dtype = torch.float16,
         model_revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
@@ -155,6 +156,7 @@ class HuggingfaceGenerativeModel(
         self.tokenizer_revision = tokenizer_revision
         self.do_lower_case = do_lower_case
         self.max_length = max_length
+        self.dtype = dtype
         self.system_fingerprint = system_fingerprint
         self.trust_remote_code = trust_remote_code
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -204,6 +206,8 @@ class HuggingfaceGenerativeModel(
         if self.trust_remote_code:
             model_kwargs["trust_remote_code"] = True
             tokenizer_kwargs["trust_remote_code"] = True
+
+        model_kwargs["torch_dtype"] = self.dtype
 
         # load huggingface tokenizer
         self._tokenizer = AutoTokenizer.from_pretrained(
