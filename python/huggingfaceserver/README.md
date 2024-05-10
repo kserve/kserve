@@ -45,7 +45,7 @@ curl -H "content-type:application/json" -v localhost:8080/v1/models/bert:predict
 > 1. `SAFETENSORS_FAST_GPU` is set by default to improve the model loading performance.
 > 2. `HF_HUB_DISABLE_TELEMETRY` is set by default to disable the telemetry.
 
-1. Serve the huggingface model using KServe python runtime for both preprocess(tokenization)/postprocess and inference.
+1. Serve the BERT model using KServe python huggingface runtime for both preprocess(tokenization)/postprocess and inference.
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -70,7 +70,7 @@ spec:
           memory: 2Gi
 ```
 
-2. Serve the huggingface model using triton inference runtime and KServe transformer for the preprocess(tokenization) and postprocess.
+2. Serve the BERT model using triton inference runtime and KServe transformer with huggingface for the preprocess(tokenization) and postprocess.
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -111,7 +111,7 @@ spec:
           cpu: 100m
           memory: 2Gi
 ```
-3. Serve the huggingface model using vllm runtime. vllm is the default runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used as a failsafe.
+3. Serve the llama2 model using huggingface vllm runtime. For the llama2 model, vllm is the default model. If available for a model, vllm is set as the default runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used as a failsafe.
 vllm supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
