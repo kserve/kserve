@@ -112,7 +112,7 @@ spec:
           memory: 2Gi
 ```
 3. Serve the llama2 model using huggingface vLLM runtime. For the llama2 model, vLLM is supported and used as the default model. If available for a model, vLLM is set as the default runtime. Note - Model needs to be backed by vLLM otherwise KServe python runtime will be used as a failsafe.
-vllm supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
+vLLM supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -138,7 +138,7 @@ spec:
 
 ```
 
-If vllm needs to be disabled include the flag `--disable_vllm` in the container args. In this case the KServe python runtime will be used.
+If vLLM needs to be disabled include the flag `--disable_vllm` in the container args. In this case the KServe python runtime will be used.
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -165,9 +165,9 @@ spec:
           nvidia.com/gpu: "1"
 ```
 
-Perform the inference for vllm specific runtime
+Perform the inference for vLLM specific runtime
 
-vllm runtime deployments only support `/generate` endpoint for inference. Please refer to [text generation API schema](https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml) for more details.
+vLLM runtime deployments only support `/generate` endpoint for inference. Please refer to [text generation API schema](https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml) for more details.
 ```bash
 curl -H "content-type:application/json" -v localhost:8080/v2/models/gpt2/generate -d '{"text_input": "The capital of france is [MASK]." }'
 
