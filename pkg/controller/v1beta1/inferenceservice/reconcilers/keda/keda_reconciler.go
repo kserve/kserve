@@ -23,8 +23,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
-	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,23 +44,23 @@ type KedaReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
 	ScaledObject *kedav1alpha1.ScaledObject
+	componentExt *v1beta1.ComponentExtensionSpec
 }
 
 func NewKedaReconciler(client client.Client,
-	componentMeta metav1.ObjectMeta,
 	scheme *runtime.Scheme,
-	podSpec *corev1.PodSpec,
-	componentStatus v1beta1.ComponentStatusSpec) *KedaReconciler {
+	componentMeta metav1.ObjectMeta,
+	componentExt *v1beta1.ComponentExtensionSpec) *KedaReconciler {
 	return &KedaReconciler{
 		client:       client,
 		scheme:       scheme,
-		ScaledObject: createKedaScaledObject(componentMeta, podSpec, componentStatus),
+		ScaledObject: createKedaScaledObject(componentMeta, componentExt),
+		componentExt: componentExt,
 	}
 }
 
 func createKedaScaledObject(componentMeta metav1.ObjectMeta,
-	podSpec *corev1.PodSpec,
-	componentStatus v1beta1.ComponentStatusSpec) *kedav1alpha1.ScaledObject {
+	componentExtension *v1beta1.ComponentExtensionSpec) *kedav1alpha1.ScaledObject {
 	annotations := componentMeta.GetAnnotations()
 
 	// ksvc metadata.annotations
@@ -86,13 +84,10 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
 				Name: componentMeta.Name,
 			},
-			Triggers: []kedav1alpha1.ScaleTriggers{
-				{
-					Type:             "cpu",
-					UseCachedMetrics: false,
-					Metadata:         map[string]string{"type": "Utilization", "value": "60"}},
-			},
-			MinReplicaCount: proto.Int32(1),
+			Triggers:         componentExtension.KedaScaler.Triggers,
+			IdleReplicaCount: componentExtension.KedaScaler.IdleReplicaCount,
+			MinReplicaCount:  componentExtension.KedaScaler.MinReplicaCount,
+			MaxReplicaCount:  componentExtension.KedaScaler.MaxReplicaCount,
 		},
 		Status: kedav1alpha1.ScaledObjectStatus{},
 	}

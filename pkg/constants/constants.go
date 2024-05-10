@@ -179,6 +179,7 @@ var (
 var (
 	AutoscalerClassHPA      AutoscalerClassType = "hpa"
 	AutoscalerClassExternal AutoscalerClassType = "external"
+	AutoscalerClassKeda     AutoscalerClassType = "keda"
 )
 
 // Autoscaler Metrics
