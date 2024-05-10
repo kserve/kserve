@@ -111,7 +111,7 @@ spec:
           cpu: 100m
           memory: 2Gi
 ```
-3. Serve the huggingface model using vllm runtime. vllm is the default runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used as a failsafe.
+3. Serve the huggingface model using vllm runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used as a failsafe.
 vllm supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -138,7 +138,7 @@ spec:
 
 ```
 
-If vllm needs to be disabled include the flag `--disable_vllm` in the container args. In this case the KServe python runtime will be used.
+If vllm needs to be disabled include the flag `--backend=huggingface` in the container args. In this case the KServe python runtime will be used.
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -153,7 +153,7 @@ spec:
       args:
       - --model_name=llama2
       - --model_id=meta-llama/Llama-2-7b-chat-hf
-      - --disable_vllm
+      - --backend=huggingface
       resources:
         limits:
           cpu: "6"
@@ -167,9 +167,18 @@ spec:
 
 Perform the inference for vllm specific runtime
 
-vllm runtime deployments only support `/generate` endpoint for inference. Please refer to [text generation API schema](https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml) for more details.
-```bash
-curl -H "content-type:application/json" -v localhost:8080/v2/models/gpt2/generate -d '{"text_input": "The capital of france is [MASK]." }'
+vllm runtime deployments only support OpenAI `v1/completions` and `v1/chat/completions` endpoints for inference.
 
-{"text_output":"The capital of france is [MASK].\n\nThe capital of France is actually Paris.","model_name":"llama2","model_version":null,"details":null}
+Sample OpenAI Completions request
+```bash
+curl -H "content-type:application/json" -v localhost:8080/openai/v1/completions -d '{"model": "gpt2", "prompt": "<prompt>", "stream":false, "max_tokens": 30 }'
+
+{"id":"cmpl-7c654258ab4d4f18b31f47b553439d96","choices":[{"finish_reason":"length","index":0,"logprobs":null,"text":"<generated_text>"}],"created":1715353182,"model":"gpt2","system_fingerprint":null,"object":"text_completion","usage":{"completion_tokens":26,"prompt_tokens":4,"total_tokens":30}}
+```
+
+Sample OpenAI Chat request
+```bash
+curl -H "content-type:application/json" -v localhost:8080/openai/v1/chat/completions -d '{"model": "gpt2", "messages": [{"role": "user","content": "<message>"}], "stream":false }'
+
+{"id":"cmpl-87ee252062934e2f8f918dce011e8484","choices":[{"finish_reason":"length","index":0,"message":{"content":"<generated_response>","tool_calls":null,"role":"assistant","function_call":null},"logprobs":null}],"created":1715353461,"model":"gpt2","system_fingerprint":null,"object":"chat.completion","usage":{"completion_tokens":30,"prompt_tokens":3,"total_tokens":33}}
 ```
