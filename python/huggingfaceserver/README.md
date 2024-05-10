@@ -111,7 +111,7 @@ spec:
           cpu: 100m
           memory: 2Gi
 ```
-3. Serve the llama2 model using huggingface VLLM runtime. For the llama2 model, vLLM is supported and used as the default model. If available for a model, vLLM is set as the default runtime. Note - Model needs to be backed by vLLM otherwise KServe python runtime will be used as a failsafe.
+3. Serve the llama2 model using huggingface vLLM runtime. For the llama2 model, vLLM is supported and used as the default model. If available for a model, vLLM is set as the default runtime. Note - Model needs to be backed by vLLM otherwise KServe python runtime will be used as a failsafe.
 vLLM supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
