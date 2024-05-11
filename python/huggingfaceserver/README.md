@@ -1,12 +1,12 @@
-# Huggingface Serving Runtime
+# HuggingFace Serving Runtime
 
-The Huggingface serving runtime implements a runtime that can serve huggingface transformer based model out of the box.
+The Huggingface serving runtime implements a runtime that can serve HuggingFace transformer based model out of the box.
 The preprocess and post-process handlers are implemented based on different ML tasks, for example text classification,
 token-classification, text-generation, text2text generation. Based on the performance requirement, you can choose to perform
 the inference on a more optimized inference engine like triton inference server and vLLM for text generation.
 
 
-## Run Huggingface Server Locally
+## Run HuggingFace Server Locally
 
 ```bash
 python -m huggingfaceserver --model_id=bert-base-uncased --model_name=bert
@@ -45,7 +45,7 @@ curl -H "content-type:application/json" -v localhost:8080/v1/models/bert:predict
 > 1. `SAFETENSORS_FAST_GPU` is set by default to improve the model loading performance.
 > 2. `HF_HUB_DISABLE_TELEMETRY` is set by default to disable the telemetry.
 
-1. Serve the BERT model using KServe python huggingface runtime for both preprocess(tokenization)/postprocess and inference.
+1. Serve the BERT model using KServe python HuggingFace runtime for both preprocess(tokenization)/postprocess and inference.
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -70,7 +70,7 @@ spec:
           memory: 2Gi
 ```
 
-2. Serve the BERT model using triton inference runtime and KServe transformer with huggingface for the preprocess(tokenization) and postprocess.
+2. Serve the BERT model using Triton inference runtime and KServe transformer with HuggingFace runtime for the preprocess(tokenization) and postprocess steps.
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
