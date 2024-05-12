@@ -727,7 +727,7 @@ func TestMergeSequenceStepsResponses(t *testing.T) {
 						InferenceTarget: v1alpha1.InferenceTarget{
 							ServiceURL: model2Url.String(),
 						},
-						Data: "$response",
+						Data:     "$response",
 						BeMerged: true,
 					},
 					{
@@ -762,9 +762,7 @@ func TestMergeSequenceStepsResponses(t *testing.T) {
 		"model3": map[string]interface{}{
 			"predictions": "3",
 		},
-
 	}
 	fmt.Printf("final response:%v\n", response)
 	assert.Equal(t, expectedResponse, response)
 }
-

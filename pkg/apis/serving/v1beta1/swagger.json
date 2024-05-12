@@ -306,6 +306,10 @@
       "description": "InferenceStep defines the inference target of the current step with condition, weights and data.",
       "type": "object",
       "properties": {
+        "beMerged": {
+          "description": "specify this step response alongside final steps response in sequence node",
+          "type": "boolean"
+        },
         "condition": {
           "description": "routing based on the condition",
           "type": "string"

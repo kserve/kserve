@@ -47,6 +47,7 @@ class V1alpha1InferenceStep(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'be_merged': 'bool',
         'condition': 'str',
         'data': 'str',
         'dependency': 'str',
@@ -58,6 +59,7 @@ class V1alpha1InferenceStep(object):
     }
 
     attribute_map = {
+        'be_merged': 'beMerged',
         'condition': 'condition',
         'data': 'data',
         'dependency': 'dependency',
@@ -68,12 +70,13 @@ class V1alpha1InferenceStep(object):
         'weight': 'weight'
     }
 
-    def __init__(self, condition=None, data=None, dependency=None, name=None, node_name=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, be_merged=None, condition=None, data=None, dependency=None, name=None, node_name=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceStep - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._be_merged = None
         self._condition = None
         self._data = None
         self._dependency = None
@@ -84,6 +87,8 @@ class V1alpha1InferenceStep(object):
         self._weight = None
         self.discriminator = None
 
+        if be_merged is not None:
+            self.be_merged = be_merged
         if condition is not None:
             self.condition = condition
         if data is not None:
@@ -100,6 +105,29 @@ class V1alpha1InferenceStep(object):
             self.service_url = service_url
         if weight is not None:
             self.weight = weight
+
+    @property
+    def be_merged(self):
+        """Gets the be_merged of this V1alpha1InferenceStep.  # noqa: E501
+
+        specify this step response alongside final steps response in sequence node  # noqa: E501
+
+        :return: The be_merged of this V1alpha1InferenceStep.  # noqa: E501
+        :rtype: bool
+        """
+        return self._be_merged
+
+    @be_merged.setter
+    def be_merged(self, be_merged):
+        """Sets the be_merged of this V1alpha1InferenceStep.
+
+        specify this step response alongside final steps response in sequence node  # noqa: E501
+
+        :param be_merged: The be_merged of this V1alpha1InferenceStep.  # noqa: E501
+        :type: bool
+        """
+
+        self._be_merged = be_merged
 
     @property
     def condition(self):
