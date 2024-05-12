@@ -19,7 +19,6 @@ from pmmlserver import PmmlModel
 import kserve
 from kserve.errors import WorkersShouldBeLessThanMaxWorkersError
 
-DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument(

@@ -20,8 +20,6 @@ from sklearnserver import SKLearnModel, SKLearnModelRepository
 import kserve
 from kserve.errors import ModelMissingError
 
-DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
-
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument(
     "--model_dir", required=True, help="A local path to the model binary"
