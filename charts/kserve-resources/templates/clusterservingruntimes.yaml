@@ -359,13 +359,13 @@ spec:
       autoSelect: true
       priority: 1
   protocolVersions:
+    - v1
     - v2
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}"
       args:
-        - --model_id={{.Name}}
-        - --model_dir=/mnt/models
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
       resources:
         requests:
           cpu: "1"
