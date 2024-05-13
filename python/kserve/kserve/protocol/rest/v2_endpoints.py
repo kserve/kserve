@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 
 from fastapi import FastAPI, APIRouter
 from fastapi.requests import Request
 from fastapi.responses import Response
 
-from ..infer_type import InferInput, InferRequest
 from .v2_datamodels import (
     InferenceRequest,
     ServerMetadataResponse,
@@ -31,7 +30,7 @@ from .v2_datamodels import (
 )
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
-from ...constants.constants import V2_ROUTE_PREFIX
+from ...constants.constants import V2_ROUTE_PREFIX, PredictorProtocol
 from ...errors import ModelNotReady
 
 
@@ -128,9 +127,9 @@ class V2Endpoints:
         raw_request: Request,
         raw_response: Response,
         model_name: str,
-        request_body: InferenceRequest,
+        request_body: Union[InferenceRequest, bytes],
         model_version: Optional[str] = None,
-    ) -> InferenceResponse:
+    ) -> Union[InferenceResponse, Response]:
         """Infer handler.
 
         Args:
@@ -153,24 +152,17 @@ class V2Endpoints:
             raise ModelNotReady(model_name)
 
         request_headers = dict(raw_request.headers)
-        infer_inputs = [
-            InferInput(
-                name=input.name,
-                shape=input.shape,
-                datatype=input.datatype,
-                data=input.data,
-                parameters={} if input.parameters is None else input.parameters,
-            )
-            for input in request_body.inputs
-        ]
-        infer_request = InferRequest(
-            request_id=request_body.id,
+
+        infer_request, _ = self.dataplane.decode(
+            request_body,
+            request_headers,
+            protocol_version=PredictorProtocol.REST_V2.value,
             model_name=model_name,
-            infer_inputs=infer_inputs,
-            parameters=request_body.parameters,
         )
         response, response_headers = await self.dataplane.infer(
-            model_name=model_name, request=infer_request, headers=request_headers
+            model_name=model_name,
+            request=infer_request,
+            headers=request_headers,
         )
 
         response, response_headers = self.dataplane.encode(
@@ -178,11 +170,17 @@ class V2Endpoints:
             response=response,
             headers=response_headers,
             req_attributes={},
+            raw_bytes=infer_request.use_binary_outputs,
         )
 
         if response_headers:
             raw_response.headers.update(response_headers)
-        res = InferenceResponse.parse_obj(response)
+        if infer_request.use_binary_outputs:
+            raw_response.status_code = 200
+            raw_response.body = response
+            res = raw_response
+        else:
+            res = InferenceResponse.parse_obj(response)
         return res
 
     async def load(self, model_name: str) -> Dict:

@@ -23,19 +23,22 @@ import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 
-from .rest.openai import OpenAIModel
+from .rest.v2_datamodels import InferenceRequest
 from ..constants import constants
+from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
 from ..errors import InvalidInput, ModelNotFound
 from ..logging import logger
 from ..model import InferenceVerb, BaseKServeModel, InferenceModel
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
-from .infer_type import InferRequest, InferResponse
+from .infer_type import InferRequest, InferResponse, InferInput
+from .rest.openai import OpenAIModel
 
 JSON_HEADERS = [
     "application/json",
     "application/cloudevents+json",
     "application/ld+json",
+    "application/octet-stream",
 ]
 
 
@@ -224,11 +227,35 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest], Dict]:
+    def decode(
+        self,
+        body,
+        headers,
+        protocol_version: str = PredictorProtocol.REST_V1.value,
+        model_name: str = None,
+    ) -> Tuple[Union[Dict, InferRequest], Dict]:
         t1 = time.time()
         attributes = {}
         if isinstance(body, InferRequest):
             return body, attributes
+        elif isinstance(body, InferenceRequest):
+            infer_inputs = [
+                InferInput(
+                    name=input.name,
+                    shape=input.shape,
+                    datatype=input.datatype,
+                    data=input.data,
+                    parameters={} if input.parameters is None else input.parameters,
+                )
+                for input in body.inputs
+            ]
+            infer_request = InferRequest(
+                request_id=body.id,
+                model_name=model_name,
+                infer_inputs=infer_inputs,
+                parameters=body.parameters,
+            )
+            return infer_request, attributes
         if headers:
             if has_binary_headers(headers):
                 # returns CloudEvent
@@ -238,17 +265,23 @@ class DataPlane:
                 and headers["content-type"] not in JSON_HEADERS
             ):
                 return body, attributes
+        if type(body) is bytes:
+            if protocol_version.lower() == PredictorProtocol.REST_V2.value:
+                json_length = headers.get(INFERENCE_CONTENT_LENGTH_HEADER, None)
+                if json_length is None:
+                    raise InvalidInput(
+                        f"A byte input is received. But, the"
+                        f"'{INFERENCE_CONTENT_LENGTH_HEADER}' header is missing."
+                    )
+                return (
+                    InferRequest.from_raw_bytes(body, int(json_length), model_name),
+                    attributes,
+                )
             else:
-                if type(body) is bytes:
-                    try:
-                        body = orjson.loads(body)
-                    except orjson.JSONDecodeError as e:
-                        raise InvalidInput(f"Unrecognized request format: {e}")
-        elif type(body) is bytes:
-            try:
-                body = orjson.loads(body)
-            except orjson.JSONDecodeError as e:
-                raise InvalidInput(f"Unrecognized request format: {e}")
+                try:
+                    body = orjson.loads(body)
+                except orjson.JSONDecodeError as e:
+                    raise InvalidInput(f"Unrecognized request format: {e}")
 
         decoded_body, attributes = self.decode_cloudevent(body)
         t2 = time.time()
@@ -281,14 +314,25 @@ class DataPlane:
         return decoded_body, attributes
 
     def encode(
-        self, model_name, response, headers, req_attributes: Dict
+        self,
+        model_name,
+        response,
+        headers,
+        req_attributes: Dict,
+        raw_bytes: bool = False,
     ) -> Tuple[Dict, Dict[str, str]]:
         response_headers = {}
         # if we received a cloudevent, then also return a cloudevent
         is_cloudevent = False
         is_binary_cloudevent = False
         if isinstance(response, InferResponse):
-            response = response.to_rest()
+            if raw_bytes:
+                res_bytes, json_size = response.to_raw_bytes()
+                if json_size is not None:
+                    response_headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_size)
+                response = res_bytes
+            else:
+                response = response.to_rest()
         if headers:
             if has_binary_headers(headers):
                 is_cloudevent = True
