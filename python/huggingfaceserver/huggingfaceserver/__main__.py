@@ -55,7 +55,9 @@ parser.add_argument(
     default="/mnt/models",
     help="A URI pointer to the model binary",
 )
-parser.add_argument("--model_id", required=False, default=None, help="Huggingface model id")
+parser.add_argument(
+    "--model_id", required=False, default=None, help="Huggingface model id"
+)
 parser.add_argument(
     "--model_revision", required=False, default=None, help="Huggingface model revision"
 )
