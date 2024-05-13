@@ -50,11 +50,6 @@ class KServeSampleModel(kserve.Model):
 
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
-parser.add_argument(
-    "--model_name",
-    default="german-credit",
-    help="The name that the model is served under.",
-)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":

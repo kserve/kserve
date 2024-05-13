@@ -27,6 +27,7 @@ from ray import serve as rayserve
 from ray.serve.api import Deployment
 from ray.serve.handle import DeploymentHandle
 
+from . import logging
 from .logging import logger
 from .model import BaseKServeModel
 from .model_repository import ModelRepository
@@ -185,11 +186,10 @@ class ModelServer:
             enable_grpc: Whether to turn on grpc server. Default: ``True``
             enable_docs_url: Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
             enable_latency_logging: Whether to log latency metric. Default: ``True``.
-            configure_logging: Whether to configure KServe and Uvicorn logging. Default: ``None``.
+            configure_logging: Whether to configure KServe and Uvicorn logging. Default: `True`.
                                ``Deprecated``: This argument is deprecated since, 0.13.0. Use standard
-                               function 'configure_logging' from 'kserve.logging' module and explicitly set
-                               'log_config' arg to 'None' or use --configure_logging cmd arg to disable logger
-                               configuration.
+                               function 'configure_logging' from 'kserve.logging' module and use --configure_logging
+                               cmd arg to disable logger configuration.
             log_config: File path or dict containing log config. Default: ``None``.
                         ``Deprecated``: This argument is deprecated since, 0.13.0. Use standard
                         function 'configure_logging' from 'kserve.logging' module.
@@ -223,11 +223,15 @@ class ModelServer:
         if configure_logging is not None:
             warnings.warn(
                 "The 'configure_logging' argument is deprecated. Instead, Use standard "
-                "function 'configure_logging' from 'kserve.logging' module and explicitly set "
-                "'log_config' arg to 'None' or use --configure_logging cmd arg to disable logger "
-                "configuration."
+                "function 'configure_logging' from 'kserve.logging' module and use --configure_logging cmd arg to "
+                "disable logger configuration."
             )
-            if not configure_logging:
+            if configure_logging or args.configure_logging:
+                # If the logger does not have any handlers, then the logger is not configured.
+                # For backward compatibility, we configure the logger here.
+                if len(logger.handlers) == 0:
+                    logging.configure_logging(self.log_config)
+            else:
                 # By setting log_config to None we tell Uvicorn not to configure logging
                 self.log_config = None
         if log_config is not None:
