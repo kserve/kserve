@@ -16,8 +16,7 @@ from typing import Optional, List, Union, Dict
 import orjson
 import pydantic
 
-from pydantic import BaseModel, StrictBool, StrictInt, StrictFloat
-
+from pydantic import BaseModel, StrictBool, StrictInt, StrictFloat, model_validator
 
 # this is needed to add support for both pydantic 1.x and 2.x
 is_pydantic_2 = pydantic.__version__.startswith("2.")
@@ -162,6 +161,14 @@ class RequestInput(BaseModel):
     parameters: Optional[Parameters] = None
     data: List
 
+    @model_validator(mode="after")
+    def validate_fp16(self):
+        if self.datatype == "FP16" and len(self.data) != 0:
+            raise pydantic.ValidationError(
+                "sending FP16 data via JSON is not supported. "
+                "Please use the binary data format."
+            )
+
 
 class RequestOutput(BaseModel):
     """RequestOutput Model
@@ -195,6 +202,14 @@ class ResponseOutput(BaseModel):
     datatype: str
     parameters: Optional[Parameters] = None
     data: List
+
+    @model_validator(mode="after")
+    def validate_fp16(self):
+        if self.datatype == "FP16" and len(self.data) != 0:
+            raise pydantic.ValidationError(
+                "sending FP16 data via JSON is not supported. "
+                "Please use the binary data format."
+            )
 
 
 inference_request_schema_extra = {
