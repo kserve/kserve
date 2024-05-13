@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from enum import Enum
 
 # KServe K8S constants
 KSERVE_GROUP = "serving.kserve.io"
@@ -74,3 +75,12 @@ GENERATION = "generation"
 
 # LLM stats map key
 LLM_STATS_KEY = "llm-stats"
+
+# Header containing the json length in case of REST raw response.
+INFERENCE_CONTENT_LENGTH_HEADER = "inference-header-content-length"
+
+
+class PredictorProtocol(Enum):
+    REST_V1 = "v1"
+    REST_V2 = "v2"
+    GRPC_V2 = "grpc-v2"

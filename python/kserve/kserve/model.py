@@ -24,6 +24,7 @@ import orjson
 from cloudevents.http import CloudEvent
 from httpx import HTTPStatusError
 
+from .constants.constants import PredictorProtocol
 from .errors import InvalidInput
 from .logging import logger, trace_logger
 from .metrics import (
@@ -78,12 +79,6 @@ class InferenceVerb(Enum):
     EXPLAIN = 1
     PREDICT = 2
     GENERATE = 3
-
-
-class PredictorProtocol(Enum):
-    REST_V1 = "v1"
-    REST_V2 = "v2"
-    GRPC_V2 = "grpc-v2"
 
 
 def is_v2(protocol: PredictorProtocol) -> bool:
