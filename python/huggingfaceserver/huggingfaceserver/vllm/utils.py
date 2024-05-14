@@ -39,7 +39,7 @@ def infer_vllm_supported_from_model_architecture(
 ) -> bool:
     if not _vllm:
         return False
-    
+
     model_config = AutoConfig.from_pretrained(model_config_path)
     for architecture in model_config.architectures:
         if architecture not in ModelRegistry.get_supported_archs():
