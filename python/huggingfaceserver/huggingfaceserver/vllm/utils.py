@@ -44,6 +44,7 @@ def infer_vllm_supported_from_model_architecture(
 
     if architecture not in ModelRegistry.get_supported_archs():
         logger.info("not a supported model by vLLM")
+        return False
     return True
 
 
