@@ -433,6 +433,8 @@ spec:
                             type: string
                           nodeName:
                             type: string
+                          response:
+                            type: boolean
                           serviceName:
                             type: string
                           serviceUrl:

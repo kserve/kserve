@@ -295,6 +295,11 @@ type InferenceStep struct {
 	// to decide whether a step is a hard or a soft dependency in the Inference Graph
 	// +optional
 	Dependency InferenceStepDependencyType `json:"dependency,omitempty"`
+
+	// specify this step response be returned alongside final step response in sequence node
+	// final step response will always be returned
+	// +optional
+	Response bool `json:"response,omitempty"`
 }
 
 // InferenceGraphStatus defines the InferenceGraph conditions and status

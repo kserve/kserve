@@ -666,3 +666,104 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 	fmt.Printf("final response:%v\n", response)
 	assert.Equal(t, expectedResponse, response)
 }
+
+func TestMergeSequenceStepsResponses(t *testing.T) {
+	// Start a local HTTP server
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		response := map[string]interface{}{"predictions": "1"}
+		responseBytes, err := json.Marshal(response)
+		_, err = rw.Write(responseBytes)
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model1.Close()
+	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		response := map[string]interface{}{"predictions": "2"}
+		responseBytes, err := json.Marshal(response)
+		_, err = rw.Write(responseBytes)
+	}))
+	model2Url, err := apis.ParseURL(model2.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model2.Close()
+	model3 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		response := map[string]interface{}{"predictions": "3"}
+		responseBytes, err := json.Marshal(response)
+		_, err = rw.Write(responseBytes)
+	}))
+	model3Url, err := apis.ParseURL(model3.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model3.Close()
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Sequence,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "model1",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: model1Url.String(),
+						},
+					},
+					{
+						//StepName: "model2",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: model2Url.String(),
+						},
+						Data:     "$response",
+						Response: true,
+					},
+					{
+						StepName: "model3",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: model3Url.String(),
+						},
+						Data: "$response",
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{
+		"instances": []string{
+			"test",
+			"test2",
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{
+		"Authorization": {"Bearer Token"},
+	}
+
+	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	expectedResponse := map[string]interface{}{
+		"1": map[string]interface{}{
+			"predictions": "2",
+		},
+		"model3": map[string]interface{}{
+			"predictions": "3",
+		},
+	}
+	fmt.Printf("final response:%v\n", response)
+	assert.Equal(t, expectedResponse, response)
+}
