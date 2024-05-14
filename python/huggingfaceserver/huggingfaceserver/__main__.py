@@ -239,6 +239,6 @@ if __name__ == "__main__":
         kserve.ModelServer().start([model] if model.ready else [])
     except Exception as e:
         import sys
-        
-        logger.debug(f"Failed to start model server: {e}")
+
+        logger.error(f"Failed to start model server: {e}")
         sys.exit(1)
