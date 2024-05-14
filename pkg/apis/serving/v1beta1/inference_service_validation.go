@@ -241,6 +241,15 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 					}
 				case constants.AutoscalerClassExternal:
 					return nil
+				case constants.AutoscalerClassKeda:
+					triggers := isvc.Spec.Predictor.KedaScaler.Triggers
+					for _, item := range triggers {
+						err := validateKEDAMetrics(ScaleMetric(item.Type))
+						if err != nil {
+							return err
+						}
+					}
+					return nil
 				default:
 					return fmt.Errorf("unknown autoscaler class [%s]", class)
 				}
@@ -252,9 +261,19 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 	return nil
 }
 
+// Validate of autoscaler KEDA metrics
+func validateKEDAMetrics(metric ScaleMetric) error {
+	for _, item := range constants.AutoscalerAllowedKEDAMetricsList {
+		if item == constants.AutoscalerMetricsType(metric) {
+			return nil
+		}
+	}
+	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
+}
+
 // Validate of autoscaler HPA metrics
 func validateHPAMetrics(metric ScaleMetric) error {
-	for _, item := range constants.AutoscalerAllowedMetricsList {
+	for _, item := range constants.AutoscalerAllowedHPAMetricsList {
 		if item == constants.AutoscalerMetricsType(metric) {
 			return nil
 		}
