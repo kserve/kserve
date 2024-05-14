@@ -149,6 +149,7 @@ const (
 	MetricMemory      ScaleMetric = "memory"
 	MetricConcurrency ScaleMetric = "concurrency"
 	MetricRPS         ScaleMetric = "rps"
+	MetricPrometheus  ScaleMetric = "prometheus"
 )
 
 // Default the ComponentExtensionSpec
