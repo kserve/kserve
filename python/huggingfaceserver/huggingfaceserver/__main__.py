@@ -145,7 +145,7 @@ def load_model():
     if (
         (args.backend == Backend.vllm or args.backend == Backend.auto)
         and vllm_available()
-        and infer_vllm_supported_from_model_architecture(model_id_or_path) is not None
+        and infer_vllm_supported_from_model_architecture(model_id_or_path)
     ):
         from .vllm.vllm_model import VLLMModel
 
@@ -234,11 +234,11 @@ def load_model():
 
 
 if __name__ == "__main__":
-    try:
-        model = load_model()
-        kserve.ModelServer().start([model] if model.ready else [])
-    except Exception as e:
-        import sys
-
-        logger.error(f"Failed to start model server: {e}")
-        sys.exit(1)
+    # try:
+    model = load_model()
+    kserve.ModelServer().start([model] if model.ready else [])
+# except Exception as e:
+#     import sys
+#     print(e)
+#     logger.debug(f"Failed to start model server: {e}")
+#     sys.exit(1)
