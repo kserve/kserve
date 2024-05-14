@@ -377,11 +377,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set ScaledObject owner reference for predictor")
 		}
 
-		status, err := kr.Reconcile()
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile predictor")
-		}
-		isvc.Status.PropagateScaledObjectStatus(v1beta1.PredictorComponent, status)
 	} else {
 		podLabelKey = constants.RevisionLabel
 		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
