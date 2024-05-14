@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -94,7 +95,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	return scaledobject
 }
 
-func (r *KedaReconciler) Reconcile() (*kedav1alpha1.ScaledObjectStatus, error) {
+func (r *KedaReconciler) Reconcile() error {
 	desired := r.ScaledObject
 	existing := &kedav1alpha1.ScaledObject{}
 
@@ -110,10 +111,13 @@ func (r *KedaReconciler) Reconcile() (*kedav1alpha1.ScaledObjectStatus, error) {
 		// Create service if it does not exist
 		if apierr.IsNotFound(err) {
 			log.Info("Creating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
-			return &desired.Status, r.client.Create(context.TODO(), desired)
+			return r.client.Create(context.TODO(), desired)
 		}
-		return &existing.Status, errors.Wrapf(err, "fails to reconcile knative service")
+		return errors.Wrapf(err, "fails to reconcile knative service")
 	}
 
-	return &existing.Status, nil
+	return nil
+}
+func (r *KedaReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	return controllerutil.SetControllerReference(owner, r.ScaledObject, scheme)
 }

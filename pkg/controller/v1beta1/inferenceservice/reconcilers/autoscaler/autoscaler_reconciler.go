@@ -22,7 +22,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/keda"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,15 +30,15 @@ import (
 
 // Autoscaler Interface implemented by all autoscalers
 type Autoscaler interface {
-	Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error)
+	Reconcile() error
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
 }
 
 // NoOpAutoscaler Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
 type NoOpAutoscaler struct{}
 
-func (*NoOpAutoscaler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
-	return nil, nil
+func (*NoOpAutoscaler) Reconcile() error {
+	return nil
 }
 
 func (a *NoOpAutoscaler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
@@ -85,6 +85,8 @@ func createAutoscaler(client client.Client,
 	switch ac {
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal:
 		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt), nil
+	case constants.AutoscalerClassKeda:
+		return keda.NewKedaReconciler(client, scheme, componentMeta, componentExt), nil
 	default:
 		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
 	}
@@ -93,7 +95,7 @@ func createAutoscaler(client client.Client,
 // Reconcile ...
 func (r *AutoscalerReconciler) Reconcile() error {
 	// reconcile Autoscaler
-	_, err := r.Autoscaler.Reconcile()
+	err := r.Autoscaler.Reconcile()
 	if err != nil {
 		return err
 	}

@@ -193,14 +193,20 @@ var (
 	AutoScalerMetricsMemory AutoscalerMetricsType = "memory"
 )
 
+// Autoscaler Prometheus metrics
+var (
+	AutoScalerMetricsPrometheus AutoscalerMetricsType = "prometheus"
+)
+
 // Autoscaler Class Allowed List
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
 	AutoscalerClassExternal,
+	AutoscalerClassKeda,
 }
 
 // Autoscaler Metrics Allowed List
-var AutoscalerAllowedMetricsList = []AutoscalerMetricsType{
+var AutoscalerAllowedHPAMetricsList = []AutoscalerMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
 }
@@ -209,6 +215,12 @@ var AutoscalerAllowedMetricsList = []AutoscalerMetricsType{
 var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
 	AutoScalerKPAMetricsConcurrency,
 	AutoScalerKPAMetricsRPS,
+}
+
+var AutoscalerAllowedKEDAMetricsList = []AutoscalerMetricsType{
+	AutoScalerMetricsCPU,
+	AutoScalerMetricsMemory,
+	AutoScalerMetricsPrometheus,
 }
 
 // Autoscaler Default Metrics Value

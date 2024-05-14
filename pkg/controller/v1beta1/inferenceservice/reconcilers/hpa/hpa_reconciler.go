@@ -178,12 +178,12 @@ func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
 }
 
 // Reconcile ...
-func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
+func (r *HPAReconciler) Reconcile() error {
 	// reconcile HorizontalPodAutoscaler
-	checkResult, existingHPA, err := r.checkHPAExist(r.client)
+	checkResult, _, err := r.checkHPAExist(r.client)
 	log.Info("HorizontalPodAutoscaler reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var opErr error
@@ -195,14 +195,14 @@ func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, err
 	case constants.CheckResultDelete:
 		opErr = r.client.Delete(context.TODO(), r.HPA)
 	default:
-		return existingHPA, nil
+		return nil
 	}
 
 	if opErr != nil {
-		return nil, opErr
+		return opErr
 	}
 
-	return r.HPA, nil
+	return nil
 }
 func (r *HPAReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
 	return controllerutil.SetControllerReference(owner, r.HPA, scheme)
