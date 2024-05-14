@@ -21,7 +21,6 @@ from lgbserver.model import LightGBMModel
 import kserve
 from kserve.errors import ModelMissingError
 
-DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
 
 parser = argparse.ArgumentParser(
@@ -49,5 +48,5 @@ if __name__ == "__main__":
         )
         model_repository = LightGBMModelRepository(args.model_dir, args.nthread)
         # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
-        kfserver = kserve.ModelServer(workers=1, registered_models=model_repository)
-        kfserver.start([model] if model.ready else [])
+        server = kserve.ModelServer(workers=1, registered_models=model_repository)
+        server.start([model] if model.ready else [])

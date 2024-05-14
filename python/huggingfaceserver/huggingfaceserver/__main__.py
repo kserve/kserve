@@ -53,10 +53,12 @@ parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument(
     "--model_dir",
     required=False,
-    default=None,
+    default="/mnt/models",
     help="A URI pointer to the model binary",
 )
-parser.add_argument("--model_id", required=False, help="Huggingface model id")
+parser.add_argument(
+    "--model_id", required=False, default=None, help="Huggingface model id"
+)
 parser.add_argument(
     "--model_revision", required=False, default=None, help="Huggingface model revision"
 )
@@ -131,10 +133,11 @@ if "dtype" in args and args.dtype == "auto":
 
 def load_model():
     engine_args = None
-    if args.model_dir:
-        model_id_or_path = Path(Storage.download(args.model_dir))
-    else:
+    # If --model_id is specified then pass model_id to HF API, otherwise load the model from /mnt/models
+    if args.model_id:
         model_id_or_path = cast(str, args.model_id)
+    else:
+        model_id_or_path = Path(Storage.download(args.model_dir))
 
     if model_id_or_path is None:
         raise ValueError("You must provide a model_id or model_dir")
