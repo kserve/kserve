@@ -19,7 +19,6 @@ import multiprocessing
 import signal
 import socket
 import sys
-import warnings
 from multiprocessing import Process
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -168,10 +167,6 @@ class ModelServer:
         enable_grpc: bool = args.enable_grpc,
         enable_docs_url: bool = args.enable_docs_url,
         enable_latency_logging: bool = args.enable_latency_logging,
-        configure_logging: bool = None,
-        # The logger is configured by kserve logging module.
-        # By setting log_config to None we tell Uvicorn not to configure logging.
-        log_config: Optional[Union[Dict, str]] = None,
         access_log_format: str = args.access_log_format,
     ):
         """KServe ModelServer Constructor
@@ -186,13 +181,6 @@ class ModelServer:
             enable_grpc: Whether to turn on grpc server. Default: ``True``
             enable_docs_url: Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
             enable_latency_logging: Whether to log latency metric. Default: ``True``.
-            configure_logging: Whether to configure KServe and Uvicorn logging. Default: `True`.
-                               ``Deprecated``: This argument is deprecated since, 0.13.0. Use standard
-                               function 'configure_logging' from 'kserve.logging' module and use --configure_logging
-                               cmd arg to disable logger configuration.
-            log_config: File path or dict containing log config. Default: ``None``.
-                        ``Deprecated``: This argument is deprecated since, 0.13.0. Use standard
-                        function 'configure_logging' from 'kserve.logging' module.
             access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``.
                                it allows to override only the `uvicorn.access`'s format configuration with a richer
                                set of fields (output hardcoded to `stdout`). This limitation is currently due to the
@@ -219,26 +207,11 @@ class ModelServer:
             self._grpc_server = GRPCServer(
                 grpc_port, self.dataplane, self.model_repository_extension
             )
-        self.log_config = log_config
-        if configure_logging is not None:
-            warnings.warn(
-                "The 'configure_logging' argument is deprecated. Instead, Use standard "
-                "function 'configure_logging' from 'kserve.logging' module and use --configure_logging cmd arg to "
-                "disable logger configuration."
-            )
-            if configure_logging or args.configure_logging:
-                # If the logger does not have any handlers, then the logger is not configured.
-                # For backward compatibility, we configure the logger here.
-                if len(logger.handlers) == 0:
-                    logging.configure_logging(self.log_config)
-            else:
-                # By setting log_config to None we tell Uvicorn not to configure logging
-                self.log_config = None
-        if log_config is not None:
-            warnings.warn(
-                "The 'log_config' argument is deprecated. Instead, Use 'configure_logging' function from 'kserve.logging' module"
-            )
-
+        if args.configure_logging:
+            # If the logger does not have any handlers, then the logger is not configured.
+            # For backward compatibility, we configure the logger here.
+            if len(logger.handlers) == 0:
+                logging.configure_logging(args.log_config_file)
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
 
@@ -304,7 +277,9 @@ class ModelServer:
                     self.dataplane,
                     self.model_repository_extension,
                     self.enable_docs_url,
-                    log_config=self.log_config,
+                    # By setting log_config to None we tell Uvicorn not to configure logging as it is already
+                    # configured by kserve.
+                    log_config=None,
                     access_log_format=self.access_log_format,
                 )
                 await self._rest_server.run()
@@ -324,7 +299,9 @@ class ModelServer:
                     self.dataplane,
                     self.model_repository_extension,
                     self.enable_docs_url,
-                    log_config=self.log_config,
+                    # By setting log_config to None we tell Uvicorn not to configure logging as it is already
+                    # configured by kserve.
+                    log_config=None,
                     access_log_format=self.access_log_format,
                 )
                 for _ in range(self.workers):
