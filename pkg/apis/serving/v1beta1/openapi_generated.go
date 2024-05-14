@@ -687,6 +687,13 @@ func schema_pkg_apis_serving_v1alpha1_InferenceStep(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
+					"response": {
+						SchemaProps: spec.SchemaProps{
+							Description: "specify this step response be returned alongside final step response in sequence node final step response will always be returned",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
