@@ -9,6 +9,7 @@ Name | Type | Description | Notes
 **dependency** | **str** | to decide whether a step is a hard or a soft dependency in the Inference Graph | [optional] 
 **name** | **str** | Unique name for the step within this node | [optional] 
 **node_name** | **str** | The node name for routing as next step | [optional] 
+**response** | **bool** | specify this step response be return alongside final steps response in sequence node final step response will always be returned | [optional] 
 **service_name** | **str** | named reference for InferenceService | [optional] 
 **service_url** | **str** | InferenceService URL, mutually exclusive with ServiceName | [optional] 
 **weight** | **int** | the weight for split of the traffic, only used for Split Router when weight is specified all the routing targets should be sum to 100 | [optional] 

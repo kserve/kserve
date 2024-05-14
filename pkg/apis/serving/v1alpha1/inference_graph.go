@@ -296,9 +296,10 @@ type InferenceStep struct {
 	// +optional
 	Dependency InferenceStepDependencyType `json:"dependency,omitempty"`
 
-	// specify this step response alongside final steps response in sequence node
+	// specify this step response be return alongside final steps response in sequence node
+	// final step response will always be returned
 	// +optional
-	BeMerged bool `json:"beMerged,omitempty"`
+	Response bool `json:"response,omitempty"`
 }
 
 // InferenceGraphStatus defines the InferenceGraph conditions and status

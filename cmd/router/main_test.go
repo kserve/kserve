@@ -728,7 +728,7 @@ func TestMergeSequenceStepsResponses(t *testing.T) {
 							ServiceURL: model2Url.String(),
 						},
 						Data:     "$response",
-						BeMerged: true,
+						Response: true,
 					},
 					{
 						StepName: "model3",

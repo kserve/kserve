@@ -306,10 +306,6 @@
       "description": "InferenceStep defines the inference target of the current step with condition, weights and data.",
       "type": "object",
       "properties": {
-        "beMerged": {
-          "description": "specify this step response alongside final steps response in sequence node",
-          "type": "boolean"
-        },
         "condition": {
           "description": "routing based on the condition",
           "type": "string"
@@ -329,6 +325,10 @@
         "nodeName": {
           "description": "The node name for routing as next step",
           "type": "string"
+        },
+        "response": {
+          "description": "specify this step response be return alongside final steps response in sequence node final step response will always be returned",
+          "type": "boolean"
         },
         "serviceName": {
           "description": "named reference for InferenceService",

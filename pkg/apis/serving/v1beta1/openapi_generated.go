@@ -687,9 +687,9 @@ func schema_pkg_apis_serving_v1alpha1_InferenceStep(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
-					"beMerged": {
+					"response": {
 						SchemaProps: spec.SchemaProps{
-							Description: "specify this step response alongside final steps response in sequence node",
+							Description: "specify this step response be return alongside final steps response in sequence node final step response will always be returned",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

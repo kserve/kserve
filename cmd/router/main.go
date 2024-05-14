@@ -255,8 +255,8 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			if responseBytes, statusCode, err = executeStep(step, graph, request, headers); err != nil {
 				return nil, 500, err
 			}
-			// collect responses if BeMerged is set
-			if step.BeMerged == true || i == len(currentNode.Steps)-1 {
+			// collect responses if Response is set
+			if step.Response == true || i == len(currentNode.Steps)-1 {
 				key := step.StepName
 				if key == "" {
 					key = strconv.Itoa(i) // Use index if no step name
@@ -277,7 +277,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				}
 			}
 		}
-		// If no BeMerged set, maintain same behavior
+		// If no other step response need to return
 		if len(combinedResponses) == 1 {
 			return responseBytes, statusCode, nil
 		}
