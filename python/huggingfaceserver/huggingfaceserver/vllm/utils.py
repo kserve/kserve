@@ -13,11 +13,10 @@
 # limitations under the License.
 
 from argparse import ArgumentParser
-from typing import Any, Optional, Type, Union
+from typing import Any, Union
 from pathlib import Path
 
 from kserve.logging import logger
-from torch import nn
 
 try:
     from vllm.engine.arg_utils import AsyncEngineArgs
@@ -37,15 +36,16 @@ def vllm_available() -> bool:
 
 def infer_vllm_supported_from_model_architecture(
     model_config_path: Union[Path, str],
-) -> Optional[Type[nn.Module]]:
+) -> bool:
     if not _vllm:
-        return None
+        return False
+
     model_config = AutoConfig.from_pretrained(model_config_path)
-    architecture = model_config.architectures[0]
-    model_cls = ModelRegistry.load_model_cls(architecture)
-    if model_cls is None:
-        logger.info("not a supported model by vLLM")
-    return model_cls
+    for architecture in model_config.architectures:
+        if architecture not in ModelRegistry.get_supported_archs():
+            logger.info("not a supported model by vLLM")
+            return False
+    return True
 
 
 def maybe_add_vllm_cli_parser(parser: ArgumentParser) -> ArgumentParser:

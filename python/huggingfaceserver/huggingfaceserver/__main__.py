@@ -148,7 +148,7 @@ def load_model():
     if (
         (args.backend == Backend.vllm or args.backend == Backend.auto)
         and vllm_available()
-        and infer_vllm_supported_from_model_architecture(model_id_or_path) is not None
+        and infer_vllm_supported_from_model_architecture(model_id_or_path)
     ):
         from .vllm.vllm_model import VLLMModel
 
