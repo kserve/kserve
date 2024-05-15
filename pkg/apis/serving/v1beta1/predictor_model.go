@@ -204,11 +204,12 @@ func sortSupportedRuntimeByPriority(runtimes []v1alpha1.SupportedRuntime, modelF
 		p1 := runtimes[i].Spec.GetPriority(modelFormat.Name)
 		p2 := runtimes[j].Spec.GetPriority(modelFormat.Name)
 
-		if p1 == nil && p2 == nil { // if both runtimes does not specify the priority, the order is kept.
+		switch {
+		case p1 == nil && p2 == nil: // if both runtimes does not specify the priority, the order is kept.
 			return false
-		} else if p1 == nil && p2 != nil { // runtime with priority specified takes precedence
+		case p1 == nil && p2 != nil: // runtime with priority specified takes precedence
 			return false
-		} else if p1 != nil && p2 == nil {
+		case p1 != nil && p2 == nil:
 			return true
 		}
 		return *p1 > *p2

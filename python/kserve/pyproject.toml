@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kserve"
-version = "0.12.0"
+version = "0.13.0rc0"
 description = "KServe Python SDK"
 authors = [
     "The KServe Authors <dsun20@bloomberg.net>",
@@ -42,18 +42,17 @@ kubernetes = ">=23.3.0"
 python-dateutil = "^2.8.0"
 numpy = "^1.23.5"
 psutil = "^5.9.0"
-ray = { version = "^2.10.0", extras = ["serve"] }
+ray = { version = "~2.10.0", extras = ["serve"] }
 async-timeout = { version = "^4.0.3", python = "==3.11.*" }
 grpcio = "^1.49.1"
 protobuf = "^3.19.0"
-prometheus-client = "^0.13.1"
+prometheus-client = "^0.20.0"
 orjson = "^3.9.15"
 httpx = "^0.26.0"
 timing-asgi = "^0.3.0"
 tabulate = "^0.9.0"
 pandas = ">=1.3.5"
 pydantic = ">1.0,<3"
-openai = {version = "^1.13.3", optional = true}
 
 # Storage dependencies. They can be opted into by apps.
 urllib3 = { version = "^1.26.8", optional = true }
@@ -80,9 +79,6 @@ storage = [
 logging = [
     "asgi-logger"
 ]
-openai = [
-    "openai"
-]
 
 [tool.poetry.group.test]
 optional = true
@@ -97,12 +93,6 @@ portforward = "^0.4.3"
 avro = "^1.11.0"
 tomlkit = "^0.11.6"
 jinja2 = "^3.1.2"
-
-[tool.poetry.group.openai]
-optional = true
-
-[tool.poetry.group.openai.dependencies]
-openai = "^1.13.3"
 
 [tool.poetry.group.dev]
 optional = true

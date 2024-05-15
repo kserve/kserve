@@ -178,18 +178,6 @@ class RESTServer:
                     tags=["V2"],
                 ),
                 FastAPIRoute(
-                    r"/v2/models/{model_name}/generate",
-                    v2_endpoints.generate,
-                    methods=["POST"],
-                    tags=["V2"],
-                ),
-                FastAPIRoute(
-                    r"/v2/models/{model_name}/generate_stream",
-                    v2_endpoints.generate_stream,
-                    methods=["POST"],
-                    tags=["V2"],
-                ),
-                FastAPIRoute(
                     r"/v2/models/{model_name}/versions/{model_version}/infer",
                     v2_endpoints.infer,
                     methods=["POST"],

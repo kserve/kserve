@@ -56,6 +56,7 @@ class V1beta1ExplainerSpec(object):
         'canary_traffic_percent': 'int',
         'container_concurrency': 'int',
         'containers': 'list[V1Container]',
+        'deployment_strategy': 'K8sIoApiAppsV1DeploymentStrategy',
         'dns_config': 'V1PodDNSConfig',
         'dns_policy': 'str',
         'enable_service_links': 'bool',
@@ -110,6 +111,7 @@ class V1beta1ExplainerSpec(object):
         'canary_traffic_percent': 'canaryTrafficPercent',
         'container_concurrency': 'containerConcurrency',
         'containers': 'containers',
+        'deployment_strategy': 'deploymentStrategy',
         'dns_config': 'dnsConfig',
         'dns_policy': 'dnsPolicy',
         'enable_service_links': 'enableServiceLinks',
@@ -154,7 +156,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -169,6 +171,7 @@ class V1beta1ExplainerSpec(object):
         self._canary_traffic_percent = None
         self._container_concurrency = None
         self._containers = None
+        self._deployment_strategy = None
         self._dns_config = None
         self._dns_policy = None
         self._enable_service_links = None
@@ -231,6 +234,8 @@ class V1beta1ExplainerSpec(object):
             self.container_concurrency = container_concurrency
         if containers is not None:
             self.containers = containers
+        if deployment_strategy is not None:
+            self.deployment_strategy = deployment_strategy
         if dns_config is not None:
             self.dns_config = dns_config
         if dns_policy is not None:
@@ -516,6 +521,27 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._containers = containers
+
+    @property
+    def deployment_strategy(self):
+        """Gets the deployment_strategy of this V1beta1ExplainerSpec.  # noqa: E501
+
+
+        :return: The deployment_strategy of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: K8sIoApiAppsV1DeploymentStrategy
+        """
+        return self._deployment_strategy
+
+    @deployment_strategy.setter
+    def deployment_strategy(self, deployment_strategy):
+        """Sets the deployment_strategy of this V1beta1ExplainerSpec.
+
+
+        :param deployment_strategy: The deployment_strategy of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: K8sIoApiAppsV1DeploymentStrategy
+        """
+
+        self._deployment_strategy = deployment_strategy
 
     @property
     def dns_config(self):

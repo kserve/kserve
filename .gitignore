@@ -72,3 +72,6 @@ hack/istio-*
 
 # Docker config
 docker-compose.yml
+
+# Istio installer downloaded by quick install
+istio-*

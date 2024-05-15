@@ -20,16 +20,6 @@ from ....model import Model
 from ....model_repository import ModelRepository
 
 
-def openai_is_available() -> bool:
-    """Check if the openai package is available"""
-    try:
-        import openai  # noqa F401
-
-        return True
-    except ImportError:
-        return False
-
-
 def get_open_ai_models(repository: ModelRepository) -> List[Model]:
     """Retrieve all models in the repository that implement the OpenAI interface"""
     from .openai_model import OpenAIModel
@@ -42,9 +32,6 @@ def get_open_ai_models(repository: ModelRepository) -> List[Model]:
 
 
 def maybe_register_openai_endpoints(app: FastAPI, model_registry: ModelRepository):
-    # Check if the openai package is available before continuing so we don't run into any import errors
-    if not openai_is_available():
-        return
     open_ai_models = get_open_ai_models(model_registry)
     # If no OpenAI models then no need to add the endpoints
     if len(open_ai_models) == 0:

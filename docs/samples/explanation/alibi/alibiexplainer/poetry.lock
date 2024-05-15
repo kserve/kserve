@@ -2123,7 +2123,7 @@ files = [
 
 [[package]]
 name = "kserve"
-version = "0.12.0"
+version = "0.12.1"
 description = "KServe Python SDK"
 optional = false
 python-versions = ">=3.8,<3.12"
@@ -4449,7 +4449,7 @@ files = [
 
 [[package]]
 name = "sklearnserver"
-version = "0.12.0"
+version = "0.12.1"
 description = "Model Server implementation for scikit-learn. Not intended for use outside KServe Frameworks Images."
 optional = false
 python-versions = ">=3.8,<3.12"

@@ -14,8 +14,9 @@
 
 import inspect
 import time
+from abc import ABC
 from enum import Enum
-from typing import Dict, List, Union, Optional, AsyncIterator, Any
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 import grpc
 import httpx
@@ -24,8 +25,7 @@ from cloudevents.http import CloudEvent
 from httpx import HTTPStatusError
 
 from .errors import InvalidInput
-
-from .logging import trace_logger
+from .logging import logger, trace_logger
 from .metrics import (
     EXPLAIN_HIST_TIME,
     POST_HIST_TIME,
@@ -36,12 +36,42 @@ from .metrics import (
 from .protocol.grpc import grpc_predict_v2_pb2_grpc
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
 from .protocol.infer_type import InferRequest, InferResponse
-from .protocol.rest.v2_datamodels import GenerateRequest, GenerateResponse
 
 PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
 EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
 PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
 EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
+
+
+class BaseKServeModel(ABC):
+    """
+    A base class to inherit all of the kserve models from.
+
+    This class implements the expectations of model repository and model server.
+    """
+
+    def __init__(self, name: str):
+        """
+        Adds the required attributes
+
+        Args:
+            name: The name of the model.
+        """
+        self.name = name
+        self.ready = False
+
+    def healthy(self) -> bool:
+        """
+        Check the health of this model. By default returns `self.ready`.
+
+        Returns:
+            True if healthy, false otherwise
+        """
+        return self.ready
+
+    def stop(self):
+        """Stop handler can be overridden to perform model teardown"""
+        pass
 
 
 class InferenceVerb(Enum):
@@ -86,7 +116,7 @@ class PredictorConfig:
         self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
 
 
-class Model:
+class Model(BaseKServeModel):
     def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
         """KServe Model Public Interface
 
@@ -96,8 +126,8 @@ class Model:
             name: The name of the model.
             predictor_config: The configurations for http call to the predictor.
         """
-        self.name = name
-        self.ready = False
+        super().__init__(name)
+
         # The predictor config member fields are kept for backwards compatibility as they could be set outside
         self.protocol = (
             predictor_config.predictor_protocol
@@ -317,9 +347,20 @@ class Model:
         if isinstance(payload, InferRequest):
             payload = payload.to_rest()
         data = orjson.dumps(payload)
-        response = await self._http_client.post(
-            predict_url, timeout=self.timeout, headers=predict_headers, content=data
-        )
+
+        try:
+            response = await self._http_client.post(
+                predict_url, timeout=self.timeout, headers=predict_headers, content=data
+            )
+        except Exception as exc:
+            request_id = predict_headers.get("x-request-id", "N.A.")
+            logger.error(
+                f"Could not send a request to predictor at url {predict_url} "
+                f"for {request_id=} "
+                f"due to exception {exc}"
+            )
+            raise exc
+
         if not response.is_success:
             message = (
                 "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
@@ -385,12 +426,6 @@ class Model:
                 if is_v2(PredictorProtocol(self.protocol))
                 else res
             )
-
-    async def generate(
-        self, payload: GenerateRequest, headers: Dict[str, str] = None
-    ) -> Union[GenerateResponse, AsyncIterator[Any]]:
-        """`generate` handler can be overridden to implement text generation."""
-        raise NotImplementedError("generate is not implemented")
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.

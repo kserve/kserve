@@ -313,11 +313,12 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 	}
 	// set model class
 	modelClass := constants.MLServerModelClassSKLearn
-	if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelXGBoost {
+	switch isvc.Spec.Predictor.Model.ModelFormat.Name {
+	case constants.SupportedModelXGBoost:
 		modelClass = constants.MLServerModelClassXGBoost
-	} else if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelLightGBM {
+	case constants.SupportedModelLightGBM:
 		modelClass = constants.MLServerModelClassLightGBM
-	} else if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelMLFlow {
+	case constants.SupportedModelMLFlow:
 		modelClass = constants.MLServerModelClassMLFlow
 	}
 	if isvc.ObjectMeta.Labels == nil {
