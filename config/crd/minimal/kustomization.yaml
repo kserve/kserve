@@ -4,7 +4,7 @@ kind: Kustomization
 resources:
   - serving.kserve.io_inferenceservices.yaml
   - serving.kserve.io_trainedmodels.yaml
-  - serving.kserve.io_clusterservingruntimes.yaml
+  # - serving.kserve.io_clusterservingruntimes.yaml # Not supported in ODH
   - serving.kserve.io_servingruntimes.yaml
   - serving.kserve.io_inferencegraphs.yaml
   - serving.kserve.io_clusterstoragecontainers.yaml
