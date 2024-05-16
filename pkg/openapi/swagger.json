@@ -1268,6 +1268,10 @@
           "description": "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
           "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
         },
+        "kedascaler": {
+          "description": "Keda Scaler object to trigger the auto scalling",
+          "$ref": "#/definitions/v1beta1.KedaScaler"
+        },
         "labels": {
           "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
@@ -2536,6 +2540,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "kedascaler": {
+          "description": "Keda Scaler object to trigger the auto scalling",
+          "$ref": "#/definitions/v1beta1.KedaScaler"
+        },
         "labels": {
           "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
@@ -3154,6 +3162,33 @@
         },
         "urlScheme": {
           "type": "string"
+        }
+      }
+    },
+    "v1beta1.KedaScaler": {
+      "type": "object",
+      "properties": {
+        "idleReplicaCount": {
+          "description": "Number of idle replicas, Default: ignored, must be less than minReplicaCount",
+          "type": "integer",
+          "format": "int32"
+        },
+        "maxReplicaCount": {
+          "description": "Maximum number of replicas for autoscaling.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicaCount": {
+          "description": "Minimum number of replicas, default: 0",
+          "type": "integer",
+          "format": "int32"
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/github.com.kedacore.keda.v2.apis.keda.v1alpha1.ScaleTriggers"
+          }
         }
       }
     },
@@ -4765,6 +4800,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "kedascaler": {
+          "description": "Keda Scaler object to trigger the auto scalling",
+          "$ref": "#/definitions/v1beta1.KedaScaler"
+        },
         "labels": {
           "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
@@ -5728,6 +5767,10 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
+        },
+        "kedascaler": {
+          "description": "Keda Scaler object to trigger the auto scalling",
+          "$ref": "#/definitions/v1beta1.KedaScaler"
         },
         "labels": {
           "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",

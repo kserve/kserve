@@ -68,6 +68,7 @@ class V1beta1TransformerSpec(object):
         'hostname': 'str',
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'init_containers': 'list[V1Container]',
+        'kedascaler': 'V1beta1KedaScaler',
         'labels': 'dict(str, str)',
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
@@ -123,6 +124,7 @@ class V1beta1TransformerSpec(object):
         'hostname': 'hostname',
         'image_pull_secrets': 'imagePullSecrets',
         'init_containers': 'initContainers',
+        'kedascaler': 'kedascaler',
         'labels': 'labels',
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
@@ -183,6 +185,7 @@ class V1beta1TransformerSpec(object):
         self._hostname = None
         self._image_pull_secrets = None
         self._init_containers = None
+        self._kedascaler = None
         self._labels = None
         self._logger = None
         self._max_replicas = None
@@ -258,6 +261,8 @@ class V1beta1TransformerSpec(object):
             self.image_pull_secrets = image_pull_secrets
         if init_containers is not None:
             self.init_containers = init_containers
+        if kedascaler is not None:
+            self.kedascaler = kedascaler
         if labels is not None:
             self.labels = labels
         if logger is not None:
@@ -795,6 +800,27 @@ class V1beta1TransformerSpec(object):
         """
 
         self._init_containers = init_containers
+
+    @property
+    def kedascaler(self):
+        """Gets the kedascaler of this V1beta1TransformerSpec.  # noqa: E501
+
+
+        :return: The kedascaler of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: V1beta1KedaScaler
+        """
+        return self._kedascaler
+
+    @kedascaler.setter
+    def kedascaler(self, kedascaler):
+        """Sets the kedascaler of this V1beta1TransformerSpec.
+
+
+        :param kedascaler: The kedascaler of this V1beta1TransformerSpec.  # noqa: E501
+        :type: V1beta1KedaScaler
+        """
+
+        self._kedascaler = kedascaler
 
     @property
     def labels(self):
