@@ -82,6 +82,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceStatus":       schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":      schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler":                   schema_pkg_apis_serving_v1beta1_KedaScaler(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                 schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":             schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
@@ -1756,7 +1757,6 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -2402,11 +2402,17 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},
+					"kedascaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Keda Scaler object to trigger the auto scalling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy"},
 	}
 }
 
@@ -4317,7 +4323,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -4871,11 +4876,17 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},
+					"kedascaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Keda Scaler object to trigger the auto scalling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -5272,7 +5283,6 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -5622,6 +5632,54 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_KedaScaler(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"triggers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kedacore/keda/v2/apis/keda/v1alpha1.ScaleTriggers"),
+									},
+								},
+							},
+						},
+					},
+					"idleReplicaCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of idle replicas, Default: ignored, must be less than minReplicaCount",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"minReplicaCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Minimum number of replicas, default: 0",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"maxReplicaCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum number of replicas for autoscaling.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kedacore/keda/v2/apis/keda/v1alpha1.ScaleTriggers"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5940,7 +5998,6 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6079,7 +6136,6 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -6810,7 +6866,6 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7136,7 +7191,6 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7461,7 +7515,6 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8236,7 +8289,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8856,6 +8908,12 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},
+					"kedascaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Keda Scaler object to trigger the auto scalling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler"),
+						},
+					},
 				},
 			},
 		},
@@ -9182,7 +9240,6 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -9577,7 +9634,6 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -9903,7 +9959,6 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -10451,11 +10506,17 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},
+					"kedascaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Keda Scaler object to trigger the auto scalling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -10777,7 +10838,6 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -11565,7 +11625,6 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
