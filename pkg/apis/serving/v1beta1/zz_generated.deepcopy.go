@@ -137,6 +137,8 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 	if in.DeploymentStrategy != nil {
 		in, out := &in.DeploymentStrategy, &out.DeploymentStrategy
 		*out = new(v1.DeploymentStrategy)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.KedaScaler != nil {
 		in, out := &in.KedaScaler, &out.KedaScaler
 		*out = new(KedaScaler)
