@@ -25,9 +25,15 @@ import tomlkit
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from ray import serve
-
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionResponse as ChatCompletion,
+    CreateChatCompletionStreamResponse as ChatCompletionChunk,
+    CreateCompletionResponse as Completion,
+)
+from typing import AsyncIterator, Union
 from kserve.errors import InvalidInput, ModelNotFound
 from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
 from kserve.model_repository import ModelRepository
 from test.test_server import (
     DummyModel,
@@ -397,3 +403,53 @@ class TestDataPlaneAvroCloudEvent:
         assert headers["ce-type"] == "io.kserve.inference.response"
         assert headers["ce-time"] > "2021-01-28T21:04:43.144141+00:00"
         assert resp == b'{"predictions": [["foo", 1, "pink"]]}'
+
+
+@pytest.mark.asyncio
+class TestDataPlaneOpenAI:
+    MODEL_NAME = "TestModel"
+
+    class DummyOpenAIModel(OpenAIModel):
+        async def create_completion(
+            self, params: CompletionRequest
+        ) -> Union[Completion, AsyncIterator[Completion]]:
+            pass
+
+        async def create_chat_completion(
+            self, params: CompletionRequest
+        ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+            pass
+
+    async def test_explain_on_openai_model_raises(self):
+        openai_model = self.DummyOpenAIModel(self.MODEL_NAME)
+        repo = ModelRepository()
+        repo.update(openai_model)
+        dataplane = DataPlane(model_registry=repo)
+
+        with pytest.raises(InvalidInput) as exc:
+            await dataplane.explain(
+                model_name=self.MODEL_NAME,
+                request={},
+            )
+
+        assert (
+            exc.value.reason
+            == "Model TestModel is of type OpenAIModel. It does not support the explain method."
+        )
+
+    async def test_infer_on_openai_model_raises(self):
+        openai_model = self.DummyOpenAIModel(self.MODEL_NAME)
+        repo = ModelRepository()
+        repo.update(openai_model)
+        dataplane = DataPlane(model_registry=repo)
+
+        with pytest.raises(InvalidInput) as exc:
+            await dataplane.infer(
+                model_name=self.MODEL_NAME,
+                request={},
+            )
+
+        assert (
+            exc.value.reason
+            == "Model TestModel is of type OpenAIModel. It does not support the infer method."
+        )
