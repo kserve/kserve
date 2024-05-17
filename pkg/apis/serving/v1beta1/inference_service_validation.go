@@ -242,13 +242,6 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 				case constants.AutoscalerClassExternal:
 					return nil
 				case constants.AutoscalerClassKeda:
-					triggers := isvc.Spec.Predictor.KedaScaler.Triggers
-					for _, item := range triggers {
-						err := validateKEDAMetrics(ScaleMetric(item.Type))
-						if err != nil {
-							return err
-						}
-					}
 					return nil
 				default:
 					return fmt.Errorf("unknown autoscaler class [%s]", class)

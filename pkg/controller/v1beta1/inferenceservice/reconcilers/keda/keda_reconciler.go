@@ -18,11 +18,13 @@ package keda
 
 import (
 	"context"
+	"strconv"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
+	v2 "k8s.io/api/autoscaling/v2"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,12 +36,6 @@ import (
 )
 
 var log = logf.Log.WithName("KedaReconciler")
-
-var managedKsvcAnnotations = map[string]bool{
-	constants.RollOutDurationAnnotationKey: true,
-	// Required for the integration of Openshift Serverless with Openshift Service Mesh
-	constants.KnativeOpenshiftEnablePassthroughKey: true,
-}
 
 type KedaReconciler struct {
 	client       client.Client
@@ -64,33 +60,29 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec) *kedav1alpha1.ScaledObject {
 	annotations := componentMeta.GetAnnotations()
 
-	// ksvc metadata.annotations
-	// rollout-duration must be put under metadata.annotations
-	ksvcAnnotations := make(map[string]string)
-	for ksvcAnnotationKey := range managedKsvcAnnotations {
-		if value, ok := annotations[ksvcAnnotationKey]; ok {
-			ksvcAnnotations[ksvcAnnotationKey] = value
-			delete(annotations, ksvcAnnotationKey)
-		}
-	}
-
 	scaledobject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        componentMeta.Name,
 			Namespace:   componentMeta.Namespace,
 			Labels:      componentMeta.Labels,
-			Annotations: ksvcAnnotations,
+			Annotations: annotations,
 		},
 		Spec: kedav1alpha1.ScaledObjectSpec{
 			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
 				Name: componentMeta.Name,
 			},
-			Triggers:         componentExtension.KedaScaler.Triggers,
-			IdleReplicaCount: componentExtension.KedaScaler.IdleReplicaCount,
-			MinReplicaCount:  componentExtension.KedaScaler.MinReplicaCount,
-			MaxReplicaCount:  componentExtension.KedaScaler.MaxReplicaCount,
+			Triggers: []kedav1alpha1.ScaleTriggers{
+				{
+					Type:       string(*componentExtension.ScaleMetric),
+					MetricType: v2.MetricTargetType(*componentExtension.ScaleMetricType),
+					Metadata: map[string]string{
+						"value": strconv.Itoa((*componentExtension.ScaleTarget)),
+					},
+				},
+			},
+			MinReplicaCount: proto.Int32(int32(*componentExtension.MinReplicas)),
+			MaxReplicaCount: proto.Int32(int32(componentExtension.MaxReplicas)),
 		},
-		Status: kedav1alpha1.ScaledObjectStatus{},
 	}
 	return scaledobject
 }
@@ -108,12 +100,12 @@ func (r *KedaReconciler) Reconcile() error {
 		return r.client.Update(context.TODO(), existing)
 	})
 	if err != nil {
-		// Create service if it does not exist
+		// Create scaledObject if it does not exist
 		if apierr.IsNotFound(err) {
 			log.Info("Creating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
 			return r.client.Create(context.TODO(), desired)
 		}
-		return errors.Wrapf(err, "fails to reconcile knative service")
+		return errors.Wrapf(err, "fails to reconcile KEDA scaledObject")
 	}
 
 	return nil
