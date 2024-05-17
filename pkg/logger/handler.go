@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
+	"slices"
 
 	"github.com/go-logr/logr"
 	guuid "github.com/google/uuid"
@@ -33,32 +33,32 @@ import (
 )
 
 type LoggerHandler struct {
-	log                  logr.Logger
-	logUrl               *url.URL
-	sourceUri            *url.URL
-	logMode              v1beta1.LoggerType
-	inferenceService     string
-	namespace            string
-	component            string
-	endpoint             string
-	next                 http.Handler
-	metadataHeaderPrefix string
+	log              logr.Logger
+	logUrl           *url.URL
+	sourceUri        *url.URL
+	logMode          v1beta1.LoggerType
+	inferenceService string
+	namespace        string
+	component        string
+	endpoint         string
+	next             http.Handler
+	headerAllowList  []string
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
-	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaderPrefix string) http.Handler {
+	inferenceService string, namespace string, endpoint string, component string, next http.Handler, headerAllowList []string) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
-		log:                  logf.Log.WithName("Logger"),
-		logUrl:               logUrl,
-		sourceUri:            sourceUri,
-		logMode:              logMode,
-		inferenceService:     inferenceService,
-		namespace:            namespace,
-		component:            component,
-		endpoint:             endpoint,
-		next:                 next,
-		metadataHeaderPrefix: metadataHeaderPrefix,
+		log:              logf.Log.WithName("Logger"),
+		logUrl:           logUrl,
+		sourceUri:        sourceUri,
+		logMode:          logMode,
+		inferenceService: inferenceService,
+		namespace:        namespace,
+		component:        component,
+		endpoint:         endpoint,
+		next:             next,
+		headerAllowList:  headerAllowList,
 	}
 }
 
@@ -85,18 +85,18 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata := map[string][]interface{}{}
-	if eh.metadataHeaderPrefix != "" {
+	metadata := map[string][]string{}
+	if eh.headerAllowList != nil {
 		// Loop over header names
 		for name, values := range r.Header {
+
 			// Loop over all values for the name.
-			if strings.HasPrefix(name, eh.metadataHeaderPrefix) {
-				metadataValues := []interface{}{}
+			if slices.Contains(eh.headerAllowList, name) {
+				metadataValues := []string{}
 				for _, value := range values {
 					metadataValues = append(metadataValues, value)
 				}
-				metadataName, _ := strings.CutPrefix(name, eh.metadataHeaderPrefix)
-				metadata[metadataName] = metadataValues
+				metadata[name] = metadataValues
 			}
 		}
 	}
