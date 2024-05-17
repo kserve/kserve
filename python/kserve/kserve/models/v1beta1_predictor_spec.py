@@ -47,6 +47,7 @@ class V1beta1PredictorSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'scale_metric_type': 'str',
         'active_deadline_seconds': 'int',
         'affinity': 'V1Affinity',
         'annotations': 'dict(str, str)',
@@ -69,7 +70,6 @@ class V1beta1PredictorSpec(object):
         'huggingface': 'V1beta1HuggingFaceRuntimeSpec',
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'init_containers': 'list[V1Container]',
-        'kedascaler': 'V1beta1KedaScaler',
         'labels': 'dict(str, str)',
         'lightgbm': 'V1beta1LightGBMSpec',
         'logger': 'V1beta1LoggerSpec',
@@ -115,6 +115,7 @@ class V1beta1PredictorSpec(object):
     }
 
     attribute_map = {
+        'scale_metric_type': 'ScaleMetricType',
         'active_deadline_seconds': 'activeDeadlineSeconds',
         'affinity': 'affinity',
         'annotations': 'annotations',
@@ -137,7 +138,6 @@ class V1beta1PredictorSpec(object):
         'huggingface': 'huggingface',
         'image_pull_secrets': 'imagePullSecrets',
         'init_containers': 'initContainers',
-        'kedascaler': 'kedascaler',
         'labels': 'labels',
         'lightgbm': 'lightgbm',
         'logger': 'logger',
@@ -188,6 +188,7 @@ class V1beta1PredictorSpec(object):
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._scale_metric_type = None
         self._active_deadline_seconds = None
         self._affinity = None
         self._annotations = None
@@ -210,7 +211,6 @@ class V1beta1PredictorSpec(object):
         self._huggingface = None
         self._image_pull_secrets = None
         self._init_containers = None
-        self._kedascaler = None
         self._labels = None
         self._lightgbm = None
         self._logger = None
@@ -255,6 +255,8 @@ class V1beta1PredictorSpec(object):
         self._xgboost = None
         self.discriminator = None
 
+        if scale_metric_type is not None:
+            self.scale_metric_type = scale_metric_type
         if active_deadline_seconds is not None:
             self.active_deadline_seconds = active_deadline_seconds
         if affinity is not None:
@@ -299,8 +301,6 @@ class V1beta1PredictorSpec(object):
             self.image_pull_secrets = image_pull_secrets
         if init_containers is not None:
             self.init_containers = init_containers
-        if kedascaler is not None:
-            self.kedascaler = kedascaler
         if labels is not None:
             self.labels = labels
         if lightgbm is not None:
@@ -385,6 +385,29 @@ class V1beta1PredictorSpec(object):
             self.worker_spec = worker_spec
         if xgboost is not None:
             self.xgboost = xgboost
+
+    @property
+    def scale_metric_type(self):
+        """Gets the scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :return: The scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_metric_type
+
+    @scale_metric_type.setter
+    def scale_metric_type(self, scale_metric_type):
+        """Sets the scale_metric_type of this V1beta1PredictorSpec.
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :param scale_metric_type: The scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_metric_type = scale_metric_type
 
     @property
     def active_deadline_seconds(self):
@@ -881,27 +904,6 @@ class V1beta1PredictorSpec(object):
         """
 
         self._init_containers = init_containers
-
-    @property
-    def kedascaler(self):
-        """Gets the kedascaler of this V1beta1PredictorSpec.  # noqa: E501
-
-
-        :return: The kedascaler of this V1beta1PredictorSpec.  # noqa: E501
-        :rtype: V1beta1KedaScaler
-        """
-        return self._kedascaler
-
-    @kedascaler.setter
-    def kedascaler(self, kedascaler):
-        """Sets the kedascaler of this V1beta1PredictorSpec.
-
-
-        :param kedascaler: The kedascaler of this V1beta1PredictorSpec.  # noqa: E501
-        :type: V1beta1KedaScaler
-        """
-
-        self._kedascaler = kedascaler
 
     @property
     def labels(self):

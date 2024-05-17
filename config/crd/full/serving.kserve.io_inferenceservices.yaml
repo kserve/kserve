@@ -2640,47 +2640,6 @@ spec:
                           - name
                         type: object
                       type: array
-                    kedascaler:
-                      properties:
-                        idleReplicaCount:
-                          format: int32
-                          type: integer
-                        maxReplicaCount:
-                          format: int32
-                          type: integer
-                        minReplicaCount:
-                          format: int32
-                          type: integer
-                        triggers:
-                          items:
-                            properties:
-                              authenticationRef:
-                                properties:
-                                  kind:
-                                    type: string
-                                  name:
-                                    type: string
-                                required:
-                                  - name
-                                type: object
-                              metadata:
-                                additionalProperties:
-                                  type: string
-                                type: object
-                              metricType:
-                                type: string
-                              name:
-                                type: string
-                              type:
-                                type: string
-                              useCachedMetrics:
-                                type: boolean
-                            required:
-                              - metadata
-                              - type
-                            type: object
-                          type: array
-                      type: object
                     labels:
                       additionalProperties:
                         type: string
@@ -2799,6 +2758,12 @@ spec:
                         - memory
                         - concurrency
                         - rps
+                        - prometheus
+                      type: string
+                    scaleMetricType:
+                      enum:
+                        - Utilization
+                        - AverageValue
                       type: string
                     scaleTarget:
                       type: integer
@@ -6353,47 +6318,6 @@ spec:
                           - name
                         type: object
                       type: array
-                    kedascaler:
-                      properties:
-                        idleReplicaCount:
-                          format: int32
-                          type: integer
-                        maxReplicaCount:
-                          format: int32
-                          type: integer
-                        minReplicaCount:
-                          format: int32
-                          type: integer
-                        triggers:
-                          items:
-                            properties:
-                              authenticationRef:
-                                properties:
-                                  kind:
-                                    type: string
-                                  name:
-                                    type: string
-                                required:
-                                  - name
-                                type: object
-                              metadata:
-                                additionalProperties:
-                                  type: string
-                                type: object
-                              metricType:
-                                type: string
-                              name:
-                                type: string
-                              type:
-                                type: string
-                              useCachedMetrics:
-                                type: boolean
-                            required:
-                              - metadata
-                              - type
-                            type: object
-                          type: array
-                      type: object
                     labels:
                       additionalProperties:
                         type: string
@@ -10645,6 +10569,12 @@ spec:
                         - memory
                         - concurrency
                         - rps
+                        - prometheus
+                      type: string
+                    scaleMetricType:
+                      enum:
+                        - Utilization
+                        - AverageValue
                       type: string
                     scaleTarget:
                       type: integer
@@ -19865,47 +19795,6 @@ spec:
                           - name
                         type: object
                       type: array
-                    kedascaler:
-                      properties:
-                        idleReplicaCount:
-                          format: int32
-                          type: integer
-                        maxReplicaCount:
-                          format: int32
-                          type: integer
-                        minReplicaCount:
-                          format: int32
-                          type: integer
-                        triggers:
-                          items:
-                            properties:
-                              authenticationRef:
-                                properties:
-                                  kind:
-                                    type: string
-                                  name:
-                                    type: string
-                                required:
-                                  - name
-                                type: object
-                              metadata:
-                                additionalProperties:
-                                  type: string
-                                type: object
-                              metricType:
-                                type: string
-                              name:
-                                type: string
-                              type:
-                                type: string
-                              useCachedMetrics:
-                                type: boolean
-                            required:
-                              - metadata
-                              - type
-                            type: object
-                          type: array
-                      type: object
                     labels:
                       additionalProperties:
                         type: string
@@ -20024,6 +19913,12 @@ spec:
                         - memory
                         - concurrency
                         - rps
+                        - prometheus
+                      type: string
+                    scaleMetricType:
+                      enum:
+                        - Utilization
+                        - AverageValue
                       type: string
                     scaleTarget:
                       type: integer

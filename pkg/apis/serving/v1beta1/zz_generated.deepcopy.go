@@ -95,6 +95,11 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 		*out = new(ScaleMetric)
 		**out = **in
 	}
+	if in.ScaleMetricType != nil {
+		in, out := &in.ScaleMetricType, &out.ScaleMetricType
+		*out = new(ScaleMetricType)
+		**out = **in
+	}
 	if in.ContainerConcurrency != nil {
 		in, out := &in.ContainerConcurrency, &out.ContainerConcurrency
 		*out = new(int64)
@@ -137,11 +142,6 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 	if in.DeploymentStrategy != nil {
 		in, out := &in.DeploymentStrategy, &out.DeploymentStrategy
 		*out = new(v1.DeploymentStrategy)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.KedaScaler != nil {
-		in, out := &in.KedaScaler, &out.KedaScaler
-		*out = new(KedaScaler)
 		(*in).DeepCopyInto(*out)
 	}
 }

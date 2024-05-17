@@ -108,6 +108,9 @@ type ComponentExtensionSpec struct {
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
 	// +optional
 	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
+	// Type of metric to use. Options are Utilization, or AverageValue.
+	// +optional
+	ScaleMetricType *ScaleMetricType `json:"scaleMetricType,omitempty"`
 	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
 	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	// +optional
@@ -135,14 +138,15 @@ type ComponentExtensionSpec struct {
 	// The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.
 	// +optional
 	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
-	// Keda Scaler object to trigger the auto scalling
-	// +optional
-	KedaScaler *KedaScaler `json:"kedascaler,omitempty"`
 }
 
 // ScaleMetric enum
-// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps
+// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps;prometheus
 type ScaleMetric string
+
+// ScaleMetricType enum
+// +kubebuilder:validation:Enum=Utilization;AverageValue
+type ScaleMetricType string
 
 const (
 	MetricCPU         ScaleMetric = "cpu"
