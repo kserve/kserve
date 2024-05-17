@@ -190,7 +190,13 @@ func main() {
 			}
 		}
 	}
-	if deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+
+	kedaFound, kedaCheckErr := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
+	if kedaCheckErr != nil {
+		setupLog.Error(ksvcCheckErr, "error when checking if KEDA ScaledObject kind is available")
+		os.Exit(1)
+	}
+	if kedaFound {
 		setupLog.Info("Setting up KEDA scheme")
 		if err := kedav1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 			setupLog.Error(err, "unable to add KEDA APIs to scheme")
