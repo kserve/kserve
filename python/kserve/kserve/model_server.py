@@ -27,7 +27,7 @@ from ray.serve.api import Deployment
 from ray.serve.handle import DeploymentHandle
 
 from .logging import KSERVE_LOG_CONFIG, logger
-from .model import Model
+from .model import BaseKServeModel
 from .model_repository import ModelRepository
 from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
@@ -218,7 +218,9 @@ class ModelServer:
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
 
-    def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
+    def start(
+        self, models: Union[List[BaseKServeModel], Dict[str, Deployment]]
+    ) -> None:
         """Start the model server with a set of registered models.
 
         Args:
@@ -226,12 +228,12 @@ class ModelServer:
         """
         if isinstance(models, list):
             for model in models:
-                if isinstance(model, Model):
+                if isinstance(model, BaseKServeModel):
                     self.register_model(model)
                     # pass whether to log request latency into the model
                     model.enable_latency_logging = self.enable_latency_logging
                 else:
-                    raise RuntimeError("Model type should be 'Model'")
+                    raise RuntimeError("Model type should be 'BaseKServeModel'")
         elif isinstance(models, dict):
             if all([isinstance(v, Deployment) for v in models.values()]):
                 # TODO: make this port number a variable
@@ -326,8 +328,8 @@ class ModelServer:
         if self._grpc_server:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
-        for _, model in self.registered_models.get_models().items():
-            model.unload()
+        for model_name in list(self.registered_models.get_models().keys()):
+            self.registered_models.unload(model_name)
 
     def register_exception_handler(
         self,
@@ -367,7 +369,7 @@ class ModelServer:
         self.registered_models.update_handle(name, model_handle)
         logger.info("Registering model handle: %s", name)
 
-    def register_model(self, model: Model):
+    def register_model(self, model: BaseKServeModel):
         """Register a model to the model server.
 
         Args:

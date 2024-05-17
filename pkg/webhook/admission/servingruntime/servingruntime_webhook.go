@@ -36,18 +36,18 @@ var log = logf.Log.WithName(constants.ServingRuntimeValidatorWebhookName)
 const (
 	InvalidPriorityError               = "Same priority assigned for the model format %s"
 	InvalidPriorityServingRuntimeError = "%s in the servingruntimes %s and %s in namespace %s"
-	//InvalidPriorityClusterServingRuntimeError  = "%s in the clusterservingruntimes %s and %s"
+	// InvalidPriorityClusterServingRuntimeError  = "%s in the clusterservingruntimes %s and %s"
 	ProrityIsNotSameError                      = "Different priorities assigned for the model format %s"
 	ProrityIsNotSameServingRuntimeError        = "%s under the servingruntime %s"
 	ProrityIsNotSameClusterServingRuntimeError = "%s under the clusterservingruntime %s"
 )
 
-//// kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-clusterservingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterservingruntimes,versions=v1alpha1,name=clusterservingruntime.kserve-webhook-server.validator
+// // kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-clusterservingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterservingruntimes,versions=v1alpha1,name=clusterservingruntime.kserve-webhook-server.validator
 //
-//type ClusterServingRuntimeValidator struct {
-//	Client  client.Client
-//	Decoder *admission.Decoder
-//}
+// type ClusterServingRuntimeValidator struct {
+//	 Client  client.Client
+//	 Decoder *admission.Decoder
+// }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-servingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=servingruntimes,versions=v1alpha1,name=servingruntime.kserve-webhook-server.validator
 
@@ -86,10 +86,10 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 	return admission.Allowed("")
 }
 
-//// Handle validates the incoming request
-//func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
-//	clusterServingRuntime := &v1alpha1.ClusterServingRuntime{}
-//	if err := csr.Decoder.Decode(req, clusterServingRuntime); err != nil {
+// // Handle validates the incoming request
+// func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
+// 	clusterServingRuntime := &v1alpha1.ClusterServingRuntime{}
+// 	if err := csr.Decoder.Decode(req, clusterServingRuntime); err != nil {
 //		log.Error(err, "Failed to decode cluster serving runtime", "name", clusterServingRuntime.Name)
 //		return admission.Errored(http.StatusBadRequest, err)
 //	}
@@ -114,7 +114,7 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 //		}
 //	}
 //	return admission.Allowed("")
-//}
+// }
 
 func areSupportedModelFormatsEqual(m1 v1alpha1.SupportedModelFormat, m2 v1alpha1.SupportedModelFormat) bool {
 	if strings.EqualFold(m1.Name, m2.Name) && ((m1.Version == nil && m2.Version == nil) ||

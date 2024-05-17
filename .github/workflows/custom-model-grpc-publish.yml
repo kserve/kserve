@@ -26,15 +26,18 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Run tests
-        run: |
-          if [ -f docker-compose.test.yml ]; then
-            docker-compose --file docker-compose.test.yml build
-            docker-compose --file docker-compose.test.yml run sut
-          else
-            cd python
-            docker buildx build . --file custom_model_grpc.Dockerfile
-          fi
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64
+          context: python
+          file: python/custom_model_grpc.Dockerfile
+          push: false
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false
 
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
@@ -49,15 +52,16 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Build image
-        run: |
-          cd python
-          docker buildx build . --file custom_model_grpc.Dockerfile --tag $IMAGE_NAME
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Log into registry
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push image
+      - name: Export version variable
         run: |
           IMAGE_ID=kserve/$IMAGE_NAME
 
@@ -73,8 +77,16 @@ jobs:
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
 
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
+          echo VERSION=$VERSION >> $GITHUB_ENV
+          echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
 
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64
+          context: python
+          file: python/custom_model_grpc.Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false

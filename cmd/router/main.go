@@ -78,12 +78,16 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Error(err, "An error has occurred while closing the response body")
+
+	defer func() {
+		if resp.Body != nil {
+			err := resp.Body.Close()
+			if err != nil {
+				log.Error(err, "An error has occurred while closing the response body")
+			}
 		}
-	}(resp.Body)
+	}()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Error(err, "Error while reading the response")
@@ -96,7 +100,7 @@ func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
 	if err != nil {
 		panic(err)
 	}
-	//generate num [0,100)
+	// generate num [0,100)
 	point := int(randomNumber.Int64())
 	end := 0
 	for _, route := range routes {
@@ -217,7 +221,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				return nil, 500, err
 			}
 		}
-		//return json.Marshal(response)
+		// return json.Marshal(response)
 		combinedResponse, _ := json.Marshal(response) // TODO check if you need err handling for Marshalling
 		return combinedResponse, 200, nil
 	}

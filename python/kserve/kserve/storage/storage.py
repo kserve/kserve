@@ -302,7 +302,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 dest_path = os.path.join(temp_dir, subdir_object_key)
                 logging.info("Downloading: %s", dest_path)
                 blob.download_to_filename(dest_path)
-            file_count += 1
+                file_count += 1
         if file_count == 0:
             raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
 

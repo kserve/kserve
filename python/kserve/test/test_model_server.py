@@ -12,23 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+import pytest
+from kserve import ModelServer
 
-from kserve.model_repository import MODEL_MOUNT_DIRS, ModelRepository
-
-from .model import HuggingfaceModel
+UNKNOWN_MODEL_TYPE_ERR_MESSAGE = "Unknown model collection types"
 
 
-class HuggingfaceModelRepository(ModelRepository):
-    def __init__(self, model_dir: str = MODEL_MOUNT_DIRS):
-        super().__init__(model_dir)
-        self.load_models()
+def test_model_server_start_no_models():
+    server = ModelServer()
 
-    async def load(self, name: str) -> bool:
-        return self.load_model(name)
+    with pytest.raises(RuntimeError) as exc:
+        server.start(models=None)
 
-    def load_model(self, name: str) -> bool:
-        model = HuggingfaceModel(name, os.path.join(self.models_dir, name))
-        if model.load():
-            self.update(model)
-        return model.ready
+    assert exc.value.args[0] == UNKNOWN_MODEL_TYPE_ERR_MESSAGE
