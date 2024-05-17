@@ -4,6 +4,7 @@ PredictorSpec defines the configuration for a predictor, The following fields fo
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**scale_metric_type** | **str** | Type of metric to use. Options are Utilization, or AverageValue. | [optional] 
 **active_deadline_seconds** | **int** | Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer. | [optional] 
 **affinity** | [**V1Affinity**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Affinity.md) |  | [optional] 
 **annotations** | **dict(str, str)** | Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations | [optional] 
@@ -26,7 +27,6 @@ Name | Type | Description | Notes
 **huggingface** | [**V1beta1HuggingFaceRuntimeSpec**](V1beta1HuggingFaceRuntimeSpec.md) |  | [optional] 
 **image_pull_secrets** | [**list[V1LocalObjectReference]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1LocalObjectReference.md) | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod | [optional] 
 **init_containers** | [**list[V1Container]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Container.md) | List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/ | [optional] 
-**kedascaler** | [**V1beta1KedaScaler**](V1beta1KedaScaler.md) |  | [optional] 
 **labels** | **dict(str, str)** | Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels | [optional] 
 **lightgbm** | [**V1beta1LightGBMSpec**](V1beta1LightGBMSpec.md) |  | [optional] 
 **logger** | [**V1beta1LoggerSpec**](V1beta1LoggerSpec.md) |  | [optional] 

@@ -16,6 +16,8 @@ limitations under the License.
 package hpa
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -24,7 +26,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
-	"testing"
 )
 
 func TestCreateHPA(t *testing.T) {
