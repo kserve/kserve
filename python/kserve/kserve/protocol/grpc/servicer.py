@@ -22,6 +22,8 @@ from kserve.utils.utils import to_headers
 
 from grpc import ServicerContext
 
+from ...errors import InvalidInput
+
 
 class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
 
@@ -33,6 +35,21 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
         super().__init__()
         self._data_plane = data_plane
         self._mode_repository_extension = model_repository_extension
+
+    @classmethod
+    def validate_grpc_request(cls, request: pb.ModelInferRequest):
+        raw_inputs_length = len(request.raw_input_contents)
+        if raw_inputs_length != 0 and len(request.inputs) != raw_inputs_length:
+            raise InvalidInput(
+                f"the number of inputs ({len(request.inputs)}) does not match the expected number of "
+                f"raw input contents ({raw_inputs_length}) for model '{request.model_name}'."
+            )
+        if raw_inputs_length != 0:
+            for input_ in request.inputs:
+                if input_.HasField("contents"):
+                    raise InvalidInput(
+                        f"contents field must not be specified when using raw_input_contents for input '{input_.name}' for model '{request.model_name}'"
+                    )
 
     async def ServerMetadata(self, request: pb.ServerMetadataRequest, context):
         metadata = self._data_plane.metadata()
@@ -96,6 +113,7 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
         self, request: pb.ModelInferRequest, context: ServicerContext
     ) -> pb.ModelInferResponse:
         headers = to_headers(context)
+        self.validate_grpc_request(request)
         infer_request = InferRequest.from_grpc(request)
         response_body, _ = await self._data_plane.infer(
             request=infer_request, headers=headers, model_name=request.model_name

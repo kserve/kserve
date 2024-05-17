@@ -212,7 +212,9 @@ def get_predict_response(
                     name=col,
                     shape=list(result[col].shape),
                     datatype=from_np_dtype(result[col].dtype),
-                    data=result[col].tolist(),
+                )
+                infer_output.set_data_from_numpy(
+                    result[col].to_numpy(), binary_data=payload.use_binary_outputs
                 )
                 infer_outputs.append(infer_output)
         elif (
@@ -222,7 +224,10 @@ def get_predict_response(
                 name="output-0",
                 shape=[len(result)],
                 datatype="BYTES",
-                data=result,
+            )
+            infer_output.set_data_from_numpy(
+                np.array(result, dtype=np.object_),
+                binary_data=payload.use_binary_outputs,
             )
             infer_outputs.append(infer_output)
         else:
@@ -232,7 +237,9 @@ def get_predict_response(
                 name="output-0",
                 shape=list(result.shape),
                 datatype=from_np_dtype(result.dtype),
-                data=result.flatten().tolist(),
+            )
+            infer_output.set_data_from_numpy(
+                result, binary_data=payload.use_binary_outputs
             )
             infer_outputs.append(infer_output)
         return InferResponse(
