@@ -31,5 +31,5 @@ type LogRequest struct {
 	Namespace        string
 	Component        string
 	Endpoint         string
-	Metadata         map[string][]interface{}
+	Metadata         map[string][]string
 }
