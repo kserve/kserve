@@ -57,7 +57,7 @@ class ModelRepository:
         if not model:
             return False
         if isinstance(model, BaseKServeModel):
-            return model.ready
+            return model.healthy()
         else:
             # For Ray Serve, the models are guaranteed to be ready after deploying the model.
             return True

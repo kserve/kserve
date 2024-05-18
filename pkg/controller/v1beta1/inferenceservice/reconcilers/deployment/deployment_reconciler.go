@@ -77,6 +77,9 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 			},
 		},
 	}
+	if componentExt.DeploymentStrategy != nil {
+		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
+	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 	return deployment
 }
@@ -182,7 +185,7 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	if spec.Strategy.Type == "" {
 		spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
 	}
-	if spec.Strategy.RollingUpdate == nil {
+	if spec.Strategy.Type == appsv1.RollingUpdateDeploymentStrategyType && spec.Strategy.RollingUpdate == nil {
 		spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{
 			MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
 			MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},

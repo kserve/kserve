@@ -14,6 +14,7 @@
 
 from kserve import ModelRepository, Model
 from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
+from unittest.mock import patch
 from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionResponse as ChatCompletion,
     CreateChatCompletionStreamResponse as ChatCompletionChunk,
@@ -56,7 +57,7 @@ def test_adding_openai_model():
     assert actual.name == "openai-model"
 
 
-def test_is_model_ready_inexsistent_model():
+def test_is_model_ready_nonexistent_model():
     repo = ModelRepository()
     actual = repo.is_model_ready("none-model")
     assert actual is False
@@ -66,13 +67,14 @@ def test_is_model_ready_kserve_model():
     repo = ModelRepository()
     model = Model(name="kserve-model")
     repo.update(model)
-
-    actual = repo.is_model_ready("kserve-model")
-    assert actual is False
-
-    model.load()
-    actual = repo.is_model_ready("kserve-model")
-    assert actual is True
+    with patch.object(model, "healthy"):
+        model.healthy.side_effect = lambda: model.ready
+        actual = repo.is_model_ready("kserve-model")
+        assert actual is False
+        model.load()
+        actual = repo.is_model_ready("kserve-model")
+        assert actual is True
+        assert len(model.healthy.call_args) == 2
 
 
 def test_is_model_ready_openai_model():

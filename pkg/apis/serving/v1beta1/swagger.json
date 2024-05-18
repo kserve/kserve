@@ -1007,6 +1007,10 @@
           "type": "integer",
           "format": "int64"
         },
+        "deploymentStrategy": {
+          "description": "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
+          "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
+        },
         "labels": {
           "description": "Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels",
           "type": "object",
@@ -2093,6 +2097,10 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
+        },
+        "deploymentStrategy": {
+          "description": "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
+          "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
         },
         "dnsConfig": {
           "description": "Specifies the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS configuration based on DNSPolicy.",
@@ -4132,6 +4140,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "deploymentStrategy": {
+          "description": "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
+          "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
+        },
         "dnsConfig": {
           "description": "Specifies the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS configuration based on DNSPolicy.",
           "$ref": "#/definitions/v1.PodDNSConfig"
@@ -5004,6 +5016,10 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
+        },
+        "deploymentStrategy": {
+          "description": "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
+          "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
         },
         "dnsConfig": {
           "description": "Specifies the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS configuration based on DNSPolicy.",

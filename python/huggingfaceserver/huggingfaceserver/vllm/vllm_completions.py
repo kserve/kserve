@@ -259,9 +259,7 @@ class OpenAIServingCompletion:
                         choices=[
                             CompletionChoice(
                                 index=i,
-                                finish_reason=(
-                                    finish_reason if finish_reason else "length"
-                                ),  # finish_reason validation expects it be one of Literal["stop", "length", "content_filter"]
+                                finish_reason=finish_reason,
                                 text=delta_text,
                                 logprobs=logprobs,
                             )
