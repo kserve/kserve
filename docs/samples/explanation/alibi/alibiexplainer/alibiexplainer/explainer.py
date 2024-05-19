@@ -11,24 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
-import logging
 import asyncio
 from enum import Enum
 from typing import List, Any, Mapping, Union, Dict
 
-import kserve
 import numpy as np
+import nest_asyncio
+
 from alibiexplainer.anchor_images import AnchorImages
 from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
-import nest_asyncio
+import kserve
+from kserve.logging import logger
 
 nest_asyncio.apply()
-
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
 
 
 class ExplainerMethod(Enum):
@@ -51,7 +51,7 @@ class AlibiExplainer(kserve.Model):
     ):
         super().__init__(name)
         self.predictor_host = predictor_host
-        logging.info("Predict URL set to %s", self.predictor_host)
+        logger.info("Predict URL set to %s", self.predictor_host)
         self.method = method
 
         if self.method is ExplainerMethod.anchor_tabular:
@@ -84,7 +84,7 @@ class AlibiExplainer(kserve.Model):
         ):
             explanation = self.wrapper.explain(payload["instances"])
             explanationAsJsonStr = explanation.to_json()
-            logging.info("Explanation: %s", explanationAsJsonStr)
+            logger.info("Explanation: %s", explanationAsJsonStr)
             return json.loads(explanationAsJsonStr)
 
         raise NotImplementedError

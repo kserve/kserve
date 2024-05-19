@@ -30,15 +30,21 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Run tests
-        run: |
-          if [ -f docker-compose.test.yml ]; then
-            docker-compose --file docker-compose.test.yml build
-            docker-compose --file docker-compose.test.yml run sut
-          else
-            cd python
-            docker buildx build . --file xgb.Dockerfile
-          fi
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64, linux/arm64/v8
+          context: python
+          file: python/xgb.Dockerfile
+          push: false
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false
 
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/

@@ -1,0 +1,10 @@
+{
+  "inputs": [
+    {
+      "name": "input-0",
+      "datatype": "BYTES",
+      "shape": [],
+      "data": ["HuggingFace is a company based in Paris and New York"]
+    }
+  ]
+}

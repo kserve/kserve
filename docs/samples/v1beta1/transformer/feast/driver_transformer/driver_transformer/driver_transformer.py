@@ -10,9 +10,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
 from typing import List, Dict, Union
-import logging
 
 import requests
 import numpy as np
@@ -21,8 +21,7 @@ import kserve
 from kserve import InferRequest, InferResponse, InferInput
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
+from kserve.logging import logger
 
 
 class DriverTransformer(kserve.Model):
@@ -66,12 +65,12 @@ class DriverTransformer(kserve.Model):
         self.feature_refs_key = [
             feature_refs[i].replace(":", "__") for i in range(len(feature_refs))
         ]
-        logging.info("Model name = %s", name)
-        logging.info("Protocol = %s", protocol)
-        logging.info("Predictor host = %s", predictor_host)
-        logging.info("Feast serving URL = %s", feast_serving_url)
-        logging.info("Entity id name = %s", entity_id_name)
-        logging.info("Feature refs = %s", feature_refs)
+        logger.info("Model name = %s", name)
+        logger.info("Protocol = %s", protocol)
+        logger.info("Predictor host = %s", predictor_host)
+        logger.info("Feast serving URL = %s", feast_serving_url)
+        logger.info("Entity id name = %s", entity_id_name)
+        logger.info("Feature refs = %s", feature_refs)
 
         self.timeout = 100
 
@@ -171,18 +170,18 @@ class DriverTransformer(kserve.Model):
             else "http://{0}/get-online-features".format(self.feast_serving_url)
         )
         json_params = json.dumps(params)
-        logging.info("feast request url %s", request_url)
-        logging.info("feast request headers %s", headers)
-        logging.info("feast request body %s", json_params)
+        logger.info("feast request url %s", request_url)
+        logger.info("feast request headers %s", headers)
+        logger.info("feast request body %s", json_params)
 
         resp = requests.post(request_url, data=json_params, headers=headers)
-        logging.info("feast response status is %s", resp.status_code)
-        logging.info("feast response headers %s", resp.headers)
+        logger.info("feast response status is %s", resp.status_code)
+        logger.info("feast response headers %s", resp.headers)
         features = resp.json()
-        logging.info("feast response body %s", features)
+        logger.info("feast response body %s", features)
 
         outputs = self.buildPredictRequest(inputs, features)
-        logging.info("The input for model predict is %s", outputs)
+        logger.info("The input for model predict is %s", outputs)
 
         return outputs
 
@@ -202,5 +201,5 @@ class DriverTransformer(kserve.Model):
             Dict: If a post process functionality is specified, it could convert
             raw rankings into a different list.
         """
-        logging.info("The output from model predict is %s", response)
+        logger.info("The output from model predict is %s", response)
         return response

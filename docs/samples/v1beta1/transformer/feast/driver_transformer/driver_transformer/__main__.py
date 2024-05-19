@@ -13,6 +13,7 @@
 
 import argparse
 import kserve
+from kserve import logging
 
 from .driver_transformer import DriverTransformer
 
@@ -55,6 +56,8 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     transformer = DriverTransformer(
         name=args.model_name,
         predictor_host=args.predictor_host,

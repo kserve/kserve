@@ -12,7 +12,6 @@
 # limitations under the License.
 
 import os
-import logging
 from kubernetes import client
 
 from kserve import KServeClient
@@ -28,8 +27,6 @@ from kubernetes.client import V1EnvVar
 import pytest
 from ..common.utils import predict
 from ..common.utils import KSERVE_TEST_NAMESPACE
-
-logging.basicConfig(level=logging.INFO)
 
 
 @pytest.mark.raw

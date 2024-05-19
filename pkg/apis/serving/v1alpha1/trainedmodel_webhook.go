@@ -19,8 +19,9 @@ package v1alpha1
 import (
 	"fmt"
 	"regexp"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/utils"

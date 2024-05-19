@@ -46,3 +46,8 @@ Please also list any relevant details for your test configuration.
 ```release-note
 
 ```
+
+**Re-running failed tests**
+
+- `/rerun-all` - rerun all failed workflows.
+- `/rerun-workflow <workflow name>` - rerun a specific failed workflow. Only one workflow name can be specified. Multiple /rerun-workflow commands are allowed per comment.

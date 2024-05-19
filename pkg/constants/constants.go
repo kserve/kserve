@@ -352,6 +352,8 @@ const (
 	CheckResultUpdate  CheckResultType = 1
 	CheckResultExisted CheckResultType = 2
 	CheckResultUnknown CheckResultType = 3
+	CheckResultDelete  CheckResultType = 4
+	CheckResultSkipped CheckResultType = 5
 )
 
 type DeploymentModeType string
@@ -360,6 +362,10 @@ const (
 	Serverless          DeploymentModeType = "Serverless"
 	RawDeployment       DeploymentModeType = "RawDeployment"
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
+)
+
+const (
+	DefaultNSKnativeServing = "knative-serving"
 )
 
 // built-in runtime servers
@@ -432,6 +438,12 @@ const (
 	StateReasonCompleted        = "Completed"
 	StateReasonError            = "Error"
 	StateReasonCrashLoopBackOff = "CrashLoopBackOff"
+)
+
+// CRD Kinds
+const (
+	IstioVirtualServiceKind = "VirtualService"
+	KnativeServiceKind      = "Service"
 )
 
 // GetRawServiceLabel generate native service label

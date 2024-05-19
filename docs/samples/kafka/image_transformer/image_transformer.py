@@ -11,7 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from typing import Dict, Union
 
 import boto3
@@ -20,8 +19,7 @@ import cv2
 import kserve
 from kserve import InferRequest, InferResponse
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
+from kserve.logging import logger
 
 session = boto3.Session()
 client = session.client(
@@ -49,7 +47,7 @@ class ImageTransformer(kserve.Model):
     async def preprocess(
         self, inputs: Union[Dict, InferRequest], headers: Dict[str, str] = None
     ) -> Union[Dict, InferRequest]:
-        logging.info("Received inputs %s", inputs)
+        logger.info("Received inputs %s", inputs)
         if inputs["EventName"] == "s3:ObjectCreated:Put":
             bucket = inputs["Records"][0]["s3"]["bucket"]["name"]
             key = inputs["Records"][0]["s3"]["object"]["key"]
@@ -64,10 +62,10 @@ class ImageTransformer(kserve.Model):
         response: Union[Dict, InferResponse, ModelInferResponse],
         headers: Dict[str, str] = None,
     ) -> Union[Dict, ModelInferResponse]:
-        logging.info("response: %s", response)
+        logger.info("response: %s", response)
         index = response["predictions"][0]["classes"]
-        logging.info("digit:" + str(index))
+        logger.info("digit:" + str(index))
         upload_path = f"digit-{index}/{self._key}"
         client.upload_file("/tmp/" + self._key, digits_bucket, upload_path)
-        logging.info(f"Image {self._key} successfully uploaded to {upload_path}")
+        logger.info(f"Image {self._key} successfully uploaded to {upload_path}")
         return response

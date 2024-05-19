@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import argparse
 
-from kserve import Model, ModelServer
+from kserve import Model, ModelServer, logging, model_server
 from torchvision import models, transforms
 from typing import Dict
 import torch
@@ -70,5 +71,10 @@ class AlexNetModel(Model):
         return {"predictions": values.tolist()}
 
 
+parser = argparse.ArgumentParser(parents=[model_server.parser])
+args, _ = parser.parse_known_args()
+
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     ModelServer().start({"custom-model": AlexNetModel})

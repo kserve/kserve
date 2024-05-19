@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import logging
+import argparse
 import os
 import sys
 
@@ -22,11 +21,14 @@ from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-i
 from alibiexplainer.parser import parse_args
 
 import kserve
+from kserve import logging
 from kserve.storage import Storage
-
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
+from kserve.logging import logger
 
 EXPLAINER_FILENAME = "explainer.dill"
+
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
+args, _ = parser.parse_known_args()
 
 
 def main():
@@ -39,7 +41,7 @@ def main():
             Storage.download(args.storage_uri), EXPLAINER_FILENAME
         )
         with open(alibi_model, "rb") as f:
-            logging.info("Loading Alibi model")
+            logger.info("Loading Alibi model")
             alibi_model = dill.load(f)
 
     explainer = AlibiExplainer(
@@ -54,4 +56,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     main()

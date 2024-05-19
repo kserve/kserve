@@ -12,24 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Iterable, List, Tuple, Union
+from typing import AsyncIterator, Callable, Iterable, List, Tuple, Union, cast
+from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
-from openai.types import Completion, CompletionCreateParams
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    ChatCompletionMessageParam,
-)
-from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
-from openai.types.chat.completion_create_params import (
-    CompletionCreateParamsNonStreaming as ChatCompletionCreateParamsNonStreaming,
-)
-from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
 
-from kserve.protocol.rest.openai import ChatPrompt, OpenAIChatAdapterModel
+from kserve.protocol.rest.openai import (
+    ChatCompletionRequestMessage,
+    ChatPrompt,
+    CompletionRequest,
+    ChatCompletionRequest,
+    OpenAIChatAdapterModel,
+    OpenAIProxyModel,
+)
+from kserve.protocol.rest.openai.errors import OpenAIError
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionRequest,
+    Error,
+    ErrorResponse,
+)
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionResponse as ChatCompletion,
+)
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionStreamResponse as ChatCompletionChunk,
+)
+from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateCompletionResponse as Completion,
+)
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 
@@ -61,16 +75,17 @@ class DummyModel(OpenAIChatAdapterModel):
         self.num_chunks = num_chunks
 
     async def create_completion(
-        self, params: CompletionCreateParams
+        self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
-        if params.get("stream", False):
+        params = request.params
+        if params.stream:
             return ChunkIterator([self.data[1]] * self.num_chunks)
         else:
             return self.data[0]
 
     def apply_chat_template(
         self,
-        messages: Iterable[ChatCompletionMessageParam],
+        messages: Iterable[ChatCompletionRequestMessage],
     ) -> ChatPrompt:
         return ChatPrompt(prompt="hello")
 
@@ -88,6 +103,12 @@ def completion_partial():
 
 
 @pytest.fixture
+def completion_chunk_stream():
+    with open(FIXTURES_PATH / "completion_chunk_stream.txt", "rb") as f:
+        return f.read()
+
+
+@pytest.fixture
 def chat_completion():
     with open(FIXTURES_PATH / "chat_completion.json") as f:
         return ChatCompletion.model_validate_json(f.read())
@@ -100,20 +121,63 @@ def chat_completion_chunk():
 
 
 @pytest.fixture
+def chat_completion_chunk_stream():
+    with open(FIXTURES_PATH / "chat_completion_chunk_stream.txt", "rb") as f:
+        return f.read()
+
+
+@pytest.fixture
 def completion_create_params():
     with open(FIXTURES_PATH / "completion_create_params.json") as f:
-        return CompletionCreateParamsNonStreaming(**json.load(f))
+        return CreateCompletionRequest.model_validate_json(f.read())
 
 
 @pytest.fixture
 def chat_completion_create_params():
     with open(FIXTURES_PATH / "chat_completion_create_params.json") as f:
-        return ChatCompletionCreateParamsNonStreaming(**json.load(f))
+        return CreateChatCompletionRequest.model_validate_json(f.read())
+
+
+@pytest.fixture
+def completion_request(completion_create_params: CreateCompletionRequest):
+    return CompletionRequest(request_id="test-request", params=completion_create_params)
+
+
+@pytest.fixture
+def chat_completion_request(chat_completion_create_params: CreateChatCompletionRequest):
+    return ChatCompletionRequest(
+        request_id="test-request", params=chat_completion_create_params
+    )
 
 
 @pytest.fixture
 def dummy_model(completion: Completion, completion_partial: Completion):
     return DummyModel((completion, completion_partial))
+
+
+@asynccontextmanager
+async def mocked_openai_proxy_model(handler: Callable):
+    transport = httpx.MockTransport(handler=handler)
+    http_client = httpx.AsyncClient(transport=transport)
+    try:
+        with patch.object(
+            OpenAIProxyModel, "preprocess_completion_request"
+        ), patch.object(OpenAIProxyModel, "postprocess_completion"), patch.object(
+            OpenAIProxyModel, "postprocess_completion_chunk"
+        ), patch.object(
+            OpenAIProxyModel, "preprocess_chat_completion_request"
+        ), patch.object(
+            OpenAIProxyModel, "postprocess_chat_completion"
+        ), patch.object(
+            OpenAIProxyModel, "postprocess_chat_completion_chunk"
+        ):
+            yield OpenAIProxyModel(
+                name="test-model",
+                predictor_url="http://example.com/v1",
+                http_client=http_client,
+            )
+    finally:
+        await http_client.aclose()
 
 
 class TestOpenAICreateCompletion:
@@ -135,9 +199,10 @@ class TestOpenAICreateCompletion:
         self,
         dummy_model: DummyModel,
         completion: Completion,
-        completion_create_params: CompletionCreateParams,
+        completion_create_params: CreateCompletionRequest,
     ):
-        c = await dummy_model.create_completion(completion_create_params)
+        request = CompletionRequest(params=completion_create_params)
+        c = await dummy_model.create_completion(request)
         assert isinstance(c, Completion)
         assert c.model_dump_json(indent=2) == completion.model_dump_json(indent=2)
 
@@ -146,10 +211,11 @@ class TestOpenAICreateCompletion:
         self,
         dummy_model: DummyModel,
         completion_partial: Completion,
-        completion_create_params: CompletionCreateParams,
+        completion_create_params: CreateCompletionRequest,
     ):
-        completion_create_params["stream"] = True
-        c = await dummy_model.create_completion(completion_create_params)
+        completion_create_params.stream = True
+        request = CompletionRequest(params=completion_create_params)
+        c = await dummy_model.create_completion(request)
         assert isinstance(c, AsyncIterator)
         num_chunks_consumed = 0
         async for chunk in c:
@@ -179,9 +245,10 @@ class TestOpenAICreateChatCompletion:
         self,
         dummy_model: DummyModel,
         chat_completion: ChatCompletion,
-        chat_completion_create_params: ChatCompletionCreateParams,
+        chat_completion_create_params: CreateChatCompletionRequest,
     ):
-        c = await dummy_model.create_chat_completion(chat_completion_create_params)
+        request = ChatCompletionRequest(params=chat_completion_create_params)
+        c = await dummy_model.create_chat_completion(request)
         assert isinstance(c, ChatCompletion)
         assert c.model_dump_json(indent=2) == chat_completion.model_dump_json(indent=2)
 
@@ -190,10 +257,11 @@ class TestOpenAICreateChatCompletion:
         self,
         dummy_model: DummyModel,
         chat_completion_chunk: ChatCompletionChunk,
-        chat_completion_create_params: ChatCompletionCreateParams,
+        chat_completion_create_params: CreateChatCompletionRequest,
     ):
-        chat_completion_create_params["stream"] = True
-        c = await dummy_model.create_chat_completion(chat_completion_create_params)
+        chat_completion_create_params.stream = True
+        request = ChatCompletionRequest(params=chat_completion_create_params)
+        c = await dummy_model.create_chat_completion(request)
         assert isinstance(c, AsyncIterator)
         num_chunks_consumed = 0
         async for chunk in c:
@@ -234,13 +302,229 @@ class TestOpenAICompletionConversion:
 class TestOpenAIParamsConversion:
     def test_convert_params(
         self,
-        chat_completion_create_params: ChatCompletionCreateParamsNonStreaming,
-        completion_create_params: CompletionCreateParams,
+        chat_completion_create_params: CreateChatCompletionRequest,
+        completion_create_params: CreateCompletionRequest,
     ):
         converted_params = (
             OpenAIChatAdapterModel.chat_completion_params_to_completion_params(
                 chat_completion_create_params,
-                prompt=chat_completion_create_params["messages"][0]["content"],
+                prompt=chat_completion_create_params.messages[0].content,
             )
         )
         assert converted_params == completion_create_params
+
+
+class TestOpenAIProxyModelCompletion:
+
+    @pytest.mark.asyncio
+    async def test_completion_upstream_connection_error(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        def handler(request):
+            raise httpx.ConnectError(
+                "[Errno 8] nodename nor servname provided, or not known"
+            )
+
+        async with mocked_openai_proxy_model(handler) as model:
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert (
+            "Failed to communicate with upstream: [Errno 8] nodename nor servname provided"
+            in str(err_info.value)
+        )
+
+    @pytest.mark.asyncio
+    async def test_completion_upstream_status_code_error_invalid_body(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        def handler(request):
+            return httpx.Response(status_code=400, content="Junk response")
+
+        async with mocked_openai_proxy_model(handler) as model:
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert "Received invalid response from upstream: Junk response" in str(
+            err_info.value
+        )
+
+    @pytest.mark.asyncio
+    async def test_completion_upstream_status_code_error_valid_body(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        res = ErrorResponse(
+            error=Error(
+                code="400", message="Bad request", type="BadRequest", param=None
+            )
+        )
+
+        def handler(request):
+            return httpx.Response(status_code=400, content=res.model_dump_json())
+
+        async with mocked_openai_proxy_model(handler) as model:
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert err_info.value.response == res
+
+    @pytest.mark.asyncio
+    async def test_completion_upstream_timeout(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        def handler(request):
+            raise httpx.ReadTimeout("Read timed out", request=request)
+
+        async with mocked_openai_proxy_model(handler) as model:
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert (
+            str(err_info.value)
+            == "Timed out when communicating with upstream: Read timed out"
+        )
+
+    @pytest.mark.asyncio
+    async def test_completion_upstream_request_error(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        def handler(request):
+            raise httpx.RequestError("Some error", request=request)
+
+        async with mocked_openai_proxy_model(handler) as model:
+            with pytest.raises(OpenAIError) as err_info:
+                result = await model.create_completion(completion_request)
+                assert result == completion
+        assert str(err_info.value) == "Upstream request failed: Some error"
+
+    @pytest.mark.asyncio
+    async def test_completion_non_streamed(
+        self,
+        completion_request: CompletionRequest,
+        completion: Completion,
+    ):
+        def handler(request):
+            return httpx.Response(
+                200,
+                headers={"Content-type": "application/json"},
+                content=completion.model_dump_json(),
+            )
+
+        async with mocked_openai_proxy_model(handler) as model:
+            result = await model.create_completion(completion_request)
+            assert result == completion
+            cast(
+                MagicMock, OpenAIProxyModel.preprocess_completion_request
+            ).assert_called_once_with(completion_request)
+            cast(
+                MagicMock, OpenAIProxyModel.postprocess_completion
+            ).assert_called_once_with(completion, completion_request)
+            cast(
+                MagicMock, OpenAIProxyModel.preprocess_chat_completion_request
+            ).assert_not_called()
+            cast(
+                MagicMock, OpenAIProxyModel.postprocess_chat_completion
+            ).assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_completion_streamed(
+        self,
+        completion_request: CompletionRequest,
+        completion_chunk_stream: bytes,
+    ):
+        completion_request.params.stream = True
+
+        def handler(request):
+            return httpx.Response(
+                200,
+                headers={"Content-type": "text/event-stream"},
+                content=completion_chunk_stream,
+            )
+
+        async with mocked_openai_proxy_model(handler) as model:
+            async for completion_chunk in await model.create_completion(
+                completion_request
+            ):
+                cast(
+                    MagicMock, OpenAIProxyModel.postprocess_completion_chunk
+                ).assert_called_with(completion_chunk, completion_request)
+            cast(
+                MagicMock, OpenAIProxyModel.preprocess_completion_request
+            ).assert_called_once_with(completion_request)
+            cast(MagicMock, OpenAIProxyModel.postprocess_completion).assert_not_called()
+            cast(
+                MagicMock, OpenAIProxyModel.preprocess_chat_completion_request
+            ).assert_not_called()
+            cast(
+                MagicMock, OpenAIProxyModel.postprocess_chat_completion
+            ).assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_chat_completion_non_streamed(
+        self,
+        chat_completion_request: ChatCompletionRequest,
+        chat_completion: ChatCompletion,
+    ):
+        def handler(request):
+            return httpx.Response(
+                200,
+                headers={"Content-type": "application/json"},
+                content=chat_completion.model_dump_json(),
+            )
+
+        async with mocked_openai_proxy_model(handler) as model:
+            result = await model.create_chat_completion(chat_completion_request)
+            assert result == chat_completion
+            cast(
+                MagicMock, OpenAIProxyModel.preprocess_chat_completion_request
+            ).assert_called_once_with(chat_completion_request)
+            cast(
+                MagicMock, OpenAIProxyModel.postprocess_chat_completion
+            ).assert_called_once_with(chat_completion, chat_completion_request)
+            cast(
+                MagicMock, OpenAIProxyModel.preprocess_completion_request
+            ).assert_not_called()
+            cast(MagicMock, OpenAIProxyModel.postprocess_completion).assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_chat_completion_streamed(
+        self,
+        chat_completion_request: ChatCompletionRequest,
+        chat_completion_chunk_stream: bytes,
+    ):
+        chat_completion_request.params.stream = True
+
+        def handler(request):
+            return httpx.Response(
+                200,
+                headers={"Content-type": "text/event-stream"},
+                content=chat_completion_chunk_stream,
+            )
+
+        async with mocked_openai_proxy_model(handler) as model:
+            async for chat_completion_chunk in await model.create_chat_completion(
+                chat_completion_request
+            ):
+                cast(
+                    MagicMock, OpenAIProxyModel.postprocess_chat_completion_chunk
+                ).assert_called_with(chat_completion_chunk, chat_completion_request)
+            cast(
+                MagicMock, OpenAIProxyModel.preprocess_chat_completion_request
+            ).assert_called_once_with(chat_completion_request)
+            cast(MagicMock, OpenAIProxyModel.postprocess_completion).assert_not_called()
+            cast(
+                MagicMock, OpenAIProxyModel.preprocess_completion_request
+            ).assert_not_called()
+            cast(
+                MagicMock, OpenAIProxyModel.postprocess_chat_completion
+            ).assert_not_called()

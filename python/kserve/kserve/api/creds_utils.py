@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+
 import json
 import configparser
 from os.path import expanduser
@@ -20,7 +20,7 @@ from os.path import expanduser
 from kubernetes import client
 from ..constants import constants
 
-logger = logging.getLogger(__name__)
+from kserve.logging import logger
 
 
 def set_gcs_credentials(namespace, credentials_file, service_account):
@@ -253,7 +253,7 @@ def get_creds_name_from_config_map(creds):
             constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
         )
     except client.rest.ApiException:
-        logging.warning(
+        logger.warning(
             "Cannot get configmap %s in namespace %s.",
             constants.INFERENCESERVICE_CONFIG_MAP_NAME,
             constants.INFERENCESERVICE_SYSTEM_NAMESPACE,

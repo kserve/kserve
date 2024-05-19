@@ -9,7 +9,7 @@ spec:
     containerConcurrency: 0
     containers:
     - image: aipipeline/aifserver:predictor
-      name: kfserving-container
+      name: kserve-container
       resources:
         limits:
           cpu: "1"

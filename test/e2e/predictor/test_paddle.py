@@ -33,8 +33,6 @@ from kserve import (
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
-logging.basicConfig(level=logging.INFO)
-
 
 @pytest.mark.predictor
 def test_paddle():

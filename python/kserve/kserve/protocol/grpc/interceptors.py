@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from typing import Awaitable, Callable
 
 from grpc import HandlerCallDetails, RpcMethodHandler
 from grpc.aio import ServerInterceptor
+
+from ...logging import logger
 
 
 class LoggingInterceptor(ServerInterceptor):
@@ -26,5 +27,5 @@ class LoggingInterceptor(ServerInterceptor):
         continuation: Callable[[HandlerCallDetails], Awaitable[RpcMethodHandler]],
         handler_call_details: HandlerCallDetails,
     ) -> RpcMethodHandler:
-        logging.info(f"grpc method: {handler_call_details.method}")
+        logger.info(f"grpc method: {handler_call_details.method}")
         return await continuation(handler_call_details)

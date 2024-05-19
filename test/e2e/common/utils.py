@@ -10,6 +10,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
 import logging
 import os
@@ -27,8 +28,6 @@ from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
 
 from . import inference_pb2_grpc
-
-logging.basicConfig(level=logging.INFO)
 
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
@@ -298,3 +297,43 @@ def get_isvc_endpoint(isvc):
     else:
         cluster_ip = get_cluster_ip()
     return cluster_ip, host, path
+
+
+def generate(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+    chat_completions=True,
+):
+    with open(input_json) as json_file:
+        data = json.load(json_file)
+
+        kfs_client = KServeClient(
+            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+        )
+        isvc = kfs_client.get(
+            service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            version=version,
+        )
+        cluster_ip, host, path = get_isvc_endpoint(isvc)
+        headers = {"Host": host, "Content-Type": "application/json"}
+
+        if chat_completions:
+            url = f"http://{cluster_ip}{path}/openai/v1/chat/completions"
+        else:
+            url = f"http://{cluster_ip}{path}/openai/v1/completions"
+        logging.info("Sending Header = %s", headers)
+        logging.info("Sending url = %s", url)
+        logging.info("Sending request data: %s", data)
+        # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
+        time.sleep(10)
+        response = requests.post(url, json.dumps(data), headers=headers)
+        logging.info(
+            "Got response code %s, content %s", response.status_code, response.content
+        )
+        if response.status_code == 200:
+            preds = json.loads(response.content.decode("utf-8"))
+            return preds
+        else:
+            response.raise_for_status()

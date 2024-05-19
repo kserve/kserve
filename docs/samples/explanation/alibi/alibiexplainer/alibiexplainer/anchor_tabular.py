@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import kserve
-import logging
+
 import numpy as np
 import alibi
 from alibi.api.interfaces import Explanation
@@ -20,7 +19,7 @@ from alibi.utils.wrappers import ArgmaxTransformer
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 from typing import Callable, List, Optional, Dict
 
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
+from kserve.logging import logger
 
 
 class AnchorTabular(ExplainerWrapper):
@@ -41,7 +40,7 @@ class AnchorTabular(ExplainerWrapper):
         arr = np.array(inputs)
         # set anchor_tabular predict function so it always returns predicted class
         # See anchor_tabular.__init__
-        logging.info("Arr shape %s ", (arr.shape,))
+        logger.info("Arr shape %s ", (arr.shape,))
 
         # check if predictor returns predicted class or prediction probabilities for each class
         # if needed adjust predictor so it returns the predicted class

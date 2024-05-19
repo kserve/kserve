@@ -14,17 +14,24 @@
 
 import os
 from collections.abc import AsyncIterable
-from typing import AsyncGenerator, Dict
+from typing import AsyncGenerator
+import time
 
 from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
-from openai.types import CompletionCreateParams
-from openai.types.chat import CompletionCreateParams as ChatCompletionCreateParams
 from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
 
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateChatCompletionRequest,
+    CreateCompletionRequest,
+    ListModelsResponse,
+    Model,
+)
+
 from ....errors import ModelNotReady
 from .dataplane import OpenAIDataPlane
+from .errors import OpenAIError, openai_error_handler
 
 OPENAI_ROUTE_PREFIX = os.environ.get("KSERVE_OPENAI_ROUTE_PREFIX", "/openai")
 
@@ -32,18 +39,20 @@ if len(OPENAI_ROUTE_PREFIX) > 0 and not OPENAI_ROUTE_PREFIX.startswith("/"):
     OPENAI_ROUTE_PREFIX = f"/{OPENAI_ROUTE_PREFIX}"
 
 
-CompletionCreateParamsAdapter = TypeAdapter(CompletionCreateParams)
-ChatCompletionCreateParamsAdapter = TypeAdapter(ChatCompletionCreateParams)
+CreateCompletionRequestAdapter = TypeAdapter(CreateCompletionRequest)
+ChatCompletionRequestAdapter = TypeAdapter(CreateChatCompletionRequest)
 
 
 class OpenAIEndpoints:
     def __init__(self, dataplane: OpenAIDataPlane):
         self.dataplane = dataplane
+        self.start_time = int(time.time())
 
     async def create_completion(
         self,
         raw_request: Request,
-        request_body: Dict,
+        request_body: CreateCompletionRequest,
+        response: Response,
     ) -> Response:
         """Create completion handler.
 
@@ -56,18 +65,21 @@ class OpenAIEndpoints:
             InferenceResponse: Inference response object.
         """
         try:
-            params = CompletionCreateParamsAdapter.validate_python(request_body)
+            params = CreateCompletionRequestAdapter.validate_python(request_body)
         except ValidationError as e:
             raise RequestValidationError(errors=e.errors())
-        model_name = params["model"]
+        params = request_body
+        model_name = params.model
         model_ready = self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
 
-        request_headers = dict(raw_request.headers)
         completion = await self.dataplane.create_completion(
-            model_name=model_name, request=params, headers=request_headers
+            model_name=model_name,
+            request=params,
+            headers=raw_request.headers,
+            response=response,
         )
         if isinstance(completion, AsyncIterable):
 
@@ -83,31 +95,36 @@ class OpenAIEndpoints:
     async def create_chat_completion(
         self,
         raw_request: Request,
-        request_body: Dict,
+        request_body: CreateChatCompletionRequest,
+        response: Response,
     ) -> Response:
         """Create chat completion handler.
 
         Args:
             raw_request (Request): fastapi request object,
             model_name (str): Model name.
-            request_body (ChatCompletionCreateParams): Chat completion params body.
+            request_body (ChatCompletionRequestAdapter): Chat completion params body.
 
         Returns:
             InferenceResponse: Inference response object.
         """
         try:
-            params = ChatCompletionCreateParamsAdapter.validate_python(request_body)
+            params = ChatCompletionRequestAdapter.validate_python(request_body)
         except ValidationError as e:
             raise RequestValidationError(errors=e.errors())
-        model_name = params["model"]
+        params = request_body
+        model_name = params.model
         model_ready = self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
 
-        request_headers = dict(raw_request.headers)
+        request_headers = raw_request.headers
         completion = await self.dataplane.create_chat_completion(
-            model_name=model_name, request=request_body, headers=request_headers
+            model_name=model_name,
+            request=request_body,
+            headers=request_headers,
+            response=response,
         )
         if isinstance(completion, AsyncIterable):
 
@@ -120,6 +137,28 @@ class OpenAIEndpoints:
         else:
             return completion
 
+    async def models(
+        self,
+    ) -> ListModelsResponse:
+        """Create chat completion handler.
+
+        Args:
+            raw_request (Request): fastapi request object,
+
+        Returns:
+            ListModelsResponse: Model response object.
+        """
+        models = await self.dataplane.models()
+        return ListModelsResponse(
+            object="list",
+            data=[
+                Model(
+                    object="model", id=model.name, created=self.start_time, owned_by=""
+                )
+                for model in models
+            ],
+        )
+
 
 def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
     endpoints = OpenAIEndpoints(dataplane)
@@ -128,10 +167,20 @@ def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
         r"/v1/completions",
         endpoints.create_completion,
         methods=["POST"],
+        response_model_exclude_none=True,
+        response_model_exclude_unset=True,
     )
     openai_router.add_api_route(
         r"/v1/chat/completions",
         endpoints.create_chat_completion,
         methods=["POST"],
+        response_model_exclude_none=True,
+        response_model_exclude_unset=True,
+    )
+    openai_router.add_api_route(
+        r"/v1/models",
+        endpoints.models,
+        methods=["GET"],
     )
     app.include_router(openai_router)
+    app.add_exception_handler(OpenAIError, openai_error_handler)

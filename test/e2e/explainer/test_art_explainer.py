@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import logging
 import os
 
@@ -31,7 +32,6 @@ from ..common.utils import predict
 from ..common.utils import explain_art
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
-logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 

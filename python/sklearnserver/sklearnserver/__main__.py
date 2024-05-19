@@ -13,14 +13,13 @@
 # limitations under the License.
 
 import argparse
-import logging
 
+from kserve import logging
 from sklearnserver import SKLearnModel, SKLearnModelRepository
 
 import kserve
 from kserve.errors import ModelMissingError
-
-DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
+from kserve.logging import logger
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument(
@@ -29,13 +28,15 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     model = SKLearnModel(args.model_name, args.model_dir)
     try:
         model.load()
         kserve.ModelServer().start([model] if model.ready else [])
 
     except ModelMissingError:
-        logging.error(
+        logger.error(
             f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
             f"trying loading from model repository."
         )

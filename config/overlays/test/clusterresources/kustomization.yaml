@@ -24,3 +24,6 @@ images:
 
 - name: kserve/storage-initializer
   newTag: latest
+
+- name: kserve/huggingfaceserver
+  newTag: latest

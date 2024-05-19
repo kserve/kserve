@@ -85,7 +85,7 @@ const (
 )
 
 type config struct {
-	//Making the below fields optional since raw deployment wont have them
+	// Making the below fields optional since raw deployment wont have them
 	ContainerConcurrency   int    `split_words:"true"`
 	QueueServingPort       int    `split_words:"true"`
 	UserPort               int    `split_words:"true"`
@@ -313,7 +313,6 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 
 func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs, // nolint unparam
 	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
-
 	logging.Infof("Building server user port %s port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",

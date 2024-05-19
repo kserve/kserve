@@ -25,8 +25,6 @@ from requests.exceptions import HTTPError
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
-logging.basicConfig(level=logging.INFO)
-
 SUCCESS_ISVC_IMAGE = "kserve/success-200-isvc:" + os.environ.get("GITHUB_SHA")
 ERROR_ISVC_IMAGE = "kserve/error-404-isvc:" + os.environ.get("GITHUB_SHA")
 IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"

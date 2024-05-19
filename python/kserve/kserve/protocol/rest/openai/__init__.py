@@ -12,10 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    from .openai_model import ChatPrompt, OpenAIChatAdapterModel, OpenAIModel
+from .openai_model import (
+    ChatPrompt,
+    CompletionRequest,
+    ChatCompletionRequest,
+    OpenAIModel,
+)
 
-    __all__ = ["OpenAIModel", "OpenAIChatAdapterModel", "ChatPrompt"]
+from .openai_proxy_model import OpenAIProxyModel
+from .openai_chat_adapter_model import OpenAIChatAdapterModel
+from .types import ChatCompletionRequestMessage
 
-except ImportError:
-    pass
+__all__ = [
+    "OpenAIModel",
+    "OpenAIChatAdapterModel",
+    "OpenAIProxyModel",
+    "ChatPrompt",
+    "CompletionRequest",
+    "ChatCompletionRequest",
+    "ChatCompletionRequestMessage",
+]

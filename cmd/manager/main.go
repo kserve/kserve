@@ -23,6 +23,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/kserve/kserve/pkg/utils"
 	istio_networking "istio.io/api/networking/v1beta1"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -159,13 +160,26 @@ func main() {
 		setupLog.Error(err, "unable to get ingress config.")
 		os.Exit(1)
 	}
-	if deployConfig.DefaultDeploymentMode == string(constants.Serverless) {
+
+	ksvcFound, ksvcCheckErr := utils.IsCrdAvailable(cfg, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+	if ksvcCheckErr != nil {
+		setupLog.Error(ksvcCheckErr, "error when checking if Knative Service kind is available")
+		os.Exit(1)
+	}
+	if ksvcFound {
 		setupLog.Info("Setting up Knative scheme")
 		if err := knservingv1.AddToScheme(mgr.GetScheme()); err != nil {
 			setupLog.Error(err, "unable to add Knative APIs to scheme")
 			os.Exit(1)
 		}
-		if !ingressConfig.DisableIstioVirtualHost {
+	}
+	if !ingressConfig.DisableIstioVirtualHost {
+		vsFound, vsCheckErr := utils.IsCrdAvailable(cfg, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
+		if vsCheckErr != nil {
+			setupLog.Error(vsCheckErr, "error when checking if Istio VirtualServices are available")
+			os.Exit(1)
+		}
+		if vsFound {
 			setupLog.Info("Setting up Istio schemes")
 			if err := istioclientv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
 				setupLog.Error(err, "unable to add Istio v1beta1 APIs to scheme")
@@ -196,7 +210,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//Setup TrainedModel controller
+	// Setup TrainedModel controller
 	trainedModelEventBroadcaster := record.NewBroadcaster()
 	setupLog.Info("Setting up v1beta1 TrainedModel controller")
 	trainedModelEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
@@ -211,7 +225,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//Setup Inference graph controller
+	// Setup Inference graph controller
 	inferenceGraphEventBroadcaster := record.NewBroadcaster()
 	setupLog.Info("Setting up InferenceGraph controller")
 	inferenceGraphEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})

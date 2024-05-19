@@ -11,8 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import logging
+import os
 import time
 import requests
 import portforward
@@ -26,10 +26,10 @@ from kserve import (
     V1beta1SKLearnSpec,
 )
 from kubernetes.client import V1ResourceRequirements
+
 from ..common.utils import KSERVE_TEST_NAMESPACE, get_cluster_ip
 from ..common.utils import predict
 
-logging.basicConfig(level=logging.INFO)
 
 ENABLE_METRIC_AGG = "serving.kserve.io/enable-metric-aggregation"
 METRICS_AGG_PORT = 9088
