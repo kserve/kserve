@@ -18,7 +18,7 @@ import concurrent.futures
 import signal
 import sys
 from importlib import metadata
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
