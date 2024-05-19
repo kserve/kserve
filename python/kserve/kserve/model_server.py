@@ -20,8 +20,7 @@ import signal
 import socket
 import sys
 from multiprocessing import Process
-from typing import Any, Callable, Dict, List, Optional, Union
-
+from typing import Any, Callable, Dict, List, Optional
 from . import logging
 from .logging import logger
 from .model import BaseKServeModel
