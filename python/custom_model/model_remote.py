@@ -11,16 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from kserve import Model, ModelServer
-from kserve.ray import RayModel
-from torchvision import models, transforms
-from typing import Dict
-import torch
-from PIL import Image
+import argparse
 import base64
 import io
+from typing import Dict
+
+import torch
+from PIL import Image
 from ray import serve
+from torchvision import models, transforms
+
+from kserve import Model, ModelServer, logging, model_server
+from kserve.ray import RayModel
 
 
 # the model handle name should match the model endpoint name
@@ -71,7 +73,12 @@ class AlexNetModel(Model):
         return {"predictions": values.tolist()}
 
 
+parser = argparse.ArgumentParser(parents=[model_server.parser])
+args, _ = parser.parse_known_args()
+
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     app = AlexNetModel.bind()
     handle = serve.run(app)
     model = RayModel(name="custom-model", handle=handle)

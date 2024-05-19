@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import kserve
-import logging
+
 import numpy as np
 import alibi
 from alibi.api.interfaces import Explanation
@@ -20,7 +19,7 @@ from alibi.utils.wrappers import ArgmaxTransformer
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 from typing import Callable, List, Optional, Dict
 
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
+from kserve.logging import logger
 
 
 class AnchorImages(ExplainerWrapper):
@@ -44,7 +43,7 @@ class AnchorImages(ExplainerWrapper):
             self.anchors_image.predictor = self.predict_fn
         else:
             self.anchors_image.predictor = ArgmaxTransformer(self.predict_fn)
-        logging.info("Calling explain on image of shape %s", (arr.shape,))
-        logging.info("anchor image call with %s", self.kwargs)
+        logger.info("Calling explain on image of shape %s", (arr.shape,))
+        logger.info("anchor image call with %s", self.kwargs)
         anchor_exp = self.anchors_image.explain(arr[0], **self.kwargs)
         return anchor_exp

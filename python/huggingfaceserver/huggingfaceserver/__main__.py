@@ -18,6 +18,7 @@ from typing import cast
 
 import torch
 import kserve
+from kserve import logging
 from kserve.logging import logger
 from kserve.model import PredictorConfig
 from kserve.storage import Storage
@@ -237,6 +238,8 @@ def load_model():
 
 
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     try:
         model = load_model()
         kserve.ModelServer().start([model] if model.ready else [])

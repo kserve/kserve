@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import time
 from importlib import metadata
 from typing import Dict, Optional, Tuple, Union
@@ -26,7 +25,8 @@ from cloudevents.sdk.converters.util import has_binary_headers
 
 from ..constants import constants
 from ..errors import InvalidInput, ModelNotFound
-from ..model import InferenceVerb, BaseKServeModel, InferenceModel
+from ..logging import logger
+from ..model import InferenceVerb, Model
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
@@ -251,7 +251,7 @@ class DataPlane:
 
         decoded_body, attributes = self.decode_cloudevent(body)
         t2 = time.time()
-        logging.debug(f"decoded request in {round((t2 - t1) * 1000, 9)}ms")
+        logger.debug(f"decoded request in {round((t2 - t1) * 1000, 9)}ms")
         return decoded_body, attributes
 
     def decode_cloudevent(self, body) -> Tuple[Union[Dict, InferRequest], Dict]:

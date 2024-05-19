@@ -14,17 +14,16 @@
 
 import argparse
 import kserve
-import logging
 import os
-from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
+from alibiexplainer.explainer import ExplainerMethod
 
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
+from kserve.logging import logger
 
 DEFAULT_EXPLAINER_NAME = "explainer"
 ENV_STORAGE_URI = "STORAGE_URI"
 
 
-class GroupedAction(argparse.Action):  # pylint:disable=too-few-public-methods
+class GroupedAction(argparse.Action):
     def __call__(self, theparser, namespace, values, option_string=None):
         group, dest = self.dest.split(".", 2)
         groupspace = getattr(namespace, group, argparse.Namespace())
@@ -213,5 +212,5 @@ def parse_args(sys_args):
         extra = vars(args.explainer)
     else:
         extra = {}
-    logging.info("Extra args: %s", extra)
+    logger.info("Extra args: %s", extra)
     return args, extra

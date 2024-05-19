@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import argparse
 import io
 from typing import Dict
 
 import torch
-from kserve import InferRequest, Model, ModelServer
+from kserve import InferRequest, Model, ModelServer, logging, model_server
 from kserve.utils.utils import generate_uuid
 from PIL import Image
 from torchvision import models, transforms
@@ -86,7 +86,12 @@ class AlexNetModel(Model):
         return response
 
 
+parser = argparse.ArgumentParser(parents=[model_server.parser])
+args, _ = parser.parse_known_args()
+
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     model = AlexNetModel("custom-model")
     model.load()
     ModelServer().start([model])
