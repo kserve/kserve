@@ -219,6 +219,9 @@ func validateKPAMetrics(metric ScaleMetric) error {
 }
 
 func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error {
+	if compExtSpec.DeploymentStrategy != nil {
+		return fmt.Errorf("customizing deploymentStrategy is only supported for raw deployment mode")
+	}
 	metric := MetricConcurrency
 	if compExtSpec.ScaleMetric != nil {
 		metric = *compExtSpec.ScaleMetric

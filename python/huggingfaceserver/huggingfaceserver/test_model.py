@@ -27,6 +27,7 @@ from .task import infer_task_from_model_architecture
 from .encoder_model import HuggingfaceEncoderModel
 from .generative_model import HuggingfaceGenerativeModel
 from .task import MLTask
+import torch
 
 
 @pytest.fixture(scope="module")
@@ -34,6 +35,7 @@ def bloom_model():
     model = HuggingfaceGenerativeModel(
         "bloom-560m",
         model_id_or_path="bigscience/bloom-560m",
+        dtype=torch.float32,
     )
     model.load()
     yield model
@@ -46,6 +48,7 @@ def t5_model():
         "t5-small",
         model_id_or_path="google-t5/t5-small",
         max_length=512,
+        dtype=torch.float32,
     )
     model.load()
     yield model
@@ -58,6 +61,7 @@ def bert_base_model():
         "google-bert/bert-base-uncased",
         model_id_or_path="bert-base-uncased",
         do_lower_case=True,
+        dtype=torch.float32,
     )
     model.load()
     yield model
@@ -70,6 +74,7 @@ def bert_base_yelp_polarity():
         "bert-base-uncased-yelp-polarity",
         model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
         task=MLTask.sequence_classification,
+        dtype=torch.float32,
     )
     model.load()
     yield model
@@ -83,6 +88,7 @@ def bert_token_classification():
         model_id_or_path="dbmdz/bert-large-cased-finetuned-conll03-english",
         do_lower_case=True,
         add_special_tokens=False,
+        dtype=torch.float32,
     )
     model.load()
     yield model
@@ -96,6 +102,7 @@ def openai_gpt_model():
         model_id_or_path="openai-community/openai-gpt",
         task=MLTask.text_generation,
         max_length=512,
+        dtype=torch.float32,
     )
     model.load()
     yield model

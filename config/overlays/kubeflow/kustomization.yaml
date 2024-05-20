@@ -28,11 +28,6 @@ replacements:
       version: v1
     targets:
       - select:
-          kind: CustomResourceDefinition
-          name: inferenceservices.serving.kserve.io
-        fieldPaths:
-          - spec.conversion.webhook.clientConfig.service.namespace
-      - select:
           kind: MutatingWebhookConfiguration
           name: inferenceservice.serving.kserve.io
         fieldPaths:
