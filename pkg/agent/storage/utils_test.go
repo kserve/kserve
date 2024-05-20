@@ -97,10 +97,17 @@ func TestGetProvider(t *testing.T) {
 			Client:     &mocks.MockS3Client{},
 			Downloader: &mocks.MockS3Downloader{},
 		},
+		AZURE: &AzureProvider{
+			Downloader: &mocks.MockAzureDownloader{},
+		},
 	}
 	provider, err := GetProvider(mockProviders, S3)
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(provider).Should(gomega.Equal(mockProviders[S3]))
+
+	provider, err = GetProvider(mockProviders, AZURE)
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(provider).Should(gomega.Equal(mockProviders[AZURE]))
 
 	// When providers map does not have specified provider
 	for _, protocol := range SupportedProtocols {

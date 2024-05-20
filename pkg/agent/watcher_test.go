@@ -81,6 +81,14 @@ var _ = Describe("Watcher", func() {
 							Memory:     resource.MustParse("100Mi"),
 						},
 					},
+					{
+						Name: "model3",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "azure://myServiceAccount.blob.core.windows.net/myContainer/triton/model3",
+							Framework:  "onnx",
+							Memory:     resource.MustParse("100Mi"),
+						},
+					},
 				}
 				_, err := os.Stat("/tmp/configs")
 				if os.IsNotExist(err) {
@@ -107,6 +115,9 @@ var _ = Describe("Watcher", func() {
 								Client:     &mocks.MockS3Client{},
 								Downloader: &mocks.MockS3Downloader{},
 							},
+							storage.AZURE: &storage.AzureProvider{
+								Downloader: &mocks.MockAzureDownloader{},
+							},
 						},
 						Logger: sugar,
 					},
@@ -118,6 +129,7 @@ var _ = Describe("Watcher", func() {
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model3"][Add] }).Should(Equal(1))
 				modelSpecMap, _ := SyncModelDir(modelDir+"/test1", watcher.logger)
 				Expect(watcher.ModelTracker).Should(Equal(modelSpecMap))
 
@@ -146,51 +158,8 @@ var _ = Describe("Watcher", func() {
 								Client:     &mocks.MockS3Client{},
 								Downloader: &mocks.MockS3Downloader{},
 							},
-						},
-						Logger: sugar,
-					},
-					logger: sugar,
-				}
-				go puller.processCommands(watcher.ModelEvents)
-				modelConfigs := modelconfig.ModelConfigs{
-					{
-						Name: "model1",
-						Spec: v1alpha1.ModelSpec{
-							StorageURI: "s3://models/model1",
-							Framework:  "sklearn",
-						},
-					},
-					{
-						Name: "model2",
-						Spec: v1alpha1.ModelSpec{
-							StorageURI: "s3://models/model2",
-							Framework:  "sklearn",
-						},
-					},
-				}
-				watcher.parseConfig(modelConfigs, false)
-				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
-				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
-				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
-			})
-		})
-
-		Context("When models are deleted from config", func() {
-			It("Should remove the model dir and unload the models", func() {
-				defer GinkgoRecover()
-				logger.Printf("Sync delete models using temp dir %v\n", modelDir)
-				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
-				puller := Puller{
-					channelMap:  make(map[string]*ModelChannel),
-					completions: make(chan *ModelOp, 4),
-					opStats:     make(map[string]map[OpType]int),
-					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
-					Downloader: &Downloader{
-						ModelDir: modelDir + "/test2",
-						Providers: map[storage.Protocol]storage.Provider{
-							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+							storage.AZURE: &storage.AzureProvider{
+								Downloader: &mocks.MockAzureDownloader{},
 							},
 						},
 						Logger: sugar,
@@ -213,9 +182,75 @@ var _ = Describe("Watcher", func() {
 							Framework:  "sklearn",
 						},
 					},
+					{
+						Name: "model3",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "azure://myServiceAccount.blob.core.windows.net/myContainer/triton/model3",
+							Framework:  "triton",
+							Memory:     resource.MustParse("100Mi"),
+						},
+					},
 				}
 				watcher.parseConfig(modelConfigs, false)
-				// remove model2
+				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
+				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model3"][Add] }).Should(Equal(1))
+			})
+		})
+
+		Context("When models are deleted from config", func() {
+			It("Should remove the model dir and unload the models", func() {
+				defer GinkgoRecover()
+				logger.Printf("Sync delete models using temp dir %v\n", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
+					Downloader: &Downloader{
+						ModelDir: modelDir + "/test2",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.S3: &storage.S3Provider{
+								Client:     &mocks.MockS3Client{},
+								Downloader: &mocks.MockS3Downloader{},
+							},
+							storage.AZURE: &storage.AzureProvider{
+								Downloader: &mocks.MockAzureDownloader{},
+							},
+						},
+						Logger: sugar,
+					},
+					logger: sugar,
+				}
+				go puller.processCommands(watcher.ModelEvents)
+				modelConfigs := modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "s3://models/model1",
+							Framework:  "sklearn",
+						},
+					},
+					{
+						Name: "model2",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "s3://models/model2",
+							Framework:  "sklearn",
+						},
+					},
+					{
+						Name: "model3",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "azure://myServiceAccount.blob.core.windows.net/myContainer/triton/model3",
+							Framework:  "triton",
+							Memory:     resource.MustParse("100Mi"),
+						},
+					},
+				}
+				watcher.parseConfig(modelConfigs, false)
+				// remove model2 and model3
 				modelConfigs = modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -230,6 +265,8 @@ var _ = Describe("Watcher", func() {
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Remove] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model3"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model3"][Remove] }).Should(Equal(1))
 			})
 		})
 
@@ -249,6 +286,9 @@ var _ = Describe("Watcher", func() {
 							storage.S3: &storage.S3Provider{
 								Client:     &mocks.MockS3Client{},
 								Downloader: &mocks.MockS3Downloader{},
+							},
+							storage.AZURE: &storage.AzureProvider{
+								Downloader: &mocks.MockAzureDownloader{},
 							},
 						},
 						Logger: sugar,
@@ -273,6 +313,13 @@ var _ = Describe("Watcher", func() {
 							Framework:  "sklearn",
 						},
 					},
+					{
+						Name: "model3",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "azure://myServiceAccount.blob.core.windows.net/myContainer/triton/model3",
+							Framework:  "triton",
+						},
+					},
 				}
 				watcher.parseConfig(modelConfigs, false)
 				// update model2 storageUri
@@ -291,12 +338,21 @@ var _ = Describe("Watcher", func() {
 							Framework:  "sklearn",
 						},
 					},
+					{
+						Name: "model3",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "azure://myServiceAccount.blob.core.windows.net/myContainer/triton/model3v3",
+							Framework:  "triton",
+						},
+					},
 				}
 				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(2))
+				Eventually(func() int { return puller.opStats["model3"][Add] }).Should(Equal(2))
 				Eventually(func() int { return puller.opStats["model2"][Remove] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model3"][Remove] }).Should(Equal(1))
 			})
 		})
 
@@ -324,6 +380,9 @@ var _ = Describe("Watcher", func() {
 								Client:     &mocks.MockS3Client{},
 								Downloader: &mocks.MockS3FailDownloader{Err: err},
 							},
+							storage.AZURE: &storage.AzureProvider{
+								Downloader: &mocks.MockAzureDownloader{},
+							},
 						},
 						Logger: sugar,
 					},
@@ -338,10 +397,18 @@ var _ = Describe("Watcher", func() {
 							Framework:  "sklearn",
 						},
 					},
+					{
+						Name: "model3",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "azure://myServiceAccount.blob.core.windows.net/myContainer/triton/model3",
+							Framework:  "triton",
+						},
+					},
 				}
 				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model3"][Add] }).Should(Equal(1))
 			})
 		})
 	})
@@ -378,6 +445,25 @@ var _ = Describe("Watcher", func() {
 				Expect(err).To(BeNil())
 				Expect(string(dat)).To(Equal(modelContents))
 			})
+
+			It("should download test model and write contents", func() {
+				defer GinkgoRecover()
+
+				logger.Printf("Creating mock Azure client")
+				client := storage.AzureProvider{
+					Downloader: &mocks.MockAzureDownloader{},
+				}
+
+				modelName := "model3"
+				modelStorageURI := "azure://myServiceAccount.blob.core.windows.net/myContainer/triton/model3"
+				err := client.DownloadModel(modelDir, modelName, modelStorageURI)
+				Expect(err).To(BeNil())
+
+				testFile := filepath.Join(modelDir, modelName, "1", "model.onnx")
+				dat, err := os.ReadFile(testFile)
+				Expect(err).To(BeNil())
+				Expect(string(dat)).To(Equal(mocks.ModelContents))
+			})
 		})
 
 		Context("Model Download Failure", func() {
@@ -405,6 +491,18 @@ var _ = Describe("Watcher", func() {
 				modelStorageURI := "gs://testBucket/testModel2"
 				expectedErr := fmt.Errorf("unable to download object/s because: %w", gstorage.ErrObjectNotExist)
 				actualErr := cl.DownloadModel(modelDir, modelName, modelStorageURI)
+				Expect(actualErr).To(Equal(expectedErr))
+			})
+
+			It("should fail out if the model does not exist in the bucket", func() {
+				defer GinkgoRecover()
+
+				logger.Printf("Creating mock Azure client")
+				cl := storage.AzureProvider{
+					Downloader: &mocks.MockEmptyAzureDownloader{},
+				}
+				expectedErr := fmt.Errorf("no blobs found")
+				actualErr := cl.DownloadModel(modelDir, "model3", "azure://myServiceAccount.blob.core.windows.net/myContainer/triton/model4")
 				Expect(actualErr).To(Equal(expectedErr))
 			})
 		})
@@ -522,6 +620,9 @@ var _ = Describe("Watcher", func() {
 								Client:     &mocks.MockS3Client{},
 								Downloader: &mocks.MockS3Downloader{},
 							},
+							storage.AZURE: &storage.AzureProvider{
+								Downloader: &mocks.MockAzureDownloader{},
+							},
 						},
 						Logger: sugar,
 					},
@@ -542,6 +643,13 @@ var _ = Describe("Watcher", func() {
 							Framework:  "sklearn",
 						},
 					},
+					{
+						Name: "model3",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "azure://myServiceAccount.blob.core.windows.net/myContainer/triton/model3",
+							Framework:  "triton",
+						},
+					},
 				}
 				puller.waitGroup.wg.Add(len(modelConfigs))
 				watcher.parseConfig(modelConfigs, true)
@@ -550,10 +658,10 @@ var _ = Describe("Watcher", func() {
 				Expect(len(puller.channelMap)).To(Equal(0))
 				Expect(puller.opStats["model1"][Add]).Should(Equal(1))
 				Expect(puller.opStats["model2"][Add]).Should(Equal(1))
+				Expect(puller.opStats["model3"][Add]).Should(Equal(1))
 			})
 		})
 	})
-
 	Describe("Use HTTP(S) Downloader", func() {
 		Context("Download Uncompressed Model", func() {
 			It("should download test model and write contents", func() {
@@ -700,7 +808,7 @@ var _ = Describe("Watcher", func() {
 						{
 							Name: "model1",
 							Spec: v1alpha1.ModelSpec{
-								StorageURI: "http://example.com/test.tar",
+								StorageURI: "https://example.com/test.tar",
 								Framework:  "sklearn",
 							},
 						},

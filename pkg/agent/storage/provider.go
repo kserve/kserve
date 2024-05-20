@@ -29,9 +29,10 @@ const (
 	// File  Protocol = "file://"
 	HTTPS Protocol = "https://"
 	HTTP  Protocol = "http://"
+	AZURE Protocol = "azure://"
 )
 
-var SupportedProtocols = []Protocol{S3, GCS, HTTPS, HTTP}
+var SupportedProtocols = []Protocol{S3, GCS, HTTPS, HTTP, AZURE}
 
 func GetAllProtocol() (protocols []string) {
 	for _, protocol := range SupportedProtocols {
