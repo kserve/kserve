@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from http import HTTPStatus
-from kserve.logging import logger
+from .logging import logger
 from fastapi.responses import JSONResponse
 
 

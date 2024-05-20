@@ -1688,6 +1688,24 @@ spec:
                           - name
                         type: object
                       type: array
+                    deploymentStrategy:
+                      properties:
+                        rollingUpdate:
+                          properties:
+                            maxSurge:
+                              anyOf:
+                                - type: integer
+                                - type: string
+                              x-kubernetes-int-or-string: true
+                            maxUnavailable:
+                              anyOf:
+                                - type: integer
+                                - type: string
+                              x-kubernetes-int-or-string: true
+                          type: object
+                        type:
+                          type: string
+                      type: object
                     dnsConfig:
                       properties:
                         nameservers:
@@ -4971,6 +4989,24 @@ spec:
                           - name
                         type: object
                       type: array
+                    deploymentStrategy:
+                      properties:
+                        rollingUpdate:
+                          properties:
+                            maxSurge:
+                              anyOf:
+                                - type: integer
+                                - type: string
+                              x-kubernetes-int-or-string: true
+                            maxUnavailable:
+                              anyOf:
+                                - type: integer
+                                - type: string
+                              x-kubernetes-int-or-string: true
+                          type: object
+                        type:
+                          type: string
+                      type: object
                     dnsConfig:
                       properties:
                         nameservers:
@@ -14524,6 +14560,24 @@ spec:
                           - name
                         type: object
                       type: array
+                    deploymentStrategy:
+                      properties:
+                        rollingUpdate:
+                          properties:
+                            maxSurge:
+                              anyOf:
+                                - type: integer
+                                - type: string
+                              x-kubernetes-int-or-string: true
+                            maxUnavailable:
+                              anyOf:
+                                - type: integer
+                                - type: string
+                              x-kubernetes-int-or-string: true
+                          type: object
+                        type:
+                          type: string
+                      type: object
                     dnsConfig:
                       properties:
                         nameservers:

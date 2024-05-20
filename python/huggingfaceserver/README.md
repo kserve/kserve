@@ -1,12 +1,12 @@
-# Huggingface Serving Runtime
+# HuggingFace Serving Runtime
 
-The Huggingface serving runtime implements a runtime that can serve huggingface transformer based model out of the box.
+The Huggingface serving runtime implements a runtime that can serve HuggingFace transformer based model out of the box.
 The preprocess and post-process handlers are implemented based on different ML tasks, for example text classification,
 token-classification, text-generation, text2text generation. Based on the performance requirement, you can choose to perform
 the inference on a more optimized inference engine like triton inference server and vLLM for text generation.
 
 
-## Run Huggingface Server Locally
+## Run HuggingFace Server Locally
 
 ```bash
 python -m huggingfaceserver --model_id=bert-base-uncased --model_name=bert
@@ -26,6 +26,12 @@ INFO:kserve:Starting uvicorn with 1 workers
 2024-01-08 06:32:08.805 uvicorn.error INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
 ```
 
+If you want to change the datatype, you can use --dtype flag. Available choices are float16, bfloat16, float32, auto, float, half.
+auto uses float16 if GPU is available and uses float32 otherwise to ensure consistency between vLLM and HuggingFace backends. encoder model defaults to float32. float is shorthand for float32. half is float16. The rest are as the name reads.
+```bash
+python -m huggingfaceserver --model_id=bert-base-uncased --model_name=bert --dtype=float16
+```
+
 Perform the inference
 
 ```bash
@@ -39,7 +45,7 @@ curl -H "content-type:application/json" -v localhost:8080/v1/models/bert:predict
 > 1. `SAFETENSORS_FAST_GPU` is set by default to improve the model loading performance.
 > 2. `HF_HUB_DISABLE_TELEMETRY` is set by default to disable the telemetry.
 
-1. Serve the huggingface model using KServe python runtime for both preprocess(tokenization)/postprocess and inference.
+1. Serve the BERT model using KServe python HuggingFace runtime for both preprocess(tokenization)/postprocess and inference.
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -64,7 +70,7 @@ spec:
           memory: 2Gi
 ```
 
-2. Serve the huggingface model using triton inference runtime and KServe transformer for the preprocess(tokenization) and postprocess.
+2. Serve the BERT model using Triton inference runtime and KServe transformer with HuggingFace runtime for the preprocess(tokenization) and postprocess steps.
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -105,8 +111,11 @@ spec:
           cpu: 100m
           memory: 2Gi
 ```
-3. Serve the huggingface model using vllm runtime. vllm is the default runtime. Note - Model need to be supported by vllm otherwise KServe python runtime will be used as a failsafe.
-vllm supported models - https://docs.vllm.ai/en/latest/models/supported_models.html 
+
+3. Serve the llama2 model using KServe HuggingFace vLLM runtime. For the llama2 model, vLLM is supported and used as the default backend.
+If available for a model, vLLM is set as the default backend, otherwise KServe HuggingFace runtime is used as a failsafe.
+You can find vLLM support models [here](https://docs.vllm.ai/en/latest/models/supported_models.html).
+
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -129,10 +138,10 @@ spec:
           cpu: "6"
           memory: 24Gi
           nvidia.com/gpu: "1"
-
 ```
 
-If vllm needs to be disabled include the flag `--disable_vllm` in the container args. In this case the KServe python runtime will be used.
+
+If vllm needs to be disabled include the flag `--backend=huggingface` in the container args. In this case the HuggingFace backend is used.
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -147,7 +156,7 @@ spec:
       args:
       - --model_name=llama2
       - --model_id=meta-llama/Llama-2-7b-chat-hf
-      - --disable_vllm
+      - --backend=huggingface
       resources:
         limits:
           cpu: "6"
@@ -159,11 +168,22 @@ spec:
           nvidia.com/gpu: "1"
 ```
 
-Perform the inference for vllm specific runtime
+Perform the inference:
 
-vllm runtime deployments only support `/generate` endpoint for inference. Please refer to [text generation API schema](https://github.com/kserve/open-inference-protocol/blob/main/specification/protocol/generate_rest.yaml) for more details.
+KServe Huggingface runtime deployments supports OpenAI `v1/completions` and `v1/chat/completions` endpoints for inference.
+
+Sample OpenAI Completions request:
+
 ```bash
-curl -H "content-type:application/json" -v localhost:8080/v2/models/gpt2/generate -d '{"text_input": "The capital of france is [MASK]." }'
+curl -H "content-type:application/json" -v localhost:8080/openai/v1/completions -d '{"model": "gpt2", "prompt": "<prompt>", "stream":false, "max_tokens": 30 }'
 
-{"text_output":"The capital of france is [MASK].\n\nThe capital of France is actually Paris.","model_name":"llama2","model_version":null,"details":null}
+{"id":"cmpl-7c654258ab4d4f18b31f47b553439d96","choices":[{"finish_reason":"length","index":0,"logprobs":null,"text":"<generated_text>"}],"created":1715353182,"model":"gpt2","system_fingerprint":null,"object":"text_completion","usage":{"completion_tokens":26,"prompt_tokens":4,"total_tokens":30}}
+```
+
+Sample OpenAI Chat request:
+
+```bash
+curl -H "content-type:application/json" -v localhost:8080/openai/v1/chat/completions -d '{"model": "gpt2", "messages": [{"role": "user","content": "<message>"}], "stream":false }'
+
+{"id":"cmpl-87ee252062934e2f8f918dce011e8484","choices":[{"finish_reason":"length","index":0,"message":{"content":"<generated_response>","tool_calls":null,"role":"assistant","function_call":null},"logprobs":null}],"created":1715353461,"model":"gpt2","system_fingerprint":null,"object":"chat.completion","usage":{"completion_tokens":30,"prompt_tokens":3,"total_tokens":33}}
 ```

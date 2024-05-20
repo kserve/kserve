@@ -34,7 +34,7 @@ export ISTIO_VERSION=1.20.4
 export ISTIO_DIR=istio-${ISTIO_VERSION}
 export KNATIVE_SERVING_VERSION=knative-v1.13.1
 export KNATIVE_ISTIO_VERSION=knative-v1.13.1
-export KSERVE_VERSION=v0.12.1
+export KSERVE_VERSION=v0.13.0-rc0
 export CERT_MANAGER_VERSION=v1.9.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 

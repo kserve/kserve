@@ -60,6 +60,15 @@ class BaseKServeModel(ABC):
         self.name = name
         self.ready = False
 
+    def healthy(self) -> bool:
+        """
+        Check the health of this model. By default returns `self.ready`.
+
+        Returns:
+            True if healthy, false otherwise
+        """
+        return self.ready
+
     def stop(self):
         """Stop handler can be overridden to perform model teardown"""
         pass
