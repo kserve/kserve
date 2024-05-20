@@ -27,15 +27,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type S3Provider struct {
 	Client     s3iface.S3API
 	Downloader s3manageriface.DownloadWithIterator
 }
-
-var log = logf.Log.WithName("modelAgent")
 
 var _ Provider = (*S3Provider)(nil)
 
