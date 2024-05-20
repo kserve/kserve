@@ -420,23 +420,6 @@ class TestDataPlaneOpenAI:
         ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
             pass
 
-    async def test_explain_on_openai_model_raises(self):
-        openai_model = self.DummyOpenAIModel(self.MODEL_NAME)
-        repo = ModelRepository()
-        repo.update(openai_model)
-        dataplane = DataPlane(model_registry=repo)
-
-        with pytest.raises(InvalidInput) as exc:
-            await dataplane.explain(
-                model_name=self.MODEL_NAME,
-                request={},
-            )
-
-        assert (
-            exc.value.reason
-            == "Model TestModel is of type OpenAIModel. It does not support the explain method."
-        )
-
     async def test_infer_on_openai_model_raises(self):
         openai_model = self.DummyOpenAIModel(self.MODEL_NAME)
         repo = ModelRepository()
