@@ -10,6 +10,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
 import logging
 import os
@@ -27,8 +28,6 @@ from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.protocol.grpc import grpc_predict_v2_pb2_grpc
 
 from . import inference_pb2_grpc
-
-logging.basicConfig(level=logging.INFO)
 
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"

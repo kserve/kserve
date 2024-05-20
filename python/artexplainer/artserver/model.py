@@ -11,17 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import asyncio
-import logging
 from typing import Dict
 
 import numpy as np
 from art.attacks.evasion.square_attack import SquareAttack
 from art.estimators.classification import BlackBoxClassifierNeuralNetwork
 
-import kserve
 
 import nest_asyncio
+
+import kserve
+from kserve.logging import logger
 
 nest_asyncio.apply()
 
@@ -66,7 +68,7 @@ class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
         try:
             inputs = np.array(image)
             label = np.array(label)
-            logging.info("Calling explain on image of shape %s", (inputs.shape,))
+            logger.info("Calling explain on image of shape %s", (inputs.shape,))
         except Exception as e:
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s"
