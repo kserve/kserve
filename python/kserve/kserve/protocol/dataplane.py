@@ -364,6 +364,11 @@ class DataPlane:
         """
         # call model locally or remote model workers
         model = self.get_model(model_name)
+        if isinstance(model, OpenAIModel):
+            logger.warning(
+                f"Model {model_name} is of type OpenAIModel. It does not support the explain method."
+                " A request exercised this path and will cause a server crash."
+            )
         if isinstance(model, DeploymentHandle):
             response = await model.remote(request, verb=InferenceVerb.EXPLAIN)
         else:
