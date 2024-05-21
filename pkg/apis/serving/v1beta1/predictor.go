@@ -55,7 +55,7 @@ type PredictorSpec struct {
 
 	// Model spec for any arbitrary framework.
 	Model *ModelSpec `json:"model,omitempty"`
-	
+
 	// This spec is dual purpose. <br />
 	// 1) Provide a full PodSpec for custom predictor.
 	// The field PodSpec.Containers is mutually exclusive with other predictors (i.e. TFServing). <br />
