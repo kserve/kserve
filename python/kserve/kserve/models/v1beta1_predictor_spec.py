@@ -47,7 +47,6 @@ class V1beta1PredictorSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'scale_metric_type': 'str',
         'active_deadline_seconds': 'int',
         'affinity': 'V1Affinity',
         'annotations': 'dict(str, str)',
@@ -87,16 +86,20 @@ class V1beta1PredictorSpec(object):
         'priority': 'int',
         'priority_class_name': 'str',
         'pytorch': 'V1beta1TorchServeSpec',
+        'query': 'str',
+        'query_parameters': 'str',
         'readiness_gates': 'list[V1PodReadinessGate]',
         'resource_claims': 'list[V1PodResourceClaim]',
         'resources': 'V1ResourceRequirements',
         'restart_policy': 'str',
         'runtime_class_name': 'str',
         'scale_metric': 'str',
+        'scale_metric_type': 'str',
         'scale_target': 'int',
         'scheduler_name': 'str',
         'scheduling_gates': 'list[V1PodSchedulingGate]',
         'security_context': 'V1PodSecurityContext',
+        'server_address': 'str',
         'service_account': 'str',
         'service_account_name': 'str',
         'set_hostname_as_fqdn': 'bool',
@@ -115,7 +118,6 @@ class V1beta1PredictorSpec(object):
     }
 
     attribute_map = {
-        'scale_metric_type': 'ScaleMetricType',
         'active_deadline_seconds': 'activeDeadlineSeconds',
         'affinity': 'affinity',
         'annotations': 'annotations',
@@ -155,16 +157,20 @@ class V1beta1PredictorSpec(object):
         'priority': 'priority',
         'priority_class_name': 'priorityClassName',
         'pytorch': 'pytorch',
+        'query': 'query',
+        'query_parameters': 'queryParameters',
         'readiness_gates': 'readinessGates',
         'resource_claims': 'resourceClaims',
         'resources': 'resources',
         'restart_policy': 'restartPolicy',
         'runtime_class_name': 'runtimeClassName',
         'scale_metric': 'scaleMetric',
+        'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
         'scheduler_name': 'schedulerName',
         'scheduling_gates': 'schedulingGates',
         'security_context': 'securityContext',
+        'server_address': 'serverAddress',
         'service_account': 'serviceAccount',
         'service_account_name': 'serviceAccountName',
         'set_hostname_as_fqdn': 'setHostnameAsFQDN',
@@ -188,7 +194,6 @@ class V1beta1PredictorSpec(object):
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._scale_metric_type = None
         self._active_deadline_seconds = None
         self._affinity = None
         self._annotations = None
@@ -228,16 +233,20 @@ class V1beta1PredictorSpec(object):
         self._priority = None
         self._priority_class_name = None
         self._pytorch = None
+        self._query = None
+        self._query_parameters = None
         self._readiness_gates = None
         self._resource_claims = None
         self._resources = None
         self._restart_policy = None
         self._runtime_class_name = None
         self._scale_metric = None
+        self._scale_metric_type = None
         self._scale_target = None
         self._scheduler_name = None
         self._scheduling_gates = None
         self._security_context = None
+        self._server_address = None
         self._service_account = None
         self._service_account_name = None
         self._set_hostname_as_fqdn = None
@@ -255,8 +264,6 @@ class V1beta1PredictorSpec(object):
         self._xgboost = None
         self.discriminator = None
 
-        if scale_metric_type is not None:
-            self.scale_metric_type = scale_metric_type
         if active_deadline_seconds is not None:
             self.active_deadline_seconds = active_deadline_seconds
         if affinity is not None:
@@ -335,6 +342,10 @@ class V1beta1PredictorSpec(object):
             self.priority_class_name = priority_class_name
         if pytorch is not None:
             self.pytorch = pytorch
+        if query is not None:
+            self.query = query
+        if query_parameters is not None:
+            self.query_parameters = query_parameters
         if readiness_gates is not None:
             self.readiness_gates = readiness_gates
         if resource_claims is not None:
@@ -347,6 +358,8 @@ class V1beta1PredictorSpec(object):
             self.runtime_class_name = runtime_class_name
         if scale_metric is not None:
             self.scale_metric = scale_metric
+        if scale_metric_type is not None:
+            self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
         if scheduler_name is not None:
@@ -355,6 +368,8 @@ class V1beta1PredictorSpec(object):
             self.scheduling_gates = scheduling_gates
         if security_context is not None:
             self.security_context = security_context
+        if server_address is not None:
+            self.server_address = server_address
         if service_account is not None:
             self.service_account = service_account
         if service_account_name is not None:
@@ -385,29 +400,6 @@ class V1beta1PredictorSpec(object):
             self.worker_spec = worker_spec
         if xgboost is not None:
             self.xgboost = xgboost
-
-    @property
-    def scale_metric_type(self):
-        """Gets the scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
-
-        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
-
-        :return: The scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._scale_metric_type
-
-    @scale_metric_type.setter
-    def scale_metric_type(self, scale_metric_type):
-        """Sets the scale_metric_type of this V1beta1PredictorSpec.
-
-        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
-
-        :param scale_metric_type: The scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._scale_metric_type = scale_metric_type
 
     @property
     def active_deadline_seconds(self):
@@ -1281,6 +1273,52 @@ class V1beta1PredictorSpec(object):
         self._pytorch = pytorch
 
     @property
+    def query(self):
+        """Gets the query of this V1beta1PredictorSpec.  # noqa: E501
+
+        Query to run to get metrics from Prometheus  # noqa: E501
+
+        :return: The query of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._query
+
+    @query.setter
+    def query(self, query):
+        """Sets the query of this V1beta1PredictorSpec.
+
+        Query to run to get metrics from Prometheus  # noqa: E501
+
+        :param query: The query of this V1beta1PredictorSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._query = query
+
+    @property
+    def query_parameters(self):
+        """Gets the query_parameters of this V1beta1PredictorSpec.  # noqa: E501
+
+        A comma-separated list of query Parameters to include while querying the Prometheus endpoint.  # noqa: E501
+
+        :return: The query_parameters of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._query_parameters
+
+    @query_parameters.setter
+    def query_parameters(self, query_parameters):
+        """Sets the query_parameters of this V1beta1PredictorSpec.
+
+        A comma-separated list of query Parameters to include while querying the Prometheus endpoint.  # noqa: E501
+
+        :param query_parameters: The query_parameters of this V1beta1PredictorSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._query_parameters = query_parameters
+
+    @property
     def readiness_gates(self):
         """Gets the readiness_gates of this V1beta1PredictorSpec.  # noqa: E501
 
@@ -1417,6 +1455,29 @@ class V1beta1PredictorSpec(object):
         self._scale_metric = scale_metric
 
     @property
+    def scale_metric_type(self):
+        """Gets the scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :return: The scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_metric_type
+
+    @scale_metric_type.setter
+    def scale_metric_type(self, scale_metric_type):
+        """Sets the scale_metric_type of this V1beta1PredictorSpec.
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :param scale_metric_type: The scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_metric_type = scale_metric_type
+
+    @property
     def scale_target(self):
         """Gets the scale_target of this V1beta1PredictorSpec.  # noqa: E501
 
@@ -1505,6 +1566,29 @@ class V1beta1PredictorSpec(object):
         """
 
         self._security_context = security_context
+
+    @property
+    def server_address(self):
+        """Gets the server_address of this V1beta1PredictorSpec.  # noqa: E501
+
+        Address of Prometheus server.  # noqa: E501
+
+        :return: The server_address of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._server_address
+
+    @server_address.setter
+    def server_address(self, server_address):
+        """Sets the server_address of this V1beta1PredictorSpec.
+
+        Address of Prometheus server.  # noqa: E501
+
+        :param server_address: The server_address of this V1beta1PredictorSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._server_address = server_address
 
     @property
     def service_account(self):

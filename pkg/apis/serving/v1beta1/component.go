@@ -111,6 +111,15 @@ type ComponentExtensionSpec struct {
 	// Type of metric to use. Options are Utilization, or AverageValue.
 	// +optional
 	ScaleMetricType *ScaleMetricType `json:"scaleMetricType,omitempty"`
+	// Address of Prometheus server.
+	// +optional
+	ServerAddress string `json:"serverAddress,omitempty"`
+	// Query to run to get metrics from Prometheus
+	// +optional
+	Query string `json:"query,omitempty"`
+	//  A comma-separated list of query Parameters to include while querying the Prometheus endpoint.
+	// +optional
+	QueryParameters string `json:"queryParameters,omitempty"`
 	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
 	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	// +optional
