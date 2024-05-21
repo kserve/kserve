@@ -31,9 +31,6 @@ from ..protocol.grpc.grpc_predict_v2_pb2 import (
 )
 from ..utils.numpy_codec import to_np_dtype, from_np_dtype
 
-# Dictionary that maps model names to a boolean indicating whether their output uses the FP16 datatype
-_model_name_to_fp16_map: Dict[str, bool] = {}
-
 
 def serialize_byte_tensor(input_tensor: np.ndarray) -> np.ndarray:
     """
@@ -1018,13 +1015,7 @@ def _contains_fp16_datatype(infer_response: InferResponse) -> bool:
     :param infer_response: An InferResponse object containing model inference results.
     :return: A boolean indicating whether any output in the InferResponse uses the FP16 datatype.
     """
-    if infer_response.model_name in _model_name_to_fp16_map:
-        return _model_name_to_fp16_map[infer_response.model_name]
-    else:
-        is_fp16_present = False
-        for infer_output in infer_response.outputs:
-            if infer_output.datatype == "FP16":
-                is_fp16_present = True
-                break
-        _model_name_to_fp16_map[infer_response.model_name] = is_fp16_present
-        return is_fp16_present
+    for infer_output in infer_response.outputs:
+        if infer_output.datatype == "FP16":
+            return True
+    return False
