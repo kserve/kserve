@@ -527,7 +527,6 @@ func (ss *InferenceServiceStatus) PropagateScaledObjectStatus(component Componen
 
 	readyConditionType := readyConditionsMap[component]
 	ss.SetCondition(readyConditionType, readyCondition)
-
 }
 
 func (ss *InferenceServiceStatus) SetCondition(conditionType apis.ConditionType, condition *apis.Condition) {

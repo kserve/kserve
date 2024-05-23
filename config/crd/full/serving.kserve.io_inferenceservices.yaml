@@ -2690,6 +2690,10 @@ spec:
                       type: integer
                     priorityClassName:
                       type: string
+                    query:
+                      type: string
+                    queryParameters:
+                      type: string
                     readinessGates:
                       items:
                         properties:
@@ -2728,9 +2732,6 @@ spec:
                         - prometheus
                       type: string
                     scaleMetricType:
-                      enum:
-                        - Utilization
-                        - AverageValue
                       type: string
                     scaleTarget:
                       type: integer
@@ -2825,6 +2826,8 @@ spec:
                               type: string
                           type: object
                       type: object
+                    serverAddress:
+                      type: string
                     serviceAccount:
                       type: string
                     serviceAccountName:
@@ -10466,6 +10469,10 @@ spec:
                         workingDir:
                           type: string
                       type: object
+                    query:
+                      type: string
+                    queryParameters:
+                      type: string
                     readinessGates:
                       items:
                         properties:
@@ -10504,9 +10511,6 @@ spec:
                         - prometheus
                       type: string
                     scaleMetricType:
-                      enum:
-                        - Utilization
-                        - AverageValue
                       type: string
                     scaleTarget:
                       type: integer
@@ -10601,6 +10605,8 @@ spec:
                               type: string
                           type: object
                       type: object
+                    serverAddress:
+                      type: string
                     serviceAccount:
                       type: string
                     serviceAccountName:
@@ -19740,6 +19746,10 @@ spec:
                       type: integer
                     priorityClassName:
                       type: string
+                    query:
+                      type: string
+                    queryParameters:
+                      type: string
                     readinessGates:
                       items:
                         properties:
@@ -19778,9 +19788,6 @@ spec:
                         - prometheus
                       type: string
                     scaleMetricType:
-                      enum:
-                        - Utilization
-                        - AverageValue
                       type: string
                     scaleTarget:
                       type: integer
@@ -19875,6 +19882,8 @@ spec:
                               type: string
                           type: object
                       type: object
+                    serverAddress:
+                      type: string
                     serviceAccount:
                       type: string
                     serviceAccountName:
