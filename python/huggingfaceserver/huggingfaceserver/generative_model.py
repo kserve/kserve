@@ -40,9 +40,11 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionRequestMessage,
     Completion,
     CompletionChoice,
+    CompletionUsage,
     CreateCompletionRequest,
 )
 from kserve.utils.utils import generate_uuid
+from kserve.constants.constants import LLM_STATS_KEY
 from transformers import (
     AutoConfig,
     AutoModel,
@@ -56,6 +58,7 @@ from transformers import (
     TextIteratorStreamer,
     set_seed,
 )
+from kserve.metrics import LLMStats
 
 from .stop_sequence_stopping_criteria import StopSequenceStoppingCriteria
 from .task import (
@@ -299,6 +302,10 @@ class HuggingfaceGenerativeModel(
                 0 if echo or self.is_encoder_decoder else kwargs["input_ids"].shape[-1]
             )
             outputs = self._model.generate(**kwargs)
+            stats: LLMStats = request.context[LLM_STATS_KEY]
+            stats.num_generation_tokens = (
+                outputs[:, kwargs["input_ids"].shape[-1] :].shape[-1] * outputs.shape[0]
+            )
             outputs = self._tokenizer.batch_decode(
                 outputs[:, output_start:], skip_special_tokens=True
             )
@@ -388,6 +395,8 @@ class HuggingfaceGenerativeModel(
         params = request.params
         if params.prompt is None:
             raise ValueError("prompt is required")
+        stats = LLMStats()
+        request.context[LLM_STATS_KEY] = stats
         prompt = params.prompt
         prompts = (
             prompt
@@ -402,14 +411,16 @@ class HuggingfaceGenerativeModel(
             inputs = self._tokenizer(
                 prompts, padding=True, return_tensors=TensorType.PYTORCH
             ).to(self._device)
-        num_input_tokens = len(inputs["input_ids"])
+        num_input_tokens_per_prompt = inputs["input_ids"].shape[-1]
+        num_input_tokens = num_input_tokens_per_prompt * inputs["input_ids"].shape[0]
+        stats.num_prompt_tokens = num_input_tokens
         if params.max_tokens is None:
-            params.max_tokens = self.max_length - num_input_tokens
-        if num_input_tokens + params.max_tokens > self.max_length:
+            params.max_tokens = self.max_length - num_input_tokens_per_prompt
+        if num_input_tokens_per_prompt + params.max_tokens > self.max_length:
             raise ValueError(
                 f"This model's maximum context length is {self.max_length} tokens. "
-                f"However, you requested {params.max_tokens + num_input_tokens} tokens "
-                f"({num_input_tokens} in the messages, "
+                f"However, you requested {params.max_tokens + num_input_tokens_per_prompt} tokens "
+                f"({num_input_tokens_per_prompt} in the messages, "
                 f"{params.max_tokens} in the completion). "
                 f"Please reduce the length of the messages or completion.",
             )
@@ -472,4 +483,9 @@ class HuggingfaceGenerativeModel(
                 object="text_completion",
                 model=params.model,
                 system_fingerprint=self.system_fingerprint,
+                usage=CompletionUsage(
+                    prompt_tokens=stats.num_prompt_tokens,
+                    completion_tokens=stats.num_generation_tokens,
+                    total_tokens=stats.num_prompt_tokens + stats.num_generation_tokens,
+                ),
             )
