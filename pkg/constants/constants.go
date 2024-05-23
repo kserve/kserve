@@ -164,11 +164,20 @@ var (
 
 type AutoscalerClassType string
 type AutoscalerMetricsType string
+type AutoscalerKedaMetricsType string
 type AutoScalerKPAMetricsType string
 
 var (
 	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
 	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
+)
+
+var (
+	AutoScalerMetricsAverageValue AutoscalerKedaMetricsType = "AverageValue"
+)
+
+var (
+	AutoScalerMetricsUtilization AutoscalerKedaMetricsType = "Utilization"
 )
 
 // Autoscaler Default Class
