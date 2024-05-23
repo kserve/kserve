@@ -26,6 +26,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
+	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -110,7 +111,7 @@ type ComponentExtensionSpec struct {
 	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
 	// Type of metric to use. Options are Utilization, or AverageValue.
 	// +optional
-	ScaleMetricType *ScaleMetricType `json:"scaleMetricType,omitempty"`
+	ScaleMetricType *v2.MetricTargetType `json:"scaleMetricType,omitempty"`
 	// Address of Prometheus server.
 	// +optional
 	ServerAddress string `json:"serverAddress,omitempty"`
@@ -152,10 +153,6 @@ type ComponentExtensionSpec struct {
 // ScaleMetric enum
 // +kubebuilder:validation:Enum=cpu;memory;concurrency;rps;prometheus
 type ScaleMetric string
-
-// ScaleMetricType enum
-// +kubebuilder:validation:Enum=Utilization;AverageValue
-type ScaleMetricType string
 
 const (
 	MetricCPU         ScaleMetric = "cpu"

@@ -24,7 +24,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
-	v2 "k8s.io/api/autoscaling/v2"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,7 +73,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			Triggers: []kedav1alpha1.ScaleTriggers{
 				{
 					Type:       string(*componentExtension.ScaleMetric),
-					MetricType: v2.MetricTargetType(*componentExtension.ScaleMetricType),
+					MetricType: *componentExtension.ScaleMetricType,
 					Metadata: map[string]string{
 						"value": strconv.Itoa((*componentExtension.ScaleTarget)),
 					},
