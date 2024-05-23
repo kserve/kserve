@@ -146,7 +146,8 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 						return nil
 					}
 				case constants.AutoscalerClassExternal:
-					return nil
+					metric := isvc.Spec.Predictor.ComponentExtensionSpec.ScaleMetric
+					return validateKEDAMetrics(*metric)
 				case constants.AutoscalerClassKeda:
 					return nil
 				default:
@@ -167,7 +168,7 @@ func validateKEDAMetrics(metric ScaleMetric) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
+	return fmt.Errorf("[%s] is not a supported metric in KEDA.\n", metric)
 }
 
 // Validate of autoscaler HPA metrics

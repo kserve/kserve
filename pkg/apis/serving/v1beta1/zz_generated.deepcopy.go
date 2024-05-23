@@ -25,6 +25,7 @@ import (
 	v1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	constants "github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/apps/v1"
+	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	apis "knative.dev/pkg/apis"
@@ -100,7 +101,7 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 	}
 	if in.ScaleMetricType != nil {
 		in, out := &in.ScaleMetricType, &out.ScaleMetricType
-		*out = new(ScaleMetricType)
+		*out = new(v2.MetricTargetType)
 		**out = **in
 	}
 	if in.ContainerConcurrency != nil {
