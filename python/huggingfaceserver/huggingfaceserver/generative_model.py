@@ -304,7 +304,10 @@ class HuggingfaceGenerativeModel(
             outputs = self._model.generate(**kwargs)
             stats: LLMStats = request.context[LLM_STATS_KEY]
             stats.num_generation_tokens = (
-                outputs[:, kwargs["input_ids"].shape[-1] :].shape[-1] * outputs.shape[0]
+                outputs.shape[-1] * outputs.shape[0]
+                if self.is_encoder_decoder
+                else outputs[:, kwargs["input_ids"].shape[-1] :].shape[-1]
+                * outputs.shape[0]
             )
             outputs = self._tokenizer.batch_decode(
                 outputs[:, output_start:], skip_special_tokens=True
