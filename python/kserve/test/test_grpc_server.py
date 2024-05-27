@@ -23,7 +23,7 @@ from unittest.mock import patch
 from kserve import Model, ModelServer
 from kserve.errors import InvalidInput
 from kserve.protocol.grpc import grpc_predict_v2_pb2, servicer
-from kserve.protocol.infer_type import serialize_byte_tensor
+from kserve.protocol.infer_type import serialize_byte_tensor, InferResponse
 from kserve.utils.utils import get_predict_response
 
 
@@ -301,19 +301,22 @@ async def test_grpc_raw_inputs(mock_to_headers, server):
     """
     If we receive raw inputs then, the response also should be in raw output format.
     """
+    fp32_data = np.array([6.8, 2.8, 4.8, 1.4, 6.0, 3.4, 4.5, 1.6], dtype=np.float32)
+    int32_data = np.array([6, 2, 4, 1, 6, 3, 4, 1], dtype=np.int32)
+    str_data = np.array(
+        [b"Cat", b"Dog", b"Wolf", b"Cat", b"Dog", b"Wolf", b"Dog", b"Wolf"],
+        dtype=np.object_,
+    )
+    uint8_data = np.array([6, 2, 4, 1, 6, 3, 4, 1], dtype=np.uint8)
+    bool_data = np.array(
+        [True, False, True, False, True, False, True, False], dtype=np.bool_
+    )
     raw_input_contents = [
-        np.array([6.8, 2.8, 4.8, 1.4, 6.0, 3.4, 4.5, 1.6], dtype=np.float32).tobytes(),
-        np.array([6, 2, 4, 1, 6, 3, 4, 1], dtype=np.int32).tobytes(),
-        serialize_byte_tensor(
-            np.array(
-                [b"Cat", b"Dog", b"Wolf", b"Cat", b"Dog", b"Wolf", b"Dog", b"Wolf"],
-                dtype=np.object_,
-            )
-        ).item(),
-        np.array([6, 2, 4, 1, 6, 3, 4, 1], dtype=np.uint8).tobytes(),
-        np.array(
-            [True, False, True, False, True, False, True, False], dtype=np.bool_
-        ).tobytes(),
+        fp32_data.tobytes(),
+        int32_data.tobytes(),
+        serialize_byte_tensor(str_data).item(),
+        uint8_data.tobytes(),
+        bool_data.tobytes(),
     ]
     request = grpc_predict_v2_pb2.ModelInferRequest(
         model_name="TestModel",
@@ -409,6 +412,12 @@ async def test_grpc_raw_inputs(mock_to_headers, server):
             "AQABAAEAAQA=",
         ],
     }
+    infer_response = InferResponse.from_grpc(response)
+    assert np.array_equal(infer_response.outputs[0].as_numpy(), fp32_data)
+    assert np.array_equal(infer_response.outputs[1].as_numpy(), int32_data)
+    assert np.array_equal(infer_response.outputs[2].as_numpy(), str_data)
+    assert np.array_equal(infer_response.outputs[3].as_numpy(), uint8_data)
+    assert np.array_equal(infer_response.outputs[4].as_numpy(), bool_data)
 
 
 @pytest.mark.asyncio
@@ -419,6 +428,7 @@ async def test_grpc_fp16_output(mock_to_headers, server):
     """
     If the output contains FP16 datatype, then the outputs should be returned as raw outputs.
     """
+    fp32_data = [6.8, 2.8, 4.8, 1.4, 6.0, 3.4, 4.5, 1.6]
     request = grpc_predict_v2_pb2.ModelInferRequest(
         model_name="FP16OutputModel",
         id="123",
@@ -427,7 +437,7 @@ async def test_grpc_fp16_output(mock_to_headers, server):
                 "name": "fp32_input",
                 "shape": [2, 4],
                 "datatype": "FP32",
-                "contents": {"fp32_contents": [6.8, 2.8, 4.8, 1.4, 6.0, 3.4, 4.5, 1.6]},
+                "contents": {"fp32_contents": fp32_data},
             },
         ],
     )
@@ -472,6 +482,13 @@ async def test_grpc_fp16_output(mock_to_headers, server):
             "mpnZQDMzM0CamZlAMzOzPwAAwECamVlAAACQQM3MzD8=",
         ],
     }
+    infer_response = InferResponse.from_grpc(response)
+    assert np.array_equal(
+        infer_response.outputs[0].as_numpy(), np.array(fp32_data, dtype=np.float16)
+    )
+    assert np.array_equal(
+        infer_response.outputs[1].as_numpy(), np.array(fp32_data, dtype=np.float32)
+    )
 
 
 @pytest.mark.asyncio
@@ -479,9 +496,8 @@ async def test_grpc_fp16_output(mock_to_headers, server):
     "kserve.protocol.grpc.servicer.to_headers", return_value=[]
 )  # To avoid NotImplementedError from trailing_metadata function
 async def test_grpc_fp16_input(mock_to_headers, server):
-    raw_input_contents = [
-        np.array([6.8, 2.8, 4.8, 1.4, 6.0, 3.4, 4.5, 1.6], dtype=np.float16).tobytes()
-    ]
+    fp16_data = np.array([6.8, 2.8, 4.8, 1.4, 6.0, 3.4, 4.5, 1.6], dtype=np.float16)
+    raw_input_contents = [fp16_data.tobytes()]
     request = grpc_predict_v2_pb2.ModelInferRequest(
         model_name="FP16InputModel",
         id="123",
@@ -535,6 +551,8 @@ async def test_grpc_fp16_input(mock_to_headers, server):
             "zUaaQc1Emj0ARs1CgERmPg==",
         ],
     }
+    infer_response = InferResponse.from_grpc(response)
+    assert np.array_equal(infer_response.outputs[1].as_numpy(), fp16_data)
 
 
 @pytest.mark.asyncio

@@ -885,7 +885,11 @@ class InferResponse:
         if _contains_fp16_datatype(self):
             use_raw_outputs = True
         for infer_output in self.outputs:
-            if use_raw_outputs and infer_output.data:
+            if (
+                use_raw_outputs
+                and infer_output.data
+                and isinstance(infer_output.data, list)
+            ):
                 infer_output.data = infer_output.as_numpy()
             if isinstance(infer_output.data, np.ndarray):
                 infer_output.set_data_from_numpy(infer_output.data, binary_data=True)
