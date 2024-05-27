@@ -198,6 +198,7 @@ var AutoscalerAllowedClassList = []AutoscalerClassType{
 var AutoscalerAllowedHPAMetricsList = []AutoscalerMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
+	AutoScalerMetricsPrometheus,
 }
 
 // Autoscaler KPA Metrics Allowed List
