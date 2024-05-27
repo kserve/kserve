@@ -33,6 +33,7 @@ import kserve
 from kserve.models.v1beta1_keda_scaler import V1beta1KedaScaler  # noqa: E501
 from kserve.rest import ApiException
 
+
 class TestV1beta1KedaScaler(unittest.TestCase):
     """V1beta1KedaScaler unit test stubs"""
 
@@ -44,22 +45,19 @@ class TestV1beta1KedaScaler(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1beta1KedaScaler
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1beta1_keda_scaler.V1beta1KedaScaler()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1beta1KedaScaler(
-                idle_replica_count = 56, 
-                max_replica_count = 56, 
-                min_replica_count = 56, 
-                triggers = [
-                    None
-                    ]
+                idle_replica_count=56,
+                max_replica_count=56,
+                min_replica_count=56,
+                triggers=[None],
             )
-        else :
-            return V1beta1KedaScaler(
-        )
+        else:
+            return V1beta1KedaScaler()
 
     def testV1beta1KedaScaler(self):
         """Test V1beta1KedaScaler"""
@@ -67,5 +65,5 @@ class TestV1beta1KedaScaler(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
