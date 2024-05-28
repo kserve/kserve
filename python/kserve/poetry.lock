@@ -1203,6 +1203,21 @@ files = [
 protobuf = ["grpcio-tools (>=1.62.2)"]
 
 [[package]]
+name = "grpcio-testing"
+version = "1.48.2"
+description = "Testing utilities for gRPC Python"
+optional = false
+python-versions = "*"
+files = [
+    {file = "grpcio-testing-1.48.2.tar.gz", hash = "sha256:ae60f49f1a92a149edcde6cc73ce30ed4c2ed972e9c7afb9780348b19cd767b4"},
+    {file = "grpcio_testing-1.48.2-py3-none-any.whl", hash = "sha256:5b41abcb48937ba400fdf63a2a0ec712a3c284aea264effb1c4d21570dea2fb2"},
+]
+
+[package.dependencies]
+grpcio = ">=1.48.2"
+protobuf = ">=3.12.0"
+
+[[package]]
 name = "h11"
 version = "0.14.0"
 description = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"

@@ -158,7 +158,7 @@ class ModelServer:
         workers: int = args.workers,
         max_threads: int = args.max_threads,
         max_asyncio_workers: int = args.max_asyncio_workers,
-        registered_models: ModelRepository = ModelRepository(),
+        registered_models: ModelRepository = None,
         enable_grpc: bool = args.enable_grpc,
         enable_docs_url: bool = args.enable_docs_url,
         enable_latency_logging: bool = args.enable_latency_logging,
@@ -183,7 +183,9 @@ class ModelServer:
                                (please refer to this Uvicorn
                                [github issue](https://github.com/encode/uvicorn/issues/527) for more info).
         """
-        self.registered_models = registered_models
+        self.registered_models = (
+            ModelRepository() if registered_models is None else registered_models
+        )
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
@@ -192,7 +194,7 @@ class ModelServer:
         self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
-        self.dataplane = DataPlane(model_registry=registered_models)
+        self.dataplane = DataPlane(model_registry=self.registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models
         )

@@ -30,6 +30,7 @@ from ..model import InferenceVerb, Model
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
+from .rest.openai import OpenAIModel
 
 JSON_HEADERS = [
     "application/json",
@@ -366,4 +367,5 @@ class DataPlane:
                 f"Model of type {type(model).__name__} does not support inference"
             )
         response = await model(request, verb=InferenceVerb.EXPLAIN, headers=headers)
+
         return response, headers

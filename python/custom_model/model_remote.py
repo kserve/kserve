@@ -14,7 +14,6 @@
 import argparse
 from kserve import Model, ModelServer, logging, model_server
 from kserve.ray import RayModel
-
 from torchvision import models, transforms
 from typing import Dict
 import torch
