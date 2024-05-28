@@ -72,21 +72,19 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			},
 			Triggers: []kedav1alpha1.ScaleTriggers{
 				{
-					Type: string(*componentExtension.ScaleMetric),
-					Metadata: map[string]string{
-						"value": strconv.Itoa((*componentExtension.ScaleTarget)),
-					},
+					Type:     string(*componentExtension.ScaleMetric),
+					Metadata: map[string]string{},
 				},
 			},
 			MinReplicaCount: proto.Int32(int32(*componentExtension.MinReplicas)),
 			MaxReplicaCount: proto.Int32(int32(componentExtension.MaxReplicas)),
 		},
 	}
+	if componentExtension.ScaleMetricType != nil {
+		scaledobject.Spec.Triggers[0].MetricType = *componentExtension.ScaleMetricType
+	}
 
 	if componentExtension.ScaleMetric != nil && *componentExtension.ScaleMetric == "prometheus" {
-		if componentExtension.ScaleMetricType != nil {
-			scaledobject.Spec.Triggers[0].MetricType = *componentExtension.ScaleMetricType
-		}
 		if componentExtension.ServerAddress != "" {
 			scaledobject.Spec.Triggers[0].Metadata["serverAddress"] = componentExtension.ServerAddress
 		}
@@ -99,6 +97,8 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 		if componentExtension.ServerAddress != "" {
 			scaledobject.Spec.Triggers[0].Metadata["threshold"] = strconv.Itoa((*componentExtension.ScaleTarget))
 		}
+	} else {
+		scaledobject.Spec.Triggers[0].Metadata["value"] = strconv.Itoa((*componentExtension.ScaleTarget))
 	}
 
 	return scaledobject
