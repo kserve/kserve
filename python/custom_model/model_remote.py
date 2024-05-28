@@ -21,20 +21,7 @@ import torch
 from PIL import Image
 import base64
 import io
-import argparse
-
-from kserve import Model, ModelServer, logging, model_server
-from kserve.ray import RayModel
-from torchvision import models, transforms
-from typing import Dict
-
-import torch
-from PIL import Image
 from ray import serve
-from torchvision import models, transforms
-
-from kserve import Model, ModelServer, logging, model_server
-from kserve.ray import RayModel
 
 
 # the model handle name should match the model endpoint name
