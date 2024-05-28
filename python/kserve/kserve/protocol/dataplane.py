@@ -26,11 +26,10 @@ from cloudevents.sdk.converters.util import has_binary_headers
 from ..constants import constants
 from ..errors import InvalidInput, ModelNotFound
 from ..logging import logger
-from ..model import InferenceVerb, Model
+from ..model import InferenceVerb, BaseKServeModel, InferenceModel
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
-from .rest.openai import OpenAIModel
 
 JSON_HEADERS = [
     "application/json",
