@@ -95,6 +95,12 @@ if [[ $DEPLOYMENT_MODE == "serverless" ]]; then
 fi
 shopt -u nocasematch
 
+if [[ $DEPLOYMENT_MODE == "raw" ]];then
+
+  echo "Installing KEDA ..."
+  kubectl apply -f ./test/overlays/keda/keda.yaml
+fi
+
 echo "Installing cert-manager ..."
 kubectl create namespace cert-manager
 sleep 2

@@ -28,6 +28,7 @@ make deploy-ci
 
 shopt -s nocasematch
 if [[ $DEPLOYMENT_MODE == "raw" ]];then
+
   echo "Patching default deployment mode to raw deployment"
   kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
 
