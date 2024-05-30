@@ -121,7 +121,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
     def load(self) -> bool:
         model_id_or_path = self.model_id_or_path
         if self.max_length is None:
-            self.max_length = self.model_config.max_length
+            self.max_length = self.model_config.max_position_embeddings
 
         # device_map = "auto" enables model parallelism but all model architcture dont support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
