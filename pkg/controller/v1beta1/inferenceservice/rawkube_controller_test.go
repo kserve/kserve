@@ -7066,6 +7066,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Metadata: map[string]string{
 								"value": "10",
 							},
+							MetricType: autoscalingv2.MetricTargetType(constants.AutoScalerMetricsUtilization),
 						},
 					},
 					MinReplicaCount: proto.Int32(1),
