@@ -258,12 +258,9 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 // Validate of autoscaler KEDA metrics
 func validateKEDAMetrics(metric ScaleMetric) error {
 	for _, item := range constants.AutoscalerAllowedKEDAMetricsList {
-		fmt.Println("1111111111111", item)
 		if item == constants.AutoscalerMetricsType(metric) {
-			fmt.Println("2222222222222", constants.AutoscalerMetricsType(metric))
 			return nil
 		}
-		fmt.Println("3333333333333", metric)
 	}
 	return fmt.Errorf("[%s] is not a supported metric in KEDA.\n", metric)
 }
