@@ -75,3 +75,11 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "100m"
     }
+  deploy: |-
+    {
+      "serviceAnnotationDisallowedList": [
+          "autoscaling.knative.dev/min-scale",
+          "autoscaling.knative.dev/max-scale",
+      ],
+      "serviceLabelDisallowedList": []
+    }

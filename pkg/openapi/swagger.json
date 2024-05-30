@@ -2182,6 +2182,20 @@
       "properties": {
         "defaultDeploymentMode": {
           "type": "string"
+        },
+        "serviceAnnotationDisallowedList": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "serviceLabelDisallowedList": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
         }
       }
     },

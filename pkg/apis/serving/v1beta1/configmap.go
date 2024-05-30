@@ -81,7 +81,9 @@ type IngressConfig struct {
 
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
-	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
+	DefaultDeploymentMode           string   `json:"defaultDeploymentMode,omitempty"`
+	ServiceAnnotationDisallowedList []string `json:"serviceAnnotationDisallowedList,omitempty"`
+	ServiceLabelDisallowedList      []string `json:"serviceLabelDisallowedList,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

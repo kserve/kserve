@@ -47,24 +47,34 @@ class V1beta1DeployConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'default_deployment_mode': 'str'
+        'default_deployment_mode': 'str',
+        'service_annotation_disallowed_list': 'list[str]',
+        'service_label_disallowed_list': 'list[str]'
     }
 
     attribute_map = {
-        'default_deployment_mode': 'defaultDeploymentMode'
+        'default_deployment_mode': 'defaultDeploymentMode',
+        'service_annotation_disallowed_list': 'serviceAnnotationDisallowedList',
+        'service_label_disallowed_list': 'serviceLabelDisallowedList'
     }
 
-    def __init__(self, default_deployment_mode=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_deployment_mode=None, service_annotation_disallowed_list=None, service_label_disallowed_list=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1DeployConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._default_deployment_mode = None
+        self._service_annotation_disallowed_list = None
+        self._service_label_disallowed_list = None
         self.discriminator = None
 
         if default_deployment_mode is not None:
             self.default_deployment_mode = default_deployment_mode
+        if service_annotation_disallowed_list is not None:
+            self.service_annotation_disallowed_list = service_annotation_disallowed_list
+        if service_label_disallowed_list is not None:
+            self.service_label_disallowed_list = service_label_disallowed_list
 
     @property
     def default_deployment_mode(self):
@@ -86,6 +96,48 @@ class V1beta1DeployConfig(object):
         """
 
         self._default_deployment_mode = default_deployment_mode
+
+    @property
+    def service_annotation_disallowed_list(self):
+        """Gets the service_annotation_disallowed_list of this V1beta1DeployConfig.  # noqa: E501
+
+
+        :return: The service_annotation_disallowed_list of this V1beta1DeployConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._service_annotation_disallowed_list
+
+    @service_annotation_disallowed_list.setter
+    def service_annotation_disallowed_list(self, service_annotation_disallowed_list):
+        """Sets the service_annotation_disallowed_list of this V1beta1DeployConfig.
+
+
+        :param service_annotation_disallowed_list: The service_annotation_disallowed_list of this V1beta1DeployConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._service_annotation_disallowed_list = service_annotation_disallowed_list
+
+    @property
+    def service_label_disallowed_list(self):
+        """Gets the service_label_disallowed_list of this V1beta1DeployConfig.  # noqa: E501
+
+
+        :return: The service_label_disallowed_list of this V1beta1DeployConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._service_label_disallowed_list
+
+    @service_label_disallowed_list.setter
+    def service_label_disallowed_list(self, service_label_disallowed_list):
+        """Sets the service_label_disallowed_list of this V1beta1DeployConfig.
+
+
+        :param service_label_disallowed_list: The service_label_disallowed_list of this V1beta1DeployConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._service_label_disallowed_list = service_label_disallowed_list
 
     def to_dict(self):
         """Returns the model properties as a dict"""

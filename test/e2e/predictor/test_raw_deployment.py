@@ -38,6 +38,10 @@ from ..common.utils import predict_isvc
 
 api_version = constants.KSERVE_V1BETA1
 
+ANNOTATION_MIN_SCALE = "autoscaling.knative.dev/min-scale"
+ANNOTATION_MAX_SCALE = "autoscaling.knative.dev/max-scale"
+CUSTOM_ANNOTATION_REGEX = "kubectl.kubernetes.io/last-applied-configuration"
+
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
@@ -77,6 +81,62 @@ async def test_raw_deployment_kserve(rest_v1_client):
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
+
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_annotations_kserve(rest_v1_client):
+    # Test for disallowed annotation list
+    service_name = "raw-sklearn-anno"
+    annotations = {
+        ANNOTATION_MIN_SCALE: "val1FromISVC",
+        ANNOTATION_MAX_SCALE: "val2FromISVC",
+        CUSTOM_ANNOTATION_REGEX: "val3FromISVC",
+    }
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+        annotations=annotations,
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
+
+    pod_annotations = pods.items[0].metadata.annotations
+
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    assert res["predictions"] == [1, 1]
+    # check for disallowed annotation not present in pod annotations
+    assert ANNOTATION_MIN_SCALE not in pod_annotations
+    assert ANNOTATION_MAX_SCALE not in pod_annotations
+    assert CUSTOM_ANNOTATION_REGEX not in pod_annotations
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
