@@ -62,14 +62,16 @@ type IngressReconciler struct {
 	clientset     kubernetes.Interface
 	scheme        *runtime.Scheme
 	ingressConfig *v1beta1.IngressConfig
+	deployConfig  *v1beta1.DeployConfig
 }
 
-func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig) *IngressReconciler {
+func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig, deployConfig *v1beta1.DeployConfig) *IngressReconciler {
 	return &IngressReconciler{
 		client:        client,
 		clientset:     clientset,
 		scheme:        scheme,
 		ingressConfig: ingressConfig,
+		deployConfig:  deployConfig,
 	}
 }
 
@@ -323,7 +325,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalH
 	return matchRequests
 }
 
-func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig, domainList *[]string) *istioclientv1beta1.VirtualService {
+func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig, domainList *[]string, deployConfig *v1beta1.DeployConfig) *istioclientv1beta1.VirtualService {
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		status := corev1.ConditionFalse
 		if isvc.Status.IsConditionUnknown(v1beta1.PredictorReady) {
@@ -499,7 +501,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		hosts = append(hosts, *additionalHosts...)
 	}
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(deployConfig.ServiceAnnotationDisallowedList, key)
 	})
 	desiredIngress := &istioclientv1beta1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -555,7 +557,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			useDefault = true
 		}
 		domainList := getDomainList(ir.clientset)
-		desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig, domainList)
+		desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig, domainList, ir.deployConfig)
 		if desiredIngress == nil {
 			return nil
 		}
