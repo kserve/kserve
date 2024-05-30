@@ -197,6 +197,25 @@ func NewDeployConfig(clientset kubernetes.Interface) (*DeployConfig, error) {
 				" RawDeployment and ModelMesh")
 		}
 	}
+
+	disallowedServiceAnnotations := []string{}
+	if annotations, ok := configMap.Data[DisallowedAnnotations]; ok {
+		err := json.Unmarshal([]byte(annotations), &disallowedServiceAnnotations)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse disallowed service annotations json: %w", err)
+		}
+	}
+	deployConfig.ServiceAnnotationDisallowedList = disallowedServiceAnnotations
+
+	disallowedServiceLabels := []string{}
+	if labels, ok := configMap.Data[DisallowedLables]; ok {
+		err := json.Unmarshal([]byte(labels), &disallowedServiceLabels)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse disallowed service labels json: %w", err)
+		}
+	}
+	deployConfig.ServiceLabelDisallowedList = disallowedServiceLabels
+
 	return deployConfig, nil
 }
 

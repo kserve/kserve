@@ -430,7 +430,20 @@ data:
          # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
          "defaultDeploymentMode": "Serverless"
        }
-     
+       
+      disallowedServiceAnnotations: |-
+        [
+          "autoscaling.knative.dev/min-scale",
+          "autoscaling.knative.dev/max-scale",
+          "internal.serving.kserve.io/storage-initializer-sourceuri",
+          "kubectl.kubernetes.io/last-applied-configuration"
+        ]
+
+      disallowedServiceLables: |-
+        [
+          "networking.knative.dev/visibility"
+        ]
+
      # ====================================== METRICS CONFIGURATION ======================================
      # Example
      metricsAggregator: |-
@@ -563,17 +576,21 @@ data:
 
   deploy: |-
     {
-      "defaultDeploymentMode": "Serverless",
-      "serviceAnnotationDisallowedList": [
-        "autoscaling.knative.dev/min-scale",
-        "autoscaling.knative.dev/max-scale",
-        "internal.serving.kserve.io/storage-initializer-sourceuri",
-        "kubectl.kubernetes.io/last-applied-configuration"
-      ],
-      "serviceLabelDisallowedList": [
-        "networking.knative.dev/visibility"
-      ]
+      "defaultDeploymentMode": "Serverless"
     }
+  
+  disallowedServiceAnnotations: |-
+    [
+      "autoscaling.knative.dev/min-scale",
+      "autoscaling.knative.dev/max-scale",
+      "internal.serving.kserve.io/storage-initializer-sourceuri",
+      "kubectl.kubernetes.io/last-applied-configuration"
+    ]
+
+  disallowedServiceLables: |-
+    [
+      "networking.knative.dev/visibility"
+    ]
 
   metricsAggregator: |-
     {
