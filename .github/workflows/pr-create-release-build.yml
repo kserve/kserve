@@ -1,0 +1,239 @@
+name: Trigger build on PR add LGTM and Create Tag and Release with Changelog and push image to quay
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the new release and push the image to quay'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  
+jobs:
+  check-prev-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      old_tag: ${{ steps.get_tag.outputs.old_tag_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          echo "old_tag_name=$(git ls-remote --tags origin | awk -F'/' '{print $3}' | grep -v '{}' | sort -V | tail -n1)" >> $GITHUB_OUTPUT
+      - name: print tag
+        id: print_tag
+        run: | 
+          echo "Old Tag=${{ steps.get_tag.outputs.old_tag_name }}"
+          echo "NEW_TAG=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+          echo "$(basename ${{ github.ref }})"
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+         import sys
+         import subprocess
+         tag_name = "${{ github.event.inputs.tag_name }}"
+         command = ['git', 'tag', '-l', tag_name]
+         output = subprocess.check_output(command, stderr=subprocess.STDOUT)
+         if output.decode() != "":
+           print(f"Error: Tag '{tag_name}' already exists.", file=sys.stderr)
+           sys.exit(1)
+         else:
+           print(f"Tag '{tag_name}' does not exists.")
+        
+        shell: python
+        continue-on-error: false
+
+  create-pr:
+    runs-on: ubuntu-latest
+    needs: check-prev-tag
+    env:
+      GITHUB_BRANCH: ${{ github.ref }}
+    outputs:
+      pr_number: ${{ steps.create-pull-request.outputs.pr_number }} 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+      - name: Create and checkout new branch
+        id: create_branch
+        run: |
+          BRANCH_NAME="update-param-env-${{ github.event.inputs.tag_name }}"
+          echo "BRANCH_NAME=${BRANCH_NAME}" >> $GITHUB_ENV
+          git checkout -b $BRANCH_NAME
+      - name: Update params.env with new release version
+        run: |     
+          sed -i 's|:v[0-9.]*\b|:${{ github.event.inputs.tag_name }}|gm' config/overlays/odh/params.env
+      - name: Commit changes
+        run: |
+          git add config/overlays/odh/params.env
+          git commit -m "Update image refs for odh release"
+          git push origin $BRANCH_NAME
+      - name: Create Pull Request
+        id: create-pull-request
+        run: | 
+          PR_URL=$(gh pr create -B ${{ github.ref }} -H ${{ env.BRANCH_NAME }} --title '[ODH Release] Update images for ${{ github.event.inputs.tag_name }}' --body 'Update images for ${{ github.event.inputs.tag_name }}')
+          echo "PR_URL=${PR_URL}" >> $GITHUB_ENV
+          pr_number=$(echo "$PR_URL" | grep -o -E '[0-9]+$')
+          echo "pr_number=${pr_number}" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  wait-checks:
+    runs-on: ubuntu-latest
+    needs: [ check-prev-tag,create-pr ] 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Watching PR if Checks finished without errors
+        id: wait-checks
+        run:
+          gh pr checks  ${{ needs.create-pr.outputs.pr_number }}  --watch --fail-fast 
+        env:     
+         GH_TOKEN: ${{ github.token }}
+  comment-lgtm:
+    needs: [ check-prev-tag,create-pr,wait-checks ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      
+      - name: Add comment to trigger lgtm label
+        if: ${{ needs.wait-checks.result == 'success' }}
+        run: |
+          gh pr comment ${{ needs.create-pr.outputs.pr_number }} --body "/lgtm"
+          gh pr edit ${{ needs.create-pr.outputs.pr_number }} --add-label lgtm
+        env:
+         GH_TOKEN: ${{ github.token }}
+
+  wait-lgtm:
+    runs-on: ubuntu-latest
+    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm ]
+    outputs:
+      has_lgtm: ${{ steps.wait-lgtm-label.outputs.has_lgtm }} 
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wait for lgtm label
+        id: wait-lgtm-label
+        run: |
+          for i in {1..60}; do
+            LABEL=$(gh pr view ${{ needs.create-pr.outputs.pr_number }} --json labels --jq '.labels[].name')
+            echo "Labels: $LABEL"
+            if echo "$LABEL" | grep -qw "lgtm"; then
+                has_lgtm=true
+                echo "has_lgtm=${has_lgtm}" >> $GITHUB_OUTPUT
+                break
+            else
+                echo "Waiting for lgtm label... (attempt $i)"
+                sleep 60
+            fi
+          done
+          
+          if ! $has_lgtm; then
+            echo "Error: 'lgtm' label not found after waiting."
+            exit 1
+          fi
+        env:
+         GH_TOKEN: ${{ github.token }}
+        
+  
+  docker-build:
+    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@v2
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Build Docker image
+        run: docker build -t quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }} .
+
+      - name: Push Docker image
+        run: docker push quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }}
+
+    
+      - uses: peter-evans/find-comment@v3
+        name: Find Comment
+        id: fc
+        with:
+          issue-number: ${{ needs.create-pr.outputs.pr_number }}
+          comment-author: 'github-actions[bot]'
+          body-includes:  PR image build and manifest generation completed successfully
+      - uses: peter-evans/create-or-update-comment@v4
+        name: Generate/update success message comment
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number:  ${{ needs.create-pr.outputs.pr_number }}
+          edit-mode: replace
+          body: |
+            PR image build and manifest generation completed successfully!
+            
+            📦 [PR image](https://quay.io/opendatahub/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }}: `quay.io/opendatahub/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }}`
+
+  changelog:
+    name: Changelog
+    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm,docker-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+      - name: Create Tag
+        id: create_tag
+        run: |
+          git tag -a ${{ github.event.inputs.tag_name }} -m "Prepare for ODH release ${{ github.event.inputs.tag_name }}"
+          git push origin ${{ github.event.inputs.tag_name }}
+        
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ github.token }}     
+          tag_name: ${{ github.event.inputs.tag_name }}
+          prerelease: false
+          draft: false
+    #this takes the path of payload to upload as an asset in the changelog
+          files: bin/*
+          generate_release_notes: true
+          name: ${{ github.event.inputs.tag_name }}
+          
