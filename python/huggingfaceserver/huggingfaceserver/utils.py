@@ -1,3 +1,17 @@
+# Copyright 2024 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from transformers import PretrainedConfig
 from typing import Optional
 from kserve.logging import logger
@@ -67,8 +81,6 @@ def _get_and_verify_max_len(
     rope_scaling = getattr(hf_config, "rope_scaling", None)
     if rope_scaling is not None and rope_scaling["type"] != "su":
         if disable_sliding_window:
-            # TODO(robertgshaw): Find a model that supports rope_scaling
-            # with sliding window to see if this case should be allowed.
             raise NotImplementedError(
                 "Disabling sliding window is not supported for models "
                 "with rope_scaling. Please raise an issue so we can "
