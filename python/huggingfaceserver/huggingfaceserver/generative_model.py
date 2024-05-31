@@ -402,7 +402,9 @@ class HuggingfaceGenerativeModel(
             inputs = self._tokenizer(
                 prompts, padding=True, return_tensors=TensorType.PYTORCH
             ).to(self._device)
-        num_input_tokens = len(inputs["input_ids"][0]) # inputs["input_ids"] is of shape (batch_size, sequence_length) aka (1,num_input_tokens)
+        num_input_tokens = len(
+            inputs["input_ids"][0]
+        )  # inputs["input_ids"] is of shape (batch_size, sequence_length) aka (1,num_input_tokens)
         if params.max_tokens is None:
             params.max_tokens = self.max_length - num_input_tokens
         if num_input_tokens + params.max_tokens > self.max_length:
