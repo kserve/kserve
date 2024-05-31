@@ -64,6 +64,7 @@ from .task import (
     get_model_class_for_task,
     infer_task_from_model_architecture,
 )
+from .utils import _get_and_verify_max_len
 
 
 class _GenerateRequest(TypedDict):
@@ -178,8 +179,7 @@ class HuggingfaceGenerativeModel(
     def load(self) -> bool:
         model_id_or_path = self.model_id_or_path
 
-        if self.max_length is None:
-            self.max_length = self.model_config.max_position_embeddings
+        self.max_length = _get_and_verify_max_len(self.model_config, self.max_length)
 
         # device_map = "auto" enables model parallelism but all model architcture dont support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
@@ -402,7 +402,7 @@ class HuggingfaceGenerativeModel(
             inputs = self._tokenizer(
                 prompts, padding=True, return_tensors=TensorType.PYTORCH
             ).to(self._device)
-        num_input_tokens = len(inputs["input_ids"])
+        num_input_tokens = len(inputs["input_ids"][0]) # inputs["input_ids"] is of shape (batch_size, sequence_length) aka (1,num_input_tokens)
         if params.max_tokens is None:
             params.max_tokens = self.max_length - num_input_tokens
         if num_input_tokens + params.max_tokens > self.max_length:

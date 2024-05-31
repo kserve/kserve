@@ -257,12 +257,13 @@ async def test_bloom_completion(bloom_model: HuggingfaceGenerativeModel):
         prompt="Hello, my dog is cute",
         stream=False,
         echo=True,
+        max_tokens=100,  # bloom doesn't have any field specifying context length. Our implementation would default to 2048. Testing with something longer than HF's default max_length of 20
     )
     request = CompletionRequest(params=params)
     response = await bloom_model.create_completion(request)
     assert (
         response.choices[0].text
-        == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute"
+        == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey,' == 'Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute"
     )
 
 
