@@ -322,6 +322,23 @@ async def test_bloom_completion(bloom_model: HuggingfaceGenerativeModel):
 
 
 @pytest.mark.asyncio
+async def test_bloom_completion_max_tokens(bloom_model: HuggingfaceGenerativeModel):
+    params = CreateCompletionRequest(
+        model="bloom-560m",
+        prompt="Hello, my dog is cute",
+        stream=False,
+        echo=True,
+        max_tokens=100,  # bloom doesn't have any field specifying context length. Our implementation would default to 2048. Testing with something longer than HF's default max_length of 20
+    )
+    request = CompletionRequest(params=params)
+    response = await bloom_model.create_completion(request)
+    assert (
+        response.choices[0].text
+        == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey,"
+    )
+
+
+@pytest.mark.asyncio
 async def test_bloom_completion_streaming(bloom_model: HuggingfaceGenerativeModel):
     params = CreateCompletionRequest(
         model="bloom-560m",
@@ -350,15 +367,13 @@ async def test_bloom_chat_completion(bloom_model: HuggingfaceGenerativeModel):
         },
     ]
     params = CreateChatCompletionRequest(
-        model="bloom-560m",
-        messages=messages,
-        stream=False,
+        model="bloom-560m", messages=messages, stream=False, max_tokens=20
     )
     request = ChatCompletionRequest(params=params)
     response = await bloom_model.create_chat_completion(request)
     assert (
         response.choices[0].message.content
-        == "The first thing you need to do is to get a good idea of what you are looking for"
+        == "The first thing you need to do is to get a good idea of what you are looking for."
     )
 
 
@@ -378,6 +393,7 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
         model="bloom-560m",
         messages=messages,
         stream=True,
+        max_tokens=20,
     )
     request = ChatCompletionRequest(params=params)
     response = await bloom_model.create_chat_completion(request)
@@ -386,7 +402,7 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
         output += chunk.choices[0].delta.content
     assert (
         output
-        == "The first thing you need to do is to get a good idea of what you are looking for"
+        == "The first thing you need to do is to get a good idea of what you are looking for."
     )
 
 

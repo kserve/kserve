@@ -76,7 +76,7 @@ def test_huggingface_openai_chat_completions():
     res = generate(service_name, "./data/opt_125m_input_generate.json")
     assert (
         res["choices"][0]["message"]["content"]
-        == "I'm not sure if this is a good idea, but I'm not sure if I should"
+        == "I'm not sure if this is a good idea, but I'm not sure if I should be"
     )
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

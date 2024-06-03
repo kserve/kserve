@@ -64,6 +64,7 @@ from .task import (
     get_model_class_for_task,
     infer_task_from_model_architecture,
 )
+from .utils import _get_and_verify_max_len
 
 
 class _GenerateRequest(TypedDict):
@@ -178,8 +179,7 @@ class HuggingfaceGenerativeModel(
     def load(self) -> bool:
         model_id_or_path = self.model_id_or_path
 
-        if self.max_length is None:
-            self.max_length = self.model_config.max_length
+        self.max_length = _get_and_verify_max_len(self.model_config, self.max_length)
 
         # device_map = "auto" enables model parallelism but all model architcture dont support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
