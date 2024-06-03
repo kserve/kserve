@@ -82,5 +82,6 @@ class PredictorProtocol(Enum):
     REST_V2 = "v2"
     GRPC_V2 = "grpc-v2"
 
+
 # LLM stats map key
 LLM_STATS_KEY = "llm-stats"
