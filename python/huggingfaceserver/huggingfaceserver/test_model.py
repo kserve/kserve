@@ -37,6 +37,7 @@ def bloom_model():
     model = HuggingfaceGenerativeModel(
         "bloom-560m",
         model_id_or_path="bigscience/bloom-560m",
+        max_length=512,
         dtype=torch.float32,
     )
     model.load()
@@ -152,9 +153,10 @@ async def test_t5(t5_model: HuggingfaceGenerativeModel):
         prompt="translate from English to German: we are making words",
         stream=False,
     )
-    request = CompletionRequest(params=params)
+    request = CompletionRequest(params=params, context={})
     response = await t5_model.create_completion(request)
     assert response.choices[0].text == "wir setzen Worte"
+    assert response.usage.completion_tokens == 7
 
 
 @pytest.mark.asyncio
@@ -165,7 +167,7 @@ async def test_t5_stopping_criteria(t5_model: HuggingfaceGenerativeModel):
         stop=["setzen "],
         stream=False,
     )
-    request = CompletionRequest(params=params)
+    request = CompletionRequest(params=params, context={})
     response = await t5_model.create_completion(request)
     assert response.choices[0].text == "wir setzen"
 
@@ -178,7 +180,7 @@ async def test_t5_bad_params(t5_model: HuggingfaceGenerativeModel):
         echo=True,
         stream=False,
     )
-    request = CompletionRequest(params=params)
+    request = CompletionRequest(params=params, context={})
     with pytest.raises(ValueError) as err_info:
         await t5_model.create_completion(request)
     assert err_info.value.args[0] == "'echo' is not supported by encoder-decoder models"
@@ -313,7 +315,7 @@ async def test_bloom_completion(bloom_model: HuggingfaceGenerativeModel):
         stream=False,
         echo=True,
     )
-    request = CompletionRequest(params=params)
+    request = CompletionRequest(params=params, context={})
     response = await bloom_model.create_completion(request)
     assert (
         response.choices[0].text
@@ -330,7 +332,7 @@ async def test_bloom_completion_max_tokens(bloom_model: HuggingfaceGenerativeMod
         echo=True,
         max_tokens=100,  # bloom doesn't have any field specifying context length. Our implementation would default to 2048. Testing with something longer than HF's default max_length of 20
     )
-    request = CompletionRequest(params=params)
+    request = CompletionRequest(params=params, context={})
     response = await bloom_model.create_completion(request)
     assert (
         response.choices[0].text
@@ -346,7 +348,7 @@ async def test_bloom_completion_streaming(bloom_model: HuggingfaceGenerativeMode
         stream=True,
         echo=False,
     )
-    request = CompletionRequest(params=params)
+    request = CompletionRequest(params=params, context={})
     response = await bloom_model.create_completion(request)
     output = ""
     async for chunk in response:
@@ -367,14 +369,18 @@ async def test_bloom_chat_completion(bloom_model: HuggingfaceGenerativeModel):
         },
     ]
     params = CreateChatCompletionRequest(
-        model="bloom-560m", messages=messages, stream=False, max_tokens=20
+        model="bloom-560m",
+        messages=messages,
+        stream=False,
+        max_tokens=20,
     )
-    request = ChatCompletionRequest(params=params)
+    request = ChatCompletionRequest(params=params, context={})
     response = await bloom_model.create_chat_completion(request)
     assert (
         response.choices[0].message.content
         == "The first thing you need to do is to get a good idea of what you are looking for."
     )
+    assert response.usage.completion_tokens == 20
 
 
 @pytest.mark.asyncio
@@ -395,7 +401,7 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
         stream=True,
         max_tokens=20,
     )
-    request = ChatCompletionRequest(params=params)
+    request = ChatCompletionRequest(params=params, context={})
     response = await bloom_model.create_chat_completion(request)
     output = ""
     async for chunk in response:
@@ -443,7 +449,7 @@ async def test_input_padding_with_pad_token_not_specified(
         stream=False,
         temperature=0,
     )
-    request = CompletionRequest(params=params)
+    request = CompletionRequest(params=params, context={})
     response = await openai_gpt_model.create_completion(request)
     assert (
         response.choices[0].text
