@@ -289,7 +289,9 @@ class OpenAIProxyModel(OpenAIModel):
             self.postprocess_chat_completion(chat_completion, request)
             return chat_completion
 
-    async def generate_chat_completion(self, request: ChatCompletionRequest) -> ChatCompletion:
+    async def generate_chat_completion(
+        self, request: ChatCompletionRequest
+    ) -> ChatCompletion:
         req = self._build_request(self._chat_completions_endpoint, request)
         response = await self._http_client.send(req)
         response.raise_for_status()
