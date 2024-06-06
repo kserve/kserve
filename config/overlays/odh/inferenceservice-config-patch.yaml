@@ -18,8 +18,8 @@ data:
     {
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
-        "localGateway" : "knative-serving/knative-local-gateway",
-        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+        "localGateway" : "istio-system/kserve-local-gateway",
+        "localGatewayService" : "kserve-local-gateway.istio-system.svc.cluster.local",
         "ingressDomain"  : "example.com",
         "ingressClassName" : "istio",
         "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
