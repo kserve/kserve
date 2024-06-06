@@ -27,8 +27,9 @@ jobs:
       - name: Get latest tag
         id: get_tag
         run: |
-          echo "old_tag_name=$(git ls-remote --tags origin | awk -F'/' '{print $3}' | grep -v '{}' | sort -V | tail -n1)" >> $GITHUB_OUTPUT
-      - name: print tag
+          old_tag_name=$(git ls-remote --tags origin | awk -F'/' '{print $3}' | grep -v '{}' | sort -V | tail -n1)
+          echo "old_tag_name=${old_tag_name}" >> $GITHUB_OUTPUT
+      - name: Print tags
         id: print_tag
         run: | 
           echo "Old Tag=${{ steps.get_tag.outputs.old_tag_name }}"
@@ -129,10 +130,6 @@ jobs:
     needs: [check-prev-tag, create-pr, wait-checks, comment-lgtm]
     outputs:
       has_lgtm: ${{ steps.wait-lgtm-label.outputs.has_lgtm }} 
-      has_lgtm: ${{ steps.wait-lgtm-label.outputs.has_lgtm }} 
-
-      has_lgtm: ${{ steps.wait-lgtm-label.outputs.has_lgtm }}
-
     steps:
       - name: Wait for LGTM label
         uses: nick-fields/retry@v3
@@ -154,7 +151,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
   
-  Rename-image:
+  rename-image:
     needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm]
     runs-on: ubuntu-latest
 
@@ -177,7 +174,7 @@ jobs:
           retry_wait_seconds: 120
           shell: bash
           command: |
-            PR_STATUS=$(gh pr view ${{ github.event.client_payload.pr_number }} --json state --jq '.state')
+            PR_STATUS=$(gh pr view ${{ needs.create-pr.outputs.pr_number }} --json state --jq '.state')
             echo "PR Status: $PR_STATUS"
             if [ "$PR_STATUS" != "MERGED" ]; then
               echo "PR is not yet merged. Retrying..."
@@ -206,7 +203,7 @@ jobs:
              docker push quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:${{ github.event.inputs.tag_name }}
   changelog:
     name: Changelog
-    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm,Rename-image]
+    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm,rename-image]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -231,7 +228,6 @@ jobs:
           tag_name: ${{ github.event.inputs.tag_name }}
           prerelease: false
           draft: false
-    #this takes the path of payload to upload as an asset in the changelog
           files: bin/*
           generate_release_notes: true
           name: ${{ github.event.inputs.tag_name }}
