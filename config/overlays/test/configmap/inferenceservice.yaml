@@ -80,7 +80,7 @@ data:
       "defaultDeploymentMode": "Serverless"
     }
   
-  disallowedServiceAnnotations: |-
+  annotationsPropagationDisallowList: |-
     [
       "autoscaling.knative.dev/min-scale",
       "autoscaling.knative.dev/max-scale",
@@ -88,7 +88,7 @@ data:
       "kubectl.kubernetes.io/last-applied-configuration"
     ]
 
-  disallowedServiceLables: |-
+  labelsPropagationDisallowList: |-
     [
       "networking.knative.dev/visibility"
     ]

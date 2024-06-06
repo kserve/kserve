@@ -115,7 +115,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(deployConfig.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(deployConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	deploymentMode := isvcutils.GetDeploymentMode(annotations, deployConfig)

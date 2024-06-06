@@ -2180,17 +2180,17 @@
     "v1beta1.DeployConfig": {
       "type": "object",
       "properties": {
-        "defaultDeploymentMode": {
-          "type": "string"
-        },
-        "serviceAnnotationDisallowedList": {
+        "annotationsPropagationDisallowList": {
           "type": "array",
           "items": {
             "type": "string",
             "default": ""
           }
         },
-        "serviceLabelDisallowedList": {
+        "defaultDeploymentMode": {
+          "type": "string"
+        },
+        "labelsPropagationDisallowList": {
           "type": "array",
           "items": {
             "type": "string",

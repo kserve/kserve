@@ -92,8 +92,8 @@ func TestCreateVirtualService(t *testing.T) {
 			LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 		},
 		deployConfig: &v1beta1.DeployConfig{
-			DefaultDeploymentMode:           "Serverless",
-			ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+			DefaultDeploymentMode:              "Serverless",
+			AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 		},
 		useDefault: false,
 		componentStatus: &v1beta1.InferenceServiceStatus{
@@ -111,8 +111,8 @@ func TestCreateVirtualService(t *testing.T) {
 			LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 		},
 		deployConfig: &v1beta1.DeployConfig{
-			DefaultDeploymentMode:           "Serverless",
-			ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+			DefaultDeploymentMode:              "Serverless",
+			AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 		},
 		useDefault: false,
 		componentStatus: &v1beta1.InferenceServiceStatus{
@@ -173,8 +173,8 @@ func TestCreateVirtualService(t *testing.T) {
 			LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 		},
 		deployConfig: &v1beta1.DeployConfig{
-			DefaultDeploymentMode:           "Serverless",
-			ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+			DefaultDeploymentMode:              "Serverless",
+			AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 		},
 		useDefault: false,
 		componentStatus: &v1beta1.InferenceServiceStatus{
@@ -244,8 +244,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -275,8 +275,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -353,8 +353,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -431,8 +431,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -462,8 +462,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -587,8 +587,8 @@ func TestCreateVirtualService(t *testing.T) {
 				DisableIstioVirtualHost:    false,
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -715,8 +715,8 @@ func TestCreateVirtualService(t *testing.T) {
 				DisableIstioVirtualHost:    false,
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			domainList: &[]string{"my-domain-1.com", "example.com"},
 			useDefault: false,
@@ -1215,8 +1215,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: true,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -1276,8 +1276,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: true,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -1354,8 +1354,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: true,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -1408,8 +1408,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -1439,8 +1439,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
@@ -1506,8 +1506,8 @@ func TestCreateVirtualService(t *testing.T) {
 				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode:           "Serverless",
-				ServiceAnnotationDisallowedList: constants.ServiceAnnotationDisallowedList,
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
 			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
