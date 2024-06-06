@@ -125,34 +125,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-  wait-lgtm:
-    runs-on: ubuntu-latest
-    needs: [check-prev-tag, create-pr, wait-checks, comment-lgtm]
-    outputs:
-      has_lgtm: ${{ steps.wait-lgtm-label.outputs.has_lgtm }} 
-    steps:
-      - name: Wait for LGTM label
-        uses: nick-fields/retry@v3
-        id: wait-lgtm-label
-        with:
-          timeout_minutes: 120
-          max_attempts: 60
-          retry_wait_seconds: 120
-          shell: bash
-          command: |
-            LABEL=$(gh pr view ${{ needs.create-pr.outputs.pr_number }} --json labels --jq '.labels[].name')
-            echo "Labels: $LABEL"
-            if echo "$LABEL" | grep -qw "lgtm"; then
-              has_lgtm=true
-              echo "has_lgtm=${has_lgtm}" >> $GITHUB_OUTPUT
-            else
-              echo "LGTM label not found. Retrying..."
-              exit 1
-        env:
-          GH_TOKEN: ${{ github.token }}
-  
   rename-image:
-    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm]
+    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm]
     runs-on: ubuntu-latest
 
     steps:
@@ -203,7 +177,7 @@ jobs:
              docker push quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:${{ github.event.inputs.tag_name }}
   changelog:
     name: Changelog
-    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm,rename-image]
+    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,rename-image]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -231,4 +205,3 @@ jobs:
           files: bin/*
           generate_release_notes: true
           name: ${{ github.event.inputs.tag_name }}
-          
