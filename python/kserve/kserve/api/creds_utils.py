@@ -261,3 +261,17 @@ def get_creds_name_from_config_map(creds):
         return isvc_creds_json['s3']['s3SecretAccessKeyName']
     else:
         raise RuntimeError("Unknown credentials.")
+
+
+def parse_grpc_server_credentials(server_credential):
+    if type(server_credential) == str:
+        try:
+            open(server_credential, 'rb').read()
+        except FileNotFoundError:
+            raise RuntimeError("File not found.")
+    elif type(server_credential) == bytes:
+        return server_credential
+    else:
+        raise RuntimeError(
+            "SSL key must be of type string (file path to cert) or bytes (raw cert).")
+

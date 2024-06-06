@@ -34,6 +34,7 @@ from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
+from .api import creds_utils
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -152,11 +153,11 @@ class ModelServer:
         if self.enable_grpc:
             if self.secure_grpc_server:
                 server_credentials = []
-                ssl_key = utils.parse_grpc_server_credentials(self.grpc_ssl_key)
+                ssl_key = creds_utils.parse_grpc_server_credentials(self.grpc_ssl_key)
                 server_credentials.append(ssl_key)
-                ssl_cert = utils.parse_grpc_server_credentials(self.grpc_ssl_cert)
+                ssl_cert = creds_utils.parse_grpc_server_credentials(self.grpc_ssl_cert)
                 server_credentials.append(ssl_cert)
-                ssl_ca_cert = utils.parse_grpc_server_credentials(self.grpc_ssl_ca_cert)
+                ssl_ca_cert = creds_utils.parse_grpc_server_credentials(self.grpc_ssl_ca_cert)
                 server_credentials.append(ssl_ca_cert)
                 self._grpc_server = GRPCServer(grpc_port, self.dataplane,
                                                self.model_repository_extension,

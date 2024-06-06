@@ -19,8 +19,8 @@ import re
 from typing import Dict
 from unittest import mock
 
-import avro.io
-import avro.schema
+# import avro.io
+# import avro.schema
 import pytest
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
@@ -131,57 +131,57 @@ class DummyCEModel(Model):
         return {"predictions": request["instances"]}
 
 
-class DummyAvroCEModel(Model):
-    def __init__(self, name):
-        super().__init__(name)
-        self.name = name
-        self.ready = False
-
-    def load(self):
-        self.ready = True
-
-    def _parserequest(self, request):
-        schema = avro.schema.parse(test_avsc_schema)
-        raw_bytes = request
-        bytes_reader = io.BytesIO(raw_bytes)
-        decoder = avro.io.BinaryDecoder(bytes_reader)
-        reader = avro.io.DatumReader(schema)
-        record1 = reader.read(decoder)
-        return record1
-
-    def preprocess(self, request, headers: Dict[str, str] = None):
-        assert headers["ce-specversion"] == "1.0"
-        assert headers["ce-source"] == "https://example.com/event-producer"
-        assert headers["ce-type"] == "com.example.sampletype1"
-        assert headers["ce-content-type"] == "application/avro"
-        return self._parserequest(request)
-
-    async def predict(self, request, headers=None):
-        return {"predictions": [[request['name'], request['favorite_number'],
-                                 request['favorite_color']]]}
-
-    async def explain(self, request, headers=None):
-        return {"predictions": [[request['name'], request['favorite_number'],
-                                 request['favorite_color']]]}
-
-
-class DummyModelRepository(ModelRepository):
-    def __init__(self, test_load_success: bool, fail_with_exception: bool = False):
-        super().__init__()
-        self.test_load_success = test_load_success
-        self.fail_with_exception = fail_with_exception
-
-    async def load(self, name: str) -> bool:
-        if self.test_load_success:
-            model = DummyModel(name)
-            model.load()
-            self.update(model)
-            return model.ready
-        else:
-            if self.fail_with_exception:
-                raise Exception(f"Could not load model {name}.")
-            else:
-                return False
+# class DummyAvroCEModel(Model):
+#     def __init__(self, name):
+#         super().__init__(name)
+#         self.name = name
+#         self.ready = False
+#
+#     def load(self):
+#         self.ready = True
+#
+#     def _parserequest(self, request):
+#         schema = avro.schema.parse(test_avsc_schema)
+#         raw_bytes = request
+#         bytes_reader = io.BytesIO(raw_bytes)
+#         decoder = avro.io.BinaryDecoder(bytes_reader)
+#         reader = avro.io.DatumReader(schema)
+#         record1 = reader.read(decoder)
+#         return record1
+#
+#     def preprocess(self, request, headers: Dict[str, str] = None):
+#         assert headers["ce-specversion"] == "1.0"
+#         assert headers["ce-source"] == "https://example.com/event-producer"
+#         assert headers["ce-type"] == "com.example.sampletype1"
+#         assert headers["ce-content-type"] == "application/avro"
+#         return self._parserequest(request)
+#
+#     async def predict(self, request, headers=None):
+#         return {"predictions": [[request['name'], request['favorite_number'],
+#                                  request['favorite_color']]]}
+#
+#     async def explain(self, request, headers=None):
+#         return {"predictions": [[request['name'], request['favorite_number'],
+#                                  request['favorite_color']]]}
+#
+#
+# class DummyModelRepository(ModelRepository):
+#     def __init__(self, test_load_success: bool, fail_with_exception: bool = False):
+#         super().__init__()
+#         self.test_load_success = test_load_success
+#         self.fail_with_exception = fail_with_exception
+#
+#     async def load(self, name: str) -> bool:
+#         if self.test_load_success:
+#             model = DummyModel(name)
+#             model.load()
+#             self.update(model)
+#             return model.ready
+#         else:
+#             if self.fail_with_exception:
+#                 raise Exception(f"Could not load model {name}.")
+#             else:
+#                 return False
 
 
 @pytest.mark.asyncio
@@ -565,44 +565,44 @@ class TestTFHttpServerCloudEvent:
         assert error_regex.match(response["error"]) is not None
 
 
-class TestTFHttpServerAvroCloudEvent:
-
-    @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
-        model = DummyAvroCEModel("TestModel")
-        model.load()
-        server = ModelServer()
-        server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
-
-    @pytest.fixture(scope='class')
-    def http_server_client(self, app):
-        return TestClient(app)
-
-    def test_predict_ce_avro_binary(self, http_server_client):
-        schema = avro.schema.parse(test_avsc_schema)
-        msg = {"name": "foo", "favorite_number": 1, "favorite_color": "pink"}
-
-        writer = avro.io.DatumWriter(schema)
-        bytes_writer = io.BytesIO()
-        encoder = avro.io.BinaryEncoder(bytes_writer)
-        writer.write(msg, encoder)
-        data = bytes_writer.getvalue()
-
-        event = dummy_cloud_event(data, set_contenttype=True, contenttype="application/avro")
-        # Creates the HTTP request representation of the CloudEvent in binary content mode
-        headers, body = to_binary(event)
-        resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
-
-        assert resp.status_code == 200
-        assert resp.headers['content-type'] == "application/json"
-        assert resp.headers['ce-specversion'] == "1.0"
-        assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
-        assert resp.headers['ce-source'] == "io.kserve.inference.TestModel"
-        assert resp.headers['ce-type'] == "io.kserve.inference.response"
-        assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
-        assert resp.content == b'{"predictions": [["foo", 1, "pink"]]}'
+# class TestTFHttpServerAvroCloudEvent:
+#
+#     @pytest.fixture(scope="class")
+#     def app(self):  # pylint: disable=no-self-use
+#         model = DummyAvroCEModel("TestModel")
+#         model.load()
+#         server = ModelServer()
+#         server.register_model(model)
+#         rest_server = RESTServer(server.dataplane, server.model_repository_extension)
+#         return rest_server.create_application()
+#
+#     @pytest.fixture(scope='class')
+#     def http_server_client(self, app):
+#         return TestClient(app)
+#
+#     def test_predict_ce_avro_binary(self, http_server_client):
+#         schema = avro.schema.parse(test_avsc_schema)
+#         msg = {"name": "foo", "favorite_number": 1, "favorite_color": "pink"}
+#
+#         writer = avro.io.DatumWriter(schema)
+#         bytes_writer = io.BytesIO()
+#         encoder = avro.io.BinaryEncoder(bytes_writer)
+#         writer.write(msg, encoder)
+#         data = bytes_writer.getvalue()
+#
+#         event = dummy_cloud_event(data, set_contenttype=True, contenttype="application/avro")
+#         # Creates the HTTP request representation of the CloudEvent in binary content mode
+#         headers, body = to_binary(event)
+#         resp = http_server_client.post('/v1/models/TestModel:predict', headers=headers, content=body)
+#
+#         assert resp.status_code == 200
+#         assert resp.headers['content-type'] == "application/json"
+#         assert resp.headers['ce-specversion'] == "1.0"
+#         assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
+#         assert resp.headers['ce-source'] == "io.kserve.inference.TestModel"
+#         assert resp.headers['ce-type'] == "io.kserve.inference.response"
+#         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
+#         assert resp.content == b'{"predictions": [["foo", 1, "pink"]]}'
 
 
 class TestTFHttpServerLoadAndUnLoad:

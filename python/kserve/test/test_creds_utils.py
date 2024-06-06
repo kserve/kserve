@@ -15,6 +15,8 @@
 import json
 import tempfile
 from unittest import mock
+import os
+import re
 
 import pytest
 from kubernetes.client import (V1ObjectMeta, V1ServiceAccount,
@@ -26,7 +28,8 @@ from kserve.api.creds_utils import (check_sa_exists, create_secret,
                                     get_creds_name_from_config_map,
                                     patch_service_account,
                                     set_azure_credentials, set_gcs_credentials,
-                                    set_s3_credentials, set_service_account)
+                                    set_s3_credentials, set_service_account,
+                                    parse_grpc_server_credentials)
 
 
 @mock.patch('kubernetes.client.CoreV1Api.list_namespaced_service_account')
@@ -207,3 +210,37 @@ def test_set_azure_credentials(mock_create_secret, mock_set_service_account):
         set_azure_credentials(namespace, creds_file.name, V1ServiceAccount())
     mock_create_secret.assert_called_with(namespace=namespace, data=data)
     mock_set_service_account.assert_called()
+
+
+def test_parse_grpc_server_credentials():
+    server_credential = 'server'
+
+
+def test_parse_grpc_server_credentials_valid_file_path():
+    # Create a temporary file with some content
+    temp_file = tempfile.NamedTemporaryFile(delete=False)
+    temp_file.write(b"dummy_cert_content")
+    temp_file.close()
+
+    # Test the function with the file path
+    result = parse_grpc_server_credentials(temp_file.name)
+    assert result == b"dummy_cert_content"
+
+    # Clean up the temporary file
+    os.remove(temp_file.name)
+
+
+def test_parse_grpc_server_credentials_invalid_file_path():
+    with pytest.raises(RuntimeError, match="File not found."):
+        parse_grpc_server_credentials("non_existent_file_path")
+
+
+def test_parse_grpc_server_credentials_valid_bytes_input():
+    result = parse_grpc_server_credentials(b"dummy_cert_content")
+    assert result == b"dummy_cert_content"
+
+
+def test_parse_grpc_server_credentials_invalid_type_input():
+    expected_message = "SSL key must be of type string (file path to cert) or bytes (raw cert)."
+    with pytest.raises(RuntimeError, match=re.escape(expected_message)):
+        parse_grpc_server_credentials(12345)  # Invalid type

@@ -230,14 +230,3 @@ def strtobool(val: str) -> bool:
         return False
     else:
         raise ValueError("invalid truth value %r" % (val,))
-
-
-def parse_grpc_server_credentials(server_credential):
-    if type(server_credential) == str:
-        file = open(server_credential, 'rb').read()
-        return file
-    elif type(server_credential) == bytes:
-        return server_credential
-    else:
-        raise Exception(
-            "SSL key must be of type string (file path to cert) or bytes (raw cert).")
