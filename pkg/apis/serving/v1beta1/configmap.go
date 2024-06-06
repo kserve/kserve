@@ -37,8 +37,8 @@ const (
 const (
 	IngressConfigKeyName  = "ingress"
 	DeployConfigName      = "deploy"
-	DisallowedAnnotations = "disallowedServiceAnnotations"
-	DisallowedLables      = "disallowedServiceLables"
+	DisallowedAnnotations = "annotationsPropagationDisallowList"
+	DisallowedLables      = "labelsPropagationDisallowList"
 
 	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
 	DefaultIngressDomain  = "example.com"
@@ -83,9 +83,9 @@ type IngressConfig struct {
 
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
-	DefaultDeploymentMode           string   `json:"defaultDeploymentMode,omitempty"`
-	ServiceAnnotationDisallowedList []string `json:"serviceAnnotationDisallowedList,omitempty"`
-	ServiceLabelDisallowedList      []string `json:"serviceLabelDisallowedList,omitempty"`
+	DefaultDeploymentMode              string   `json:"defaultDeploymentMode,omitempty"`
+	AnnotationsPropagationDisallowList []string `json:"annotationsPropagationDisallowList,omitempty"`
+	LabelsPropagationDisallowList      []string `json:"labelsPropagationDisallowList,omitempty"`
 }
 
 func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServicesConfig, error) {
@@ -183,23 +183,23 @@ func NewDeployConfig(clientset kubernetes.Interface) (*DeployConfig, error) {
 		}
 	}
 
-	disallowedServiceAnnotations := []string{}
+	disallowedAnnotations := []string{}
 	if annotations, ok := configMap.Data[DisallowedAnnotations]; ok {
-		err := json.Unmarshal([]byte(annotations), &disallowedServiceAnnotations)
+		err := json.Unmarshal([]byte(annotations), &disallowedAnnotations)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse disallowed service annotations json: %w", err)
 		}
 	}
-	deployConfig.ServiceAnnotationDisallowedList = disallowedServiceAnnotations
+	deployConfig.AnnotationsPropagationDisallowList = disallowedAnnotations
 
-	disallowedServiceLabels := []string{}
+	disallowedLabels := []string{}
 	if labels, ok := configMap.Data[DisallowedLables]; ok {
-		err := json.Unmarshal([]byte(labels), &disallowedServiceLabels)
+		err := json.Unmarshal([]byte(labels), &disallowedLabels)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse disallowed service labels json: %w", err)
 		}
 	}
-	deployConfig.ServiceLabelDisallowedList = disallowedServiceLabels
+	deployConfig.LabelsPropagationDisallowList = disallowedLabels
 
 	return deployConfig, nil
 }

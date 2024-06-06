@@ -78,7 +78,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	var sRuntimeAnnotations map[string]string
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(p.deployConfig.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(p.deployConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
@@ -226,11 +226,11 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
 
 		sRuntimeLabels = utils.Filter(sRuntime.ServingRuntimePodSpec.Labels, func(key string) bool {
-			return !utils.Includes(p.deployConfig.ServiceLabelDisallowedList, key)
+			return !utils.Includes(p.deployConfig.LabelsPropagationDisallowList, key)
 		})
 
 		sRuntimeAnnotations = utils.Filter(sRuntime.ServingRuntimePodSpec.Annotations, func(key string) bool {
-			return !utils.Includes(p.deployConfig.ServiceAnnotationDisallowedList, key)
+			return !utils.Includes(p.deployConfig.AnnotationsPropagationDisallowList, key)
 		})
 	} else {
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
@@ -277,12 +277,12 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Label filter will be handled in ksvc_reconciler
 
 	predictorLabels := utils.Filter(isvc.Spec.Predictor.Labels, func(key string) bool {
-		return !utils.Includes(p.deployConfig.ServiceLabelDisallowedList, key)
+		return !utils.Includes(p.deployConfig.LabelsPropagationDisallowList, key)
 	})
 
 	// predictorLabels := isvc.Spec.Predictor.Labels
 	predictorAnnotations := utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
-		return !utils.Includes(p.deployConfig.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(p.deployConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec

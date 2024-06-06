@@ -75,10 +75,10 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	p.Log.Info("Reconciling Transformer", "TransformerSpec", isvc.Spec.Transformer)
 	transformer := isvc.Spec.Transformer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(p.deployConfig.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(p.deployConfig.AnnotationsPropagationDisallowList, key)
 	})
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
-		return !utils.Includes(p.deployConfig.ServiceLabelDisallowedList, key)
+		return !utils.Includes(p.deployConfig.LabelsPropagationDisallowList, key)
 	})
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
@@ -114,11 +114,11 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	// Label filter will be handled in ksvc_reconciler
 
 	transformerLabels := utils.Filter(isvc.Spec.Transformer.Labels, func(key string) bool {
-		return !utils.Includes(p.deployConfig.ServiceLabelDisallowedList, key)
+		return !utils.Includes(p.deployConfig.LabelsPropagationDisallowList, key)
 	})
 
 	transformerAnnotations := utils.Filter(isvc.Spec.Transformer.Annotations, func(key string) bool {
-		return !utils.Includes(p.deployConfig.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(p.deployConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	// Labels and annotations priority: transformer component > isvc

@@ -74,11 +74,11 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	e.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
 	explainer := isvc.Spec.Explainer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(e.deployConfig.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(e.deployConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	lables := utils.Filter(isvc.Labels, func(key string) bool {
-		return !utils.Includes(e.deployConfig.ServiceLabelDisallowedList, key)
+		return !utils.Includes(e.deployConfig.LabelsPropagationDisallowList, key)
 	})
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
@@ -113,11 +113,11 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Label filter will be handled in ksvc_reconciler
 
 	explainerLabels := utils.Filter(isvc.Spec.Explainer.Labels, func(key string) bool {
-		return !utils.Includes(e.deployConfig.ServiceLabelDisallowedList, key)
+		return !utils.Includes(e.deployConfig.LabelsPropagationDisallowList, key)
 	})
 
 	explainerAnnotations := utils.Filter(isvc.Spec.Explainer.Annotations, func(key string) bool {
-		return !utils.Includes(e.deployConfig.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(e.deployConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	// Labels and annotations priority: explainer component > isvc
