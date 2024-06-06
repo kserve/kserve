@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag name for the new release and push the image to quay'
+        description: 'Tag name for the new release'
         required: true
 
 permissions:
@@ -34,7 +34,6 @@ jobs:
           echo "Old Tag=${{ steps.get_tag.outputs.old_tag_name }}"
           echo "NEW_TAG=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
           echo "$(basename ${{ github.ref }})"
-
       - name: Check if tag exists
         id: check_tag
         run: |
@@ -122,54 +121,44 @@ jobs:
         if: ${{ needs.wait-checks.result == 'success' }}
         run: |
           gh pr comment ${{ needs.create-pr.outputs.pr_number }} --body "/lgtm"
-          gh pr edit ${{ needs.create-pr.outputs.pr_number }} --add-label lgtm
         env:
-         GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
 
   wait-lgtm:
     runs-on: ubuntu-latest
-    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm ]
+    needs: [check-prev-tag, create-pr, wait-checks, comment-lgtm]
     outputs:
       has_lgtm: ${{ steps.wait-lgtm-label.outputs.has_lgtm }} 
+      has_lgtm: ${{ steps.wait-lgtm-label.outputs.has_lgtm }} 
+
+      has_lgtm: ${{ steps.wait-lgtm-label.outputs.has_lgtm }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Wait for lgtm label
+      - name: Wait for LGTM label
+        uses: nick-fields/retry@v3
         id: wait-lgtm-label
-        run: |
-          for i in {1..60}; do
+        with:
+          timeout_minutes: 120
+          max_attempts: 60
+          retry_wait_seconds: 120
+          shell: bash
+          command: |
             LABEL=$(gh pr view ${{ needs.create-pr.outputs.pr_number }} --json labels --jq '.labels[].name')
             echo "Labels: $LABEL"
             if echo "$LABEL" | grep -qw "lgtm"; then
-                has_lgtm=true
-                echo "has_lgtm=${has_lgtm}" >> $GITHUB_OUTPUT
-                break
+              has_lgtm=true
+              echo "has_lgtm=${has_lgtm}" >> $GITHUB_OUTPUT
             else
-                echo "Waiting for lgtm label... (attempt $i)"
-                sleep 60
-            fi
-          done
-          
-          if ! $has_lgtm; then
-            echo "Error: 'lgtm' label not found after waiting."
-            exit 1
-          fi
+              echo "LGTM label not found. Retrying..."
+              exit 1
         env:
-         GH_TOKEN: ${{ github.token }}
-        
+          GH_TOKEN: ${{ github.token }}
   
-  docker-build:
+  Rename-image:
     needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm]
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
@@ -177,37 +166,47 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_USER }}
-          password: ${{ secrets.QUAY_PASSWORD }}
-
-      - name: Build Docker image
-        run: docker build -t quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }} .
-
-      - name: Push Docker image
-        run: docker push quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }}
-
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.Q_PASSWORD }}
     
-      - uses: peter-evans/find-comment@v3
-        name: Find Comment
-        id: fc
+      - name: Wait for PR to be merged
+        uses: nick-fields/retry@v3
         with:
-          issue-number: ${{ needs.create-pr.outputs.pr_number }}
-          comment-author: 'github-actions[bot]'
-          body-includes:  PR image build and manifest generation completed successfully
-      - uses: peter-evans/create-or-update-comment@v4
-        name: Generate/update success message comment
-        with:
-          comment-id: ${{ steps.fc.outputs.comment-id }}
-          issue-number:  ${{ needs.create-pr.outputs.pr_number }}
-          edit-mode: replace
-          body: |
-            PR image build and manifest generation completed successfully!
-            
-            📦 [PR image](https://quay.io/opendatahub/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }}: `quay.io/opendatahub/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }}`
+          timeout_minutes: 60
+          max_attempts: 60
+          retry_wait_seconds: 120
+          shell: bash
+          command: |
+            PR_STATUS=$(gh pr view ${{ github.event.client_payload.pr_number }} --json state --jq '.state')
+            echo "PR Status: $PR_STATUS"
+            if [ "$PR_STATUS" != "MERGED" ]; then
+              echo "PR is not yet merged. Retrying..."
+              exit 1
+            fi
+        env:
+          GH_TOKEN: ${{ github.token }}
 
+      - name: pull image (with retry)
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 2
+          max_attempts: 3
+          retry_wait_seconds: 120
+          shell: bash
+          command: docker pull quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }}
+      - name: Rename image with new tag name
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 2
+          max_attempts: 3
+          retry_wait_seconds: 120
+          shell: bash
+          command: |
+             docker tag quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }} quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:${{ github.event.inputs.tag_name }}
+             docker push quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:${{ github.event.inputs.tag_name }}
   changelog:
     name: Changelog
-    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm,docker-build]
+    needs: [ check-prev-tag,create-pr,wait-checks,comment-lgtm,wait-lgtm,Rename-image]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
