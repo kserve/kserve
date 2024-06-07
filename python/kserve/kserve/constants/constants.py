@@ -71,3 +71,6 @@ OBSERVED_GENERATION = "observedGeneration"
 
 # K8S metadata key constants
 GENERATION = "generation"
+
+# LLM stats map key
+LLM_STATS_KEY = "llm-stats"

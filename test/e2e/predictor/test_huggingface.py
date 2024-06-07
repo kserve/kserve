@@ -50,6 +50,8 @@ def test_huggingface_openai_chat_completions():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--backend",
                 "huggingface",
+                "--max_length",
+                "512",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -76,7 +78,7 @@ def test_huggingface_openai_chat_completions():
     res = generate(service_name, "./data/opt_125m_input_generate.json")
     assert (
         res["choices"][0]["message"]["content"]
-        == "I'm not sure if this is a good idea, but I'm not sure if I should"
+        == "I'm not sure if this is a good idea, but I'm not sure if I should be"
     )
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -241,7 +243,14 @@ def test_huggingface_openai_text_2_text():
             model_format=V1beta1ModelFormat(
                 name="huggingface",
             ),
-            args=["--model_id", "t5-small", "--backend", "huggingface"],
+            args=[
+                "--model_id",
+                "t5-small",
+                "--backend",
+                "huggingface",
+                "--max_length",
+                "512",
+            ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
                 limits={"cpu": "1", "memory": "4Gi"},

@@ -167,9 +167,14 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 						Annotations: annotations,
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds:       componentExtension.TimeoutSeconds,
-						ContainerConcurrency: componentExtension.ContainerConcurrency,
-						PodSpec:              *podSpec,
+						// If timeoutSeconds is not set by isvc(componentExtension.TimeoutSeconds is nil), Knative
+						// Serving will set timeoutSeconds to the default value.
+						TimeoutSeconds: componentExtension.TimeoutSeconds,
+						// If timeoutSeconds is set by isvc, set ResponseStartTimeoutSeconds to the same value.
+						// If timeoutSeconds is not set by isvc, set ResponseStartTimeoutSeconds to empty.
+						ResponseStartTimeoutSeconds: componentExtension.TimeoutSeconds,
+						ContainerConcurrency:        componentExtension.ContainerConcurrency,
+						PodSpec:                     *podSpec,
 					},
 				},
 			},

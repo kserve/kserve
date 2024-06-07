@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kserve"
-version = "0.13.0rc0"
+version = "0.13.0"
 description = "KServe Python SDK"
 authors = [
     "The KServe Authors <dsun20@bloomberg.net>",
@@ -91,7 +91,7 @@ portforward = "^0.4.3"
 avro = "^1.11.0"
 tomlkit = "^0.11.6"
 jinja2 = "^3.1.2"
-
+grpcio-testing = "^1.45.0"
 [tool.poetry.group.dev]
 optional = true
 
