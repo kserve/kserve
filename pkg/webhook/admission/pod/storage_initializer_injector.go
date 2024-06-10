@@ -130,7 +130,7 @@ func GetPvcForStorageUri(storageUri string, client client.Client) (*string, erro
 		// 	continue
 		// }
 		if model.Spec.StorageUri == storageUri {
-			ret := "pvc://model-cache/models" + model.Name
+			ret := "pvc://model-cache/models/" + model.Name + "/"
 			return &ret, nil
 		}
 		// if err != nil {
@@ -246,7 +246,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	podVolumes := []v1.Volume{}
 	storageInitializerMounts := []v1.VolumeMount{}
 
-	if _, ok := pod.ObjectMeta.Annotations["useModelCache"]; ok {
+	if _, ok := pod.ObjectMeta.Annotations[constants.EnableModelCache]; ok {
 		newUri, err := GetPvcForStorageUri(srcURI, mi.client)
 		if err != nil {
 			return err

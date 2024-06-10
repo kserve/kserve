@@ -94,6 +94,7 @@ var (
 	DefaultPrometheusPath                       = "/metrics"
 	QueueProxyAggregatePrometheusMetricsPort    = 9088
 	DefaultPodPrometheusPort                    = "9091"
+	EnableModelCache                            = KServeAPIGroupName + "/enable-model-cache"
 )
 
 // InferenceService Internal Annotations
