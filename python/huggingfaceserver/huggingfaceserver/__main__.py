@@ -108,6 +108,11 @@ parser.add_argument(
 parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
 )
+parser.add_argument(
+    "--return_probabilities",
+    action="store_true",
+    help="Return all probabilities",
+)
 
 parser = maybe_add_vllm_cli_parser(parser)
 
@@ -153,7 +158,7 @@ def load_model():
     ):
         from .vllm.vllm_model import VLLMModel
 
-        args.model = args.model_dir or args.model_id
+        args.model = args.model_id or args.model_dir
         args.revision = args.model_revision
         engine_args = build_vllm_engine_args(args)
         model = VLLMModel(args.model_name, engine_args)

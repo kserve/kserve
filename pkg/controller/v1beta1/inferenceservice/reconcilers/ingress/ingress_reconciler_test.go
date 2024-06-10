@@ -57,7 +57,7 @@ func TestCreateVirtualService(t *testing.T) {
 					Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 				},
 			},
-			Gateways: []string{constants.KnativeLocalGateway},
+			Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 		},
 		{
 			Authority: &istiov1beta1.StringMatch{
@@ -132,7 +132,7 @@ func TestCreateVirtualService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 			Spec: istiov1beta1.VirtualService{
 				Hosts:    []string{serviceInternalHostName, serviceHostName},
-				Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+				Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 				Http: []*istiov1beta1.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
@@ -187,7 +187,7 @@ func TestCreateVirtualService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 			Spec: istiov1beta1.VirtualService{
 				Hosts:    []string{serviceInternalHostName},
-				Gateways: []string{constants.KnativeLocalGateway},
+				Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 				Http: []*istiov1beta1.HTTPRoute{
 					{
 						Match: []*istiov1beta1.HTTPMatchRequest{
@@ -197,7 +197,7 @@ func TestCreateVirtualService(t *testing.T) {
 										Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 									},
 								},
-								Gateways: []string{constants.KnativeLocalGateway},
+								Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 							},
 						},
 						Route: []*istiov1beta1.HTTPRouteDestination{
@@ -295,7 +295,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
@@ -367,7 +367,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
@@ -466,7 +466,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
@@ -481,7 +481,7 @@ func TestCreateVirtualService(t *testing.T) {
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 								},
 								{
 									Uri: &istiov1beta1.StringMatch{
@@ -567,7 +567,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName, "my-domain.com"},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
@@ -577,7 +577,7 @@ func TestCreateVirtualService(t *testing.T) {
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 								},
 								{
 									Authority: &istiov1beta1.StringMatch{
@@ -689,7 +689,7 @@ func TestCreateVirtualService(t *testing.T) {
 				Spec: istiov1beta1.VirtualService{
 					Hosts: []string{serviceInternalHostName, serviceHostName, "my-domain.com",
 						"my-model.test.my-additional-domain.com", "my-model.test.my-second-additional-domain.com"},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
@@ -699,7 +699,7 @@ func TestCreateVirtualService(t *testing.T) {
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 								},
 								{
 									Authority: &istiov1beta1.StringMatch{
@@ -820,7 +820,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
@@ -891,7 +891,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
@@ -1089,7 +1089,7 @@ func TestCreateVirtualService(t *testing.T) {
 				}},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName},
-					Gateways: []string{constants.KnativeLocalGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
@@ -1099,7 +1099,7 @@ func TestCreateVirtualService(t *testing.T) {
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 								},
 							},
 							Route: []*istiov1beta1.HTTPRouteDestination{
