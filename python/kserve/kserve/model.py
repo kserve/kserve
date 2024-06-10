@@ -24,7 +24,7 @@ import orjson
 from cloudevents.http import CloudEvent
 from httpx import HTTPStatusError
 
-from .constants.constants import PredictorProtocol
+from .constants.constants import PredictorProtocol, INFERENCE_CONTENT_LENGTH_HEADER
 from .errors import InvalidInput
 from .logging import logger, trace_logger
 from .metrics import (
@@ -340,8 +340,13 @@ class Model(BaseKServeModel):
             if "x-b3-traceid" in headers:
                 predict_headers["x-b3-traceid"] = headers["x-b3-traceid"]
         if isinstance(payload, InferRequest):
-            payload = payload.to_rest()
-        data = orjson.dumps(payload)
+            payload, json_length = payload.to_rest()
+            if json_length is not None:
+                predict_headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_length)
+        if isinstance(payload, bytes):
+            data = payload
+        else:
+            data = orjson.dumps(payload)
 
         try:
             response = await self._http_client.post(
