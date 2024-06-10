@@ -21,6 +21,7 @@ import pandas as pd
 import uuid
 from google.protobuf.internal.containers import MessageMap
 
+from .rest.v2_datamodels import InferenceRequest
 from ..constants.constants import GRPC_CONTENT_DATATYPE_MAPPINGS
 from ..errors import InvalidInput, InferenceError
 from ..protocol.grpc.grpc_predict_v2_pb2 import (
@@ -171,6 +172,11 @@ class InferInput:
 
     @data.setter
     def data(self, data: List):
+        """Set the data of the inference input associated with this object.
+
+        Args:
+             data: data of the inference input.
+        """
         self._data = data
 
     @property
@@ -191,7 +197,19 @@ class InferInput:
         """
         return self._parameters
 
-    def set_shape(self, shape: List[int]):
+    @parameters.setter
+    def parameters(
+        self, params: Optional[Union[Dict, MessageMap[str, InferParameter]]]
+    ):
+        """Set the parameters of the inference input associated with this object.
+
+        Args:
+             params: parameters of the inference input
+        """
+        self._parameters = params
+
+    @shape.setter
+    def shape(self, shape: List[int]):
         """Set the shape of inference input.
 
         Args:
@@ -200,6 +218,15 @@ class InferInput:
         self._shape = shape
 
     def as_string(self) -> List[List[str]]:
+        """
+        Decodes the inference input data as a list of strings.
+
+        Returns:
+            List[List[str]]: The decoded data as a list of strings.
+
+        Raises:
+            InvalidInput: If the datatype of the inference input is not 'BYTES'.
+        """
         if self.datatype == "BYTES":
             return [s.decode("utf-8") for li in self._data for s in li]
         else:
@@ -210,6 +237,8 @@ class InferInput:
 
         Returns:
             A numpy array of the inference input data
+        Raises:
+            InvalidInput: If the datatype of the inference input is not recognized.
         """
         dtype = to_np_dtype(self.datatype)
         if dtype is None:
@@ -321,6 +350,8 @@ class InferInput:
             return False
         if self.data != other.data:
             return False
+        if self._raw_data != other._raw_data:
+            return False
         return True
 
     @parameters.setter
@@ -373,6 +404,79 @@ def get_content(datatype: str, data: InferTensorContents):
         raise InvalidInput("invalid content type")
 
 
+class RequestedOutput:
+    def __init__(self, name: str, parameters: Optional[Dict] = None):
+        """
+        The RequestedOutput class represents an output that is requested as part of an inference request.
+
+        Args:
+            name (str): The name of the output.
+            parameters (Optional[Dict]): Additional parameters for the output.
+        """
+        self._name = name
+        self._parameters = parameters
+
+    @property
+    def name(self) -> str:
+        """
+        Get the name of the output.
+
+        Returns:
+            str: The name of the output.
+        """
+        return self._name
+
+    @property
+    def parameters(self) -> Optional[Dict]:
+        """
+        Get the additional parameters for the output.
+
+        Returns:
+            Optional[Dict]: The additional parameters for the output.
+        """
+        return self._parameters
+
+    @parameters.setter
+    def parameters(
+        self, params: Optional[Union[Dict, MessageMap[str, InferParameter]]]
+    ):
+        """Set the parameters of the inference input associated with this object.
+
+        Args:
+             params: parameters of the inference input
+        """
+        self._parameters = params
+
+    @property
+    def binary_data(self) -> Optional[bool]:
+        """Get the binary_data attribute from the parameters.
+        This attribute indicates whether the data for the input should be in binary format.
+
+        Returns:
+            bool or None: True if the data should be in binary format, False otherwise.
+                              If the binary_data attribute is not set, returns None.
+        """
+        if self.parameters and "binary_data" in self.parameters:
+            return self.parameters["binary_data"]
+        else:
+            return None
+
+    def __eq__(self, other):
+        if not isinstance(other, RequestedOutput):
+            return False
+        if self.name != other.name:
+            return False
+        if self.parameters != other.parameters:
+            return False
+        return True
+
+    def __repr__(self):
+        return f"RequestedOutput(name={self.name}, parameters={self.parameters})"
+
+    def __str__(self):
+        return self.__repr__()
+
+
 class InferRequest:
     id: Optional[str]
     model_name: str
@@ -388,6 +492,7 @@ class InferRequest:
         raw_inputs=None,
         from_grpc: Optional[bool] = False,
         parameters: Optional[Union[Dict, MessageMap[str, InferParameter]]] = None,
+        request_outputs: Optional[List[RequestedOutput]] = None,
     ):
         """InferRequest Data Model.
 
@@ -398,6 +503,7 @@ class InferRequest:
             raw_inputs: The binary data for the inference inputs.
             from_grpc: Indicate if the data model is constructed from gRPC request.
             parameters: The additional inference parameters.
+            request_outputs: The output tensors requested for this inference.
         """
 
         self.id = request_id
@@ -410,41 +516,64 @@ class InferRequest:
             self._use_raw_outputs = True
             for i, raw_input in enumerate(raw_inputs):
                 self.inputs[i]._raw_data = raw_input
+        self.request_outputs = request_outputs
 
     @property
     def use_binary_outputs(self) -> bool:
-        """Whether to use binary raw outputs
+        """This attribute is used to determine if all the outputs should be returned as raw binary format.
+        For REST,
+            Get the binary_data_output attribute from the parameters. This will be ovverided by the individual output's 'binary_data' parameter.
+        For GRPC,
+            It is True, if the received inputs are raw_inputs, otherwise False. For GRPC, if the inputs are raw_inputs,
+            then the outputs should be returned as raw_outputs.
+
         Returns:
             a boolean indicating whether to use binary raw outputs
         """
-        return self._use_raw_outputs
+        # If the request is from gRPC and we receive the inputs as raw inputs, then the outputs should be returned as raw binary format.
+        if self._use_raw_outputs and self.from_grpc:
+            return True
+        # If the request is from REST and the 'use_binary_outputs' parameter is set to True, then the outputs should be returned as raw binary format.
+        elif self.parameters and not self.from_grpc:
+            # If it is a grpc request, then this configuration has no effect on the output.
+            return self.parameters.get("binary_data_output", False)
+        else:
+            return False
 
     @classmethod
-    def from_grpc(cls, request: ModelInferRequest):
-        """The class method to construct the InferRequest from a ModelInferRequest"""
-        raw_input_length = len(request.raw_input_contents)
-        if raw_input_length != 0 and len(request.inputs) != raw_input_length:
-            raise InvalidInput(
-                f"contents length does not match raw_input_contents length for model '{request.model_name}'"
-            )
-        infer_inputs = []
-        for input_tensor in request.inputs:
-            contents = get_content(input_tensor.datatype, input_tensor.contents)
-            if raw_input_length != 0 and len(contents) != 0:
-                raise InvalidInput(
-                    f"contents field must not be specified when using raw_input_contents for '{input_tensor.name}'"
-                    f"for model '{request.model_name}'"
-                )
+    def from_grpc(cls, request: ModelInferRequest) -> "InferRequest":
+        """
+        Class method to construct an InferRequest object from a ModelInferRequest object.
 
-            infer_inputs.append(
-                InferInput(
-                    name=input_tensor.name,
-                    shape=list(input_tensor.shape),
-                    datatype=input_tensor.datatype,
-                    data=contents,
-                    parameters=input_tensor.parameters,
-                )
+        Args:
+            request (ModelInferRequest): The gRPC ModelInferRequest object to be converted.
+
+        Returns:
+            InferRequest: The resulting InferRequest object.
+        """
+        infer_inputs = [
+            InferInput(
+                name=input_tensor.name,
+                shape=list(input_tensor.shape),
+                datatype=input_tensor.datatype,
+                data=get_content(input_tensor.datatype, input_tensor.contents),
+                parameters=(
+                    to_http_parameters(input_tensor.parameters)
+                    if input_tensor.parameters
+                    else None
+                ),
             )
+            for input_tensor in request.inputs
+        ]
+        request_outputs = [
+            RequestedOutput(
+                name=output.name,
+                parameters=(
+                    to_http_parameters(output.parameters) if output.parameters else None
+                ),
+            )
+            for output in request.outputs
+        ]
         return cls(
             request_id=request.id,
             model_name=request.model_name,
@@ -452,15 +581,25 @@ class InferRequest:
             raw_inputs=request.raw_input_contents,
             from_grpc=True,
             parameters=request.parameters,
+            request_outputs=request_outputs if request_outputs else None,
         )
 
     @classmethod
-    def from_raw_bytes(cls, req_bytes: bytes, json_length: int, model_name: str):
+    def from_bytes(
+        cls, req_bytes: bytes, json_length: int, model_name: str
+    ) -> "InferRequest":
         """The class method to construct the InferRequest object from REST raw request bytes.
-        :param req_bytes: The REST raw InferRequest in bytes.
-        :param json_length: The length of the json bytes.
-        :param model_name: The name of the model.
-        :return InferRequest object.
+
+        Args:
+            req_bytes (bytes): The raw InferRequest in bytes.
+            json_length (int): The length of the json bytes.
+            model_name (str): The name of the model.
+
+        Returns:
+            InferRequest: The resulting InferRequest object.
+
+        Raises:
+            InvalidInput: If the request format is unrecognized or if necessary fields are missing.
         """
         json_bytes = req_bytes[:json_length]
         try:
@@ -478,8 +617,20 @@ class InferRequest:
                 datatype=input_["datatype"],
                 parameters=parameters,
             )
-            if parameters and "binary_data_size" in parameters:
-                binary_data_size = parameters.get("binary_data_size")
+            infer_input_data = input_.get("data", None)
+            if infer_input_data is not None:
+                if infer_input.datatype == "FP16":
+                    raise InvalidInput(
+                        f"Receiving FP16 data via JSON is not supported. Please use the binary data format "
+                        f"for input {infer_input.name}"
+                    )
+                infer_input.data = infer_input_data
+            elif parameters and "binary_data_size" in parameters:
+                binary_data_size = parameters.get("binary_data_size", None)
+                if binary_data_size is None:
+                    raise InvalidInput(
+                        f"'binary_data_size' is not specified for input '{infer_input.name}' for model '{model_name}'"
+                    )
                 end_index = start_index + binary_data_size
                 infer_input._raw_data = req_bytes[start_index:end_index]
                 infer_input.set_data_from_numpy(
@@ -487,113 +638,154 @@ class InferRequest:
                 )
                 start_index = end_index
             else:
-                infer_input_data = input_.get("data", None)
-                if infer_input_data is None:
-                    raise InvalidInput(
-                        f"'data' field is missing for input '{infer_input.name}' for model '{model_name}'"
-                    )
-                infer_input.data = infer_input_data
+                raise InvalidInput(
+                    f"'data' field is missing for input '{infer_input.name}' for model '{model_name}'"
+                )
             infer_inputs.append(infer_input)
+        requested_outputs = None
+        if infer_req_dict.get("outputs", None) is not None:
+            requested_outputs = [
+                RequestedOutput(
+                    name=output["name"],
+                    parameters=output.get("parameters", None),
+                )
+                for output in infer_req_dict["outputs"]
+            ]
         return cls(
             model_name=model_name,
             request_id=infer_req_dict.get("id", None),
             parameters=infer_req_dict.get("parameters", None),
             infer_inputs=infer_inputs,
+            request_outputs=requested_outputs,
         )
 
-    def _to_dict_or_bytes(self, binary_data=False) -> Tuple[Union[Dict, bytes], int]:
-        """Converts the InferRequest object to v2 REST InferRequest Dict or bytes.
-        :param binary_data: (optional) Whether to convert InferRequest object to bytes. Defaults to False.
-        :return: A Tuple containing the InferRequest Dict converted from InferRequest object and a json length of 0
-                if binary_data is False, otherwise returns the converted InferRequest bytes and json length
+    @classmethod
+    def from_inference_request(
+        cls, request: InferenceRequest, model_name: str
+    ) -> "InferRequest":
+        """The class method to construct the InferRequest object from InferenceRequest object.
+
+        Args:
+            request (InferenceRequest): The InferenceRequest object.
+            model_name (str): The name of the model.
+        Returns:
+            InferRequest: The resulting InferRequest object.
+        Raises:
+            InvalidInput: If the request format is unrecognized.
+        """
+        infer_inputs = []
+        for infer_input in request.inputs:
+            if infer_input.datatype == "FP16" and len(infer_input.data) != 0:
+                raise InvalidInput(
+                    f"Sending FP16 data via JSON is not supported. "
+                    f"Please use the binary data format for input {infer_input.name}"
+                )
+            infer_inputs.append(
+                InferInput(
+                    name=infer_input.name,
+                    shape=infer_input.shape,
+                    datatype=infer_input.datatype,
+                    data=infer_input.data,
+                    parameters=(
+                        {} if infer_input.parameters is None else infer_input.parameters
+                    ),
+                )
+            )
+
+        requested_outputs = None
+        if request.outputs:
+            requested_outputs = [
+                RequestedOutput(
+                    name=output.name,
+                    parameters=({} if output.parameters is None else output.parameters),
+                )
+                for output in request.outputs
+            ]
+        return cls(
+            request_id=request.id,
+            model_name=model_name,
+            infer_inputs=infer_inputs,
+            parameters=request.parameters,
+            request_outputs=requested_outputs,
+        )
+
+    def to_rest(self) -> Tuple[Union[bytes, Dict], Optional[int]]:
+        """
+        Converts the InferRequest object to v2 REST InferRequest Dict or bytes.
+        This method is used to convert the InferRequest object into a format that can be sent over a REST API.
+
+        Returns:
+            Tuple[Union[bytes, Dict], Optional[int]]: A tuple containing the InferRequest in bytes or Dict and the length of the JSON part of the request.
+                                                      If it is dict, then the json length will be None.
+
+        Raises:
+            InvalidInput: If the data is missing for an input or if both 'data' and 'raw_data' fields are set for an input.
         """
         infer_inputs = []
         raw_inputs = []
         for infer_input in self.inputs:
-            datatype = infer_input.datatype
-            if isinstance(infer_input.datatype, np.dtype):
-                datatype = from_np_dtype(infer_input.datatype)
+            if infer_input.data is None and infer_input._raw_data is None:
+                raise InvalidInput(
+                    f"'data' field is missing for output '{infer_input.name}' for model '{self.model_name}'"
+                )
+            if infer_input.data and infer_input._raw_data:
+                raise InvalidInput(
+                    f"Both 'data' and 'raw_data' fields are set for input '{infer_input.name}' for model '{self.model_name}'"
+                )
+
+            if infer_input.datatype == "FP16" and infer_input.data:
+                raise InvalidInput(
+                    f"Sending FP16 data via JSON is not supported. Please use the binary data format for input {infer_input.name}"
+                )
+
             infer_input_dict = {
                 "name": infer_input.name,
                 "shape": infer_input.shape,
-                "datatype": datatype,
+                "datatype": infer_input.datatype,
             }
-            infer_input.parameters = (
-                to_http_parameters(infer_input.parameters)
-                if infer_input.parameters
-                else None
-            )
-            if binary_data:
-                use_binary_data = True
-                if infer_input.parameters and "binary_data" in infer_input.parameters:
-                    use_binary_data = self.parameters["binary_data"]
-                if isinstance(infer_input.data, numpy.ndarray):
-                    infer_input.set_data_from_numpy(
-                        infer_input.data, binary_data=use_binary_data
-                    )
-                    raw_inputs.append(infer_input._raw_data)
-                elif isinstance(infer_input._raw_data, bytes) and use_binary_data:
-                    if infer_input.parameters:
-                        infer_input.parameters["binary_data_size"] = len(
-                            infer_input._raw_data
-                        )
-                    else:
-                        infer_input.parameters = {
-                            "binary_data_size": len(infer_input._raw_data)
-                        }
-                    raw_inputs.append(infer_input._raw_data)
-                else:
-                    infer_input.set_data_from_numpy(
-                        infer_input.as_numpy(), binary_data=use_binary_data
-                    )
-                    raw_inputs.append(infer_input._raw_data)
-            else:
-                if isinstance(infer_input.data, np.ndarray):
-                    infer_input.set_data_from_numpy(infer_input.data, binary_data=False)
-                    infer_input_dict["data"] = infer_input.data
-                else:
-                    infer_input_dict["data"] = infer_input.data
             if infer_input.parameters:
-                infer_input_dict["parameters"] = self.parameters
+                infer_input_dict["parameters"] = to_http_parameters(
+                    infer_input.parameters
+                )
+            if infer_input._raw_data:
+                raw_inputs.append(infer_input._raw_data)
+            else:
+                infer_input_dict["data"] = infer_input.data
             infer_inputs.append(infer_input_dict)
-        infer_request = {
+        requested_outputs = []
+        if self.request_outputs:
+            for requested_output in self.request_outputs:
+                requested_output_dict = {
+                    "name": requested_output.name,
+                }
+                if requested_output.parameters:
+                    requested_output_dict["parameters"] = to_http_parameters(
+                        requested_output.parameters
+                    )
+                requested_outputs.append(requested_output_dict)
+        res = {
             "id": self.id if self.id else str(uuid.uuid4()),
+            "model_name": self.model_name,
             "inputs": infer_inputs,
         }
+        if requested_outputs:
+            res["outputs"] = requested_outputs
         if self.parameters:
-            infer_request["parameters"] = to_http_parameters(self.parameters)
-        if binary_data:
-            infer_request_bytes = orjson.dumps(infer_request)
-            json_length = len(infer_request_bytes)
-            infer_request_bytes = b"".join([infer_request_bytes] + raw_inputs)
-            return infer_request_bytes, json_length
+            res["parameters"] = to_http_parameters(self.parameters)
 
-        return infer_request, 0
+        if len(raw_inputs) != 0:
+            infer_response_bytes = orjson.dumps(res)
+            json_length = len(infer_response_bytes)
+            infer_response_bytes = b"".join([infer_response_bytes] + raw_inputs)
+            return infer_response_bytes, json_length
 
-    def to_rest(self, binary_data=False) -> Dict:
-        """Converts the InferRequest object to v2 REST InferRequest Dict.
-
-        Returns:
-            The InferRequest Dict converted from InferRequest object.
-        """
-        infer_req_dict, _ = self._to_dict_or_bytes(binary_data=False)
-        return infer_req_dict
-
-    def to_raw_bytes(self) -> Tuple[bytes, int]:
-        """
-        Converts the InferResponse object to v2 REST InferResponse bytes.
-
-        :return:
-            A tuple containing the InferResponse bytes and json length
-        """
-        infer_req_bytes, json_length = self._to_dict_or_bytes(binary_data=True)
-        return infer_req_bytes, json_length
+        return res, None
 
     def to_grpc(self) -> ModelInferRequest:
         """Converts the InferRequest object to gRPC ModelInferRequest type.
 
         Returns:
-            The ModelInferResponse gRPC type converted from InferRequest object.
+            ModelInferRequest gRPC type converted from InferRequest object.
         """
         infer_inputs = []
         raw_input_contents = []
@@ -627,6 +819,15 @@ class InferRequest:
                 else:
                     raise InvalidInput("invalid input datatype")
             infer_inputs.append(infer_input_dict)
+        request_outputs = []
+        if self.request_outputs:
+            for request_output in self.request_outputs:
+                request_output_dict = {"name": request_output.name}
+                if request_output.parameters:
+                    request_output_dict["parameters"] = to_grpc_parameters(
+                        request_output.parameters
+                    )
+                request_outputs.append(request_output_dict)
 
         return ModelInferRequest(
             id=self.id,
@@ -634,6 +835,7 @@ class InferRequest:
             inputs=infer_inputs,
             raw_input_contents=raw_input_contents,
             parameters=to_grpc_parameters(self.parameters) if self.parameters else None,
+            outputs=request_outputs if request_outputs else None,
         )
 
     def as_dataframe(self) -> pd.DataFrame:
@@ -668,15 +870,6 @@ class InferRequest:
                 return infer_input
         return None
 
-    @property
-    def use_binary_outputs(self) -> bool:
-        if self._use_raw_outputs:
-            return True
-        elif self.parameters:
-            return self.parameters.get("binary_data_output", False)
-        else:
-            return False
-
     def __eq__(self, other):
         if not isinstance(other, InferRequest):
             return False
@@ -689,6 +882,8 @@ class InferRequest:
         if self.parameters != other.parameters:
             return False
         if self.inputs != other.inputs:
+            return False
+        if self.request_outputs != other.request_outputs:
             return False
         return True
 
@@ -769,7 +964,7 @@ class InferOutput:
         return self._data
 
     @data.setter
-    def data(self, data: Union[List, np.ndarray, InferTensorContents]):
+    def data(self, data: Union[List, InferTensorContents]):
         """Set the data of inference output associated with this object.
 
         Args:
@@ -786,6 +981,15 @@ class InferOutput:
         """
         return self._shape
 
+    @shape.setter
+    def shape(self, shape: List[int]):
+        """Set the shape of inference output.
+
+        Args:
+            shape: The shape of the associated inference output.
+        """
+        self._shape = shape
+
     @property
     def parameters(self) -> Union[Dict, MessageMap[str, InferParameter], None]:
         """Get the parameters of inference output associated with this object.
@@ -797,15 +1001,11 @@ class InferOutput:
 
     @parameters.setter
     def parameters(self, params: Union[Dict, MessageMap[str, InferParameter]]):
-        self._parameters = params
+        """Set the parameters of inference output associated with this object.
 
-    def set_shape(self, shape: List[int]):
-        """Set the shape of inference output.
-
-        Args:
-            shape: The shape of the associated inference output.
+        :param params: The parameters of inference output
         """
-        self._shape = shape
+        self._parameters = params
 
     def as_numpy(self) -> np.ndarray:
         """Decode the tensor output data as numpy array.
@@ -923,6 +1123,8 @@ class InferOutput:
             return False
         if self.data != other.data:
             return False
+        if self._raw_data != other._raw_data:
+            return False
         return True
 
     def to_dict(self) -> dict:
@@ -964,6 +1166,8 @@ class InferResponse:
         raw_outputs=None,
         from_grpc: Optional[bool] = False,
         parameters: Optional[Union[Dict, MessageMap[str, InferParameter]]] = None,
+        use_binary_outputs: Optional[bool] = False,
+        requested_outputs: Optional[List[RequestedOutput]] = None,
     ):
         """The InferResponse Data Model
 
@@ -975,6 +1179,9 @@ class InferResponse:
             raw_outputs: The raw binary data of the inference outputs.
             from_grpc: Indicate if the InferResponse is constructed from a gRPC response.
             parameters: The additional inference parameters.
+            use_binary_outputs: A boolean indicating whether the data for the outputs should be in binary format when sent over REST API.
+                                This will be overridden by the individual output's binary_data attribute.
+            requested_outputs: The output tensors requested for this inference.
         """
 
         self.id = response_id
@@ -983,13 +1190,21 @@ class InferResponse:
         self.outputs = infer_outputs
         self.parameters = parameters
         self.from_grpc = from_grpc
+        self._requested_outputs = requested_outputs
+        self._use_binary_outputs: bool = use_binary_outputs
         if raw_outputs:
             for i, raw_output in enumerate(raw_outputs):
                 self.outputs[i]._raw_data = raw_output
 
     @classmethod
     def from_grpc(cls, response: ModelInferResponse) -> "InferResponse":
-        """The class method to construct the InferResponse object from gRPC message type."""
+        """The class method to construct the InferResponse object from gRPC message type.
+
+        Args:
+            response: The GRPC response as ModelInferResponse object.
+        Returns:
+            InferResponse object.
+        """
         infer_outputs = [
             InferOutput(
                 name=output.name,
@@ -1012,7 +1227,14 @@ class InferResponse:
 
     @classmethod
     def from_rest(cls, model_name: str, response: Dict) -> "InferResponse":
-        """The class method to construct the InferResponse object from REST message type."""
+        """The class method to construct the InferResponse object from REST message type.
+
+        Args:
+            model_name: The name of the model
+            response: The response as a dict.
+        Returns:
+            InferResponse object.
+        """
         infer_outputs = [
             InferOutput(
                 name=output["name"],
@@ -1032,13 +1254,26 @@ class InferResponse:
         )
 
     @classmethod
-    def from_raw_bytes(cls, res_bytes: bytes, json_length: int, model_name: str):
-        """The class method to construct the InferResponse object from REST raw response bytes.
-        :param res_bytes: The REST raw InferResponse in bytes.
-        :param json_length: The length of the json bytes.
-        :param model_name: The name of the model.
-        :return InferResponse object.
+    def from_bytes(
+        cls, res_bytes: bytes, json_length: int, model_name: str
+    ) -> "InferResponse":
         """
+        Class method to construct an InferResponse object from raw response bytes.
+        This method is used to convert the raw response bytes received from a REST API into an InferResponse object.
+
+        Args:
+            res_bytes (bytes): The raw response bytes received from the REST API.
+            json_length (int): The length of the JSON part of the response.
+            model_name (str): The name of the model for which the inference was made.
+
+        Returns:
+            InferResponse: The constructed InferResponse object.
+
+        Raises:
+            InvalidInput: If the response format is unrecognized or if necessary fields are missing in the response.
+            InferenceError: if failed to set data for the output tensor.
+        """
+
         json_bytes = res_bytes[:json_length]
         try:
             infer_req_dict = orjson.loads(json_bytes)
@@ -1073,69 +1308,69 @@ class InferResponse:
             infer_outputs.append(infer_output)
         return cls(
             model_name=model_name,
-            request_id=infer_req_dict.get("id", None),
+            response_id=infer_req_dict.get("id", None),
             parameters=infer_req_dict.get("parameters", None),
             infer_outputs=infer_outputs,
         )
 
-    def _to_dict_or_bytes(
-        self, binary_data=False
-    ) -> Tuple[Union[Dict, bytes], Optional[int]]:
-        """Converts the InferResponse object to v2 REST InferResponse Dict or bytes.
-        :param binary_data: (optional) Whether to convert InferResponse object to bytes. Defaults to False.
-        :return: A Tuple containing the InferResponse Dict converted from InferResponse object and None.
-                if binary_data is False, otherwise returns the converted InferResponse bytes and json length
+    def to_rest(self) -> Tuple[Union[bytes, Dict], Optional[int]]:
+        """
+        Converts the InferResponse object to v2 REST InferResponse Dict or bytes.
+        This method is used to convert the InferResponse object into a format that can be sent over a REST API.
+
+        Returns:
+            Tuple[Union[bytes, Dict], Optional[int]]: A tuple containing the InferResponse in bytes or Dict and the length of the JSON part of the response.
+                                                      If it is dict, then the json length will be None.
+
+        Raises:
+            InvalidInput: If the output data is not a numpy array, bytes, or list.
         """
         infer_outputs = []
         raw_outputs = []
-        for i, infer_output in enumerate(self.outputs):
+        use_binary_data = self._use_binary_outputs
+        outputs = self._requested_outputs if self._requested_outputs else self.outputs
+
+        for output in outputs:
+            infer_output = (
+                self.get_output_by_name(output.name)
+                if self._requested_outputs
+                else output
+            )
+            if self._requested_outputs:
+                use_binary_data = output.binary_data
+            if infer_output is None:
+                raise InvalidInput(
+                    f"Unexpected inference output '{output.name}' for model '{self.model_name}'"
+                )
+            if infer_output.data is None and infer_output._raw_data is None:
+                raise InvalidInput(
+                    f"'data' field is missing for output '{infer_output.name}' for model '{self.model_name}'"
+                )
+
+            if infer_output.data or infer_output._raw_data:
+                infer_output.set_data_from_numpy(
+                    infer_output.as_numpy(), binary_data=use_binary_data
+                )
+            if infer_output.datatype == "FP16" and infer_output.data:
+                raise InvalidInput(
+                    f"Sending FP16 data via JSON is not supported. Please use the binary data format for output {infer_output.name}"
+                )
+
             infer_output_dict = {
                 "name": infer_output.name,
                 "shape": infer_output.shape,
                 "datatype": infer_output.datatype,
             }
-            infer_output.parameters = (
-                to_http_parameters(infer_output.parameters)
-                if infer_output.parameters
-                else None
-            )
-            if binary_data:
-                use_binary_data = True
-                if infer_output.parameters and "binary_data" in infer_output.parameters:
-                    use_binary_data = self.parameters["binary_data"]
-                if isinstance(infer_output.data, numpy.ndarray):
-                    infer_output.set_data_from_numpy(
-                        infer_output.data, binary_data=use_binary_data
-                    )
-                    raw_outputs.append(infer_output._raw_data)
-                elif isinstance(infer_output._raw_data, bytes):
-                    if infer_output.parameters:
-                        infer_output.parameters["binary_data_size"] = len(
-                            infer_output._raw_data
-                        )
-                    else:
-                        infer_output.parameters = {
-                            "binary_data_size": len(infer_output._raw_data)
-                        }
-                    raw_outputs.append(infer_output._raw_data)
-                else:
-                    infer_output.set_data_from_numpy(
-                        infer_output.as_numpy(), binary_data=use_binary_data
-                    )
-                    raw_outputs.append(infer_output._raw_data)
-            else:
-                if isinstance(infer_output.data, np.ndarray):
-                    infer_output.set_data_from_numpy(
-                        infer_output.data, binary_data=False
-                    )
-                    infer_output_dict["data"] = infer_output.data
-                elif isinstance(infer_output._raw_data, bytes):
-                    infer_output_dict["data"] = infer_output.as_numpy().tolist()
-                else:
-                    infer_output_dict["data"] = infer_output.data
             if infer_output.parameters:
-                infer_output_dict["parameters"] = infer_output.parameters
+                infer_output_dict["parameters"] = to_http_parameters(
+                    infer_output.parameters
+                )
+            if use_binary_data:
+                raw_outputs.append(infer_output._raw_data)
+            else:
+                infer_output_dict["data"] = infer_output.data
             infer_outputs.append(infer_output_dict)
+
         res = {
             "id": self.id,
             "model_name": self.model_name,
@@ -1144,44 +1379,30 @@ class InferResponse:
         }
         if self.parameters:
             res["parameters"] = to_http_parameters(self.parameters)
-        if binary_data:
+
+        if len(raw_outputs) != 0:
             infer_response_bytes = orjson.dumps(res)
             json_length = len(infer_response_bytes)
             infer_response_bytes = b"".join([infer_response_bytes] + raw_outputs)
             return infer_response_bytes, json_length
+
         return res, None
-
-    def to_rest(self) -> Dict:
-        """Converts the InferResponse object to v2 REST InferResponse dict.
-
-        Returns:
-            The InferResponse Dict.
-        """
-        infer_response_dict, _ = self._to_dict_or_bytes(binary_data=False)
-        return infer_response_dict
-
-    def to_raw_bytes(self) -> Tuple[bytes, int]:
-        """
-        Converts the InferRequest object to v2 REST InferRequest bytes.
-
-        :return:
-            A tuple containing the InferRequest bytes and json length
-        """
-        infer_res_bytes, json_length = self._to_dict_or_bytes(binary_data=True)
-        return infer_res_bytes, json_length
 
     def to_grpc(self) -> ModelInferResponse:
         """Converts the InferResponse object to gRPC ModelInferResponse type.
 
         Returns:
             The ModelInferResponse gRPC message.
+        Raises:
+            InvalidInput: If the output data is not a List or if the datatype is invalid.
         """
         infer_outputs = []
         raw_output_contents = []
-        use_raw_outputs = False
-        # If FP16 datatype is present in the outputs use raw outputs.
-        if _contains_fp16_datatype(self):
-            use_raw_outputs = True
+        use_raw_outputs = self._use_binary_outputs
+        if not self._use_binary_outputs:
+            # If FP16 datatype is present in the outputs use raw outputs.
+            if _contains_fp16_datatype(self):
+                use_raw_outputs = True
         for infer_output in self.outputs:
             if (
                 use_raw_outputs

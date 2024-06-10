@@ -164,18 +164,16 @@ class V2Endpoints:
             request=infer_request,
             headers=request_headers,
         )
-
         response, response_headers = self.dataplane.encode(
             model_name=model_name,
             response=response,
             headers=response_headers,
             req_attributes={},
-            raw_bytes=infer_request.use_binary_outputs,
         )
 
         if response_headers:
             raw_response.headers.update(response_headers)
-        if infer_request.use_binary_outputs:
+        if isinstance(response, bytes):
             raw_response.status_code = 200
             raw_response.body = response
             res = raw_response

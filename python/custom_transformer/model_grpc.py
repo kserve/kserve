@@ -57,14 +57,14 @@ class ImageTransformer(Model):
             image_transform(instance) for instance in request.inputs[0].data
         ]
         input_tensors = np.asarray(input_tensors)
-        infer_inputs = [
-            InferInput(
-                name="INPUT__0",
-                datatype="FP32",
-                shape=list(input_tensors.shape),
-                data=input_tensors,
-            )
-        ]
+        infer_input = InferInput(
+            name="INPUT__0",
+            datatype="FP32",
+            shape=list(input_tensors.shape),
+            data=input_tensors,
+        )
+        infer_input.set_data_from_numpy(input_tensors, binary_data=False)
+        infer_inputs = [infer_input]
         infer_request = InferRequest(
             model_name=self.model_name, infer_inputs=infer_inputs
         )
