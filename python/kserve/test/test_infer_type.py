@@ -208,13 +208,10 @@ class TestInferRequest:
             name="input1",
             shape=[3],
             datatype="INT32",
-            data=None,
+            data=np.array([1, 2, 3], dtype=np.int32),
             parameters={
                 "test-str": "dummy",
             },
-        )
-        infer_input_1.set_data_from_numpy(
-            np.array([1, 2, 3], dtype=np.int32), binary_data=False
         )
         infer_input_2 = InferInput(
             name="input2",
@@ -623,478 +620,472 @@ class TestInferRequest:
         assert infer_request.inputs[0].data == [1, 2, 3]
         assert infer_request.request_outputs is None
 
-    class TestInferResponse:
 
-        def test_to_grpc(self):
-            infer_res = InferResponse(
-                model_name="TestModel",
-                response_id="123",
-                model_version="v1",
-                parameters={"test-str": "dummy", "test-bool": True, "test-int": 100},
-                infer_outputs=[
-                    InferOutput(
-                        name="output-0",
-                        datatype="INT32",
-                        shape=[1, 2],
-                        data=[1, 2],
-                        parameters={
-                            "test-str": "dummy",
-                            "test-bool": True,
-                            "test-int": 100,
-                        },
-                    )
-                ],
-            )
-            expected = ModelInferResponse(
-                model_name="TestModel",
-                id="123",
-                model_version="v1",
-                parameters={
-                    "test-str": InferParameter(string_param="dummy"),
-                    "test-bool": InferParameter(bool_param=True),
-                    "test-int": InferParameter(int64_param=100),
+class TestInferResponse:
+    def test_to_grpc(self):
+        infer_res = InferResponse(
+            model_name="TestModel",
+            response_id="123",
+            model_version="v1",
+            parameters={"test-str": "dummy", "test-bool": True, "test-int": 100},
+            infer_outputs=[
+                InferOutput(
+                    name="output-0",
+                    datatype="INT32",
+                    shape=[1, 2],
+                    data=[1, 2],
+                    parameters={
+                        "test-str": "dummy",
+                        "test-bool": True,
+                        "test-int": 100,
+                    },
+                )
+            ],
+        )
+        expected = ModelInferResponse(
+            model_name="TestModel",
+            id="123",
+            model_version="v1",
+            parameters={
+                "test-str": InferParameter(string_param="dummy"),
+                "test-bool": InferParameter(bool_param=True),
+                "test-int": InferParameter(int64_param=100),
+            },
+            outputs=[
+                {
+                    "name": "output-0",
+                    "shape": [1, 2],
+                    "datatype": "INT32",
+                    "contents": {"int_contents": [1, 2]},
+                    "parameters": {
+                        "test-str": InferParameter(string_param="dummy"),
+                        "test-bool": InferParameter(bool_param=True),
+                        "test-int": InferParameter(int64_param=100),
+                    },
+                }
+            ],
+        )
+        res = infer_res.to_grpc()
+        assert res == expected
+
+    def test_from_grpc(self):
+        infer_res = ModelInferResponse(
+            model_name="TestModel",
+            id="123",
+            model_version="v1",
+            parameters={
+                "test-str": InferParameter(string_param="dummy"),
+                "test-bool": InferParameter(bool_param=True),
+                "test-int": InferParameter(int64_param=100),
+            },
+            outputs=[
+                {
+                    "name": "output-0",
+                    "shape": [1, 2],
+                    "datatype": "INT32",
+                    "contents": {"int_contents": [1, 2]},
+                    "parameters": {
+                        "test-str": InferParameter(string_param="dummy"),
+                        "test-bool": InferParameter(bool_param=True),
+                        "test-int": InferParameter(int64_param=100),
+                    },
+                }
+            ],
+        )
+        expected = InferResponse(
+            model_name="TestModel",
+            response_id="123",
+            model_version="v1",
+            parameters={
+                "test-str": InferParameter(string_param="dummy"),
+                "test-bool": InferParameter(bool_param=True),
+                "test-int": InferParameter(int64_param=100),
+            },
+            infer_outputs=[
+                InferOutput(
+                    name="output-0",
+                    datatype="INT32",
+                    shape=[1, 2],
+                    data=[1, 2],
+                    parameters={
+                        "test-str": InferParameter(string_param="dummy"),
+                        "test-bool": InferParameter(bool_param=True),
+                        "test-int": InferParameter(int64_param=100),
+                    },
+                )
+            ],
+            from_grpc=True,
+        )
+        res = InferResponse.from_grpc(infer_res)
+        assert res == expected
+
+    def test_infer_response_to_rest_with_binary_data(self):
+        data = np.array(
+            [[1.2, 2.2, 3.2, 4.1], [1.5, 2.6, 3.787, 4.54]], dtype=np.float16
+        )
+        fp16_output = InferOutput(
+            name="fp16_output",
+            shape=list(data.shape),
+            datatype="FP16",
+            data=None,
+            parameters=None,
+        )
+        fp32_output = InferOutput(
+            name="fp32_output",
+            shape=list(data.shape),
+            datatype="FP32",
+            data=None,
+            parameters=None,
+        )
+        fp16_output.set_data_from_numpy(data, binary_data=True)
+        fp32_output.set_data_from_numpy(data.astype(np.float32), binary_data=True)
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[fp16_output, fp32_output],
+            requested_outputs=[
+                RequestedOutput(name="fp16_output", parameters={"binary_data": True}),
+                RequestedOutput(name="fp32_output", parameters={"binary_data": True}),
+            ],
+        )
+        result, json_length = infer_response.to_rest()
+        assert isinstance(result, bytes)
+        assert (
+            result
+            == b'{"id":"1","model_name":"test_model","model_version":null,"outputs":[{"name":"fp16_output","shape":[2,4],"datatype":"FP16","parameters":{"binary_data_size":16}},{"name":"fp32_output","shape":[2,4],"datatype":"FP32","parameters":{"binary_data_size":32}}]}\xcd<f@fB\x1aD\x00>3A\x93C\x8aD\x00\xa0\x99?\x00\xc0\x0c@\x00\xc0L@\x00@\x83@\x00\x00\xc0?\x00`&@\x00`r@\x00@\x91@'
+        )
+        assert json_length == 253
+
+    def test_infer_response_to_rest_without_binary_data(self):
+        int32_output = InferOutput(
+            name="int32_output",
+            shape=[1],
+            datatype="INT32",
+            data=[1],
+            parameters=None,
+        )
+        str_output = InferOutput(
+            name="str_output",
+            shape=[1],
+            datatype="BYTES",
+            data=["test"],
+            parameters=None,
+        )
+        uint_data = np.array([[1, 2]], dtype=np.uint32)
+        uint_output = InferOutput(
+            name="uint_output",
+            shape=list(uint_data.shape),
+            datatype="UINT32",
+            parameters=None,
+            data=uint_data,
+        )
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[int32_output, str_output, uint_output],
+        )
+
+        result, json_length = infer_response.to_rest()
+        assert isinstance(result, dict)
+        assert result == {
+            "id": "1",
+            "model_name": "test_model",
+            "model_version": None,
+            "outputs": [
+                {
+                    "name": "int32_output",
+                    "shape": [1],
+                    "datatype": "INT32",
+                    "data": [1],
                 },
-                outputs=[
-                    {
-                        "name": "output-0",
-                        "shape": [1, 2],
-                        "datatype": "INT32",
-                        "contents": {"int_contents": [1, 2]},
-                        "parameters": {
-                            "test-str": InferParameter(string_param="dummy"),
-                            "test-bool": InferParameter(bool_param=True),
-                            "test-int": InferParameter(int64_param=100),
-                        },
-                    }
-                ],
-            )
-            res = infer_res.to_grpc()
-            assert res == expected
-
-        def test_from_grpc(self):
-            infer_res = ModelInferResponse(
-                model_name="TestModel",
-                id="123",
-                model_version="v1",
-                parameters={
-                    "test-str": InferParameter(string_param="dummy"),
-                    "test-bool": InferParameter(bool_param=True),
-                    "test-int": InferParameter(int64_param=100),
+                {
+                    "name": "str_output",
+                    "shape": [1],
+                    "datatype": "BYTES",
+                    "data": ["test"],
                 },
-                outputs=[
-                    {
-                        "name": "output-0",
-                        "shape": [1, 2],
-                        "datatype": "INT32",
-                        "contents": {"int_contents": [1, 2]},
-                        "parameters": {
-                            "test-str": InferParameter(string_param="dummy"),
-                            "test-bool": InferParameter(bool_param=True),
-                            "test-int": InferParameter(int64_param=100),
-                        },
-                    }
-                ],
-            )
-            expected = InferResponse(
-                model_name="TestModel",
-                response_id="123",
-                model_version="v1",
-                parameters={
-                    "test-str": InferParameter(string_param="dummy"),
-                    "test-bool": InferParameter(bool_param=True),
-                    "test-int": InferParameter(int64_param=100),
+                {
+                    "name": "uint_output",
+                    "shape": [1, 2],
+                    "datatype": "UINT32",
+                    "data": [1, 2],
                 },
-                infer_outputs=[
-                    InferOutput(
-                        name="output-0",
-                        datatype="INT32",
-                        shape=[1, 2],
-                        data=[1, 2],
-                        parameters={
-                            "test-str": InferParameter(string_param="dummy"),
-                            "test-bool": InferParameter(bool_param=True),
-                            "test-int": InferParameter(int64_param=100),
-                        },
-                    )
-                ],
-                from_grpc=True,
-            )
-            res = InferResponse.from_grpc(infer_res)
-            assert res == expected
+            ],
+        }
+        assert json_length is None
 
-        def test_infer_response_to_rest_with_binary_data(self):
-            data = np.array(
-                [[1.2, 2.2, 3.2, 4.1], [1.5, 2.6, 3.787, 4.54]], dtype=np.float16
-            )
-            fp16_output = InferOutput(
-                name="fp16_output",
-                shape=list(data.shape),
-                datatype="FP16",
-                data=None,
-                parameters=None,
-            )
-            fp32_output = InferOutput(
-                name="fp32_output",
-                shape=list(data.shape),
-                datatype="FP32",
-                data=None,
-                parameters=None,
-            )
-            fp16_output.set_data_from_numpy(data, binary_data=True)
-            fp32_output.set_data_from_numpy(data.astype(np.float32), binary_data=True)
-            infer_response = InferResponse(
-                response_id="1",
-                model_name="test_model",
-                infer_outputs=[fp16_output, fp32_output],
-                requested_outputs=[
-                    RequestedOutput(
-                        name="fp16_output", parameters={"binary_data": True}
-                    ),
-                    RequestedOutput(
-                        name="fp32_output", parameters={"binary_data": True}
-                    ),
-                ],
-            )
-            result, json_length = infer_response.to_rest()
-            assert isinstance(result, bytes)
-            assert (
-                result
-                == b'{"id":"1","model_name":"test_model","model_version":null,"outputs":[{"name":"fp16_output","shape":[2,4],"datatype":"FP16","parameters":{"binary_data_size":16}},{"name":"fp32_output","shape":[2,4],"datatype":"FP32","parameters":{"binary_data_size":32}}]}\xcd<f@fB\x1aD\x00>3A\x93C\x8aD\x00\xa0\x99?\x00\xc0\x0c@\x00\xc0L@\x00@\x83@\x00\x00\xc0?\x00`&@\x00`r@\x00@\x91@'
-            )
-            assert json_length == 253
+    def test_infer_response_to_rest_with_mixed_binary_data(self):
+        infer_output1 = InferOutput(
+            name="output1",
+            shape=[1],
+            datatype="FP16",
+            data=np.array([1], dtype=np.float16),
+            parameters=None,
+        )
+        infer_output1.set_data_from_numpy(
+            np.array([1], dtype=np.float16), binary_data=True
+        )
+        infer_output2 = InferOutput(
+            name="output2",
+            shape=[1],
+            datatype="INT32",
+            data=[1],
+            parameters=None,
+        )
+        infer_output2.set_data_from_numpy(
+            np.array([1], dtype=np.int32), binary_data=False
+        )
+        infer_output3 = InferOutput(
+            name="output3",
+            shape=[1],
+            datatype="BYTES",
+            data=None,
+            parameters=None,
+        )
+        infer_output3.set_data_from_numpy(
+            np.array(["test"], dtype=np.object_), binary_data=True
+        )
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[infer_output1, infer_output2, infer_output3],
+            requested_outputs=[
+                RequestedOutput(name="output1", parameters={"binary_data": True}),
+                RequestedOutput(name="output2", parameters={"binary_data": True}),
+                RequestedOutput(name="output3", parameters={"binary_data": False}),
+            ],
+        )
+        result, json_length = infer_response.to_rest()
+        assert isinstance(result, bytes)
+        assert (
+            result
+            == b'{"id":"1","model_name":"test_model","model_version":null,"outputs":[{"name":"output1","shape":[1],"datatype":"FP16","parameters":{"binary_data_size":2}},{"name":"output2","shape":[1],"datatype":"INT32","parameters":{"binary_data_size":4}},{"name":"output3","shape":[1],"datatype":"BYTES","data":["test"]}]}\x00<\x01\x00\x00\x00'
+        )
+        assert json_length == 306
 
-        def test_infer_response_to_rest_without_binary_data(self):
-            int32_output = InferOutput(
-                name="int32_output",
-                shape=[1],
-                datatype="INT32",
-                data=[1],
-                parameters=None,
-            )
-            str_output = InferOutput(
-                name="str_output",
-                shape=[1],
-                datatype="BYTES",
-                data=["test"],
-                parameters=None,
-            )
-            uint_data = np.array([[1, 2]], dtype=np.uint32)
-            uint_output = InferOutput(
-                name="uint_output",
-                shape=list(uint_data.shape),
-                datatype="UINT32",
-                parameters=None,
-            )
-            uint_output.set_data_from_numpy(uint_data, binary_data=False)
-            infer_response = InferResponse(
-                response_id="1",
-                model_name="test_model",
-                infer_outputs=[int32_output, str_output, uint_output],
-            )
+    def test_infer_response_to_rest_with_binary_output_data_true(self):
+        infer_output1 = InferOutput(
+            name="output1",
+            shape=[1],
+            datatype="FP16",
+            data=[1],
+            parameters=None,
+        )
+        infer_output2 = InferOutput(
+            name="output2",
+            shape=[1],
+            datatype="FP16",
+            data=None,
+            parameters=None,
+        )
+        infer_output2.set_data_from_numpy(
+            np.array([1], dtype=np.float16), binary_data=True
+        )
+        infer_output3 = InferOutput(
+            name="output3",
+            shape=[1],
+            datatype="BYTES",
+            data=[b"test"],
+            parameters=None,
+        )
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[infer_output1, infer_output2, infer_output3],
+            use_binary_outputs=True,
+        )
+        result, json_length = infer_response.to_rest()
+        assert isinstance(result, bytes)
+        assert (
+            result
+            == b'{"id":"1","model_name":"test_model","model_version":null,"outputs":[{"name":"output1","shape":[1],"datatype":"FP16","parameters":{"binary_data_size":2}},{"name":"output2","shape":[1],"datatype":"FP16","parameters":{"binary_data_size":2}},{"name":"output3","shape":[1],"datatype":"BYTES","parameters":{"binary_data_size":8}}]}\x00<\x00<\x04\x00\x00\x00test'
+        )
+        assert json_length == 325
 
-            result, json_length = infer_response.to_rest()
-            assert isinstance(result, dict)
-            assert result == {
+    def test_infer_response_to_rest_with_binary_output_data_precedence(
+        self,
+    ):
+        infer_output1 = InferOutput(
+            name="output1",
+            shape=[1],
+            datatype="FP16",
+            data=np.array([1], dtype=np.float16),
+            parameters=None,
+        )
+        infer_output1.set_data_from_numpy(
+            np.array([1], dtype=np.float16), binary_data=True
+        )
+        infer_output2 = InferOutput(
+            name="output2",
+            shape=[1],
+            datatype="INT32",
+            data=[1],
+            parameters=None,
+        )
+        infer_output3 = InferOutput(
+            name="output3",
+            shape=[1],
+            datatype="BYTES",
+            data=["test"],
+            parameters=None,
+        )
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[infer_output1, infer_output2, infer_output3],
+            use_binary_outputs=True,
+            requested_outputs=[
+                RequestedOutput(name="output1", parameters={"binary_data": True}),
+                RequestedOutput(name="output2", parameters={"binary_data": False}),
+                RequestedOutput(name="output3", parameters={"binary_data": True}),
+            ],
+        )
+        result, json_length = infer_response.to_rest()
+        assert isinstance(result, bytes)
+        assert (
+            result
+            == b'{"id":"1","model_name":"test_model","model_version":null,"outputs":[{"name":"output1","shape":[1],"datatype":"FP16","parameters":{"binary_data_size":2}},{"name":"output2","shape":[1],"datatype":"INT32","data":[1]},{"name":"output3","shape":[1],"datatype":"BYTES","parameters":{"binary_data_size":8}}]}\x00<\x04\x00\x00\x00test'
+        )
+        assert json_length == 301
+
+    def test_infer_response_to_rest_with_raw_data_with_binary_data_false(
+        self,
+    ):
+        infer_output = InferOutput(
+            name="output1",
+            shape=[3],
+            datatype="INT32",
+        )
+        raw_data = b"\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00"
+        infer_output._raw_data = raw_data
+        infer_request = InferResponse(
+            response_id="4be4e82f-5500-420a-a5c5-ac86841e271b",
+            model_name="test_model",
+            infer_outputs=[infer_output],
+        )
+        infer_response, json_length = infer_request.to_rest()
+        assert infer_response == {
+            "id": "4be4e82f-5500-420a-a5c5-ac86841e271b",
+            "model_name": "test_model",
+            "model_version": None,
+            "outputs": [
+                {
+                    "name": "output1",
+                    "shape": [3],
+                    "datatype": "INT32",
+                    "data": [1, 2, 3],
+                }
+            ],
+        }
+        assert json_length is None
+
+    def test_infer_response_to_rest_missing_data_field(self):
+        infer_output = InferOutput(
+            name="input1",
+            shape=[1],
+            datatype="INT32",
+            parameters={"binary_data_size": 12},
+        )
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[infer_output],
+        )
+        with pytest.raises(InvalidInput):
+            _, _ = infer_response.to_rest()
+
+    def test_infer_response_from_bytes_happy_path(self):
+        response_bytes = b'{"id": "1", "outputs": [{"name": "output1", "shape": [1], "datatype": "INT32", "data": [1]}]}'
+        json_length = len(response_bytes)
+        model_name = "test_model"
+
+        infer_response = InferResponse.from_bytes(
+            response_bytes, json_length, model_name
+        )
+
+        assert infer_response.id == "1"
+        assert infer_response.model_name == "test_model"
+        assert len(infer_response.outputs) == 1
+        assert infer_response.outputs[0].name == "output1"
+        assert infer_response.outputs[0].shape == [1]
+        assert infer_response.outputs[0].datatype == "INT32"
+        assert infer_response.outputs[0].data == [1]
+
+    def test_infer_response_from_bytes_with_binary_data(self):
+        serialized_str_data = serialize_byte_tensor(
+            np.array([b"cat", b"dog", b"bird", b"fish"], dtype=np.object_)
+        ).item()
+        response_bytes = json.dumps(
+            {
                 "id": "1",
-                "model_name": "test_model",
-                "model_version": None,
-                "outputs": [
-                    {
-                        "name": "int32_output",
-                        "shape": [1],
-                        "datatype": "INT32",
-                        "data": [1],
-                    },
-                    {
-                        "name": "str_output",
-                        "shape": [1],
-                        "datatype": "BYTES",
-                        "data": ["test"],
-                    },
-                    {
-                        "name": "uint_output",
-                        "shape": [1, 2],
-                        "datatype": "UINT32",
-                        "data": [1, 2],
-                    },
-                ],
-            }
-            assert json_length is None
-
-        def test_infer_response_to_rest_with_mixed_binary_data(self):
-            infer_output1 = InferOutput(
-                name="output1",
-                shape=[1],
-                datatype="FP16",
-                data=np.array([1], dtype=np.float16),
-                parameters=None,
-            )
-            infer_output1.set_data_from_numpy(
-                np.array([1], dtype=np.float16), binary_data=True
-            )
-            infer_output2 = InferOutput(
-                name="output2",
-                shape=[1],
-                datatype="INT32",
-                data=[1],
-                parameters=None,
-            )
-            infer_output2.set_data_from_numpy(
-                np.array([1], dtype=np.int32), binary_data=False
-            )
-            infer_output3 = InferOutput(
-                name="output3",
-                shape=[1],
-                datatype="BYTES",
-                data=None,
-                parameters=None,
-            )
-            infer_output3.set_data_from_numpy(
-                np.array(["test"], dtype=np.object_), binary_data=True
-            )
-            infer_response = InferResponse(
-                response_id="1",
-                model_name="test_model",
-                infer_outputs=[infer_output1, infer_output2, infer_output3],
-                requested_outputs=[
-                    RequestedOutput(name="output1", parameters={"binary_data": True}),
-                    RequestedOutput(name="output2", parameters={"binary_data": True}),
-                    RequestedOutput(name="output3", parameters={"binary_data": False}),
-                ],
-            )
-            result, json_length = infer_response.to_rest()
-            assert isinstance(result, bytes)
-            assert (
-                result
-                == b'{"id":"1","model_name":"test_model","model_version":null,"outputs":[{"name":"output1","shape":[1],"datatype":"FP16","parameters":{"binary_data_size":2}},{"name":"output2","shape":[1],"datatype":"INT32","parameters":{"binary_data_size":4}},{"name":"output3","shape":[1],"datatype":"BYTES","data":["test"]}]}\x00<\x01\x00\x00\x00'
-            )
-            assert json_length == 306
-
-        def test_infer_response_to_rest_with_binary_output_data_true(self):
-            infer_output1 = InferOutput(
-                name="output1",
-                shape=[1],
-                datatype="FP16",
-                data=[1],
-                parameters=None,
-            )
-            infer_output2 = InferOutput(
-                name="output2",
-                shape=[1],
-                datatype="FP16",
-                data=None,
-                parameters=None,
-            )
-            infer_output2.set_data_from_numpy(
-                np.array([1], dtype=np.float16), binary_data=True
-            )
-            infer_output3 = InferOutput(
-                name="output3",
-                shape=[1],
-                datatype="BYTES",
-                data=[b"test"],
-                parameters=None,
-            )
-            infer_response = InferResponse(
-                response_id="1",
-                model_name="test_model",
-                infer_outputs=[infer_output1, infer_output2, infer_output3],
-                use_binary_outputs=True,
-            )
-            result, json_length = infer_response.to_rest()
-            assert isinstance(result, bytes)
-            assert (
-                result
-                == b'{"id":"1","model_name":"test_model","model_version":null,"outputs":[{"name":"output1","shape":[1],"datatype":"FP16","parameters":{"binary_data_size":2}},{"name":"output2","shape":[1],"datatype":"FP16","parameters":{"binary_data_size":2}},{"name":"output3","shape":[1],"datatype":"BYTES","parameters":{"binary_data_size":8}}]}\x00<\x00<\x04\x00\x00\x00test'
-            )
-            assert json_length == 325
-
-        def test_infer_response_to_rest_with_binary_output_data_precedence(
-            self,
-        ):
-            infer_output1 = InferOutput(
-                name="output1",
-                shape=[1],
-                datatype="FP16",
-                data=np.array([1], dtype=np.float16),
-                parameters=None,
-            )
-            infer_output1.set_data_from_numpy(
-                np.array([1], dtype=np.float16), binary_data=True
-            )
-            infer_output2 = InferOutput(
-                name="output2",
-                shape=[1],
-                datatype="INT32",
-                data=[1],
-                parameters=None,
-            )
-            infer_output3 = InferOutput(
-                name="output3",
-                shape=[1],
-                datatype="BYTES",
-                data=["test"],
-                parameters=None,
-            )
-            infer_response = InferResponse(
-                response_id="1",
-                model_name="test_model",
-                infer_outputs=[infer_output1, infer_output2, infer_output3],
-                use_binary_outputs=True,
-                requested_outputs=[
-                    RequestedOutput(name="output1", parameters={"binary_data": True}),
-                    RequestedOutput(name="output2", parameters={"binary_data": False}),
-                    RequestedOutput(name="output3", parameters={"binary_data": True}),
-                ],
-            )
-            result, json_length = infer_response.to_rest()
-            assert isinstance(result, bytes)
-            assert (
-                result
-                == b'{"id":"1","model_name":"test_model","model_version":null,"outputs":[{"name":"output1","shape":[1],"datatype":"FP16","parameters":{"binary_data_size":2}},{"name":"output2","shape":[1],"datatype":"INT32","data":[1]},{"name":"output3","shape":[1],"datatype":"BYTES","parameters":{"binary_data_size":8}}]}\x00<\x04\x00\x00\x00test'
-            )
-            assert json_length == 301
-
-        def test_infer_response_to_rest_with_raw_data_with_binary_data_false(
-            self,
-        ):
-            infer_output = InferOutput(
-                name="output1",
-                shape=[3],
-                datatype="INT32",
-            )
-            raw_data = b"\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00"
-            infer_output._raw_data = raw_data
-            infer_request = InferResponse(
-                response_id="4be4e82f-5500-420a-a5c5-ac86841e271b",
-                model_name="test_model",
-                infer_outputs=[infer_output],
-            )
-            infer_response, json_length = infer_request.to_rest()
-            assert infer_response == {
-                "id": "4be4e82f-5500-420a-a5c5-ac86841e271b",
-                "model_name": "test_model",
-                "model_version": None,
                 "outputs": [
                     {
                         "name": "output1",
-                        "shape": [3],
-                        "datatype": "INT32",
-                        "data": [1, 2, 3],
+                        "shape": [4],
+                        "datatype": "BYTES",
+                        "parameters": {"binary_data_size": len(serialized_str_data)},
                     }
                 ],
             }
-            assert json_length is None
+        ).encode()
+        json_length = len(response_bytes)
+        model_name = "test_model"
 
-        def test_infer_response_to_rest_missing_data_field(self):
-            infer_output = InferOutput(
-                name="input1",
-                shape=[1],
-                datatype="INT32",
-                parameters={"binary_data_size": 12},
-            )
-            infer_response = InferResponse(
-                response_id="1",
-                model_name="test_model",
-                infer_outputs=[infer_output],
-            )
-            with pytest.raises(InvalidInput):
-                _, _ = infer_response.to_rest()
+        infer_response = InferResponse.from_bytes(
+            response_bytes + serialized_str_data, json_length, model_name
+        )
 
-        def test_infer_response_from_bytes_happy_path(self):
-            response_bytes = b'{"id": "1", "inputs": [{"name": "input1", "shape": [1], "datatype": "INT32", "data": [1]}]}'
-            json_length = len(response_bytes)
-            model_name = "test_model"
+        assert infer_response.id == "1"
+        assert infer_response.model_name == "test_model"
+        assert len(infer_response.outputs) == 1
+        assert infer_response.outputs[0].name == "output1"
+        assert infer_response.outputs[0].shape == [4]
+        assert infer_response.outputs[0].datatype == "BYTES"
+        assert infer_response.outputs[0].data == ["cat", "dog", "bird", "fish"]
 
-            infer_response = InferResponse.from_bytes(
-                response_bytes, json_length, model_name
-            )
+    def test_infer_response_from_bytes_with_missing_data(self):
+        response_bytes = b'{"id": "1", "outputs": [{"name": "output1", "shape": [1], "datatype": "INT32"}]}'
+        json_length = len(response_bytes)
+        model_name = "test_model"
 
-            assert infer_response.id == "1"
-            assert infer_response.model_name == "test_model"
-            assert len(infer_response.outputs) == 1
-            assert infer_response.outputs[0].name == "input1"
-            assert infer_response.outputs[0].shape == [1]
-            assert infer_response.outputs[0].datatype == "INT32"
-            assert infer_response.outputs[0].data == [1]
+        with pytest.raises(InvalidInput):
+            InferResponse.from_bytes(response_bytes, json_length, model_name)
 
-        def test_infer_response_from_bytes_with_binary_data(self):
-            serialized_str_data = serialize_byte_tensor(
-                np.array([b"cat", b"dog", b"bird", b"fish"], dtype=np.object_)
-            ).item()
-            response_bytes = json.dumps(
-                {
-                    "id": "1",
-                    "inputs": [
-                        {
-                            "name": "input1",
-                            "shape": [4],
-                            "datatype": "BYTES",
-                            "parameters": {
-                                "binary_data_size": len(serialized_str_data)
-                            },
-                        }
-                    ],
-                }
-            ).encode()
-            json_length = len(response_bytes)
-            model_name = "test_model"
+    def test_infer_response_get_output_by_name_returns_correct_output(self):
+        infer_output1 = InferOutput(
+            name="output1", shape=[1], datatype="INT32", data=[1]
+        )
+        infer_output2 = InferOutput(
+            name="output2", shape=[1], datatype="INT32", data=[2]
+        )
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[infer_output1, infer_output2],
+        )
 
-            infer_response = InferResponse.from_bytes(
-                response_bytes + serialized_str_data, json_length, model_name
-            )
+        result = infer_response.get_output_by_name("output2")
 
-            assert infer_response.id == "1"
-            assert infer_response.model_name == "test_model"
-            assert len(infer_response.outputs) == 1
-            assert infer_response.outputs[0].name == "input1"
-            assert infer_response.outputs[0].shape == [4]
-            assert infer_response.outputs[0].datatype == "BYTES"
-            assert infer_response.outputs[0].data == ["cat", "dog", "bird", "fish"]
+        assert result == infer_output2
 
-        def test_infer_response_from_bytes_with_missing_data(self):
-            response_bytes = b'{"id": "1", "inputs": [{"name": "input1", "shape": [1], "datatype": "INT32"}]}'
-            json_length = len(response_bytes)
-            model_name = "test_model"
+    def test_infer_response_get_output_by_name_returns_none_for_non_existent_output(
+        self,
+    ):
+        infer_output1 = InferOutput(
+            name="output1", shape=[1], datatype="INT32", data=[1]
+        )
+        infer_output2 = InferOutput(
+            name="output2", shape=[1], datatype="INT32", data=[2]
+        )
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[infer_output1, infer_output2],
+        )
 
-            with pytest.raises(InvalidInput):
-                InferResponse.from_bytes(response_bytes, json_length, model_name)
+        result = infer_response.get_output_by_name("output3")
 
-        def test_infer_response_get_output_by_name_returns_correct_output(self):
-            infer_output1 = InferOutput(
-                name="output1", shape=[1], datatype="INT32", data=[1]
-            )
-            infer_output2 = InferOutput(
-                name="output2", shape=[1], datatype="INT32", data=[2]
-            )
-            infer_response = InferResponse(
-                response_id="1",
-                model_name="test_model",
-                infer_outputs=[infer_output1, infer_output2],
-            )
-
-            result = infer_response.get_output_by_name("output2")
-
-            assert result == infer_output2
-
-        def test_infer_response_get_output_by_name_returns_none_for_non_existent_output(
-            self,
-        ):
-            infer_output1 = InferOutput(
-                name="output1", shape=[1], datatype="INT32", data=[1]
-            )
-            infer_output2 = InferOutput(
-                name="output2", shape=[1], datatype="INT32", data=[2]
-            )
-            infer_response = InferResponse(
-                response_id="1",
-                model_name="test_model",
-                infer_outputs=[infer_output1, infer_output2],
-            )
-
-            result = infer_response.get_output_by_name("output3")
-
-            assert result is None
+        assert result is None
 
 
 def test_contains_fp16_datatype_with_fp16_output():
