@@ -119,6 +119,31 @@ func GetContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 	return nil, nil
 }
 
+func GetPvcForStorageUri(storageUri string, client client.Client) (*string, error) {
+	cachedModels := &v1alpha1.ClusterCachedModelList{}
+	if err := client.List(context.TODO(), cachedModels); err != nil {
+		return nil, err
+	}
+
+	for _, model := range cachedModels.Items {
+		// if model.IsDisabled() {
+		// 	continue
+		// }
+		if model.Spec.StorageUri == storageUri {
+			ret := "pvc://model-cache/models" + model.Name
+			return &ret, nil
+		}
+		// if err != nil {
+		// 	return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
+		// }
+		// if supported {
+		// 	return &sc.Spec.Container, nil
+		// }
+	}
+
+	return nil, nil
+}
+
 // InjectModelcar injects a sidecar with the full model included to the Pod.
 // This so called "modelcar" is then directly accessed from the user container
 // via the proc filesystem (possible when `shareProcessNamespace` is enabled in the Pod spec).
@@ -220,6 +245,16 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 	podVolumes := []v1.Volume{}
 	storageInitializerMounts := []v1.VolumeMount{}
+
+	if _, ok := pod.ObjectMeta.Annotations["useModelCache"]; ok {
+		newUri, err := GetPvcForStorageUri(srcURI, mi.client)
+		if err != nil {
+			return err
+		}
+		if newUri != nil {
+			srcURI = *newUri
+		}
+	}
 
 	// For PVC source URIs we need to mount the source to be able to access it
 	// See design and discussion here: https://github.com/kserve/kserve/issues/148

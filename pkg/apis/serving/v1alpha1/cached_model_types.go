@@ -22,10 +22,10 @@ import (
 
 // StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
 // +k8s:openapi-gen=true
-type CachedModelSpec struct {
+type ClusterCachedModelSpec struct {
 	// Container spec for the storage initializer init container
 
-	StorageUri []string `json:"storageUri" validate:"required"`
+	StorageUri string `json:"storageUri" validate:"required"`
 }
 
 // +k8s:openapi-gen=true
@@ -33,11 +33,11 @@ type CachedModelSpec struct {
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
-type CachedModel struct {
+type ClusterCachedModel struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec CachedModelSpec `json:"spec,omitempty"`
+	Spec ClusterCachedModelSpec `json:"spec,omitempty"`
 
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
@@ -46,12 +46,12 @@ type CachedModel struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type CachedModelList struct {
+type ClusterCachedModelList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []CachedModel `json:"items" validate:"required"`
+	Items           []ClusterCachedModel `json:"items" validate:"required"`
 }
 
 func init() {
-	SchemeBuilder.Register(&CachedModel{}, &CachedModelList{})
+	SchemeBuilder.Register(&ClusterCachedModel{}, &ClusterCachedModelList{})
 }
