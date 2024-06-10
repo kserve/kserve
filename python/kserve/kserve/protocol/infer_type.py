@@ -728,6 +728,8 @@ class InferRequest:
                 raise InvalidInput(
                     f"'data' field is missing for output '{infer_input.name}' for model '{self.model_name}'"
                 )
+            if isinstance(infer_input.data, np.ndarray):
+                infer_input.set_data_from_numpy(infer_input.data, binary_data=False)
             if infer_input.data and infer_input._raw_data:
                 raise InvalidInput(
                     f"Both 'data' and 'raw_data' fields are set for input '{infer_input.name}' for model '{self.model_name}'"
@@ -964,7 +966,7 @@ class InferOutput:
         return self._data
 
     @data.setter
-    def data(self, data: Union[List, InferTensorContents]):
+    def data(self, data: Union[List, np.ndarray, InferTensorContents]):
         """Set the data of inference output associated with this object.
 
         Args:
@@ -1276,13 +1278,13 @@ class InferResponse:
 
         json_bytes = res_bytes[:json_length]
         try:
-            infer_req_dict = orjson.loads(json_bytes)
+            infer_res_dict = orjson.loads(json_bytes)
         except orjson.JSONDecodeError as e:
             raise InvalidInput(f"Unrecognized request format: {e}")
         infer_outputs = []
         # Read the raw binary outputs appended after json
         start_index = json_length
-        for output in infer_req_dict["inputs"]:
+        for output in infer_res_dict["outputs"]:
             parameters = output.get("parameters", None)
             infer_output = InferOutput(
                 name=output["name"],
@@ -1308,8 +1310,8 @@ class InferResponse:
             infer_outputs.append(infer_output)
         return cls(
             model_name=model_name,
-            response_id=infer_req_dict.get("id", None),
-            parameters=infer_req_dict.get("parameters", None),
+            response_id=infer_res_dict.get("id", None),
+            parameters=infer_res_dict.get("parameters", None),
             infer_outputs=infer_outputs,
         )
 
@@ -1346,8 +1348,11 @@ class InferResponse:
                 raise InvalidInput(
                     f"'data' field is missing for output '{infer_output.name}' for model '{self.model_name}'"
                 )
-
-            if infer_output.data or infer_output._raw_data:
+            if isinstance(infer_output.data, np.ndarray):
+                infer_output.set_data_from_numpy(
+                    infer_output.data, binary_data=use_binary_data
+                )
+            elif infer_output.data or infer_output._raw_data:
                 infer_output.set_data_from_numpy(
                     infer_output.as_numpy(), binary_data=use_binary_data
                 )

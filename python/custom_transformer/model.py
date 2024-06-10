@@ -115,7 +115,7 @@ class ImageTransformer(Model):
                 return infer_response
             else:
                 # if predictor protocol is v2 but transformer uses v1
-                return {"predictions": infer_response.outputs[0].data}
+                return {"predictions": infer_response.outputs[0].as_numpy().tolist()}
         else:
             return infer_response
 
