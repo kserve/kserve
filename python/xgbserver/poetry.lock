@@ -1371,7 +1371,7 @@ boto3 = {version = "^1.21.0", optional = true}
 cloudevents = "^1.6.2"
 fastapi = "^0.109.1"
 google-cloud-storage = {version = "^2.3.0", optional = true}
-grpcio = "^1.49.1"
+grpcio = "^1.64.1"
 httpx = "^0.26.0"
 kubernetes = ">=23.3.0"
 numpy = "^1.23.5"

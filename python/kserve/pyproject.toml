@@ -43,7 +43,7 @@ python-dateutil = "^2.8.0"
 numpy = "^1.23.5"
 psutil = "^5.9.0"
 ray = { version = "~2.10.0", extras = ["serve"] }
-grpcio = "^1.49.1"
+grpcio = "^1.64.1"
 protobuf = "^5.27.1"
 prometheus-client = "^0.20.0"
 orjson = "^3.9.15"

@@ -17,7 +17,7 @@
 import grpc
 import warnings
 
-import grpc_predict_v2_pb2 as grpc__predict__v2__pb2
+from kserve.protocol.grpc import grpc_predict_v2_pb2 as kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2
 
 GRPC_GENERATED_VERSION = '1.64.1'
 GRPC_VERSION = grpc.__version__
@@ -34,7 +34,7 @@ except ImportError:
 if _version_not_supported:
     warnings.warn(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in grpc_predict_v2_pb2_grpc.py depends on'
+        + f' but the generated code in kserve/protocol/grpc/grpc_predict_v2_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -56,43 +56,43 @@ class GRPCInferenceServiceStub(object):
         """
         self.ServerLive = channel.unary_unary(
                 '/inference.GRPCInferenceService/ServerLive',
-                request_serializer=grpc__predict__v2__pb2.ServerLiveRequest.SerializeToString,
-                response_deserializer=grpc__predict__v2__pb2.ServerLiveResponse.FromString,
+                request_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerLiveRequest.SerializeToString,
+                response_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerLiveResponse.FromString,
                 _registered_method=True)
         self.ServerReady = channel.unary_unary(
                 '/inference.GRPCInferenceService/ServerReady',
-                request_serializer=grpc__predict__v2__pb2.ServerReadyRequest.SerializeToString,
-                response_deserializer=grpc__predict__v2__pb2.ServerReadyResponse.FromString,
+                request_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerReadyRequest.SerializeToString,
+                response_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerReadyResponse.FromString,
                 _registered_method=True)
         self.ModelReady = channel.unary_unary(
                 '/inference.GRPCInferenceService/ModelReady',
-                request_serializer=grpc__predict__v2__pb2.ModelReadyRequest.SerializeToString,
-                response_deserializer=grpc__predict__v2__pb2.ModelReadyResponse.FromString,
+                request_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelReadyRequest.SerializeToString,
+                response_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelReadyResponse.FromString,
                 _registered_method=True)
         self.ServerMetadata = channel.unary_unary(
                 '/inference.GRPCInferenceService/ServerMetadata',
-                request_serializer=grpc__predict__v2__pb2.ServerMetadataRequest.SerializeToString,
-                response_deserializer=grpc__predict__v2__pb2.ServerMetadataResponse.FromString,
+                request_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerMetadataRequest.SerializeToString,
+                response_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerMetadataResponse.FromString,
                 _registered_method=True)
         self.ModelMetadata = channel.unary_unary(
                 '/inference.GRPCInferenceService/ModelMetadata',
-                request_serializer=grpc__predict__v2__pb2.ModelMetadataRequest.SerializeToString,
-                response_deserializer=grpc__predict__v2__pb2.ModelMetadataResponse.FromString,
+                request_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelMetadataRequest.SerializeToString,
+                response_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelMetadataResponse.FromString,
                 _registered_method=True)
         self.ModelInfer = channel.unary_unary(
                 '/inference.GRPCInferenceService/ModelInfer',
-                request_serializer=grpc__predict__v2__pb2.ModelInferRequest.SerializeToString,
-                response_deserializer=grpc__predict__v2__pb2.ModelInferResponse.FromString,
+                request_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelInferRequest.SerializeToString,
+                response_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelInferResponse.FromString,
                 _registered_method=True)
         self.RepositoryModelLoad = channel.unary_unary(
                 '/inference.GRPCInferenceService/RepositoryModelLoad',
-                request_serializer=grpc__predict__v2__pb2.RepositoryModelLoadRequest.SerializeToString,
-                response_deserializer=grpc__predict__v2__pb2.RepositoryModelLoadResponse.FromString,
+                request_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelLoadRequest.SerializeToString,
+                response_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelLoadResponse.FromString,
                 _registered_method=True)
         self.RepositoryModelUnload = channel.unary_unary(
                 '/inference.GRPCInferenceService/RepositoryModelUnload',
-                request_serializer=grpc__predict__v2__pb2.RepositoryModelUnloadRequest.SerializeToString,
-                response_deserializer=grpc__predict__v2__pb2.RepositoryModelUnloadResponse.FromString,
+                request_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelUnloadRequest.SerializeToString,
+                response_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelUnloadResponse.FromString,
                 _registered_method=True)
 
 
@@ -168,43 +168,43 @@ def add_GRPCInferenceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ServerLive': grpc.unary_unary_rpc_method_handler(
                     servicer.ServerLive,
-                    request_deserializer=grpc__predict__v2__pb2.ServerLiveRequest.FromString,
-                    response_serializer=grpc__predict__v2__pb2.ServerLiveResponse.SerializeToString,
+                    request_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerLiveRequest.FromString,
+                    response_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerLiveResponse.SerializeToString,
             ),
             'ServerReady': grpc.unary_unary_rpc_method_handler(
                     servicer.ServerReady,
-                    request_deserializer=grpc__predict__v2__pb2.ServerReadyRequest.FromString,
-                    response_serializer=grpc__predict__v2__pb2.ServerReadyResponse.SerializeToString,
+                    request_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerReadyRequest.FromString,
+                    response_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerReadyResponse.SerializeToString,
             ),
             'ModelReady': grpc.unary_unary_rpc_method_handler(
                     servicer.ModelReady,
-                    request_deserializer=grpc__predict__v2__pb2.ModelReadyRequest.FromString,
-                    response_serializer=grpc__predict__v2__pb2.ModelReadyResponse.SerializeToString,
+                    request_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelReadyRequest.FromString,
+                    response_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelReadyResponse.SerializeToString,
             ),
             'ServerMetadata': grpc.unary_unary_rpc_method_handler(
                     servicer.ServerMetadata,
-                    request_deserializer=grpc__predict__v2__pb2.ServerMetadataRequest.FromString,
-                    response_serializer=grpc__predict__v2__pb2.ServerMetadataResponse.SerializeToString,
+                    request_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerMetadataRequest.FromString,
+                    response_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerMetadataResponse.SerializeToString,
             ),
             'ModelMetadata': grpc.unary_unary_rpc_method_handler(
                     servicer.ModelMetadata,
-                    request_deserializer=grpc__predict__v2__pb2.ModelMetadataRequest.FromString,
-                    response_serializer=grpc__predict__v2__pb2.ModelMetadataResponse.SerializeToString,
+                    request_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelMetadataRequest.FromString,
+                    response_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelMetadataResponse.SerializeToString,
             ),
             'ModelInfer': grpc.unary_unary_rpc_method_handler(
                     servicer.ModelInfer,
-                    request_deserializer=grpc__predict__v2__pb2.ModelInferRequest.FromString,
-                    response_serializer=grpc__predict__v2__pb2.ModelInferResponse.SerializeToString,
+                    request_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelInferRequest.FromString,
+                    response_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelInferResponse.SerializeToString,
             ),
             'RepositoryModelLoad': grpc.unary_unary_rpc_method_handler(
                     servicer.RepositoryModelLoad,
-                    request_deserializer=grpc__predict__v2__pb2.RepositoryModelLoadRequest.FromString,
-                    response_serializer=grpc__predict__v2__pb2.RepositoryModelLoadResponse.SerializeToString,
+                    request_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelLoadRequest.FromString,
+                    response_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelLoadResponse.SerializeToString,
             ),
             'RepositoryModelUnload': grpc.unary_unary_rpc_method_handler(
                     servicer.RepositoryModelUnload,
-                    request_deserializer=grpc__predict__v2__pb2.RepositoryModelUnloadRequest.FromString,
-                    response_serializer=grpc__predict__v2__pb2.RepositoryModelUnloadResponse.SerializeToString,
+                    request_deserializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelUnloadRequest.FromString,
+                    response_serializer=kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelUnloadResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -233,8 +233,8 @@ class GRPCInferenceService(object):
             request,
             target,
             '/inference.GRPCInferenceService/ServerLive',
-            grpc__predict__v2__pb2.ServerLiveRequest.SerializeToString,
-            grpc__predict__v2__pb2.ServerLiveResponse.FromString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerLiveRequest.SerializeToString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerLiveResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -260,8 +260,8 @@ class GRPCInferenceService(object):
             request,
             target,
             '/inference.GRPCInferenceService/ServerReady',
-            grpc__predict__v2__pb2.ServerReadyRequest.SerializeToString,
-            grpc__predict__v2__pb2.ServerReadyResponse.FromString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerReadyRequest.SerializeToString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerReadyResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -287,8 +287,8 @@ class GRPCInferenceService(object):
             request,
             target,
             '/inference.GRPCInferenceService/ModelReady',
-            grpc__predict__v2__pb2.ModelReadyRequest.SerializeToString,
-            grpc__predict__v2__pb2.ModelReadyResponse.FromString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelReadyRequest.SerializeToString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelReadyResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -314,8 +314,8 @@ class GRPCInferenceService(object):
             request,
             target,
             '/inference.GRPCInferenceService/ServerMetadata',
-            grpc__predict__v2__pb2.ServerMetadataRequest.SerializeToString,
-            grpc__predict__v2__pb2.ServerMetadataResponse.FromString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerMetadataRequest.SerializeToString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ServerMetadataResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -341,8 +341,8 @@ class GRPCInferenceService(object):
             request,
             target,
             '/inference.GRPCInferenceService/ModelMetadata',
-            grpc__predict__v2__pb2.ModelMetadataRequest.SerializeToString,
-            grpc__predict__v2__pb2.ModelMetadataResponse.FromString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelMetadataRequest.SerializeToString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelMetadataResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -368,8 +368,8 @@ class GRPCInferenceService(object):
             request,
             target,
             '/inference.GRPCInferenceService/ModelInfer',
-            grpc__predict__v2__pb2.ModelInferRequest.SerializeToString,
-            grpc__predict__v2__pb2.ModelInferResponse.FromString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelInferRequest.SerializeToString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.ModelInferResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -395,8 +395,8 @@ class GRPCInferenceService(object):
             request,
             target,
             '/inference.GRPCInferenceService/RepositoryModelLoad',
-            grpc__predict__v2__pb2.RepositoryModelLoadRequest.SerializeToString,
-            grpc__predict__v2__pb2.RepositoryModelLoadResponse.FromString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelLoadRequest.SerializeToString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelLoadResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -422,8 +422,8 @@ class GRPCInferenceService(object):
             request,
             target,
             '/inference.GRPCInferenceService/RepositoryModelUnload',
-            grpc__predict__v2__pb2.RepositoryModelUnloadRequest.SerializeToString,
-            grpc__predict__v2__pb2.RepositoryModelUnloadResponse.FromString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelUnloadRequest.SerializeToString,
+            kserve_dot_protocol_dot_grpc_dot_grpc__predict__v2__pb2.RepositoryModelUnloadResponse.FromString,
             options,
             channel_credentials,
             insecure,
