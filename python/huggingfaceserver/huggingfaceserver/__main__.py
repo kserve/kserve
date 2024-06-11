@@ -154,7 +154,10 @@ def load_model():
     if (
         (args.backend == Backend.vllm or args.backend == Backend.auto)
         and vllm_available()
-        and infer_vllm_supported_from_model_architecture(model_id_or_path)
+        and infer_vllm_supported_from_model_architecture(
+            model_id_or_path,
+            trust_remote_code=kwargs.get("trust_remote_code", False),
+        )
     ):
         from .vllm.vllm_model import VLLMModel
 
@@ -174,7 +177,9 @@ def load_model():
         }
 
         model_config = AutoConfig.from_pretrained(
-            str(model_id_or_path), revision=kwargs.get("model_revision", None)
+            str(model_id_or_path), 
+            revision=kwargs.get("model_revision", None),
+            trust_remote_code=kwargs.get("trust_remote_code", False),
         )
         if kwargs.get("task", None):
             try:
