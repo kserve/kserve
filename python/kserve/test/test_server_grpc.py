@@ -37,7 +37,6 @@ class TestModel(kserve.Model): #Test model
         response_id = generate_uuid()
         infer_output = InferOutput(name="output-0", shape=[1], datatype="FP32", data=result)
         infer_response = InferResponse(model_name=self.name, infer_outputs=[infer_output], response_id=response_id)
-        logger.info("About to send infer_response..")
         return infer_response
 
 if __name__ == "__main__":
