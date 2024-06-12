@@ -588,7 +588,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		}
 	}
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(deployConfig.AnnotationsPropagationDisallowList, key)
+		return !utils.IncludesRegex(deployConfig.AnnotationsPropagationDisallowList, key)
 	})
 	desiredIngress := &istioclientv1beta1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{

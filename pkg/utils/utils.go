@@ -17,6 +17,8 @@ limitations under the License.
 package utils
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -58,6 +60,20 @@ func Union(maps ...map[string]string) map[string]string {
 func Includes(slice []string, value string) bool {
 	for _, v := range slice {
 		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
+func IncludesRegex(patterns []string, value string) bool {
+	for _, pattern := range patterns {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			fmt.Printf("Invalid regex pattern: %v\n", err)
+			return false
+		}
+		if re.MatchString(value) {
 			return true
 		}
 	}

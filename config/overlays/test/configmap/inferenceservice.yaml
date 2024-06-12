@@ -85,7 +85,7 @@ data:
       "autoscaling.knative.dev/min-scale",
       "autoscaling.knative.dev/max-scale",
       "internal.serving.kserve.io/storage-initializer-sourceuri",
-      "kubectl.kubernetes.io/last-applied-configuration"
+      "kubectl.kubernetes.io/.*"
     ]
 
   labelsPropagationDisallowList: |-
