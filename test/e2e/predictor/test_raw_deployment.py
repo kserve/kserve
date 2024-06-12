@@ -39,6 +39,7 @@ api_version = constants.KSERVE_V1BETA1
 
 ANNOTATION_MIN_SCALE = "autoscaling.knative.dev/min-scale"
 ANNOTATION_MAX_SCALE = "autoscaling.knative.dev/max-scale"
+CUSTOM_ANNOTATION_REGEX = "kubectl.kubernetes.io/last-applied-configuration"
 
 
 @pytest.mark.raw
@@ -86,6 +87,7 @@ def test_annotations_kserve():
     annotations = {
         ANNOTATION_MIN_SCALE: "val1FromISVC",
         ANNOTATION_MAX_SCALE: "val2FromISVC",
+        CUSTOM_ANNOTATION_REGEX: "val3FromISVC",
     }
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
 
@@ -129,6 +131,7 @@ def test_annotations_kserve():
     # check for disallowed annotation not present in pod annotations
     assert ANNOTATION_MIN_SCALE not in pod_annotations
     assert ANNOTATION_MAX_SCALE not in pod_annotations
+    assert CUSTOM_ANNOTATION_REGEX not in pod_annotations
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 

@@ -123,7 +123,7 @@ func generateMetadata(isvc *v1beta1.InferenceService,
 	componentType constants.InferenceServiceComponent, name string, deployConfig *v1beta1.DeployConfig) metav1.ObjectMeta {
 	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(deployConfig.AnnotationsPropagationDisallowList, key)
+		return !utils.IncludesRegex(deployConfig.AnnotationsPropagationDisallowList, key)
 	})
 	objectMeta := metav1.ObjectMeta{
 		Name:      name,
