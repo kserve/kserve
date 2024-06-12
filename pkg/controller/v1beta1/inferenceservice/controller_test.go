@@ -316,6 +316,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: istiov1beta1.VirtualService{
 					Gateways: []string{
 						constants.KnativeLocalGateway,
+						constants.IstioMeshGateway,
 						constants.KnativeIngressGateway,
 					},
 					Hosts: []string{
@@ -326,7 +327,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
 								{
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 									Authority: &istiov1beta1.StringMatch{
 										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),

@@ -231,6 +231,7 @@ const (
 
 var (
 	LocalGatewayHost = "knative-local-gateway.istio-system.svc." + network.GetClusterDomainName()
+	IstioMeshGateway = "mesh"
 )
 
 // InferenceService Component enums

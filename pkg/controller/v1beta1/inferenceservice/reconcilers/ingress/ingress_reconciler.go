@@ -289,7 +289,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalH
 					Regex: constants.HostRegExp(internalHost),
 				},
 			},
-			Gateways: []string{config.LocalGateway},
+			Gateways: []string{config.LocalGateway, constants.IstioMeshGateway},
 		},
 	}
 	if !isInternal {
@@ -431,6 +431,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 
 	gateways := []string{
 		config.LocalGateway,
+		constants.IstioMeshGateway,
 	}
 	if !isInternal {
 		hosts = append(hosts, serviceHost)
