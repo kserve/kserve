@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvidia/cuda:12.1.0-devel-ubuntu22.04
+ARG BASE_IMAGE=nvidia/cuda:12.4.1-devel-ubuntu22.04
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} as builder
@@ -34,7 +34,7 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
 RUN pip3 install vllm==${VLLM_VERSION}
 
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04 as prod
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 as prod
 
 RUN apt-get update -y && apt-get install python3.10-venv -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
