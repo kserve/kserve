@@ -27,9 +27,9 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.13.0
 | kserve.controller.gateway.domainTemplate | string | `"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"` |  |
 | kserve.controller.gateway.ingressGateway.className | string | `"istio"` |  |
 | kserve.controller.gateway.ingressGateway.gateway | string | `"knative-serving/knative-ingress-gateway"` |  |
-| kserve.controller.gateway.ingressGateway.gatewayService | string | `"istio-ingressgateway.istio-system.svc.cluster.local"` |  |
 | kserve.controller.gateway.localGateway.gateway | string | `"knative-serving/knative-local-gateway"` |  |
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` |  |
+| kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
 | kserve.controller.nodeSelector | object | `{}` |  |
