@@ -156,7 +156,7 @@ def load_model():
         and vllm_available()
         and infer_vllm_supported_from_model_architecture(
             model_id_or_path,
-            trust_remote_code=kwargs.get("trust_remote_code", False),
+            trust_remote_code=args.trust_remote_code,
         )
     ):
         from .vllm.vllm_model import VLLMModel
