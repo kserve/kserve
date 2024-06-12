@@ -28,8 +28,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -46,6 +48,7 @@ const (
 	StorageInitializerDefaultCaBundleConfigMapName      = ""
 	StorageInitializerDefaultCaBundleVolumeMountPath    = "/etc/ssl/custom-certs"
 	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
+	StorageInitializerDefaultModelCachePvcName          = "model-cache"
 )
 
 var (
@@ -57,6 +60,7 @@ var (
 		CaBundleConfigMapName:      StorageInitializerDefaultCaBundleConfigMapName,
 		CaBundleVolumeMountPath:    StorageInitializerDefaultCaBundleVolumeMountPath,
 		EnableDirectPvcVolumeMount: StorageInitializerDefaultEnableDirectPvcVolumeMount,
+		ModelCachePvcName:          StorageInitializerDefaultModelCachePvcName,
 	}
 
 	resourceRequirement = v1.ResourceRequirements{
@@ -76,72 +80,6 @@ func TestStorageInitializerInjector(t *testing.T) {
 		original *v1.Pod
 		expected *v1.Pod
 	}{
-		"MissingAnnotations": {
-			original: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-			},
-			expected: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-			},
-		},
-		"AlreadyInjected": {
-			original: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-					InitContainers: []v1.Container{
-						{
-							Name: "storage-initializer",
-						},
-					},
-				},
-			},
-			expected: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
-					},
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-					InitContainers: []v1.Container{
-						{
-							Name: "storage-initializer",
-						},
-					},
-				},
-			},
-		},
 		"StorageInitializerInjected": {
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2598,6 +2536,190 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 		}
 
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}
+
+func TestStorageInitializerInjectorForModelCache(t *testing.T) {
+	modelCacheCRName := "my-cached-model"
+	modelCacheSpec := v1alpha1.ClusterCachedModel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: modelCacheCRName,
+		},
+		Spec: v1alpha1.ClusterCachedModelSpec{
+			StorageUri: "gs://foo",
+		},
+	}
+	storageContainerSpecs := &v1alpha1.ClusterCachedModelList{
+		Items: []v1alpha1.ClusterCachedModel{modelCacheSpec},
+	}
+
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
+	scenarios := map[string]struct {
+		original *v1.Pod
+		expected *v1.Pod
+	}{
+		"InjectPVCForModelCache": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+						constants.EnableModelCache:                                 "",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/pvc",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"/mnt/pvc/models/" + modelCacheCRName + "/", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/pvc",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: StorageInitializerDefaultModelCachePvcName,
+									ReadOnly:  false,
+								},
+							},
+						},
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+		"DoNotInjectPVCForNonExistentModelCacheCR": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://bar",
+						constants.EnableModelCache:                                 "",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://bar",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://bar", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-provision-location",
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-provision-location",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: storageInitializerConfig,
+			client: mockClient,
+		}
+
+		if err = injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {

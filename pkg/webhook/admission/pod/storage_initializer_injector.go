@@ -66,6 +66,7 @@ type StorageInitializerConfig struct {
 	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
 	EnableOciImageSource       bool   `json:"enableModelcar"`
 	UidModelcar                *int64 `json:"uidModelcar"`
+	ModelCachePvcName          string `json:"modelCachePvcName"`
 }
 
 type StorageInitializerInjector struct {
@@ -119,7 +120,7 @@ func GetContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 	return nil, nil
 }
 
-func GetPvcForStorageUri(storageUri string, client client.Client) (*string, error) {
+func (mi *StorageInitializerInjector) getPvcForStorageUri(storageUri string, client client.Client) (*string, error) {
 	cachedModels := &v1alpha1.ClusterCachedModelList{}
 	if err := client.List(context.TODO(), cachedModels); err != nil {
 		return nil, err
@@ -130,7 +131,7 @@ func GetPvcForStorageUri(storageUri string, client client.Client) (*string, erro
 		// 	continue
 		// }
 		if model.Spec.StorageUri == storageUri {
-			ret := "pvc://model-cache/models/" + model.Name + "/"
+			ret := "pvc://" + mi.config.ModelCachePvcName + "/models/" + model.Name + "/"
 			return &ret, nil
 		}
 		// if err != nil {
@@ -247,7 +248,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	storageInitializerMounts := []v1.VolumeMount{}
 
 	if _, ok := pod.ObjectMeta.Annotations[constants.EnableModelCache]; ok {
-		newUri, err := GetPvcForStorageUri(srcURI, mi.client)
+		newUri, err := mi.getPvcForStorageUri(srcURI, mi.client)
 		if err != nil {
 			return err
 		}
