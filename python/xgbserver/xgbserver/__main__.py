@@ -41,7 +41,7 @@ if __name__ == "__main__":
     model = XGBoostModel(args.model_name, args.model_dir, args.nthread)
     try:
         model.load()
-        kserve.ModelServer().start([model] if model.ready else [])
+        kserve.ModelServer().start([model])
     except ModelMissingError:
         logger.error(
             f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
@@ -50,4 +50,4 @@ if __name__ == "__main__":
 
         kserve.ModelServer(
             registered_models=XGBoostModelRepository(args.model_dir, args.nthread)
-        ).start([model] if model.ready else [])
+        ).start([model])

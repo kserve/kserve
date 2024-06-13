@@ -247,7 +247,7 @@ if __name__ == "__main__":
         logging.configure_logging(args.log_config_file)
     try:
         model = load_model()
-        kserve.ModelServer().start([model] if model.ready else [])
+        kserve.ModelServer().start([model])
     except Exception as e:
         import sys
 
