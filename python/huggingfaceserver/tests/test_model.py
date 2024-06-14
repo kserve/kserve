@@ -427,6 +427,7 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
         == "The first thing you need to do is to get a good idea of what you are looking for."
     )
 
+
 @pytest.mark.asyncio
 async def test_text_embedding(text_embedding):
     def cosine_similarity(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
