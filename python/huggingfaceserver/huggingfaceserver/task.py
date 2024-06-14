@@ -42,6 +42,7 @@ class MLTask(str, Enum):
     text_generation = auto()
     text2text_generation = auto()
     multiple_choice = auto()
+    text_embedding = auto()
 
     @classmethod
     def _missing_(cls, value: str):
@@ -74,6 +75,7 @@ TASK_2_CLS = {
     MLTask.text_generation: AutoModelForCausalLM,
     MLTask.text2text_generation: AutoModelForSeq2SeqLM,
     MLTask.multiple_choice: AutoModelForMultipleChoice,
+    MLTask.text_embedding: AutoModel,
 }
 
 SUPPORTED_TASKS = {
@@ -82,6 +84,7 @@ SUPPORTED_TASKS = {
     MLTask.fill_mask,
     MLTask.text_generation,
     MLTask.text2text_generation,
+    MLTask.text_embedding
 }
 
 
