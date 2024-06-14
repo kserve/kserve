@@ -74,3 +74,6 @@ GENERATION = "generation"
 
 # LLM stats map key
 LLM_STATS_KEY = "llm-stats"
+
+# Default GRPC max message length
+MAX_GRPC_MESSAGE_LENGTH = 8388608

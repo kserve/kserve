@@ -27,6 +27,7 @@ from ray.serve.api import Deployment
 from ray.serve.handle import DeploymentHandle
 
 from . import logging
+from .constants.constants import MAX_GRPC_MESSAGE_LENGTH
 from .logging import logger
 from .model import BaseKServeModel
 from .model_repository import ModelRepository
@@ -152,6 +153,18 @@ parser.add_argument(
     type=int,
     help="The timeout seconds for the request sent to the predictor.",
 )
+parser.add_argument(
+    "--grpc_max_send_message_length",
+    default=MAX_GRPC_MESSAGE_LENGTH,
+    type=int,
+    help="The max message length for gRPC send message.",
+)
+parser.add_argument(
+    "--grpc_max_receive_message_length",
+    default=MAX_GRPC_MESSAGE_LENGTH,
+    type=int,
+    help="The max message length for gRPC receive message.",
+)
 args, _ = parser.parse_known_args()
 
 
@@ -207,7 +220,10 @@ class ModelServer:
         self._rest_server = None
         if self.enable_grpc:
             self._grpc_server = GRPCServer(
-                grpc_port, self.dataplane, self.model_repository_extension
+                grpc_port,
+                self.dataplane,
+                self.model_repository_extension,
+                kwargs=vars(args),
             )
         if args.configure_logging:
             # If the logger does not have any handlers, then the logger is not configured.
