@@ -446,9 +446,15 @@ async def test_text_embedding(text_embedding):
     predictions = response["predictions"]
 
     # The first two requests are semantically similar, so the cosine similarity should be high
-    assert cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[1]))[0] > 0.9
+    assert (
+        cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[1]))[0]
+        > 0.9
+    )
     # The third request is semantically different, so the cosine similarity should be low
-    assert cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[2]))[0] < 0.55
+    assert (
+        cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[2]))[0]
+        < 0.55
+    )
 
 
 @pytest.mark.asyncio

@@ -84,7 +84,7 @@ SUPPORTED_TASKS = {
     MLTask.fill_mask,
     MLTask.text_generation,
     MLTask.text2text_generation,
-    MLTask.text_embedding
+    MLTask.text_embedding,
 }
 
 
