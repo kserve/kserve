@@ -1432,6 +1432,56 @@ func TestModelName(t *testing.T) {
 			},
 			expected: "custom-model",
 		},
+		"modelname in single string": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									Args:      []string{"--model_dir", "/mnt/models", "--model_name iris"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "iris",
+		},
+		"modelname value in separate string": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									Args:      []string{"--model_dir", "/mnt/models", "--model_name", "iris"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "iris",
+		},
 	}
 
 	for name, scenario := range scenarios {
