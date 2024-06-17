@@ -2597,33 +2597,9 @@ func TestStorageInitializerInjectorForModelCache(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/pvc",
+									MountPath: "/mnt/models",
+									SubPath:   "models/my-cached-model",
 									ReadOnly:  true,
-								},
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					InitContainers: []v1.Container{
-						{
-							Name:                     "storage-initializer",
-							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"/mnt/pvc/models/" + modelCacheCRName + "/", constants.DefaultModelLocalMountPath},
-							Resources:                resourceRequirement,
-							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/pvc",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
 						},
@@ -2636,12 +2612,6 @@ func TestStorageInitializerInjectorForModelCache(t *testing.T) {
 									ClaimName: StorageInitializerDefaultModelCachePvcName,
 									ReadOnly:  false,
 								},
-							},
-						},
-						{
-							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -2710,6 +2680,18 @@ func TestStorageInitializerInjectorForModelCache(t *testing.T) {
 			},
 		},
 	}
+
+	storageInitializerConfig = &StorageInitializerConfig{
+		CpuRequest:                 StorageInitializerDefaultCPURequest,
+		CpuLimit:                   StorageInitializerDefaultCPULimit,
+		MemoryRequest:              StorageInitializerDefaultMemoryRequest,
+		MemoryLimit:                StorageInitializerDefaultMemoryLimit,
+		CaBundleConfigMapName:      StorageInitializerDefaultCaBundleConfigMapName,
+		CaBundleVolumeMountPath:    StorageInitializerDefaultCaBundleVolumeMountPath,
+		EnableDirectPvcVolumeMount: true,
+		ModelCachePvcName:          StorageInitializerDefaultModelCachePvcName,
+	}
+
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
 			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{

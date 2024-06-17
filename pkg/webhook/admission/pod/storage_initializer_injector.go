@@ -131,7 +131,7 @@ func (mi *StorageInitializerInjector) getPvcForStorageUri(storageUri string, cli
 		// 	continue
 		// }
 		if model.Spec.StorageUri == storageUri {
-			ret := "pvc://" + mi.config.ModelCachePvcName + "/models/" + model.Name + "/"
+			ret := "pvc://" + mi.config.ModelCachePvcName + "/models/" + model.Name
 			return &ret, nil
 		}
 		// if err != nil {
