@@ -255,7 +255,10 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             try:
                 with torch.no_grad():
                     outputs = self._model(**input_batch)
-                    if self.task != MLTask.text_embedding.value:
+                    if self.task == MLTask.text_embedding.value:
+                        # last_hidden_state contains all token embeddings
+                        outputs = outputs.last_hidden_state
+                    else:
                         outputs = outputs.logits
                     return outputs
             except Exception as e:

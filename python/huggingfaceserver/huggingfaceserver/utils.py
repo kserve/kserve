@@ -125,7 +125,7 @@ def _get_and_verify_max_len(
     return int(max_model_len)
 
 
-def _mean_pooling(model_output, attention_mask):
+def _mean_pooling(token_embeddings, attention_mask):
     """
     Take attention mask into account for correct averaging.
 
@@ -133,9 +133,6 @@ def _mean_pooling(model_output, attention_mask):
     https://github.com/UKPLab/sentence-transformers/blob/f012ab33189d23cef0dd00df7c5642ebb0bac2d4/sentence_transformers/model_card_templates.py#L136-L146
     """
 
-    token_embeddings = model_output[
-        0
-    ]  # First element of model_output contains all token embeddings
     input_mask_expanded = (
         attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
     )
