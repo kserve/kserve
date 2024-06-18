@@ -25,8 +25,6 @@ from requests.exceptions import HTTPError
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
-logging.basicConfig(level=logging.INFO)
-
 SUCCESS_ISVC_IMAGE = "kserve/success-200-isvc:" + os.environ.get("GITHUB_SHA")
 ERROR_ISVC_IMAGE = "kserve/error-404-isvc:" + os.environ.get("GITHUB_SHA")
 IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"
@@ -864,7 +862,7 @@ def test_ig_scenario10():
     kserve_client.delete(error_isvc_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.graph
+@pytest.mark.raw
 def test_inference_graph_raw_mode():
     logging.info("Starting test test_inference_graph_raw_mode")
     sklearn_name = "isvc-sklearn-graph-raw"
@@ -872,7 +870,7 @@ def test_inference_graph_raw_mode():
     graph_name = "model-chainer-raw"
 
     annotations = dict()
-    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
 
     sklearn_predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -888,7 +886,9 @@ def test_inference_graph_raw_mode():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=sklearn_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations,
+            name=sklearn_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor),
     )
@@ -906,7 +906,11 @@ def test_inference_graph_raw_mode():
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations,),
+        metadata=client.V1ObjectMeta(
+            name=xgb_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
 
@@ -930,7 +934,9 @@ def test_inference_graph_raw_mode():
     ig = V1alpha1InferenceGraph(
         api_version=constants.KSERVE_V1ALPHA1,
         kind=constants.KSERVE_KIND_INFERENCEGRAPH,
-        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations),
+        metadata=client.V1ObjectMeta(
+            name=graph_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
         spec=graph_spec,
     )
 
@@ -946,31 +952,51 @@ def test_inference_graph_raw_mode():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     # Below checks are raw deployment specific.  They ensure raw k8s resources created instead of knative resources
-    dep = kserve_client.app_api.read_namespaced_deployment(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+    dep = kserve_client.app_api.read_namespaced_deployment(
+        graph_name, namespace=KSERVE_TEST_NAMESPACE
+    )
     if not dep:
-        raise RuntimeError("Deployment doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+        raise RuntimeError(
+            "Deployment doesn't exist for InferenceGraph {} in raw deployment mode".format(
+                graph_name
+            )
+        )
 
-    svc = kserve_client.core_api.read_namespaced_service(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+    svc = kserve_client.core_api.read_namespaced_service(
+        graph_name, namespace=KSERVE_TEST_NAMESPACE
+    )
     if not svc:
-        raise RuntimeError("Service doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+        raise RuntimeError(
+            "Service doesn't exist for InferenceGraph {} in raw deployment mode".format(
+                graph_name
+            )
+        )
 
     try:
-        knativeroute = kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                                                                               KSERVE_TEST_NAMESPACE,
-                                                                               "routes", graph_name)
+        knativeroute = kserve_client.api_instance.get_namespaced_custom_object(
+            "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "routes", graph_name
+        )
         if knativeroute:
-            raise RuntimeError("Knative route resource shouldn't exist for InferenceGraph {}".format(graph_name) +
-                               "in raw deployment mode")
+            raise RuntimeError(
+                "Knative route resource shouldn't exist for InferenceGraph {}".format(
+                    graph_name
+                )
+                + "in raw deployment mode"
+            )
     except client.rest.ApiException:
         logging.info("Expected error in finding knative route in raw deployment mode")
 
     try:
-        knativesvc = kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                                                                             KSERVE_TEST_NAMESPACE,
-                                                                             "services", graph_name)
+        knativesvc = kserve_client.api_instance.get_namespaced_custom_object(
+            "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "services", graph_name
+        )
         if knativesvc:
-            raise RuntimeError("Knative resources shouldn't exist for InferenceGraph {} ".format(graph_name) +
-                               "in raw deployment mode")
+            raise RuntimeError(
+                "Knative resources shouldn't exist for InferenceGraph {} ".format(
+                    graph_name
+                )
+                + "in raw deployment mode"
+            )
     except client.rest.ApiException:
         logging.info("Expected error in finding knative service in raw deployment mode")
 
@@ -988,7 +1014,7 @@ def test_inference_graph_raw_mode():
     kserve_client.delete(xgb_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.graph
+@pytest.mark.raw
 def test_inference_graph_raw_mode_with_hpa():
     logging.info("Starting test test_inference_graph_raw_mode_with_hpa")
     sklearn_name = "isvc-sklearn-graph-raw-hpa"
@@ -996,7 +1022,7 @@ def test_inference_graph_raw_mode_with_hpa():
     graph_name = "model-chainer-raw-hpa"
 
     annotations = dict()
-    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     # annotations["serving.kserve.io/max-scale"] = '5'
     # annotations["serving.kserve.io/metric"] = 'rps'
     # annotations["serving.kserve.io/min-scale"] = '2'
@@ -1016,7 +1042,9 @@ def test_inference_graph_raw_mode_with_hpa():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=sklearn_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations,
+            name=sklearn_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor),
     )
@@ -1034,7 +1062,11 @@ def test_inference_graph_raw_mode_with_hpa():
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations,),
+        metadata=client.V1ObjectMeta(
+            name=xgb_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
 
@@ -1058,7 +1090,9 @@ def test_inference_graph_raw_mode_with_hpa():
     ig = V1alpha1InferenceGraph(
         api_version=constants.KSERVE_V1ALPHA1,
         kind=constants.KSERVE_KIND_INFERENCEGRAPH,
-        metadata=client.V1ObjectMeta(name=graph_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations),
+        metadata=client.V1ObjectMeta(
+            name=graph_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
         spec=graph_spec,
     )
 
@@ -1074,13 +1108,25 @@ def test_inference_graph_raw_mode_with_hpa():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     # Below checks are raw deployment specific.  They ensure raw k8s resources created instead of knative resources
-    dep = kserve_client.app_api.read_namespaced_deployment(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+    dep = kserve_client.app_api.read_namespaced_deployment(
+        graph_name, namespace=KSERVE_TEST_NAMESPACE
+    )
     if not dep:
-        raise RuntimeError("Deployment doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+        raise RuntimeError(
+            "Deployment doesn't exist for InferenceGraph {} in raw deployment mode".format(
+                graph_name
+            )
+        )
 
-    svc = kserve_client.core_api.read_namespaced_service(graph_name, namespace=KSERVE_TEST_NAMESPACE)
+    svc = kserve_client.core_api.read_namespaced_service(
+        graph_name, namespace=KSERVE_TEST_NAMESPACE
+    )
     if not svc:
-        raise RuntimeError("Service doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
+        raise RuntimeError(
+            "Service doesn't exist for InferenceGraph {} in raw deployment mode".format(
+                graph_name
+            )
+        )
 
     # hpa = kserve_client.hpa_v2_api.read_namespaced_horizontal_pod_autoscaler(graph_name,
     #                                                                          namespace=KSERVE_TEST_NAMESPACE)
@@ -1088,22 +1134,30 @@ def test_inference_graph_raw_mode_with_hpa():
     #     raise RuntimeError("HPA doesn't exist for InferenceGraph {} in raw deployment mode".format(graph_name))
 
     try:
-        knativeroute = kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                                                                               KSERVE_TEST_NAMESPACE,
-                                                                               "routes", graph_name)
+        knativeroute = kserve_client.api_instance.get_namespaced_custom_object(
+            "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "routes", graph_name
+        )
         if knativeroute:
-            raise RuntimeError("Knative route resource shouldn't exist for InferenceGraph {} ".format(graph_name) +
-                               "in raw deployment mode")
+            raise RuntimeError(
+                "Knative route resource shouldn't exist for InferenceGraph {} ".format(
+                    graph_name
+                )
+                + "in raw deployment mode"
+            )
     except client.rest.ApiException:
         logging.info("Expected error in finding knative route in raw deployment mode")
 
     try:
-        knativesvc = kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                                                                             KSERVE_TEST_NAMESPACE,
-                                                                             "services", graph_name)
+        knativesvc = kserve_client.api_instance.get_namespaced_custom_object(
+            "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "services", graph_name
+        )
         if knativesvc:
-            raise RuntimeError("Knative resources shouldn't exist for InferenceGraph {} ".format(graph_name) +
-                               "in raw deployment mode")
+            raise RuntimeError(
+                "Knative resources shouldn't exist for InferenceGraph {} ".format(
+                    graph_name
+                )
+                + "in raw deployment mode"
+            )
     except client.rest.ApiException:
         logging.info("Expected error in finding knative route in raw deployment mode")
 

@@ -18,20 +18,23 @@ import os
 
 import numpy as np
 import pytest
-from kubernetes.client import (V1ContainerPort, V1ObjectMeta,
-                               V1ResourceRequirements)
+from kubernetes.client import V1ContainerPort, V1ObjectMeta, V1ResourceRequirements
 
-from kserve import (KServeClient, V1beta1InferenceService,
-                    V1beta1InferenceServiceSpec, V1beta1ModelFormat,
-                    V1beta1ModelSpec, V1beta1PaddleServerSpec,
-                    V1beta1PredictorSpec, constants)
+from kserve import (
+    KServeClient,
+    V1beta1InferenceService,
+    V1beta1InferenceServiceSpec,
+    V1beta1ModelFormat,
+    V1beta1ModelSpec,
+    V1beta1PaddleServerSpec,
+    V1beta1PredictorSpec,
+    constants,
+)
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
-logging.basicConfig(level=logging.INFO)
 
-
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_paddle():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -40,39 +43,42 @@ def test_paddle():
             resources=V1ResourceRequirements(
                 requests={"cpu": "200m", "memory": "256Mi"},
                 limits={"cpu": "200m", "memory": "1Gi"},
-            )
-        )
+            ),
+        ),
     )
 
-    service_name = 'isvc-paddle'
+    service_name = "isvc-paddle"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor)
+        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
+        kserve_client.wait_isvc_ready(
+            service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
+        )
     except RuntimeError as e:
-        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                          label_selector='serving.kserve.io/inferenceservice={}'.format(
-                                                              service_name))
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
         for pod in pods.items:
             logging.info(pod)
         raise e
 
-    res = predict(service_name, './data/jay.json')
+    res = predict(service_name, "./data/jay.json")
     assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_paddle_runtime():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -84,39 +90,42 @@ def test_paddle_runtime():
             resources=V1ResourceRequirements(
                 requests={"cpu": "200m", "memory": "256Mi"},
                 limits={"cpu": "200m", "memory": "1Gi"},
-            )
-        )
+            ),
+        ),
     )
 
-    service_name = 'isvc-paddle-runtime'
+    service_name = "isvc-paddle-runtime"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor)
+        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
+        kserve_client.wait_isvc_ready(
+            service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
+        )
     except RuntimeError as e:
-        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                          label_selector='serving.kserve.io/inferenceservice={}'.format(
-                                                              service_name))
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
         for pod in pods.items:
             logging.info(pod)
         raise e
 
-    res = predict(service_name, './data/jay.json')
+    res = predict(service_name, "./data/jay.json")
     assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_paddle_v2_kserve():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -129,39 +138,42 @@ def test_paddle_v2_kserve():
             resources=V1ResourceRequirements(
                 requests={"cpu": "200m", "memory": "256Mi"},
                 limits={"cpu": "200m", "memory": "1Gi"},
-            )
-        )
+            ),
+        ),
     )
 
-    service_name = 'isvc-paddle-v2-kserve'
+    service_name = "isvc-paddle-v2-kserve"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor)
+        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
+        kserve_client.wait_isvc_ready(
+            service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
+        )
     except RuntimeError as e:
-        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                          label_selector='serving.kserve.io/inferenceservice={}'.format(
-                                                              service_name))
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
         for pod in pods.items:
             logging.info(pod)
         raise e
 
-    res = predict(service_name, './data/jay-v2.json', protocol_version="v2")
+    res = predict(service_name, "./data/jay-v2.json", protocol_version="v2")
     assert np.argmax(res["outputs"][0]["data"]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
+@pytest.mark.predictor
 def test_paddle_v2_grpc():
     service_name = "isvc-paddle-v2-grpc"
     model_name = "paddle"
@@ -177,38 +189,40 @@ def test_paddle_v2_grpc():
                 requests={"cpu": "200m", "memory": "256Mi"},
                 limits={"cpu": "200m", "memory": "1Gi"},
             ),
-            ports=[
-                V1ContainerPort(
-                    container_port=8081,
-                    name="h2c",
-                    protocol="TCP"
-                )],
-            args=["--model_name", model_name]
-        )
+            ports=[V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")],
+            args=["--model_name", model_name],
+        ),
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720)
+        kserve_client.wait_isvc_ready(
+            service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
+        )
     except RuntimeError as e:
-        pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                          label_selector='serving.kserve.io/inferenceservice={}'.format(
-                                                              service_name))
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
         for pod in pods.items:
             logging.info(pod)
         raise e
 
     json_file = open("./data/jay-v2-grpc.json")
     payload = json.load(json_file)["inputs"]
-    response = predict_grpc(service_name=service_name,
-                            payload=payload, model_name=model_name)
+    response = predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
     prediction = list(response.outputs[0].contents.fp32_contents)
     assert np.argmax(prediction) == 17
 

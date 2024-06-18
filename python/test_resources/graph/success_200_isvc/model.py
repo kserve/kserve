@@ -13,13 +13,11 @@
 # limitations under the License.
 
 import argparse
-import logging
 from typing import Dict, Union
 
 import kserve
+from kserve import logging
 from kserve.model import InferRequest, ModelInferRequest
-
-logger = logging.getLogger(__name__)
 
 
 class SampleTemplateNode(kserve.Model):
@@ -31,12 +29,16 @@ class SampleTemplateNode(kserve.Model):
     def load(self):
         self.ready = True
 
-    def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest], headers) -> Dict:
+    def predict(
+        self, payload: Union[Dict, InferRequest, ModelInferRequest], headers
+    ) -> Dict:
         return {"message": "SUCCESS"}
 
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 args, _ = parser.parse_known_args()
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     model = SampleTemplateNode(name=args.model_name)
     kserve.ModelServer(workers=1).start([model])

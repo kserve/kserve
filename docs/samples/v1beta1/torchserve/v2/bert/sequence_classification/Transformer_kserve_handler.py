@@ -1,5 +1,4 @@
 import torch
-import logging
 from Transformer_handler_generalized import (
     TransformersSeqClassifierHandler,
     captum_sequence_forward,
@@ -9,8 +8,8 @@ from Transformer_handler_generalized import (
 )
 import json
 from captum.attr import LayerIntegratedGradients
+from kserve.logging import logger
 
-logger = logging.getLogger(__name__)
 # TODO Extend the example for token classification, question answering and batch inputs
 
 
@@ -37,9 +36,13 @@ class TransformersKserveHandler(TransformersSeqClassifierHandler):
             ):
                 logger.debug("Received data: ", data)
                 if data["name"] == "input_ids":
-                    input_ids = torch.tensor(data["data"]).unsqueeze(dim=0).to(self.device)
+                    input_ids = (
+                        torch.tensor(data["data"]).unsqueeze(dim=0).to(self.device)
+                    )
                 elif data["name"] == "attention_masks":
-                    attention_mask = torch.tensor(data["data"]).unsqueeze(dim=0).to(self.device)
+                    attention_mask = (
+                        torch.tensor(data["data"]).unsqueeze(dim=0).to(self.device)
+                    )
                 else:
                     raise ValueError(
                         "{} {} {}".format(
@@ -77,7 +80,9 @@ class TransformersKserveHandler(TransformersSeqClassifierHandler):
                         attention_mask_batch = attention_mask
                     else:
                         input_ids_batch = torch.cat((input_ids_batch, input_ids), 0)
-                        attention_mask_batch = torch.cat((attention_mask_batch, attention_mask), 0)
+                        attention_mask_batch = torch.cat(
+                            (attention_mask_batch, attention_mask), 0
+                        )
         return (input_ids_batch, attention_mask_batch)
 
     def get_insights(self, input_batch, text, target):

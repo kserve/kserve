@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1alpha1_serving_runtime_pod_spec import V1alpha1ServingRuntimePodSpec  # noqa: E501
+from kserve.models.v1alpha1_serving_runtime_pod_spec import (
+    V1alpha1ServingRuntimePodSpec,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1alpha1ServingRuntimePodSpec(unittest.TestCase):
     """V1alpha1ServingRuntimePodSpec unit test stubs"""
@@ -44,61 +47,47 @@ class TestV1alpha1ServingRuntimePodSpec(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1ServingRuntimePodSpec
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_serving_runtime_pod_spec.V1alpha1ServingRuntimePodSpec()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1ServingRuntimePodSpec(
-                affinity = None, 
-                containers = [
+                affinity=None,
+                containers=[
                     kserve.models.v1alpha1_container.V1alpha1Container(
-                        args = [
-                            '0'
-                            ], 
-                        command = [
-                            '0'
-                            ], 
-                        env = [
-                            None
-                            ], 
-                        image = '0', 
-                        image_pull_policy = '0', 
-                        liveness_probe = None, 
-                        name = '0', 
-                        readiness_probe = None, 
-                        resources = None, 
-                        working_dir = '0', )
-                    ], 
-                node_selector = {
-                    'key' : '0'
-                    }, 
-                tolerations = [
-                    None
-                    ]
+                        args=["0"],
+                        command=["0"],
+                        env=[None],
+                        image="0",
+                        image_pull_policy="0",
+                        liveness_probe=None,
+                        name="0",
+                        readiness_probe=None,
+                        resources=None,
+                        working_dir="0",
+                    )
+                ],
+                node_selector={"key": "0"},
+                tolerations=[None],
             )
-        else :
+        else:
             return V1alpha1ServingRuntimePodSpec(
-                containers = [
+                containers=[
                     kserve.models.v1alpha1_container.V1alpha1Container(
-                        args = [
-                            '0'
-                            ], 
-                        command = [
-                            '0'
-                            ], 
-                        env = [
-                            None
-                            ], 
-                        image = '0', 
-                        image_pull_policy = '0', 
-                        liveness_probe = None, 
-                        name = '0', 
-                        readiness_probe = None, 
-                        resources = None, 
-                        working_dir = '0', )
-                    ],
-        )
+                        args=["0"],
+                        command=["0"],
+                        env=[None],
+                        image="0",
+                        image_pull_policy="0",
+                        liveness_probe=None,
+                        name="0",
+                        readiness_probe=None,
+                        resources=None,
+                        working_dir="0",
+                    )
+                ],
+            )
 
     def testV1alpha1ServingRuntimePodSpec(self):
         """Test V1alpha1ServingRuntimePodSpec"""
@@ -106,5 +95,5 @@ class TestV1alpha1ServingRuntimePodSpec(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

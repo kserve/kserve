@@ -103,7 +103,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: int32(port),
+					IntVal: int32(port), // #nosec G109
 				},
 				Protocol: corev1.ProtocolTCP,
 			})
@@ -136,7 +136,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 
 // checkServiceExist checks if the service exists?
 func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.CheckResultType, *corev1.Service, error) {
-	//get service
+	// get service
 	existingService := &corev1.Service{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Namespace: r.Service.Namespace,
@@ -149,7 +149,7 @@ func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.C
 		return constants.CheckResultUnknown, nil, err
 	}
 
-	//existed, check equivalent
+	// existed, check equivalent
 	if semanticServiceEquals(r.Service, existingService) {
 		return constants.CheckResultExisted, existingService, nil
 	}
@@ -163,28 +163,26 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 
 // Reconcile ...
 func (r *ServiceReconciler) Reconcile() (*corev1.Service, error) {
-	//reconcile Service
+	// reconcile Service
 	checkResult, existingService, err := r.checkServiceExist(r.client)
 	log.Info("service reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
 		return nil, err
 	}
 
-	if checkResult == constants.CheckResultCreate {
-		err = r.client.Create(context.TODO(), r.Service)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.Service, nil
-		}
-	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
-		err = r.client.Update(context.TODO(), r.Service)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.Service, nil
-		}
-	} else {
+	var opErr error
+	switch checkResult {
+	case constants.CheckResultCreate:
+		opErr = r.client.Create(context.TODO(), r.Service)
+	case constants.CheckResultUpdate:
+		opErr = r.client.Update(context.TODO(), r.Service)
+	default:
 		return existingService, nil
 	}
+
+	if opErr != nil {
+		return nil, opErr
+	}
+
+	return r.Service, nil
 }

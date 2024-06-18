@@ -56,7 +56,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelList":            schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelSpec":            schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":             schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AlibiExplainerSpec":           schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                      schema_pkg_apis_serving_v1beta1_Batcher(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":       schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":          schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
@@ -1812,322 +1811,6 @@ func schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref common.ReferenceCallba
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The type of Alibi explainer <br /> Valid values are: <br /> - \"AnchorTabular\"; <br /> - \"AnchorImages\"; <br /> - \"AnchorText\"; <br /> - \"Counterfactuals\"; <br /> - \"Contrastive\"; <br />",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"storageUri": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The location of a trained explanation model",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"runtimeVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Defaults to latest Explainer Version",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"config": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Inline custom parameter settings for explainer",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL). Cannot be updated.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"image": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Container image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"command": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"args": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"workingDir": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"ports": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"containerPort",
-									"protocol",
-								},
-								"x-kubernetes-list-type":       "map",
-								"x-kubernetes-patch-merge-key": "containerPort",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/api/core/v1.ContainerPort"),
-									},
-								},
-							},
-						},
-					},
-					"envFrom": {
-						SchemaProps: spec.SchemaProps{
-							Description: "List of sources to populate environment variables in the container. The keys defined within a source must be a C_IDENTIFIER. All invalid keys will be reported as an event when the container is starting. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/api/core/v1.EnvFromSource"),
-									},
-								},
-							},
-						},
-					},
-					"env": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "name",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "List of environment variables to set in the container. Cannot be updated.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/api/core/v1.EnvVar"),
-									},
-								},
-							},
-						},
-					},
-					"resources": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
-						},
-					},
-					"resizePolicy": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "Resources resize policy for the container.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/api/core/v1.ContainerResizePolicy"),
-									},
-								},
-							},
-						},
-					},
-					"restartPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"volumeMounts": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "mountPath",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "Pod volumes to mount into the container's filesystem. Cannot be updated.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/api/core/v1.VolumeMount"),
-									},
-								},
-							},
-						},
-					},
-					"volumeDevices": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "devicePath",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/api/core/v1.VolumeDevice"),
-									},
-								},
-							},
-						},
-					},
-					"livenessProbe": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
-							Ref:         ref("k8s.io/api/core/v1.Probe"),
-						},
-					},
-					"readinessProbe": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
-							Ref:         ref("k8s.io/api/core/v1.Probe"),
-						},
-					},
-					"startupProbe": {
-						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
-							Ref:         ref("k8s.io/api/core/v1.Probe"),
-						},
-					},
-					"lifecycle": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Actions that the management system should take in response to container lifecycle events. Cannot be updated.",
-							Ref:         ref("k8s.io/api/core/v1.Lifecycle"),
-						},
-					},
-					"terminationMessagePath": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional: Path at which the file to which the container's termination message will be written is mounted into the container's filesystem. Message written is intended to be brief final status, such as an assertion failure message. Will be truncated by the node if greater than 4096 bytes. The total message length across all containers will be limited to 12kb. Defaults to /dev/termination-log. Cannot be updated.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"terminationMessagePolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Indicate how the termination message should be populated. File will use the contents of terminationMessagePath to populate the container status message on both success and failure. FallbackToLogsOnError will use the last chunk of container log output if the termination message file is empty and the container exited with an error. The log output is limited to 2048 bytes or 80 lines, whichever is smaller. Defaults to File. Cannot be updated.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"imagePullPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"securityContext": {
-						SchemaProps: spec.SchemaProps{
-							Description: "SecurityContext defines the security options the container should be run with. If set, the fields of SecurityContext override the equivalent fields of PodSecurityContext. More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/",
-							Ref:         ref("k8s.io/api/core/v1.SecurityContext"),
-						},
-					},
-					"stdin": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Whether this container should allocate a buffer for stdin in the container runtime. If this is not set, reads from stdin in the container will always result in EOF. Default is false.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"stdinOnce": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"tty": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Whether this container should allocate a TTY for itself, also requires 'stdin' to be true. Default is false.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"storage": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Storage Spec for model location",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec"),
-						},
-					},
-				},
-				Required: []string{"type", "name"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
-	}
-}
-
 func schema_pkg_apis_serving_v1beta1_Batcher(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2262,11 +1945,17 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							},
 						},
 					},
+					"deploymentStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
+							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy"},
 	}
 }
 
@@ -4062,12 +3751,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 				Description: "ExplainerSpec defines the container spec for a model explanation server, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"alibi": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Spec for alibi explainer",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AlibiExplainerSpec"),
-						},
-					},
 					"art": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for ART explainer",
@@ -4601,11 +4284,17 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							},
 						},
 					},
+					"deploymentStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
+							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.AlibiExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -4615,12 +4304,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref common.ReferenceCallba
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"alibi": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerConfig"),
-						},
-					},
 					"art": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -5278,6 +4961,20 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"additionalIngressDomains": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"domainTemplate": {
@@ -8316,11 +8013,17 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							},
 						},
 					},
+					"deploymentStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
+							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -9801,11 +9504,17 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							},
 						},
 					},
+					"deploymentStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.",
+							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

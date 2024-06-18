@@ -17,30 +17,30 @@ limitations under the License.
 package components
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"time"
 
-	"context"
-
 	"github.com/go-logr/logr"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
-	raw "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-	"github.com/kserve/kserve/pkg/credentials"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
+	raw "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ Component = &Transformer{}
@@ -48,17 +48,19 @@ var _ Component = &Transformer{}
 // Transformer reconciles resources for this component.
 type Transformer struct {
 	client                 client.Client
+	clientset              kubernetes.Interface
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
-	credentialBuilder      *credentials.CredentialBuilder
+	credentialBuilder      *credentials.CredentialBuilder //nolint: unused
 	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
 
-func NewTransformer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig,
-	deploymentMode constants.DeploymentModeType) Component {
+func NewTransformer(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType) Component {
 	return &Transformer{
 		client:                 client,
+		clientset:              clientset,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
@@ -79,7 +81,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %v", err)
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}
 	}
 	addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
@@ -141,12 +143,13 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 
 		// add predictor host and protocol to metadata
 		isvc.ObjectMeta.Annotations[constants.PredictorHostAnnotationKey] = predictorURL.Host
-		if predictorURL.Scheme == "grpc" {
+		switch predictorURL.Scheme {
+		case "grpc":
 			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolGRPCV2)
-		} else if predictorURL.Scheme == "http" || predictorURL.Scheme == "https" {
+		case "http", "https":
 			// modelmesh supports v2 only
 			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolV2)
-		} else {
+		default:
 			return ctrl.Result{}, fmt.Errorf("Predictor URL Scheme not supported: %v", predictorURL.Scheme)
 		}
 	}
@@ -167,20 +170,20 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 
 	// Here we allow switch between knative and vanilla deployment
 	if p.deploymentMode == constants.RawDeployment {
-		r, err := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
-			&podSpec)
+		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, objectMeta,
+			&isvc.Spec.Transformer.ComponentExtensionSpec, &podSpec)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for transformer")
 		}
-		//set Deployment Controller
+		// set Deployment Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, p.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for transformer")
 		}
-		//set Service Controller
+		// set Service Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, p.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for transformer")
 		}
-		//set autoscaler Controller
+		// set autoscaler Controller
 		if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set autoscaler owner references for transformer")
 		}
@@ -190,7 +193,6 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile transformer")
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.TransformerComponent, deployment, r.URL)
-
 	} else {
 		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
 			&podSpec, isvc.Status.Components[v1beta1.TransformerComponent])

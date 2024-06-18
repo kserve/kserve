@@ -49,16 +49,15 @@ type BatcherInjector struct {
 }
 
 func getBatcherConfigs(configMap *v1.ConfigMap) (*BatcherConfig, error) {
-
 	batcherConfig := &BatcherConfig{}
 	if batcherConfigValue, ok := configMap.Data[BatcherConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(batcherConfigValue), &batcherConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall batcher json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall batcher json string due to %w ", err))
 		}
 	}
 
-	//Ensure that we set proper values for CPU/Memory Limit/Request
+	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{batcherConfig.MemoryRequest,
 		batcherConfig.MemoryLimit,
 		batcherConfig.CpuRequest,

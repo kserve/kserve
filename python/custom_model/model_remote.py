@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import argparse
 
-from kserve import Model, ModelServer
+from kserve import Model, ModelServer, logging, model_server
 from torchvision import models, transforms
 from typing import Dict
 import torch
@@ -47,13 +48,16 @@ class AlexNetModel(Model):
         raw_img_data = base64.b64decode(data)
         input_image = Image.open(io.BytesIO(raw_img_data))
 
-        preprocess = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),
-        ])
+        preprocess = transforms.Compose(
+            [
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
 
         input_tensor = preprocess(input_image)
         input_batch = input_tensor.unsqueeze(0)
@@ -67,5 +71,10 @@ class AlexNetModel(Model):
         return {"predictions": values.tolist()}
 
 
+parser = argparse.ArgumentParser(parents=[model_server.parser])
+args, _ = parser.parse_known_args()
+
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     ModelServer().start({"custom-model": AlexNetModel})

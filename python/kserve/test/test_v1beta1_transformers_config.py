@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1beta1_transformers_config import V1beta1TransformersConfig  # noqa: E501
+from kserve.models.v1beta1_transformers_config import (
+    V1beta1TransformersConfig,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1beta1TransformersConfig(unittest.TestCase):
     """V1beta1TransformersConfig unit test stubs"""
@@ -44,19 +47,19 @@ class TestV1beta1TransformersConfig(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1beta1TransformersConfig
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1beta1_transformers_config.V1beta1TransformersConfig()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1beta1TransformersConfig(
-                feast = kserve.models.v1beta1_transformer_config.V1beta1TransformerConfig(
-                    default_image_version = '0', 
-                    image = '0', )
+                feast=kserve.models.v1beta1_transformer_config.V1beta1TransformerConfig(
+                    default_image_version="0",
+                    image="0",
+                )
             )
-        else :
-            return V1beta1TransformersConfig(
-        )
+        else:
+            return V1beta1TransformersConfig()
 
     def testV1beta1TransformersConfig(self):
         """Test V1beta1TransformersConfig"""
@@ -64,5 +67,5 @@ class TestV1beta1TransformersConfig(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

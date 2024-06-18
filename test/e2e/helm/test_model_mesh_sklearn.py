@@ -26,7 +26,7 @@ from kserve import (
     V1beta1ModelSpec,
     V1beta1PredictorSpec,
     V1beta1StorageSpec,
-    constants
+    constants,
 )
 from ..common.utils import predict_modelmesh
 
@@ -50,27 +50,26 @@ def test_sklearn_modelmesh():
                 limits={"cpu": "100m", "memory": "512Mi"},
             ),
             storage=V1beta1StorageSpec(
-                key="localMinIO",
-                path="sklearn/mnist-svm.joblib"
-            )
+                key="localMinIO", path="sklearn/mnist-svm.joblib"
+            ),
         ),
     )
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(
-            name=service_name,
-            annotations=annotations
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, annotations=annotations),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name)
-    pods = kserve_client.core_api.list_namespaced_pod("default", label_selector="name=modelmesh-serving-mlserver-1.x")
+    pods = kserve_client.core_api.list_namespaced_pod(
+        "default", label_selector="name=modelmesh-serving-mlserver-1.x"
+    )
 
     pod_name = pods.items[0].metadata.name
     res = predict_modelmesh(service_name, "./data/mm_sklearn_input.json", pod_name)

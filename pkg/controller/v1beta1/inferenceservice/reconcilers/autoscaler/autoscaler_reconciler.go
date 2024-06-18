@@ -18,6 +18,7 @@ package autoscaler
 
 import (
 	"fmt"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
@@ -25,10 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var log = logf.Log.WithName("AutoscalerReconciler")
 
 // Autoscaler Interface implemented by all autoscalers
 type Autoscaler interface {
@@ -85,10 +83,8 @@ func createAutoscaler(client client.Client,
 	componentExt *v1beta1.ComponentExtensionSpec) (Autoscaler, error) {
 	ac := getAutoscalerClass(componentMeta)
 	switch ac {
-	case constants.AutoscalerClassHPA:
+	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal:
 		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt), nil
-	case constants.AutoscalerClassExternal:
-		return &NoOpAutoscaler{}, nil
 	default:
 		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
 	}
@@ -96,7 +92,7 @@ func createAutoscaler(client client.Client,
 
 // Reconcile ...
 func (r *AutoscalerReconciler) Reconcile() error {
-	//reconcile Autoscaler
+	// reconcile Autoscaler
 	_, err := r.Autoscaler.Reconcile()
 	if err != nil {
 		return err

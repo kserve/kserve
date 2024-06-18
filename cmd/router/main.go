@@ -36,7 +36,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	flag "github.com/spf13/pflag"
@@ -77,12 +78,16 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Error(err, "An error has occurred while closing the response body")
+
+	defer func() {
+		if resp.Body != nil {
+			err := resp.Body.Close()
+			if err != nil {
+				log.Error(err, "An error has occurred while closing the response body")
+			}
 		}
-	}(resp.Body)
+	}()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Error(err, "Error while reading the response")
@@ -91,9 +96,12 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 }
 
 func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	//generate num [0,100)
-	point := r.Intn(99)
+	randomNumber, err := rand.Int(rand.Reader, big.NewInt(101))
+	if err != nil {
+		panic(err)
+	}
+	// generate num [0,100)
+	point := int(randomNumber.Int64())
 	end := 0
 	for _, route := range routes {
 		end += int(*route.Weight)
@@ -213,7 +221,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				return nil, 500, err
 			}
 		}
-		//return json.Marshal(response)
+		// return json.Marshal(response)
 		combinedResponse, _ := json.Marshal(response) // TODO check if you need err handling for Marshalling
 		return combinedResponse, 200, nil
 	}
@@ -353,7 +361,15 @@ func main() {
 
 	http.HandleFunc("/", graphHandler)
 
-	err = http.ListenAndServe(":8080", nil)
+	server := &http.Server{
+		Addr:         ":8080",                        // specify the address and port
+		Handler:      http.HandlerFunc(graphHandler), // specify your HTTP handler
+		ReadTimeout:  time.Minute,                    // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: time.Minute,                    // set the maximum duration before timing out writes of the response
+		IdleTimeout:  3 * time.Minute,                // set the maximum amount of time to wait for the next request when keep-alives are enabled
+	}
+	err = server.ListenAndServe()
+
 	if err != nil {
 		log.Error(err, "failed to listen on 8080")
 		os.Exit(1)

@@ -13,31 +13,41 @@
 # limitations under the License.
 
 import argparse
-import logging
 
 from xgbserver import XGBoostModel, XGBoostModelRepository
 
 import kserve
+from kserve import logging
 from kserve.errors import ModelMissingError
+from kserve.logging import logger
 
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
 
-parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])  # pylint:disable=c-extension-no-member
-parser.add_argument('--model_dir', required=True,
-                    help='A URI pointer to the model directory')
-parser.add_argument('--nthread', default=DEFAULT_NTHREAD,
-                    help='Number of threads to use by XGBoost.')
+parser = argparse.ArgumentParser(
+    parents=[kserve.model_server.parser]
+)  # pylint:disable=c-extension-no-member
+parser.add_argument(
+    "--model_dir", required=True, help="A local path to the model directory"
+)
+parser.add_argument(
+    "--nthread", default=DEFAULT_NTHREAD, help="Number of threads to use by XGBoost."
+)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     model = XGBoostModel(args.model_name, args.model_dir, args.nthread)
     try:
         model.load()
+        kserve.ModelServer().start([model] if model.ready else [])
     except ModelMissingError:
-        logging.error(f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
-                      f"trying loading from model repository.")
+        logger.error(
+            f"fail to locate model file for model {args.model_name} under dir {args.model_dir},"
+            f"trying loading from model repository."
+        )
 
-    kserve.ModelServer(
-        registered_models=XGBoostModelRepository(args.model_dir, args.nthread)
-    ).start([model] if model.ready else [])
+        kserve.ModelServer(
+            registered_models=XGBoostModelRepository(args.model_dir, args.nthread)
+        ).start([model] if model.ready else [])

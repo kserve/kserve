@@ -18,6 +18,9 @@ package ingress
 
 import (
 	"fmt"
+	"net/url"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -31,8 +34,6 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
-	"net/url"
-	"testing"
 )
 
 func TestCreateVirtualService(t *testing.T) {
@@ -42,6 +43,8 @@ func TestCreateVirtualService(t *testing.T) {
 	isvcAnnotations := map[string]string{"test": "test", "kubectl.kubernetes.io/last-applied-configuration": "test"}
 	labels := map[string]string{"test": "test"}
 	domain := "example.com"
+	additionalDomain := "my-additional-domain.com"
+	additionalSecondDomain := "my-second-additional-domain.com"
 	serviceHostName := constants.InferenceServiceHostName(serviceName, namespace, domain)
 	serviceInternalHostName := network.GetServiceHostname(serviceName, namespace)
 	predictorHostname := constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain)
@@ -54,7 +57,7 @@ func TestCreateVirtualService(t *testing.T) {
 					Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 				},
 			},
-			Gateways: []string{constants.KnativeLocalGateway},
+			Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 		},
 		{
 			Authority: &istiov1beta1.StringMatch{
@@ -69,6 +72,7 @@ func TestCreateVirtualService(t *testing.T) {
 		name            string
 		isvc            *v1beta1.InferenceService
 		ingressConfig   *v1beta1.IngressConfig
+		domainList      *[]string
 		useDefault      bool
 		componentStatus *v1beta1.InferenceServiceStatus
 		expectedService *istioclientv1beta1.VirtualService
@@ -128,7 +132,7 @@ func TestCreateVirtualService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 			Spec: istiov1beta1.VirtualService{
 				Hosts:    []string{serviceInternalHostName, serviceHostName},
-				Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+				Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 				Http: []*istiov1beta1.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
@@ -183,7 +187,7 @@ func TestCreateVirtualService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 			Spec: istiov1beta1.VirtualService{
 				Hosts:    []string{serviceInternalHostName},
-				Gateways: []string{constants.KnativeLocalGateway},
+				Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 				Http: []*istiov1beta1.HTTPRoute{
 					{
 						Match: []*istiov1beta1.HTTPMatchRequest{
@@ -193,7 +197,7 @@ func TestCreateVirtualService(t *testing.T) {
 										Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 									},
 								},
-								Gateways: []string{constants.KnativeLocalGateway},
+								Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 							},
 						},
 						Route: []*istiov1beta1.HTTPRouteDestination{
@@ -291,7 +295,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
@@ -363,7 +367,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
@@ -462,7 +466,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
@@ -477,7 +481,7 @@ func TestCreateVirtualService(t *testing.T) {
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 								},
 								{
 									Uri: &istiov1beta1.StringMatch{
@@ -563,7 +567,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName, "my-domain.com"},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
@@ -573,12 +577,150 @@ func TestCreateVirtualService(t *testing.T) {
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 								},
 								{
 									Authority: &istiov1beta1.StringMatch{
 										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{
+									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Prefix{
+											Prefix: fmt.Sprintf("/serving/%s/%s/", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Exact{
+											Exact: fmt.Sprintf("/serving/%s/%s", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Rewrite: &istiov1beta1.HTTPRewrite{
+								Uri: "/",
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								createHTTPRouteDestination("knative-local-gateway.istio-system.svc.cluster.local"),
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{
+									Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "found predictor status with the additional ingress domains",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:           constants.KnativeIngressGateway,
+				IngressServiceName:       "someIngressServiceName",
+				LocalGateway:             constants.KnativeLocalGateway,
+				LocalGatewayServiceName:  "knative-local-gateway.istio-system.svc.cluster.local",
+				UrlScheme:                "http",
+				IngressDomain:            "my-domain.com",
+				AdditionalIngressDomains: &[]string{additionalDomain, additionalSecondDomain},
+				PathTemplate:             "/serving/{{ .Namespace }}/{{ .Name }}",
+				DisableIstioVirtualHost:  false,
+			},
+			domainList: &[]string{"my-domain-1.com", "example.com"},
+			useDefault: false,
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
+				Spec: istiov1beta1.VirtualService{
+					Hosts: []string{serviceInternalHostName, serviceHostName, "my-domain.com",
+						"my-model.test.my-additional-domain.com", "my-model.test.my-second-additional-domain.com"},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, additionalDomain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, additionalSecondDomain)),
 										},
 									},
 									Gateways: []string{constants.KnativeIngressGateway},
@@ -678,7 +820,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
@@ -749,7 +891,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: predictorRouteMatch,
@@ -947,7 +1089,7 @@ func TestCreateVirtualService(t *testing.T) {
 				}},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName},
-					Gateways: []string{constants.KnativeLocalGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
@@ -957,7 +1099,7 @@ func TestCreateVirtualService(t *testing.T) {
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 								},
 							},
 							Route: []*istiov1beta1.HTTPRouteDestination{
@@ -1007,7 +1149,7 @@ func TestCreateVirtualService(t *testing.T) {
 				testIsvc.Spec.Explainer = &v1beta1.ExplainerSpec{}
 			}
 
-			actualService := createIngress(testIsvc, tc.useDefault, tc.ingressConfig)
+			actualService := createIngress(testIsvc, tc.useDefault, tc.ingressConfig, tc.domainList)
 			if diff := cmp.Diff(tc.expectedService.DeepCopy(), actualService.DeepCopy(), protocmp.Transform()); diff != "" {
 				t.Errorf("Test %q unexpected status (-want +got): %v", tc.name, diff)
 			}

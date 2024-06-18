@@ -17,14 +17,17 @@ import argparse
 from paddleserver import PaddleModel
 
 import kserve
-
+from kserve import logging
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
-parser.add_argument('--model_dir', required=True,
-                    help='A URI pointer to the model directory')
+parser.add_argument(
+    "--model_dir", required=True, help="A local path to the model directory"
+)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     model = PaddleModel(args.model_name, args.model_dir)
     model.load()
     kserve.ModelServer().start([model])

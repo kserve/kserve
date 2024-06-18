@@ -28,7 +28,7 @@ Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuratio
 */
 const (
 	AWSAccessKeyId         = "AWS_ACCESS_KEY_ID"
-	AWSSecretAccessKey     = "AWS_SECRET_ACCESS_KEY"
+	AWSSecretAccessKey     = "AWS_SECRET_ACCESS_KEY" // #nosec G101
 	AWSAccessKeyIdName     = "awsAccessKeyID"
 	AWSSecretAccessKeyName = "awsSecretAccessKey"
 	AWSEndpointUrl         = "AWS_ENDPOINT_URL"

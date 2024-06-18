@@ -38,7 +38,9 @@ from .exceptions import ApiException
 # import v1alpha1 models into kserve packages
 from .models.v1alpha1_built_in_adapter import V1alpha1BuiltInAdapter
 from .models.v1alpha1_cluster_serving_runtime import V1alpha1ClusterServingRuntime
-from .models.v1alpha1_cluster_serving_runtime_list import V1alpha1ClusterServingRuntimeList
+from .models.v1alpha1_cluster_serving_runtime_list import (
+    V1alpha1ClusterServingRuntimeList,
+)
 from .models.v1alpha1_container import V1alpha1Container
 from .models.v1alpha1_inference_graph import V1alpha1InferenceGraph
 from .models.v1alpha1_inference_graph_list import V1alpha1InferenceGraphList
@@ -65,7 +67,6 @@ from .models.knative_url import KnativeURL
 from .models.knative_volatile_time import KnativeVolatileTime
 from .models.net_url_userinfo import NetUrlUserinfo
 from .models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
-from .models.v1beta1_alibi_explainer_spec import V1beta1AlibiExplainerSpec
 from .models.v1beta1_batcher import V1beta1Batcher
 from .models.v1beta1_component_extension_spec import V1beta1ComponentExtensionSpec
 from .models.v1beta1_component_status_spec import V1beta1ComponentStatusSpec

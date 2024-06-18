@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+
 import json
 import configparser
 from os.path import expanduser
@@ -20,7 +20,7 @@ from os.path import expanduser
 from kubernetes import client
 from ..constants import constants
 
-logger = logging.getLogger(__name__)
+from kserve.logging import logger
 
 
 def set_gcs_credentials(namespace, credentials_file, service_account):
@@ -38,25 +38,30 @@ def set_gcs_credentials(namespace, credentials_file, service_account):
         gcs_creds_content = f.read()
 
     # Try to get GCS creds file name from configmap, set default value then if cannot.
-    gcs_creds_file_name = get_creds_name_from_config_map(
-        'gcsCredentialFileName')
+    gcs_creds_file_name = get_creds_name_from_config_map("gcsCredentialFileName")
     if not gcs_creds_file_name:
         gcs_creds_file_name = constants.GCS_CREDS_FILE_DEFAULT_NAME
 
     string_data = {gcs_creds_file_name: gcs_creds_content}
 
-    secret_name = create_secret(
-        namespace=namespace, string_data=string_data)
+    secret_name = create_secret(namespace=namespace, string_data=string_data)
 
-    set_service_account(namespace=namespace,
-                        service_account=service_account,
-                        secret_name=secret_name)
+    set_service_account(
+        namespace=namespace, service_account=service_account, secret_name=secret_name
+    )
 
 
-def set_s3_credentials(namespace, credentials_file, service_account,
-                       s3_profile='default',  # pylint: disable=too-many-locals,too-many-arguments
-                       s3_endpoint=None, s3_region=None, s3_use_https=None,
-                       s3_verify_ssl=None, s3_cabundle=None):  # pylint: disable=unused-argument
+def set_s3_credentials(
+    namespace,
+    credentials_file,
+    service_account,
+    s3_profile="default",  # pylint: disable=too-many-locals,too-many-arguments
+    s3_endpoint=None,
+    s3_region=None,
+    s3_use_https=None,
+    s3_verify_ssl=None,
+    s3_cabundle=None,
+):  # pylint: disable=unused-argument
     """
     Set S3 Credentials (secret and service account).
     Args:
@@ -75,18 +80,15 @@ def set_s3_credentials(namespace, credentials_file, service_account,
 
     config = configparser.ConfigParser()
     config.read([expanduser(credentials_file)])
-    s3_access_key_id = config.get(s3_profile, 'aws_access_key_id')
-    s3_secret_access_key = config.get(
-        s3_profile, 'aws_secret_access_key')
+    s3_access_key_id = config.get(s3_profile, "aws_access_key_id")
+    s3_secret_access_key = config.get(s3_profile, "aws_secret_access_key")
 
     # Try to get S3 creds name from configmap, set default value then if cannot.
-    s3_access_key_id_name = get_creds_name_from_config_map(
-        's3AccessKeyIDName')
+    s3_access_key_id_name = get_creds_name_from_config_map("s3AccessKeyIDName")
     if not s3_access_key_id_name:
         s3_access_key_id_name = constants.S3_ACCESS_KEY_ID_DEFAULT_NAME
 
-    s3_secret_access_key_name = get_creds_name_from_config_map(
-        's3SecretAccessKeyName')
+    s3_secret_access_key_name = get_creds_name_from_config_map("s3SecretAccessKeyName")
     if not s3_secret_access_key_name:
         s3_secret_access_key_name = constants.S3_SECRET_ACCESS_KEY_DEFAULT_NAME
 
@@ -96,11 +98,11 @@ def set_s3_credentials(namespace, credentials_file, service_account,
     }
 
     s3_cred_sets = {
-        's3_endpoint': constants.KSERVE_GROUP + "/s3-endpoint",
-        's3_region': constants.KSERVE_GROUP + "/s3-region",
-        's3_use_https': constants.KSERVE_GROUP + "/s3-usehttps",
-        's3_verify_ssl': constants.KSERVE_GROUP + "/s3-verifyssl",
-        's3_cabundle': constants.KSERVE_GROUP + "/s3-cabundle",
+        "s3_endpoint": constants.KSERVE_GROUP + "/s3-endpoint",
+        "s3_region": constants.KSERVE_GROUP + "/s3-region",
+        "s3_use_https": constants.KSERVE_GROUP + "/s3-usehttps",
+        "s3_verify_ssl": constants.KSERVE_GROUP + "/s3-verifyssl",
+        "s3_cabundle": constants.KSERVE_GROUP + "/s3-cabundle",
     }
 
     s3_annotations = {}
@@ -110,11 +112,12 @@ def set_s3_credentials(namespace, credentials_file, service_account,
             s3_annotations.update({value: arg})
 
     secret_name = create_secret(
-        namespace=namespace, annotations=s3_annotations, data=data)
+        namespace=namespace, annotations=s3_annotations, data=data
+    )
 
-    set_service_account(namespace=namespace,
-                        service_account=service_account,
-                        secret_name=secret_name)
+    set_service_account(
+        namespace=namespace, service_account=service_account, secret_name=secret_name
+    )
 
 
 def set_azure_credentials(namespace, credentials_file, service_account):
@@ -132,39 +135,41 @@ def set_azure_credentials(namespace, credentials_file, service_account):
         azure_creds = json.load(azure_creds_file)
 
     data = {
-        'AZURE_CLIENT_ID': azure_creds['clientId'],
-        'AZURE_CLIENT_SECRET': azure_creds['clientSecret'],
-        'AZURE_SUBSCRIPTION_ID': azure_creds['subscriptionId'],
-        'AZURE_TENANT_ID': azure_creds['tenantId'],
-        }
+        "AZURE_CLIENT_ID": azure_creds["clientId"],
+        "AZURE_CLIENT_SECRET": azure_creds["clientSecret"],
+        "AZURE_SUBSCRIPTION_ID": azure_creds["subscriptionId"],
+        "AZURE_TENANT_ID": azure_creds["tenantId"],
+    }
 
-    secret_name = create_secret(
-        namespace=namespace, data=data)
+    secret_name = create_secret(namespace=namespace, data=data)
 
-    set_service_account(namespace=namespace,
-                        service_account=service_account,
-                        secret_name=secret_name)
+    set_service_account(
+        namespace=namespace, service_account=service_account, secret_name=secret_name
+    )
 
 
 def create_secret(namespace, annotations=None, data=None, string_data=None):
-    'Create namespaced secret, and return the secret name.'
+    "Create namespaced secret, and return the secret name."
     try:
         created_secret = client.CoreV1Api().create_namespaced_secret(
             namespace,
             client.V1Secret(
-                api_version='v1',
-                kind='Secret',
+                api_version="v1",
+                kind="Secret",
                 metadata=client.V1ObjectMeta(
-                    generate_name=constants.DEFAULT_SECRET_NAME,
-                    annotations=annotations),
+                    generate_name=constants.DEFAULT_SECRET_NAME, annotations=annotations
+                ),
                 data=data,
-                string_data=string_data))
+                string_data=string_data,
+            ),
+        )
     except client.rest.ApiException as e:
         raise RuntimeError(
-            "Exception when calling CoreV1Api->create_namespaced_secret: %s\n" % e)
+            "Exception when calling CoreV1Api->create_namespaced_secret: %s\n" % e
+        )
 
     secret_name = created_secret.metadata.name
-    logger.info('Created Secret: %s in namespace %s', secret_name, namespace)
+    logger.info("Created Secret: %s in namespace %s", secret_name, namespace)
     return secret_name
 
 
@@ -173,13 +178,13 @@ def set_service_account(namespace, service_account, secret_name):
     Set service account, create if service_account does not exist, otherwise patch it.
     """
     if check_sa_exists(namespace=namespace, service_account=service_account):
-        patch_service_account(secret_name=secret_name,
-                              namespace=namespace,
-                              sa_name=service_account)
+        patch_service_account(
+            secret_name=secret_name, namespace=namespace, sa_name=service_account
+        )
     else:
-        create_service_account(secret_name=secret_name,
-                               namespace=namespace,
-                               sa_name=service_account)
+        create_service_account(
+            secret_name=secret_name, namespace=namespace, sa_name=service_account
+        )
 
 
 def check_sa_exists(namespace, service_account):
@@ -204,17 +209,17 @@ def create_service_account(secret_name, namespace, sa_name):
         client.CoreV1Api().create_namespaced_service_account(
             namespace,
             client.V1ServiceAccount(
-                metadata=client.V1ObjectMeta(
-                    name=sa_name
-                ),
-                secrets=[client.V1ObjectReference(
-                    kind='Secret',
-                    name=secret_name)]))
+                metadata=client.V1ObjectMeta(name=sa_name),
+                secrets=[client.V1ObjectReference(kind="Secret", name=secret_name)],
+            ),
+        )
     except client.rest.ApiException as e:
         raise RuntimeError(
-            "Exception when calling CoreV1Api->create_namespaced_service_account: %s\n" % e)
+            "Exception when calling CoreV1Api->create_namespaced_service_account: %s\n"
+            % e
+        )
 
-    logger.info('Created Service account: %s in namespace %s', sa_name, namespace)
+    logger.info("Created Service account: %s in namespace %s", sa_name, namespace)
 
 
 def patch_service_account(secret_name, namespace, sa_name):
@@ -226,14 +231,16 @@ def patch_service_account(secret_name, namespace, sa_name):
             sa_name,
             namespace,
             client.V1ServiceAccount(
-                secrets=[client.V1ObjectReference(
-                    kind='Secret',
-                    name=secret_name)]))
+                secrets=[client.V1ObjectReference(kind="Secret", name=secret_name)]
+            ),
+        )
     except client.rest.ApiException as e:
         raise RuntimeError(
-            "Exception when calling CoreV1Api->patch_namespaced_service_account: %s\n" % e)
+            "Exception when calling CoreV1Api->patch_namespaced_service_account: %s\n"
+            % e
+        )
 
-    logger.info('Patched Service account: %s in namespace %s', sa_name, namespace)
+    logger.info("Patched Service account: %s in namespace %s", sa_name, namespace)
 
 
 def get_creds_name_from_config_map(creds):
@@ -243,22 +250,25 @@ def get_creds_name_from_config_map(creds):
     try:
         isvc_config_map = client.CoreV1Api().read_namespaced_config_map(
             constants.INFERENCESERVICE_CONFIG_MAP_NAME,
-            constants.INFERENCESERVICE_SYSTEM_NAMESPACE)
+            constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
+        )
     except client.rest.ApiException:
-        logging.warning('Cannot get configmap %s in namespace %s.',
-                        constants.INFERENCESERVICE_CONFIG_MAP_NAME,
-                        constants.INFERENCESERVICE_SYSTEM_NAMESPACE)
+        logger.warning(
+            "Cannot get configmap %s in namespace %s.",
+            constants.INFERENCESERVICE_CONFIG_MAP_NAME,
+            constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
+        )
         return None
 
-    isvc_creds_str = isvc_config_map.data['credentials']
+    isvc_creds_str = isvc_config_map.data["credentials"]
     isvc_creds_json = json.loads(isvc_creds_str)
 
-    if creds == 'gcsCredentialFileName':
-        return isvc_creds_json['gcs']['gcsCredentialFileName']
-    elif creds == 's3AccessKeyIDName':
-        return isvc_creds_json['s3']['s3AccessKeyIDName']
-    elif creds == 's3SecretAccessKeyName':
-        return isvc_creds_json['s3']['s3SecretAccessKeyName']
+    if creds == "gcsCredentialFileName":
+        return isvc_creds_json["gcs"]["gcsCredentialFileName"]
+    elif creds == "s3AccessKeyIDName":
+        return isvc_creds_json["s3"]["s3AccessKeyIDName"]
+    elif creds == "s3SecretAccessKeyName":
+        return isvc_creds_json["s3"]["s3SecretAccessKeyName"]
     else:
         raise RuntimeError("Unknown credentials.")
 
