@@ -26,6 +26,24 @@ from timing_asgi import TimingClient, TimingMiddleware
 from timing_asgi.integrations import StarletteScopeToName
 from uvicorn.importer import import_from_string, ImportFromStringError
 
+from opentelemetry import trace
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+tracer_provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "kserve"}))  
+trace.set_tracer_provider(tracer_provider)
+
+# Read the endpoint from the environment variable
+otel_collector_endpoint = os.getenv("OTEL_COLLECTOR_ENDPOINT", "localhost:4317")
+
+# Set up the tracer provider and exporter
+otlp_exporter = OTLPSpanExporter(endpoint=otel_collector_endpoint, insecure=True)
+span_processor = BatchSpanProcessor(otlp_exporter)
+tracer_provider.add_span_processor(span_processor)
+
 from kserve.errors import (
     InferenceError,
     InvalidInput,
@@ -107,6 +125,7 @@ class RESTServer:
 
             maybe_register_openai_endpoints(app, self.dataplane.model_registry)
             logger.info("OpenAI endpoints registered")
+            
         except ImportError:
             logger.info("OpenAI endpoints not registered")
 
