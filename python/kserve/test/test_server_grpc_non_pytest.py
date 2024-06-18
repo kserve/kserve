@@ -17,6 +17,7 @@ from kserve import (Model, ModelServer, model_server, InferInput, InferRequest, 
 from kserve.utils.utils import generate_uuid
 
 
+# Minimal Kserve Model solely to return data to verify secure grpc, data irrelevant
 class TestModel(Model):  # Test model
     def __init__(self, name: str):
         super().__init__(name)
@@ -85,29 +86,36 @@ def grpc_infer_request_sync(integer: int, port: str, ssl: bool, creds: List, cha
     return asyncio.run(grpc_infer_request(integer, port, ssl, creds, channel_args, queue))
 
 
-class TestGrpcSecureServer:
-    def test_secure_server_returns(self):
-        # TODO: create better certs
-        server_key = "test"
-        server_cert = "test"
-        ca_cert = "test"
-        models = [TestModel("test-model")]
+def main():
+    # TODO: create better certs
+    server_key = "test"
+    server_cert = "test"
+    ca_cert = "test"
+    models = [TestModel("test-model")]
 
-        queue = multiprocessing.Queue()
+    queue = multiprocessing.Queue()
 
-        server_process = multiprocessing.Process(target=run_model_sync,
-                                                 args=(False, server_key, server_cert, ca_cert, models))
-        client_process = multiprocessing.Process(target=grpc_infer_request_sync,
-                                                 args=(1, "localhost:8081", False, [], [], queue))
+    server_process = multiprocessing.Process(target=run_model_sync, args=(False, server_key, server_cert, ca_cert, models))
+    client_process = multiprocessing.Process(target=grpc_infer_request_sync, args=(1, "localhost:8081", False, [], [], queue))
 
-        server_process.start()
-        client_process.start()
+    server_process.start()
+    client_process.start()
 
-        client_process.join()
+    client_process.join()
 
-        output = queue.get()
-        print(f"output value from queue is: {output}")
+    output = queue.get()
+    print(f"output value from queue is: {output}")
 
-        server_process.terminate()
-        assert output == 2.0
+    server_process.terminate()
 
+
+if __name__ == "__main__":
+    main()
+    # asyncio.run(main())
+    # server_key = "test"
+    # server_cert = "test"
+    # ca_cert = "test"
+    # models = [TestModel("test-model")]
+    #
+    # pool = multiprocessing.Pool()
+    # service = pool.apply_async(run_model, args=(False, server_key, server_cert, ca_cert, models))

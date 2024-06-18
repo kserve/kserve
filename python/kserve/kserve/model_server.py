@@ -129,9 +129,9 @@ class ModelServer:
             log_config: File path or dict containing log config. Default: ``None``.
             access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``
             secure_grpc_server: Whether to enable secure grpc server. Default: ``False``.
-            ssl_server_key: File path to server key for secure grpc SSL server credentials.  Default: ``None``.
-            ssl_server_cert: File path to server cert for secure grpc SSL server credentials.  Default: ``None``.
-            ssl_ca_cert: File path to CA cert for secure grpc SSL server credentials.  Default: ``None``.
+            ssl_server_key: File path or contents to server key for secure grpc SSL server credentials. Default: ``None``.
+            ssl_server_cert: File path or contents to server cert for secure grpc SSL server credentials. Default: ``None``.
+            ssl_ca_cert: File path or contents to CA cert for secure grpc SSL server credentials. Default: ``None``.
         """
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -179,7 +179,7 @@ class ModelServer:
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
 
-    def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
+    async def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
         """ Start the model server with a set of registered models.
 
         Args:
@@ -260,7 +260,7 @@ class ModelServer:
                 servers.append(self._grpc_server.start(self.max_threads))
             await asyncio.gather(*servers)
 
-        asyncio.run(servers_task())
+        await servers_task()
 
     async def stop(self, sig: Optional[int] = None):
         """ Stop the instances of REST and gRPC model servers.
