@@ -118,7 +118,7 @@ jobs:
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.Q_PASSWORD }}
+          password: ${{ secrets.QUAY_PASSWORD }}
     
       - name: Wait for PR to be merged
         uses: nick-fields/retry@v3
