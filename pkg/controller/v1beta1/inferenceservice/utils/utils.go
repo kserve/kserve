@@ -93,7 +93,7 @@ func getModelNameFromArgs(args []string) string {
 				return modelNameValueArr[1]
 			}
 			// Case 2: ["--model-name <model-name>"]
-			modelNameValueArr = strings.Split(arg, " ")
+			modelNameValueArr = strings.Fields(arg)
 			if len(modelNameValueArr) == 2 {
 				return modelNameValueArr[1]
 			}
