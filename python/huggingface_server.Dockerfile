@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvidia/cuda:12.1.0-devel-ubuntu22.04
+ARG BASE_IMAGE=nvidia/cuda:12.4.1-devel-ubuntu22.04
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} as builder
@@ -9,7 +9,7 @@ ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.7.1
 
 # Install vllm
-ARG VLLM_VERSION=0.4.2
+ARG VLLM_VERSION=0.4.3
 
 RUN apt-get update -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -34,7 +34,7 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
 RUN pip3 install vllm==${VLLM_VERSION}
 
-FROM nvidia/cuda:12.1.0-base-ubuntu22.04 as prod
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 as prod
 
 RUN apt-get update -y && apt-get install python3.10-venv -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -58,6 +58,8 @@ ENV HF_HOME="/tmp/huggingface"
 ENV SAFETENSORS_FAST_GPU="1"
 # https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hfhubdisabletelemetry
 ENV HF_HUB_DISABLE_TELEMETRY="1"
+# NCCL Lib path for vLLM. https://github.com/vllm-project/vllm/blob/ec784b2526219cd96159a52074ab8cd4e684410a/vllm/utils.py#L598-L602
+ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
