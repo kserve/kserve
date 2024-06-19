@@ -1,0 +1,24 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: huggingface-llama2
+spec:
+  predictor:
+    serviceAccountName: hfserviceacc
+    model:
+      modelFormat:
+        name: huggingface
+      args:
+      - --model_name=llama2
+      - --model_dir=hf://meta-llama/Llama-2-7b-chat-hf
+      - --tensor_input_names=input_ids
+      - --disable_vllm
+      resources:
+        limits:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
