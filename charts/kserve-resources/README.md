@@ -72,7 +72,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.13.0
 | kserve.servingruntime.lgbserver.tag | string | `"v0.13.0"` |  |
 | kserve.servingruntime.mlserver.image | string | `"docker.io/seldonio/mlserver"` |  |
 | kserve.servingruntime.mlserver.modelClassPlaceholder | string | `"{{.Labels.modelClass}}"` |  |
-| kserve.servingruntime.mlserver.tag | string | `"1.3.2"` |  |
+| kserve.servingruntime.mlserver.tag | string | `"1.5.0"` |  |
 | kserve.servingruntime.modelNamePlaceholder | string | `"{{.Name}}"` |  |
 | kserve.servingruntime.paddleserver.image | string | `"kserve/paddleserver"` |  |
 | kserve.servingruntime.paddleserver.tag | string | `"v0.13.0"` |  |
