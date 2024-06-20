@@ -1,0 +1,199 @@
+name: Trigger build on PR add LGTM and Create Tag and Release with Changelog and push image to quay
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the new release'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  
+jobs:
+  check-prev-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      old_tag: ${{ steps.get_tag.outputs.old_tag_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          old_tag_name=$(git ls-remote --tags origin | awk -F'/' '{print $3}' | grep -v '{}' | sort -V | tail -n1)
+          echo "old_tag_name=${old_tag_name}" >> $GITHUB_OUTPUT
+      - name: Print tags
+        id: print_tag
+        run: | 
+          echo "Old Tag=${{ steps.get_tag.outputs.old_tag_name }}"
+          echo "NEW_TAG=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+          echo "$(basename ${{ github.ref }})"
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+         import sys
+         import subprocess
+         tag_name = "${{ github.event.inputs.tag_name }}"
+         command = ['git', 'tag', '-l', tag_name]
+         output = subprocess.check_output(command, stderr=subprocess.STDOUT)
+         if output.decode() != "":
+           print(f"Error: Tag '{tag_name}' already exists.", file=sys.stderr)
+           sys.exit(1)
+         else:
+           print(f"Tag '{tag_name}' does not exists.")
+        
+        shell: python
+        continue-on-error: false
+
+  create-pr:
+    runs-on: ubuntu-latest
+    needs: check-prev-tag
+    env:
+      GITHUB_BRANCH: ${{ github.ref }}
+    outputs:
+      pr_number: ${{ steps.create-pull-request.outputs.pr_number }} 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+      - name: Create and checkout new branch
+        id: create_branch
+        run: |
+          BRANCH_NAME="update-param-env-${{ github.event.inputs.tag_name }}"
+          echo "BRANCH_NAME=${BRANCH_NAME}" >> $GITHUB_ENV
+          git checkout -b $BRANCH_NAME
+      - name: Update params.env with new release version
+        run: |     
+          sed -i 's|:v[0-9.]*\b|:${{ github.event.inputs.tag_name }}|gm' config/overlays/odh/params.env
+      - name: Commit changes
+        run: |
+          git add config/overlays/odh/params.env
+          git commit -m "Update image refs for odh release"
+          git push origin $BRANCH_NAME
+      - name: Create Pull Request
+        id: create-pull-request
+        run: | 
+          PR_URL=$(gh pr create -B ${{ github.ref }} -H ${{ env.BRANCH_NAME }} --title '[ODH Release] Update images for ${{ github.event.inputs.tag_name }}' --body 'Update images for ${{ github.event.inputs.tag_name }}')
+          echo "PR_URL=${PR_URL}" >> $GITHUB_ENV
+          pr_number=$(echo "$PR_URL" | grep -o -E '[0-9]+$')
+          echo "pr_number=${pr_number}" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  wait-checks:
+    runs-on: ubuntu-latest
+    needs: [ check-prev-tag,create-pr ] 
+    steps:
+      - name: Watching PR if Checks finished without errors
+        id: wait-checks
+        run:
+          gh pr checks  ${{ needs.create-pr.outputs.pr_number }}  --watch --fail-fast 
+        env:     
+         GH_TOKEN: ${{ github.token }}
+ 
+  rename-image:
+    needs: [ check-prev-tag,create-pr,wait-checks]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@v2
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+    
+      - name: Wait for PR to be merged
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 240
+          max_attempts: 48
+          retry_wait_seconds: 300
+          shell: bash
+          command: |
+            PR_STATUS=$(gh pr view ${{ needs.create-pr.outputs.pr_number }} --json state --jq '.state')
+            echo "PR Status: $PR_STATUS"
+            if [ "$PR_STATUS" != "MERGED" ]; then
+              echo "PR is not yet merged. Retrying..."
+              exit 1
+            fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: pull image (with retry)
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 20
+          max_attempts: 10
+          retry_wait_seconds: 120
+          shell: bash
+          command: docker pull quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }}
+                   docker pull quay.io/${{ vars.QUAY_OWNER }}/kserve-storage-initializer:pr-${{ needs.create-pr.outputs.pr_number }}
+                   docker pull quay.io/${{ vars.QUAY_OWNER }}/kserve-router:pr-${{ needs.create-pr.outputs.pr_number }}
+                   docker pull quay.io/${{ vars.QUAY_OWNER }}/kserve-agent:pr-${{ needs.create-pr.outputs.pr_number }}
+      - name: Rename image with new tag name
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 20
+          max_attempts: 10
+          retry_wait_seconds: 120
+          shell: bash
+          command: |
+             docker tag quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:pr-${{ needs.create-pr.outputs.pr_number }} quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:${{ github.event.inputs.tag_name }}
+             docker push quay.io/${{ vars.QUAY_OWNER }}/kserve-controller:${{ github.event.inputs.tag_name }}
+            
+             docker tag quay.io/${{ vars.QUAY_OWNER }}/kserve-storage-initializer:pr-${{ needs.create-pr.outputs.pr_number }} quay.io/${{ vars.QUAY_OWNER }}/kserve-storage-initializer:${{ github.event.inputs.tag_name }}
+             docker push quay.io/${{ vars.QUAY_OWNER }}/kserve-storage-initializer:${{ github.event.inputs.tag_name }}
+            
+             docker tag quay.io/${{ vars.QUAY_OWNER }}//kserve-router:pr-${{ needs.create-pr.outputs.pr_number }} quay.io/${{ vars.QUAY_OWNER }}//kserve-router:${{ github.event.inputs.tag_name }}
+             docker push quay.io/${{ vars.QUAY_OWNER }}//kserve-router:${{ github.event.inputs.tag_name }}
+            
+             docker tag quay.io/${{ vars.QUAY_OWNER }}/kserve-agent:pr-${{ needs.create-pr.outputs.pr_number }} quay.io/${{ vars.QUAY_OWNER }}/kserve-agent:${{ github.event.inputs.tag_name }}
+             docker push quay.io/${{ vars.QUAY_OWNER }}/kserve-agent:${{ github.event.inputs.tag_name }}
+  changelog:
+    name: Changelog
+    needs: [ check-prev-tag,create-pr,wait-checks,rename-image]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+      - name: Create Tag
+        id: create_tag
+        run: |
+          git tag -a ${{ github.event.inputs.tag_name }} -m "Prepare for ODH release ${{ github.event.inputs.tag_name }}"
+          git push origin ${{ github.event.inputs.tag_name }}
+        
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ github.token }}     
+          tag_name: ${{ github.event.inputs.tag_name }}
+          prerelease: false
+          draft: false
+          files: bin/*
+          generate_release_notes: true
+          name: ${{ github.event.inputs.tag_name }}
