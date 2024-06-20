@@ -177,7 +177,7 @@ def load_model():
         }
 
         model_config = AutoConfig.from_pretrained(
-            str(model_id_or_path), 
+            str(model_id_or_path),
             revision=kwargs.get("model_revision", None),
             trust_remote_code=kwargs.get("trust_remote_code", False),
         )
