@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 
 	gstorage "cloud.google.com/go/storage"
@@ -36,6 +37,8 @@ import (
 	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
 	"google.golang.org/api/option"
 )
+
+var log = logf.Log.WithName("modelAgent")
 
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
@@ -179,6 +182,9 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 		providers[HTTP] = &HTTPSProvider{
 			Client: httpsClient,
 		}
+	case AZURE:
+		providers[AZURE] = &AzureProvider{}
+
 	}
 
 	return providers[protocol], nil
