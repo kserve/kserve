@@ -41,7 +41,9 @@ def infer_vllm_supported_from_model_architecture(
     if not _vllm:
         return False
 
-    model_config = AutoConfig.from_pretrained(model_config_path, trust_remote_code=trust_remote_code)
+    model_config = AutoConfig.from_pretrained(
+        model_config_path, trust_remote_code=trust_remote_code
+    )
     for architecture in model_config.architectures:
         if architecture not in ModelRegistry.get_supported_archs():
             logger.info("not a supported model by vLLM")
