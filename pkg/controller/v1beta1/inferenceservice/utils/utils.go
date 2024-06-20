@@ -85,25 +85,21 @@ func IsMemoryResourceAvailable(isvc *v1beta1.InferenceService, totalReqMemory re
 }
 
 func getModelNameFromArgs(args []string) string {
+	modelName := ""
 	for i, arg := range args {
 		if strings.HasPrefix(arg, constants.ArgumentModelName) {
 			// Case 1: ["--model-name=<model-name>"]
 			modelNameValueArr := strings.Split(arg, "=")
 			if len(modelNameValueArr) == 2 {
-				return modelNameValueArr[1]
+				modelName = modelNameValueArr[1]
 			}
-			// Case 2: ["--model-name <model-name>"]
-			modelNameValueArr = strings.Fields(arg)
-			if len(modelNameValueArr) == 2 {
-				return modelNameValueArr[1]
-			}
-			// Case 3: ["--model-name", "<model-name>"]
+			// Case 2: ["--model-name", "<model-name>"]
 			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
-				return args[i+1]
+				modelName = args[i+1]
 			}
 		}
 	}
-	return ""
+	return modelName
 }
 
 // GetModelName returns the model name for single model serving case

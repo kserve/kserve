@@ -36,8 +36,7 @@ def test_inference_graph():
     logging.info("Starting test test_inference_graph")
     sklearn_name_1 = "isvc-sklearn-graph-1"
     sklearn_name_2 = "isvc-sklearn-graph-2"
-    xgb_name_1 = "isvc-xgboost-graph-1"
-    xgb_name_2 = "isvc-xgboost-graph-2"
+    xgb_name = "isvc-xgboost-graph"
     graph_name = "model-chainer"
 
     sklearn_predictor_1 = V1beta1PredictorSpec(
@@ -48,7 +47,7 @@ def test_inference_graph():
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
-            args=["--model_name sklearn"],
+            args=["--model_name=sklearn"],
         ),
     )
     sklearn_predictor_2 = V1beta1PredictorSpec(
@@ -59,7 +58,7 @@ def test_inference_graph():
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
-            args=["--model_name=sklearn"],
+            args=["--model_name", "iris"],
         ),
     )
     sklearn_isvc_1 = V1beta1InferenceService(
@@ -79,18 +78,7 @@ def test_inference_graph():
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor_2),
     )
 
-    xgb_predictor_1 = V1beta1PredictorSpec(
-        min_replicas=1,
-        xgboost=V1beta1XGBoostSpec(
-            storage_uri="gs://kfserving-examples/models/xgboost/1.5/model",
-            resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
-            ),
-            args=["--model_name", "xgboost"],
-        ),
-    )
-    xgb_predictor_2 = V1beta1PredictorSpec(
+    xgb_predictor = V1beta1PredictorSpec(
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
             storage_uri="gs://kfserving-examples/models/xgboost/1.5/model",
@@ -100,17 +88,11 @@ def test_inference_graph():
             ),
         ),
     )
-    xgb_isvc_1 = V1beta1InferenceService(
+    xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=xgb_name_1, namespace=KSERVE_TEST_NAMESPACE),
-        spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor_1),
-    )
-    xgb_isvc_2 = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(name=xgb_name_2, namespace=KSERVE_TEST_NAMESPACE),
-        spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor_2),
+        metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE),
+        spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
 
     nodes = {
@@ -119,17 +101,17 @@ def test_inference_graph():
             steps=[
                 V1alpha1InferenceStep(
                     service_name=sklearn_name_1,
+                    dependency="Hard",
                 ),
                 V1alpha1InferenceStep(
-                    service_name=xgb_name_1,
+                    service_name=xgb_name,
                     data="$request",
+                    dependency="Hard",
                 ),
                 V1alpha1InferenceStep(
                     service_name=sklearn_name_2,
-                ),
-                V1alpha1InferenceStep(
-                    service_name=xgb_name_2,
                     data="$request",
+                    dependency="Hard",
                 ),
             ],
         )
@@ -148,13 +130,11 @@ def test_inference_graph():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(sklearn_isvc_1)
-    kserve_client.create(xgb_isvc_1)
+    kserve_client.create(xgb_isvc)
     kserve_client.create(sklearn_isvc_2)
-    kserve_client.create(xgb_isvc_2)
     kserve_client.wait_isvc_ready(sklearn_name_1, namespace=KSERVE_TEST_NAMESPACE)
-    kserve_client.wait_isvc_ready(xgb_name_1, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(xgb_name, namespace=KSERVE_TEST_NAMESPACE)
     kserve_client.wait_isvc_ready(sklearn_name_2, namespace=KSERVE_TEST_NAMESPACE)
-    kserve_client.wait_isvc_ready(xgb_name_2, namespace=KSERVE_TEST_NAMESPACE)
 
     kserve_client.create_inference_graph(ig)
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
@@ -167,9 +147,8 @@ def test_inference_graph():
 
     kserve_client.delete_inference_graph(graph_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(sklearn_name_1, KSERVE_TEST_NAMESPACE)
-    kserve_client.delete(xgb_name_1, KSERVE_TEST_NAMESPACE)
+    kserve_client.delete(xgb_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(sklearn_name_2, KSERVE_TEST_NAMESPACE)
-    kserve_client.delete(xgb_name_2, KSERVE_TEST_NAMESPACE)
 
 
 def create_ig_using_custom_object_api(resource_body):

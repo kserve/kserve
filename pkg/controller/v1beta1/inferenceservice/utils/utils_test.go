@@ -1432,7 +1432,7 @@ func TestModelName(t *testing.T) {
 			},
 			expected: "custom-model",
 		},
-		"modelname in single string": {
+		"multiple modelname arguments": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sklearn",
@@ -1448,7 +1448,7 @@ func TestModelName(t *testing.T) {
 								Container: v1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
-									Args:      []string{"--model_dir", "/mnt/models", "--model_name iris"},
+									Args:      []string{"--model_name=sklearn", "--model_dir", "/mnt/models", "--model_name", "iris"},
 								},
 							},
 						},
@@ -1457,7 +1457,7 @@ func TestModelName(t *testing.T) {
 			},
 			expected: "iris",
 		},
-		"modelname in single string with excess whitespace": {
+		"modelname argument and value in single string": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sklearn",
@@ -1473,14 +1473,14 @@ func TestModelName(t *testing.T) {
 								Container: v1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
-									Args:      []string{"--model_dir", "/mnt/models", "--model_name               iris"},
+									Args:      []string{"--model_dir", "/mnt/models", "--model_name iris"}, // This format is not recognized by the modelserver. So we ignore this format.
 								},
 							},
 						},
 					},
 				},
 			},
-			expected: "iris",
+			expected: "sklearn",
 		},
 		"modelname value in separate string": {
 			isvc: InferenceService{
