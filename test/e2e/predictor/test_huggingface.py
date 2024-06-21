@@ -303,6 +303,10 @@ def test_huggingface_v2_text_embedding():
                 "8b3219a92973c328a8e22fadcfa821b5dc75636a",
                 "--tokenizer_revision",
                 "8b3219a92973c328a8e22fadcfa821b5dc75636a",
+                # This model will fail with "Task couldn't be inferred from BertModel"
+                # if the task is not specified.
+                "--task",
+                "text_embedding",
                 "--backend",
                 "huggingface",
             ],
