@@ -15,7 +15,7 @@
 import pytest
 from kserve import ModelServer
 
-UNKNOWN_MODEL_TYPE_ERR_MESSAGE = "Unknown model collection types"
+UNKNOWN_MODEL_TYPE_ERR_MESSAGE = "Unknown model collection type"
 
 
 def test_model_server_start_no_models():

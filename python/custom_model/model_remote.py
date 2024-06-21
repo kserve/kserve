@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
-
 from kserve import Model, ModelServer, logging, model_server
+from kserve.ray import RayModel
 from torchvision import models, transforms
 from typing import Dict
 import torch
@@ -77,4 +77,7 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    ModelServer().start({"custom-model": AlexNetModel})
+    app = AlexNetModel.bind()
+    handle = serve.run(app)
+    model = RayModel(name="custom-model", handle=handle)
+    ModelServer().start([model])
