@@ -70,9 +70,10 @@ class GRPCServer:
         await self._server.wait_for_termination()
 
     async def stop(self, sig: int = None):
-        logger.info("Waiting for gRPC server shutdown")
-        await self._server.stop(grace=10)
-        logger.info("gRPC server shutdown complete")
+        if self._server:
+            logger.info("Waiting for gRPC server shutdown")
+            await self._server.stop(grace=10)
+            logger.info("gRPC server shutdown complete")
 
 
 class GRPCProcess(multiprocessing.Process):

@@ -81,4 +81,4 @@ class ModelRepository:
                 model.stop()
             del self.models[name]
         else:
-            raise KeyError(f"model {name} does not exist")
+            raise KeyError(f"model with name {name} does not exist")

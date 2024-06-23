@@ -24,6 +24,8 @@ import avro.io
 import avro.schema
 import httpx
 import pytest
+import pytest_asyncio
+import uvloop
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from fastapi.testclient import TestClient
@@ -32,6 +34,7 @@ from ray import serve
 from kserve import Model, ModelRepository, ModelServer
 from kserve.errors import InvalidInput, NoModelReady
 from kserve.model import PredictorProtocol
+from kserve.model_server import app as kserve_app
 from kserve.protocol.infer_type import (
     InferInput,
     InferOutput,
@@ -56,6 +59,17 @@ test_avsc_schema = """
         """
 
 fake_stream_data = "some streamed data"
+
+server = ModelServer()
+rest_server = RESTServer(
+    kserve_app, server.dataplane, server.model_repository_extension
+)
+rest_server.create_application()
+
+
+@pytest.fixture(scope="session")
+def event_loop_policy():
+    return uvloop.EventLoopPolicy()
 
 
 def dummy_cloud_event(
@@ -102,13 +116,16 @@ class DummyStreamModel(Model):
 
 class TestStreamPredict:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def event_loop(self):
+        return asyncio.get_event_loop()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self):  # pylint: disable=no-self-use
         model = DummyStreamModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -290,13 +307,16 @@ class TestModel:
 
 class TestV1Endpoints:
     @pytest.fixture(scope="class")
-    def app(self):
+    def event_loop(self):
+        return asyncio.get_event_loop()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self):
         model = DummyModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -350,13 +370,16 @@ class TestV1Endpoints:
 
 class TestV2Endpoints:
     @pytest.fixture(scope="class")
-    def app(self):
+    def event_loop(self):
+        return asyncio.get_event_loop()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self):
         model = DummyModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -447,19 +470,21 @@ class TestV2Endpoints:
 
 class TestRayServer:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def event_loop(self):
+        return asyncio.get_event_loop()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self):  # pylint: disable=no-self-use
         serve.start(http_options={"host": "0.0.0.0", "port": 9071})
 
         # https://github.com/ray-project/ray/blob/releases/2.8.0/python/ray/serve/deployment.py#L256
-        app = DummyServeModel.bind(name="TestModel")
-        handle = serve.run(app, name="TestModel", route_prefix="/")
-
+        ray_app = DummyServeModel.bind(name="TestModel")
+        handle = serve.run(ray_app, name="TestModel", route_prefix="/")
         handle.load.remote()
-
-        server = ModelServer()
         server.register_model_handle("TestModel", handle)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
+        serve.shutdown()
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -515,12 +540,15 @@ class TestRayServer:
 
 class TestTFHttpServerModelNotLoaded:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def event_loop(self):
+        return asyncio.get_event_loop()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -533,13 +561,16 @@ class TestTFHttpServerModelNotLoaded:
 
 class TestTFHttpServerCloudEvent:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def event_loop(self):
+        return asyncio.get_event_loop()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self):  # pylint: disable=no-self-use
         model = DummyCEModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -700,13 +731,16 @@ class TestTFHttpServerCloudEvent:
 
 class TestTFHttpServerAvroCloudEvent:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def event_loop(self):
+        return asyncio.get_event_loop()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self):  # pylint: disable=no-self-use
         model = DummyAvroCEModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -744,11 +778,14 @@ class TestTFHttpServerAvroCloudEvent:
 class TestTFHttpServerLoadAndUnLoad:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        server = ModelServer(
-            registered_models=DummyModelRepository(test_load_success=True)
+        mp = pytest.MonkeyPatch()
+        registered_models = DummyModelRepository(test_load_success=True)
+        mp.setattr(server, "registered_models", registered_models)
+        mp.setattr(
+            server.model_repository_extension, "_model_registry", registered_models
         )
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        mp.setattr(server.dataplane, "_model_registry", registered_models)
+        return kserve_app
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -770,11 +807,14 @@ class TestTFHttpServerLoadAndUnLoad:
 class TestTFHttpServerLoadAndUnLoadFailure:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        server = ModelServer(
-            registered_models=DummyModelRepository(test_load_success=False)
+        mp = pytest.MonkeyPatch()
+        registered_models = DummyModelRepository(test_load_success=False)
+        mp.setattr(server, "registered_models", registered_models)
+        mp.setattr(
+            server.model_repository_extension, "_model_registry", registered_models
         )
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        mp.setattr(server.dataplane, "_model_registry", registered_models)
+        return kserve_app
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -793,12 +833,15 @@ class TestTFHttpServerLoadAndUnLoadFailure:
 
 class TestTFHttpServerModelNotReady:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def event_loop(self):
+        return asyncio.get_event_loop()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
