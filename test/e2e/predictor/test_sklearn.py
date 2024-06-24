@@ -36,7 +36,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_kserve():
+async def test_sklearn_kserve(rest_v1_client):
     service_name = "isvc-sklearn"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -63,14 +63,14 @@ async def test_sklearn_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(service_name, "./data/iris_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2_mlserver():
+async def test_sklearn_v2_mlserver(rest_v2_client):
     service_name = "sklearn-v2-mlserver"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -101,7 +101,9 @@ async def test_sklearn_v2_mlserver():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
-        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
     )
     assert res.outputs[0].data == [1, 1]
 
@@ -111,7 +113,7 @@ async def test_sklearn_v2_mlserver():
 @pytest.mark.predictor
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_runtime_kserve():
+async def test_sklearn_runtime_kserve(rest_v1_client):
     service_name = "isvc-sklearn-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -141,14 +143,14 @@ async def test_sklearn_runtime_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(service_name, "./data/iris_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2_runtime_mlserver():
+async def test_sklearn_v2_runtime_mlserver(rest_v2_client):
     service_name = "isvc-sklearn-v2-runtime"
     protocol_version = "v2"
 
@@ -184,7 +186,9 @@ async def test_sklearn_v2_runtime_mlserver():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
-        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
     )
     assert res.outputs[0].data == [1, 1]
 
@@ -193,7 +197,7 @@ async def test_sklearn_v2_runtime_mlserver():
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2():
+async def test_sklearn_v2(rest_v2_client):
     service_name = "isvc-sklearn-v2"
 
     predictor = V1beta1PredictorSpec(
@@ -227,7 +231,9 @@ async def test_sklearn_v2():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
-        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
     )
     assert res.outputs[0].data == [1, 1]
 
@@ -285,7 +291,7 @@ async def test_sklearn_v2_grpc():
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2_mixed():
+async def test_sklearn_v2_mixed(rest_v2_client):
     service_name = "isvc-sklearn-v2-mixed"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -318,7 +324,9 @@ async def test_sklearn_v2_mixed():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     response = await predict_isvc(
-        service_name, "./data/sklearn_mixed_v2.json", protocol_version="v2"
+        rest_v2_client,
+        service_name,
+        "./data/sklearn_mixed_v2.json",
     )
     assert response.outputs[0].data == [12.202832815138274]
 

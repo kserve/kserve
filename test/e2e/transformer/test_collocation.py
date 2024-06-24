@@ -37,7 +37,7 @@ from ..common.utils import (
 
 @pytest.mark.collocation
 @pytest.mark.asyncio(scope="session")
-async def test_transformer_collocation():
+async def test_transformer_collocation(rest_v1_client):
     service_name = "custom-model-transformer-collocation"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -115,7 +115,7 @@ async def test_transformer_collocation():
             print(pod)
         raise e
     res = await predict_isvc(
-        service_name, "./data/transformer.json", model_name=model_name
+        rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -123,7 +123,7 @@ async def test_transformer_collocation():
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_transformer_collocation():
+async def test_raw_transformer_collocation(rest_v1_client):
     service_name = "raw-custom-model-collocation"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -206,7 +206,7 @@ async def test_raw_transformer_collocation():
             print(pod)
         raise e
     res = await predict_isvc(
-        service_name, "./data/transformer.json", model_name=model_name
+        rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

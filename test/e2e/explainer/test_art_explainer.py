@@ -37,7 +37,7 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.explainer
 @pytest.mark.asyncio(scope="session")
-async def test_tabular_explainer():
+async def test_tabular_explainer(rest_v1_client):
     service_name = "art-explainer"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -93,9 +93,13 @@ async def test_tabular_explainer():
             logging.info(pod)
         raise e
 
-    res = await predict_isvc(service_name, "./data/mnist_input_bw_flat.json")
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/mnist_input_bw_flat.json"
+    )
     assert res["predictions"] == [3]
 
-    adv_prediction = await explain_art(service_name, "./data/mnist_input_bw.json")
+    adv_prediction = await explain_art(
+        rest_v1_client, service_name, "./data/mnist_input_bw.json"
+    )
     assert adv_prediction != 3
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

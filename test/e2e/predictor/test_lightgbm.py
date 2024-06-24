@@ -37,7 +37,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_lightgbm_kserve():
+async def test_lightgbm_kserve(rest_v1_client):
     service_name = "isvc-lightgbm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -65,7 +65,7 @@ async def test_lightgbm_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/iris_input_v3.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input_v3.json")
     assert numpy.argmax(res["predictions"][0]) == 0
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -73,7 +73,7 @@ async def test_lightgbm_kserve():
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_lightgbm_runtime_kserve():
+async def test_lightgbm_runtime_kserve(rest_v1_client):
     service_name = "isvc-lightgbm-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -104,13 +104,13 @@ async def test_lightgbm_runtime_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(service_name, "./data/iris_input_v3.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input_v3.json")
     assert numpy.argmax(res["predictions"][0]) == 0
 
-    res = await predict_isvc(service_name, "./data/iris_input_v4.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input_v4.json")
     assert numpy.argmax(res["predictions"][0]) == 0
 
-    res = await predict_isvc(service_name, "./data/iris_input_v5.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input_v5.json")
     assert numpy.argmax(res["predictions"][0]) == 0
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -118,7 +118,7 @@ async def test_lightgbm_runtime_kserve():
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_lightgbm_v2_runtime_mlserver():
+async def test_lightgbm_v2_runtime_mlserver(rest_v2_client):
     service_name = "isvc-lightgbm-v2-runtime"
     protocol_version = "v2"
 
@@ -154,7 +154,9 @@ async def test_lightgbm_v2_runtime_mlserver():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
-        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
     )
     assert res.outputs[0].data == [
         8.796664107010673e-06,
@@ -171,7 +173,7 @@ async def test_lightgbm_v2_runtime_mlserver():
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_lightgbm_v2_kserve():
+async def test_lightgbm_v2_kserve(rest_v2_client):
     service_name = "isvc-lightgbm-v2-kserve"
 
     predictor = V1beta1PredictorSpec(
@@ -205,7 +207,9 @@ async def test_lightgbm_v2_kserve():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
-        service_name, "./data/iris_input_v2.json", protocol_version="v2"
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
     )
     assert res.outputs[0].data == [
         8.796664107010673e-06,
@@ -222,7 +226,7 @@ async def test_lightgbm_v2_kserve():
 @pytest.mark.grpc
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_lightgbm_v2_grpc():
+async def test_lightgbm_v2_grpc(rest_v2_client):
     service_name = "isvc-lightgbm-v2-grpc"
     model_name = "lightgbm"
     predictor = V1beta1PredictorSpec(
@@ -261,7 +265,9 @@ async def test_lightgbm_v2_grpc():
     payload = json.load(json_file)["inputs"]
 
     response = await predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name
+        service_name=service_name,
+        payload=payload,
+        model_name=model_name,
     )
     prediction = response.outputs[0].data
     assert prediction == [

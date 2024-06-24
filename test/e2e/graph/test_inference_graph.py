@@ -1,4 +1,3 @@
-import logging
 import os
 import uuid
 
@@ -18,6 +17,7 @@ from kserve import (
     V1alpha1InferenceStep,
     V1beta1XGBoostSpec,
 )
+from kserve.logging import trace_logger as logger
 from kubernetes import client, config
 from kubernetes.client import V1Container
 from kubernetes.client import V1ResourceRequirements
@@ -33,8 +33,8 @@ IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_inference_graph():
-    logging.info("Starting test test_inference_graph")
+async def test_inference_graph(rest_v1_client):
+    logger.info("Starting test test_inference_graph")
     sklearn_name = "isvc-sklearn-graph"
     xgb_name = "isvc-xgboost-graph"
     graph_name = "model-chainer"
@@ -111,6 +111,7 @@ async def test_inference_graph():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_ig(
+        rest_v1_client,
         graph_name,
         os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     )
@@ -166,8 +167,8 @@ def construct_isvc_to_submit(service_name, image, model_name):
 
 
 def setup_isvcs_for_test(suffix):
-    logging.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
-    logging.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
+    logger.info(f"SUCCESS_ISVC_IMAGE is {SUCCESS_ISVC_IMAGE}")
+    logger.info(f"ERROR_ISVC_IMAGE is {ERROR_ISVC_IMAGE}")
 
     # construct_isvc_to_submit
     model_name = success_isvc_name = ("-").join(["success-200-isvc", suffix])
@@ -187,7 +188,7 @@ def setup_isvcs_for_test(suffix):
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario1():
+async def test_ig_scenario1(rest_v1_client):
     """
     Scenario: Sequence graph with 2 steps that are both soft dependencies.
      success_isvc(soft) -> error_isvc (soft)
@@ -198,13 +199,13 @@ async def test_ig_scenario1():
     :return:
     """
 
-    logging.info("Starting test test_ig_scenario1")
+    logger.info("Starting test test_ig_scenario1")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     # Create graph
     graph_name = "-".join(["sequence-graph", suffix])
@@ -246,6 +247,7 @@ async def test_ig_scenario1():
 
     with pytest.raises(HTTPStatusError) as exc_info:
         await predict_ig(
+            rest_v1_client,
             graph_name,
             os.path.join(
                 IG_TEST_RESOURCES_BASE_LOCATION, "custom_predictor_input.json"
@@ -263,7 +265,7 @@ async def test_ig_scenario1():
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario2():
+async def test_ig_scenario2(rest_v1_client):
     """
     Scenario: Sequence graph with 2 steps that are both soft dependencies.
        error_isvc (soft) -> success_isvc(soft)
@@ -272,13 +274,13 @@ async def test_ig_scenario2():
     :return:
     """
 
-    logging.info("Starting test test_ig_scenario2")
+    logger.info("Starting test test_ig_scenario2")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     # Create graph
     graph_name = "-".join(["sequence-graph", suffix])
@@ -319,6 +321,7 @@ async def test_ig_scenario2():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     response = await predict_ig(
+        rest_v1_client,
         graph_name,
         os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "custom_predictor_input.json"),
     )
@@ -332,20 +335,20 @@ async def test_ig_scenario2():
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario3():
+async def test_ig_scenario3(rest_v1_client):
     """
      Scenario: Sequence graph with 2 steps - first is hard (and returns non-200) and second is soft dependency.
      error_isvc(hard) -> success_isvc (soft)
 
     Expectation: IG will return response of error_isvc and predict_ig will raise exception
     """
-    logging.info("Starting test test_ig_scenario3")
+    logger.info("Starting test test_ig_scenario3")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -381,6 +384,7 @@ async def test_ig_scenario3():
 
     with pytest.raises(HTTPStatusError) as exc_info:
         await predict_ig(
+            rest_v1_client,
             graph_name,
             os.path.join(
                 IG_TEST_RESOURCES_BASE_LOCATION, "custom_predictor_input.json"
@@ -398,7 +402,7 @@ async def test_ig_scenario3():
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario4():
+async def test_ig_scenario4(rest_v1_client):
     """
     Scenario: Switch graph with 1 step as hard dependency and other one as soft dependency.
     Will be testing 3 cases in this test case:
@@ -411,13 +415,13 @@ async def test_ig_scenario4():
                "cause": "None of the routes matched with the switch condition",
        }
     """
-    logging.info("Starting test test_ig_scenario4")
+    logger.info("Starting test test_ig_scenario4")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -454,6 +458,7 @@ async def test_ig_scenario4():
     # Case 1
     with pytest.raises(HTTPStatusError) as exc_info:
         await predict_ig(
+            rest_v1_client,
             graph_name,
             os.path.join(
                 IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_error_picker_input.json"
@@ -465,6 +470,7 @@ async def test_ig_scenario4():
 
     # Case 2
     response = await predict_ig(
+        rest_v1_client,
         graph_name,
         os.path.join(
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_success_picker_input.json"
@@ -475,6 +481,7 @@ async def test_ig_scenario4():
     # Case 3
     with pytest.raises(HTTPStatusError) as exc_info:
         await predict_ig(
+            rest_v1_client,
             graph_name,
             os.path.join(
                 IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_no_match_input.json"
@@ -495,19 +502,19 @@ async def test_ig_scenario4():
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario5():
+async def test_ig_scenario5(rest_v1_client):
     """
     Scenario: Switch graph where a match would happen for error node and then error would return but IG will continue
     execution and call the next step in the flow as error step will be a soft dependency.
     Expectation: IG will return response of success_isvc.
     """
-    logging.info("Starting test test_ig_scenario5")
+    logger.info("Starting test test_ig_scenario5")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -542,6 +549,7 @@ async def test_ig_scenario5():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     response = await predict_ig(
+        rest_v1_client,
         graph_name,
         os.path.join(
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_error_picker_input.json"
@@ -557,19 +565,19 @@ async def test_ig_scenario5():
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario6():
+async def test_ig_scenario6(rest_v1_client):
     """
     Scenario: Switch graph where a match would happen for error node and then error would return and IG will NOT
     continue execution and call the next step in the flow as error step will be a HARD dependency.
     Expectation: IG will return response of success_isvc.
     """
-    logging.info("Starting test test_ig_scenario6")
+    logger.info("Starting test test_ig_scenario6")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -605,6 +613,7 @@ async def test_ig_scenario6():
 
     with pytest.raises(HTTPStatusError) as exc_info:
         await predict_ig(
+            rest_v1_client,
             graph_name,
             os.path.join(
                 IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_error_picker_input.json"
@@ -622,19 +631,19 @@ async def test_ig_scenario6():
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario7():
+async def test_ig_scenario7(rest_v1_client):
     """
     Scenario: Ensemble graph with 2 steps, where both the steps are soft deps.
 
     Expectation: IG will return combined response of both the steps.
     """
-    logging.info("Starting test test_ig_scenario7")
+    logger.info("Starting test test_ig_scenario7")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -669,6 +678,7 @@ async def test_ig_scenario7():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     response = await predict_ig(
+        rest_v1_client,
         graph_name,
         os.path.join(
             IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_success_picker_input.json"
@@ -687,19 +697,19 @@ async def test_ig_scenario7():
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario8():
+async def test_ig_scenario8(rest_v1_client):
     """
     Scenario: Ensemble graph with 3 steps, where 2 steps are soft and 1 step is hard and returns non-200
 
     Expectation: Since HARD step will return non-200, so IG will return that step's output as IG's output
     """
-    logging.info("Starting test test_ig_scenario8")
+    logger.info("Starting test test_ig_scenario8")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -735,6 +745,7 @@ async def test_ig_scenario8():
 
     with pytest.raises(HTTPStatusError) as exc_info:
         await predict_ig(
+            rest_v1_client,
             graph_name,
             os.path.join(
                 IG_TEST_RESOURCES_BASE_LOCATION, "switch_call_success_picker_input.json"
@@ -751,19 +762,19 @@ async def test_ig_scenario8():
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario9():
+async def test_ig_scenario9(rest_v1_client):
     """
     Scenario: Splitter graph where a match would happen for error node and then error would return but IG will continue
     execution and call the next step in the flow as error step will be a soft dependency.
     Expectation: IG will return response of success_isvc.
     """
-    logging.info("Starting test test_ig_scenario9")
+    logger.info("Starting test test_ig_scenario9")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -798,6 +809,7 @@ async def test_ig_scenario9():
     kserve_client.wait_ig_ready(graph_name, namespace=KSERVE_TEST_NAMESPACE)
 
     response = await predict_ig(
+        rest_v1_client,
         graph_name,
         os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     )
@@ -811,19 +823,19 @@ async def test_ig_scenario9():
 @pytest.mark.graph
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_ig_scenario10():
+async def test_ig_scenario10(rest_v1_client):
     """
     Scenario: Splitter graph where a match would happen for error node and then error would return and IG will NOT
     continue execution and call the next step in the flow as error step will be a HARD dependency.
     Expectation: IG will return response of success_isvc.
     """
-    logging.info("Starting test test_ig_scenario10")
+    logger.info("Starting test test_ig_scenario10")
     suffix = str(uuid.uuid4())[1:6]
     success_isvc_name, error_isvc_name, success_isvc, error_isvc = setup_isvcs_for_test(
         suffix
     )
-    logging.info(f"success_isvc_name is {success_isvc_name}")
-    logging.info(f"error_isvc_name is {error_isvc_name}")
+    logger.info(f"success_isvc_name is {success_isvc_name}")
+    logger.info(f"error_isvc_name is {error_isvc_name}")
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -859,6 +871,7 @@ async def test_ig_scenario10():
 
     with pytest.raises(HTTPStatusError) as exc_info:
         await predict_ig(
+            rest_v1_client,
             graph_name,
             os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
         )
@@ -873,8 +886,8 @@ async def test_ig_scenario10():
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_inference_graph_raw_mode():
-    logging.info("Starting test test_inference_graph_raw_mode")
+async def test_inference_graph_raw_mode(rest_v1_client):
+    logger.info("Starting test test_inference_graph_raw_mode")
     sklearn_name = "isvc-sklearn-graph-raw"
     xgb_name = "isvc-xgboost-graph-raw"
     graph_name = "model-chainer-raw"
@@ -994,7 +1007,7 @@ async def test_inference_graph_raw_mode():
                 + "in raw deployment mode"
             )
     except client.rest.ApiException:
-        logging.info("Expected error in finding knative route in raw deployment mode")
+        logger.info("Expected error in finding knative route in raw deployment mode")
 
     try:
         knativesvc = kserve_client.api_instance.get_namespaced_custom_object(
@@ -1008,12 +1021,13 @@ async def test_inference_graph_raw_mode():
                 + "in raw deployment mode"
             )
     except client.rest.ApiException:
-        logging.info("Expected error in finding knative service in raw deployment mode")
+        logger.info("Expected error in finding knative service in raw deployment mode")
 
     # TODO Fix this when we enable ALB creation for IG raw deployment mode. This is required for traffic ingress
     # for this predict api call to work
     #
     # res = await predict_ig(
+    #    rest_v1_client,
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     # )
@@ -1026,8 +1040,8 @@ async def test_inference_graph_raw_mode():
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_inference_graph_raw_mode_with_hpa():
-    logging.info("Starting test test_inference_graph_raw_mode_with_hpa")
+async def test_inference_graph_raw_mode_with_hpa(rest_v1_client):
+    logger.info("Starting test test_inference_graph_raw_mode_with_hpa")
     sklearn_name = "isvc-sklearn-graph-raw-hpa"
     xgb_name = "isvc-xgboost-graph-raw-hpa"
     graph_name = "model-chainer-raw-hpa"
@@ -1156,7 +1170,7 @@ async def test_inference_graph_raw_mode_with_hpa():
                 + "in raw deployment mode"
             )
     except client.rest.ApiException:
-        logging.info("Expected error in finding knative route in raw deployment mode")
+        logger.info("Expected error in finding knative route in raw deployment mode")
 
     try:
         knativesvc = kserve_client.api_instance.get_namespaced_custom_object(
@@ -1170,12 +1184,13 @@ async def test_inference_graph_raw_mode_with_hpa():
                 + "in raw deployment mode"
             )
     except client.rest.ApiException:
-        logging.info("Expected error in finding knative route in raw deployment mode")
+        logger.info("Expected error in finding knative route in raw deployment mode")
 
     # TODO Fix this when we enable ALB creation for IG raw deployment mode. This is required for traffic ingress
     # for this predict api call to work
     #
     # res = await predict_ig(
+    #     rest_v1_client,
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
     # )

@@ -175,7 +175,7 @@ async def test_predictor_grpc_with_transformer_grpc():
 @pytest.mark.grpc
 @pytest.mark.transformer
 @pytest.mark.asyncio(scope="session")
-async def test_predictor_grpc_with_transformer_http():
+async def test_predictor_grpc_with_transformer_http(rest_v2_client):
     service_name = "model-grpc-trans-http"
     model_name = "custom-model"
 
@@ -226,9 +226,9 @@ async def test_predictor_grpc_with_transformer_http():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
+        rest_v2_client,
         service_name,
         "./data/custom_model_input_v2.json",
-        protocol_version="v2",
         model_name=model_name,
     )
     points = ["%.3f" % point for point in list(res.outputs[0].data)]

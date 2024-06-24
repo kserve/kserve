@@ -84,7 +84,7 @@ def test_huggingface_openai_chat_completions():
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_sequence_classification():
+async def test_huggingface_v2_sequence_classification(rest_v2_client):
     service_name = "hf-bert-sequence-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -127,9 +127,9 @@ async def test_huggingface_v2_sequence_classification():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
+        rest_v2_client,
         service_name,
         "./data/bert_sequence_classification_v2.json",
-        protocol_version=protocol_version,
     )
     assert res.outputs[0].data == [1]
 
@@ -138,8 +138,8 @@ async def test_huggingface_v2_sequence_classification():
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v1_fill_mask():
-    service_name = "hf-bert-fill-mask-v2"
+async def test_huggingface_v1_fill_mask(rest_v1_client):
+    service_name = "hf-bert-fill-mask-v1"
     protocol_version = "v1"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -175,7 +175,9 @@ async def test_huggingface_v1_fill_mask():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
-        service_name, "./data/bert_fill_mask_v1.json", protocol_version=protocol_version
+        rest_v1_client,
+        service_name,
+        "./data/bert_fill_mask_v1.json",
     )
     assert res["predictions"] == ["paris", "france"]
 
@@ -184,7 +186,7 @@ async def test_huggingface_v1_fill_mask():
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_token_classification():
+async def test_huggingface_v2_token_classification(rest_v2_client):
     service_name = "hf-bert-token-classification-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -226,9 +228,9 @@ async def test_huggingface_v2_token_classification():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
+        rest_v2_client,
         service_name,
         "./data/bert_token_classification_v2.json",
-        protocol_version=protocol_version,
     )
     assert res.outputs[0].data == [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 

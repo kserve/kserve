@@ -20,7 +20,6 @@ from concurrent import futures
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
-import httpx
 import portforward
 import requests
 from kubernetes import client as k8s_client
@@ -28,10 +27,9 @@ from orjson import orjson
 
 from kserve import KServeClient, InferResponse, InferRequest
 from kserve import constants
-from kserve.inference_client import InferenceRESTClient, InferenceGRPCClient, RESTConfig
-from kserve.model import PredictorProtocol
+from kserve.inference_client import InferenceGRPCClient, InferenceRESTClient
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
-from kserve.logging import trace_logger as logger, configure_logging
+from kserve.logging import trace_logger as logger
 
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
@@ -40,56 +38,26 @@ INFERENCESERVICE_CONTAINER = "kserve-container"
 TRANSFORMER_CONTAINER = "transformer-container"
 STORAGE_URI_ENV = "STORAGE_URI"
 
-rest_client_v1 = None
-rest_client_v2 = None
-grpc_client = None
 
-configure_logging()
-
-
-def grpc_stub(host):
+def grpc_client(host):
     cluster_ip = get_cluster_ip()
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
     logger.info("Cluster IP: %s", cluster_ip)
     logger.info("gRPC target host: %s", host)
-    os.environ["GRPC_VERBOSITY"] = "debug"
-    if grpc_client is None:
-        return InferenceGRPCClient(
-            cluster_ip,
-            verbose=True,
-            channel_args=[
-                ("grpc.ssl_target_name_override", host),
-            ],
-        )
-    return grpc_client
-
-
-def get_rest_client(protocol):
-    global rest_client_v1
-    global rest_client_v2
-    if protocol == PredictorProtocol.REST_V1.value:
-        if rest_client_v1 is None:
-            rest_client_v1 = InferenceRESTClient(
-                config=RESTConfig(timeout=60, verbose=True, protocol=protocol)
-            )
-        return rest_client_v1
-    else:
-        if rest_client_v2 is None:
-            rest_client_v2 = InferenceRESTClient(
-                config=RESTConfig(
-                    timeout=httpx.Timeout(connect=60, read=120, write=60, pool=None),
-                    verbose=True,
-                    protocol=protocol,
-                )
-            )
-        return rest_client_v2
+    return InferenceGRPCClient(
+        cluster_ip,
+        verbose=True,
+        channel_args=[
+            ("grpc.ssl_target_name_override", host),
+        ],
+    )
 
 
 async def predict_isvc(
+    client: InferenceRESTClient,
     service_name,
     input_path,
-    protocol_version="v1",
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
     is_batch=False,
@@ -107,22 +75,22 @@ async def predict_isvc(
         model_name = service_name
     base_url = f"http://{cluster_ip}{path}"
     return await predict(
+        client,
         base_url,
         host,
         input_path,
         model_name=model_name,
-        protocol_version=protocol_version,
         is_batch=is_batch,
         is_graph=False,
     )
 
 
 async def predict(
+    client: InferenceRESTClient,
     url,
     host,
     input_path,
     model_name=None,
-    protocol_version="v1",
     is_batch=False,
     is_graph=False,
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
@@ -136,11 +104,11 @@ async def predict(
                 await loop.run_in_executor(
                     executor,
                     _predict,
+                    client,
                     url,
                     input_data,
                     model_name,
                     headers,
-                    protocol_version,
                     is_graph,
                 )
                 for input_data in data
@@ -148,11 +116,11 @@ async def predict(
             result = await asyncio.gather(*future_list)
     else:
         result = await _predict(
+            client,
             url,
             data,
             model_name=model_name,
             headers=headers,
-            protocol_version=protocol_version,
             is_graph=is_graph,
         )
     logger.info("Got response %s", result)
@@ -160,9 +128,13 @@ async def predict(
 
 
 async def _predict(
-    url, input_data, model_name, headers=None, protocol_version="v1", is_graph=False
+    client: InferenceRESTClient,
+    url,
+    input_data,
+    model_name,
+    headers=None,
+    is_graph=False,
 ) -> Union[InferResponse, Dict]:
-    client = get_rest_client(protocol=protocol_version)
     logger.info("Sending Header = %s", headers)
     logger.info("base url = %s", url)
     # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
@@ -178,9 +150,9 @@ async def _predict(
 
 
 async def predict_ig(
+    client: InferenceRESTClient,
     ig_name,
     input_path,
-    protocol_version="v1",
     version=constants.KSERVE_V1ALPHA1_VERSION,
 ) -> Union[InferResponse, Dict]:
     kserve_client = KServeClient(
@@ -193,9 +165,7 @@ async def predict_ig(
     )
     cluster_ip, host, _ = get_isvc_endpoint(ig)
     url = f"http://{cluster_ip}"
-    return await predict(
-        url, host, input_path, protocol_version=protocol_version, is_graph=True
-    )
+    return await predict(client, url, host, input_path, is_graph=True)
 
 
 async def explain(service_name, input_path):
@@ -203,12 +173,12 @@ async def explain(service_name, input_path):
     return res["data"]["precision"]
 
 
-async def explain_art(service_name, input_path):
-    res = await explain_response(service_name, input_path)
+async def explain_art(client, service_name, input_path):
+    res = await explain_response(client, service_name, input_path)
     return res["explanations"]["adversarial_prediction"]
 
 
-async def explain_response(service_name, input_path) -> Dict:
+async def explain_response(client, service_name, input_path) -> Dict:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -226,7 +196,6 @@ async def explain_response(service_name, input_path) -> Dict:
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
             await asyncio.sleep(5)
-            client = get_rest_client(protocol="v1")
             response = await client.explain(
                 url, model_name=service_name, data=data, headers=headers
             )
@@ -288,7 +257,7 @@ async def predict_grpc(
 
     if model_name is None:
         model_name = service_name
-    client = grpc_stub(host)
+    client = grpc_client(host)
 
     response = await client.infer(
         InferRequest.from_grpc(
@@ -301,7 +270,7 @@ async def predict_grpc(
 
 
 async def predict_modelmesh(
-    service_name, input_json, pod_name, model_name=None
+    client, service_name, input_json, pod_name, model_name=None
 ) -> InferResponse:
     with open(input_json) as json_file:
         data = json.load(json_file)
@@ -314,7 +283,6 @@ async def predict_modelmesh(
         logger.info("Sending Header = %s", headers)
         logger.info("base url = %s", url)
 
-        client = get_rest_client(protocol="v2")
         response = await client.infer(url, data, model_name=model_name, headers=headers)
         logger.info("Got response content %s", response)
         return response

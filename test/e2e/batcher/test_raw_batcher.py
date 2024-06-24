@@ -31,7 +31,7 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_batcher_raw():
+async def test_batcher_raw(rest_v1_client):
     service_name = "isvc-raw-sklearn-batcher"
 
     annotations = dict()
@@ -83,7 +83,7 @@ async def test_batcher_raw():
             print(pod)
         raise e
     results = await predict_isvc(
-        service_name, "./data/iris_batch_input.json", is_batch=True
+        rest_v1_client, service_name, "./data/iris_batch_input.json", is_batch=True
     )
     assert all(x == results[0] for x in results)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

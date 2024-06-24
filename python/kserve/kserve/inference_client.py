@@ -364,7 +364,9 @@ class RESTConfig:
         verbose: bool = False,
     ):
         self.transport = transport
-        self.protocol = protocol
+        self.protocol = (
+            protocol.value if isinstance(protocol, PredictorProtocol) else protocol
+        )
         self.retries = retries
         self.http2 = http2
         self.timeout = timeout

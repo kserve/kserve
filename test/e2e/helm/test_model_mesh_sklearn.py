@@ -36,7 +36,7 @@ from ..common.utils import predict_modelmesh
 # @pytest.mark.helm
 @pytest.mark.skip
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_modelmesh():
+async def test_sklearn_modelmesh(rest_v1_client):
     service_name = "isvc-sklearn-modelmesh"
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "ModelMesh"
@@ -74,7 +74,7 @@ async def test_sklearn_modelmesh():
 
     pod_name = pods.items[0].metadata.name
     res = await predict_modelmesh(
-        service_name, "./data/mm_sklearn_input.json", pod_name
+        rest_v1_client, service_name, "./data/mm_sklearn_input.json", pod_name
     )
     assert res.outputs[0].data == [8]
 

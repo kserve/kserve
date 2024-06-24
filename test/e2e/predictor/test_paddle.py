@@ -36,7 +36,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_paddle():
+async def test_paddle(rest_v1_client):
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         paddle=V1beta1PaddleServerSpec(
@@ -73,7 +73,7 @@ async def test_paddle():
             logging.info(pod)
         raise e
 
-    res = await predict_isvc(service_name, "./data/jay.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/jay.json")
     assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -81,7 +81,7 @@ async def test_paddle():
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_paddle_runtime():
+async def test_paddle_runtime(rest_v1_client):
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -121,7 +121,7 @@ async def test_paddle_runtime():
             logging.info(pod)
         raise e
 
-    res = await predict_isvc(service_name, "./data/jay.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/jay.json")
     assert np.argmax(res["predictions"][0]) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -129,7 +129,7 @@ async def test_paddle_runtime():
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_paddle_v2_kserve():
+async def test_paddle_v2_kserve(rest_v2_client):
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -170,7 +170,11 @@ async def test_paddle_v2_kserve():
             logging.info(pod)
         raise e
 
-    res = await predict_isvc(service_name, "./data/jay-v2.json", protocol_version="v2")
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/jay-v2.json",
+    )
     assert np.argmax(res.outputs[0].data) == 17
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

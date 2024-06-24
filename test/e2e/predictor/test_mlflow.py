@@ -32,7 +32,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_mlflow_v2_runtime_kserve():
+async def test_mlflow_v2_runtime_kserve(rest_v2_client):
     service_name = "isvc-mlflow-v2-runtime"
     protocol_version = "v2"
 
@@ -66,7 +66,9 @@ async def test_mlflow_v2_runtime_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = await predict_isvc(
-        service_name, "./data/mlflow_input_v2.json", protocol_version=protocol_version
+        rest_v2_client,
+        service_name,
+        "./data/mlflow_input_v2.json",
     )
     assert res.outputs[0].data == [5.576883936610762]
 

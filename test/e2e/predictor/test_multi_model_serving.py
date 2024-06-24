@@ -48,7 +48,9 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 )
 @pytest.mark.mms
 @pytest.mark.asyncio(scope="session")
-async def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
+async def test_mms_sklearn_kserve(
+    protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
+):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -115,24 +117,28 @@ async def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
             cluster_ip=cluster_ip,
         )
 
-    input_json = "./data/iris_input.json"
-    if protocol_version == "v2":
-        input_json = "./data/iris_input_v2.json"
-
-    responses = [
-        await predict_isvc(
-            service_name,
-            input_json,
-            model_name=model_name,
-            protocol_version=protocol_version,
-        )
-        for model_name in model_names
-    ]
-
     if protocol_version == "v1":
+        responses = [
+            await predict_isvc(
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                model_name=model_name,
+            )
+            for model_name in model_names
+        ]
         assert responses[0]["predictions"] == [1, 1]
         assert responses[1]["predictions"] == [1, 1]
     elif protocol_version == "v2":
+        responses = [
+            await predict_isvc(
+                rest_v2_client,
+                service_name,
+                "./data/iris_input_v2.json",
+                model_name=model_name,
+            )
+            for model_name in model_names
+        ]
         assert responses[0].outputs[0].data == [1, 1]
         assert responses[1].outputs[0].data == [1, 1]
 
@@ -157,7 +163,9 @@ async def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
 )
 @pytest.mark.mms
 @pytest.mark.asyncio(scope="session")
-async def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
+async def test_mms_xgboost_kserve(
+    protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
+):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -225,24 +233,28 @@ async def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
             cluster_ip=cluster_ip,
         )
 
-    input_json = "./data/iris_input.json"
-    if protocol_version == "v2":
-        input_json = "./data/iris_input_v2.json"
-
-    responses = [
-        await predict_isvc(
-            service_name,
-            input_json,
-            model_name=model_name,
-            protocol_version=protocol_version,
-        )
-        for model_name in model_names
-    ]
-
     if protocol_version == "v1":
+        responses = [
+            await predict_isvc(
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                model_name=model_name,
+            )
+            for model_name in model_names
+        ]
         assert responses[0]["predictions"] == [1, 1]
         assert responses[1]["predictions"] == [1, 1]
     elif protocol_version == "v2":
+        responses = [
+            await predict_isvc(
+                rest_v2_client,
+                service_name,
+                "./data/iris_input_v2.json",
+                model_name=model_name,
+            )
+            for model_name in model_names
+        ]
         assert responses[0].outputs[0].data == [1.0, 1.0]
         assert responses[1].outputs[0].data == [1.0, 1.0]
 

@@ -32,7 +32,7 @@ from ..common.utils import predict_isvc
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_kserve():
+async def test_pmml_kserve(rest_v1_client):
     service_name = "isvc-pmml"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -59,7 +59,7 @@ async def test_pmml_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(service_name, "./data/pmml_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/pmml_input.json")
     assert res["predictions"] == [
         {
             "Species": "setosa",
@@ -74,7 +74,7 @@ async def test_pmml_kserve():
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_runtime_kserve():
+async def test_pmml_runtime_kserve(rest_v1_client):
     service_name = "isvc-pmml-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -104,7 +104,7 @@ async def test_pmml_runtime_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(service_name, "./data/pmml_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/pmml_input.json")
     assert res["predictions"] == [
         {
             "Species": "setosa",
@@ -119,7 +119,7 @@ async def test_pmml_runtime_kserve():
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_v2_kserve():
+async def test_pmml_v2_kserve(rest_v2_client):
     service_name = "isvc-pmml-v2-kserve"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -151,7 +151,9 @@ async def test_pmml_v2_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = await predict_isvc(
-        service_name, "./data/pmml-input-v2.json", protocol_version="v2"
+        rest_v2_client,
+        service_name,
+        "./data/pmml-input-v2.json",
     )
     assert res.outputs == [
         InferOutput(

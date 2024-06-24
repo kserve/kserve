@@ -39,7 +39,7 @@ METRICS_PATH = "metrics"
 
 
 @pytest.mark.asyncio(scope="session")
-async def test_qpext_kserve():
+async def test_qpext_kserve(rest_v2_client):
     # test the qpext using the sklearn predictor
     service_name = "sklearn-v2-metrics"
     protocol_version = "v2"
@@ -82,7 +82,9 @@ async def test_qpext_kserve():
     )
 
     res = await predict_isvc(
-        service_name, "./data/iris_input_v2.json", protocol_version=protocol_version
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
     )
     assert res.outputs[0].data == [1, 1]
 

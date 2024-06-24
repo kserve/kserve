@@ -41,7 +41,7 @@ api_version = constants.KSERVE_V1BETA1
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_deployment_kserve():
+async def test_raw_deployment_kserve(rest_v1_client):
     service_name = "raw-sklearn"
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
@@ -73,14 +73,14 @@ async def test_raw_deployment_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(service_name, "./data/iris_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_deployment_runtime_kserve():
+async def test_raw_deployment_runtime_kserve(rest_v1_client):
     service_name = "raw-sklearn-runtime"
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
@@ -115,7 +115,7 @@ async def test_raw_deployment_runtime_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(service_name, "./data/iris_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
