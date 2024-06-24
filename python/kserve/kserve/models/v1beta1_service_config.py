@@ -70,7 +70,7 @@ class V1beta1ServiceConfig(object):
     def service_cluster_ip_none(self):
         """Gets the service_cluster_ip_none of this V1beta1ServiceConfig.  # noqa: E501
 
-        ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None. If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is true when the value is absent.  # noqa: E501
+        ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None. If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.  # noqa: E501
 
         :return: The service_cluster_ip_none of this V1beta1ServiceConfig.  # noqa: E501
         :rtype: bool
@@ -81,7 +81,7 @@ class V1beta1ServiceConfig(object):
     def service_cluster_ip_none(self, service_cluster_ip_none):
         """Sets the service_cluster_ip_none of this V1beta1ServiceConfig.
 
-        ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None. If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is true when the value is absent.  # noqa: E501
+        ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None. If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.  # noqa: E501
 
         :param service_cluster_ip_none: The service_cluster_ip_none of this V1beta1ServiceConfig.  # noqa: E501
         :type: bool

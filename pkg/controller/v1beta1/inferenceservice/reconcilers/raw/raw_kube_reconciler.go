@@ -76,7 +76,7 @@ func NewRawKubeReconciler(client client.Client,
 		scheme:     scheme,
 		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, componentExt, podSpec),
 		// default raw to true as it is raw k8s resource
-		Service: service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, serviceConfig, true),
+		Service: service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, serviceConfig),
 		Scaler:  as,
 		URL:     url,
 	}, nil

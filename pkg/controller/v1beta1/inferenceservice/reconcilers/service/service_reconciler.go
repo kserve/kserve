@@ -49,17 +49,17 @@ func NewServiceReconciler(client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
-	serviceConfig *v1beta1.ServiceConfig, raw bool) *ServiceReconciler {
+	serviceConfig *v1beta1.ServiceConfig) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		Service:      createService(componentMeta, componentExt, podSpec, serviceConfig, raw),
+		Service:      createService(componentMeta, componentExt, podSpec, serviceConfig),
 		componentExt: componentExt,
 	}
 }
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig, raw bool) *corev1.Service {
+	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig) *corev1.Service {
 	var servicePorts []corev1.ServicePort
 	if len(podSpec.Containers) != 0 {
 		container := podSpec.Containers[0]
@@ -134,12 +134,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 		},
 	}
 
-	if serviceConfig != nil {
-		if (serviceConfig.ServiceClusterIPNone == nil && raw) ||
-			(serviceConfig.ServiceClusterIPNone != nil && *serviceConfig.ServiceClusterIPNone) {
-			service.Spec.ClusterIP = corev1.ClusterIPNone
-		}
-	} else if raw {
+	if serviceConfig != nil && serviceConfig.ServiceClusterIPNone != nil && *serviceConfig.ServiceClusterIPNone {
 		service.Spec.ClusterIP = corev1.ClusterIPNone
 	}
 

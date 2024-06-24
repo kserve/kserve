@@ -31,44 +31,47 @@ var (
 
 func TestCreateServiceRawServiceConfigEmpty(t *testing.T) {
 	serviceConfig := &v1beta1.ServiceConfig{}
-	runTestServiceCreate(true, serviceConfig, corev1.ClusterIPNone, t)
+	// nothing expected
+	runTestServiceCreate(serviceConfig, "", t)
 }
 
 func TestCreateServiceRawServiceAndConfigNil(t *testing.T) {
 	serviceConfig := &v1beta1.ServiceConfig{}
 	serviceConfig = nil
-	runTestServiceCreate(true, serviceConfig, corev1.ClusterIPNone, t)
+	// no service means empty
+	runTestServiceCreate(serviceConfig, "", t)
 }
 
 func TestCreateServiceRawFalseAndConfigTrue(t *testing.T) {
 	serviceConfig := &v1beta1.ServiceConfig{
 		ServiceClusterIPNone: &pboolT,
 	}
-	runTestServiceCreate(false, serviceConfig, corev1.ClusterIPNone, t)
+	runTestServiceCreate(serviceConfig, corev1.ClusterIPNone, t)
 }
 
 func TestCreateServiceRawTrueAndConfigFalse(t *testing.T) {
 	serviceConfig := &v1beta1.ServiceConfig{
 		ServiceClusterIPNone: &pboolF,
 	}
-	runTestServiceCreate(true, serviceConfig, "", t)
+	runTestServiceCreate(serviceConfig, "", t)
 }
 
 func TestCreateServiceRawFalseAndConfigNil(t *testing.T) {
 	serviceConfig := &v1beta1.ServiceConfig{
 		ServiceClusterIPNone: nil,
 	}
-	runTestServiceCreate(false, serviceConfig, "", t)
+	runTestServiceCreate(serviceConfig, "", t)
 }
 
 func TestCreateServiceRawTrueAndConfigNil(t *testing.T) {
 	serviceConfig := &v1beta1.ServiceConfig{
 		ServiceClusterIPNone: nil,
 	}
-	runTestServiceCreate(true, serviceConfig, corev1.ClusterIPNone, t)
+	// service is there, but no property, should be empty
+	runTestServiceCreate(serviceConfig, "", t)
 }
 
-func runTestServiceCreate(raw bool, serviceConfig *v1beta1.ServiceConfig, expectedClusterIP string, t *testing.T) {
+func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterIP string, t *testing.T) {
 	componentMeta := metav1.ObjectMeta{
 		Name:      "test-service",
 		Namespace: "default",
@@ -76,7 +79,7 @@ func runTestServiceCreate(raw bool, serviceConfig *v1beta1.ServiceConfig, expect
 	componentExt := &v1beta1.ComponentExtensionSpec{}
 	podSpec := &corev1.PodSpec{}
 
-	service := createService(componentMeta, componentExt, podSpec, serviceConfig, raw)
+	service := createService(componentMeta, componentExt, podSpec, serviceConfig)
 	assert.Equal(t, componentMeta, service.ObjectMeta, "Expected ObjectMeta to be equal")
 	assert.Equal(t, map[string]string{"app": "isvc.test-service"}, service.Spec.Selector, "Expected Selector to be equal")
 	assert.Equal(t, expectedClusterIP, service.Spec.ClusterIP, "Expected ClusterIP to be equal")
