@@ -358,15 +358,17 @@ class ModelServer:
         """Default exception handler for event loop.
 
         This is called when an exception occurs and no exception handler is set.
-        By default, this will shut down the server gracefully.
-
         This can be called by a custom exception handler that wants to defer to the default handler behavior.
         """
-        # gracefully shutdown the server
-        if loop.is_closed():
-            asyncio.run(self.stop())
-        else:
-            loop.run_until_complete(self.stop())
+        if "exception" in context:
+            logger.error(f"Caught exception: {context.get('exception')}")
+        logger.error(f"message: { context.get('message')}")
+        if "future" in context:
+            future = context["future"]
+            if future.done():
+                future_exception = future.exception()
+                if future_exception:
+                    logger.error(f"Future exception: {future_exception}")
         loop.default_exception_handler(context)
 
     def register_model_handle(self, name: str, model_handle: DeploymentHandle):
