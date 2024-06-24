@@ -13,7 +13,6 @@ packages = [
 python = ">=3.9,<3.12"
 kserve = {path = "../kserve", develop = true}
 adversarial-robustness-toolbox = {version = "^1.10.3", extras = ["keras"]}
-nest-asyncio = "^1.4.0"
 pillow = "^10.2.0"
 
 [tool.poetry.group.test]
