@@ -61,11 +61,11 @@ async def test_kserve_logger(rest_v1_client):
             ),
         ),
     )
-    base_test(msg_dumper, service_name, predictor)
+    base_test(msg_dumper, service_name, predictor, rest_v1_client)
 
 
 @pytest.mark.rawcipn
-def test_kserve_logger_cipn():
+async def test_kserve_logger_cipn(rest_v1_client):
     msg_dumper = "message-dumper-raw-cipn"
     before(msg_dumper)
 
@@ -89,7 +89,7 @@ def test_kserve_logger_cipn():
             ),
         ),
     )
-    base_test(msg_dumper, service_name, predictor)
+    await base_test(msg_dumper, service_name, predictor, rest_v1_client)
 
 
 def before(msg_dumper):
@@ -120,7 +120,7 @@ def before(msg_dumper):
     kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
 
 
-def base_test(msg_dumper, service_name, predictor):
+async def base_test(msg_dumper, service_name, predictor, rest_v1_client):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,

@@ -424,14 +424,13 @@ data:
      # Example
      service: |-
        {
-         "serviceClusterIPNone": true
+         "serviceClusterIPNone": "false"
        }
      service: |-
        {
           # ServiceClusterIPNone is a flag to indicate if the service should have a clusterIP set to None.
-          # This is particularly useful for headless services to allow users to use out of the box balancers.
-          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is true
-          # "serviceClusterIPNone": true
+          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone if not set is false
+          # "serviceClusterIPNone": "false"
        }
 
      # ====================================== METRICS CONFIGURATION ======================================

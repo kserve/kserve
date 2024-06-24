@@ -9219,7 +9219,7 @@ func schema_pkg_apis_serving_v1beta1_ServiceConfig(ref common.ReferenceCallback)
 				Properties: map[string]spec.Schema{
 					"serviceClusterIPNone": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None. If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is true when the value is absent.",
+							Description: "ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None. If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
