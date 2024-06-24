@@ -12,6 +12,7 @@ resources:
 - kserve-lgbserver.yaml
 - kserve-torchserve.yaml
 - kserve-huggingfaceserver.yaml
+- kserve-deeploy-shapkernelserver.yaml
 
 images:
   # SMS Only Runtimes
@@ -54,3 +55,7 @@ images:
 - name: huggingfaceserver
   newName: kserve/huggingfaceserver
   newTag: latest
+
+- name: kserve-deeploy-shapkernelserver
+  newName: deeployml/deeploy-shap
+  newTag: v0.1.0
