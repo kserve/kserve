@@ -24,6 +24,7 @@ import orjson
 from cloudevents.http import CloudEvent
 from httpx import HTTPStatusError
 
+from .constants.constants import PredictorProtocol, INFERENCE_CONTENT_LENGTH_HEADER
 from .errors import InvalidInput
 from .logging import logger, trace_logger
 from .metrics import (
@@ -78,12 +79,6 @@ class InferenceVerb(Enum):
     EXPLAIN = 1
     PREDICT = 2
     GENERATE = 3
-
-
-class PredictorProtocol(Enum):
-    REST_V1 = "v1"
-    REST_V2 = "v2"
-    GRPC_V2 = "grpc-v2"
 
 
 def is_v2(protocol: PredictorProtocol) -> bool:
@@ -345,8 +340,13 @@ class Model(BaseKServeModel):
             if "x-b3-traceid" in headers:
                 predict_headers["x-b3-traceid"] = headers["x-b3-traceid"]
         if isinstance(payload, InferRequest):
-            payload = payload.to_rest()
-        data = orjson.dumps(payload)
+            payload, json_length = payload.to_rest()
+            if json_length is not None:
+                predict_headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_length)
+        if isinstance(payload, bytes):
+            data = payload
+        else:
+            data = orjson.dumps(payload)
 
         try:
             response = await self._http_client.post(

@@ -75,6 +75,7 @@ def predict(
     protocol_version="v1",
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
+    raw_response=False,
 ):
     with open(input_json) as json_file:
         data = json.load(json_file)
@@ -85,6 +86,7 @@ def predict(
             protocol_version=protocol_version,
             version=version,
             model_name=model_name,
+            raw_response=raw_response,
         )
 
 
@@ -94,6 +96,7 @@ def predict_str(
     protocol_version="v1",
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
+    raw_response=False,
 ):
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -123,6 +126,8 @@ def predict_str(
         "Got response code %s, content %s", response.status_code, response.content
     )
     if response.status_code == 200:
+        if raw_response:
+            return response
         preds = json.loads(response.content.decode("utf-8"))
         return preds
     else:

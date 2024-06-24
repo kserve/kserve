@@ -44,7 +44,6 @@ from kserve.protocol.dataplane import DataPlane
 from .openai.config import maybe_register_openai_endpoints
 from .v1_endpoints import V1Endpoints
 from .v2_datamodels import (
-    InferenceResponse,
     ListModelsResponse,
     ModelMetadataResponse,
     ModelReadyResponse,
@@ -174,7 +173,7 @@ class RESTServer:
                     r"/v2/models/{model_name}/infer",
                     v2_endpoints.infer,
                     methods=["POST"],
-                    response_model=InferenceResponse,
+                    response_model=None,
                     tags=["V2"],
                 ),
                 FastAPIRoute(
@@ -183,6 +182,7 @@ class RESTServer:
                     methods=["POST"],
                     tags=["V2"],
                     include_in_schema=False,
+                    response_model=None,
                 ),
                 FastAPIRoute(
                     r"/v2/repository/models/{model_name}/load",

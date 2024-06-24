@@ -27,9 +27,11 @@ from kserve import (
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
     constants,
+    InferResponse,
 )
 
 import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
+from kserve.constants.constants import INFERENCE_CONTENT_LENGTH_HEADER
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
 
@@ -220,6 +222,32 @@ def test_sklearn_v2():
 
     res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
     assert res["outputs"][0]["data"] == [1, 1]
+
+    raw_res = predict(
+        service_name,
+        "./data/iris_input_v2_binary.json",
+        protocol_version="v2",
+        raw_response=True,
+    )
+    res = InferResponse.from_bytes(
+        raw_res.content,
+        int(raw_res.headers[INFERENCE_CONTENT_LENGTH_HEADER]),
+        model_name=service_name,
+    )
+    assert res.outputs[0].data == [1, 1]
+
+    raw_res = predict(
+        service_name,
+        "./data/iris_input_v2_all_binary.json",
+        protocol_version="v2",
+        raw_response=True,
+    )
+    res = InferResponse.from_bytes(
+        raw_res.content,
+        int(raw_res.headers[INFERENCE_CONTENT_LENGTH_HEADER]),
+        model_name=service_name,
+    )
+    assert res.outputs[0].data == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 

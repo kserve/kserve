@@ -65,5 +65,6 @@ def test_model_v2():
         },
         {"name": "Node_Id", "shape": [1], "datatype": "BYTES", "data": ["2"]},
     ]
-    assert response.to_rest()["outputs"] == expect_result
+    infer_dict, _ = response.to_rest()
+    assert infer_dict["outputs"] == expect_result
     assert response.to_grpc().outputs[0].contents.bytes_contents == [b"setosa"]
