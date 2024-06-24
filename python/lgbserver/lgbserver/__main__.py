@@ -42,7 +42,7 @@ if __name__ == "__main__":
     try:
         model.load()
         # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
-        kserve.ModelServer(workers=1).start([model] if model.ready else [])
+        kserve.ModelServer(workers=1).start([model])
     except ModelMissingError:
         logger.error(
             f"fail to load model {args.model_name} from dir {args.model_dir},"
@@ -51,4 +51,4 @@ if __name__ == "__main__":
         model_repository = LightGBMModelRepository(args.model_dir, args.nthread)
         # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
         server = kserve.ModelServer(workers=1, registered_models=model_repository)
-        server.start([model] if model.ready else [])
+        server.start([model])

@@ -33,7 +33,7 @@ if __name__ == "__main__":
     model = SKLearnModel(args.model_name, args.model_dir)
     try:
         model.load()
-        kserve.ModelServer().start([model] if model.ready else [])
+        kserve.ModelServer().start([model])
 
     except ModelMissingError:
         logger.error(
@@ -43,4 +43,4 @@ if __name__ == "__main__":
 
         kserve.ModelServer(
             registered_models=SKLearnModelRepository(args.model_dir)
-        ).start([model] if model.ready else [])
+        ).start([model])
