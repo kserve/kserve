@@ -22,7 +22,6 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
@@ -76,6 +75,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
+	labels := componentMeta.GetLabels()
 
 	if componentExtension.MinReplicas == nil {
 		annotations[constants.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
@@ -148,9 +148,6 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		}
 		trafficTargets = append(trafficTargets, latestTarget)
 	}
-	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
-		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
-	})
 
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
