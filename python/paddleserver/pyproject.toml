@@ -12,7 +12,7 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
 kserve = {path = "../kserve", extras = ["storage"], develop = true}
-paddlepaddle = "^2.6.0"
+paddlepaddle = {version="^2.6.1", markers = "platform_system != 'Windows'"}
 
 [tool.poetry.group.test]
 optional = true
