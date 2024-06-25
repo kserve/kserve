@@ -75,6 +75,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceStatus":       schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":      schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler":                   schema_pkg_apis_serving_v1beta1_KedaScaler(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                 schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                  schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
@@ -1877,6 +1878,34 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of Prometheus server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from Prometheus",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -4221,6 +4250,34 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of Prometheus server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from Prometheus",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -5013,6 +5070,54 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_KedaScaler(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"triggers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kedacore/keda/v2/apis/keda/v1alpha1.ScaleTriggers"),
+									},
+								},
+							},
+						},
+					},
+					"idleReplicaCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of idle replicas, Default: ignored, must be less than minReplicaCount",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"minReplicaCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Minimum number of replicas, default: 0",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"maxReplicaCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum number of replicas for autoscaling.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kedacore/keda/v2/apis/keda/v1alpha1.ScaleTriggers"},
 	}
 }
 
@@ -7957,6 +8062,34 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of Prometheus server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from Prometheus",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -9447,6 +9580,34 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of Prometheus server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from Prometheus",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

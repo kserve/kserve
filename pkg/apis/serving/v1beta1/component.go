@@ -21,9 +21,11 @@ import (
 	"reflect"
 	"strings"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
+	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -65,6 +67,19 @@ type Component interface {
 	GetExtensions() *ComponentExtensionSpec
 }
 
+type KedaScaler struct {
+	Triggers []kedav1alpha1.ScaleTriggers `json:"triggers,omitempty"`
+	// Number of idle replicas, Default: ignored, must be less than minReplicaCount
+	// +optional
+	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
+	// Minimum number of replicas, default: 0
+	// +optional
+	MinReplicaCount *int32 `json:"minReplicaCount,omitempty"`
+	// Maximum number of replicas for autoscaling.
+	// +optional
+	MaxReplicaCount *int32 `json:"maxReplicaCount,omitempty"`
+}
+
 // ComponentExtensionSpec defines the deployment configuration for a given InferenceService component
 type ComponentExtensionSpec struct {
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
@@ -83,6 +98,18 @@ type ComponentExtensionSpec struct {
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
 	// +optional
 	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
+	// Type of metric to use. Options are Utilization, or AverageValue.
+	// +optional
+	ScaleMetricType *v2.MetricTargetType `json:"scaleMetricType,omitempty"`
+	// Address of Prometheus server.
+	// +optional
+	ServerAddress string `json:"serverAddress,omitempty"`
+	// Query to run to get metrics from Prometheus
+	// +optional
+	Query string `json:"query,omitempty"`
+	//  A comma-separated list of query Parameters to include while querying the Prometheus endpoint.
+	// +optional
+	QueryParameters string `json:"queryParameters,omitempty"`
 	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
 	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	// +optional
@@ -114,7 +141,7 @@ type ComponentExtensionSpec struct {
 }
 
 // ScaleMetric enum
-// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps
+// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps;prometheus
 type ScaleMetric string
 
 const (
@@ -122,6 +149,7 @@ const (
 	MetricMemory      ScaleMetric = "memory"
 	MetricConcurrency ScaleMetric = "concurrency"
 	MetricRPS         ScaleMetric = "rps"
+	MetricPrometheus  ScaleMetric = "prometheus"
 )
 
 // Default the ComponentExtensionSpec
