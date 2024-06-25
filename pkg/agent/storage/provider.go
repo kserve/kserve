@@ -29,9 +29,11 @@ const (
 	// File  Protocol = "file://"
 	HTTPS Protocol = "https://"
 	HTTP  Protocol = "http://"
+	// OCI dist spec v1.1.0
+	OCI Protocol = "oci-registry://"
 )
 
-var SupportedProtocols = []Protocol{S3, GCS, HTTPS, HTTP}
+var SupportedProtocols = []Protocol{S3, GCS, HTTPS, HTTP, OCI}
 
 func GetAllProtocol() (protocols []string) {
 	for _, protocol := range SupportedProtocols {

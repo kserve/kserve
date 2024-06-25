@@ -125,6 +125,9 @@ deploy-ci: manifests
 deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
 	helm install kserve charts/kserve-resources/ --wait --timeout 180s
+	# deploy a OCI dist spec v1.1.0 registry
+	helm repo add project-zot http://zotregistry.dev/helm-charts
+	helm install --set service.port=5000 zot project-zot/zot
 
 undeploy:
 	kubectl delete -k config/default
